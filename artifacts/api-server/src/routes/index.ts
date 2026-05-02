@@ -13,6 +13,7 @@ import dashboardRouter from "./dashboard";
 import tasksRouter from "./tasks";
 import photosRouter from "./photos";
 import storageRouter from "./storage";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(aiRouter);
 router.use(conversationsRouter);
 router.use(dashboardRouter);
 router.use(storageRouter);
+router.use(notificationsRouter);
 
 export default router;

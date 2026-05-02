@@ -3,7 +3,7 @@ import { db, rfisTable, usersTable, projectsTable } from "@workspace/db";
 import { eq, and, count } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
-import { sendPushNotification } from "../lib/push";
+import { notify } from "../lib/notify";
 
 const router = Router({ mergeParams: true });
 
@@ -77,24 +77,18 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     .where(eq(usersTable.id, req.userId!))
     .limit(1);
 
-  // Fire-and-forget push notification to assignee
+  // Notify assignee (DB record + push)
   const assigneeId = parsed.data.assignedToUserId;
-  if (assigneeId && assigneeId !== req.userId) {
-    db.select({ pushToken: usersTable.pushToken })
-      .from(usersTable)
-      .where(eq(usersTable.id, assigneeId))
-      .limit(1)
-      .then(([assignee]) => {
-        if (assignee?.pushToken) {
-          sendPushNotification(
-            assignee.pushToken,
-            "New RFI Assigned",
-            `${rfi.rfiNumber}: ${rfi.subject}`,
-            { type: "rfi", rfiId: rfi.id, projectId },
-          );
-        }
-      })
-      .catch(() => {});
+  if (assigneeId) {
+    notify({
+      userId: assigneeId,
+      actorUserId: req.userId ?? undefined,
+      type: "rfi",
+      title: "New RFI Assigned",
+      body: `${rfi.rfiNumber}: ${rfi.subject}`,
+      referenceId: rfi.id,
+      projectId,
+    }).catch(() => {});
   }
 
   res.status(201).json({ ...rfi, submittedBy: submittedBy ?? null });

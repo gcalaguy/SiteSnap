@@ -138,6 +138,12 @@ function ProtectedNav() {
           headerTintColor: "#FFFFFF",
         }}
       />
+      <Stack.Screen
+        name="notifications"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

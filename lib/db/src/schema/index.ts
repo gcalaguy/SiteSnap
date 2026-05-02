@@ -8,6 +8,7 @@ import {
   date,
   pgEnum,
   json,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export * from "./conversations";
@@ -274,3 +275,23 @@ export type InsertDailyReportPhoto = z.infer<
   typeof insertDailyReportPhotoSchema
 >;
 export type DailyReportPhoto = typeof dailyReportPhotosTable.$inferSelect;
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export const notificationsTable = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id),
+  type: text("type").notNull(), // "task" | "rfi"
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  referenceId: integer("reference_id").notNull(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Notification = typeof notificationsTable.$inferSelect;

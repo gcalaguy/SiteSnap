@@ -1,4 +1,5 @@
-import { useGetDashboardSummary, useGetRecentActivity, useListProjects, useGetMe } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetRecentActivity, useListProjects, useGetMe, customFetch } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
@@ -84,9 +85,12 @@ function ActivityRow({ item }: { item: any }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   greeting: { fontSize: 13, fontFamily: "Inter_400Regular" },
   name: { fontSize: 26, fontFamily: "Inter_700Bold", marginTop: 2 },
+  bellBtn: { position: "relative", padding: 4 },
+  badge: { position: "absolute", top: -2, right: -4, minWidth: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+  badgeText: { color: "#FFFFFF", fontSize: 11, fontFamily: "Inter_700Bold" },
   statsRow: { flexDirection: "row", gap: 10, paddingHorizontal: 20, marginBottom: 24 },
   statCard: {
     flex: 1,
@@ -132,6 +136,17 @@ export default function DashboardScreen() {
   const { data: activity, isLoading: activityLoading, refetch: refetchActivity } = useGetRecentActivity();
   const { data: projects, isLoading: projectsLoading, refetch: refetchProjects } = useListProjects();
 
+  const { data: unreadData } = useQuery<{ count: number }>({
+    queryKey: ["notifications", "unread"],
+    queryFn: async () => {
+      const res = await customFetch("/api/notifications/unread-count");
+      return res.json();
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const unreadCount = unreadData?.count ?? 0;
+
   const refreshing = summaryLoading || activityLoading || projectsLoading;
   const handleRefresh = () => { refetchSummary(); refetchActivity(); refetchProjects(); };
 
@@ -156,8 +171,24 @@ export default function DashboardScreen() {
     >
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInsets + 8, backgroundColor: colors.sidebar }]}>
-        <Text style={[styles.greeting, { color: "rgba(255,255,255,0.6)" }]}>Good day,</Text>
-        <Text style={[styles.name, { color: "#FFFFFF" }]}>{firstName}</Text>
+        <View>
+          <Text style={[styles.greeting, { color: "rgba(255,255,255,0.6)" }]}>Good day,</Text>
+          <Text style={[styles.name, { color: "#FFFFFF" }]}>{firstName}</Text>
+        </View>
+        <Pressable
+          onPress={() => router.push("/notifications")}
+          style={styles.bellBtn}
+          hitSlop={10}
+        >
+          <Feather name="bell" size={22} color="#FFFFFF" />
+          {unreadCount > 0 && (
+            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 99 ? "99+" : String(unreadCount)}
+              </Text>
+            </View>
+          )}
+        </Pressable>
       </View>
 
       {/* Stats */}

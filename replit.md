@@ -66,10 +66,13 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - **Push notifications**: `pushToken` column on `users` table (nullable); `POST /api/users/push-token` stores device token
 - Mobile `_layout.tsx` `AuthSetup` registers for Expo push notifications on sign-in (requests permission, gets token, sends to API)
 - `artifacts/api-server/src/lib/push.ts` — fire-and-forget Expo push helper (never throws)
-- Task creation (`POST /projects/:id/tasks`) and re-assignment (`PATCH .../tasks/:id`) notify the assignee via push
-- RFI creation (`POST /projects/:id/rfis`) notifies the assignee via push when `assignedToUserId` is set
+- `artifacts/api-server/src/lib/notify.ts` — unified `notify()` helper: inserts DB record + sends push; never notifies self
+- Task creation and re-assignment call `notify()`; RFI creation calls `notify()` when `assignedToUserId` is set
 - Notifications show in foreground (alert + sound + badge) via `Notifications.setNotificationHandler`
 - `expo-notifications@^0.32.x` installed (SDK-54 compatible); plugin added to `app.json`
+- **Notification inbox** (`notifications` table): `GET /api/notifications`, `GET /api/notifications/unread-count`, `PATCH /api/notifications/read-all`, `PATCH /api/notifications/:id/read`
+- Mobile `app/notifications.tsx` screen: full list with unread indicator (orange dot), type icon (task/RFI), time-ago, "Mark all read" button, tap → project detail
+- Mobile home tab header now shows a bell icon with orange badge (unread count); taps open the notifications screen; count polls every 60s
 - **Budget on project cards**: `budget` field added to web Create Project dialog (optional CAD amount with `$` icon)
 - Project listing cards now show budget in orange with `$` icon when set; detail page already had it
 
@@ -97,8 +100,9 @@ All three AI agents now make real OpenAI `gpt-5.4` calls via the Replit AI Integ
 
 ## Database Schema
 
-Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`
+Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`, `notifications`
 `users` has `pushToken text` (nullable) for Expo push tokens.
+`notifications`: userId, type ("task"|"rfi"), title, body, referenceId, projectId, isRead (boolean, default false), createdAt.
 Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_status`, `task_status`, `task_priority`
 
 ## Auth Architecture

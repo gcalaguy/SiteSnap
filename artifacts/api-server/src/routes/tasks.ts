@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, tasksTable, usersTable } from "@workspace/db";
+import { db, tasksTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
-import { sendPushNotification } from "../lib/push";
+import { notify } from "../lib/notify";
 import { z } from "zod";
 
 const router = Router({ mergeParams: true });
@@ -70,23 +70,17 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     })
     .returning();
 
-  // Fire-and-forget push notification to assignee
-  if (assignedToUserId && assignedToUserId !== req.userId) {
-    db.select({ pushToken: usersTable.pushToken, firstName: usersTable.firstName })
-      .from(usersTable)
-      .where(eq(usersTable.id, assignedToUserId))
-      .limit(1)
-      .then(([assignee]) => {
-        if (assignee?.pushToken) {
-          sendPushNotification(
-            assignee.pushToken,
-            "New Task Assigned",
-            `You've been assigned: ${title}`,
-            { type: "task", taskId: task.id, projectId },
-          );
-        }
-      })
-      .catch(() => {});
+  // Notify assignee (DB record + push)
+  if (assignedToUserId) {
+    notify({
+      userId: assignedToUserId,
+      actorUserId: req.userId ?? undefined,
+      type: "task",
+      title: "New Task Assigned",
+      body: `You've been assigned: ${title}`,
+      referenceId: task.id,
+      projectId,
+    }).catch(() => {});
   }
 
   res.status(201).json(task);
@@ -126,24 +120,18 @@ router.patch("/:taskId", requireAuth, requireCompany, async (req, res) => {
     return;
   }
 
-  // Notify on re-assignment (only if assignee changed and isn't the actor)
+  // Notify on re-assignment
   const newAssignee = parsed.data.assignedToUserId;
-  if (newAssignee && newAssignee !== req.userId) {
-    db.select({ pushToken: usersTable.pushToken })
-      .from(usersTable)
-      .where(eq(usersTable.id, newAssignee))
-      .limit(1)
-      .then(([u]) => {
-        if (u?.pushToken) {
-          sendPushNotification(
-            u.pushToken,
-            "Task Assigned to You",
-            `You've been assigned: ${task.title}`,
-            { type: "task", taskId: task.id, projectId },
-          );
-        }
-      })
-      .catch(() => {});
+  if (newAssignee) {
+    notify({
+      userId: newAssignee,
+      actorUserId: req.userId ?? undefined,
+      type: "task",
+      title: "Task Assigned to You",
+      body: `You've been assigned: ${task.title}`,
+      referenceId: task.id,
+      projectId,
+    }).catch(() => {});
   }
 
   res.json(task);
