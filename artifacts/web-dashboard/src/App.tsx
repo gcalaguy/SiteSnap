@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
-import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Link, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -127,25 +127,24 @@ function ClerkQueryClientCacheInvalidator() {
 }
 
 function HomeRedirect() {
+  const { isSignedIn, isLoaded } = useAuth();
+
+  if (!isLoaded) return null;
+
+  if (isSignedIn) return <Redirect to="/dashboard" />;
+
   return (
-    <>
-      <Show when="signed-in">
-        <Redirect to="/dashboard" />
-      </Show>
-      <Show when="signed-out">
-        <div className="min-h-screen w-full flex flex-col items-center justify-center bg-muted/10 p-4">
-          <img src={`${basePath}/logo.svg`} alt="BuildCore" className="h-20 w-auto mb-6" />
-          <h1 className="text-4xl font-bold text-foreground mb-4">BuildCore</h1>
-          <p className="text-lg text-muted-foreground mb-8 text-center max-w-md">
-            The solid, no-nonsense platform where Canadian contractors run their job sites.
-          </p>
-          <div className="flex gap-4">
-            <a href={`${basePath}/sign-in`} className="bg-white border border-border text-foreground px-6 py-2 rounded-md font-medium hover:bg-muted transition-colors">Log In</a>
-            <a href={`${basePath}/sign-up`} className="bg-primary text-primary-foreground px-6 py-2 rounded-md font-medium hover:bg-primary/90 transition-colors">Get Started</a>
-          </div>
-        </div>
-      </Show>
-    </>
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-muted/10 p-4">
+      <img src={`${basePath}/logo.svg`} alt="BuildCore" className="h-20 w-auto mb-6" />
+      <h1 className="text-4xl font-bold text-foreground mb-4">BuildCore</h1>
+      <p className="text-lg text-muted-foreground mb-8 text-center max-w-md">
+        The solid, no-nonsense platform where Canadian contractors run their job sites.
+      </p>
+      <div className="flex gap-4">
+        <Link to="/sign-in" className="bg-white border border-border text-foreground px-6 py-2 rounded-md font-medium hover:bg-muted transition-colors">Log In</Link>
+        <Link to="/sign-up" className="bg-primary text-primary-foreground px-6 py-2 rounded-md font-medium hover:bg-primary/90 transition-colors">Get Started</Link>
+      </div>
+    </div>
   );
 }
 

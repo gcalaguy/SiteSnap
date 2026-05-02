@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn } = useUser();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   const syncUserMutation = useSyncUser();
   const { data: dbUser, isLoading: dbUserLoading, isError, refetch } = useGetMe({
@@ -16,9 +16,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     },
   });
 
+  // Sync user to DB after Clerk sign-in
   useEffect(() => {
     if (isSignedIn && clerkUser && isError && !syncUserMutation.isPending && !dbUser) {
-      // Need to sync
       syncUserMutation.mutate(
         {
           data: {
@@ -28,14 +28,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             lastName: clerkUser.lastName || "",
           },
         },
-        {
-          onSuccess: () => {
-            refetch();
-          },
-        }
+        { onSuccess: () => { refetch(); } }
       );
     }
   }, [isSignedIn, clerkUser, isError, syncUserMutation.isPending, dbUser, refetch]);
+
+  // Company-based redirect — must be in useEffect, not during render
+  useEffect(() => {
+    if (!dbUser) return;
+    if (!dbUser.companyId && location !== "/onboarding") {
+      setLocation("/onboarding");
+    } else if (dbUser.companyId && location === "/onboarding") {
+      setLocation("/dashboard");
+    }
+  }, [dbUser, location, setLocation]);
 
   if (!clerkLoaded || (isSignedIn && (dbUserLoading || syncUserMutation.isPending || (isError && !dbUser)))) {
     return (
@@ -46,18 +52,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
-  }
-
-  // If user is loaded and synced, check company
-  if (dbUser) {
-    if (!dbUser.companyId && window.location.pathname !== "/onboarding") {
-      setLocation("/onboarding");
-      return null;
-    }
-    if (dbUser.companyId && window.location.pathname === "/onboarding") {
-      setLocation("/dashboard");
-      return null;
-    }
   }
 
   return <>{children}</>;
