@@ -761,6 +761,26 @@ export const GenerateCostAnalysisAIResponse = zod.object({
 });
 
 /**
+ * @summary AI construction assistant — conversational chat for field crew
+ */
+export const ChatWithAssistantBody = zod.object({
+  messages: zod.array(
+    zod.object({
+      role: zod.enum(["user", "assistant"]),
+      content: zod.string(),
+    }),
+  ),
+  context: zod
+    .string()
+    .nullish()
+    .describe("JSON-encoded project\/company context for the assistant"),
+});
+
+export const ChatWithAssistantResponse = zod.object({
+  reply: zod.string(),
+});
+
+/**
  * @summary AI drafts an RFI document from a description
  */
 export const GenerateRFIAIBody = zod.object({

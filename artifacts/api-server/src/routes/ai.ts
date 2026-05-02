@@ -185,4 +185,55 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
   }
 });
 
+// ── AI Assistant (chat) ───────────────────────────────────────────────────────
+const AssistantInput = z.object({
+  messages: z
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
+    .min(1),
+  context: z.string().optional().nullable(),
+});
+
+router.post("/ai/assistant", requireAuth, requireCompany, async (req, res) => {
+  const parsed = AssistantInput.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+    return;
+  }
+
+  const { messages, context } = parsed.data;
+
+  const systemPrompt = `You are BuildCore AI, a friendly and knowledgeable construction assistant for Canadian field crews and project managers.
+
+You help with:
+- Project status and progress questions
+- Daily report writing tips and safety guidelines
+- Canadian building codes (NBC, provincial codes)
+- Material estimating, crew scheduling, and site management
+- Weather delays, RFI guidance, and subcontractor coordination
+- Any general construction question a foreman or site supervisor might ask
+
+Keep responses concise and practical. Use plain language suited for field workers. If specific project data is provided in the context below, reference it in your answers.
+
+${context ? `\n--- Company & Project Context ---\n${context}\n---` : ""}
+
+Today's date: ${new Date().toLocaleDateString("en-CA")}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5.4",
+      max_completion_tokens: 1024,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      ],
+    });
+
+    const reply = response.choices[0]?.message?.content ?? "Sorry, I couldn't generate a response. Please try again.";
+    res.json({ reply });
+  } catch (err: unknown) {
+    req.log?.error({ err }, "AI assistant failed");
+    res.status(500).json({ error: "AI assistant failed" });
+  }
+});
+
 export default router;

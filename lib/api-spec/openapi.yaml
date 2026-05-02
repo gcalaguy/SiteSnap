@@ -573,6 +573,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/AIGeneratedCostAnalysis"
 
+  /ai/assistant:
+    post:
+      operationId: chatWithAssistant
+      tags: [ai]
+      summary: AI construction assistant — conversational chat for field crew
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AIAssistantBody"
+      responses:
+        "200":
+          description: AI reply
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIAssistantResponse"
+
   /ai/rfi/generate:
     post:
       operationId: generateRFIAI
@@ -1604,4 +1623,35 @@ components:
         objectPath:
           type: string
         caption:
+          type: string
+
+    # ── AI Assistant ───────────────────────────────────────────────────────────
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+
+    AIAssistantBody:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        context:
+          type: string
+          description: JSON-encoded project/company context for the assistant
+          nullable: true
+
+    AIAssistantResponse:
+      type: object
+      required: [reply]
+      properties:
+        reply:
           type: string

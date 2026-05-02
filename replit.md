@@ -48,12 +48,21 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - New API routes: `POST /storage/uploads/request-url`, `GET /storage/public-objects/*`
 - Project detail now has 5 tabs: Overview, Tasks, Daily Reports, Cost Analysis, RFIs
 
-### ⏳ Phase 3 — MOBILE APP (Pending)
-- Expo mobile app for field crews
-- Read-only project access
-- Voice log submission
+### ✅ Phase 3 — MOBILE APP (Complete)
+- Expo mobile app (`artifacts/mobile`) for field crews using Expo Go (SDK 54)
+- 6 tabs: Home, Projects, Log (daily reports + AI assist), Ask AI (chat), Tasks, Profile
+- Clerk auth with AsyncStorage token cache (SecureStore shimmed for Expo Go compatibility)
+- Connected to real Express API with full auth
+- Metro shim: `artifacts/mobile/shims/expo-secure-store.ts` redirects expo-secure-store → AsyncStorage (required for Expo Go)
+- `@tanstack/react-query` is peerDependency only in `lib/api-client-react` (prevents duplicate QueryClient)
 
-### ⏳ Phase 4 — OFFLINE MODE (Pending)
+### ✅ Phase 4 — AI CHAT ASSISTANT (Complete)
+- `POST /api/ai/assistant` — conversational AI chat for field crew
+- Sends company context (active projects, dashboard stats, recent activity) with every message
+- Mobile chat tab (`app/(tabs)/ask.tsx`): dark header, message bubbles, quick-start chips, typing indicator
+- Backend uses gpt-5.4 with BuildCore-specific system prompt for Canadian construction
+
+### ⏳ Phase 5 — OFFLINE MODE (Pending)
 
 ### ⏳ Phase 5 — QUOTING & INVOICING (Pending)
 
@@ -73,6 +82,7 @@ All three AI agents now make real OpenAI `gpt-5.4` calls via the Replit AI Integ
 - `POST /api/ai/daily-report/generate` — structures raw site notes into a daily report
 - `POST /api/ai/cost-analysis/generate` — analyzes cost breakdown and produces recommendations
 - `POST /api/ai/rfi/generate` — formalizes RFI description and suggests clarifying questions
+- `POST /api/ai/assistant` — conversational chat assistant for field crew (context-aware)
 
 ## Database Schema
 
@@ -81,6 +91,6 @@ Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_
 
 ## Notes
 
-- Orval codegen fix: after running `pnpm --filter @workspace/api-spec run codegen`, manually rewrite `lib/api-zod/src/index.ts` to only export from `./generated/api` (orval regenerates stale exports referencing `api.schemas` which doesn't exist for zod output)
-- `lib/api-client-react/src/generated/` has BOTH `api.ts` and `api.schemas.ts` — its barrel is correct
+- Orval codegen fix: after running `pnpm --filter @workspace/api-spec run codegen`, manually rewrite `lib/api-zod/src/index.ts` to ONLY `export * from "./generated/api";` — orval regenerates stale exports referencing `api.schemas` that don't exist for zod output. Also fix `lib/api-client-react/src/index.ts` to NOT export `./generated/api.schemas` (the client codegen puts everything in `api.ts`)
 - Object storage uses presigned URL flow: client POSTs to `/api/storage/uploads/request-url`, then PUTs file directly to the returned GCS URL
+- Expo Go compatibility: `expo-secure-store` shimmed via `artifacts/mobile/metro.config.js` → `artifacts/mobile/shims/expo-secure-store.ts` (uses AsyncStorage). Required because Clerk v2 imports expo-secure-store internally. If Metro cache is stale after metro.config.js changes, delete `/root/.expo/metro-cache` and restart the workflow.

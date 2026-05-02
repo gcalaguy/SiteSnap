@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AIAssistantBody,
+  AIAssistantResponse,
   AIGenerateCostAnalysisBody,
   AIGenerateDailyReportBody,
   AIGenerateRFIBody,
@@ -2750,6 +2752,92 @@ export const useGenerateCostAnalysisAI = <
   TContext
 > => {
   return useMutation(getGenerateCostAnalysisAIMutationOptions(options));
+};
+
+/**
+ * @summary AI construction assistant — conversational chat for field crew
+ */
+export const getChatWithAssistantUrl = () => {
+  return `/api/ai/assistant`;
+};
+
+export const chatWithAssistant = async (
+  aIAssistantBody: AIAssistantBody,
+  options?: RequestInit,
+): Promise<AIAssistantResponse> => {
+  return customFetch<AIAssistantResponse>(getChatWithAssistantUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(aIAssistantBody),
+  });
+};
+
+export const getChatWithAssistantMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof chatWithAssistant>>,
+    TError,
+    { data: BodyType<AIAssistantBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof chatWithAssistant>>,
+  TError,
+  { data: BodyType<AIAssistantBody> },
+  TContext
+> => {
+  const mutationKey = ["chatWithAssistant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof chatWithAssistant>>,
+    { data: BodyType<AIAssistantBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return chatWithAssistant(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ChatWithAssistantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof chatWithAssistant>>
+>;
+export type ChatWithAssistantMutationBody = BodyType<AIAssistantBody>;
+export type ChatWithAssistantMutationError = ErrorType<unknown>;
+
+/**
+ * @summary AI construction assistant — conversational chat for field crew
+ */
+export const useChatWithAssistant = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof chatWithAssistant>>,
+    TError,
+    { data: BodyType<AIAssistantBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof chatWithAssistant>>,
+  TError,
+  { data: BodyType<AIAssistantBody> },
+  TContext
+> => {
+  return useMutation(getChatWithAssistantMutationOptions(options));
 };
 
 /**

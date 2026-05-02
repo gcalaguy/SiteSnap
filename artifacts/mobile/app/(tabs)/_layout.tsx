@@ -24,6 +24,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
         <Label>Log</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="ask">
+        <Icon sf={{ default: "bubble.left.and.bubble.right", selected: "bubble.left.and.bubble.right.fill" }} />
+        <Label>Ask AI</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="tasks">
         <Icon sf={{ default: "checkmark.square", selected: "checkmark.square.fill" }} />
         <Label>Tasks</Label>
@@ -104,6 +108,18 @@ function ClassicTabLayout() {
               <SymbolView name="plus.circle" tintColor={color} size={24} />
             ) : (
               <Feather name="plus-circle" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="ask"
+        options={{
+          title: "Ask AI",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="bubble.left.and.bubble.right" tintColor={color} size={24} />
+            ) : (
+              <Feather name="message-circle" size={22} color={color} />
             ),
         }}
       />

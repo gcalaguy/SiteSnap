@@ -442,3 +442,26 @@ export interface AddPhotoBody {
   objectPath: string;
   caption?: string;
 }
+
+export type ChatMessageRole =
+  (typeof ChatMessageRole)[keyof typeof ChatMessageRole];
+
+export const ChatMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface ChatMessage {
+  role: ChatMessageRole;
+  content: string;
+}
+
+export interface AIAssistantBody {
+  messages: ChatMessage[];
+  /** JSON-encoded project/company context for the assistant */
+  context?: string | null;
+}
+
+export interface AIAssistantResponse {
+  reply: string;
+}
