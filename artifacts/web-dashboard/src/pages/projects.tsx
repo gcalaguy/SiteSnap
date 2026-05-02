@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Loader2, MapPin, Calendar, Building2 } from "lucide-react";
+import { Plus, Search, Loader2, MapPin, Calendar, Building2, DollarSign } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,6 +24,7 @@ const projectSchema = z.object({
   city: z.string().min(2, "City is required"),
   province: z.string().min(2, "Province is required"),
   status: z.enum(["planning", "active", "on_hold", "completed", "cancelled"]).default("planning"),
+  budget: z.coerce.number().positive("Budget must be positive").optional(),
   description: z.string().optional(),
 });
 
@@ -43,6 +44,7 @@ export default function Projects() {
       city: "",
       province: "",
       status: "planning",
+      budget: undefined,
       description: "",
     },
   });
@@ -135,6 +137,27 @@ export default function Projects() {
                     <FormMessage />
                   </FormItem>
                 )} />
+                <FormField control={form.control} name="budget" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Budget (CAD) <span className="text-muted-foreground font-normal">— optional</span></FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1000"
+                          placeholder="500000"
+                          className="pl-9"
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={e => field.onChange(e.target.value === "" ? undefined : e.target.valueAsNumber)}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
                 <DialogFooter>
                   <Button type="submit" disabled={createProject.isPending}>
                     {createProject.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -185,6 +208,12 @@ export default function Projects() {
                       <MapPin className="mr-2 h-4 w-4 shrink-0 mt-0.5" />
                       <span className="line-clamp-2">{project.address}, {project.city}, {project.province}</span>
                     </div>
+                    {project.budget && (
+                      <div className="flex items-center text-sm font-medium text-foreground">
+                        <DollarSign className="mr-1.5 h-4 w-4 shrink-0 text-primary" />
+                        <span>${parseFloat(String(project.budget)).toLocaleString("en-CA")} CAD</span>
+                      </div>
+                    )}
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Calendar className="mr-2 h-4 w-4 shrink-0" />
                       <span>Added {format(new Date(project.createdAt), "MMM d, yyyy")}</span>

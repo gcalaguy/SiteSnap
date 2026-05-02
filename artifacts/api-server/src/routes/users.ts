@@ -65,4 +65,20 @@ router.get("/users/me", requireAuth, async (req, res) => {
   res.json({ ...user, company });
 });
 
+// POST /users/push-token — store Expo push token for the current user
+router.post("/users/push-token", requireAuth, async (req, res) => {
+  const { token } = req.body as { token?: string };
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "token is required" });
+    return;
+  }
+
+  await db
+    .update(usersTable)
+    .set({ pushToken: token })
+    .where(eq(usersTable.id, req.userId!));
+
+  res.json({ ok: true });
+});
+
 export default router;

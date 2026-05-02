@@ -3,6 +3,7 @@ import { db, rfisTable, usersTable, projectsTable } from "@workspace/db";
 import { eq, and, count } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
+import { sendPushNotification } from "../lib/push";
 
 const router = Router({ mergeParams: true });
 
@@ -75,6 +76,26 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     .from(usersTable)
     .where(eq(usersTable.id, req.userId!))
     .limit(1);
+
+  // Fire-and-forget push notification to assignee
+  const assigneeId = parsed.data.assignedToUserId;
+  if (assigneeId && assigneeId !== req.userId) {
+    db.select({ pushToken: usersTable.pushToken })
+      .from(usersTable)
+      .where(eq(usersTable.id, assigneeId))
+      .limit(1)
+      .then(([assignee]) => {
+        if (assignee?.pushToken) {
+          sendPushNotification(
+            assignee.pushToken,
+            "New RFI Assigned",
+            `${rfi.rfiNumber}: ${rfi.subject}`,
+            { type: "rfi", rfiId: rfi.id, projectId },
+          );
+        }
+      })
+      .catch(() => {});
+  }
 
   res.status(201).json({ ...rfi, submittedBy: submittedBy ?? null });
 });

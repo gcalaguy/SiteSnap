@@ -62,6 +62,17 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - Mobile chat tab (`app/(tabs)/ask.tsx`): dark header, message bubbles, quick-start chips, typing indicator
 - Backend uses gpt-5.4 with BuildCore-specific system prompt for Canadian construction
 
+### ✅ Phase 5 — PUSH NOTIFICATIONS + BUDGET (Complete)
+- **Push notifications**: `pushToken` column on `users` table (nullable); `POST /api/users/push-token` stores device token
+- Mobile `_layout.tsx` `AuthSetup` registers for Expo push notifications on sign-in (requests permission, gets token, sends to API)
+- `artifacts/api-server/src/lib/push.ts` — fire-and-forget Expo push helper (never throws)
+- Task creation (`POST /projects/:id/tasks`) and re-assignment (`PATCH .../tasks/:id`) notify the assignee via push
+- RFI creation (`POST /projects/:id/rfis`) notifies the assignee via push when `assignedToUserId` is set
+- Notifications show in foreground (alert + sound + badge) via `Notifications.setNotificationHandler`
+- `expo-notifications@^0.32.x` installed (SDK-54 compatible); plugin added to `app.json`
+- **Budget on project cards**: `budget` field added to web Create Project dialog (optional CAD amount with `$` icon)
+- Project listing cards now show budget in orange with `$` icon when set; detail page already had it
+
 ### ⏳ Phase 5 — OFFLINE MODE (Pending)
 
 ### ⏳ Phase 5 — QUOTING & INVOICING (Pending)
@@ -87,6 +98,7 @@ All three AI agents now make real OpenAI `gpt-5.4` calls via the Replit AI Integ
 ## Database Schema
 
 Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`
+`users` has `pushToken text` (nullable) for Expo push tokens.
 Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_status`, `task_status`, `task_priority`
 
 ## Auth Architecture

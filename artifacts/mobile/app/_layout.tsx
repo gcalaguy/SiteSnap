@@ -9,11 +9,13 @@ import { ClerkProvider, useAuth, useUser } from "@clerk/clerk-expo";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Notifications from "expo-notifications";
 import React, { useEffect } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { setBaseUrl, setAuthTokenGetter } from "@workspace/api-client-react";
+import { setBaseUrl, setAuthTokenGetter, customFetch } from "@workspace/api-client-react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { tokenCache } from "@/utils/cache";
@@ -24,6 +26,15 @@ if (process.env.EXPO_PUBLIC_DOMAIN) {
   setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 }
 
+// Configure how notifications are handled when the app is in the foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
@@ -32,8 +43,38 @@ const queryClient = new QueryClient({
   },
 });
 
+async function registerForPushNotificationsAsync(): Promise<string | null> {
+  if (Platform.OS === "web") return null;
+
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "BuildCore",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#FF6600",
+    });
+  }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== "granted") {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== "granted") return null;
+
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    return tokenData.data;
+  } catch {
+    return null;
+  }
+}
+
 function AuthSetup() {
-  const { getToken, signOut: clerkSignOut } = useAuth();
+  const { getToken, signOut: clerkSignOut, isSignedIn } = useAuth();
 
   useEffect(() => {
     setAuthTokenGetter(async () => {
@@ -50,6 +91,21 @@ function AuthSetup() {
       await clerkSignOut();
     });
   }, [clerkSignOut]);
+
+  // Register for push notifications once the user is signed in
+  useEffect(() => {
+    if (!isSignedIn) return;
+
+    registerForPushNotificationsAsync()
+      .then((token) => {
+        if (!token) return;
+        customFetch("/api/users/push-token", {
+          method: "POST",
+          body: JSON.stringify({ token }),
+        }).catch(() => {});
+      })
+      .catch(() => {});
+  }, [isSignedIn]);
 
   return null;
 }

@@ -14,9 +14,14 @@
       "backgroundColor": "#172034"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
-    "android": {},
+    "android": {
+      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE"]
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -29,7 +34,15 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#FF6600",
+          "defaultChannel": "default"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
