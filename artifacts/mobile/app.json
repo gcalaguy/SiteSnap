@@ -20,7 +20,12 @@
       }
     },
     "android": {
-      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE"]
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -41,6 +46,13 @@
           "icon": "./assets/images/icon.png",
           "color": "#FF6600",
           "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "BuildCore uses your location to show current weather at your job site.",
+          "locationAlwaysAndWhenInUsePermission": "BuildCore uses your location to show current weather at your job site."
         }
       ]
     ],

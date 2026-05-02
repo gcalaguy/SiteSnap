@@ -2,6 +2,7 @@ import { useGetDashboardSummary, useGetRecentActivity, useListProjects, useGetMe
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React from "react";
+import { WeatherWidget } from "@/components/WeatherWidget";
 import {
   ActivityIndicator,
   FlatList,
@@ -191,8 +192,13 @@ export default function DashboardScreen() {
         </Pressable>
       </View>
 
+      {/* Weather */}
+      <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
+        <WeatherWidget />
+      </View>
+
       {/* Stats */}
-      <View style={[styles.statsRow, { marginTop: 20 }]}>
+      <View style={[styles.statsRow, { marginTop: 16 }]}>
         <StatCard label="Projects" value={String(summary?.activeProjects ?? "—")} icon="folder" accent />
         <StatCard label="Reports" value={String(summary?.reportsThisWeek ?? "—")} icon="file-text" />
         <StatCard label="RFIs" value={String(summary?.pendingRFIs ?? "—")} icon="alert-circle" />
