@@ -1,15 +1,41 @@
 import { Router } from "express";
+import { z } from "zod";
 import { requireAuth, requireCompany } from "../lib/auth";
-import { GenerateDailyReportAIBody, GenerateCostAnalysisAIBody, GenerateRFIAIBody } from "@workspace/api-zod";
 
 const router = Router();
+
+// Local schemas — use flexible types so DB strings and form strings pass cleanly.
+// MOCK responses in Phase 1; replace with LLM in Phase 2.
+
+const DailyReportAIInput = z.object({
+  projectName: z.string(),
+  rawInput: z.string(),
+  reportDate: z.string(),
+  crewCount: z.coerce.number().optional(),
+});
+
+const CostAnalysisAIInput = z.object({
+  projectName: z.string(),
+  labourCost: z.coerce.number(),
+  materialsCost: z.coerce.number(),
+  equipmentCost: z.coerce.number(),
+  otherCost: z.coerce.number(),
+  budget: z.union([z.coerce.number(), z.null()]).optional(),
+  notes: z.string().optional(),
+});
+
+const RFIAIInput = z.object({
+  projectName: z.string(),
+  subject: z.string(),
+  description: z.string(),
+});
 
 // ── Daily Report AI Agent ────────────────────────────────────────────────────
 // MOCK: Template-driven AI response. Replace with real LLM call in Phase 2.
 router.post("/ai/daily-report/generate", requireAuth, requireCompany, async (req, res) => {
-  const parsed = GenerateDailyReportAIBody.safeParse(req.body);
+  const parsed = DailyReportAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body" });
+    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
     return;
   }
 
@@ -34,9 +60,9 @@ router.post("/ai/daily-report/generate", requireAuth, requireCompany, async (req
 // ── Cost Analysis AI Agent ───────────────────────────────────────────────────
 // MOCK: Template-driven analysis. Replace with real LLM call in Phase 2.
 router.post("/ai/cost-analysis/generate", requireAuth, requireCompany, async (req, res) => {
-  const parsed = GenerateCostAnalysisAIBody.safeParse(req.body);
+  const parsed = CostAnalysisAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body" });
+    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
     return;
   }
 
@@ -75,9 +101,9 @@ router.post("/ai/cost-analysis/generate", requireAuth, requireCompany, async (re
 // ── RFI AI Agent ─────────────────────────────────────────────────────────────
 // MOCK: Template-driven RFI generator. Replace with real LLM call in Phase 2.
 router.post("/ai/rfi/generate", requireAuth, requireCompany, async (req, res) => {
-  const parsed = GenerateRFIAIBody.safeParse(req.body);
+  const parsed = RFIAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body" });
+    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
     return;
   }
 
