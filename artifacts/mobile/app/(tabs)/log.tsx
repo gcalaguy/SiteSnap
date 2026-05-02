@@ -8,6 +8,7 @@ import {
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { useOfflineQueue, type QueuePhoto } from "@/context/OfflineQueueContext";
@@ -196,6 +197,7 @@ export default function LogScreen() {
   const createReport = useCreateDailyReport();
   const generateAI = useGenerateDailyReportAI();
   const addPhoto = useAddReportPhoto();
+  const router = useRouter();
   const { isOnline, isSyncing, pendingCount, failedCount, enqueue, syncQueue, retryFailed, clearFailed } = useOfflineQueue();
 
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
@@ -434,12 +436,17 @@ export default function LogScreen() {
         </View>
       )}
       {isOnline && isSyncing && (
-        <View style={[styles.banner, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}40` }]}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push("/sync-queue")}
+          style={[styles.banner, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}40` }]}
+        >
           <ActivityIndicator size="small" color={colors.primary} />
           <Text style={[styles.bannerText, { color: colors.primary }]}>
             Syncing {pendingCount} queued report{pendingCount !== 1 ? "s" : ""}…
           </Text>
-        </View>
+          <Feather name="chevron-right" size={15} color={colors.primary} />
+        </TouchableOpacity>
       )}
       {isOnline && !isSyncing && pendingCount > 0 && (
         <View style={[styles.banner, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}40` }]}>
@@ -448,32 +455,25 @@ export default function LogScreen() {
             {pendingCount} report{pendingCount !== 1 ? "s" : ""} queued to sync
           </Text>
           <TouchableOpacity onPress={() => syncQueue()}>
-            <Text style={[styles.bannerAction, { color: colors.primary }]}>Sync now</Text>
+            <Text style={[styles.bannerAction, { color: colors.primary }]}>Sync</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/sync-queue")}>
+            <Text style={[styles.bannerAction, { color: colors.primary }]}>View</Text>
           </TouchableOpacity>
         </View>
       )}
       {failedCount > 0 && (
-        <View style={[styles.banner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push("/sync-queue")}
+          style={[styles.banner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}
+        >
           <Feather name="alert-circle" size={16} color="#DC2626" />
           <Text style={[styles.bannerText, { color: "#991B1B" }]}>
-            {failedCount} report{failedCount !== 1 ? "s" : ""} failed to sync
+            {failedCount} report{failedCount !== 1 ? "s" : ""} failed to sync — tap to manage
           </Text>
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "Failed Reports",
-                `${failedCount} report${failedCount !== 1 ? "s" : ""} could not be synced after 3 attempts.`,
-                [
-                  { text: "Retry", onPress: retryFailed },
-                  { text: "Discard", style: "destructive", onPress: clearFailed },
-                  { text: "Cancel", style: "cancel" },
-                ]
-              )
-            }
-          >
-            <Text style={[styles.bannerAction, { color: "#DC2626" }]}>Options</Text>
-          </TouchableOpacity>
-        </View>
+          <Feather name="chevron-right" size={15} color="#DC2626" />
+        </TouchableOpacity>
       )}
 
       {/* Submission result banners */}

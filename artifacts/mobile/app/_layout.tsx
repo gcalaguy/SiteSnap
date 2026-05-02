@@ -151,6 +151,13 @@ function ProtectedNav() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="sync-queue"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+        }}
+      />
     </Stack>
   );
 }
