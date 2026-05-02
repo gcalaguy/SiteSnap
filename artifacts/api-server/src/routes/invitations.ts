@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, usersTable, companiesTable, invitationsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { getAuth, clerkClient } from "@clerk/express";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { CreateInvitationBody } from "@workspace/api-zod";
 import crypto from "crypto";
@@ -100,9 +101,47 @@ router.get("/invitations/:token", async (req, res) => {
 });
 
 // POST /invitations/:token/accept — accept invite and join company
-router.post("/invitations/:token/accept", requireAuth, async (req, res) => {
+// Uses auto-sync: if the local DB user doesn't exist yet (brand-new Clerk sign-up),
+// we fetch their profile from Clerk and upsert them before accepting.
+router.post("/invitations/:token/accept", async (req, res) => {
   const { token } = req.params;
 
+  // 1. Verify Clerk session
+  const auth = getAuth(req);
+  const clerkUserId = auth?.userId;
+  if (!clerkUserId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  // 2. Ensure local DB user exists — auto-sync from Clerk if not
+  let [dbUser] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.clerkUserId, clerkUserId))
+    .limit(1);
+
+  if (!dbUser) {
+    try {
+      const clerkUser = await clerkClient().users.getUser(clerkUserId);
+      const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
+      const [created] = await db
+        .insert(usersTable)
+        .values({
+          clerkUserId,
+          email,
+          firstName: clerkUser.firstName ?? "",
+          lastName: clerkUser.lastName ?? "",
+        })
+        .returning();
+      dbUser = created;
+    } catch {
+      res.status(401).json({ error: "Unable to sync user. Please try signing out and back in." });
+      return;
+    }
+  }
+
+  // 3. Look up and validate the invitation
   const [invitation] = await db
     .select()
     .from(invitationsTable)
@@ -119,22 +158,22 @@ router.post("/invitations/:token/accept", requireAuth, async (req, res) => {
     return;
   }
 
-  // Assign user to company with invited role
+  // 4. Assign user to company with invited role
   await db
     .update(usersTable)
     .set({ companyId: invitation.companyId, role: invitation.role })
-    .where(eq(usersTable.id, req.userId!));
+    .where(eq(usersTable.id, dbUser.id));
 
-  // Mark invitation as accepted
+  // 5. Mark invitation as accepted
   await db
     .update(invitationsTable)
     .set({ status: "accepted" })
     .where(eq(invitationsTable.id, invitation.id));
 
-  const [user] = await db
+  const [updatedUser] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.id, req.userId!))
+    .where(eq(usersTable.id, dbUser.id))
     .limit(1);
 
   const [company] = await db
@@ -143,7 +182,7 @@ router.post("/invitations/:token/accept", requireAuth, async (req, res) => {
     .where(eq(companiesTable.id, invitation.companyId))
     .limit(1);
 
-  res.json({ ...user, company: company ?? null });
+  res.json({ ...updatedUser, company: company ?? null });
 });
 
 export default router;

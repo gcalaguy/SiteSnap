@@ -3,10 +3,10 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useCreateCompany, useAcceptInvitation } from "@workspace/api-client-react";
+import { useUser } from "@clerk/react";
+import { useCreateCompany, useAcceptInvitation, useSyncUser, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { getGetMeQueryKey } from "@workspace/api-client-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,7 @@ const companySchema = z.object({
 export default function OnboardingPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user: clerkUser } = useUser();
   const searchParams = new URLSearchParams(window.location.search);
   const token = searchParams.get("token");
 
@@ -33,6 +34,7 @@ export default function OnboardingPage() {
 
   const createCompany = useCreateCompany();
   const acceptInvitation = useAcceptInvitation();
+  const syncUser = useSyncUser();
 
   const form = useForm<z.infer<typeof companySchema>>({
     resolver: zodResolver(companySchema),
@@ -66,10 +68,7 @@ export default function OnboardingPage() {
     );
   }
 
-  function onJoin(e: React.FormEvent) {
-    e.preventDefault();
-    if (!inviteToken) return;
-
+  function doAccept() {
     acceptInvitation.mutate(
       { token: inviteToken },
       {
@@ -87,6 +86,30 @@ export default function OnboardingPage() {
         },
       }
     );
+  }
+
+  function onJoin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteToken) return;
+
+    if (clerkUser) {
+      syncUser.mutate(
+        {
+          data: {
+            clerkUserId: clerkUser.id,
+            email: clerkUser.primaryEmailAddress?.emailAddress || "",
+            firstName: clerkUser.firstName || "",
+            lastName: clerkUser.lastName || "",
+          },
+        },
+        {
+          onSuccess: () => doAccept(),
+          onError: () => doAccept(),
+        }
+      );
+    } else {
+      doAccept();
+    }
   }
 
   return (
@@ -201,8 +224,8 @@ export default function OnboardingPage() {
                       />
                     </div>
                   </div>
-                  <Button type="submit" className="w-full" disabled={acceptInvitation.isPending || !inviteToken}>
-                    {acceptInvitation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  <Button type="submit" className="w-full" disabled={syncUser.isPending || acceptInvitation.isPending || !inviteToken}>
+                    {(syncUser.isPending || acceptInvitation.isPending) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Join Company
                   </Button>
                 </form>
