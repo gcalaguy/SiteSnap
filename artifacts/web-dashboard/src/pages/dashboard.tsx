@@ -2,6 +2,7 @@ import { useGetDashboardSummary, useGetRecentActivity } from "@workspace/api-cli
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, FileText, MessageSquareWarning, Users, Activity } from "lucide-react";
 import { format } from "date-fns";
+import { WeatherCard } from "@/components/WeatherCard";
 
 export default function Dashboard() {
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
@@ -92,17 +93,19 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {/* Quick action buttons would go here - but they usually need a project context first */}
-            <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md border border-border">
-              Navigate to a specific project to create daily reports, submit RFIs, or analyze costs.
-            </div>
-          </CardContent>
-        </Card>
+        <div className="col-span-3 flex flex-col gap-4">
+          <WeatherCard />
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md border border-border">
+                Navigate to a specific project to create daily reports, submit RFIs, or analyze costs.
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

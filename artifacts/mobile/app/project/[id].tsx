@@ -2,6 +2,7 @@ import {
   useGetProject,
   useGetProjectSummary,
   useListDailyReports,
+  useListRFIs,
   useListTasks,
   useUpdateTask,
 } from "@workspace/api-client-react";
@@ -35,8 +36,15 @@ const STATUS_LABELS: Record<string, string> = {
   on_hold: "On Hold",
 };
 
-const TABS = ["Overview", "Reports", "Tasks"] as const;
+const TABS = ["Overview", "Reports", "Tasks", "RFIs"] as const;
 type Tab = (typeof TABS)[number];
+
+const RFI_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  open: { label: "Open", color: "#F59E0B", bg: "#FEF3C7" },
+  in_review: { label: "In Review", color: "#3B82F6", bg: "#DBEAFE" },
+  resolved: { label: "Resolved", color: "#22C55E", bg: "#DCFCE7" },
+  closed: { label: "Closed", color: "#6B7280", bg: "#F3F4F6" },
+};
 
 function StatPill({ label, value, icon }: { label: string; value: string; icon: string }) {
   const colors = useColors();
@@ -162,13 +170,45 @@ const styles = StyleSheet.create({
   descText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
   infoRow: { flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 10 },
   infoText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  rfiBadge: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginTop: 5 },
+  rfiBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  rfiEmpty: { alignItems: "center", paddingVertical: 32, gap: 8 },
 });
+
+function RFIRow({ rfi, onPress }: { rfi: any; onPress: () => void }) {
+  const colors = useColors();
+  const conf = RFI_STATUS_CONFIG[rfi.status] ?? RFI_STATUS_CONFIG.open;
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.reportRow,
+        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+      ]}
+      onPress={onPress}
+    >
+      <View style={[styles.reportDateBadge, { backgroundColor: `${colors.primary}15` }]}>
+        <Feather name="alert-circle" size={16} color={colors.primary} />
+        <Text style={[styles.reportDateText, { color: colors.primary }]}>{rfi.rfiNumber}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.reportMeta, { color: colors.foreground }]} numberOfLines={2}>
+          {rfi.subject}
+        </Text>
+        <View style={[styles.rfiBadge, { backgroundColor: conf.bg }]}>
+          <Text style={[styles.rfiBadgeText, { color: conf.color }]}>{conf.label}</Text>
+        </View>
+      </View>
+      <Feather name="chevron-right" size={16} color={colors.border} />
+    </Pressable>
+  );
+}
 
 export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = Number(id);
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
 
@@ -176,6 +216,7 @@ export default function ProjectDetailScreen() {
   const { data: summary } = useGetProjectSummary(projectId);
   const { data: reports, refetch: refetchReports } = useListDailyReports(projectId);
   const { data: tasks, refetch: refetchTasks } = useListTasks(projectId);
+  const { data: rfis } = useListRFIs(projectId);
 
   const formatCurrency = (v?: number | null) => {
     if (v == null) return "—";
@@ -301,6 +342,35 @@ export default function ProjectDetailScreen() {
             (tasks ?? []).map(t => (
               <TaskItem key={t.id} task={t} projectId={projectId} onUpdate={refetchTasks} />
             ))
+          )}
+        </View>
+      )}
+
+      {/* RFIs tab */}
+      {activeTab === "RFIs" && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+            Requests for Information
+          </Text>
+          {(rfis ?? []).length === 0 ? (
+            <View style={styles.rfiEmpty}>
+              <Feather name="alert-circle" size={32} color={colors.border} />
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                No RFIs for this project
+              </Text>
+            </View>
+          ) : (
+            [...(rfis ?? [])]
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .map(r => (
+                <RFIRow
+                  key={r.id}
+                  rfi={r}
+                  onPress={() =>
+                    router.push(`/rfi/${r.id}?projectId=${projectId}`)
+                  }
+                />
+              ))
           )}
         </View>
       )}
