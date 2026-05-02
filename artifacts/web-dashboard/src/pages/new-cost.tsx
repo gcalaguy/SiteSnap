@@ -30,7 +30,7 @@ export default function NewCost() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: project } = useGetProject(projectId, { query: { enabled: !!projectId } });
+  const { data: project } = useGetProject(projectId);
   const createCost = useCreateCostAnalysis();
   const generateAI = useGenerateCostAnalysisAI();
 

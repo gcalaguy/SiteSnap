@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useUser } from "@clerk/react";
-import { useGetMe, useSyncUser } from "@workspace/api-client-react";
+import { useGetMe, useSyncUser, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 
@@ -11,6 +11,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const syncUserMutation = useSyncUser();
   const { data: dbUser, isLoading: dbUserLoading, isError, refetch } = useGetMe({
     query: {
+      queryKey: getGetMeQueryKey(),
       enabled: isSignedIn && !!clerkUser,
       retry: false,
     },

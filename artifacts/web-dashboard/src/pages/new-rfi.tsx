@@ -30,7 +30,7 @@ export default function NewRFI() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: project } = useGetProject(projectId, { query: { enabled: !!projectId } });
+  const { data: project } = useGetProject(projectId);
   const createRFI = useCreateRFI();
   const generateAI = useGenerateRFIAI();
 

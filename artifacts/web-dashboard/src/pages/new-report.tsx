@@ -42,7 +42,7 @@ export default function NewReport() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: project } = useGetProject(projectId, { query: { enabled: !!projectId } });
+  const { data: project } = useGetProject(projectId);
   const createReport = useCreateDailyReport();
   const generateAI = useGenerateDailyReportAI();
   const addPhoto = useAddReportPhoto();

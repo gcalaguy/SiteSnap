@@ -99,7 +99,7 @@ function TaskCard({ task, onStatusChange, onDelete }: {
 
 function TasksTab({ projectId }: { projectId: number }) {
   const { toast } = useToast();
-  const { data: tasks = [], isLoading } = useListTasks(projectId, { query: { enabled: !!projectId } });
+  const { data: tasks = [], isLoading } = useListTasks(projectId);
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
@@ -286,11 +286,11 @@ export default function ProjectDetail() {
   const projectId = Number(params.id);
   const [, setLocation] = useLocation();
 
-  const { data: project, isLoading: projectLoading } = useGetProject(projectId, { query: { enabled: !!projectId } });
-  const { data: summary } = useGetProjectSummary(projectId, { query: { enabled: !!projectId } });
-  const { data: reports } = useListDailyReports(projectId, { query: { enabled: !!projectId } });
-  const { data: costAnalyses } = useListCostAnalyses(projectId, { query: { enabled: !!projectId } });
-  const { data: rfis } = useListRFIs(projectId, { query: { enabled: !!projectId } });
+  const { data: project, isLoading: projectLoading } = useGetProject(projectId);
+  const { data: summary } = useGetProjectSummary(projectId);
+  const { data: reports } = useListDailyReports(projectId);
+  const { data: costAnalyses } = useListCostAnalyses(projectId);
+  const { data: rfis } = useListRFIs(projectId);
 
   const getStatusBadge = (status?: string) => {
     if (!status) return null;

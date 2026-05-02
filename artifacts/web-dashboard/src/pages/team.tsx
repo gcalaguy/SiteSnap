@@ -29,12 +29,10 @@ export default function Team() {
   const { data: user } = useGetMe();
   const companyId = user?.companyId;
   
-  const { data: members, isLoading: membersLoading } = useListCompanyMembers(companyId || 0, {
-    query: { enabled: !!companyId }
-  });
+  const { data: members, isLoading: membersLoading } = useListCompanyMembers(companyId || 0);
   
   const { data: invitations, isLoading: invitationsLoading } = useListInvitations({
-    query: { enabled: !!companyId } // assuming it fetches for current company
+    query: { queryKey: getListInvitationsQueryKey(), enabled: !!companyId }
   });
 
   const createInvitation = useCreateInvitation();
