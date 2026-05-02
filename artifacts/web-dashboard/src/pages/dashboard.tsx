@@ -1,6 +1,6 @@
 import { useGetDashboardSummary, useGetRecentActivity } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { HardHat, FileText, MessageSquareWarning, Users, Activity } from "lucide-react";
+import { Building2, FileText, MessageSquareWarning, Users, Activity } from "lucide-react";
 import { format } from "date-fns";
 
 export default function Dashboard() {
@@ -22,7 +22,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
-            <HardHat className="h-4 w-4 text-primary" />
+            <Building2 className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summary?.activeProjects || 0}</div>

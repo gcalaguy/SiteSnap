@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Loader2, MapPin, Calendar } from "lucide-react";
+import { Plus, Search, Loader2, MapPin, Calendar, Building2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -162,7 +162,7 @@ export default function Projects() {
       ) : filteredProjects?.length === 0 ? (
         <Card className="p-8 text-center bg-muted/20">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
-            <HardHat className="h-6 w-6 text-muted-foreground" />
+            <Building2 className="h-6 w-6 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-semibold">No projects found</h3>
           <p className="text-muted-foreground mb-4">Get started by creating your first project.</p>

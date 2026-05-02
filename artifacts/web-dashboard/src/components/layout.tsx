@@ -2,7 +2,8 @@ import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
 import { 
   LayoutDashboard, 
-  HardHat, 
+  Building2,
+  Hammer,
   Users, 
   Settings, 
   LogOut,
@@ -42,7 +43,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Projects", href: "/projects", icon: HardHat },
+    { name: "Projects", href: "/projects", icon: Building2 },
     { name: "Team", href: "/team", icon: Users },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
@@ -54,7 +55,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarHeader className="border-b border-border/10 p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground">
-                <HardHat className="h-5 w-5" />
+                <Hammer className="h-5 w-5" />
               </div>
               <span className="text-lg font-bold tracking-tight text-sidebar-foreground">BuildCore</span>
             </div>
