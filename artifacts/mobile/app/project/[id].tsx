@@ -1,0 +1,309 @@
+import {
+  useGetProject,
+  useGetProjectSummary,
+  useListDailyReports,
+  useListTasks,
+  useUpdateTask,
+} from "@workspace/api-client-react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useColors } from "@/hooks/useColors";
+import { Feather } from "@expo/vector-icons";
+
+const STATUS_COLORS: Record<string, string> = {
+  active: "#22C55E",
+  completed: "#6B7280",
+  on_hold: "#F59E0B",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  active: "Active",
+  completed: "Completed",
+  on_hold: "On Hold",
+};
+
+const TABS = ["Overview", "Reports", "Tasks"] as const;
+type Tab = (typeof TABS)[number];
+
+function StatPill({ label, value, icon }: { label: string; value: string; icon: string }) {
+  const colors = useColors();
+  return (
+    <View style={[stat.pill, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Feather name={icon as any} size={14} color={colors.primary} />
+      <Text style={[stat.value, { color: colors.foreground }]}>{value}</Text>
+      <Text style={[stat.label, { color: colors.mutedForeground }]}>{label}</Text>
+    </View>
+  );
+}
+
+const stat = StyleSheet.create({
+  pill: { flex: 1, alignItems: "center", padding: 12, borderRadius: 10, gap: 4, borderWidth: 1 },
+  value: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  label: { fontSize: 11, fontFamily: "Inter_400Regular" },
+});
+
+function ReportRow({ report }: { report: any }) {
+  const colors = useColors();
+  return (
+    <View style={[styles.reportRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.reportDateBadge, { backgroundColor: `${colors.primary}15` }]}>
+        <Text style={[styles.reportDateText, { color: colors.primary }]}>
+          {new Date(report.reportDate).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+        </Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.reportMeta, { color: colors.foreground }]} numberOfLines={2}>
+          {report.workPerformed}
+        </Text>
+        {report.crewCount != null && (
+          <Text style={[styles.reportSub, { color: colors.mutedForeground }]}>
+            {report.crewCount} crew member{report.crewCount !== 1 ? "s" : ""}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function TaskItem({ task, projectId, onUpdate }: { task: any; projectId: number; onUpdate: () => void }) {
+  const colors = useColors();
+  const updateTask = useUpdateTask();
+  const isDone = task.status === "done";
+
+  const toggle = () => {
+    const nextStatus = task.status === "done" ? "todo" : task.status === "todo" ? "in_progress" : "done";
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updateTask.mutate(
+      { projectId, taskId: task.id, data: { status: nextStatus } },
+      { onSuccess: onUpdate }
+    );
+  };
+
+  const priorityColors: Record<string, string> = { high: "#EF4444", medium: "#F59E0B", low: "#6B7280" };
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.taskItem, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+      onPress={toggle}
+    >
+      <View style={[styles.taskCheck, { backgroundColor: isDone ? colors.primary : "transparent", borderColor: isDone ? colors.primary : colors.border }]}>
+        {isDone && <Feather name="check" size={11} color="#FFF" />}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.taskTitle, { color: isDone ? colors.mutedForeground : colors.foreground }, isDone && { textDecorationLine: "line-through" }]} numberOfLines={2}>
+          {task.title}
+        </Text>
+      </View>
+      <View style={[styles.priorityDot, { backgroundColor: priorityColors[task.priority] ?? "#6B7280" }]} />
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  headerBg: { paddingHorizontal: 20, paddingBottom: 20 },
+  projectName: { fontSize: 22, fontFamily: "Inter_700Bold", color: "#FFFFFF", marginBottom: 6 },
+  projectLoc: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginBottom: 10 },
+  statusRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  statusText: { fontSize: 13, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.8)" },
+  statsRow: { flexDirection: "row", gap: 10, paddingHorizontal: 20, marginTop: 16, marginBottom: 16 },
+  tabRow: { flexDirection: "row", paddingHorizontal: 20, marginBottom: 16, gap: 6 },
+  tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  tabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  section: { paddingHorizontal: 20, marginBottom: 16 },
+  sectionTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
+  reportRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  reportDateBadge: { borderRadius: 6, padding: 8, minWidth: 44, alignItems: "center" },
+  reportDateText: { fontSize: 12, fontFamily: "Inter_600SemiBold", textAlign: "center" },
+  reportMeta: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  reportSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 3 },
+  taskItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  taskCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  taskTitle: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  priorityDot: { width: 7, height: 7, borderRadius: 3.5 },
+  emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
+  descText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  infoRow: { flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 10 },
+  infoText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+});
+
+export default function ProjectDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const projectId = Number(id);
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+
+  const [activeTab, setActiveTab] = useState<Tab>("Overview");
+
+  const { data: project, isLoading } = useGetProject(projectId);
+  const { data: summary } = useGetProjectSummary(projectId);
+  const { data: reports, refetch: refetchReports } = useListDailyReports(projectId);
+  const { data: tasks, refetch: refetchTasks } = useListTasks(projectId);
+
+  const formatCurrency = (v?: number | null) => {
+    if (v == null) return "—";
+    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+    return `$${(v / 1_000).toFixed(0)}K`;
+  };
+
+  const topInsets = Platform.OS === "web" ? 67 : insets.top;
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 24 }}
+    >
+      {/* Project header */}
+      <View style={[styles.headerBg, { backgroundColor: colors.sidebar, paddingTop: topInsets + 20 }]}>
+        <Text style={styles.projectName}>{project?.name ?? "Project"}</Text>
+        {!!project?.location && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 }}>
+            <Feather name="map-pin" size={13} color="rgba(255,255,255,0.5)" />
+            <Text style={styles.projectLoc}>{project.location}</Text>
+          </View>
+        )}
+        <View style={styles.statusRow}>
+          <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[project?.status ?? "active"] }]} />
+          <Text style={styles.statusText}>{STATUS_LABELS[project?.status ?? "active"]}</Text>
+        </View>
+      </View>
+
+      {/* Stats */}
+      {summary && (
+        <View style={styles.statsRow}>
+          <StatPill label="Reports" value={String(summary.reportCount ?? 0)} icon="file-text" />
+          <StatPill label="RFIs" value={String(summary.openRFIs ?? 0)} icon="alert-circle" />
+          <StatPill label="Spend" value={formatCurrency(summary.totalSpend)} icon="dollar-sign" />
+        </View>
+      )}
+
+      {/* Tabs */}
+      <View style={styles.tabRow}>
+        {TABS.map(tab => {
+          const active = activeTab === tab;
+          return (
+            <Pressable
+              key={tab}
+              style={[styles.tab, { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border }]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, { color: active ? "#FFFFFF" : colors.mutedForeground }]}>{tab}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Overview tab */}
+      {activeTab === "Overview" && (
+        <View style={styles.section}>
+          {project?.description && (
+            <>
+              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Description</Text>
+              <Text style={[styles.descText, { color: colors.foreground }]}>{project.description}</Text>
+              <View style={{ height: 16 }} />
+            </>
+          )}
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Details</Text>
+          {project?.startDate && (
+            <View style={styles.infoRow}>
+              <Feather name="calendar" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.infoText, { color: colors.foreground }]}>
+                Start: {new Date(project.startDate).toLocaleDateString("en-CA")}
+              </Text>
+            </View>
+          )}
+          {project?.endDate && (
+            <View style={styles.infoRow}>
+              <Feather name="calendar" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.infoText, { color: colors.foreground }]}>
+                End: {new Date(project.endDate).toLocaleDateString("en-CA")}
+              </Text>
+            </View>
+          )}
+          {project?.budget != null && (
+            <View style={styles.infoRow}>
+              <Feather name="dollar-sign" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.infoText, { color: colors.foreground }]}>
+                Budget: {formatCurrency(project.budget)}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Reports tab */}
+      {activeTab === "Reports" && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Daily Reports</Text>
+          {(reports ?? []).length === 0 ? (
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No reports yet</Text>
+          ) : (
+            [...(reports ?? [])].sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime()).map(r => (
+              <ReportRow key={r.id} report={r} />
+            ))
+          )}
+        </View>
+      )}
+
+      {/* Tasks tab */}
+      {activeTab === "Tasks" && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Tasks</Text>
+          {(tasks ?? []).length === 0 ? (
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No tasks yet</Text>
+          ) : (
+            (tasks ?? []).map(t => (
+              <TaskItem key={t.id} task={t} projectId={projectId} onUpdate={refetchTasks} />
+            ))
+          )}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
