@@ -6,6 +6,18 @@ interface EmailPayload {
   html: string;
 }
 
+export class ResendSandboxError extends Error {
+  allowedEmail: string;
+  constructor(allowedEmail: string) {
+    super(
+      `Resend is in sandbox mode. Emails can only be sent to the verified address (${allowedEmail}). ` +
+        `Verify a domain at resend.com/domains to send to any recipient.`
+    );
+    this.name = "ResendSandboxError";
+    this.allowedEmail = allowedEmail;
+  }
+}
+
 export async function sendEmail(payload: EmailPayload): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   const from =
@@ -32,8 +44,18 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Resend API error ${res.status}: ${body}`);
+
+    if (res.status === 403) {
+      const match = body.match(/\(([^\s)]+@[^\s)]+)\)/);
+      const allowedEmail = match?.[1] ?? "your Resend account email";
+      throw new ResendSandboxError(allowedEmail);
+    }
+
+    throw new Error(`Email send failed (${res.status})`);
   }
 
-  logger.info({ recipients: payload.to.length, subject: payload.subject }, "Email sent");
+  logger.info(
+    { recipients: payload.to.length, subject: payload.subject },
+    "Email sent"
+  );
 }

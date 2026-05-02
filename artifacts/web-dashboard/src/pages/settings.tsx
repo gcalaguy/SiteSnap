@@ -3,23 +3,45 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Mail, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info } from "lucide-react";
 import { useState } from "react";
 
+interface SendResult {
+  sent: number;
+  recipients: string[];
+}
+
+interface SandboxInfo {
+  allowedEmail: string;
+  intendedRecipients: string[];
+}
+
 function DigestCard() {
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error" | "sandbox">("idle");
   const [detail, setDetail] = useState("");
+  const [sandboxInfo, setSandboxInfo] = useState<SandboxInfo | null>(null);
 
   const handleSend = async () => {
     setStatus("sending");
     setDetail("");
+    setSandboxInfo(null);
     try {
       const res = await customFetch("/api/digest/send-now", { method: "POST" });
+      const body = await res.json().catch(() => ({})) as any;
+
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as any).error ?? `Error ${res.status}`);
+        if (body.code === "resend_sandbox") {
+          setSandboxInfo({
+            allowedEmail: body.allowedEmail,
+            intendedRecipients: body.intendedRecipients ?? [],
+          });
+          setStatus("sandbox");
+          return;
+        }
+        throw new Error(body.error ?? `Error ${res.status}`);
       }
-      const data = await res.json() as { sent: number; recipients: string[] };
+
+      const data = body as SendResult;
       setDetail(`Sent to ${data.sent} recipient${data.sent !== 1 ? "s" : ""}: ${data.recipients.join(", ")}`);
       setStatus("sent");
     } catch (err: any) {
@@ -36,7 +58,7 @@ function DigestCard() {
           Daily Digest Email
         </CardTitle>
         <CardDescription>
-          A morning summary is automatically emailed to all owners and foremans every day at 7:00 AM ET,
+          A morning summary is automatically emailed to all owners and foremens every day at 7:00 AM ET,
           showing yesterday's reports, open RFIs, and overdue tasks across all active projects.
         </CardDescription>
       </CardHeader>
@@ -71,6 +93,46 @@ function DigestCard() {
               <span>{detail}</span>
             </div>
           )}
+
+          {status === "sandbox" && sandboxInfo && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-amber-800">Resend sandbox mode — domain not verified</p>
+                  <p className="text-sm text-amber-700">
+                    Your Resend account is in test mode and can only send to{" "}
+                    <span className="font-mono font-medium">{sandboxInfo.allowedEmail}</span>.
+                    To send real emails to your team, verify a custom domain.
+                  </p>
+                </div>
+              </div>
+
+              {sandboxInfo.intendedRecipients.length > 0 && (
+                <div className="pl-6 text-sm text-amber-700">
+                  <p className="font-medium mb-1">Would have sent to:</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-amber-600">
+                    {sandboxInfo.intendedRecipients.map((r) => (
+                      <li key={r} className="font-mono text-xs">{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="pl-6">
+                <a
+                  href="https://resend.com/domains"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-800 underline underline-offset-2 hover:text-amber-900"
+                >
+                  Verify a domain at resend.com/domains
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </div>
+            </div>
+          )}
+
           {status === "error" && detail && (
             <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-3">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />

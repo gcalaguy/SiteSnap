@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth, requireCompany } from "../lib/auth.js";
 import { buildDigest } from "../lib/digest.js";
 import { buildDigestHtml } from "../lib/digestTemplate.js";
-import { sendEmail } from "../lib/mailer.js";
+import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
 import { sendDigestForAllCompanies } from "../cron.js";
 
 const router = Router();
@@ -35,7 +35,7 @@ router.post("/digest/send-now", requireAuth, requireCompany, async (req, res) =>
   }
 
   if (digest.recipients.length === 0) {
-    res.status(422).json({ error: "No owner/foreman recipients found" });
+    res.status(422).json({ error: "No owner/foreman recipients found for this company." });
     return;
   }
 
@@ -43,9 +43,22 @@ router.post("/digest/send-now", requireAuth, requireCompany, async (req, res) =>
   const subject = `BuildCore Daily Digest — ${digest.date}`;
   const to = digest.recipients.map((r) => r.email);
 
-  await sendEmail({ to, subject, html });
-
-  res.json({ sent: to.length, recipients: to });
+  try {
+    await sendEmail({ to, subject, html });
+    res.json({ sent: to.length, recipients: to });
+  } catch (err) {
+    if (err instanceof ResendSandboxError) {
+      res.status(422).json({
+        error: err.message,
+        code: "resend_sandbox",
+        allowedEmail: err.allowedEmail,
+        intendedRecipients: to,
+      });
+      return;
+    }
+    req.log.error({ err }, "Failed to send digest email");
+    res.status(500).json({ error: "Failed to send digest email. Please try again." });
+  }
 });
 
 export default router;
