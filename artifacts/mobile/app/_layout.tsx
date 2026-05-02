@@ -17,6 +17,7 @@ import { setBaseUrl, setAuthTokenGetter } from "@workspace/api-client-react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { tokenCache } from "@/utils/cache";
+import { setSignOut } from "@/utils/auth";
 
 // Set the API base URL at module level (outside any component)
 if (process.env.EXPO_PUBLIC_DOMAIN) {
@@ -32,7 +33,7 @@ const queryClient = new QueryClient({
 });
 
 function AuthSetup() {
-  const { getToken } = useAuth();
+  const { getToken, signOut: clerkSignOut } = useAuth();
 
   useEffect(() => {
     setAuthTokenGetter(async () => {
@@ -43,6 +44,12 @@ function AuthSetup() {
       }
     });
   }, [getToken]);
+
+  useEffect(() => {
+    setSignOut(async () => {
+      await clerkSignOut();
+    });
+  }, [clerkSignOut]);
 
   return null;
 }

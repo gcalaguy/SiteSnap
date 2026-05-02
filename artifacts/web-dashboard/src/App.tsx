@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
@@ -7,6 +7,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
@@ -102,6 +103,23 @@ function SignUpPage() {
       <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
     </div>
   );
+}
+
+function ClerkAuthTokenSetter() {
+  const { getToken } = useAuth();
+
+  useLayoutEffect(() => {
+    setAuthTokenGetter(async () => {
+      try {
+        return await getToken();
+      } catch {
+        return null;
+      }
+    });
+    return () => setAuthTokenGetter(null);
+  }, [getToken]);
+
+  return null;
 }
 
 function ClerkQueryClientCacheInvalidator() {
@@ -200,6 +218,7 @@ function ClerkProviderWithRoutes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <QueryClientProvider client={queryClient}>
+        <ClerkAuthTokenSetter />
         <ClerkQueryClientCacheInvalidator />
         <Switch>
           <Route path="/" component={HomeRedirect} />

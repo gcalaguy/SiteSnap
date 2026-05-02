@@ -89,8 +89,22 @@ All three AI agents now make real OpenAI `gpt-5.4` calls via the Replit AI Integ
 Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`
 Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_status`, `task_status`, `task_priority`
 
+## Auth Architecture
+
+### Web Dashboard
+- `ClerkAuthTokenSetter` component in `App.tsx` registers Clerk's `getToken()` as the global auth token getter via `setAuthTokenGetter` (from `@workspace/api-client-react`)
+- Uses `useLayoutEffect` (not `useEffect`) so the token getter is set before React Query fires any requests
+- All API calls through `customFetch` automatically get `Authorization: Bearer <token>` headers
+
+### Mobile App
+- `AuthSetup` component in root `_layout.tsx` registers both the token getter (`setAuthTokenGetter`) and the sign-out function (`setSignOut` from `@/utils/auth`)
+- Tab screens MUST NOT import directly from `@clerk/clerk-expo` — doing so crashes Expo Go with `Cannot find native module 'ExpoCryptoAES'`
+- Use `customFetch` from `@workspace/api-client-react` for API calls (token is auto-attached)
+- Use `signOut()` from `@/utils/auth` for sign-out (wired through `_layout.tsx`)
+
 ## Notes
 
 - Orval codegen fix: after running `pnpm --filter @workspace/api-spec run codegen`, manually rewrite `lib/api-zod/src/index.ts` to ONLY `export * from "./generated/api";` — orval regenerates stale exports referencing `api.schemas` that don't exist for zod output. Also fix `lib/api-client-react/src/index.ts` to NOT export `./generated/api.schemas` (the client codegen puts everything in `api.ts`)
 - Object storage uses presigned URL flow: client POSTs to `/api/storage/uploads/request-url`, then PUTs file directly to the returned GCS URL
-- Expo Go compatibility: `expo-secure-store` shimmed via `artifacts/mobile/metro.config.js` → `artifacts/mobile/shims/expo-secure-store.ts` (uses AsyncStorage). Required because Clerk v2 imports expo-secure-store internally. If Metro cache is stale after metro.config.js changes, delete `/root/.expo/metro-cache` and restart the workflow.
+- Expo Go compatibility: `expo-secure-store` shimmed via `artifacts/mobile/metro.config.js` → `artifacts/mobile/shims/expo-secure-store.ts` (uses AsyncStorage). Required because Clerk v2 imports expo-secure-store internally. CRITICAL: Tab screens cannot import from `@clerk/clerk-expo` or the app crashes with `ExpoCryptoAES` — use `@/utils/auth` and `customFetch` instead. If Metro cache is stale, delete `/tmp/metro-cache` and restart the workflow.
+- `customFetch` is exported from `lib/api-client-react/src/index.ts` — use it directly for non-generated API calls (e.g., AI chat endpoint) as it automatically attaches the Bearer token

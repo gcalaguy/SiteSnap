@@ -1,5 +1,5 @@
 import { useGetMe } from "@workspace/api-client-react";
-import { useAuth } from "@clerk/clerk-expo";
+import { signOut } from "@/utils/auth";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React from "react";
@@ -86,7 +86,6 @@ const styles = StyleSheet.create({
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { signOut } = useAuth();
   const router = useRouter();
 
   const { data: me, isLoading } = useGetMe();

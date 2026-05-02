@@ -1,5 +1,4 @@
-import { useGetDashboardSummary, useGetRecentActivity, useListProjects } from "@workspace/api-client-react";
-import { useAuth } from "@clerk/clerk-expo";
+import { useGetDashboardSummary, useGetRecentActivity, useListProjects, customFetch } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import React, { useRef, useState, useCallback } from "react";
@@ -140,7 +139,6 @@ const styles = StyleSheet.create({
 export default function AskScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { getToken } = useAuth();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -191,22 +189,15 @@ export default function AskScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
       try {
-        const token = await getToken();
         const domain = process.env.EXPO_PUBLIC_DOMAIN;
-        const resp = await fetch(`https://${domain}/api/ai/assistant`, {
+        const data = await customFetch<{ reply: string }>(`https://${domain}/api/ai/assistant`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: newHistory.map(m => ({ role: m.role, content: m.content })),
             context: buildContext(),
           }),
         });
-
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.json();
         const assistantMsg: Message = {
           id: `${Date.now()}-a`,
           role: "assistant",
@@ -225,7 +216,7 @@ export default function AskScreen() {
         setLoading(false);
       }
     },
-    [messages, loading, getToken, buildContext]
+    [messages, loading, buildContext]
   );
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
