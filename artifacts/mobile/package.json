@@ -57,6 +57,7 @@
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.31",
+    "@react-native-community/netinfo": "^12.0.1",
     "expo-auth-session": "^55.0.15",
     "expo-av": "^16.0.8",
     "expo-file-system": "^55.0.17",

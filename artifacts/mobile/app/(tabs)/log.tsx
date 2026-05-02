@@ -10,6 +10,7 @@ import * as ImagePicker from "expo-image-picker";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import React, { useState } from "react";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { useOfflineQueue, type QueuePhoto } from "@/context/OfflineQueueContext";
 import {
   ActivityIndicator,
   Alert,
@@ -28,17 +29,10 @@ import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 
 const today = () => new Date().toISOString().split("T")[0];
-
 const MAX_PHOTOS = 6;
 
-interface PhotoItem {
-  uri: string;
-  mimeType: string;
-  fileName: string;
-  fileSize: number;
+interface PhotoItem extends QueuePhoto {
   uploading?: boolean;
-  error?: string;
-  objectPath?: string;
 }
 
 const styles = StyleSheet.create({
@@ -112,7 +106,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  submitText: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  submitText: { fontSize: 16, fontFamily: "Inter_700Bold" },
   noProjectsText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
   divider: { height: 1, marginHorizontal: 20, marginBottom: 20 },
   micButton: {
@@ -138,10 +132,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#DC2626",
   },
-  photoStrip: {
-    marginTop: 12,
-    gap: 8,
-  },
+  photoStrip: { marginTop: 12, gap: 8 },
   photoThumb: {
     width: 80,
     height: 80,
@@ -149,10 +140,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
   },
-  photoThumbImg: {
-    width: 80,
-    height: 80,
-  },
+  photoThumbImg: { width: 80, height: 80 },
   photoRemoveBtn: {
     position: "absolute",
     top: 4,
@@ -166,7 +154,10 @@ const styles = StyleSheet.create({
   },
   photoOverlay: {
     position: "absolute",
-    inset: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "rgba(0,0,0,0.35)",
     alignItems: "center",
     justifyContent: "center",
@@ -182,6 +173,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   addPhotoBtnText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  banner: {
+    marginHorizontal: 20,
+    marginBottom: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  bannerText: { fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 },
+  bannerAction: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });
 
 export default function LogScreen() {
@@ -192,13 +196,14 @@ export default function LogScreen() {
   const createReport = useCreateDailyReport();
   const generateAI = useGenerateDailyReportAI();
   const addPhoto = useAddReportPhoto();
+  const { isOnline, isSyncing, pendingCount, failedCount, enqueue, syncQueue, retryFailed, clearFailed } = useOfflineQueue();
 
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [crewCount, setCrewCount] = useState("1");
   const [weather, setWeather] = useState("");
   const [notes, setNotes] = useState("");
   const [aiSummary, setAiSummary] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState<"none" | "online" | "offline">("none");
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [uploading, setUploading] = useState(false);
 
@@ -207,14 +212,21 @@ export default function LogScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   });
 
-  const selectedProject = (projects ?? []).find(p => p.id === selectedProjectId);
+  const selectedProject = (projects ?? []).find((p) => p.id === selectedProjectId);
+
+  function resetForm() {
+    setNotes("");
+    setAiSummary("");
+    setWeather("");
+    setCrewCount("1");
+    setPhotos([]);
+  }
 
   async function pickPhoto() {
     if (photos.length >= MAX_PHOTOS) {
       Alert.alert("Limit reached", `You can attach up to ${MAX_PHOTOS} photos per report.`);
       return;
     }
-
     Alert.alert("Add Site Photo", "Choose a source", [
       {
         text: "Camera",
@@ -237,7 +249,7 @@ export default function LogScreen() {
         onPress: async () => {
           const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
           if (status !== "granted") {
-            Alert.alert("Permission needed", "Photo library access is required to select site photos.");
+            Alert.alert("Permission needed", "Photo library access is required.");
             return;
           }
           const result = await ImagePicker.launchImageLibraryAsync({
@@ -255,18 +267,20 @@ export default function LogScreen() {
 
   function handlePickResult(result: ImagePicker.ImagePickerResult) {
     if (result.canceled) return;
-    const incoming = result.assets.slice(0, MAX_PHOTOS - photos.length).map<PhotoItem>(a => ({
-      uri: a.uri,
-      mimeType: a.mimeType ?? "image/jpeg",
-      fileName: a.fileName ?? `photo_${Date.now()}.jpg`,
-      fileSize: a.fileSize ?? 0,
-    }));
-    setPhotos(prev => [...prev, ...incoming]);
+    const incoming = result.assets
+      .slice(0, MAX_PHOTOS - photos.length)
+      .map<PhotoItem>((a) => ({
+        uri: a.uri,
+        mimeType: a.mimeType ?? "image/jpeg",
+        fileName: a.fileName ?? `photo_${Date.now()}.jpg`,
+        fileSize: a.fileSize ?? 0,
+      }));
+    setPhotos((prev) => [...prev, ...incoming]);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
 
   function removePhoto(index: number) {
-    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
 
@@ -282,18 +296,18 @@ export default function LogScreen() {
         }),
       });
       if (!res.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = await res.json() as { uploadURL: string; objectPath: string };
-
+      const { uploadURL, objectPath } = (await res.json()) as {
+        uploadURL: string;
+        objectPath: string;
+      };
       const fileRes = await fetch(photo.uri);
       const blob = await fileRes.blob();
-
       const putRes = await fetch(uploadURL, {
         method: "PUT",
         headers: { "Content-Type": photo.mimeType },
         body: blob,
       });
-      if (!putRes.ok) throw new Error("Failed to upload photo");
-
+      if (!putRes.ok) throw new Error("Upload failed");
       return objectPath;
     } catch {
       return null;
@@ -303,7 +317,6 @@ export default function LogScreen() {
   const handleGenerateAI = async () => {
     if (!selectedProject || !notes.trim()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
     generateAI.mutate(
       {
         data: {
@@ -337,17 +350,25 @@ export default function LogScreen() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
+    const reportData = {
+      reportDate: today(),
+      weather: weather || undefined,
+      crewCount: parseInt(crewCount, 10) || 1,
+      workPerformed: notes,
+      aiSummary: aiSummary || undefined,
+    };
+
+    if (!isOnline) {
+      await enqueue(selectedProjectId, reportData, photos);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setSubmitted("offline");
+      resetForm();
+      setTimeout(() => setSubmitted("none"), 5000);
+      return;
+    }
+
     createReport.mutate(
-      {
-        projectId: selectedProjectId,
-        data: {
-          reportDate: today(),
-          weather: weather || undefined,
-          crewCount: parseInt(crewCount, 10) || 1,
-          workPerformed: notes,
-          aiSummary: aiSummary || undefined,
-        },
-      },
+      { projectId: selectedProjectId, data: reportData },
       {
         onSuccess: async (report) => {
           if (photos.length > 0) {
@@ -355,37 +376,35 @@ export default function LogScreen() {
             for (const photo of photos) {
               const objectPath = await uploadSinglePhoto(photo);
               if (objectPath) {
-                try {
-                  await addPhoto.mutateAsync({
+                await addPhoto
+                  .mutateAsync({
                     projectId: selectedProjectId!,
                     reportId: report.id,
                     data: { objectPath },
-                  });
-                } catch {
-                }
+                  })
+                  .catch(() => {});
               }
             }
             setUploading(false);
           }
-
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setSubmitted(true);
-          setNotes("");
-          setAiSummary("");
-          setWeather("");
-          setCrewCount("1");
-          setPhotos([]);
-          setTimeout(() => setSubmitted(false), 3000);
+          setSubmitted("online");
+          resetForm();
+          setTimeout(() => setSubmitted("none"), 3000);
         },
-        onError: () => {
-          Alert.alert("Error", "Could not save the report. Please try again.");
+        onError: async () => {
+          await enqueue(selectedProjectId!, reportData, photos);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          setSubmitted("offline");
+          resetForm();
+          setTimeout(() => setSubmitted("none"), 5000);
         },
       }
     );
   };
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
-  const activeProjects = (projects ?? []).filter(p => p.status === "active");
+  const activeProjects = (projects ?? []).filter((p) => p.status === "active");
   const isBusy = createReport.isPending || uploading;
 
   return (
@@ -405,10 +424,73 @@ export default function LogScreen() {
         </Text>
       </View>
 
-      {submitted && (
-        <View style={{ marginHorizontal: 20, marginBottom: 16, backgroundColor: "#D1FAE5", borderRadius: 10, padding: 14, flexDirection: "row", alignItems: "center", gap: 10 }}>
+      {/* Offline / syncing / failed banners */}
+      {!isOnline && (
+        <View style={[styles.banner, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
+          <Feather name="wifi-off" size={16} color="#D97706" />
+          <Text style={[styles.bannerText, { color: "#92400E" }]}>
+            No internet — reports will be saved and sent when you reconnect
+          </Text>
+        </View>
+      )}
+      {isOnline && isSyncing && (
+        <View style={[styles.banner, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}40` }]}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.bannerText, { color: colors.primary }]}>
+            Syncing {pendingCount} queued report{pendingCount !== 1 ? "s" : ""}…
+          </Text>
+        </View>
+      )}
+      {isOnline && !isSyncing && pendingCount > 0 && (
+        <View style={[styles.banner, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}40` }]}>
+          <Feather name="clock" size={16} color={colors.primary} />
+          <Text style={[styles.bannerText, { color: colors.primary }]}>
+            {pendingCount} report{pendingCount !== 1 ? "s" : ""} queued to sync
+          </Text>
+          <TouchableOpacity onPress={() => syncQueue()}>
+            <Text style={[styles.bannerAction, { color: colors.primary }]}>Sync now</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {failedCount > 0 && (
+        <View style={[styles.banner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+          <Feather name="alert-circle" size={16} color="#DC2626" />
+          <Text style={[styles.bannerText, { color: "#991B1B" }]}>
+            {failedCount} report{failedCount !== 1 ? "s" : ""} failed to sync
+          </Text>
+          <TouchableOpacity
+            onPress={() =>
+              Alert.alert(
+                "Failed Reports",
+                `${failedCount} report${failedCount !== 1 ? "s" : ""} could not be synced after 3 attempts.`,
+                [
+                  { text: "Retry", onPress: retryFailed },
+                  { text: "Discard", style: "destructive", onPress: clearFailed },
+                  { text: "Cancel", style: "cancel" },
+                ]
+              )
+            }
+          >
+            <Text style={[styles.bannerAction, { color: "#DC2626" }]}>Options</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Submission result banners */}
+      {submitted === "online" && (
+        <View style={[styles.banner, { backgroundColor: "#D1FAE5", borderColor: "#6EE7B7" }]}>
           <Feather name="check-circle" size={18} color="#22C55E" />
-          <Text style={{ color: "#166534", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>Report submitted!</Text>
+          <Text style={[styles.bannerText, { color: "#166534", fontFamily: "Inter_600SemiBold" }]}>
+            Report submitted!
+          </Text>
+        </View>
+      )}
+      {submitted === "offline" && (
+        <View style={[styles.banner, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
+          <Feather name="save" size={18} color="#D97706" />
+          <Text style={[styles.bannerText, { color: "#92400E", fontFamily: "Inter_600SemiBold" }]}>
+            Saved offline — will sync when connected
+          </Text>
         </View>
       )}
 
@@ -423,14 +505,16 @@ export default function LogScreen() {
           </Text>
         ) : (
           <View style={styles.projectList}>
-            {activeProjects.map(p => (
+            {activeProjects.map((p) => (
               <Pressable
                 key={p.id}
                 style={[
                   styles.projectChip,
                   {
-                    backgroundColor: selectedProjectId === p.id ? `${colors.primary}15` : colors.card,
-                    borderColor: selectedProjectId === p.id ? colors.primary : colors.border,
+                    backgroundColor:
+                      selectedProjectId === p.id ? `${colors.primary}15` : colors.card,
+                    borderColor:
+                      selectedProjectId === p.id ? colors.primary : colors.border,
                   },
                 ]}
                 onPress={() => {
@@ -438,7 +522,12 @@ export default function LogScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
-                <Text style={[styles.projectChipText, { color: selectedProjectId === p.id ? colors.primary : colors.foreground }]}>
+                <Text
+                  style={[
+                    styles.projectChipText,
+                    { color: selectedProjectId === p.id ? colors.primary : colors.foreground },
+                  ]}
+                >
                   {p.name}
                 </Text>
                 {selectedProjectId === p.id && (
@@ -458,7 +547,10 @@ export default function LogScreen() {
           <View style={{ flex: 1 }}>
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Crew</Text>
             <TextInput
-              style={[styles.inputBox, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border }]}
+              style={[
+                styles.inputBox,
+                { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border },
+              ]}
               value={crewCount}
               onChangeText={setCrewCount}
               keyboardType="number-pad"
@@ -469,7 +561,10 @@ export default function LogScreen() {
           <View style={{ flex: 2 }}>
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Weather</Text>
             <TextInput
-              style={[styles.inputBox, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border }]}
+              style={[
+                styles.inputBox,
+                { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border },
+              ]}
               value={weather}
               onChangeText={setWeather}
               placeholder="Sunny, 18°C"
@@ -481,8 +576,17 @@ export default function LogScreen() {
 
       {/* Work notes */}
       <View style={styles.section}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <Text style={[styles.label, { color: colors.mutedForeground, marginBottom: 0 }]}>What happened today?</Text>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 8,
+          }}
+        >
+          <Text style={[styles.label, { color: colors.mutedForeground, marginBottom: 0 }]}>
+            What happened today?
+          </Text>
           <TouchableOpacity
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -523,13 +627,27 @@ export default function LogScreen() {
           </View>
         )}
         {voice.error && (
-          <Text style={{ color: colors.destructive, fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 6 }}>
+          <Text
+            style={{
+              color: colors.destructive,
+              fontSize: 12,
+              fontFamily: "Inter_400Regular",
+              marginBottom: 6,
+            }}
+          >
             {voice.error}
           </Text>
         )}
 
         <TextInput
-          style={[styles.textArea, { color: colors.foreground, backgroundColor: colors.card, borderColor: voice.state === "recording" ? "#EF4444" : colors.border }]}
+          style={[
+            styles.textArea,
+            {
+              color: colors.foreground,
+              backgroundColor: colors.card,
+              borderColor: voice.state === "recording" ? "#EF4444" : colors.border,
+            },
+          ]}
           value={notes}
           onChangeText={setNotes}
           placeholder="Poured foundation concrete on north wing. Crew of 8. Rebar inspection completed..."
@@ -539,46 +657,52 @@ export default function LogScreen() {
         />
 
         {/* Photo strip */}
-        {(photos.length > 0 || photos.length < MAX_PHOTOS) && (
-          <View style={styles.photoStrip}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {photos.map((photo, i) => (
-                <View key={i} style={styles.photoThumb}>
-                  <Image source={{ uri: photo.uri }} style={styles.photoThumbImg} resizeMode="cover" />
-                  {photo.uploading && (
-                    <View style={styles.photoOverlay}>
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    </View>
-                  )}
-                  <TouchableOpacity style={styles.photoRemoveBtn} onPress={() => removePhoto(i)}>
-                    <Feather name="x" size={12} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-
-              {photos.length < MAX_PHOTOS && (
-                <TouchableOpacity
-                  style={[styles.addPhotoBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
-                  onPress={pickPhoto}
-                  activeOpacity={0.7}
-                >
-                  <Feather name="camera" size={20} color={colors.primary} />
-                  <Text style={[styles.addPhotoBtnText, { color: colors.mutedForeground }]}>
-                    {photos.length === 0 ? "Add Photo" : "Add More"}
-                  </Text>
+        <View style={styles.photoStrip}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+          >
+            {photos.map((photo, i) => (
+              <View key={i} style={styles.photoThumb}>
+                <Image source={{ uri: photo.uri }} style={styles.photoThumbImg} resizeMode="cover" />
+                {photo.uploading && (
+                  <View style={styles.photoOverlay}>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  </View>
+                )}
+                <TouchableOpacity style={styles.photoRemoveBtn} onPress={() => removePhoto(i)}>
+                  <Feather name="x" size={12} color="#FFFFFF" />
                 </TouchableOpacity>
-              )}
-            </ScrollView>
-          </View>
-        )}
+              </View>
+            ))}
+            {photos.length < MAX_PHOTOS && (
+              <TouchableOpacity
+                style={[
+                  styles.addPhotoBtn,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                ]}
+                onPress={pickPhoto}
+                activeOpacity={0.7}
+              >
+                <Feather name="camera" size={20} color={colors.primary} />
+                <Text style={[styles.addPhotoBtnText, { color: colors.mutedForeground }]}>
+                  {photos.length === 0 ? "Add Photo" : "Add More"}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
 
         {/* AI generate */}
         <TouchableOpacity
           style={[
             styles.aiButton,
             {
-              backgroundColor: (notes.trim() && selectedProject) ? `${colors.primary}12` : colors.muted,
-              borderColor: (notes.trim() && selectedProject) ? colors.primary : colors.border,
+              backgroundColor:
+                notes.trim() && selectedProject ? `${colors.primary}12` : colors.muted,
+              borderColor:
+                notes.trim() && selectedProject ? colors.primary : colors.border,
             },
           ]}
           onPress={handleGenerateAI}
@@ -588,9 +712,18 @@ export default function LogScreen() {
           {generateAI.isPending ? (
             <ActivityIndicator color={colors.primary} size="small" />
           ) : (
-            <Feather name="zap" size={16} color={(notes.trim() && selectedProject) ? colors.primary : colors.mutedForeground} />
+            <Feather
+              name="zap"
+              size={16}
+              color={notes.trim() && selectedProject ? colors.primary : colors.mutedForeground}
+            />
           )}
-          <Text style={[styles.aiButtonText, { color: (notes.trim() && selectedProject) ? colors.primary : colors.mutedForeground }]}>
+          <Text
+            style={[
+              styles.aiButtonText,
+              { color: notes.trim() && selectedProject ? colors.primary : colors.mutedForeground },
+            ]}
+          >
             {generateAI.isPending ? "Generating..." : "Generate AI Summary"}
           </Text>
         </TouchableOpacity>
@@ -600,14 +733,23 @@ export default function LogScreen() {
       {(aiSummary || generateAI.isPending) && (
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>AI Summary</Text>
-          <View style={[styles.aiBox, { backgroundColor: `${colors.primary}08`, borderColor: colors.primary }]}>
+          <View
+            style={[
+              styles.aiBox,
+              { backgroundColor: `${colors.primary}08`, borderColor: colors.primary },
+            ]}
+          >
             {generateAI.isPending ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
               <>
                 <Text style={[styles.aiText, { color: colors.foreground }]}>{aiSummary}</Text>
                 <TouchableOpacity onPress={() => setAiSummary("")} style={{ marginTop: 8 }}>
-                  <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular" }}>Remove</Text>
+                  <Text
+                    style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular" }}
+                  >
+                    Remove
+                  </Text>
                 </TouchableOpacity>
               </>
             )}
@@ -620,7 +762,8 @@ export default function LogScreen() {
         style={[
           styles.submitButton,
           {
-            backgroundColor: (selectedProjectId && notes.trim()) ? colors.primary : colors.muted,
+            backgroundColor:
+              selectedProjectId && notes.trim() ? (!isOnline ? "#D97706" : colors.primary) : colors.muted,
           },
         ]}
         onPress={handleSubmit}
@@ -630,13 +773,25 @@ export default function LogScreen() {
         {isBusy ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <ActivityIndicator color="#FFFFFF" />
-            <Text style={styles.submitText}>
-              {uploading ? `Uploading ${photos.length} photo${photos.length !== 1 ? "s" : ""}…` : "Saving…"}
+            <Text style={[styles.submitText, { color: "#FFFFFF" }]}>
+              {uploading
+                ? `Uploading ${photos.length} photo${photos.length !== 1 ? "s" : ""}…`
+                : "Saving…"}
             </Text>
           </View>
         ) : (
-          <Text style={[styles.submitText, { color: (selectedProjectId && notes.trim()) ? "#FFFFFF" : colors.mutedForeground }]}>
-            {`Submit Report${photos.length > 0 ? ` + ${photos.length} Photo${photos.length !== 1 ? "s" : ""}` : ""}`}
+          <Text
+            style={[
+              styles.submitText,
+              {
+                color:
+                  selectedProjectId && notes.trim() ? "#FFFFFF" : colors.mutedForeground,
+              },
+            ]}
+          >
+            {!isOnline
+              ? `Save Offline${photos.length > 0 ? ` + ${photos.length} Photo${photos.length !== 1 ? "s" : ""}` : ""}`
+              : `Submit Report${photos.length > 0 ? ` + ${photos.length} Photo${photos.length !== 1 ? "s" : ""}` : ""}`}
           </Text>
         )}
       </TouchableOpacity>

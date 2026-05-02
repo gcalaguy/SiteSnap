@@ -20,6 +20,7 @@ import { setBaseUrl, setAuthTokenGetter, customFetch } from "@workspace/api-clie
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { tokenCache } from "@/utils/cache";
 import { setSignOut } from "@/utils/auth";
+import { OfflineQueueProvider } from "@/context/OfflineQueueContext";
 
 // Set the API base URL at module level (outside any component)
 if (process.env.EXPO_PUBLIC_DOMAIN) {
@@ -180,8 +181,10 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
-                <AuthSetup />
-                <ProtectedNav />
+                <OfflineQueueProvider>
+                  <AuthSetup />
+                  <ProtectedNav />
+                </OfflineQueueProvider>
               </KeyboardProvider>
             </GestureHandlerRootView>
           </QueryClientProvider>

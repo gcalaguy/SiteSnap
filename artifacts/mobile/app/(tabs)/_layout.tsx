@@ -5,9 +5,10 @@ import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { useOfflineQueue } from "@/context/OfflineQueueContext";
 
 function NativeTabLayout() {
   return (
@@ -40,12 +41,22 @@ function NativeTabLayout() {
   );
 }
 
+function PendingBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <View style={styles.badge}>
+      <Text style={styles.badgeText}>{count > 9 ? "9+" : count}</Text>
+    </View>
+  );
+}
+
 function ClassicTabLayout() {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+  const { pendingCount } = useOfflineQueue();
 
   return (
     <Tabs
@@ -103,12 +114,16 @@ function ClassicTabLayout() {
         name="log"
         options={{
           title: "Log",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="plus.circle" tintColor={color} size={24} />
-            ) : (
-              <Feather name="plus-circle" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color, focused }) => (
+            <View style={{ position: "relative" }}>
+              {isIOS ? (
+                <SymbolView name="plus.circle" tintColor={color} size={24} />
+              ) : (
+                <Feather name="plus-circle" size={22} color={color} />
+              )}
+              <PendingBadge count={pendingCount} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
@@ -150,6 +165,27 @@ function ClassicTabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -8,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: "#FFFFFF",
+    lineHeight: 13,
+  },
+});
 
 export default function TabLayout() {
   if (isLiquidGlassAvailable()) {
