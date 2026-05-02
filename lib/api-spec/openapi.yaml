@@ -3,20 +3,38 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Construction AI Assistant API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: users
+    description: User management and auth sync
+  - name: companies
+    description: Company / multi-tenant management
+  - name: projects
+    description: Construction project management
+  - name: daily-reports
+    description: Daily site reports
+  - name: cost-analyses
+    description: Cost tracking and analysis
+  - name: rfis
+    description: Requests for Information
+  - name: invitations
+    description: Team invite flow
+  - name: ai
+    description: AI agent endpoints
+  - name: dashboard
+    description: Dashboard summary endpoints
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +42,1214 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Users ──────────────────────────────────────────────────────────────────
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current authenticated user with company and role
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithCompany"
+        "401":
+          description: Unauthorized
+
+  /users/sync:
+    post:
+      operationId: syncUser
+      tags: [users]
+      summary: Sync Clerk user to database (called after sign-in/sign-up)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncUserBody"
+      responses:
+        "200":
+          description: User synced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  # ── Companies ──────────────────────────────────────────────────────────────
+  /companies:
+    post:
+      operationId: createCompany
+      tags: [companies]
+      summary: Create a new company (onboarding — owner creates company)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCompanyBody"
+      responses:
+        "201":
+          description: Company created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+
+  /companies/{companyId}:
+    get:
+      operationId: getCompany
+      tags: [companies]
+      summary: Get company details
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+      responses:
+        "200":
+          description: Company details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+
+  /companies/{companyId}/members:
+    get:
+      operationId: listCompanyMembers
+      tags: [companies]
+      summary: List all members of a company
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+      responses:
+        "200":
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserWithCompany"
+
+  /companies/{companyId}/members/{userId}:
+    delete:
+      operationId: removeCompanyMember
+      tags: [companies]
+      summary: Remove a member from the company
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+        - $ref: "#/components/parameters/userId"
+      responses:
+        "204":
+          description: Member removed
+
+    patch:
+      operationId: updateMemberRole
+      tags: [companies]
+      summary: Update a member's role
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+        - $ref: "#/components/parameters/userId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberRoleBody"
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithCompany"
+
+  # ── Invitations ────────────────────────────────────────────────────────────
+  /invitations:
+    post:
+      operationId: createInvitation
+      tags: [invitations]
+      summary: Invite a team member via email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvitationBody"
+      responses:
+        "201":
+          description: Invitation sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+
+  /invitations/company:
+    get:
+      operationId: listInvitations
+      tags: [invitations]
+      summary: List all pending invitations for the current user's company
+      responses:
+        "200":
+          description: Invitations list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invitation"
+
+  /invitations/{token}:
+    get:
+      operationId: getInvitation
+      tags: [invitations]
+      summary: Verify and get invitation details by token
+      parameters:
+        - $ref: "#/components/parameters/token"
+      responses:
+        "200":
+          description: Invitation details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "404":
+          description: Invitation not found or expired
+
+  /invitations/{token}/accept:
+    post:
+      operationId: acceptInvitation
+      tags: [invitations]
+      summary: Accept an invitation and join the company
+      parameters:
+        - $ref: "#/components/parameters/token"
+      responses:
+        "200":
+          description: Invitation accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithCompany"
+
+  # ── Projects ───────────────────────────────────────────────────────────────
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List all projects for the current user's company
+      responses:
+        "200":
+          description: Projects list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectBody"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get project details
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+    put:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectBody"
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      responses:
+        "204":
+          description: Project deleted
+
+  /projects/{projectId}/summary:
+    get:
+      operationId: getProjectSummary
+      tags: [projects]
+      summary: Get a project overview with cost totals, report count, and RFI stats
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      responses:
+        "200":
+          description: Project summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectSummary"
+
+  # ── Daily Reports ──────────────────────────────────────────────────────────
+  /projects/{projectId}/daily-reports:
+    get:
+      operationId: listDailyReports
+      tags: [daily-reports]
+      summary: List daily reports for a project
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      responses:
+        "200":
+          description: Daily reports list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyReport"
+
+    post:
+      operationId: createDailyReport
+      tags: [daily-reports]
+      summary: Create a daily report
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDailyReportBody"
+      responses:
+        "201":
+          description: Daily report created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyReport"
+
+  /projects/{projectId}/daily-reports/{reportId}:
+    get:
+      operationId: getDailyReport
+      tags: [daily-reports]
+      summary: Get a specific daily report
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/reportId"
+      responses:
+        "200":
+          description: Daily report details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyReport"
+
+    put:
+      operationId: updateDailyReport
+      tags: [daily-reports]
+      summary: Update a daily report
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/reportId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDailyReportBody"
+      responses:
+        "200":
+          description: Daily report updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyReport"
+
+  # ── Cost Analyses ──────────────────────────────────────────────────────────
+  /projects/{projectId}/cost-analyses:
+    get:
+      operationId: listCostAnalyses
+      tags: [cost-analyses]
+      summary: List cost analyses for a project
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      responses:
+        "200":
+          description: Cost analyses list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CostAnalysis"
+
+    post:
+      operationId: createCostAnalysis
+      tags: [cost-analyses]
+      summary: Create a cost analysis entry
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCostAnalysisBody"
+      responses:
+        "201":
+          description: Cost analysis created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostAnalysis"
+
+  /projects/{projectId}/cost-analyses/{analysisId}:
+    get:
+      operationId: getCostAnalysis
+      tags: [cost-analyses]
+      summary: Get a specific cost analysis
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/analysisId"
+      responses:
+        "200":
+          description: Cost analysis details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostAnalysis"
+
+  # ── RFIs ───────────────────────────────────────────────────────────────────
+  /projects/{projectId}/rfis:
+    get:
+      operationId: listRFIs
+      tags: [rfis]
+      summary: List RFIs for a project
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      responses:
+        "200":
+          description: RFI list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RFI"
+
+    post:
+      operationId: createRFI
+      tags: [rfis]
+      summary: Create an RFI
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRFIBody"
+      responses:
+        "201":
+          description: RFI created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RFI"
+
+  /projects/{projectId}/rfis/{rfiId}:
+    get:
+      operationId: getRFI
+      tags: [rfis]
+      summary: Get a specific RFI
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/rfiId"
+      responses:
+        "200":
+          description: RFI details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RFI"
+
+    put:
+      operationId: updateRFI
+      tags: [rfis]
+      summary: Update an RFI (respond, change status)
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/rfiId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRFIBody"
+      responses:
+        "200":
+          description: RFI updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RFI"
+
+  # ── AI Agents ──────────────────────────────────────────────────────────────
+  /ai/daily-report/generate:
+    post:
+      operationId: generateDailyReportAI
+      tags: [ai]
+      summary: AI generates a structured daily report summary from raw input
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AIGenerateDailyReportBody"
+      responses:
+        "200":
+          description: AI-generated daily report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIGeneratedDailyReport"
+
+  /ai/cost-analysis/generate:
+    post:
+      operationId: generateCostAnalysisAI
+      tags: [ai]
+      summary: AI generates a cost analysis summary and recommendations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AIGenerateCostAnalysisBody"
+      responses:
+        "200":
+          description: AI-generated cost analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIGeneratedCostAnalysis"
+
+  /ai/rfi/generate:
+    post:
+      operationId: generateRFIAI
+      tags: [ai]
+      summary: AI drafts an RFI document from a description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AIGenerateRFIBody"
+      responses:
+        "200":
+          description: AI-generated RFI draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIGeneratedRFI"
+
+  # ── Dashboard ──────────────────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get company-wide dashboard summary (active projects, reports this week, pending RFIs, spend totals)
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent company activity feed (latest reports, RFIs, project updates)
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
 components:
+  parameters:
+    companyId:
+      name: companyId
+      in: path
+      required: true
+      schema:
+        type: integer
+    userId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: integer
+    projectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: integer
+    reportId:
+      name: reportId
+      in: path
+      required: true
+      schema:
+        type: integer
+    analysisId:
+      name: analysisId
+      in: path
+      required: true
+      schema:
+        type: integer
+    rfiId:
+      name: rfiId
+      in: path
+      required: true
+      schema:
+        type: integer
+    token:
+      name: token
+      in: path
+      required: true
+      schema:
+        type: string
+
   schemas:
     HealthStatus:
       type: object
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    # ── Users ────────────────────────────────────────────────────────────────
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        clerkUserId:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        companyId:
+          type: integer
+          nullable: true
+        role:
+          $ref: "#/components/schemas/UserRole"
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, clerkUserId, email, firstName, lastName, role, createdAt]
+
+    UserWithCompany:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            company:
+              $ref: "#/components/schemas/Company"
+              nullable: true
+
+    UserRole:
+      type: string
+      enum: [owner, foreman, worker]
+
+    SyncUserBody:
+      type: object
+      properties:
+        clerkUserId:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+      required: [clerkUserId, email, firstName, lastName]
+
+    # ── Companies ────────────────────────────────────────────────────────────
+    Company:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        province:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, province, city, createdAt]
+
+    CreateCompanyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        province:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+      required: [name, province, city]
+
+    UpdateMemberRoleBody:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/UserRole"
+      required: [role]
+
+    # ── Invitations ──────────────────────────────────────────────────────────
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        token:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, expired]
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        company:
+          $ref: "#/components/schemas/Company"
+          nullable: true
+      required: [id, companyId, email, role, token, status, expiresAt, createdAt]
+
+    CreateInvitationBody:
+      type: object
+      properties:
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+      required: [email, role]
+
+    # ── Projects ─────────────────────────────────────────────────────────────
+    Project:
+      type: object
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        startDate:
+          type: string
+          format: date
+          nullable: true
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        budget:
+          type: number
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, companyId, name, address, city, province, status, createdAt]
+
+    ProjectStatus:
+      type: string
+      enum: [planning, active, on_hold, completed, cancelled]
+
+    CreateProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        budget:
+          type: number
+        description:
+          type: string
+      required: [name, address, city, province]
+
+    UpdateProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        budget:
+          type: number
+        description:
+          type: string
+
+    ProjectSummary:
+      type: object
+      properties:
+        projectId:
+          type: integer
+        projectName:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        totalBudget:
+          type: number
+          nullable: true
+        totalSpent:
+          type: number
+        budgetUtilizationPercent:
+          type: number
+          nullable: true
+        reportCount:
+          type: integer
+        openRFICount:
+          type: integer
+        closedRFICount:
+          type: integer
+        lastReportDate:
+          type: string
+          format: date
+          nullable: true
+      required: [projectId, projectName, status, totalSpent, reportCount, openRFICount, closedRFICount]
+
+    # ── Daily Reports ─────────────────────────────────────────────────────────
+    DailyReport:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        submittedByUserId:
+          type: integer
+        reportDate:
+          type: string
+          format: date
+        weather:
+          type: string
+          nullable: true
+        temperature:
+          type: string
+          nullable: true
+        crewCount:
+          type: integer
+        workPerformed:
+          type: string
+        materialsUsed:
+          type: string
+          nullable: true
+        equipment:
+          type: string
+          nullable: true
+        issues:
+          type: string
+          nullable: true
+        aiSummary:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        submittedBy:
+          $ref: "#/components/schemas/User"
+          nullable: true
+      required: [id, projectId, submittedByUserId, reportDate, crewCount, workPerformed, createdAt]
+
+    CreateDailyReportBody:
+      type: object
+      properties:
+        reportDate:
+          type: string
+          format: date
+        weather:
+          type: string
+        temperature:
+          type: string
+        crewCount:
+          type: integer
+        workPerformed:
+          type: string
+        materialsUsed:
+          type: string
+        equipment:
+          type: string
+        issues:
+          type: string
+        aiSummary:
+          type: string
+      required: [reportDate, crewCount, workPerformed]
+
+    # ── Cost Analyses ─────────────────────────────────────────────────────────
+    CostAnalysis:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        periodLabel:
+          type: string
+        labourCost:
+          type: number
+        materialsCost:
+          type: number
+        equipmentCost:
+          type: number
+        otherCost:
+          type: number
+        totalCost:
+          type: number
+        notes:
+          type: string
+          nullable: true
+        aiAnalysis:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, projectId, periodLabel, labourCost, materialsCost, equipmentCost, otherCost, totalCost, createdAt]
+
+    CreateCostAnalysisBody:
+      type: object
+      properties:
+        periodLabel:
+          type: string
+        labourCost:
+          type: number
+        materialsCost:
+          type: number
+        equipmentCost:
+          type: number
+        otherCost:
+          type: number
+        notes:
+          type: string
+        aiAnalysis:
+          type: string
+      required: [periodLabel, labourCost, materialsCost, equipmentCost, otherCost]
+
+    # ── RFIs ──────────────────────────────────────────────────────────────────
+    RFI:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        rfiNumber:
+          type: string
+        subject:
+          type: string
+        description:
+          type: string
+        submittedByUserId:
+          type: integer
+        assignedToUserId:
+          type: integer
+          nullable: true
+        status:
+          $ref: "#/components/schemas/RFIStatus"
+        priority:
+          $ref: "#/components/schemas/RFIPriority"
+        response:
+          type: string
+          nullable: true
+        aiDraftResponse:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        submittedBy:
+          $ref: "#/components/schemas/User"
+          nullable: true
+      required: [id, projectId, rfiNumber, subject, description, submittedByUserId, status, priority, createdAt]
+
+    RFIStatus:
+      type: string
+      enum: [open, in_review, answered, closed]
+
+    RFIPriority:
+      type: string
+      enum: [low, medium, high, urgent]
+
+    CreateRFIBody:
+      type: object
+      properties:
+        subject:
+          type: string
+        description:
+          type: string
+        assignedToUserId:
+          type: integer
+        priority:
+          $ref: "#/components/schemas/RFIPriority"
+        dueDate:
+          type: string
+          format: date
+        aiDraftResponse:
+          type: string
+      required: [subject, description]
+
+    UpdateRFIBody:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/RFIStatus"
+        response:
+          type: string
+        assignedToUserId:
+          type: integer
+        priority:
+          $ref: "#/components/schemas/RFIPriority"
+        dueDate:
+          type: string
+          format: date
+
+    # ── AI Agents ─────────────────────────────────────────────────────────────
+    AIGenerateDailyReportBody:
+      type: object
+      properties:
+        projectName:
+          type: string
+        rawInput:
+          type: string
+          description: Raw notes or voice transcript to structure
+        reportDate:
+          type: string
+          format: date
+        crewCount:
+          type: integer
+      required: [projectName, rawInput, reportDate]
+
+    AIGeneratedDailyReport:
+      type: object
+      properties:
+        workPerformed:
+          type: string
+        materialsUsed:
+          type: string
+        equipment:
+          type: string
+        issues:
+          type: string
+        summary:
+          type: string
+      required: [workPerformed, summary]
+
+    AIGenerateCostAnalysisBody:
+      type: object
+      properties:
+        projectName:
+          type: string
+        labourCost:
+          type: number
+        materialsCost:
+          type: number
+        equipmentCost:
+          type: number
+        otherCost:
+          type: number
+        budget:
+          type: number
+          nullable: true
+        notes:
+          type: string
+      required: [projectName, labourCost, materialsCost, equipmentCost, otherCost]
+
+    AIGeneratedCostAnalysis:
+      type: object
+      properties:
+        analysis:
+          type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+        riskLevel:
+          type: string
+          enum: [low, medium, high]
+        keyInsights:
+          type: array
+          items:
+            type: string
+      required: [analysis, recommendations, riskLevel, keyInsights]
+
+    AIGenerateRFIBody:
+      type: object
+      properties:
+        projectName:
+          type: string
+        subject:
+          type: string
+        description:
+          type: string
+      required: [projectName, subject, description]
+
+    AIGeneratedRFI:
+      type: object
+      properties:
+        formalSubject:
+          type: string
+        formalDescription:
+          type: string
+        suggestedResponse:
+          type: string
+        clarifyingQuestions:
+          type: array
+          items:
+            type: string
+      required: [formalSubject, formalDescription, suggestedResponse, clarifyingQuestions]
+
+    # ── Dashboard ─────────────────────────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      properties:
+        totalProjects:
+          type: integer
+        activeProjects:
+          type: integer
+        completedProjects:
+          type: integer
+        reportsThisWeek:
+          type: integer
+        openRFIs:
+          type: integer
+        totalSpentThisMonth:
+          type: number
+        totalBudgetAllProjects:
+          type: number
+        teamMemberCount:
+          type: integer
+      required: [totalProjects, activeProjects, completedProjects, reportsThisWeek, openRFIs, totalSpentThisMonth, totalBudgetAllProjects, teamMemberCount]
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [daily_report, rfi_created, rfi_updated, project_created, project_updated, member_joined]
+        description:
+          type: string
+        projectName:
+          type: string
+          nullable: true
+        userName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, type, description, userName, createdAt]

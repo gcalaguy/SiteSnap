@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Construction AI Dashboard"
+version = "1.0.0"
+id = "artifacts/web-dashboard"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19814
+
+[services.development]
+run = "pnpm --filter @workspace/web-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/web-dashboard", "run", "build" ]
+publicDir = "artifacts/web-dashboard/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19814"
+BASE_PATH = "/"
