@@ -1,13 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
-import { 
-  LayoutDashboard, 
+import {
+  LayoutDashboard,
   Building2,
   Hammer,
-  Users, 
-  Settings, 
+  Users,
+  Settings,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Bot,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import {
@@ -44,6 +45,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Projects", href: "/projects", icon: Building2 },
+    { name: "AI Chat", href: "/ai-chat", icon: Bot },
     { name: "Team", href: "/team", icon: Users },
     { name: "Settings", href: "/settings", icon: Settings },
   ];

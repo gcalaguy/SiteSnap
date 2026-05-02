@@ -18,6 +18,7 @@ import NewCost from "@/pages/new-cost";
 import NewRFI from "@/pages/new-rfi";
 import Team from "@/pages/team";
 import Settings from "@/pages/settings";
+import AIChat from "@/pages/ai-chat";
 import OnboardingPage from "@/pages/onboarding";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
@@ -200,6 +201,7 @@ function AuthApp() {
           <Route path="/projects/:id/reports/new" component={NewReport} />
           <Route path="/projects/:id/cost/new" component={NewCost} />
           <Route path="/projects/:id/rfis/new" component={NewRFI} />
+          <Route path="/ai-chat" component={AIChat} />
           <Route path="/team" component={Team} />
           <Route path="/settings" component={Settings} />
           {/* add more routes here */}

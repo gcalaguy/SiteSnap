@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { openai, speechToText, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, requireCompany } from "../lib/auth";
 
 const router = Router();
@@ -233,6 +233,30 @@ Today's date: ${new Date().toLocaleDateString("en-CA")}`;
   } catch (err: unknown) {
     req.log?.error({ err }, "AI assistant failed");
     res.status(500).json({ error: "AI assistant failed" });
+  }
+});
+
+// ── Voice Transcription ───────────────────────────────────────────────────────
+const TranscribeInput = z.object({
+  audio: z.string().min(1),
+  format: z.string().optional().default("webm"),
+});
+
+router.post("/ai/transcribe", requireAuth, async (req, res) => {
+  const parsed = TranscribeInput.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body: audio (base64 string) is required" });
+    return;
+  }
+
+  try {
+    const raw = Buffer.from(parsed.data.audio, "base64");
+    const { buffer, format } = await ensureCompatibleFormat(raw);
+    const text = await speechToText(buffer, format);
+    res.json({ text });
+  } catch (err: unknown) {
+    req.log?.error({ err }, "Transcription failed");
+    res.status(500).json({ error: "Transcription failed" });
   }
 });
 

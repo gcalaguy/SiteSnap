@@ -8,6 +8,7 @@ import dailyReportsRouter from "./dailyReports";
 import costAnalysesRouter from "./costAnalyses";
 import rfisRouter from "./rfis";
 import aiRouter from "./ai";
+import conversationsRouter from "./conversations";
 import dashboardRouter from "./dashboard";
 import tasksRouter from "./tasks";
 import photosRouter from "./photos";
@@ -26,6 +27,7 @@ router.use("/projects/:projectId/rfis", rfisRouter);
 router.use("/projects/:projectId/tasks", tasksRouter);
 router.use("/projects/:projectId/daily-reports/:reportId/photos", photosRouter);
 router.use(aiRouter);
+router.use(conversationsRouter);
 router.use(dashboardRouter);
 router.use(storageRouter);
 
