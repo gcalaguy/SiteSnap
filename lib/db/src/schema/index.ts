@@ -7,7 +7,11 @@ import {
   numeric,
   date,
   pgEnum,
+  json,
 } from "drizzle-orm/pg-core";
+
+export * from "./conversations";
+export * from "./messages";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -213,3 +217,59 @@ export const insertRFISchema = createInsertSchema(rfisTable).omit({
 });
 export type InsertRFI = z.infer<typeof insertRFISchema>;
 export type RFI = typeof rfisTable.$inferSelect;
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+
+export const taskStatusEnum = pgEnum("task_status", [
+  "todo",
+  "in_progress",
+  "done",
+]);
+export const taskPriorityEnum = pgEnum("task_priority", [
+  "low",
+  "medium",
+  "high",
+]);
+
+export const tasksTable = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  assignedToUserId: integer("assigned_to_user_id").references(
+    () => usersTable.id,
+  ),
+  status: taskStatusEnum("status").notNull().default("todo"),
+  priority: taskPriorityEnum("priority").notNull().default("medium"),
+  dueDate: date("due_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTaskSchema = createInsertSchema(tasksTable).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type Task = typeof tasksTable.$inferSelect;
+
+// ── Daily Report Photos ───────────────────────────────────────────────────────
+
+export const dailyReportPhotosTable = pgTable("daily_report_photos", {
+  id: serial("id").primaryKey(),
+  reportId: integer("report_id")
+    .notNull()
+    .references(() => dailyReportsTable.id),
+  objectPath: text("object_path").notNull(),
+  caption: text("caption"),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+});
+
+export const insertDailyReportPhotoSchema = createInsertSchema(
+  dailyReportPhotosTable,
+).omit({ id: true, uploadedAt: true });
+export type InsertDailyReportPhoto = z.infer<
+  typeof insertDailyReportPhotoSchema
+>;
+export type DailyReportPhoto = typeof dailyReportPhotosTable.$inferSelect;

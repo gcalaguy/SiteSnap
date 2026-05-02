@@ -811,3 +811,136 @@ export const GetRecentActivityResponseItem = zod.object({
 export const GetRecentActivityResponse = zod.array(
   GetRecentActivityResponseItem,
 );
+
+/**
+ * @summary List all tasks for a project
+ */
+export const ListTasksParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListTasksResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  assignedToUserId: zod.number().nullish(),
+  status: zod.enum(["todo", "in_progress", "done"]),
+  priority: zod.enum(["low", "medium", "high"]),
+  dueDate: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListTasksResponse = zod.array(ListTasksResponseItem);
+
+/**
+ * @summary Create a task for a project
+ */
+export const CreateTaskParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const CreateTaskBody = zod.object({
+  title: zod.string(),
+  description: zod.string().optional(),
+  assignedToUserId: zod.number().optional(),
+  priority: zod.enum(["low", "medium", "high"]).optional(),
+  dueDate: zod.string().optional(),
+});
+
+/**
+ * @summary Update a task
+ */
+export const UpdateTaskParams = zod.object({
+  projectId: zod.coerce.number(),
+  taskId: zod.coerce.number(),
+});
+
+export const UpdateTaskBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  assignedToUserId: zod.number().nullish(),
+  status: zod.enum(["todo", "in_progress", "done"]).optional(),
+  priority: zod.enum(["low", "medium", "high"]).optional(),
+  dueDate: zod.string().nullish(),
+});
+
+export const UpdateTaskResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  assignedToUserId: zod.number().nullish(),
+  status: zod.enum(["todo", "in_progress", "done"]),
+  priority: zod.enum(["low", "medium", "high"]),
+  dueDate: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a task
+ */
+export const DeleteTaskParams = zod.object({
+  projectId: zod.coerce.number(),
+  taskId: zod.coerce.number(),
+});
+
+/**
+ * @summary List photos for a daily report
+ */
+export const ListReportPhotosParams = zod.object({
+  projectId: zod.coerce.number(),
+  reportId: zod.coerce.number(),
+});
+
+export const ListReportPhotosResponseItem = zod.object({
+  id: zod.number(),
+  reportId: zod.number(),
+  objectPath: zod.string(),
+  caption: zod.string().nullish(),
+  uploadedAt: zod.coerce.date(),
+});
+export const ListReportPhotosResponse = zod.array(ListReportPhotosResponseItem);
+
+/**
+ * @summary Add a photo to a daily report after upload
+ */
+export const AddReportPhotoParams = zod.object({
+  projectId: zod.coerce.number(),
+  reportId: zod.coerce.number(),
+});
+
+export const AddReportPhotoBody = zod.object({
+  objectPath: zod.string(),
+  caption: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a photo from a daily report
+ */
+export const DeleteReportPhotoParams = zod.object({
+  projectId: zod.coerce.number(),
+  reportId: zod.coerce.number(),
+  photoId: zod.coerce.number(),
+});
+
+/**
+ * @summary Request a presigned URL for file upload
+ */
+
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string().min(1),
+  size: zod.number().min(1),
+  contentType: zod.string().min(1),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string().url(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Serve a stored object
+ */
+export const GetStorageObjectParams = zod.object({
+  objectPath: zod.coerce.string(),
+});

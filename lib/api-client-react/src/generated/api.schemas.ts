@@ -339,3 +339,106 @@ export interface ActivityItem {
   userName: string;
   createdAt: string;
 }
+
+export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
+
+export const TaskStatus = {
+  todo: "todo",
+  in_progress: "in_progress",
+  done: "done",
+} as const;
+
+export type TaskPriority = (typeof TaskPriority)[keyof typeof TaskPriority];
+
+export const TaskPriority = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+} as const;
+
+export interface Task {
+  id: number;
+  projectId: number;
+  title: string;
+  description?: string | null;
+  assignedToUserId?: number | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate?: string | null;
+  createdAt: string;
+}
+
+export type CreateTaskBodyPriority =
+  (typeof CreateTaskBodyPriority)[keyof typeof CreateTaskBodyPriority];
+
+export const CreateTaskBodyPriority = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+} as const;
+
+export interface CreateTaskBody {
+  title: string;
+  description?: string;
+  assignedToUserId?: number;
+  priority?: CreateTaskBodyPriority;
+  dueDate?: string;
+}
+
+export type UpdateTaskBodyStatus =
+  (typeof UpdateTaskBodyStatus)[keyof typeof UpdateTaskBodyStatus];
+
+export const UpdateTaskBodyStatus = {
+  todo: "todo",
+  in_progress: "in_progress",
+  done: "done",
+} as const;
+
+export type UpdateTaskBodyPriority =
+  (typeof UpdateTaskBodyPriority)[keyof typeof UpdateTaskBodyPriority];
+
+export const UpdateTaskBodyPriority = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+} as const;
+
+export interface UpdateTaskBody {
+  title?: string;
+  description?: string;
+  assignedToUserId?: number | null;
+  status?: UpdateTaskBodyStatus;
+  priority?: UpdateTaskBodyPriority;
+  dueDate?: string | null;
+}
+
+export interface UploadUrlRequest {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  size: number;
+  /** @minLength 1 */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+}
+
+export interface ErrorEnvelope {
+  error: string;
+}
+
+export interface DailyReportPhoto {
+  id: number;
+  reportId: number;
+  objectPath: string;
+  caption?: string | null;
+  uploadedAt: string;
+}
+
+export interface AddPhotoBody {
+  objectPath: string;
+  caption?: string;
+}

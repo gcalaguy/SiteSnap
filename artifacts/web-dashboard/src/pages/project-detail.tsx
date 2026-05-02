@@ -5,15 +5,281 @@ import {
   useGetProjectSummary, 
   useListDailyReports, 
   useListCostAnalyses, 
-  useListRFIs 
+  useListRFIs,
+  useListTasks,
+  useCreateTask,
+  useUpdateTask,
+  useDeleteTask,
 } from "@workspace/api-client-react";
+import { getListTasksQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
+import { queryClient } from "@/lib/queryClient";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, Building } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+type Task = {
+  id: number;
+  projectId: number;
+  title: string;
+  description?: string | null;
+  assignedToUserId?: number | null;
+  status: "todo" | "in_progress" | "done";
+  priority: "low" | "medium" | "high";
+  dueDate?: string | null;
+  createdAt: string;
+};
+
+function TaskCard({ task, onStatusChange, onDelete }: {
+  task: Task;
+  onStatusChange: (id: number, status: Task["status"]) => void;
+  onDelete: (id: number) => void;
+}) {
+  const priorityColors: Record<string, string> = {
+    low: "bg-slate-100 text-slate-700 border-slate-200",
+    medium: "bg-amber-50 text-amber-700 border-amber-200",
+    high: "bg-red-50 text-red-700 border-red-200",
+  };
+
+  return (
+    <div className="bg-card border rounded-lg p-3 shadow-sm hover:border-primary/40 transition-colors group">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <p className="font-medium text-sm leading-snug">{task.title}</p>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <MoreVertical className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {task.status !== "todo" && (
+              <DropdownMenuItem onClick={() => onStatusChange(task.id, "todo")}>
+                <Circle className="mr-2 h-3 w-3" /> Mark To Do
+              </DropdownMenuItem>
+            )}
+            {task.status !== "in_progress" && (
+              <DropdownMenuItem onClick={() => onStatusChange(task.id, "in_progress")}>
+                <Loader2 className="mr-2 h-3 w-3" /> Mark In Progress
+              </DropdownMenuItem>
+            )}
+            {task.status !== "done" && (
+              <DropdownMenuItem onClick={() => onStatusChange(task.id, "done")}>
+                <CheckSquare className="mr-2 h-3 w-3" /> Mark Done
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem className="text-destructive" onClick={() => onDelete(task.id)}>
+              <Trash2 className="mr-2 h-3 w-3" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {task.description && (
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{task.description}</p>
+      )}
+      <div className="flex items-center gap-2">
+        <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${priorityColors[task.priority]}`}>
+          {task.priority}
+        </span>
+        {task.dueDate && (
+          <span className="text-xs text-muted-foreground">Due {format(new Date(task.dueDate), "MMM d")}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TasksTab({ projectId }: { projectId: number }) {
+  const { toast } = useToast();
+  const { data: tasks = [], isLoading } = useListTasks(projectId, { query: { enabled: !!projectId } });
+  const createTask = useCreateTask();
+  const updateTask = useUpdateTask();
+  const deleteTask = useDeleteTask();
+
+  const [showDialog, setShowDialog] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newPriority, setNewPriority] = useState<"low" | "medium" | "high">("medium");
+  const [newDueDate, setNewDueDate] = useState("");
+
+  const columns: { key: Task["status"]; label: string; color: string }[] = [
+    { key: "todo", label: "To Do", color: "bg-slate-50 border-slate-200" },
+    { key: "in_progress", label: "In Progress", color: "bg-amber-50/50 border-amber-200" },
+    { key: "done", label: "Done", color: "bg-green-50/50 border-green-200" },
+  ];
+
+  const byStatus = (status: Task["status"]) =>
+    (tasks as Task[]).filter((t) => t.status === status);
+
+  function handleCreate() {
+    if (!newTitle.trim()) return;
+    createTask.mutate(
+      {
+        projectId,
+        data: {
+          title: newTitle.trim(),
+          description: newDesc.trim() || undefined,
+          priority: newPriority,
+          dueDate: newDueDate || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListTasksQueryKey(projectId) });
+          setShowDialog(false);
+          setNewTitle("");
+          setNewDesc("");
+          setNewPriority("medium");
+          setNewDueDate("");
+          toast({ title: "Task created" });
+        },
+        onError: () => toast({ title: "Failed to create task", variant: "destructive" }),
+      },
+    );
+  }
+
+  function handleStatusChange(taskId: number, status: Task["status"]) {
+    updateTask.mutate(
+      { projectId, taskId, data: { status } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListTasksQueryKey(projectId) });
+        },
+      },
+    );
+  }
+
+  function handleDelete(taskId: number) {
+    deleteTask.mutate(
+      { projectId, taskId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListTasksQueryKey(projectId) });
+          toast({ title: "Task deleted" });
+        },
+      },
+    );
+  }
+
+  return (
+    <>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-bold">Tasks</h3>
+        <Button onClick={() => setShowDialog(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Add Task
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center p-8 text-muted-foreground animate-pulse">Loading tasks...</div>
+      ) : (tasks as Task[]).length === 0 ? (
+        <div className="text-center p-8 border rounded-md bg-card">
+          <CheckSquare className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
+          <p className="font-medium">No tasks yet</p>
+          <p className="text-sm text-muted-foreground mt-1">Add tasks to track work items for this project.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {columns.map((col) => {
+            const colTasks = byStatus(col.key);
+            return (
+              <div key={col.key} className={`rounded-lg border p-3 ${col.color}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-sm">{col.label}</h4>
+                  <span className="text-xs bg-white border rounded-full px-2 py-0.5 font-medium">
+                    {colTasks.length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {colTasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onStatusChange={handleStatusChange}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                  {colTasks.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-4">No tasks</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium block mb-1">Title *</label>
+              <Input
+                placeholder="Task title"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Description</label>
+              <Textarea
+                placeholder="Optional description"
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                className="min-h-[80px]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium block mb-1">Priority</label>
+                <Select value={newPriority} onValueChange={(v) => setNewPriority(v as typeof newPriority)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Due Date</label>
+                <Input
+                  type="date"
+                  value={newDueDate}
+                  onChange={(e) => setNewDueDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
+            <Button
+              onClick={handleCreate}
+              disabled={!newTitle.trim() || createTask.isPending}
+            >
+              {createTask.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Add Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 export default function ProjectDetail() {
   const params = useParams();
@@ -46,7 +312,7 @@ export default function ProjectDetail() {
       case "low": return <Badge variant="outline">Low</Badge>;
       default: return <Badge variant="outline">{priority}</Badge>;
     }
-  }
+  };
 
   if (projectLoading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading project...</div>;
   if (!project) return <div className="p-8 text-center">Project not found</div>;
@@ -70,8 +336,9 @@ export default function ProjectDetail() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="reports">Daily Reports</TabsTrigger>
           <TabsTrigger value="cost">Cost Analysis</TabsTrigger>
           <TabsTrigger value="rfis">RFIs</TabsTrigger>
@@ -131,6 +398,10 @@ export default function ProjectDetail() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="tasks" className="mt-6">
+          <TasksTab projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="reports" className="mt-6">

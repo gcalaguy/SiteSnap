@@ -9,6 +9,9 @@ import costAnalysesRouter from "./costAnalyses";
 import rfisRouter from "./rfis";
 import aiRouter from "./ai";
 import dashboardRouter from "./dashboard";
+import tasksRouter from "./tasks";
+import photosRouter from "./photos";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -20,7 +23,10 @@ router.use(projectsRouter);
 router.use("/projects/:projectId/daily-reports", dailyReportsRouter);
 router.use("/projects/:projectId/cost-analyses", costAnalysesRouter);
 router.use("/projects/:projectId/rfis", rfisRouter);
+router.use("/projects/:projectId/tasks", tasksRouter);
+router.use("/projects/:projectId/daily-reports/:reportId/photos", photosRouter);
 router.use(aiRouter);
 router.use(dashboardRouter);
+router.use(storageRouter);
 
 export default router;

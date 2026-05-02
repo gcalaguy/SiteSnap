@@ -38,13 +38,15 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - RFIs: create, respond, track status, AI draft generation (MOCKED)
 - Dashboard: company-wide stats + recent activity feed
 
-### ⏳ Phase 2 — DATA & FEATURE LAYER (Pending)
-- Voice-to-text notes (text input placeholder)
-- Photo & receipt upload
-- OCR placeholder for receipts
-- Document upload & storage
-- Real AI summaries (replace mocked responses with LLM calls)
-- Task management
+### ✅ Phase 2 — DATA & FEATURE LAYER (Complete)
+- Real OpenAI GPT calls replacing mocked AI agents (daily report, cost analysis, RFI)
+- Photo upload on daily reports (presigned URL flow via object storage)
+- Task management: kanban board per project (Todo / In Progress / Done), CRUD
+- DB tables: `tasks`, `daily_report_photos`, `conversations`, `messages`
+- New API routes: `GET/POST /projects/:id/tasks`, `PATCH/DELETE /projects/:id/tasks/:taskId`
+- New API routes: `GET/POST /projects/:id/daily-reports/:rid/photos`, `DELETE .../photos/:photoId`
+- New API routes: `POST /storage/uploads/request-url`, `GET /storage/public-objects/*`
+- Project detail now has 5 tabs: Overview, Tasks, Daily Reports, Cost Analysis, RFIs
 
 ### ⏳ Phase 3 — MOBILE APP (Pending)
 - Expo mobile app for field crews
@@ -64,9 +66,9 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 
-## AI Agents (Phase 1 — MOCKED)
+## AI Agents (Phase 2 — REAL OpenAI)
 
-All three AI agents in Phase 1 return deterministic template-driven responses. They are clearly isolated in `artifacts/api-server/src/routes/ai.ts` for easy replacement with real LLM calls in Phase 2.
+All three AI agents now make real OpenAI `gpt-5.4` calls via the Replit AI Integration proxy (`@workspace/integrations-openai-ai-server`). Responses are JSON-structured by the model.
 
 - `POST /api/ai/daily-report/generate` — structures raw site notes into a daily report
 - `POST /api/ai/cost-analysis/generate` — analyzes cost breakdown and produces recommendations
@@ -74,10 +76,11 @@ All three AI agents in Phase 1 return deterministic template-driven responses. T
 
 ## Database Schema
 
-Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`
-Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_status`
+Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`
+Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_status`, `task_status`, `task_priority`
 
 ## Notes
 
-- Orval codegen fix: after running `pnpm --filter @workspace/api-spec run codegen`, manually rewrite `lib/api-zod/src/index.ts` to only export from `./generated/api` (orval regenerates stale exports)
-- AI agent responses are mocked in Phase 1 — real LLM integration happens in Phase 2
+- Orval codegen fix: after running `pnpm --filter @workspace/api-spec run codegen`, manually rewrite `lib/api-zod/src/index.ts` to only export from `./generated/api` (orval regenerates stale exports referencing `api.schemas` which doesn't exist for zod output)
+- `lib/api-client-react/src/generated/` has BOTH `api.ts` and `api.schemas.ts` — its barrel is correct
+- Object storage uses presigned URL flow: client POSTs to `/api/storage/uploads/request-url`, then PUTs file directly to the returned GCS URL
