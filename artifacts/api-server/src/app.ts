@@ -41,12 +41,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Resolve publishable key from host (supports custom domains)
+// secretKey is passed explicitly so it's available in both static and callback forms
 app.use(
   clerkMiddleware((req) => ({
     publishableKey: publishableKeyFromHost(
       getClerkProxyHost(req) ?? "",
       process.env.CLERK_PUBLISHABLE_KEY,
     ),
+    secretKey: process.env.CLERK_SECRET_KEY,
   })),
 );
 

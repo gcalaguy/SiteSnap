@@ -107,17 +107,23 @@ function SignUpPage() {
 
 function ClerkAuthTokenSetter() {
   const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+
+  // Keep the ref pointing to the latest getToken without re-registering the getter
+  getTokenRef.current = getToken;
 
   useLayoutEffect(() => {
+    // Register once on mount; use the ref so we always call the latest getToken
     setAuthTokenGetter(async () => {
       try {
-        return await getToken();
+        return await getTokenRef.current();
       } catch {
         return null;
       }
     });
+    // Only clear on unmount (sign-out), not on every getToken reference change
     return () => setAuthTokenGetter(null);
-  }, [getToken]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
 }
