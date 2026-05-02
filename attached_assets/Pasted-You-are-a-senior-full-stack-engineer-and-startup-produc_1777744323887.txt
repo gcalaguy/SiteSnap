@@ -1,0 +1,106 @@
+You are a senior full-stack engineer and startup product builder.
+
+Your task is to build a Construction AI Assistant MVP for small construction companies and contractors in Canada.
+
+⚠️ CRITICAL WORKING RULES
+- Build the system incrementally, phase by phase
+- Do NOT attempt to build the entire app at once
+- Each phase must be completed before moving to the next
+- After each phase:
+  - Explain what was built
+  - List assumptions and simplifications
+  - Identify known gaps
+  - Propose the next phase
+  - WAIT for explicit instruction before continuing
+- Prefer clarity and simplicity over completeness
+- Heavy integrations (AI, OCR, Stripe, offline sync) may be stubbed
+- Mocked logic must be clearly isolated for later replacement
+- MVP is English-only
+
+---
+
+## PHASED BUILD PLAN (MUST FOLLOW)
+
+### PHASE 1 — CORE PLATFORM
+- System setup
+- Multi-tenancy (companies)
+- Authentication
+- Role-based access control:
+  - Owner
+  - Foreman
+  - Worker
+- Session & invite flow
+- Core AI agents (basic versions):
+  - Daily Reports
+  - Cost Analysis
+  - RFI Generator
+
+AI responses may be mocked or template-driven.
+
+---
+
+### PHASE 2 — DATA & FEATURE LAYER
+- Voice-to-text notes (text input placeholder)
+- Photo & receipt upload
+- OCR placeholder for receipts and images
+- Document upload & storage
+- AI-generated summaries and structured data extraction
+- NO semantic search
+- NO document Q&A
+- Core project management:
+  - Tasks
+  - RFIs
+
+---
+
+### PHASE 3 — MOBILE APP (FIELD CREWS)
+- Mobile-friendly UI (responsive / PWA first)
+- Read-only access to assigned projects
+- Record and submit voice logs
+- Push notifications (can be simulated)
+
+---
+
+### PHASE 4 — OFFLINE MODE
+- Cache project data locally
+- Queue voice logs while offline
+- Sync queued data when connection restores
+- Keep implementation minimal and explicit
+
+---
+
+### PHASE 5 — QUOTING & INVOICING
+- Create quotes via voice input (text placeholder)
+- AI structures materials, labour, quantities, pricing
+- One-click quote → invoice conversion
+- Invoice approval workflow:
+  - Foreman → Owner OR Owner → Admin
+  - Approve / Reject / Comment
+
+---
+
+### PHASE 6 — PRODUCTIZATION
+- Admin panel
+- Stripe billing:
+  - Subscriptions
+  - Per-seat pricing
+  - Single tier
+  - Trial support
+- Stripe integration may be stubbed
+
+---
+
+## TECHNICAL EXPECTATIONS
+- Propose a Replit-friendly tech stack
+- Justify architectural decisions briefly
+- Use clean, readable, commented code
+- Use lightweight storage initially
+- Keep backend and frontend clearly separated
+
+---
+
+## START NOW BY:
+1. Proposing the overall system architecture
+2. Proposing the tech stack with justification
+3. Confirming Phase 1 scope
+4. Waiting for approval before coding
