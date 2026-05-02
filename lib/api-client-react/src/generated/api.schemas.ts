@@ -465,3 +465,36 @@ export interface AIAssistantBody {
 export interface AIAssistantResponse {
   reply: string;
 }
+
+export type ProjectDocumentStatus =
+  (typeof ProjectDocumentStatus)[keyof typeof ProjectDocumentStatus];
+
+export const ProjectDocumentStatus = {
+  pending: "pending",
+  processing: "processing",
+  ready: "ready",
+  failed: "failed",
+} as const;
+
+export type ProjectDocumentExtractedData = { [key: string]: unknown } | null;
+
+export interface ProjectDocument {
+  id: number;
+  projectId: number;
+  uploadedByUserId: number;
+  filename: string;
+  fileType: string;
+  objectPath: string;
+  fileSize?: number | null;
+  status: ProjectDocumentStatus;
+  extractedData?: ProjectDocumentExtractedData;
+  aiSummary?: string | null;
+  createdAt: string;
+}
+
+export interface RegisterDocumentBody {
+  filename: string;
+  fileType: string;
+  objectPath: string;
+  fileSize?: number;
+}

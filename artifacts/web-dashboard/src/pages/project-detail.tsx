@@ -14,6 +14,10 @@ import {
 import { getListTasksQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { queryClient } from "@/lib/queryClient";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
+import DocumentsTab from "@/components/DocumentsTab";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2 } from "lucide-react";
+import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type Task = {
@@ -336,12 +340,15 @@ export default function ProjectDetail() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
+        <TabsList className="grid w-full grid-cols-6 lg:w-[870px]">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="reports">Daily Reports</TabsTrigger>
           <TabsTrigger value="cost">Cost Analysis</TabsTrigger>
           <TabsTrigger value="rfis">RFIs</TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center gap-1.5">
+            <FolderOpen className="h-3.5 w-3.5" />Documents
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-6">
@@ -446,6 +453,37 @@ export default function ProjectDetail() {
               <Plus className="mr-2 h-4 w-4" /> Add Cost Record
             </Button>
           </div>
+          {costAnalyses && costAnalyses.length > 0 && (
+            <Card className="mb-6">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Spend by Period</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart
+                    data={costAnalyses.map((c) => ({
+                      name: c.periodLabel,
+                      Labour: Number(c.labourCost),
+                      Materials: Number(c.materialsCost),
+                      Equipment: Number(c.equipmentCost),
+                      Other: Number(c.otherCost),
+                    }))}
+                    margin={{ top: 4, right: 16, left: 0, bottom: 4 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, undefined]} />
+                    <Legend />
+                    <Bar dataKey="Labour" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="Materials" stackId="a" fill="#f59e0b" />
+                    <Bar dataKey="Equipment" stackId="a" fill="#FF6600" />
+                    <Bar dataKey="Other" stackId="a" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
           {costAnalyses?.length === 0 ? (
             <div className="text-center p-8 border rounded-md bg-card">
               <DollarSign className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
@@ -515,6 +553,9 @@ export default function ProjectDetail() {
               ))}
             </div>
           )}
+        </TabsContent>
+        <TabsContent value="documents" className="mt-6">
+          <DocumentsTab projectId={projectId} />
         </TabsContent>
       </Tabs>
     </div>

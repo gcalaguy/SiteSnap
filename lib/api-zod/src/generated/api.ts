@@ -944,6 +944,72 @@ export const DeleteReportPhotoParams = zod.object({
 });
 
 /**
+ * @summary List project documents
+ */
+export const ListDocumentsParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListDocumentsResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  uploadedByUserId: zod.number(),
+  filename: zod.string(),
+  fileType: zod.string(),
+  objectPath: zod.string(),
+  fileSize: zod.number().nullish(),
+  status: zod.enum(["pending", "processing", "ready", "failed"]),
+  extractedData: zod.record(zod.string(), zod.unknown()).nullish(),
+  aiSummary: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListDocumentsResponse = zod.array(ListDocumentsResponseItem);
+
+/**
+ * @summary Register a document after upload
+ */
+export const RegisterDocumentParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const RegisterDocumentBody = zod.object({
+  filename: zod.string(),
+  fileType: zod.string(),
+  objectPath: zod.string(),
+  fileSize: zod.number().optional(),
+});
+
+/**
+ * @summary Delete a project document
+ */
+export const DeleteDocumentParams = zod.object({
+  projectId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+/**
+ * @summary Run AI extraction on a document (images only)
+ */
+export const ExtractDocumentParams = zod.object({
+  projectId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const ExtractDocumentResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  uploadedByUserId: zod.number(),
+  filename: zod.string(),
+  fileType: zod.string(),
+  objectPath: zod.string(),
+  fileSize: zod.number().nullish(),
+  status: zod.enum(["pending", "processing", "ready", "failed"]),
+  extractedData: zod.record(zod.string(), zod.unknown()).nullish(),
+  aiSummary: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Request a presigned URL for file upload
  */
 

@@ -276,6 +276,39 @@ export type InsertDailyReportPhoto = z.infer<
 >;
 export type DailyReportPhoto = typeof dailyReportPhotosTable.$inferSelect;
 
+// ── Project Documents ─────────────────────────────────────────────────────────
+
+export const documentStatusEnum = pgEnum("document_status", [
+  "pending",
+  "processing",
+  "ready",
+  "failed",
+]);
+
+export const projectDocumentsTable = pgTable("project_documents", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id),
+  uploadedByUserId: integer("uploaded_by_user_id")
+    .notNull()
+    .references(() => usersTable.id),
+  filename: text("filename").notNull(),
+  fileType: text("file_type").notNull(),
+  objectPath: text("object_path").notNull(),
+  fileSize: integer("file_size"),
+  status: documentStatusEnum("status").notNull().default("pending"),
+  extractedData: json("extracted_data"),
+  aiSummary: text("ai_summary"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertProjectDocumentSchema = createInsertSchema(
+  projectDocumentsTable,
+).omit({ id: true, createdAt: true });
+export type InsertProjectDocument = z.infer<typeof insertProjectDocumentSchema>;
+export type ProjectDocument = typeof projectDocumentsTable.$inferSelect;
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 
 export const notificationsTable = pgTable("notifications", {

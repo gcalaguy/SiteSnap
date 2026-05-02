@@ -48,7 +48,15 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - New API routes: `POST /storage/uploads/request-url`, `GET /storage/public-objects/*`
 - Project detail now has 5 tabs: Overview, Tasks, Daily Reports, Cost Analysis, RFIs
 
-### ✅ Phase 3 — MOBILE APP (Complete)
+### ✅ Phase 3 — DATA & FEATURE LAYER (Complete)
+- **Cost bar chart**: Stacked BarChart (recharts) in Cost Analysis tab — Labour/Materials/Equipment/Other per period
+- **Document upload/storage**: `project_documents` table; presigned URL upload to object storage; `GET/POST /projects/:id/documents`, `DELETE /projects/:id/documents/:id`
+- **OCR + AI extraction**: `POST /projects/:id/documents/:id/extract` — GPT-4 vision reads receipts/photos → extracts vendor, amount, currency, date, line items, invoice #, project ref; images only (JPEG, PNG, WebP, GIF); other file types stored for manual download
+- **Documents tab**: New tab on web project detail — upload button, file list with status badges (pending/processing/ready/failed), expandable AI extraction panel with line-item table, download button
+- **Voice-to-text notes**: Mic button on New Report page (web) — MediaRecorder captures audio → `/api/ai/transcribe` (OpenAI STT) → transcribed text appended to raw notes field; recording pulse animation, error states
+- **Daily digest email**: Automated morning digest at 7:00 AM ET via `node-cron` + Resend API; "Send Now" button in Settings page; HTML email with budget/RFI/task summary
+
+### ✅ Phase 4 — MOBILE APP (Complete)
 - Expo mobile app (`artifacts/mobile`) for field crews using Expo Go (SDK 54)
 - 6 tabs: Home, Projects, Log (daily reports + AI assist), Ask AI (chat), Tasks, Profile
 - Clerk auth with AsyncStorage token cache (SecureStore shimmed for Expo Go compatibility)
@@ -100,10 +108,10 @@ All three AI agents now make real OpenAI `gpt-5.4` calls via the Replit AI Integ
 
 ## Database Schema
 
-Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`, `notifications`
+Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`, `notifications`, `project_documents`
 `users` has `pushToken text` (nullable) for Expo push tokens.
 `notifications`: userId, type ("task"|"rfi"), title, body, referenceId, projectId, isRead (boolean, default false), createdAt.
-Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_status`, `task_status`, `task_priority`
+Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_status`, `task_status`, `task_priority`, `document_status`
 
 ## Auth Architecture
 

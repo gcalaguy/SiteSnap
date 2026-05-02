@@ -43,7 +43,9 @@ import type {
   HealthStatus,
   Invitation,
   Project,
+  ProjectDocument,
   ProjectSummary,
+  RegisterDocumentBody,
   Rfi,
   SyncUserBody,
   Task,
@@ -3707,6 +3709,351 @@ export const useDeleteReportPhoto = <
   TContext
 > => {
   return useMutation(getDeleteReportPhotoMutationOptions(options));
+};
+
+/**
+ * @summary List project documents
+ */
+export const getListDocumentsUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/documents`;
+};
+
+export const listDocuments = async (
+  projectId: number,
+  options?: RequestInit,
+): Promise<ProjectDocument[]> => {
+  return customFetch<ProjectDocument[]>(getListDocumentsUrl(projectId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDocumentsQueryKey = (projectId: number) => {
+  return [`/api/projects/${projectId}/documents`] as const;
+};
+
+export const getListDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListDocumentsQueryKey(projectId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDocuments>>> = ({
+    signal,
+  }) => listDocuments(projectId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDocuments>>
+>;
+export type ListDocumentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List project documents
+ */
+
+export function useListDocuments<
+  TData = Awaited<ReturnType<typeof listDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDocumentsQueryOptions(projectId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register a document after upload
+ */
+export const getRegisterDocumentUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/documents`;
+};
+
+export const registerDocument = async (
+  projectId: number,
+  registerDocumentBody: RegisterDocumentBody,
+  options?: RequestInit,
+): Promise<ProjectDocument> => {
+  return customFetch<ProjectDocument>(getRegisterDocumentUrl(projectId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(registerDocumentBody),
+  });
+};
+
+export const getRegisterDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerDocument>>,
+    TError,
+    { projectId: number; data: BodyType<RegisterDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerDocument>>,
+  TError,
+  { projectId: number; data: BodyType<RegisterDocumentBody> },
+  TContext
+> => {
+  const mutationKey = ["registerDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerDocument>>,
+    { projectId: number; data: BodyType<RegisterDocumentBody> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return registerDocument(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerDocument>>
+>;
+export type RegisterDocumentMutationBody = BodyType<RegisterDocumentBody>;
+export type RegisterDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register a document after upload
+ */
+export const useRegisterDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerDocument>>,
+    TError,
+    { projectId: number; data: BodyType<RegisterDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerDocument>>,
+  TError,
+  { projectId: number; data: BodyType<RegisterDocumentBody> },
+  TContext
+> => {
+  return useMutation(getRegisterDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Delete a project document
+ */
+export const getDeleteDocumentUrl = (projectId: number, docId: number) => {
+  return `/api/projects/${projectId}/documents/${docId}`;
+};
+
+export const deleteDocument = async (
+  projectId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteDocumentUrl(projectId, docId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDocument>>,
+    TError,
+    { projectId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteDocument>>,
+  TError,
+  { projectId: number; docId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteDocument>>,
+    { projectId: number; docId: number }
+  > = (props) => {
+    const { projectId, docId } = props ?? {};
+
+    return deleteDocument(projectId, docId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteDocument>>
+>;
+
+export type DeleteDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a project document
+ */
+export const useDeleteDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDocument>>,
+    TError,
+    { projectId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteDocument>>,
+  TError,
+  { projectId: number; docId: number },
+  TContext
+> => {
+  return useMutation(getDeleteDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Run AI extraction on a document (images only)
+ */
+export const getExtractDocumentUrl = (projectId: number, docId: number) => {
+  return `/api/projects/${projectId}/documents/${docId}/extract`;
+};
+
+export const extractDocument = async (
+  projectId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<ProjectDocument> => {
+  return customFetch<ProjectDocument>(getExtractDocumentUrl(projectId, docId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getExtractDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof extractDocument>>,
+    TError,
+    { projectId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof extractDocument>>,
+  TError,
+  { projectId: number; docId: number },
+  TContext
+> => {
+  const mutationKey = ["extractDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof extractDocument>>,
+    { projectId: number; docId: number }
+  > = (props) => {
+    const { projectId, docId } = props ?? {};
+
+    return extractDocument(projectId, docId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExtractDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof extractDocument>>
+>;
+
+export type ExtractDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Run AI extraction on a document (images only)
+ */
+export const useExtractDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof extractDocument>>,
+    TError,
+    { projectId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof extractDocument>>,
+  TError,
+  { projectId: number; docId: number },
+  TContext
+> => {
+  return useMutation(getExtractDocumentMutationOptions(options));
 };
 
 /**
