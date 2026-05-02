@@ -33,9 +33,13 @@ export function useVoiceRecorder(onTranscript: (text: string) => void) {
         setState("transcribing");
         try {
           const arrayBuffer = await blob.arrayBuffer();
-          const base64 = btoa(
-            String.fromCharCode(...new Uint8Array(arrayBuffer)),
-          );
+          const bytes = new Uint8Array(arrayBuffer);
+          let binary = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          const base64 = btoa(binary);
           const format = mimeType.includes("webm") ? "webm" : "ogg";
           const res = await fetch("/api/ai/transcribe", {
             method: "POST",
