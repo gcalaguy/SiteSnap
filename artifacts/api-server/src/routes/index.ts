@@ -14,6 +14,7 @@ import tasksRouter from "./tasks";
 import photosRouter from "./photos";
 import storageRouter from "./storage";
 import notificationsRouter from "./notifications";
+import digestRouter from "./digest";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(conversationsRouter);
 router.use(dashboardRouter);
 router.use(storageRouter);
 router.use(notificationsRouter);
+router.use(digestRouter);
 
 export default router;
