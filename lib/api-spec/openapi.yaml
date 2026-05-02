@@ -1335,6 +1335,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/Invoice"
 
+  /invoices/{invoiceId}/send-email:
+    post:
+      operationId: sendInvoiceEmail
+      tags: [invoices]
+      summary: Send invoice PDF to client via email
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pdfBase64]
+              properties:
+                pdfBase64:
+                  type: string
+                  description: Base64-encoded PDF bytes
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  sandboxWarning:
+                    type: string
+
 components:
   parameters:
     companyId:

@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "wouter";
-import { useGetInvoice, useMarkInvoiceSent, useMarkInvoicePaid, useGetMe } from "@workspace/api-client-react";
+import { useGetInvoice, useMarkInvoiceSent, useMarkInvoicePaid, useGetMe, useSendInvoiceEmail } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download } from "lucide-react";
+import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetInvoiceQueryKey, getListAllInvoicesQueryKey } from "@workspace/api-client-react";
@@ -70,7 +70,8 @@ interface Invoice {
   lineItems?: unknown;
 }
 
-function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName: string) {
+// Shared PDF builder — returns a jsPDF instance without saving
+function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: string): jsPDF {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
 
   const PRIMARY = [255, 102, 0] as [number, number, number];
@@ -80,29 +81,24 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 18;
 
-  // Header bar
   doc.setFillColor(...PRIMARY);
   doc.rect(0, 0, pageW, 28, "F");
 
-  // Company name
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(255, 255, 255);
   doc.text(companyName, margin, 13);
 
-  // "INVOICE" label
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(255, 220, 180);
   doc.text("INVOICE", pageW - margin, 10, { align: "right" });
 
-  // Invoice number
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
   doc.text(invoice.invoiceNumber, pageW - margin, 19, { align: "right" });
 
-  // Status badge area
   const statusLabel = STATUS_LABELS[invoice.status] ?? invoice.status;
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
@@ -111,18 +107,15 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
 
   let y = 38;
 
-  // Title
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
   doc.setTextColor(...DARK);
   doc.text(invoice.title, margin, y);
   y += 8;
 
-  // Meta row: Bill To + Dates
   doc.setFillColor(...LIGHT_GRAY);
   doc.roundedRect(margin, y, pageW - margin * 2, 26, 2, 2, "F");
 
-  // Bill To
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(...GRAY);
@@ -138,7 +131,6 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
     doc.text(invoice.clientEmail, margin + 4, y + 19);
   }
 
-  // Dates (right side)
   const dateX = pageW - margin - 4;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
@@ -156,7 +148,6 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
   );
   y += 34;
 
-  // Line items table
   autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
@@ -168,18 +159,8 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
       fmtCAD(item.unitPrice),
       fmtCAD(item.total),
     ]),
-    headStyles: {
-      fillColor: DARK,
-      textColor: [255, 255, 255],
-      fontSize: 8,
-      fontStyle: "bold",
-      cellPadding: 4,
-    },
-    bodyStyles: {
-      fontSize: 9,
-      cellPadding: 3.5,
-      textColor: DARK,
-    },
+    headStyles: { fillColor: DARK, textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold", cellPadding: 4 },
+    bodyStyles: { fontSize: 9, cellPadding: 3.5, textColor: DARK },
     alternateRowStyles: { fillColor: LIGHT_GRAY },
     columnStyles: {
       0: { cellWidth: "auto" },
@@ -193,7 +174,6 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
 
   y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
 
-  // Totals block (right-aligned)
   const totalsX = pageW - margin;
   const labelX = totalsX - 40;
 
@@ -212,7 +192,6 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
   doc.text(fmtCAD(invoice.taxAmount), totalsX, y, { align: "right" });
   y += 4;
 
-  // Total bar
   doc.setFillColor(...PRIMARY);
   doc.roundedRect(labelX - 24, y, 24 + totalsX - labelX + 1, 10, 1.5, 1.5, "F");
   doc.setFont("helvetica", "bold");
@@ -222,7 +201,6 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
   doc.text(fmtCAD(invoice.total), totalsX - 1, y + 6.5, { align: "right" });
   y += 16;
 
-  // Notes
   if (invoice.notes) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
@@ -234,10 +212,8 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
     doc.setTextColor(...DARK);
     const lines = doc.splitTextToSize(invoice.notes, pageW - margin * 2);
     doc.text(lines, margin, y);
-    y += lines.length * 5 + 4;
   }
 
-  // Paid stamp
   if (invoice.status === "paid" && invoice.paidAt) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(36);
@@ -247,7 +223,6 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
     doc.setGState(new (doc as unknown as { GState: new (opts: { opacity: number }) => object }).GState({ opacity: 1 }));
   }
 
-  // Footer
   const pageH = doc.internal.pageSize.getHeight();
   doc.setFillColor(...DARK);
   doc.rect(0, pageH - 12, pageW, 12, "F");
@@ -257,7 +232,17 @@ function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
   doc.text(`Generated by BuildCore · ${invoice.invoiceNumber}`, margin, pageH - 4.5);
   doc.text(format(new Date(), "MMM d, yyyy"), pageW - margin, pageH - 4.5, { align: "right" });
 
-  doc.save(`${invoice.invoiceNumber}.pdf`);
+  return doc;
+}
+
+function downloadInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName: string) {
+  buildPdfDoc(invoice, lineItems, companyName).save(`${invoice.invoiceNumber}.pdf`);
+}
+
+function buildPdfBase64(invoice: Invoice, lineItems: LineItem[], companyName: string): string {
+  // output("datauristring") returns "data:application/pdf;base64,<b64>" — strip the prefix
+  const dataUri = buildPdfDoc(invoice, lineItems, companyName).output("datauristring");
+  return dataUri.split(",")[1] ?? dataUri;
 }
 
 export default function InvoiceDetail() {
@@ -271,6 +256,11 @@ export default function InvoiceDetail() {
   const { data: me } = useGetMe();
   const markSent = useMarkInvoiceSent();
   const markPaid = useMarkInvoicePaid();
+  const sendEmail = useSendInvoiceEmail();
+
+  function getCompanyName() {
+    return (me as (typeof me & { company?: { name?: string } }) | undefined)?.company?.name ?? "BuildCore";
+  }
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoiceId) });
@@ -293,10 +283,38 @@ export default function InvoiceDetail() {
 
   function handleDownloadPDF() {
     if (!invoice) return;
-    const lineItems = (invoice.lineItems ?? []) as LineItem[];
-    const companyName = (me as (typeof me & { company?: { name?: string } }) | undefined)?.company?.name ?? "BuildCore";
-    generateInvoicePDF(invoice as Invoice, lineItems, companyName);
+    downloadInvoicePDF(invoice as Invoice, (invoice.lineItems ?? []) as LineItem[], getCompanyName());
     toast({ title: "PDF downloaded" });
+  }
+
+  function handleSendEmail() {
+    if (!invoice) return;
+    if (!invoice.clientEmail) {
+      toast({ title: "No client email on this invoice", variant: "destructive" });
+      return;
+    }
+    const pdfBase64 = buildPdfBase64(
+      invoice as Invoice,
+      (invoice.lineItems ?? []) as LineItem[],
+      getCompanyName()
+    );
+    sendEmail.mutate(
+      { invoiceId, data: { pdfBase64 } },
+      {
+        onSuccess: (result) => {
+          if (result.sandboxWarning) {
+            toast({
+              title: "Sandbox mode — email not delivered",
+              description: "Verify a domain at resend.com/domains to send to any recipient.",
+              variant: "destructive",
+            });
+          } else {
+            toast({ title: `Invoice emailed to ${invoice.clientEmail}` });
+          }
+        },
+        onError: () => toast({ title: "Failed to send email", variant: "destructive" }),
+      }
+    );
   }
 
   if (isLoading) {
@@ -321,6 +339,7 @@ export default function InvoiceDetail() {
   }
 
   const lineItems = (invoice.lineItems ?? []) as LineItem[];
+  const hasClientEmail = !!invoice.clientEmail;
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -346,10 +365,23 @@ export default function InvoiceDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap items-center">
-          {/* Download PDF — always available */}
+          {/* Download PDF */}
           <Button variant="outline" onClick={handleDownloadPDF}>
             <Download className="h-4 w-4 mr-2" />
             Download PDF
+          </Button>
+
+          {/* Send via Email */}
+          <Button
+            variant="outline"
+            onClick={handleSendEmail}
+            disabled={sendEmail.isPending || !hasClientEmail}
+            title={!hasClientEmail ? "Add a client email to enable sending" : undefined}
+          >
+            {sendEmail.isPending
+              ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              : <Mail className="h-4 w-4 mr-2" />}
+            {sendEmail.isPending ? "Sending…" : "Send via Email"}
           </Button>
 
           {invoice.status === "draft" && (
@@ -391,10 +423,7 @@ export default function InvoiceDetail() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-green-600 hover:bg-green-700"
-                    onClick={handleMarkPaid}
-                  >
+                  <AlertDialogAction className="bg-green-600 hover:bg-green-700" onClick={handleMarkPaid}>
                     Confirm Payment
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -442,7 +471,6 @@ export default function InvoiceDetail() {
         <CardContent>
           <Separator className="mb-4" />
 
-          {/* Line items table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -470,7 +498,6 @@ export default function InvoiceDetail() {
 
           <Separator className="my-4" />
 
-          {/* Totals */}
           <div className="flex flex-col items-end gap-1.5 text-sm">
             <div className="flex w-52 justify-between">
               <span className="text-muted-foreground">Subtotal</span>

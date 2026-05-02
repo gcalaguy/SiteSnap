@@ -1685,3 +1685,19 @@ export const MarkInvoicePaidResponse = zod.object({
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
+
+/**
+ * @summary Send invoice PDF to client via email
+ */
+export const SendInvoiceEmailParams = zod.object({
+  invoiceId: zod.coerce.number(),
+});
+
+export const SendInvoiceEmailBody = zod.object({
+  pdfBase64: zod.string().describe("Base64-encoded PDF bytes"),
+});
+
+export const SendInvoiceEmailResponse = zod.object({
+  ok: zod.boolean().optional(),
+  sandboxWarning: zod.string().optional(),
+});

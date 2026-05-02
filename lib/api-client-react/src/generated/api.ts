@@ -56,6 +56,8 @@ import type {
   RegisterDocumentBody,
   RejectQuoteBody,
   Rfi,
+  SendInvoiceEmail200,
+  SendInvoiceEmailBody,
   SyncUserBody,
   Task,
   UpdateInvoiceBody,
@@ -5665,4 +5667,91 @@ export const useMarkInvoicePaid = <
   TContext
 > => {
   return useMutation(getMarkInvoicePaidMutationOptions(options));
+};
+
+/**
+ * @summary Send invoice PDF to client via email
+ */
+export const getSendInvoiceEmailUrl = (invoiceId: number) => {
+  return `/api/invoices/${invoiceId}/send-email`;
+};
+
+export const sendInvoiceEmail = async (
+  invoiceId: number,
+  sendInvoiceEmailBody: SendInvoiceEmailBody,
+  options?: RequestInit,
+): Promise<SendInvoiceEmail200> => {
+  return customFetch<SendInvoiceEmail200>(getSendInvoiceEmailUrl(invoiceId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(sendInvoiceEmailBody),
+  });
+};
+
+export const getSendInvoiceEmailMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendInvoiceEmail>>,
+    TError,
+    { invoiceId: number; data: BodyType<SendInvoiceEmailBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendInvoiceEmail>>,
+  TError,
+  { invoiceId: number; data: BodyType<SendInvoiceEmailBody> },
+  TContext
+> => {
+  const mutationKey = ["sendInvoiceEmail"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendInvoiceEmail>>,
+    { invoiceId: number; data: BodyType<SendInvoiceEmailBody> }
+  > = (props) => {
+    const { invoiceId, data } = props ?? {};
+
+    return sendInvoiceEmail(invoiceId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendInvoiceEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendInvoiceEmail>>
+>;
+export type SendInvoiceEmailMutationBody = BodyType<SendInvoiceEmailBody>;
+export type SendInvoiceEmailMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send invoice PDF to client via email
+ */
+export const useSendInvoiceEmail = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendInvoiceEmail>>,
+    TError,
+    { invoiceId: number; data: BodyType<SendInvoiceEmailBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendInvoiceEmail>>,
+  TError,
+  { invoiceId: number; data: BodyType<SendInvoiceEmailBody> },
+  TContext
+> => {
+  return useMutation(getSendInvoiceEmailMutationOptions(options));
 };

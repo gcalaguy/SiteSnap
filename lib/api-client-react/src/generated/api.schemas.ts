@@ -671,3 +671,13 @@ export const ListAllInvoicesStatus = {
   overdue: "overdue",
   cancelled: "cancelled",
 } as const;
+
+export type SendInvoiceEmailBody = {
+  /** Base64-encoded PDF bytes */
+  pdfBase64: string;
+};
+
+export type SendInvoiceEmail200 = {
+  ok?: boolean;
+  sandboxWarning?: string;
+};

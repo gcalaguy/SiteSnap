@@ -1,9 +1,15 @@
 import { logger } from "./logger.js";
 
+interface EmailAttachment {
+  filename: string;
+  content: string; // base64
+}
+
 interface EmailPayload {
   to: string[];
   subject: string;
   html: string;
+  attachments?: EmailAttachment[];
 }
 
 export class ResendSandboxError extends Error {
@@ -39,6 +45,9 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
       to: payload.to,
       subject: payload.subject,
       html: payload.html,
+      ...(payload.attachments?.length
+        ? { attachments: payload.attachments }
+        : {}),
     }),
   });
 

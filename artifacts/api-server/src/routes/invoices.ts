@@ -1,8 +1,10 @@
 import { Router } from "express";
-import { db, invoicesTable, quotesTable } from "@workspace/db";
+import { db, invoicesTable, quotesTable, companiesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { UpdateInvoiceBody } from "@workspace/api-zod";
+import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
+import { format } from "date-fns";
 
 const router = Router();
 
@@ -104,6 +106,93 @@ router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, async
     .set({ status: "sent", sentAt: now, updatedAt: now })
     .where(eq(invoicesTable.id, invoiceId)).returning();
   res.json(updated);
+});
+
+// POST /invoices/:invoiceId/send-email
+router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, async (req, res) => {
+  const invoiceId = parseInt(req.params.invoiceId);
+  const { pdfBase64 } = req.body as { pdfBase64?: string };
+
+  if (!pdfBase64) {
+    res.status(400).json({ error: "pdfBase64 is required" });
+    return;
+  }
+
+  const [invoice] = await db
+    .select()
+    .from(invoicesTable)
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
+
+  if (!invoice.clientEmail) {
+    res.status(400).json({ error: "Invoice has no client email address" });
+    return;
+  }
+
+  // Fetch company name for the email
+  const [company] = await db
+    .select({ name: companiesTable.name })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, req.companyId!))
+    .limit(1);
+  const companyName = company?.name ?? "BuildCore";
+
+  const fmtCAD = (v: string | number) =>
+    new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#172034;">
+      <div style="background:#FF6600;padding:24px 32px;border-radius:8px 8px 0 0;">
+        <h1 style="color:#fff;margin:0;font-size:22px;">${companyName}</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:14px;">Invoice ${invoice.invoiceNumber}</p>
+      </div>
+      <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        <p style="margin:0 0 16px;">Hi ${invoice.clientName},</p>
+        <p style="margin:0 0 16px;">Please find your invoice <strong>${invoice.invoiceNumber}</strong> attached to this email.</p>
+        <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:4px 0 0 4px;color:#6b7280;font-size:13px;">Invoice Number</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-left:none;font-size:13px;font-weight:600;">${invoice.invoiceNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;color:#6b7280;font-size:13px;">Amount Due</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;font-size:13px;font-weight:600;color:#FF6600;">${fmtCAD(invoice.total)} CAD</td>
+          </tr>
+          ${invoice.dueDate ? `<tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 0 4px;color:#6b7280;font-size:13px;">Due Date</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;border-radius:0 0 4px 0;font-size:13px;font-weight:600;">${format(new Date(invoice.dueDate), "MMMM d, yyyy")}</td>
+          </tr>` : ""}
+        </table>
+        <p style="margin:0;font-size:13px;color:#6b7280;">If you have any questions about this invoice, please don't hesitate to reach out.</p>
+        <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">Thank you for your business.</p>
+        <p style="margin:8px 0 0;font-size:13px;font-weight:600;">${companyName}</p>
+      </div>
+      <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0;">Powered by BuildCore</p>
+    </div>
+  `;
+
+  try {
+    await sendEmail({
+      to: [invoice.clientEmail],
+      subject: `Invoice ${invoice.invoiceNumber} from ${companyName} — ${fmtCAD(invoice.total)} CAD`,
+      html,
+      attachments: [
+        {
+          filename: `${invoice.invoiceNumber}.pdf`,
+          content: pdfBase64,
+        },
+      ],
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err instanceof ResendSandboxError) {
+      res.json({ ok: false, sandboxWarning: err.message });
+      return;
+    }
+    req.log.error({ err }, "Failed to send invoice email");
+    res.status(500).json({ error: "Failed to send email" });
+  }
 });
 
 // POST /invoices/:invoiceId/mark-paid
