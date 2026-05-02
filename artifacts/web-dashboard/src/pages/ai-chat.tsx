@@ -327,7 +327,7 @@ export default function AIChat() {
             <Bot className="h-4 w-4 text-primary-foreground" />
           </div>
           <div>
-            <div className="font-semibold text-sm leading-tight">BuildCore AI</div>
+            <div className="font-semibold text-sm leading-tight">Site Snap AI</div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
               Construction specialist · Canadian codes

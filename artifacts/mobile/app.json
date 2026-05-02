@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "BuildCore Mobile",
+    "name": "Site Snap",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/sitesnap-logo.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/icon.png",
+      "image": "./assets/images/sitesnap-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#172034"
     },
@@ -28,7 +28,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/sitesnap-logo.png"
     },
     "plugins": [
       [
@@ -43,7 +43,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/images/sitesnap-logo.png",
           "color": "#FF6600",
           "defaultChannel": "default"
         }
@@ -51,15 +51,15 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "BuildCore uses your location to show current weather at your job site.",
-          "locationAlwaysAndWhenInUsePermission": "BuildCore uses your location to show current weather at your job site."
+          "locationWhenInUsePermission": "Site Snap uses your location to show current weather at your job site.",
+          "locationAlwaysAndWhenInUsePermission": "Site Snap uses your location to show current weather at your job site."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "BuildCore uses your photo library to attach site photos to daily reports.",
-          "cameraPermission": "BuildCore uses your camera to capture site photos for daily reports."
+          "photosPermission": "Site Snap uses your photo library to attach site photos to daily reports.",
+          "cameraPermission": "Site Snap uses your camera to capture site photos for daily reports."
         }
       ]
     ],

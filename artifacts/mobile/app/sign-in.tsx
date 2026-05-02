@@ -4,6 +4,7 @@ import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -231,11 +232,13 @@ export default function SignInScreen() {
     >
       <View style={s.container}>
         <View style={s.logoArea}>
-          <View style={s.logo}>
-            <Feather name="hard-drive" size={28} color="#FFFFFF" />
-          </View>
-          <Text style={s.appName}>BuildCore</Text>
-          <Text style={s.tagline}>Construction AI for Canadian crews</Text>
+          <Image
+            source={require("../assets/images/sitesnap-logo.png")}
+            style={{ width: 80, height: 80, borderRadius: 16, marginBottom: 24 }}
+            resizeMode="contain"
+          />
+          <Text style={s.appName}>Site Snap</Text>
+          <Text style={s.tagline}>Construction Efficiency, Simplified</Text>
         </View>
 
         <View style={s.form}>

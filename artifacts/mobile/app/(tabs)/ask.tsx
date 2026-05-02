@@ -289,7 +289,7 @@ export default function AskScreen() {
         style={[styles.header, { paddingTop: topInsets + 16, backgroundColor: colors.sidebar }]}
       >
         <View style={styles.headerLeft}>
-          <Text style={[styles.title, { color: "#FFFFFF" }]}>BuildCore AI</Text>
+          <Text style={[styles.title, { color: "#FFFFFF" }]}>Site Snap AI</Text>
           <Text style={[styles.subtitle, { color: "rgba(255,255,255,0.55)" }]}>
             Your construction assistant
           </Text>

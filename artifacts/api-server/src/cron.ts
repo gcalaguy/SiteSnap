@@ -35,7 +35,7 @@ export async function sendDigestForAllCompanies(): Promise<{
       }
 
       const html = buildDigestHtml(digest);
-      const subject = `BuildCore Daily Digest — ${digest.date}`;
+      const subject = `Site Snap Daily Digest — ${digest.date}`;
       const to = digest.recipients.map((r) => r.email);
 
       await sendEmail({ to, subject, html });

@@ -221,7 +221,7 @@ export default function AdminPage() {
       {billingResult === "success" && (
         <div className="flex items-center gap-3 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-green-800">
           <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span className="text-sm font-medium">Subscription activated! Welcome to BuildCore.</span>
+          <span className="text-sm font-medium">Subscription activated! Welcome to Site Snap.</span>
         </div>
       )}
       {billingResult === "cancel" && (
@@ -249,7 +249,7 @@ export default function AdminPage() {
                 {planIcon(currentPlan?.metadata?.plan)}
                 <div>
                   <div className="font-semibold text-sm">
-                    {currentPlan?.name ?? "BuildCore Plan"}
+                    {currentPlan?.name ?? "Site Snap Plan"}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     Renews {new Date((subscription.current_period_end ?? 0) * 1000).toLocaleDateString("en-CA", { dateStyle: "medium" })}
@@ -390,7 +390,7 @@ export default function AdminPage() {
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3 mb-2">
                     {planIcon(plan.metadata.plan)}
-                    <CardTitle className="text-base">{plan.name.replace("BuildCore ", "")}</CardTitle>
+                    <CardTitle className="text-base">{plan.name.replace("Site Snap ", "")}</CardTitle>
                   </div>
                   <div className="flex items-end gap-1">
                     <span className="text-3xl font-bold">
@@ -445,7 +445,7 @@ export default function AdminPage() {
             Refer a Contractor
           </CardTitle>
           <CardDescription>
-            Share your unique link with other construction companies. Help them get set up on BuildCore.
+            Share your unique link with other construction companies. Help them get set up on Site Snap.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

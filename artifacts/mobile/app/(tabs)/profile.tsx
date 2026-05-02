@@ -112,9 +112,9 @@ export default function ProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await Share.share({
-        message: `Join me on BuildCore — the AI-powered construction management app for Canadian contractors. Sign up here: ${referralData.referralLink}`,
+        message: `Join me on Site Snap — the AI-powered construction management app for Canadian contractors. Sign up here: ${referralData.referralLink}`,
         url: referralData.referralLink,
-        title: "Join BuildCore",
+        title: "Join Site Snap",
       });
     } catch {}
   }
@@ -229,7 +229,7 @@ export default function ProfileScreen() {
       </View>
 
       <Text style={[styles.versionText, { color: colors.mutedForeground }]}>
-        BuildCore Mobile v1.0.0
+        Site Snap v1.0.0
       </Text>
     </ScrollView>
   );

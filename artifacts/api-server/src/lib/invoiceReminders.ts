@@ -49,7 +49,7 @@ function buildReminderHtml(invoice: {
         <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">Thank you for your business.</p>
         <p style="margin:8px 0 0;font-size:13px;font-weight:600;">${companyName}</p>
       </div>
-      <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0;">Powered by BuildCore</p>
+      <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0;">Powered by Site Snap</p>
     </div>
   `;
 }
@@ -152,7 +152,7 @@ export async function sendOverdueReminders(): Promise<{
 
   for (const invoice of overdueInvoices) {
     if (!invoice.clientEmail) { skipped++; continue; }
-    const companyName = companyMap.get(invoice.companyId) ?? "BuildCore";
+    const companyName = companyMap.get(invoice.companyId) ?? "Site Snap";
     try {
       const result = await sendReminderForInvoice(invoice as Parameters<typeof sendReminderForInvoice>[0], companyName);
       if (result.ok) {

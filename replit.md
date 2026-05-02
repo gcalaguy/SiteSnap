@@ -1,4 +1,4 @@
-# BuildCore — Construction AI Assistant
+# Site Snap — Construction AI Assistant
 
 ## Overview
 

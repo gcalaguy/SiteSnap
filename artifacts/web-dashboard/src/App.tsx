@@ -166,10 +166,10 @@ function HomeRedirect() {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-muted/10 p-4">
-      <img src={`${basePath}/logo.svg`} alt="BuildCore" className="h-20 w-auto mb-6" />
-      <h1 className="text-4xl font-bold text-foreground mb-4">BuildCore</h1>
+      <img src={`${basePath}/sitesnap-logo.png`} alt="Site Snap" className="h-24 w-auto mb-6 rounded-xl" />
+      <h1 className="text-4xl font-bold text-foreground mb-4">Site Snap</h1>
       <p className="text-lg text-muted-foreground mb-8 text-center max-w-md">
-        The solid, no-nonsense platform where Canadian contractors run their job sites.
+        Construction Efficiency, Simplified — the AI platform Canadian contractors rely on.
       </p>
       <div className="flex gap-4">
         <Link to="/sign-in" className="bg-white border border-border text-foreground px-6 py-2 rounded-md font-medium hover:bg-muted transition-colors">Log In</Link>
@@ -184,13 +184,13 @@ function DashboardPlaceholder() {
     <div className="min-h-screen flex flex-col">
       <header className="bg-sidebar text-sidebar-foreground p-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <img src={`${basePath}/logo.svg`} alt="BuildCore" className="h-8 w-auto" />
-          <span className="font-bold text-lg tracking-tight">BuildCore</span>
+          <img src={`${basePath}/sitesnap-logo.png`} alt="Site Snap" className="h-8 w-8 rounded object-contain bg-black" />
+          <span className="font-bold text-lg tracking-tight">Site Snap</span>
         </div>
       </header>
       <main className="flex-1 p-6 bg-muted/10">
         <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome to BuildCore. Your data goes here.</p>
+        <p className="text-muted-foreground">Welcome to Site Snap. Your data goes here.</p>
       </main>
     </div>
   )

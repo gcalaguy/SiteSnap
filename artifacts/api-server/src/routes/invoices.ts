@@ -137,7 +137,7 @@ router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyn
     .from(companiesTable)
     .where(eq(companiesTable.id, req.companyId!))
     .limit(1);
-  const companyName = company?.name ?? "BuildCore";
+  const companyName = company?.name ?? "Site Snap";
 
   const fmtCAD = (v: string | number) =>
     new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
@@ -169,7 +169,7 @@ router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyn
         <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">Thank you for your business.</p>
         <p style="margin:8px 0 0;font-size:13px;font-weight:600;">${companyName}</p>
       </div>
-      <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0;">Powered by BuildCore</p>
+      <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0;">Powered by Site Snap</p>
     </div>
   `;
 
@@ -222,7 +222,7 @@ router.post("/invoices/:invoiceId/send-reminder", requireAuth, requireCompany, a
     .from(companiesTable)
     .where(eq(companiesTable.id, req.companyId!))
     .limit(1);
-  const companyName = company?.name ?? "BuildCore";
+  const companyName = company?.name ?? "Site Snap";
 
   try {
     const result = await sendReminderForInvoice(invoice, companyName);

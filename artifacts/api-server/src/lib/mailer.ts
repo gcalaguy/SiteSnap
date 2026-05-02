@@ -27,7 +27,7 @@ export class ResendSandboxError extends Error {
 export async function sendEmail(payload: EmailPayload): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   const from =
-    process.env["DIGEST_FROM_EMAIL"] ?? "BuildCore <onboarding@resend.dev>";
+    process.env["DIGEST_FROM_EMAIL"] ?? "Site Snap <onboarding@resend.dev>";
 
   if (!apiKey) {
     logger.warn("RESEND_API_KEY not set — skipping email send");

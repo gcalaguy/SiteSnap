@@ -115,7 +115,7 @@ export function buildDigestHtml(payload: DigestPayload): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BuildCore Daily Digest</title>
+  <title>Site Snap Daily Digest</title>
 </head>
 <body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0">
@@ -129,7 +129,7 @@ export function buildDigestHtml(payload: DigestPayload): string {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td>
-                    <div style="font-size:22px;font-weight:700;color:#FFFFFF;">🏗 BuildCore</div>
+                    <div style="font-size:22px;font-weight:700;color:#FFFFFF;">🏗 Site Snap</div>
                     <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:2px;">Daily Summary Digest</div>
                   </td>
                   <td align="right">
@@ -173,7 +173,7 @@ export function buildDigestHtml(payload: DigestPayload): string {
           <tr>
             <td style="background:#F9FAFB;border:1px solid #E5E7EB;border-top:none;border-radius:0 0 12px 12px;padding:20px 32px;text-align:center;">
               <p style="font-size:12px;color:${MUTED};margin:0;">
-                This digest is sent daily at 7:00 AM ET to owners and foremans in your BuildCore workspace.
+                This digest is sent daily at 7:00 AM ET to owners and foremans in your Site Snap workspace.
               </p>
             </td>
           </tr>

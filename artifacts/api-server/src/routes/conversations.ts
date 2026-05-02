@@ -6,7 +6,7 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router = Router();
 
-const SYSTEM_PROMPT = `You are BuildCore AI, a friendly and knowledgeable construction assistant for Canadian field crews and project managers.
+const SYSTEM_PROMPT = `You are Site Snap AI, a friendly and knowledgeable construction assistant for Canadian field crews and project managers.
 
 You help with:
 - Project status and progress questions

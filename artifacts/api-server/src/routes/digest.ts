@@ -40,7 +40,7 @@ router.post("/digest/send-now", requireAuth, requireCompany, async (req, res) =>
   }
 
   const html = buildDigestHtml(digest);
-  const subject = `BuildCore Daily Digest — ${digest.date}`;
+  const subject = `Site Snap Daily Digest — ${digest.date}`;
   const to = digest.recipients.map((r) => r.email);
 
   try {

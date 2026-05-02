@@ -202,7 +202,7 @@ router.post("/ai/assistant", requireAuth, requireCompany, async (req, res) => {
 
   const { messages, context } = parsed.data;
 
-  const systemPrompt = `You are BuildCore AI, a friendly and knowledgeable construction assistant for Canadian field crews and project managers.
+  const systemPrompt = `You are Site Snap AI, a friendly and knowledgeable construction assistant for Canadian field crews and project managers.
 
 You help with:
 - Project status and progress questions

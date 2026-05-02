@@ -67,10 +67,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <Sidebar className="border-r border-border bg-sidebar">
           <SidebarHeader className="border-b border-border/10 p-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground">
-                <Hammer className="h-5 w-5" />
-              </div>
-              <span className="text-lg font-bold tracking-tight text-sidebar-foreground">BuildCore</span>
+              <img src="/sitesnap-logo.png" alt="Site Snap" className="h-9 w-9 rounded object-contain bg-black" />
+              <span className="text-lg font-bold tracking-tight text-sidebar-foreground">Site Snap</span>
             </div>
           </SidebarHeader>
           <SidebarContent>
@@ -153,7 +151,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex w-full flex-col overflow-hidden">
           <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-card px-6 md:hidden">
             <SidebarTrigger />
-            <span className="text-lg font-bold tracking-tight">BuildCore</span>
+            <span className="text-lg font-bold tracking-tight">Site Snap</span>
           </header>
           <main className="flex-1 overflow-y-auto p-4 md:p-8">
             <div className="mx-auto max-w-6xl">
