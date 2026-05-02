@@ -25,7 +25,9 @@ import {
   Building2,
   Star,
   Crown,
+  TrendingUp,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -99,6 +101,15 @@ export default function AdminPage() {
     queryKey: ["billing-subscription"],
     queryFn: async () => {
       const res = await customFetch(`${basePath}/api/billing/subscription`, { method: "GET" });
+      return res.json();
+    },
+  });
+
+  // Fetch seat usage
+  const { data: seatData, isLoading: seatsLoading } = useQuery({
+    queryKey: ["billing-seats"],
+    queryFn: async () => {
+      const res = await customFetch(`${basePath}/api/billing/seats`, { method: "GET" });
       return res.json();
     },
   });
@@ -252,19 +263,53 @@ export default function AdminPage() {
             <Users className="h-4 w-4" />
             Team Seats
           </CardTitle>
-          <CardDescription>Active team members on your account</CardDescription>
+          <CardDescription>Active team members on your plan</CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-between gap-4">
-          <div className="text-3xl font-bold text-primary">
-            {me?.company ? "—" : "—"}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{company?.name ?? "—"}</span>
-            <br />
-            {currentPlan
-              ? `Plan limit: ${currentPlan.metadata.maxSeats === "unlimited" ? "Unlimited" : `${currentPlan.metadata.maxSeats} seats`}`
-              : "Subscribe to a plan to add more team members"}
-          </div>
+        <CardContent>
+          {seatsLoading ? (
+            <div className="h-12 rounded-md bg-muted animate-pulse" />
+          ) : seatData ? (
+            <div className="space-y-3">
+              <div className="flex items-end justify-between">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl font-bold text-primary">{seatData.currentSeats}</span>
+                  <span className="text-muted-foreground text-sm">
+                    / {seatData.maxSeats === "unlimited" ? "∞" : seatData.maxSeats} seats
+                  </span>
+                </div>
+                {seatData.maxSeats !== "unlimited" && !seatData.canAddMore && (
+                  <Badge variant="destructive" className="flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3" />
+                    Limit Reached
+                  </Badge>
+                )}
+                {seatData.maxSeats !== "unlimited" && seatData.canAddMore && (
+                  <span className="text-xs text-muted-foreground">
+                    {(seatData.maxSeats as number) - seatData.currentSeats} seat{(seatData.maxSeats as number) - seatData.currentSeats === 1 ? "" : "s"} remaining
+                  </span>
+                )}
+                {seatData.maxSeats === "unlimited" && (
+                  <span className="text-xs text-muted-foreground">Unlimited seats</span>
+                )}
+              </div>
+              {seatData.maxSeats !== "unlimited" && (
+                <Progress
+                  value={Math.min(100, (seatData.currentSeats / (seatData.maxSeats as number)) * 100)}
+                  className={`h-2 ${!seatData.canAddMore ? "[&>div]:bg-destructive" : seatData.currentSeats / (seatData.maxSeats as number) > 0.8 ? "[&>div]:bg-amber-500" : ""}`}
+                />
+              )}
+              {!seatData.canAddMore && (
+                <p className="text-xs text-muted-foreground">
+                  You've reached the seat limit for your{seatData.planName ? ` ${seatData.planName}` : ""} plan. Upgrade to add more team members.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              <span className="text-sm">Unable to load seat information.</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -11,6 +11,7 @@ import {
   groupProductsWithPrices,
   getStripeSubscription,
 } from '../lib/stripeStorage';
+import { getCompanySeatInfo } from '../lib/seatEnforcement';
 
 const router = Router();
 
@@ -99,6 +100,17 @@ router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyn
   } catch (err: any) {
     req.log.error({ err }, 'billing/checkout error');
     res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// GET /api/billing/seats — current seat usage for the company
+router.get('/billing/seats', requireAuth, requireCompany, async (req, res) => {
+  try {
+    const seatInfo = await getCompanySeatInfo(req.companyId!);
+    res.json(seatInfo);
+  } catch (err: any) {
+    req.log.error({ err }, 'billing/seats error');
+    res.status(500).json({ error: 'Failed to load seat info' });
   }
 });
 

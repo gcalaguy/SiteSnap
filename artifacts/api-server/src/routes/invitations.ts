@@ -3,6 +3,7 @@ import { db, usersTable, companiesTable, invitationsTable } from "@workspace/db"
 import { eq, and } from "drizzle-orm";
 import { getAuth, clerkClient } from "@clerk/express";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireSeatAvailable } from "../lib/seatEnforcement";
 import { CreateInvitationBody } from "@workspace/api-zod";
 import crypto from "crypto";
 
@@ -14,6 +15,7 @@ router.post(
   requireAuth,
   requireCompany,
   requireOwnerOrForeman,
+  requireSeatAvailable,
   async (req, res) => {
     const parsed = CreateInvitationBody.safeParse(req.body);
     if (!parsed.success) {
