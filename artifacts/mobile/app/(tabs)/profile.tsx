@@ -1,7 +1,9 @@
 import { useGetMe } from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { signOut } from "@/utils/auth";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { Share } from "react-native";
 import React from "react";
 import {
   Alert,
@@ -16,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
@@ -81,14 +84,40 @@ const styles = StyleSheet.create({
   menuLabel: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium" },
   menuValue: { fontSize: 13, fontFamily: "Inter_400Regular" },
   versionText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", paddingTop: 8 },
+  referralCard: { borderRadius: 10, borderWidth: 1, padding: 14, gap: 12 },
+  referralHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  referralLinkBox: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
+  referralLinkText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  referralBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 8 },
+  referralBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
 });
 
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-
   const { data: me, isLoading } = useGetMe();
+
+  const { data: referralData } = useQuery({
+    queryKey: ["referrals"],
+    queryFn: async () => {
+      const res = await customFetch("/api/referrals");
+      return res.json();
+    },
+    enabled: !!me?.companyId,
+  });
+
+  async function handleShareReferral() {
+    if (!referralData?.referralLink) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await Share.share({
+        message: `Join me on BuildCore — the AI-powered construction management app for Canadian contractors. Sign up here: ${referralData.referralLink}`,
+        url: referralData.referralLink,
+        title: "Join BuildCore",
+      });
+    } catch {}
+  }
 
   const initials = me
     ? `${me.firstName?.[0] ?? ""}${me.lastName?.[0] ?? ""}`.toUpperCase() || "?"
@@ -153,6 +182,40 @@ export default function ProfileScreen() {
         <MenuItem icon="mail" label="Email" value={me?.email ?? "—"} />
         <MenuItem icon="shield" label="Role" value={ROLE_LABELS[me?.role ?? "worker"] ?? me?.role ?? "—"} />
       </View>
+
+      {/* Refer a Contractor */}
+      {referralData?.referralLink && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Referrals</Text>
+          <View style={[styles.referralCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.referralHeader}>
+              <View style={[styles.menuIcon, { backgroundColor: colors.muted }]}>
+                <Feather name="gift" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuLabel, { color: colors.foreground }]}>Refer a Contractor</Text>
+                <Text style={[styles.menuValue, { color: colors.mutedForeground, marginTop: 2 }]}>
+                  {referralData.referralCount === 0
+                    ? "No referrals yet"
+                    : `${referralData.referralCount} contractor${referralData.referralCount === 1 ? "" : "s"} referred`}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.referralLinkBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              <Text style={[styles.referralLinkText, { color: colors.mutedForeground }]} numberOfLines={1} ellipsizeMode="middle">
+                {referralData.referralLink}
+              </Text>
+            </View>
+            <Pressable
+              style={[styles.referralBtn, { backgroundColor: colors.primary }]}
+              onPress={handleShareReferral}
+            >
+              <Feather name="share-2" size={14} color="#fff" />
+              <Text style={styles.referralBtnText}>Share with a Contractor</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       {/* Actions */}
       <View style={styles.section}>

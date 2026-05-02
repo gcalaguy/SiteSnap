@@ -19,6 +19,7 @@ import documentsRouter from "./documents";
 import quotesRouter from "./quotes";
 import invoicesRouter from "./invoices";
 import billingRouter from "./billing";
+import referralsRouter from "./referrals";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(storageRouter);
 router.use(notificationsRouter);
 router.use(digestRouter);
 router.use(billingRouter);
+router.use(referralsRouter);
 
 export default router;

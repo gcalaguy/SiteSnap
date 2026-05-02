@@ -102,6 +102,15 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - **Budget on project cards**: `budget` field added to web Create Project dialog (optional CAD amount with `$` icon)
 - Project listing cards now show budget in orange with `$` icon when set; detail page already had it
 
+### ✅ Phase 7 — REFERRAL SYSTEM (Complete)
+- **DB**: `referral_code` (unique, 8-char hex auto-generated on company creation) + `referred_by_code` columns added to `companies` table via direct SQL migration
+- **`POST /companies`**: auto-generates `referralCode` via `crypto.randomBytes(4).toString("hex").toUpperCase()`; accepts optional `referredByCode` in request body
+- **`GET /api/referrals`**: returns `{ referralCode, referralLink, referralCount }` — link is `https://<domain>/onboarding?ref=<code>`; count is companies whose `referredByCode` matches
+- **`GET /api/referrals/validate/:code`**: public endpoint to verify a referral code + returns referring company name
+- **Web onboarding**: reads `?ref=` query param and passes `referredByCode` to company creation
+- **Web admin panel**: "Refer a Contractor" card with monospace link + copy button (2s "Copied!" flash) + referral count
+- **Mobile profile tab**: "Referrals" section with referral count + link preview + "Share with a Contractor" button (native Share sheet)
+
 ### ✅ Phase 6 — ADMIN PANEL + STRIPE BILLING (Complete)
 - **Stripe integration**: `stripe` + `stripe-replit-sync` at workspace root; connected via Replit Stripe integration; `stripeClient.ts` in api-server + scripts dirs
 - **DB columns**: `stripeCustomerId` + `stripeSubscriptionId` added to `companiesTable` (billing per company/tenant)

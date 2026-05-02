@@ -29,6 +29,7 @@ export default function OnboardingPage() {
   const { user: clerkUser } = useUser();
   const searchParams = new URLSearchParams(window.location.search);
   const token = searchParams.get("token");
+  const refCode = searchParams.get("ref") ?? undefined;
 
   const [activeTab, setActiveTab] = useState(token ? "join" : "create");
 
@@ -50,7 +51,7 @@ export default function OnboardingPage() {
 
   function onSubmitCreate(values: z.infer<typeof companySchema>) {
     createCompany.mutate(
-      { data: values },
+      { data: { ...values, ...(refCode ? { referredByCode: refCode } : {}) } as any },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });

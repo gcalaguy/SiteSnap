@@ -3,6 +3,7 @@ import { db, usersTable, companiesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
 import { CreateCompanyBody, UpdateMemberRoleBody } from "@workspace/api-zod";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -14,9 +15,17 @@ router.post("/companies", requireAuth, async (req, res) => {
     return;
   }
 
+  // Pull optional referredByCode from request body (not part of CreateCompanyBody schema)
+  const referredByCode = typeof req.body.referredByCode === "string"
+    ? req.body.referredByCode.trim() || null
+    : null;
+
+  // Generate a unique 8-char referral code for this company
+  const referralCode = crypto.randomBytes(4).toString("hex").toUpperCase();
+
   const [company] = await db
     .insert(companiesTable)
-    .values(parsed.data)
+    .values({ ...parsed.data, referralCode, referredByCode })
     .returning();
 
   // Assign requester as owner of this company

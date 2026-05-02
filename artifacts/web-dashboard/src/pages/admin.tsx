@@ -26,6 +26,9 @@ import {
   Star,
   Crown,
   TrendingUp,
+  Gift,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
@@ -101,6 +104,24 @@ export default function AdminPage() {
     queryKey: ["billing-subscription"],
     queryFn: async () => {
       const res = await customFetch(`${basePath}/api/billing/subscription`, { method: "GET" });
+      return res.json();
+    },
+  });
+
+  const [copied, setCopied] = useState(false);
+
+  function copyReferralLink(link: string) {
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  // Fetch referral info
+  const { data: referralData } = useQuery({
+    queryKey: ["billing-referrals"],
+    queryFn: async () => {
+      const res = await customFetch(`${basePath}/api/referrals`, { method: "GET" });
       return res.json();
     },
   });
@@ -415,6 +436,55 @@ export default function AdminPage() {
           })}
         </div>
       )}
+
+      {/* Refer a Contractor */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Gift className="h-4 w-4 text-primary" />
+            Refer a Contractor
+          </CardTitle>
+          <CardDescription>
+            Share your unique link with other construction companies. Help them get set up on BuildCore.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {referralData?.referralLink ? (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-sm font-mono text-muted-foreground truncate select-all">
+                  {referralData.referralLink}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 shrink-0"
+                  onClick={() => copyReferralLink(referralData.referralLink)}
+                >
+                  {copied ? (
+                    <><Check className="h-3.5 w-3.5 text-green-600" />Copied!</>
+                  ) : (
+                    <><Copy className="h-3.5 w-3.5" />Copy Link</>
+                  )}
+                </Button>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="h-4 w-4 shrink-0" />
+                <span>
+                  {referralData.referralCount === 0
+                    ? "No contractors referred yet — share your link to get started."
+                    : `${referralData.referralCount} contractor${referralData.referralCount === 1 ? "" : "s"} joined using your referral link.`}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              <span className="text-sm">Referral link unavailable. Create your company profile first.</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Company Info */}
       <Card>
