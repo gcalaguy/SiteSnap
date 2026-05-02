@@ -54,6 +54,13 @@
           "locationWhenInUsePermission": "BuildCore uses your location to show current weather at your job site.",
           "locationAlwaysAndWhenInUsePermission": "BuildCore uses your location to show current weather at your job site."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BuildCore uses your photo library to attach site photos to daily reports.",
+          "cameraPermission": "BuildCore uses your camera to capture site photos for daily reports."
+        }
       ]
     ],
     "experiments": {

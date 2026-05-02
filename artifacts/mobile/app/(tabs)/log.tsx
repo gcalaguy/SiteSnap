@@ -2,16 +2,21 @@ import {
   useListProjects,
   useCreateDailyReport,
   useGenerateDailyReportAI,
+  useAddReportPhoto,
+  customFetch,
 } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import React, { useState } from "react";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -24,9 +29,20 @@ import { Feather } from "@expo/vector-icons";
 
 const today = () => new Date().toISOString().split("T")[0];
 
+const MAX_PHOTOS = 6;
+
+interface PhotoItem {
+  uri: string;
+  mimeType: string;
+  fileName: string;
+  fileSize: number;
+  uploading?: boolean;
+  error?: string;
+  objectPath?: string;
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: {},
   header: { paddingHorizontal: 20, paddingBottom: 20 },
   title: { fontSize: 28, fontFamily: "Inter_700Bold" },
   subtitle: { fontSize: 14, fontFamily: "Inter_400Regular", marginTop: 4 },
@@ -122,6 +138,50 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#DC2626",
   },
+  photoStrip: {
+    marginTop: 12,
+    gap: 8,
+  },
+  photoThumb: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    overflow: "hidden",
+    position: "relative",
+  },
+  photoThumbImg: {
+    width: 80,
+    height: 80,
+  },
+  photoRemoveBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoOverlay: {
+    position: "absolute",
+    inset: 0,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addPhotoBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  addPhotoBtnText: { fontSize: 11, fontFamily: "Inter_500Medium" },
 });
 
 export default function LogScreen() {
@@ -131,6 +191,7 @@ export default function LogScreen() {
   const { data: projects, isLoading: projectsLoading } = useListProjects();
   const createReport = useCreateDailyReport();
   const generateAI = useGenerateDailyReportAI();
+  const addPhoto = useAddReportPhoto();
 
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [crewCount, setCrewCount] = useState("1");
@@ -138,6 +199,8 @@ export default function LogScreen() {
   const [notes, setNotes] = useState("");
   const [aiSummary, setAiSummary] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const voice = useVoiceRecorder((transcript) => {
     setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${transcript}` : transcript));
@@ -145,6 +208,97 @@ export default function LogScreen() {
   });
 
   const selectedProject = (projects ?? []).find(p => p.id === selectedProjectId);
+
+  async function pickPhoto() {
+    if (photos.length >= MAX_PHOTOS) {
+      Alert.alert("Limit reached", `You can attach up to ${MAX_PHOTOS} photos per report.`);
+      return;
+    }
+
+    Alert.alert("Add Site Photo", "Choose a source", [
+      {
+        text: "Camera",
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== "granted") {
+            Alert.alert("Permission needed", "Camera access is required to take site photos.");
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ["images"],
+            quality: 0.8,
+            allowsEditing: false,
+          });
+          handlePickResult(result);
+        },
+      },
+      {
+        text: "Photo Library",
+        onPress: async () => {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== "granted") {
+            Alert.alert("Permission needed", "Photo library access is required to select site photos.");
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            quality: 0.8,
+            allowsMultipleSelection: true,
+            selectionLimit: MAX_PHOTOS - photos.length,
+          });
+          handlePickResult(result);
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
+  function handlePickResult(result: ImagePicker.ImagePickerResult) {
+    if (result.canceled) return;
+    const incoming = result.assets.slice(0, MAX_PHOTOS - photos.length).map<PhotoItem>(a => ({
+      uri: a.uri,
+      mimeType: a.mimeType ?? "image/jpeg",
+      fileName: a.fileName ?? `photo_${Date.now()}.jpg`,
+      fileSize: a.fileSize ?? 0,
+    }));
+    setPhotos(prev => [...prev, ...incoming]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+
+  function removePhoto(index: number) {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+
+  async function uploadSinglePhoto(photo: PhotoItem): Promise<string | null> {
+    try {
+      const res = await customFetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: photo.fileName,
+          size: photo.fileSize,
+          contentType: photo.mimeType,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await res.json() as { uploadURL: string; objectPath: string };
+
+      const fileRes = await fetch(photo.uri);
+      const blob = await fileRes.blob();
+
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": photo.mimeType },
+        body: blob,
+      });
+      if (!putRes.ok) throw new Error("Failed to upload photo");
+
+      return objectPath;
+    } catch {
+      return null;
+    }
+  }
 
   const handleGenerateAI = async () => {
     if (!selectedProject || !notes.trim()) return;
@@ -195,13 +349,32 @@ export default function LogScreen() {
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: async (report) => {
+          if (photos.length > 0) {
+            setUploading(true);
+            for (const photo of photos) {
+              const objectPath = await uploadSinglePhoto(photo);
+              if (objectPath) {
+                try {
+                  await addPhoto.mutateAsync({
+                    projectId: selectedProjectId!,
+                    reportId: report.id,
+                    data: { objectPath },
+                  });
+                } catch {
+                }
+              }
+            }
+            setUploading(false);
+          }
+
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           setSubmitted(true);
           setNotes("");
           setAiSummary("");
           setWeather("");
           setCrewCount("1");
+          setPhotos([]);
           setTimeout(() => setSubmitted(false), 3000);
         },
         onError: () => {
@@ -213,6 +386,7 @@ export default function LogScreen() {
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
   const activeProjects = (projects ?? []).filter(p => p.status === "active");
+  const isBusy = createReport.isPending || uploading;
 
   return (
     <KeyboardAwareScrollView
@@ -364,6 +538,40 @@ export default function LogScreen() {
           returnKeyType="default"
         />
 
+        {/* Photo strip */}
+        {(photos.length > 0 || photos.length < MAX_PHOTOS) && (
+          <View style={styles.photoStrip}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {photos.map((photo, i) => (
+                <View key={i} style={styles.photoThumb}>
+                  <Image source={{ uri: photo.uri }} style={styles.photoThumbImg} resizeMode="cover" />
+                  {photo.uploading && (
+                    <View style={styles.photoOverlay}>
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    </View>
+                  )}
+                  <TouchableOpacity style={styles.photoRemoveBtn} onPress={() => removePhoto(i)}>
+                    <Feather name="x" size={12} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              {photos.length < MAX_PHOTOS && (
+                <TouchableOpacity
+                  style={[styles.addPhotoBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+                  onPress={pickPhoto}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="camera" size={20} color={colors.primary} />
+                  <Text style={[styles.addPhotoBtnText, { color: colors.mutedForeground }]}>
+                    {photos.length === 0 ? "Add Photo" : "Add More"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </View>
+        )}
+
         {/* AI generate */}
         <TouchableOpacity
           style={[
@@ -416,14 +624,19 @@ export default function LogScreen() {
           },
         ]}
         onPress={handleSubmit}
-        disabled={!selectedProjectId || !notes.trim() || createReport.isPending}
+        disabled={!selectedProjectId || !notes.trim() || isBusy}
         activeOpacity={0.85}
       >
-        {createReport.isPending ? (
-          <ActivityIndicator color="#FFFFFF" />
+        {isBusy ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <ActivityIndicator color="#FFFFFF" />
+            <Text style={styles.submitText}>
+              {uploading ? `Uploading ${photos.length} photo${photos.length !== 1 ? "s" : ""}…` : "Saving…"}
+            </Text>
+          </View>
         ) : (
           <Text style={[styles.submitText, { color: (selectedProjectId && notes.trim()) ? "#FFFFFF" : colors.mutedForeground }]}>
-            Submit Report
+            {`Submit Report${photos.length > 0 ? ` + ${photos.length} Photo${photos.length !== 1 ? "s" : ""}` : ""}`}
           </Text>
         )}
       </TouchableOpacity>
