@@ -53,7 +53,8 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - **Document upload/storage**: `project_documents` table; presigned URL upload to object storage; `GET/POST /projects/:id/documents`, `DELETE /projects/:id/documents/:id`
 - **OCR + AI extraction**: `POST /projects/:id/documents/:id/extract` — GPT-4 vision reads receipts/photos → extracts vendor, amount, currency, date, line items, invoice #, project ref; images only (JPEG, PNG, WebP, GIF); other file types stored for manual download
 - **Documents tab**: New tab on web project detail — upload button, file list with status badges (pending/processing/ready/failed), expandable AI extraction panel with line-item table, download button
-- **Voice-to-text notes**: Mic button on New Report page (web) — MediaRecorder captures audio → `/api/ai/transcribe` (OpenAI STT) → transcribed text appended to raw notes field; recording pulse animation, error states
+- **Voice-to-text notes (web)**: Mic button on New Report page — MediaRecorder captures audio → `/api/ai/transcribe` (OpenAI STT) → transcribed text appended to raw notes field; recording pulse animation, error states
+- **Voice-to-text notes (mobile)**: Mic button on Log Report screen — `expo-av` records audio → base64 → `/api/ai/transcribe` → appended to notes field; uses `useVoiceRecorder` hook at `artifacts/mobile/hooks/useVoiceRecorder.ts`; requests microphone permission before first use; haptic feedback on successful transcription
 - **Daily digest email**: Automated morning digest at 7:00 AM ET via `node-cron` + Resend API; "Send Now" button in Settings page; HTML email with budget/RFI/task summary
 
 ### ✅ Phase 4 — MOBILE APP (Complete)

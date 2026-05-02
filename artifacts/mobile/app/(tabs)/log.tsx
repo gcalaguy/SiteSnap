@@ -6,6 +6,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import React, { useState } from "react";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import {
   ActivityIndicator,
   Alert,
@@ -98,6 +99,29 @@ const styles = StyleSheet.create({
   submitText: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   noProjectsText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
   divider: { height: 1, marginHorizontal: 20, marginBottom: 20 },
+  micButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recordingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#DC2626",
+  },
 });
 
 export default function LogScreen() {
@@ -114,6 +138,11 @@ export default function LogScreen() {
   const [notes, setNotes] = useState("");
   const [aiSummary, setAiSummary] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
+  const voice = useVoiceRecorder((transcript) => {
+    setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${transcript}` : transcript));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  });
 
   const selectedProject = (projects ?? []).find(p => p.id === selectedProjectId);
 
@@ -278,9 +307,55 @@ export default function LogScreen() {
 
       {/* Work notes */}
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>What happened today?</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <Text style={[styles.label, { color: colors.mutedForeground, marginBottom: 0 }]}>What happened today?</Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              voice.toggle();
+            }}
+            disabled={voice.state === "transcribing"}
+            style={[
+              styles.micButton,
+              {
+                backgroundColor:
+                  voice.state === "recording"
+                    ? "#EF4444"
+                    : voice.state === "transcribing"
+                      ? colors.muted
+                      : `${colors.primary}18`,
+              },
+            ]}
+            activeOpacity={0.75}
+          >
+            {voice.state === "transcribing" ? (
+              <ActivityIndicator size="small" color={colors.mutedForeground} />
+            ) : (
+              <Feather
+                name={voice.state === "recording" ? "mic-off" : "mic"}
+                size={16}
+                color={voice.state === "recording" ? "#FFFFFF" : colors.primary}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {voice.state === "recording" && (
+          <View style={[styles.recordingBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+            <View style={styles.recordingDot} />
+            <Text style={{ color: "#DC2626", fontFamily: "Inter_500Medium", fontSize: 13 }}>
+              Recording… tap mic to stop & transcribe
+            </Text>
+          </View>
+        )}
+        {voice.error && (
+          <Text style={{ color: colors.destructive, fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 6 }}>
+            {voice.error}
+          </Text>
+        )}
+
         <TextInput
-          style={[styles.textArea, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[styles.textArea, { color: colors.foreground, backgroundColor: colors.card, borderColor: voice.state === "recording" ? "#EF4444" : colors.border }]}
           value={notes}
           onChangeText={setNotes}
           placeholder="Poured foundation concrete on north wing. Crew of 8. Rebar inspection completed..."
