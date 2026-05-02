@@ -52,6 +52,8 @@ export const companiesTable = pgTable("companies", {
   province: text("province").notNull(),
   city: text("city").notNull(),
   phone: text("phone"),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
