@@ -409,6 +409,7 @@ export const invoicesTable = pgTable("invoices", {
   dueDate: date("due_date"),
   sentAt: timestamp("sent_at"),
   paidAt: timestamp("paid_at"),
+  reminderSentAt: timestamp("reminder_sent_at"),
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

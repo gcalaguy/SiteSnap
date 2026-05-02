@@ -681,3 +681,8 @@ export type SendInvoiceEmail200 = {
   ok?: boolean;
   sandboxWarning?: string;
 };
+
+export type SendInvoiceReminder200 = {
+  ok?: boolean;
+  sandboxWarning?: string;
+};

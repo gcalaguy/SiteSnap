@@ -4,6 +4,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { UpdateInvoiceBody } from "@workspace/api-zod";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
+import { sendReminderForInvoice } from "../lib/invoiceReminders.js";
 import { format } from "date-fns";
 
 const router = Router();
@@ -192,6 +193,47 @@ router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyn
     }
     req.log.error({ err }, "Failed to send invoice email");
     res.status(500).json({ error: "Failed to send email" });
+  }
+});
+
+// POST /invoices/:invoiceId/send-reminder
+router.post("/invoices/:invoiceId/send-reminder", requireAuth, requireCompany, async (req, res) => {
+  const invoiceId = parseInt(req.params.invoiceId);
+
+  const [invoice] = await db
+    .select()
+    .from(invoicesTable)
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
+
+  if (!invoice.clientEmail) {
+    res.status(400).json({ error: "Invoice has no client email address" });
+    return;
+  }
+
+  if (invoice.status === "paid" || invoice.status === "cancelled") {
+    res.status(409).json({ error: "Reminders cannot be sent for paid or cancelled invoices" });
+    return;
+  }
+
+  const [company] = await db
+    .select({ name: companiesTable.name })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, req.companyId!))
+    .limit(1);
+  const companyName = company?.name ?? "BuildCore";
+
+  try {
+    const result = await sendReminderForInvoice(invoice, companyName);
+    res.json(result);
+  } catch (err) {
+    if (err instanceof ResendSandboxError) {
+      res.json({ ok: false, sandboxWarning: (err as ResendSandboxError).message });
+      return;
+    }
+    req.log.error({ err }, "Failed to send invoice reminder");
+    res.status(500).json({ error: "Failed to send reminder" });
   }
 });
 

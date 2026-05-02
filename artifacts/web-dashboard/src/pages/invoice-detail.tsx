@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "wouter";
-import { useGetInvoice, useMarkInvoiceSent, useMarkInvoicePaid, useGetMe, useSendInvoiceEmail } from "@workspace/api-client-react";
+import { useGetInvoice, useMarkInvoiceSent, useMarkInvoicePaid, useGetMe, useSendInvoiceEmail, useSendInvoiceReminder } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2 } from "lucide-react";
+import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2, Bell } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetInvoiceQueryKey, getListAllInvoicesQueryKey } from "@workspace/api-client-react";
@@ -66,6 +66,7 @@ interface Invoice {
   dueDate?: string | null;
   sentAt?: string | null;
   paidAt?: string | null;
+  reminderSentAt?: string | null;
   createdAt: string;
   lineItems?: unknown;
 }
@@ -257,6 +258,7 @@ export default function InvoiceDetail() {
   const markSent = useMarkInvoiceSent();
   const markPaid = useMarkInvoicePaid();
   const sendEmail = useSendInvoiceEmail();
+  const sendReminder = useSendInvoiceReminder();
 
   function getCompanyName() {
     return (me as (typeof me & { company?: { name?: string } }) | undefined)?.company?.name ?? "BuildCore";
@@ -285,6 +287,32 @@ export default function InvoiceDetail() {
     if (!invoice) return;
     downloadInvoicePDF(invoice as Invoice, (invoice.lineItems ?? []) as LineItem[], getCompanyName());
     toast({ title: "PDF downloaded" });
+  }
+
+  function handleSendReminder() {
+    if (!invoice) return;
+    if (!invoice.clientEmail) {
+      toast({ title: "No client email on this invoice", variant: "destructive" });
+      return;
+    }
+    sendReminder.mutate(
+      { invoiceId },
+      {
+        onSuccess: (result) => {
+          if (result.sandboxWarning) {
+            toast({
+              title: "Sandbox mode — reminder not delivered",
+              description: "Verify a domain at resend.com/domains to send to any recipient.",
+              variant: "destructive",
+            });
+          } else {
+            toast({ title: `Payment reminder sent to ${invoice.clientEmail}` });
+            invalidate();
+          }
+        },
+        onError: () => toast({ title: "Failed to send reminder", variant: "destructive" }),
+      }
+    );
   }
 
   function handleSendEmail() {
@@ -384,6 +412,21 @@ export default function InvoiceDetail() {
             {sendEmail.isPending ? "Sending…" : "Send via Email"}
           </Button>
 
+          {/* Send Reminder — only for unpaid sent/overdue invoices */}
+          {(invoice.status === "sent" || invoice.status === "overdue" || invoice.status === "draft") && (
+            <Button
+              variant="outline"
+              onClick={handleSendReminder}
+              disabled={sendReminder.isPending || !hasClientEmail}
+              title={!hasClientEmail ? "Add a client email to send a reminder" : undefined}
+            >
+              {sendReminder.isPending
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                : <Bell className="h-4 w-4 mr-2" />}
+              {sendReminder.isPending ? "Sending…" : "Send Reminder"}
+            </Button>
+          )}
+
           {invoice.status === "draft" && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -463,6 +506,11 @@ export default function InvoiceDetail() {
               {invoice.paidAt && (
                 <p className="text-xs text-green-600 font-medium">
                   Paid {format(new Date(invoice.paidAt), "MMM d, yyyy")}
+                </p>
+              )}
+              {(invoice as Invoice).reminderSentAt && (
+                <p className="text-xs text-orange-500">
+                  Reminder sent {format(new Date((invoice as Invoice).reminderSentAt!), "MMM d, yyyy")}
                 </p>
               )}
             </div>

@@ -3,6 +3,7 @@ import { db, companiesTable } from "@workspace/db";
 import { buildDigest } from "./lib/digest.js";
 import { buildDigestHtml } from "./lib/digestTemplate.js";
 import { sendEmail } from "./lib/mailer.js";
+import { sendOverdueReminders } from "./lib/invoiceReminders.js";
 import { logger } from "./lib/logger.js";
 
 export async function sendDigestForAllCompanies(): Promise<{
@@ -53,7 +54,7 @@ export async function sendDigestForAllCompanies(): Promise<{
 }
 
 export function startDailyCron(): void {
-  // 7:00 AM Eastern every day
+  // 7:00 AM Eastern every day — daily digest
   cron.schedule(
     "0 7 * * *",
     async () => {
@@ -63,6 +64,17 @@ export function startDailyCron(): void {
     },
     { timezone: "America/Toronto" },
   );
-
   logger.info("Daily digest cron scheduled: 7:00 AM ET");
+
+  // 8:00 AM Eastern every day — overdue invoice reminders
+  cron.schedule(
+    "0 8 * * *",
+    async () => {
+      logger.info("Overdue invoice reminder cron triggered");
+      const result = await sendOverdueReminders();
+      logger.info(result, "Overdue invoice reminder cron complete");
+    },
+    { timezone: "America/Toronto" },
+  );
+  logger.info("Overdue invoice reminder cron scheduled: 8:00 AM ET");
 }

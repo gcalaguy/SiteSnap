@@ -1370,6 +1370,30 @@ paths:
                   sandboxWarning:
                     type: string
 
+  /invoices/{invoiceId}/send-reminder:
+    post:
+      operationId: sendInvoiceReminder
+      tags: [invoices]
+      summary: Manually send a payment reminder email to the client
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reminder sent (or sandbox warning)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  sandboxWarning:
+                    type: string
+
 components:
   parameters:
     companyId:

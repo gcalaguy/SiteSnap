@@ -60,15 +60,18 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - **Daily digest email**: Automated morning digest at 7:00 AM ET via `node-cron` + Resend API; "Send Now" button in Settings page; HTML email with budget/RFI/task summary
 
 ### ✅ Phase 4 — QUOTES & INVOICES (Complete)
-- **DB schema**: `quoteStatusEnum` (draft/pending_approval/approved/rejected/converted), `invoiceStatusEnum` (draft/sent/paid/overdue/cancelled), `quotesTable`, `invoicesTable` with `QuoteLineItem[]` JSON columns, HST tax (13% default), numeric totals
+- **DB schema**: `quoteStatusEnum` (draft/pending_approval/approved/rejected/converted), `invoiceStatusEnum` (draft/sent/paid/overdue/cancelled), `quotesTable`, `invoicesTable` with `QuoteLineItem[]` JSON columns, HST tax (13% default), numeric totals. `invoicesTable` has `reminderSentAt timestamp` column.
 - **AI quote generation**: `POST /api/ai/quote/generate` — voice/text description → GPT generates structured line items with realistic Canadian pricing + HST; returns title, lineItems, subtotal, taxAmount, total, notes
 - **Quotes API**: Full CRUD at `GET/POST /projects/:projectId/quotes`, `GET/PUT/DELETE /projects/:projectId/quotes/:id`; status workflow: submit → approve/reject → convert-to-invoice; flat list at `GET /quotes?status=`
-- **Invoices API**: `GET/PUT /invoices`, `GET /invoices/:id`, `POST /invoices/:id/mark-sent`, `POST /invoices/:id/mark-paid`; created from quote conversion with one-click
+- **Invoices API**: `GET/PUT /invoices`, `GET /invoices/:id`, `POST /invoices/:id/mark-sent`, `POST /invoices/:id/mark-paid`, `POST /invoices/:id/send-email`, `POST /invoices/:id/send-reminder`; created from quote conversion with one-click
+- **PDF generation (client-side)**: `jspdf` + `jspdf-autotable`; `buildPdfDoc()` is the shared builder; `downloadInvoicePDF()` saves; `buildPdfBase64()` returns base64 string for email attachment
+- **Send via Email**: `POST /invoices/:id/send-email` — accepts base64 PDF from browser, sends HTML email + PDF attachment via Resend; sandbox mode returns `{ ok: false, sandboxWarning }` instead of 500
+- **Payment reminders**: `POST /invoices/:id/send-reminder` — sends HTML reminder email (with overdue day count badge); marks `reminderSentAt`; auto-cron at 8:00 AM ET scans all sent/overdue invoices with past due date and `reminderSentAt` null or >7 days ago
 - **Quotes web page** (`/quotes`): List with status tabs (All/Draft/Pending/Approved/Rejected/Invoiced), quote number + client + total, link to detail
-- **Quote detail** (`/quotes/:id`): AI fill panel with voice input + text → generate line items; inline editable line item table (description/qty/unit/unit price); save, submit for approval, approve, reject, convert to invoice buttons with confirmation dialogs; auto-calculates HST totals
+- **Quote detail** (`/quotes/:id`): AI fill panel with voice input + text → generate line items; inline editable line item table; save, submit, approve, reject, convert to invoice buttons with confirmation dialogs; auto-calculates HST totals
 - **New Quote** (`/quotes/new`): Form for title, client name/email, valid until, notes — creates draft then opens editor
 - **Invoices web page** (`/invoices`): Outstanding + Collected summary cards, status tabs, list with due dates
-- **Invoice detail** (`/invoices/:id`): Full invoice view with line item table, HST totals, mark-sent and mark-paid confirmation dialogs
+- **Invoice detail** (`/invoices/:id`): Full invoice view; Download PDF, Send via Email, Send Reminder, Mark Sent, Mark Paid buttons; shows sentAt/paidAt/reminderSentAt dates
 - **Nav**: Quotes + Invoices added to AppLayout sidebar (FileText + Receipt icons)
 
 ### ✅ Phase 4 — MOBILE APP (Complete)
@@ -123,7 +126,7 @@ All three AI agents now make real OpenAI `gpt-5.4` calls via the Replit AI Integ
 
 ## Database Schema
 
-Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`, `notifications`, `project_documents`
+Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`, `notifications`, `project_documents`, `quotes`, `invoices`
 `users` has `pushToken text` (nullable) for Expo push tokens.
 `notifications`: userId, type ("task"|"rfi"), title, body, referenceId, projectId, isRead (boolean, default false), createdAt.
 Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_status`, `task_status`, `task_priority`, `document_status`
@@ -143,7 +146,8 @@ Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_
 
 ## Notes
 
-- Orval codegen fix: after running `pnpm --filter @workspace/api-spec run codegen`, manually rewrite `lib/api-zod/src/index.ts` to ONLY `export * from "./generated/api";` — orval regenerates stale exports referencing `api.schemas` that don't exist for zod output. Also fix `lib/api-client-react/src/index.ts` to NOT export `./generated/api.schemas` (the client codegen puts everything in `api.ts`)
+- Orval codegen: `lib/api-zod` uses `mode: "single"` with an absolute `target` path (no `workspace:`) so orval does NOT regenerate `index.ts`. After codegen, `lib/api-zod/src/index.ts` must only contain `export * from "./generated/api";` — if it gains a second line, rewrite it. `lib/api-client-react` uses `mode: "split"` with `workspace:` and generates both `api.ts` + `api.schemas.ts` (both real files); its `index.ts` exports all four things correctly.
+- Cron jobs: 7:00 AM ET — daily digest email; 8:00 AM ET — overdue invoice reminders (resend every 7 days)
 - Object storage uses presigned URL flow: client POSTs to `/api/storage/uploads/request-url`, then PUTs file directly to the returned GCS URL
 - Expo Go compatibility: `expo-secure-store` shimmed via `artifacts/mobile/metro.config.js` → `artifacts/mobile/shims/expo-secure-store.ts` (uses AsyncStorage). Required because Clerk v2 imports expo-secure-store internally. CRITICAL: Tab screens cannot import from `@clerk/clerk-expo` or the app crashes with `ExpoCryptoAES` — use `@/utils/auth` and `customFetch` instead. If Metro cache is stale, delete `/tmp/metro-cache` and restart the workflow.
 - `customFetch` is exported from `lib/api-client-react/src/index.ts` — use it directly for non-generated API calls (e.g., AI chat endpoint) as it automatically attaches the Bearer token

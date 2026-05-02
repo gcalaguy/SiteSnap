@@ -1701,3 +1701,15 @@ export const SendInvoiceEmailResponse = zod.object({
   ok: zod.boolean().optional(),
   sandboxWarning: zod.string().optional(),
 });
+
+/**
+ * @summary Manually send a payment reminder email to the client
+ */
+export const SendInvoiceReminderParams = zod.object({
+  invoiceId: zod.coerce.number(),
+});
+
+export const SendInvoiceReminderResponse = zod.object({
+  ok: zod.boolean().optional(),
+  sandboxWarning: zod.string().optional(),
+});

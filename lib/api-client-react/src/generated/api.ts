@@ -58,6 +58,7 @@ import type {
   Rfi,
   SendInvoiceEmail200,
   SendInvoiceEmailBody,
+  SendInvoiceReminder200,
   SyncUserBody,
   Task,
   UpdateInvoiceBody,
@@ -5754,4 +5755,91 @@ export const useSendInvoiceEmail = <
   TContext
 > => {
   return useMutation(getSendInvoiceEmailMutationOptions(options));
+};
+
+/**
+ * @summary Manually send a payment reminder email to the client
+ */
+export const getSendInvoiceReminderUrl = (invoiceId: number) => {
+  return `/api/invoices/${invoiceId}/send-reminder`;
+};
+
+export const sendInvoiceReminder = async (
+  invoiceId: number,
+  options?: RequestInit,
+): Promise<SendInvoiceReminder200> => {
+  return customFetch<SendInvoiceReminder200>(
+    getSendInvoiceReminderUrl(invoiceId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getSendInvoiceReminderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendInvoiceReminder>>,
+    TError,
+    { invoiceId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendInvoiceReminder>>,
+  TError,
+  { invoiceId: number },
+  TContext
+> => {
+  const mutationKey = ["sendInvoiceReminder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendInvoiceReminder>>,
+    { invoiceId: number }
+  > = (props) => {
+    const { invoiceId } = props ?? {};
+
+    return sendInvoiceReminder(invoiceId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendInvoiceReminderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendInvoiceReminder>>
+>;
+
+export type SendInvoiceReminderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Manually send a payment reminder email to the client
+ */
+export const useSendInvoiceReminder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendInvoiceReminder>>,
+    TError,
+    { invoiceId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendInvoiceReminder>>,
+  TError,
+  { invoiceId: number },
+  TContext
+> => {
+  return useMutation(getSendInvoiceReminderMutationOptions(options));
 };
