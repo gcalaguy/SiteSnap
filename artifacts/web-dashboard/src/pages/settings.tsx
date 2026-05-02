@@ -26,26 +26,20 @@ function DigestCard() {
     setDetail("");
     setSandboxInfo(null);
     try {
-      const res = await customFetch("/api/digest/send-now", { method: "POST" });
-      const body = await res.json().catch(() => ({})) as any;
-
-      if (!res.ok) {
-        if (body.code === "resend_sandbox") {
-          setSandboxInfo({
-            allowedEmail: body.allowedEmail,
-            intendedRecipients: body.intendedRecipients ?? [],
-          });
-          setStatus("sandbox");
-          return;
-        }
-        throw new Error(body.error ?? `Error ${res.status}`);
-      }
-
-      const data = body as SendResult;
+      const data = await customFetch<SendResult>("/api/digest/send-now", { method: "POST" });
       setDetail(`Sent to ${data.sent} recipient${data.sent !== 1 ? "s" : ""}: ${data.recipients.join(", ")}`);
       setStatus("sent");
     } catch (err: any) {
-      setDetail(err.message ?? "Failed to send digest");
+      const body = err?.data as any;
+      if (body?.code === "resend_sandbox") {
+        setSandboxInfo({
+          allowedEmail: body.allowedEmail,
+          intendedRecipients: body.intendedRecipients ?? [],
+        });
+        setStatus("sandbox");
+        return;
+      }
+      setDetail(body?.error ?? err?.message ?? "Failed to send digest");
       setStatus("error");
     }
   };
