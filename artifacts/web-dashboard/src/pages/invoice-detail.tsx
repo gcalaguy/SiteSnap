@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "wouter";
-import { useGetInvoice, useMarkInvoiceSent, useMarkInvoicePaid } from "@workspace/api-client-react";
+import { useGetInvoice, useMarkInvoiceSent, useMarkInvoicePaid, useGetMe } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,10 +17,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt } from "lucide-react";
+import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetInvoiceQueryKey, getListAllInvoicesQueryKey } from "@workspace/api-client-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -37,6 +39,227 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-gray-100 text-gray-400 border-gray-200",
 };
 
+function fmtCAD(v: string | number) {
+  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
+}
+
+interface LineItem {
+  description: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  total: number;
+}
+
+interface Invoice {
+  id: number;
+  invoiceNumber: string;
+  title: string;
+  clientName: string;
+  clientEmail?: string | null;
+  status: string;
+  subtotal: string;
+  taxRate: string;
+  taxAmount: string;
+  total: string;
+  notes?: string | null;
+  dueDate?: string | null;
+  sentAt?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  lineItems?: unknown;
+}
+
+function generateInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName: string) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+
+  const PRIMARY = [255, 102, 0] as [number, number, number];
+  const DARK = [23, 32, 52] as [number, number, number];
+  const GRAY = [100, 100, 100] as [number, number, number];
+  const LIGHT_GRAY = [245, 245, 245] as [number, number, number];
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 18;
+
+  // Header bar
+  doc.setFillColor(...PRIMARY);
+  doc.rect(0, 0, pageW, 28, "F");
+
+  // Company name
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(255, 255, 255);
+  doc.text(companyName, margin, 13);
+
+  // "INVOICE" label
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(255, 220, 180);
+  doc.text("INVOICE", pageW - margin, 10, { align: "right" });
+
+  // Invoice number
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
+  doc.text(invoice.invoiceNumber, pageW - margin, 19, { align: "right" });
+
+  // Status badge area
+  const statusLabel = STATUS_LABELS[invoice.status] ?? invoice.status;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
+  doc.text(`Status: ${statusLabel.toUpperCase()}`, pageW - margin, 26, { align: "right" });
+
+  let y = 38;
+
+  // Title
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(...DARK);
+  doc.text(invoice.title, margin, y);
+  y += 8;
+
+  // Meta row: Bill To + Dates
+  doc.setFillColor(...LIGHT_GRAY);
+  doc.roundedRect(margin, y, pageW - margin * 2, 26, 2, 2, "F");
+
+  // Bill To
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GRAY);
+  doc.text("BILL TO", margin + 4, y + 6);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...DARK);
+  doc.text(invoice.clientName, margin + 4, y + 13);
+  if (invoice.clientEmail) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...GRAY);
+    doc.text(invoice.clientEmail, margin + 4, y + 19);
+  }
+
+  // Dates (right side)
+  const dateX = pageW - margin - 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GRAY);
+  doc.text("ISSUE DATE", dateX - 30, y + 6, { align: "right" });
+  doc.text("DUE DATE", dateX, y + 6, { align: "right" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(...DARK);
+  doc.text(format(new Date(invoice.createdAt), "MMM d, yyyy"), dateX - 30, y + 13, { align: "right" });
+  doc.text(
+    invoice.dueDate ? format(new Date(invoice.dueDate), "MMM d, yyyy") : "—",
+    dateX, y + 13, { align: "right" }
+  );
+  y += 34;
+
+  // Line items table
+  autoTable(doc, {
+    startY: y,
+    margin: { left: margin, right: margin },
+    head: [["Description", "Qty", "Unit", "Unit Price", "Total"]],
+    body: lineItems.map((item) => [
+      item.description,
+      String(item.quantity),
+      item.unit,
+      fmtCAD(item.unitPrice),
+      fmtCAD(item.total),
+    ]),
+    headStyles: {
+      fillColor: DARK,
+      textColor: [255, 255, 255],
+      fontSize: 8,
+      fontStyle: "bold",
+      cellPadding: 4,
+    },
+    bodyStyles: {
+      fontSize: 9,
+      cellPadding: 3.5,
+      textColor: DARK,
+    },
+    alternateRowStyles: { fillColor: LIGHT_GRAY },
+    columnStyles: {
+      0: { cellWidth: "auto" },
+      1: { halign: "right", cellWidth: 16 },
+      2: { halign: "right", cellWidth: 18 },
+      3: { halign: "right", cellWidth: 30 },
+      4: { halign: "right", cellWidth: 30 },
+    },
+    styles: { overflow: "linebreak" },
+  });
+
+  y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+
+  // Totals block (right-aligned)
+  const totalsX = pageW - margin;
+  const labelX = totalsX - 40;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(...GRAY);
+  doc.text("Subtotal", labelX, y, { align: "right" });
+  doc.setTextColor(...DARK);
+  doc.text(fmtCAD(invoice.subtotal), totalsX, y, { align: "right" });
+  y += 6;
+
+  const hstPct = (parseFloat(invoice.taxRate) * 100).toFixed(0);
+  doc.setTextColor(...GRAY);
+  doc.text(`HST (${hstPct}%)`, labelX, y, { align: "right" });
+  doc.setTextColor(...DARK);
+  doc.text(fmtCAD(invoice.taxAmount), totalsX, y, { align: "right" });
+  y += 4;
+
+  // Total bar
+  doc.setFillColor(...PRIMARY);
+  doc.roundedRect(labelX - 24, y, 24 + totalsX - labelX + 1, 10, 1.5, 1.5, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text("TOTAL", labelX - 1, y + 6.5, { align: "right" });
+  doc.text(fmtCAD(invoice.total), totalsX - 1, y + 6.5, { align: "right" });
+  y += 16;
+
+  // Notes
+  if (invoice.notes) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY);
+    doc.text("NOTES", margin, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...DARK);
+    const lines = doc.splitTextToSize(invoice.notes, pageW - margin * 2);
+    doc.text(lines, margin, y);
+    y += lines.length * 5 + 4;
+  }
+
+  // Paid stamp
+  if (invoice.status === "paid" && invoice.paidAt) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(36);
+    doc.setTextColor(34, 197, 94);
+    doc.setGState(new (doc as unknown as { GState: new (opts: { opacity: number }) => object }).GState({ opacity: 0.15 }));
+    doc.text("PAID", pageW / 2, 160, { align: "center", angle: 30 });
+    doc.setGState(new (doc as unknown as { GState: new (opts: { opacity: number }) => object }).GState({ opacity: 1 }));
+  }
+
+  // Footer
+  const pageH = doc.internal.pageSize.getHeight();
+  doc.setFillColor(...DARK);
+  doc.rect(0, pageH - 12, pageW, 12, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(180, 180, 180);
+  doc.text(`Generated by BuildCore · ${invoice.invoiceNumber}`, margin, pageH - 4.5);
+  doc.text(format(new Date(), "MMM d, yyyy"), pageW - margin, pageH - 4.5, { align: "right" });
+
+  doc.save(`${invoice.invoiceNumber}.pdf`);
+}
+
 export default function InvoiceDetail() {
   const { id } = useParams<{ id: string }>();
   const invoiceId = parseInt(id);
@@ -45,11 +268,9 @@ export default function InvoiceDetail() {
   const queryClient = useQueryClient();
 
   const { data: invoice, isLoading } = useGetInvoice(invoiceId);
+  const { data: me } = useGetMe();
   const markSent = useMarkInvoiceSent();
   const markPaid = useMarkInvoicePaid();
-
-  const fmtCAD = (v: string | number) =>
-    new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoiceId) });
@@ -68,6 +289,14 @@ export default function InvoiceDetail() {
       onSuccess: () => { toast({ title: "Invoice marked as paid!" }); invalidate(); },
       onError: () => toast({ title: "Failed to update invoice", variant: "destructive" }),
     });
+  }
+
+  function handleDownloadPDF() {
+    if (!invoice) return;
+    const lineItems = (invoice.lineItems ?? []) as LineItem[];
+    const companyName = (me as (typeof me & { company?: { name?: string } }) | undefined)?.company?.name ?? "BuildCore";
+    generateInvoicePDF(invoice as Invoice, lineItems, companyName);
+    toast({ title: "PDF downloaded" });
   }
 
   if (isLoading) {
@@ -91,9 +320,7 @@ export default function InvoiceDetail() {
     );
   }
 
-  const lineItems = (invoice.lineItems ?? []) as {
-    description: string; quantity: number; unit: string; unitPrice: number; total: number;
-  }[];
+  const lineItems = (invoice.lineItems ?? []) as LineItem[];
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -118,7 +345,13 @@ export default function InvoiceDetail() {
           </p>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          {/* Download PDF — always available */}
+          <Button variant="outline" onClick={handleDownloadPDF}>
+            <Download className="h-4 w-4 mr-2" />
+            Download PDF
+          </Button>
+
           {invoice.status === "draft" && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
