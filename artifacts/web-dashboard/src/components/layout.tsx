@@ -11,6 +11,7 @@ import {
   Bot,
   FileText,
   Receipt,
+  ShieldCheck,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import {
@@ -44,6 +45,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: user } = useGetMe();
   const { signOut } = useClerk();
 
+  const isOwner = user?.role === "owner";
+
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Projects", href: "/projects", icon: Building2 },
@@ -53,6 +56,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Team", href: "/team", icon: Users },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
+
+  const adminNavigation = isOwner
+    ? [{ name: "Admin & Billing", href: "/admin", icon: ShieldCheck }]
+    : [];
 
   return (
     <SidebarProvider>
@@ -87,6 +94,29 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+
+            {adminNavigation.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 px-4">Admin</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {adminNavigation.map((item) => {
+                      const isActive = location.startsWith(item.href);
+                      return (
+                        <SidebarMenuItem key={item.name}>
+                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
+                            <Link href={item.href} className="flex items-center gap-3 font-medium">
+                              <item.icon className="h-5 w-5" />
+                              <span>{item.name}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
           </SidebarContent>
           <SidebarFooter className="border-t border-border/10 p-4">
             <DropdownMenu>

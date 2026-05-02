@@ -102,11 +102,22 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - **Budget on project cards**: `budget` field added to web Create Project dialog (optional CAD amount with `$` icon)
 - Project listing cards now show budget in orange with `$` icon when set; detail page already had it
 
-### ⏳ Phase 5 — OFFLINE MODE (Pending)
-
-### ⏳ Phase 5 — QUOTING & INVOICING (Pending)
-
-### ⏳ Phase 6 — PRODUCTIZATION / BILLING (Pending)
+### ✅ Phase 6 — ADMIN PANEL + STRIPE BILLING (Complete)
+- **Stripe integration**: `stripe` + `stripe-replit-sync` at workspace root; connected via Replit Stripe integration; `stripeClient.ts` in api-server + scripts dirs
+- **DB columns**: `stripeCustomerId` + `stripeSubscriptionId` added to `companiesTable` (billing per company/tenant)
+- **Stripe schema init**: `runMigrations()` at server startup with pre-flight creation of `stripe.invoice_status` type (avoids enum conflict with `public.invoice_status`); `stripe` and `stripe-replit-sync` externalized in esbuild so migration files resolve correctly
+- **Webhook**: registered BEFORE `express.json()` in app.ts at `/api/stripe/webhook`; managed webhook created via `findOrCreateManagedWebhook()`; backfill runs in background
+- **3 subscription plans** seeded via `scripts/src/seed-products.ts`:
+  - BuildCore Starter: $49 CAD/mo or $490/yr — up to 3 seats
+  - BuildCore Pro: $99 CAD/mo or $990/yr — up to 10 seats (most popular)
+  - BuildCore Business: $199 CAD/mo or $1990/yr — unlimited seats
+- **Billing API routes** (`artifacts/api-server/src/routes/billing.ts`):
+  - `GET /api/billing/plans` — products + prices from `stripe` schema (public)
+  - `GET /api/billing/subscription` — current company subscription
+  - `POST /api/billing/checkout` — create Stripe checkout session (owner only); creates Stripe customer on first use
+  - `POST /api/billing/portal` — create Stripe billing portal session (owner only)
+- **Admin panel** (`/admin`): owner-only; subscription status card, plan cards with monthly/annual toggle, team seats card, company details card; "Manage Billing" opens Stripe portal; "Get Started"/"Switch Plan" redirects to Stripe checkout
+- **Sidebar**: "Admin & Billing" link (ShieldCheck icon) visible only to owners under a separate "Admin" section
 
 ## Key Commands
 
@@ -148,6 +159,8 @@ Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_
 
 - Orval codegen: `lib/api-zod` uses `mode: "single"` with an absolute `target` path (no `workspace:`) so orval does NOT regenerate `index.ts`. After codegen, `lib/api-zod/src/index.ts` must only contain `export * from "./generated/api";` — if it gains a second line, rewrite it. `lib/api-client-react` uses `mode: "split"` with `workspace:` and generates both `api.ts` + `api.schemas.ts` (both real files); its `index.ts` exports all four things correctly.
 - Cron jobs: 7:00 AM ET — daily digest email; 8:00 AM ET — overdue invoice reminders (resend every 7 days)
+- esbuild externals: `stripe` and `stripe-replit-sync` must be in the `external` array in `build.mjs` — they use `__dirname` to load migration files and cannot be bundled
+- Stripe migration conflict: `stripe-replit-sync`'s invoices migration checks `pg_type WHERE typname = 'invoice_status'` without schema filter; our public enum is found first so `stripe.invoice_status` is skipped. Fixed by pre-creating `stripe.invoice_status` via pool before `runMigrations()` in index.ts
 - Object storage uses presigned URL flow: client POSTs to `/api/storage/uploads/request-url`, then PUTs file directly to the returned GCS URL
 - Expo Go compatibility: `expo-secure-store` shimmed via `artifacts/mobile/metro.config.js` → `artifacts/mobile/shims/expo-secure-store.ts` (uses AsyncStorage). Required because Clerk v2 imports expo-secure-store internally. CRITICAL: Tab screens cannot import from `@clerk/clerk-expo` or the app crashes with `ExpoCryptoAES` — use `@/utils/auth` and `customFetch` instead. If Metro cache is stale, delete `/tmp/metro-cache` and restart the workflow.
 - `customFetch` is exported from `lib/api-client-react/src/index.ts` — use it directly for non-generated API calls (e.g., AI chat endpoint) as it automatically attaches the Bearer token

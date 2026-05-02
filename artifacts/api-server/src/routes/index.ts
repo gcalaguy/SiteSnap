@@ -18,6 +18,7 @@ import digestRouter from "./digest";
 import documentsRouter from "./documents";
 import quotesRouter from "./quotes";
 import invoicesRouter from "./invoices";
+import billingRouter from "./billing";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(dashboardRouter);
 router.use(storageRouter);
 router.use(notificationsRouter);
 router.use(digestRouter);
+router.use(billingRouter);
 
 export default router;

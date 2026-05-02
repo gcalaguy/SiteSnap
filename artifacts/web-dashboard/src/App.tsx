@@ -25,6 +25,7 @@ import NewQuote from "@/pages/new-quote";
 import QuoteDetail from "@/pages/quote-detail";
 import Invoices from "@/pages/invoices";
 import InvoiceDetail from "@/pages/invoice-detail";
+import AdminPage from "@/pages/admin";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 
@@ -211,6 +212,7 @@ function AuthApp() {
           <Route path="/quotes" component={Quotes} />
           <Route path="/invoices/:id" component={InvoiceDetail} />
           <Route path="/invoices" component={Invoices} />
+          <Route path="/admin" component={AdminPage} />
           <Route path="/ai-chat" component={AIChat} />
           <Route path="/team" component={Team} />
           <Route path="/settings" component={Settings} />
