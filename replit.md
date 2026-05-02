@@ -59,6 +59,18 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - **Offline queue (mobile)**: Full offline-first report capture using AsyncStorage + NetInfo; `context/OfflineQueueContext.tsx` holds the queue, monitors connectivity, and auto-syncs pending reports when coming back online; Log screen shows contextual banners (offline warning, syncing progress, failed report alert with Retry/Discard); submit button switches label to "Save Offline" and turns amber when disconnected; Log tab shows a red badge dot with pending count; failed items (after 3 attempts) surface an Options alert with Retry or Discard; `@react-native-community/netinfo` added to mobile deps
 - **Daily digest email**: Automated morning digest at 7:00 AM ET via `node-cron` + Resend API; "Send Now" button in Settings page; HTML email with budget/RFI/task summary
 
+### ✅ Phase 4 — QUOTES & INVOICES (Complete)
+- **DB schema**: `quoteStatusEnum` (draft/pending_approval/approved/rejected/converted), `invoiceStatusEnum` (draft/sent/paid/overdue/cancelled), `quotesTable`, `invoicesTable` with `QuoteLineItem[]` JSON columns, HST tax (13% default), numeric totals
+- **AI quote generation**: `POST /api/ai/quote/generate` — voice/text description → GPT generates structured line items with realistic Canadian pricing + HST; returns title, lineItems, subtotal, taxAmount, total, notes
+- **Quotes API**: Full CRUD at `GET/POST /projects/:projectId/quotes`, `GET/PUT/DELETE /projects/:projectId/quotes/:id`; status workflow: submit → approve/reject → convert-to-invoice; flat list at `GET /quotes?status=`
+- **Invoices API**: `GET/PUT /invoices`, `GET /invoices/:id`, `POST /invoices/:id/mark-sent`, `POST /invoices/:id/mark-paid`; created from quote conversion with one-click
+- **Quotes web page** (`/quotes`): List with status tabs (All/Draft/Pending/Approved/Rejected/Invoiced), quote number + client + total, link to detail
+- **Quote detail** (`/quotes/:id`): AI fill panel with voice input + text → generate line items; inline editable line item table (description/qty/unit/unit price); save, submit for approval, approve, reject, convert to invoice buttons with confirmation dialogs; auto-calculates HST totals
+- **New Quote** (`/quotes/new`): Form for title, client name/email, valid until, notes — creates draft then opens editor
+- **Invoices web page** (`/invoices`): Outstanding + Collected summary cards, status tabs, list with due dates
+- **Invoice detail** (`/invoices/:id`): Full invoice view with line item table, HST totals, mark-sent and mark-paid confirmation dialogs
+- **Nav**: Quotes + Invoices added to AppLayout sidebar (FileText + Receipt icons)
+
 ### ✅ Phase 4 — MOBILE APP (Complete)
 - Expo mobile app (`artifacts/mobile`) for field crews using Expo Go (SDK 54)
 - 6 tabs: Home, Projects, Log (daily reports + AI assist), Ask AI (chat), Tasks, Profile

@@ -1030,3 +1030,658 @@ export const RequestUploadUrlResponse = zod.object({
 export const GetStorageObjectParams = zod.object({
   objectPath: zod.coerce.string(),
 });
+
+/**
+ * @summary List quotes for a project
+ */
+export const ListQuotesParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListQuotesResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum([
+    "draft",
+    "pending_approval",
+    "approved",
+    "rejected",
+    "converted",
+  ]),
+  voiceInput: zod.string().nullish(),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  validUntil: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  convertedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListQuotesResponse = zod.array(ListQuotesResponseItem);
+
+/**
+ * @summary Create a new quote
+ */
+export const CreateQuoteParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const CreateQuoteBody = zod.object({
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  voiceInput: zod.string().nullish(),
+  lineItems: zod
+    .array(
+      zod.object({
+        description: zod.string(),
+        quantity: zod.number(),
+        unit: zod.string(),
+        unitPrice: zod.number(),
+        total: zod.number(),
+      }),
+    )
+    .optional(),
+  subtotal: zod.number().optional(),
+  taxRate: zod.number().optional(),
+  taxAmount: zod.number().optional(),
+  total: zod.number().optional(),
+  notes: zod.string().nullish(),
+  validUntil: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Get a quote by ID
+ */
+export const GetQuoteParams = zod.object({
+  projectId: zod.coerce.number(),
+  quoteId: zod.coerce.number(),
+});
+
+export const GetQuoteResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum([
+    "draft",
+    "pending_approval",
+    "approved",
+    "rejected",
+    "converted",
+  ]),
+  voiceInput: zod.string().nullish(),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  validUntil: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  convertedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a quote
+ */
+export const UpdateQuoteParams = zod.object({
+  projectId: zod.coerce.number(),
+  quoteId: zod.coerce.number(),
+});
+
+export const UpdateQuoteBody = zod.object({
+  title: zod.string().optional(),
+  clientName: zod.string().optional(),
+  clientEmail: zod.string().nullish(),
+  voiceInput: zod.string().nullish(),
+  lineItems: zod
+    .array(
+      zod.object({
+        description: zod.string(),
+        quantity: zod.number(),
+        unit: zod.string(),
+        unitPrice: zod.number(),
+        total: zod.number(),
+      }),
+    )
+    .optional(),
+  subtotal: zod.number().optional(),
+  taxRate: zod.number().optional(),
+  taxAmount: zod.number().optional(),
+  total: zod.number().optional(),
+  notes: zod.string().nullish(),
+  validUntil: zod.coerce.date().nullish(),
+});
+
+export const UpdateQuoteResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum([
+    "draft",
+    "pending_approval",
+    "approved",
+    "rejected",
+    "converted",
+  ]),
+  voiceInput: zod.string().nullish(),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  validUntil: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  convertedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a quote
+ */
+export const DeleteQuoteParams = zod.object({
+  projectId: zod.coerce.number(),
+  quoteId: zod.coerce.number(),
+});
+
+/**
+ * @summary Submit quote for approval
+ */
+export const SubmitQuoteForApprovalParams = zod.object({
+  projectId: zod.coerce.number(),
+  quoteId: zod.coerce.number(),
+});
+
+export const SubmitQuoteForApprovalResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum([
+    "draft",
+    "pending_approval",
+    "approved",
+    "rejected",
+    "converted",
+  ]),
+  voiceInput: zod.string().nullish(),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  validUntil: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  convertedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Approve a quote
+ */
+export const ApproveQuoteParams = zod.object({
+  projectId: zod.coerce.number(),
+  quoteId: zod.coerce.number(),
+});
+
+export const ApproveQuoteResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum([
+    "draft",
+    "pending_approval",
+    "approved",
+    "rejected",
+    "converted",
+  ]),
+  voiceInput: zod.string().nullish(),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  validUntil: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  convertedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Reject a quote
+ */
+export const RejectQuoteParams = zod.object({
+  projectId: zod.coerce.number(),
+  quoteId: zod.coerce.number(),
+});
+
+export const RejectQuoteBody = zod.object({
+  reason: zod.string().optional(),
+});
+
+export const RejectQuoteResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum([
+    "draft",
+    "pending_approval",
+    "approved",
+    "rejected",
+    "converted",
+  ]),
+  voiceInput: zod.string().nullish(),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  validUntil: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  convertedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Convert an approved quote to an invoice
+ */
+export const ConvertQuoteToInvoiceParams = zod.object({
+  projectId: zod.coerce.number(),
+  quoteId: zod.coerce.number(),
+});
+
+export const ConvertQuoteToInvoiceBody = zod.object({
+  dueDate: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary AI-generate quote line items from voice/text description
+ */
+export const GenerateQuoteAIBody = zod.object({
+  voiceInput: zod.string(),
+  projectName: zod.string().nullish(),
+  clientName: zod.string().nullish(),
+});
+
+export const GenerateQuoteAIResponse = zod.object({
+  title: zod.string(),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.number(),
+  taxAmount: zod.number(),
+  total: zod.number(),
+  notes: zod.string(),
+});
+
+/**
+ * @summary List all quotes for the company
+ */
+export const ListAllQuotesQueryParams = zod.object({
+  status: zod
+    .enum(["draft", "pending_approval", "approved", "rejected", "converted"])
+    .nullish(),
+});
+
+export const ListAllQuotesResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum([
+    "draft",
+    "pending_approval",
+    "approved",
+    "rejected",
+    "converted",
+  ]),
+  voiceInput: zod.string().nullish(),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  validUntil: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  convertedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListAllQuotesResponse = zod.array(ListAllQuotesResponseItem);
+
+/**
+ * @summary List all invoices for the company
+ */
+export const ListAllInvoicesQueryParams = zod.object({
+  status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]).nullish(),
+});
+
+export const ListAllInvoicesResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  invoiceNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  paidAt: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListAllInvoicesResponse = zod.array(ListAllInvoicesResponseItem);
+
+/**
+ * @summary Get an invoice by ID
+ */
+export const GetInvoiceParams = zod.object({
+  invoiceId: zod.coerce.number(),
+});
+
+export const GetInvoiceResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  invoiceNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  paidAt: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update an invoice
+ */
+export const UpdateInvoiceParams = zod.object({
+  invoiceId: zod.coerce.number(),
+});
+
+export const UpdateInvoiceBody = zod.object({
+  title: zod.string().optional(),
+  clientName: zod.string().optional(),
+  clientEmail: zod.string().nullish(),
+  lineItems: zod
+    .array(
+      zod.object({
+        description: zod.string(),
+        quantity: zod.number(),
+        unit: zod.string(),
+        unitPrice: zod.number(),
+        total: zod.number(),
+      }),
+    )
+    .optional(),
+  subtotal: zod.number().optional(),
+  taxRate: zod.number().optional(),
+  taxAmount: zod.number().optional(),
+  total: zod.number().optional(),
+  notes: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+});
+
+export const UpdateInvoiceResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  invoiceNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  paidAt: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Mark invoice as sent
+ */
+export const MarkInvoiceSentParams = zod.object({
+  invoiceId: zod.coerce.number(),
+});
+
+export const MarkInvoiceSentResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  invoiceNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  paidAt: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Mark invoice as paid
+ */
+export const MarkInvoicePaidParams = zod.object({
+  invoiceId: zod.coerce.number(),
+});
+
+export const MarkInvoicePaidResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  invoiceNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  paidAt: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});

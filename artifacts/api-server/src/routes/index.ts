@@ -16,6 +16,8 @@ import storageRouter from "./storage";
 import notificationsRouter from "./notifications";
 import digestRouter from "./digest";
 import documentsRouter from "./documents";
+import quotesRouter from "./quotes";
+import invoicesRouter from "./invoices";
 
 const router: IRouter = Router();
 
@@ -30,6 +32,8 @@ router.use("/projects/:projectId/rfis", rfisRouter);
 router.use("/projects/:projectId/tasks", tasksRouter);
 router.use("/projects/:projectId/daily-reports/:reportId/photos", photosRouter);
 router.use("/projects/:projectId/documents", documentsRouter);
+router.use("/projects/:projectId/quotes", quotesRouter);
+router.use(invoicesRouter);
 router.use(aiRouter);
 router.use(conversationsRouter);
 router.use(dashboardRouter);

@@ -498,3 +498,176 @@ export interface RegisterDocumentBody {
   objectPath: string;
   fileSize?: number;
 }
+
+export interface QuoteLineItem {
+  description: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  total: number;
+}
+
+export type QuoteStatus = (typeof QuoteStatus)[keyof typeof QuoteStatus];
+
+export const QuoteStatus = {
+  draft: "draft",
+  pending_approval: "pending_approval",
+  approved: "approved",
+  rejected: "rejected",
+  converted: "converted",
+} as const;
+
+export interface Quote {
+  id: number;
+  companyId: number;
+  projectId?: number | null;
+  quoteNumber: string;
+  title: string;
+  clientName: string;
+  clientEmail?: string | null;
+  status: QuoteStatus;
+  voiceInput?: string | null;
+  lineItems: QuoteLineItem[];
+  subtotal: string;
+  taxRate: string;
+  taxAmount: string;
+  total: string;
+  notes?: string | null;
+  validUntil?: string | null;
+  createdByUserId: number;
+  approvedByUserId?: number | null;
+  approvedAt?: string | null;
+  convertedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateQuoteBody {
+  title: string;
+  clientName: string;
+  clientEmail?: string | null;
+  voiceInput?: string | null;
+  lineItems?: QuoteLineItem[];
+  subtotal?: number;
+  taxRate?: number;
+  taxAmount?: number;
+  total?: number;
+  notes?: string | null;
+  validUntil?: string | null;
+}
+
+export interface UpdateQuoteBody {
+  title?: string;
+  clientName?: string;
+  clientEmail?: string | null;
+  voiceInput?: string | null;
+  lineItems?: QuoteLineItem[];
+  subtotal?: number;
+  taxRate?: number;
+  taxAmount?: number;
+  total?: number;
+  notes?: string | null;
+  validUntil?: string | null;
+}
+
+export interface QuoteAIGenerateBody {
+  voiceInput: string;
+  projectName?: string | null;
+  clientName?: string | null;
+}
+
+export interface QuoteAIGenerateResponse {
+  title: string;
+  lineItems: QuoteLineItem[];
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  notes: string;
+}
+
+export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus];
+
+export const InvoiceStatus = {
+  draft: "draft",
+  sent: "sent",
+  paid: "paid",
+  overdue: "overdue",
+  cancelled: "cancelled",
+} as const;
+
+export interface Invoice {
+  id: number;
+  companyId: number;
+  projectId?: number | null;
+  quoteId?: number | null;
+  invoiceNumber: string;
+  title: string;
+  clientName: string;
+  clientEmail?: string | null;
+  status: InvoiceStatus;
+  lineItems: QuoteLineItem[];
+  subtotal: string;
+  taxRate: string;
+  taxAmount: string;
+  total: string;
+  notes?: string | null;
+  dueDate?: string | null;
+  sentAt?: string | null;
+  paidAt?: string | null;
+  createdByUserId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateInvoiceBody {
+  title?: string;
+  clientName?: string;
+  clientEmail?: string | null;
+  lineItems?: QuoteLineItem[];
+  subtotal?: number;
+  taxRate?: number;
+  taxAmount?: number;
+  total?: number;
+  notes?: string | null;
+  dueDate?: string | null;
+}
+
+export type RejectQuoteBody = {
+  reason?: string;
+};
+
+export type ConvertQuoteToInvoiceBody = {
+  dueDate?: string | null;
+};
+
+export type ListAllQuotesParams = {
+  status?: ListAllQuotesStatus;
+};
+
+export type ListAllQuotesStatus =
+  | (typeof ListAllQuotesStatus)[keyof typeof ListAllQuotesStatus]
+  | null;
+
+export const ListAllQuotesStatus = {
+  draft: "draft",
+  pending_approval: "pending_approval",
+  approved: "approved",
+  rejected: "rejected",
+  converted: "converted",
+} as const;
+
+export type ListAllInvoicesParams = {
+  status?: ListAllInvoicesStatus;
+};
+
+export type ListAllInvoicesStatus =
+  | (typeof ListAllInvoicesStatus)[keyof typeof ListAllInvoicesStatus]
+  | null;
+
+export const ListAllInvoicesStatus = {
+  draft: "draft",
+  sent: "sent",
+  paid: "paid",
+  overdue: "overdue",
+  cancelled: "cancelled",
+} as const;

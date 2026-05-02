@@ -36,6 +36,10 @@ tags:
     description: Daily report photo management
   - name: documents
     description: Project document upload, storage, and AI extraction
+  - name: quotes
+    description: Quote creation, AI filling, and approval workflow
+  - name: invoices
+    description: Invoice management and payment tracking
 
 paths:
   /healthz:
@@ -952,6 +956,385 @@ paths:
         "404":
           description: Not found
 
+  # ── Quotes ──────────────────────────────────────────────────────────────────
+
+  /projects/{projectId}/quotes:
+    get:
+      operationId: listQuotes
+      tags: [quotes]
+      summary: List quotes for a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of quotes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quote"
+    post:
+      operationId: createQuote
+      tags: [quotes]
+      summary: Create a new quote
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuoteBody"
+      responses:
+        "201":
+          description: Created quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
+  /projects/{projectId}/quotes/{quoteId}:
+    get:
+      operationId: getQuote
+      tags: [quotes]
+      summary: Get a quote by ID
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "404":
+          description: Not found
+    put:
+      operationId: updateQuote
+      tags: [quotes]
+      summary: Update a quote
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuoteBody"
+      responses:
+        "200":
+          description: Updated quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+    delete:
+      operationId: deleteQuote
+      tags: [quotes]
+      summary: Delete a quote
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/quotes/{quoteId}/submit:
+    post:
+      operationId: submitQuoteForApproval
+      tags: [quotes]
+      summary: Submit quote for approval
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Quote submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
+  /projects/{projectId}/quotes/{quoteId}/approve:
+    post:
+      operationId: approveQuote
+      tags: [quotes]
+      summary: Approve a quote
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Quote approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
+  /projects/{projectId}/quotes/{quoteId}/reject:
+    post:
+      operationId: rejectQuote
+      tags: [quotes]
+      summary: Reject a quote
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Quote rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
+  /projects/{projectId}/quotes/{quoteId}/convert-to-invoice:
+    post:
+      operationId: convertQuoteToInvoice
+      tags: [quotes]
+      summary: Convert an approved quote to an invoice
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dueDate:
+                  type: string
+                  format: date
+                  nullable: true
+      responses:
+        "201":
+          description: Invoice created from quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /ai/quote/generate:
+    post:
+      operationId: generateQuoteAI
+      tags: [quotes, ai]
+      summary: AI-generate quote line items from voice/text description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteAIGenerateBody"
+      responses:
+        "200":
+          description: AI-generated line items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteAIGenerateResponse"
+
+  /quotes:
+    get:
+      operationId: listAllQuotes
+      tags: [quotes]
+      summary: List all quotes for the company
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, pending_approval, approved, rejected, converted]
+            nullable: true
+      responses:
+        "200":
+          description: List of quotes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quote"
+
+  # ── Invoices ─────────────────────────────────────────────────────────────────
+
+  /invoices:
+    get:
+      operationId: listAllInvoices
+      tags: [invoices]
+      summary: List all invoices for the company
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, sent, paid, overdue, cancelled]
+            nullable: true
+      responses:
+        "200":
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invoice"
+
+  /invoices/{invoiceId}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      summary: Get an invoice by ID
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "404":
+          description: Not found
+    put:
+      operationId: updateInvoice
+      tags: [invoices]
+      summary: Update an invoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInvoiceBody"
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /invoices/{invoiceId}/mark-sent:
+    post:
+      operationId: markInvoiceSent
+      tags: [invoices]
+      summary: Mark invoice as sent
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice marked sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /invoices/{invoiceId}/mark-paid:
+    post:
+      operationId: markInvoicePaid
+      tags: [invoices]
+      summary: Mark invoice as paid
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice marked paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
 components:
   parameters:
     companyId:
@@ -1793,3 +2176,278 @@ components:
           type: string
         fileSize:
           type: integer
+
+    # ── Quotes ──────────────────────────────────────────────────────────────────
+
+    QuoteLineItem:
+      type: object
+      required: [description, quantity, unit, unitPrice, total]
+      properties:
+        description:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: string
+        unitPrice:
+          type: number
+        total:
+          type: number
+
+    Quote:
+      type: object
+      required: [id, companyId, quoteNumber, title, clientName, status, lineItems, subtotal, taxRate, taxAmount, total, createdByUserId, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: integer
+          nullable: true
+        quoteNumber:
+          type: string
+        title:
+          type: string
+        clientName:
+          type: string
+        clientEmail:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [draft, pending_approval, approved, rejected, converted]
+        voiceInput:
+          type: string
+          nullable: true
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteLineItem"
+        subtotal:
+          type: string
+        taxRate:
+          type: string
+        taxAmount:
+          type: string
+        total:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        validUntil:
+          type: string
+          format: date
+          nullable: true
+        createdByUserId:
+          type: integer
+        approvedByUserId:
+          type: integer
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        convertedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateQuoteBody:
+      type: object
+      required: [title, clientName]
+      properties:
+        title:
+          type: string
+        clientName:
+          type: string
+        clientEmail:
+          type: string
+          nullable: true
+        voiceInput:
+          type: string
+          nullable: true
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteLineItem"
+        subtotal:
+          type: number
+        taxRate:
+          type: number
+        taxAmount:
+          type: number
+        total:
+          type: number
+        notes:
+          type: string
+          nullable: true
+        validUntil:
+          type: string
+          format: date
+          nullable: true
+
+    UpdateQuoteBody:
+      type: object
+      properties:
+        title:
+          type: string
+        clientName:
+          type: string
+        clientEmail:
+          type: string
+          nullable: true
+        voiceInput:
+          type: string
+          nullable: true
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteLineItem"
+        subtotal:
+          type: number
+        taxRate:
+          type: number
+        taxAmount:
+          type: number
+        total:
+          type: number
+        notes:
+          type: string
+          nullable: true
+        validUntil:
+          type: string
+          format: date
+          nullable: true
+
+    QuoteAIGenerateBody:
+      type: object
+      required: [voiceInput]
+      properties:
+        voiceInput:
+          type: string
+        projectName:
+          type: string
+          nullable: true
+        clientName:
+          type: string
+          nullable: true
+
+    QuoteAIGenerateResponse:
+      type: object
+      required: [title, lineItems, subtotal, taxAmount, total, notes]
+      properties:
+        title:
+          type: string
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteLineItem"
+        subtotal:
+          type: number
+        taxAmount:
+          type: number
+        total:
+          type: number
+        notes:
+          type: string
+
+    # ── Invoices ─────────────────────────────────────────────────────────────────
+
+    Invoice:
+      type: object
+      required: [id, companyId, invoiceNumber, title, clientName, status, lineItems, subtotal, taxRate, taxAmount, total, createdByUserId, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: integer
+          nullable: true
+        quoteId:
+          type: integer
+          nullable: true
+        invoiceNumber:
+          type: string
+        title:
+          type: string
+        clientName:
+          type: string
+        clientEmail:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [draft, sent, paid, overdue, cancelled]
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteLineItem"
+        subtotal:
+          type: string
+        taxRate:
+          type: string
+        taxAmount:
+          type: string
+        total:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdByUserId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpdateInvoiceBody:
+      type: object
+      properties:
+        title:
+          type: string
+        clientName:
+          type: string
+        clientEmail:
+          type: string
+          nullable: true
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteLineItem"
+        subtotal:
+          type: number
+        taxRate:
+          type: number
+        taxAmount:
+          type: number
+        total:
+          type: number
+        notes:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          format: date
+          nullable: true

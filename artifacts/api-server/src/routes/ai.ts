@@ -236,6 +236,77 @@ Today's date: ${new Date().toLocaleDateString("en-CA")}`;
   }
 });
 
+// ── Quote AI Agent ────────────────────────────────────────────────────────────
+const QuoteAIInput = z.object({
+  voiceInput: z.string().min(1),
+  projectName: z.string().optional().nullable(),
+  clientName: z.string().optional().nullable(),
+});
+
+router.post("/ai/quote/generate", requireAuth, requireCompany, async (req, res) => {
+  const parsed = QuoteAIInput.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+    return;
+  }
+
+  const { voiceInput, projectName, clientName } = parsed.data;
+  const TAX_RATE = 0.13;
+
+  const prompt = `You are a professional construction estimator AI for Canadian construction companies.
+
+A contractor has described a job verbally. Extract and generate a detailed quote from this description.
+Return ONLY a JSON object with these exact fields:
+- title: string (short quote title, e.g. "Foundation Concrete Work — Phase 1")
+- lineItems: array of objects, each with:
+  - description: string (material or labour item name)
+  - quantity: number
+  - unit: string (e.g. "hr", "m²", "m³", "ea", "lm", "bag", "sheet", "load")
+  - unitPrice: number (CAD, realistic Canadian construction pricing)
+  - total: number (quantity × unitPrice, rounded to 2 decimals)
+- subtotal: number (sum of all line item totals)
+- taxAmount: number (subtotal × ${TAX_RATE} HST, rounded to 2 decimals)
+- total: number (subtotal + taxAmount)
+- notes: string (any scope clarifications, assumptions, or exclusions)
+
+Use realistic Canadian construction pricing for materials and labour.
+Include both materials AND labour as separate line items when applicable.
+${projectName ? `Project: ${projectName}` : ""}
+${clientName ? `Client: ${clientName}` : ""}
+
+Contractor voice description:
+"${voiceInput}"
+
+Respond with ONLY the JSON object, no markdown, no explanation.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5.4",
+      max_completion_tokens: 8192,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const content = response.choices[0]?.message?.content ?? "{}";
+    let result: Record<string, unknown>;
+    try {
+      result = JSON.parse(content);
+    } catch {
+      result = {
+        title: "Site Quote",
+        lineItems: [],
+        subtotal: 0,
+        taxAmount: 0,
+        total: 0,
+        notes: voiceInput,
+      };
+    }
+    res.json(result);
+  } catch (err: unknown) {
+    req.log?.error({ err }, "AI quote generation failed");
+    res.status(500).json({ error: "AI generation failed" });
+  }
+});
+
 // ── Voice Transcription ───────────────────────────────────────────────────────
 const TranscribeInput = z.object({
   audio: z.string().min(1),

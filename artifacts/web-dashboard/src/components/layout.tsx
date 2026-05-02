@@ -9,6 +9,8 @@ import {
   LogOut,
   ChevronDown,
   Bot,
+  FileText,
+  Receipt,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import {
@@ -45,6 +47,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Projects", href: "/projects", icon: Building2 },
+    { name: "Quotes", href: "/quotes", icon: FileText },
+    { name: "Invoices", href: "/invoices", icon: Receipt },
     { name: "AI Chat", href: "/ai-chat", icon: Bot },
     { name: "Team", href: "/team", icon: Users },
     { name: "Settings", href: "/settings", icon: Settings },

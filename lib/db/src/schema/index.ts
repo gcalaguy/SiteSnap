@@ -328,3 +328,96 @@ export const notificationsTable = pgTable("notifications", {
 });
 
 export type Notification = typeof notificationsTable.$inferSelect;
+
+// ── Quotes ────────────────────────────────────────────────────────────────────
+
+export const quoteStatusEnum = pgEnum("quote_status", [
+  "draft",
+  "pending_approval",
+  "approved",
+  "rejected",
+  "converted",
+]);
+
+export type QuoteLineItem = {
+  description: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  total: number;
+};
+
+export const quotesTable = pgTable("quotes", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  projectId: integer("project_id").references(() => projectsTable.id),
+  quoteNumber: text("quote_number").notNull(),
+  title: text("title").notNull(),
+  clientName: text("client_name").notNull(),
+  clientEmail: text("client_email"),
+  status: quoteStatusEnum("status").notNull().default("draft"),
+  voiceInput: text("voice_input"),
+  lineItems: json("line_items").$type<QuoteLineItem[]>().notNull().default([]),
+  subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
+  taxRate: numeric("tax_rate", { precision: 5, scale: 4 }).notNull().default("0.1300"),
+  taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  total: numeric("total", { precision: 12, scale: 2 }).notNull().default("0"),
+  notes: text("notes"),
+  validUntil: date("valid_until"),
+  createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
+  approvedByUserId: integer("approved_by_user_id").references(() => usersTable.id),
+  approvedAt: timestamp("approved_at"),
+  convertedAt: timestamp("converted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertQuoteSchema = createInsertSchema(quotesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertQuote = z.infer<typeof insertQuoteSchema>;
+export type Quote = typeof quotesTable.$inferSelect;
+
+// ── Invoices ──────────────────────────────────────────────────────────────────
+
+export const invoiceStatusEnum = pgEnum("invoice_status", [
+  "draft",
+  "sent",
+  "paid",
+  "overdue",
+  "cancelled",
+]);
+
+export const invoicesTable = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  projectId: integer("project_id").references(() => projectsTable.id),
+  quoteId: integer("quote_id").references(() => quotesTable.id),
+  invoiceNumber: text("invoice_number").notNull(),
+  title: text("title").notNull(),
+  clientName: text("client_name").notNull(),
+  clientEmail: text("client_email"),
+  status: invoiceStatusEnum("status").notNull().default("draft"),
+  lineItems: json("line_items").$type<QuoteLineItem[]>().notNull().default([]),
+  subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
+  taxRate: numeric("tax_rate", { precision: 5, scale: 4 }).notNull().default("0.1300"),
+  taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  total: numeric("total", { precision: 12, scale: 2 }).notNull().default("0"),
+  notes: text("notes"),
+  dueDate: date("due_date"),
+  sentAt: timestamp("sent_at"),
+  paidAt: timestamp("paid_at"),
+  createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoicesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type Invoice = typeof invoicesTable.$inferSelect;
