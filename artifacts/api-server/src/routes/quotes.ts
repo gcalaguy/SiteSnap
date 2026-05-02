@@ -51,11 +51,15 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
   res.json(quotes);
 });
 
-// POST / — create quote
+// POST / — create quote (projectId=0 means company-level, not tied to a project)
 router.post("/", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId);
-  const project = await verifyProjectAccess(projectId, req.companyId!);
-  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  // Only verify project access when a real projectId is provided
+  if (projectId > 0) {
+    const project = await verifyProjectAccess(projectId, req.companyId!);
+    if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  }
 
   const parsed = CreateQuoteBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
@@ -67,7 +71,7 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 
   const [quote] = await db.insert(quotesTable).values({
     companyId: req.companyId!,
-    projectId,
+    projectId: projectId > 0 ? projectId : null,
     quoteNumber,
     title,
     clientName,
