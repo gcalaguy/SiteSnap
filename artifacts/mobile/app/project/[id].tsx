@@ -65,24 +65,122 @@ const stat = StyleSheet.create({
 
 function ReportRow({ report }: { report: any }) {
   const colors = useColors();
+  const [expanded, setExpanded] = useState(false);
+
+  const dateLabel = new Date(report.reportDate).toLocaleDateString("en-CA", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  const submittedBy = report.submittedBy
+    ? `${(report.submittedBy.firstName ?? "")} ${(report.submittedBy.lastName ?? "")}`.trim() || report.submittedBy.email || null
+    : null;
+
   return (
-    <View style={[styles.reportRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <Pressable
+      style={({ pressed }) => [
+        styles.reportRow,
+        { backgroundColor: colors.card, borderColor: expanded ? colors.primary : colors.border, opacity: pressed ? 0.92 : 1 },
+      ]}
+      onPress={() => setExpanded((v) => !v)}
+    >
+      {/* Date badge */}
       <View style={[styles.reportDateBadge, { backgroundColor: `${colors.primary}15` }]}>
         <Text style={[styles.reportDateText, { color: colors.primary }]}>
           {new Date(report.reportDate).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
         </Text>
+        <Text style={[{ fontSize: 10, fontFamily: "Inter_400Regular", color: colors.primary, textAlign: "center" }]}>
+          {new Date(report.reportDate).toLocaleDateString("en-CA", { weekday: "short" })}
+        </Text>
       </View>
+
+      {/* Content */}
       <View style={{ flex: 1 }}>
-        <Text style={[styles.reportMeta, { color: colors.foreground }]} numberOfLines={2}>
+        {/* Summary line always visible */}
+        <Text
+          style={[styles.reportMeta, { color: colors.foreground }]}
+          numberOfLines={expanded ? undefined : 2}
+        >
           {report.workPerformed}
         </Text>
-        {report.crewCount != null && (
-          <Text style={[styles.reportSub, { color: colors.mutedForeground }]}>
-            {report.crewCount} crew member{report.crewCount !== 1 ? "s" : ""}
-          </Text>
+
+        {/* Meta row */}
+        <View style={styles.reportMetaRow}>
+          {report.crewCount != null && (
+            <View style={styles.reportMetaChip}>
+              <Feather name="users" size={11} color={colors.mutedForeground} />
+              <Text style={[styles.reportSub, { color: colors.mutedForeground }]}>
+                {report.crewCount}
+              </Text>
+            </View>
+          )}
+          {!!report.weather && (
+            <View style={styles.reportMetaChip}>
+              <Feather name="cloud" size={11} color={colors.mutedForeground} />
+              <Text style={[styles.reportSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {report.weather}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Expanded details */}
+        {expanded && (
+          <View style={[styles.reportExpanded, { borderTopColor: colors.border }]}>
+            {!!report.materialsUsed && (
+              <View style={styles.reportDetailRow}>
+                <Feather name="package" size={13} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Materials Used</Text>
+                  <Text style={[styles.reportDetailText, { color: colors.foreground }]}>{report.materialsUsed}</Text>
+                </View>
+              </View>
+            )}
+            {!!report.equipment && (
+              <View style={styles.reportDetailRow}>
+                <Feather name="tool" size={13} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Equipment</Text>
+                  <Text style={[styles.reportDetailText, { color: colors.foreground }]}>{report.equipment}</Text>
+                </View>
+              </View>
+            )}
+            {!!report.issues && (
+              <View style={styles.reportDetailRow}>
+                <Feather name="alert-triangle" size={13} color="#F59E0B" />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Issues / Delays</Text>
+                  <Text style={[styles.reportDetailText, { color: colors.foreground }]}>{report.issues}</Text>
+                </View>
+              </View>
+            )}
+            {!!report.aiSummary && (
+              <View style={[styles.reportAiBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}30` }]}>
+                <View style={styles.reportDetailRow}>
+                  <Feather name="zap" size={13} color={colors.primary} />
+                  <Text style={[styles.reportDetailLabel, { color: colors.primary }]}>AI Summary</Text>
+                </View>
+                <Text style={[styles.reportDetailText, { color: colors.foreground, marginTop: 4 }]}>{report.aiSummary}</Text>
+              </View>
+            )}
+            {!!submittedBy && (
+              <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 6 }]}>
+                Submitted by {submittedBy}
+              </Text>
+            )}
+          </View>
         )}
       </View>
-    </View>
+
+      {/* Expand chevron */}
+      <Feather
+        name={expanded ? "chevron-up" : "chevron-down"}
+        size={16}
+        color={expanded ? colors.primary : colors.border}
+        style={{ marginTop: 2 }}
+      />
+    </Pressable>
   );
 }
 
@@ -147,6 +245,13 @@ const styles = StyleSheet.create({
   reportDateText: { fontSize: 12, fontFamily: "Inter_600SemiBold", textAlign: "center" },
   reportMeta: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
   reportSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 3 },
+  reportMetaRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  reportMetaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
+  reportExpanded: { borderTopWidth: 1, marginTop: 10, paddingTop: 10, gap: 10 },
+  reportDetailRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  reportDetailLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 },
+  reportDetailText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  reportAiBox: { borderRadius: 8, borderWidth: 1, padding: 10, gap: 2 },
   taskItem: {
     flexDirection: "row",
     alignItems: "center",
