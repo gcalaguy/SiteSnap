@@ -32,10 +32,16 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
     return;
   }
 
+  // Workers only see tasks assigned to them; owners/foremen see all
+  const whereClause =
+    req.userRole === "worker"
+      ? and(eq(tasksTable.projectId, projectId), eq(tasksTable.assignedToUserId, req.userId!))
+      : eq(tasksTable.projectId, projectId);
+
   const tasks = await db
     .select()
     .from(tasksTable)
-    .where(eq(tasksTable.projectId, projectId))
+    .where(whereClause)
     .orderBy(tasksTable.createdAt);
 
   res.json(tasks);

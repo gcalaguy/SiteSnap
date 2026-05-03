@@ -258,12 +258,13 @@ export default function TasksScreen() {
 
   const allTasks = (tasks ?? []) as Task[];
   const myUserId = me?.id;
+  const isWorker = me?.role === "worker";
 
-  // Count tasks assigned to me across the project (for badge on the pill)
+  // Workers see only their tasks from the API; others can filter by "mine"
   const myTasksAll = myUserId ? allTasks.filter((t) => t.assignedToUserId === myUserId) : [];
 
-  // Apply filter
-  const visibleTasks = filterMode === "mine" ? myTasksAll : allTasks;
+  // Apply filter — workers always see all returned tasks (already scoped by API)
+  const visibleTasks = isWorker || filterMode === "mine" ? (isWorker ? allTasks : myTasksAll) : allTasks;
 
   const inProgress = visibleTasks.filter((t) => t.status === "in_progress");
   const todo = visibleTasks.filter((t) => t.status === "todo");
@@ -290,12 +291,14 @@ export default function TasksScreen() {
           <Text style={[styles.title, { color: colors.foreground }]}>Tasks</Text>
         </View>
 
-        {/* All / Assigned to Me toggle */}
-        <FilterToggle
-          mode={filterMode}
-          onChange={setFilterMode}
-          mineCount={myTasksAll.length}
-        />
+        {/* All / Assigned to Me toggle — hidden for workers (API scopes for them) */}
+        {!isWorker && (
+          <FilterToggle
+            mode={filterMode}
+            onChange={setFilterMode}
+            mineCount={myTasksAll.length}
+          />
+        )}
 
         {/* Project selector */}
         {projectsLoading ? (
@@ -353,9 +356,9 @@ export default function TasksScreen() {
             color={colors.border}
           />
           <Text style={[styles.emptyText, { color: colors.foreground }]}>
-            {filterMode === "mine" ? "Nothing assigned to you" : "No tasks for this project"}
+            {isWorker || filterMode === "mine" ? "Nothing assigned to you" : "No tasks for this project"}
           </Text>
-          {filterMode === "mine" && (
+          {(isWorker || filterMode === "mine") && (
             <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
               When a foreman assigns a task to you, it will appear here.
             </Text>
