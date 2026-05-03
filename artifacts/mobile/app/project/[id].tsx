@@ -401,9 +401,10 @@ const styles = StyleSheet.create({
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { fontSize: 13, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.8)" },
   statsRow: { flexDirection: "row", gap: 10, paddingHorizontal: 20, marginTop: 16, marginBottom: 16 },
-  tabRow: { flexDirection: "row", paddingHorizontal: 20, marginBottom: 16, gap: 6 },
-  tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  tabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  tabRow: { marginBottom: 16 },
+  tabRowContent: { flexDirection: "row", paddingHorizontal: 20, gap: 6 },
+  tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+  tabText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   section: { paddingHorizontal: 20, marginBottom: 16 },
   sectionTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
   reportRow: {
@@ -578,8 +579,13 @@ export default function ProjectDetailScreen() {
         </View>
       )}
 
-      {/* Tabs */}
-      <View style={styles.tabRow}>
+      {/* Tabs — horizontal scroll so all 5 fit on any screen width */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabRow}
+        contentContainerStyle={styles.tabRowContent}
+      >
         {TABS.map(tab => {
           const active = activeTab === tab;
           return (
@@ -592,7 +598,7 @@ export default function ProjectDetailScreen() {
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {/* Overview tab */}
       {activeTab === "Overview" && (
