@@ -7,11 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   Upload, FileText, Image, Trash2, Sparkles, Download,
-  Loader2, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Clock,
+  Loader2, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Clock, UserCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 
 type DocStatus = "pending" | "processing" | "ready" | "failed";
+
+type ClientUpload = {
+  id: number;
+  projectId: number;
+  portalTokenId: number;
+  filename: string;
+  fileType: string;
+  objectPath: string;
+  fileSize: number | null;
+  createdAt: string;
+};
 
 type ProjectDoc = {
   id: number;
@@ -172,6 +183,12 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
     queryFn: () => customFetch(`/api/projects/${projectId}/documents`) as Promise<ProjectDoc[]>,
   });
 
+  const clientUploadsKey = ["client-uploads", projectId];
+  const { data: clientUploads = [] } = useQuery<ClientUpload[]>({
+    queryKey: clientUploadsKey,
+    queryFn: () => customFetch(`/api/projects/${projectId}/portal/uploads`) as Promise<ClientUpload[]>,
+  });
+
   const [uploading, setUploading] = useState(false);
   const [extractingIds, setExtractingIds] = useState<Set<number>>(new Set());
 
@@ -311,6 +328,53 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Client Uploads Section */}
+      {clientUploads.length > 0 && (
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center gap-2">
+            <UserCircle className="h-4 w-4 text-blue-500" />
+            <h4 className="font-semibold text-sm">Client Uploads</h4>
+            <span className="text-xs bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">
+              {clientUploads.length}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {clientUploads.map((upload) => {
+              const downloadPath = `${upload.objectPath.replace(/^\/objects\//, "/api/storage/objects/")}`;
+              return (
+                <Card key={upload.id} className="border-blue-200 bg-blue-50/30">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <FileIcon fileType={upload.fileType} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium truncate max-w-xs">{upload.filename}</span>
+                          <Badge variant="outline" className="border-blue-300 text-blue-700 text-xs gap-1">
+                            <UserCircle className="h-3 w-3" />
+                            From Client
+                          </Badge>
+                          {formatSize(upload.fileSize) && (
+                            <span className="text-xs text-muted-foreground">{formatSize(upload.fileSize)}</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Uploaded {format(new Date(upload.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                        </p>
+                      </div>
+                      <a href={downloadPath} target="_blank" rel="noopener noreferrer">
+                        <Button variant="ghost" size="icon" title="Download">
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

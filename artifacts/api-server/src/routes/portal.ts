@@ -137,6 +137,46 @@ router.delete(
   },
 );
 
+// ── GET /projects/:projectId/portal/uploads (auth) ───────────────────────────
+// Returns client uploads for a project — shown in the contractor dashboard.
+
+router.get(
+  "/projects/:projectId/portal/uploads",
+  requireAuth,
+  requireCompany,
+  async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) {
+      res.status(400).json({ error: "Invalid projectId" });
+      return;
+    }
+
+    const [project] = await db
+      .select()
+      .from(projectsTable)
+      .where(
+        and(
+          eq(projectsTable.id, projectId),
+          eq(projectsTable.companyId, req.companyId!),
+        ),
+      )
+      .limit(1);
+
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const uploads = await db
+      .select()
+      .from(clientPortalUploadsTable)
+      .where(eq(clientPortalUploadsTable.projectId, projectId))
+      .orderBy(desc(clientPortalUploadsTable.createdAt));
+
+    res.json(uploads);
+  },
+);
+
 // ── GET /portal/:token (public) ───────────────────────────────────────────────
 // Returns project progress, documents, and recent updates for a portal token.
 

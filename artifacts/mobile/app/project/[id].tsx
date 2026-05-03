@@ -6,10 +6,11 @@ import {
   useListRFIs,
   useListTasks,
   useUpdateTask,
+  customFetch,
 } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -465,6 +466,9 @@ const styles = StyleSheet.create({
   rfiBadge: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginTop: 5 },
   rfiBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   rfiEmpty: { alignItems: "center", paddingVertical: 32, gap: 8 },
+  clientUploadHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  clientUploadBadge: { backgroundColor: "#3B82F620", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  clientUploadBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#3B82F6" },
   overviewGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -564,6 +568,13 @@ export default function ProjectDetailScreen() {
   const { data: tasks, refetch: refetchTasks } = useListTasks(projectId);
   const { data: rfis } = useListRFIs(projectId);
   const { data: documents } = useListDocuments(projectId);
+
+  const [clientUploads, setClientUploads] = useState<any[]>([]);
+  useEffect(() => {
+    customFetch(`/api/projects/${projectId}/portal/uploads`)
+      .then((data: any) => setClientUploads(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [projectId]);
 
   const formatCurrency = (v?: number | null) => {
     if (v == null) return "—";
@@ -858,6 +869,64 @@ export default function ProjectDetailScreen() {
                   </Pressable>
                 );
               })
+          )}
+
+          {/* Client uploads */}
+          {clientUploads.length > 0 && (
+            <>
+              <View style={[styles.clientUploadHeader, { marginTop: (documents ?? []).length > 0 ? 20 : 0 }]}>
+                <Feather name="user" size={14} color="#3B82F6" />
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0, flex: 1 }]}>Client Uploads</Text>
+                <View style={styles.clientUploadBadge}>
+                  <Text style={styles.clientUploadBadgeText}>{clientUploads.length}</Text>
+                </View>
+              </View>
+              {clientUploads.map((upload: any) => {
+                const isImage = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"].includes(
+                  (upload.fileType ?? "").toLowerCase()
+                );
+                const isPdf = upload.fileType === "application/pdf";
+                const iconName = isImage ? "image" : isPdf ? "file-text" : "file";
+                const fileUrl = `${
+                  process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : ""
+                }${upload.objectPath.replace(/^\/objects\//, "/api/storage/objects/")}`;
+                return (
+                  <Pressable
+                    key={upload.id}
+                    onPress={() => Linking.openURL(fileUrl)}
+                    style={({ pressed }) => [
+                      styles.docRow,
+                      { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE", opacity: pressed ? 0.85 : 1 },
+                    ]}
+                  >
+                    <View style={[styles.docIcon, { backgroundColor: "#3B82F618" }]}>
+                      <Feather name={iconName as any} size={20} color="#3B82F6" />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={[styles.docFilename, { color: colors.foreground }]} numberOfLines={1}>
+                        {upload.filename}
+                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
+                        {upload.fileSize && (
+                          <Text style={[styles.docMeta, { color: colors.mutedForeground }]}>
+                            {upload.fileSize > 1_000_000
+                              ? `${(upload.fileSize / 1_000_000).toFixed(1)} MB`
+                              : `${Math.round(upload.fileSize / 1024)} KB`}
+                          </Text>
+                        )}
+                        <View style={[styles.docStatusChip, { backgroundColor: "#3B82F618" }]}>
+                          <Text style={[styles.docStatusText, { color: "#3B82F6" }]}>From Client</Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.docMeta, { color: colors.mutedForeground, marginTop: 2 }]}>
+                        {new Date(upload.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
+                      </Text>
+                    </View>
+                    <Feather name="external-link" size={15} color={colors.mutedForeground} style={{ marginLeft: 8 }} />
+                  </Pressable>
+                );
+              })}
+            </>
           )}
         </View>
       )}
