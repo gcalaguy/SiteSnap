@@ -26,9 +26,9 @@ export default function Dashboard() {
             <Building2 className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary?.activeProjects || 0}</div>
+            <div className="text-2xl font-bold">{summary?.activeProjects ?? 0}</div>
             <p className="text-xs text-muted-foreground">
-              Out of {summary?.totalProjects || 0} total projects
+              {summary?.totalProjects ?? 0} total · {((summary?.totalProjects ?? 0) - (summary?.activeProjects ?? 0))} completed
             </p>
           </CardContent>
         </Card>

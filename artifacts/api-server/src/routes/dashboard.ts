@@ -71,7 +71,7 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
       .from(projectsTable)
       .where(inArray(projectsTable.id, projectIds));
 
-    activeProjects = projects.filter((p) => p.status === "active").length;
+    activeProjects = projects.filter((p) => p.status !== "completed" && p.status !== "cancelled").length;
     totalBudget = projects.reduce((s, p) => s + (p.budget ? parseFloat(p.budget) : 0), 0);
 
     for (const pid of projectIds) {
