@@ -138,7 +138,7 @@ ${buildEstimatePrompt("Based on the attached plan/image")}`,
 
 // ── GET /api/estimates ────────────────────────────────────────────────────────
 
-router.get("/api/estimates", requireAuth, requireCompany, async (req, res) => {
+router.get("/estimates", requireAuth, requireCompany, async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -160,7 +160,7 @@ const GenerateTextBody = z.object({
   scope: z.string().min(20, "Please provide at least 20 characters of scope description"),
 });
 
-router.post("/api/estimates/generate", requireAuth, requireCompany, async (req, res) => {
+router.post("/estimates/generate", requireAuth, requireCompany, async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -209,7 +209,7 @@ router.post("/api/estimates/generate", requireAuth, requireCompany, async (req, 
 // ── POST /api/estimates/generate-from-file (multipart) ───────────────────────
 
 router.post(
-  "/api/estimates/generate-from-file",
+  "/estimates/generate-from-file",
   requireAuth,
   requireCompany,
   upload.single("file"),
@@ -275,7 +275,7 @@ router.post(
 
 // ── DELETE /api/estimates/:id ─────────────────────────────────────────────────
 
-router.delete("/api/estimates/:id", requireAuth, requireCompany, async (req, res) => {
+router.delete("/estimates/:id", requireAuth, requireCompany, async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });

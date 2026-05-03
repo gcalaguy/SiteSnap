@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 import { customFetch, useGetMe } from "@workspace/api-client-react";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Sparkles, Upload, FileText, Trash2, Clock, ChevronDown, ChevronUp,
   AlertCircle, Loader2, X, HardHat, Hammer, Package, Wrench,
-  TrendingUp, ArrowRight, FilePlus, RotateCcw, Info,
+  TrendingUp, ArrowRight, FilePlus, RotateCcw, Info, Mic, MicOff,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -332,6 +333,10 @@ export default function EstimatesPage() {
   const { data: me } = useGetMe();
   const { getToken } = useAuth();
 
+  const voice = useVoiceRecorder((transcript) => {
+    setScope((prev) => (prev ? `${prev.trimEnd()} ${transcript}` : transcript));
+  });
+
   const [mode, setMode] = useState<"text" | "file">("text");
   const [scope, setScope] = useState("");
   const [hint, setHint] = useState("");
@@ -506,14 +511,52 @@ export default function EstimatesPage() {
 
                 {mode === "text" ? (
                   <div className="space-y-2">
-                    <Textarea
-                      placeholder={`Describe the project scope in detail. For example:\n\n"Renovate a 1,200 sq ft residential basement in Toronto. Scope includes: framing new walls to create 2 bedrooms and a bathroom, plumbing rough-in for bathroom (toilet, vanity, shower), electrical (15 pot lights, 8 outlets, panel sub-feed), drywall, insulation, LVP flooring throughout, and painting."`}
-                      value={scope}
-                      onChange={(e) => setScope(e.target.value)}
-                      className="min-h-[220px] resize-none text-sm"
-                    />
+                    <div className="relative">
+                      <Textarea
+                        placeholder={`Describe the project scope in detail. For example:\n\n"Renovate a 1,200 sq ft residential basement in Toronto. Scope includes: framing new walls to create 2 bedrooms and a bathroom, plumbing rough-in for bathroom (toilet, vanity, shower), electrical (15 pot lights, 8 outlets, panel sub-feed), drywall, insulation, LVP flooring throughout, and painting."`}
+                        value={scope}
+                        onChange={(e) => setScope(e.target.value)}
+                        className="min-h-[220px] resize-none text-sm pr-12"
+                        disabled={voice.state === "transcribing"}
+                      />
+                      <button
+                        type="button"
+                        title={voice.state === "recording" ? "Stop recording" : "Dictate scope"}
+                        onClick={voice.toggle}
+                        disabled={voice.state === "transcribing"}
+                        className={`absolute bottom-3 right-3 rounded-full p-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                          voice.state === "recording"
+                            ? "bg-red-500 text-white hover:bg-red-600 animate-pulse"
+                            : voice.state === "transcribing"
+                            ? "bg-muted text-muted-foreground cursor-not-allowed"
+                            : "bg-primary/10 text-primary hover:bg-primary/20"
+                        }`}
+                      >
+                        {voice.state === "transcribing" ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : voice.state === "recording" ? (
+                          <MicOff className="h-4 w-4" />
+                        ) : (
+                          <Mic className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+
+                    {voice.state === "recording" && (
+                      <p className="flex items-center gap-1.5 text-xs text-red-500 font-medium">
+                        <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                        Recording… tap the mic button to stop and transcribe
+                      </p>
+                    )}
+                    {voice.state === "transcribing" && (
+                      <p className="text-xs text-muted-foreground">Transcribing your voice…</p>
+                    )}
+                    {voice.error && (
+                      <p className="text-xs text-destructive">{voice.error}</p>
+                    )}
+
                     <p className="text-xs text-muted-foreground">
-                      Be specific: include square footage, location (city/province), materials preferences, and special requirements for the most accurate estimate.
+                      Be specific: include square footage, location (city/province), materials preferences, and special requirements for the most accurate estimate. Use the mic to dictate instead of typing.
                     </p>
                   </div>
                 ) : (
