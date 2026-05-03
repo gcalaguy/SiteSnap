@@ -102,10 +102,7 @@ export default function AdminPage() {
   // Fetch subscription + company info
   const { data: subData, isLoading: subLoading } = useQuery({
     queryKey: ["billing-subscription"],
-    queryFn: async () => {
-      const res = await customFetch(`${basePath}/api/billing/subscription`, { method: "GET" });
-      return res.json();
-    },
+    queryFn: () => customFetch<{ subscription: Subscription | null; company: any }>(`${basePath}/api/billing/subscription`),
   });
 
   const [copied, setCopied] = useState(false);
@@ -120,41 +117,28 @@ export default function AdminPage() {
   // Fetch referral info
   const { data: referralData } = useQuery({
     queryKey: ["billing-referrals"],
-    queryFn: async () => {
-      const res = await customFetch(`${basePath}/api/referrals`, { method: "GET" });
-      return res.json();
-    },
+    queryFn: () => customFetch<{ referralLink?: string; referralCount?: number }>(`${basePath}/api/referrals`),
   });
 
   // Fetch seat usage
   const { data: seatData, isLoading: seatsLoading } = useQuery({
     queryKey: ["billing-seats"],
-    queryFn: async () => {
-      const res = await customFetch(`${basePath}/api/billing/seats`, { method: "GET" });
-      return res.json();
-    },
+    queryFn: () => customFetch<{ currentSeats: number; maxSeats: number | "unlimited"; canAddMore: boolean; planName?: string }>(`${basePath}/api/billing/seats`),
   });
 
   // Fetch plans
   const { data: plansData, isLoading: plansLoading } = useQuery({
     queryKey: ["billing-plans"],
-    queryFn: async () => {
-      const res = await customFetch(`${basePath}/api/billing/plans`, { method: "GET" });
-      return res.json();
-    },
+    queryFn: () => customFetch<{ plans: Plan[]; publishableKey: string }>(`${basePath}/api/billing/plans`),
   });
 
   // Checkout mutation
   const checkoutMutation = useMutation({
-    mutationFn: async ({ priceId }: { priceId: string }) => {
-      const res = await customFetch(`${basePath}/api/billing/checkout`, {
+    mutationFn: ({ priceId }: { priceId: string }) =>
+      customFetch<{ url: string }>(`${basePath}/api/billing/checkout`, {
         method: "POST",
         body: JSON.stringify({ priceId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Checkout failed");
-      return data;
-    },
+      }),
     onSuccess: (data) => {
       window.location.href = data.url;
     },
@@ -165,12 +149,8 @@ export default function AdminPage() {
 
   // Portal mutation
   const portalMutation = useMutation({
-    mutationFn: async () => {
-      const res = await customFetch(`${basePath}/api/billing/portal`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Portal failed");
-      return data;
-    },
+    mutationFn: () =>
+      customFetch<{ url: string }>(`${basePath}/api/billing/portal`, { method: "POST" }),
     onSuccess: (data) => {
       window.open(data.url, "_blank");
     },
@@ -459,7 +439,7 @@ export default function AdminPage() {
                   variant="outline"
                   size="sm"
                   className="gap-2 shrink-0"
-                  onClick={() => copyReferralLink(referralData.referralLink)}
+                  onClick={() => copyReferralLink(referralData.referralLink ?? "")}
                 >
                   {copied ? (
                     <><Check className="h-3.5 w-3.5 text-green-600" />Copied!</>

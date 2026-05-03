@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@workspace/db';
+import { getUncachableStripeClient } from './stripeClient';
 
 export async function getStripeProduct(productId: string) {
   const result = await db.execute(
@@ -8,38 +9,81 @@ export async function getStripeProduct(productId: string) {
   return result.rows[0] ?? null;
 }
 
+/**
+ * Fetches active products with their active prices directly from the Stripe API.
+ * We use the API directly because stripe-replit-sync only reliably backfills
+ * products in the local stripe schema; prices, subscriptions and customers
+ * require webhook events to populate and may be absent on a fresh instance.
+ */
 export async function listProductsWithPrices() {
-  const result = await db.execute(sql`
-    WITH paginated_products AS (
-      SELECT id, name, description, metadata, active
-      FROM stripe.products
-      WHERE active = true
-      ORDER BY name
-    )
-    SELECT
-      p.id          AS product_id,
-      p.name        AS product_name,
-      p.description AS product_description,
-      p.active      AS product_active,
-      p.metadata    AS product_metadata,
-      pr.id         AS price_id,
-      pr.unit_amount,
-      pr.currency,
-      pr.recurring,
-      pr.active     AS price_active,
-      pr.metadata   AS price_metadata
-    FROM paginated_products p
-    LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
-    ORDER BY p.name, pr.unit_amount
-  `);
-  return result.rows;
+  const stripe = await getUncachableStripeClient();
+
+  const [productsRes, pricesRes] = await Promise.all([
+    stripe.products.list({ active: true, limit: 100 }),
+    stripe.prices.list({ active: true, limit: 100 }),
+  ]);
+
+  const rows: any[] = [];
+  for (const product of productsRes.data) {
+    const productPrices = pricesRes.data.filter(
+      (p) => p.product === product.id,
+    );
+    if (productPrices.length === 0) {
+      rows.push({
+        product_id: product.id,
+        product_name: product.name,
+        product_description: product.description,
+        product_active: product.active,
+        product_metadata: product.metadata,
+        price_id: null,
+        unit_amount: null,
+        currency: null,
+        recurring: null,
+        price_active: null,
+        price_metadata: null,
+      });
+    } else {
+      for (const price of productPrices) {
+        rows.push({
+          product_id: product.id,
+          product_name: product.name,
+          product_description: product.description,
+          product_active: product.active,
+          product_metadata: product.metadata,
+          price_id: price.id,
+          unit_amount: price.unit_amount,
+          currency: price.currency,
+          recurring: price.recurring,
+          price_active: price.active,
+          price_metadata: price.metadata,
+        });
+      }
+    }
+  }
+
+  // Sort: by product name, then price amount ascending
+  rows.sort((a, b) => {
+    const nameComp = (a.product_name ?? '').localeCompare(b.product_name ?? '');
+    if (nameComp !== 0) return nameComp;
+    return (a.unit_amount ?? 0) - (b.unit_amount ?? 0);
+  });
+
+  return rows;
 }
 
+/**
+ * Fetches a subscription directly from the Stripe API, expanding line items.
+ */
 export async function getStripeSubscription(subscriptionId: string) {
-  const result = await db.execute(
-    sql`SELECT * FROM stripe.subscriptions WHERE id = ${subscriptionId}`
-  );
-  return result.rows[0] ?? null;
+  try {
+    const stripe = await getUncachableStripeClient();
+    const sub = await stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ['items.data.price.product'],
+    });
+    return sub;
+  } catch {
+    return null;
+  }
 }
 
 export async function getStripeCustomer(customerId: string) {

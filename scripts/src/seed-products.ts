@@ -2,7 +2,7 @@ import { getUncachableStripeClient } from './stripeClient';
 
 const PLANS = [
   {
-    name: 'BuildCore Starter',
+    name: 'Site Snap Starter',
     description: 'Perfect for small crews. Up to 3 team members.',
     metadata: { plan: 'starter', maxSeats: '3', features: 'Projects,Daily Reports,Quotes,Invoices,AI Assistant' },
     prices: [
@@ -11,7 +11,7 @@ const PLANS = [
     ],
   },
   {
-    name: 'BuildCore Pro',
+    name: 'Site Snap Pro',
     description: 'For growing companies. Up to 10 team members.',
     metadata: { plan: 'pro', maxSeats: '10', features: 'Everything in Starter,Document OCR,Push Notifications,Email Reminders' },
     prices: [
@@ -20,7 +20,7 @@ const PLANS = [
     ],
   },
   {
-    name: 'BuildCore Business',
+    name: 'Site Snap Business',
     description: 'Unlimited team members. Full feature access.',
     metadata: { plan: 'business', maxSeats: 'unlimited', features: 'Everything in Pro,Unlimited Seats,Priority Support' },
     prices: [
@@ -33,7 +33,7 @@ const PLANS = [
 async function seedProducts() {
   const stripe = await getUncachableStripeClient();
 
-  console.log('Seeding BuildCore products in Stripe...\n');
+  console.log('Seeding Site Snap products in Stripe...\n');
 
   for (const plan of PLANS) {
     const existing = await stripe.products.search({
@@ -45,6 +45,8 @@ async function seedProducts() {
     if (existing.data.length > 0) {
       productId = existing.data[0].id;
       console.log(`✓ ${plan.name} already exists (${productId})`);
+      // Update metadata in case it changed
+      await stripe.products.update(productId, { metadata: plan.metadata });
     } else {
       const product = await stripe.products.create({
         name: plan.name,
@@ -77,7 +79,7 @@ async function seedProducts() {
     }
   }
 
-  console.log('\nDone! Webhooks will sync to the database automatically.');
+  console.log('\nDone! Webhooks will sync prices to the database automatically.');
 }
 
 seedProducts().catch((err) => {
