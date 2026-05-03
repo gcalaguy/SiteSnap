@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, companiesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
 import { CreateCompanyBody, UpdateMemberRoleBody } from "@workspace/api-zod";
 import crypto from "crypto";
@@ -136,6 +136,42 @@ router.patch(
       .set({ role: parsed.data.role })
       .where(eq(usersTable.id, targetUserId))
       .returning();
+
+    res.json({ ...updated, company: null });
+  },
+);
+
+// PATCH /companies/:companyId/members/:userId/name — update member name
+router.patch(
+  "/companies/:companyId/members/:userId/name",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  async (req, res) => {
+    const companyId = parseInt(req.params.companyId);
+    const targetUserId = parseInt(req.params.userId);
+
+    if (companyId !== req.companyId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    const { firstName, lastName } = req.body;
+    if (typeof firstName !== "string" || typeof lastName !== "string") {
+      res.status(400).json({ error: "firstName and lastName are required" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(usersTable)
+      .set({ firstName: firstName.trim(), lastName: lastName.trim() })
+      .where(and(eq(usersTable.id, targetUserId), eq(usersTable.companyId, companyId)))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Member not found" });
+      return;
+    }
 
     res.json({ ...updated, company: null });
   },

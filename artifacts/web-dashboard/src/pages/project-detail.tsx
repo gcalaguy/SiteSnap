@@ -69,7 +69,7 @@ function getInitials(m: Member) {
 function getMemberName(m: Member) {
   const full = `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim();
   if (full) return full;
-  return m.email?.split("@")[0] ?? m.role;
+  return m.email ?? m.role;
 }
 
 function TaskCard({ task, onStatusChange, onDelete, assigneeName }: {

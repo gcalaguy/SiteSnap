@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useGetMe, useListCompanyMembers, useListInvitations, useCreateInvitation, useRemoveCompanyMember, useUpdateMemberRole } from "@workspace/api-client-react";
+import { useMutation } from "@tanstack/react-query";
+import { useGetMe, useListCompanyMembers, useListInvitations, useCreateInvitation, useRemoveCompanyMember, useUpdateMemberRole, customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { getListCompanyMembersQueryKey, getListInvitationsQueryKey } from "@workspace/api-client-react";
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Loader2, MoreHorizontal, Mail, Copy, Check, Link2 } from "lucide-react";
+import { UserPlus, Loader2, MoreHorizontal, Mail, Copy, Check, Link2, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,9 +26,26 @@ function makeInviteLink(token: string) {
   return `${window.location.origin}${basePath}/onboarding?token=${token}`;
 }
 
+function getMemberInitials(m: { firstName?: string; lastName?: string; email?: string }) {
+  const first = (m.firstName ?? "").trim();
+  const last = (m.lastName ?? "").trim();
+  if (first || last) return `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase();
+  return (m.email?.[0] ?? "?").toUpperCase();
+}
+
+function getMemberDisplayName(m: { firstName?: string; lastName?: string; email?: string }) {
+  const full = `${(m.firstName ?? "").trim()} ${(m.lastName ?? "").trim()}`.trim();
+  return full || null;
+}
+
 const inviteSchema = z.object({
   email: z.string().email("Invalid email address"),
   role: z.enum(["owner", "foreman", "worker"]).default("worker"),
+});
+
+const nameSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
 });
 
 function CopyButton({ text }: { text: string }) {
@@ -64,11 +82,45 @@ export default function Team() {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [newInviteToken, setNewInviteToken] = useState<string | null>(null);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<{ id: number; firstName: string; lastName: string; email: string } | null>(null);
 
   const form = useForm<z.infer<typeof inviteSchema>>({
     resolver: zodResolver(inviteSchema),
     defaultValues: { email: "", role: "worker" },
   });
+
+  const nameForm = useForm<z.infer<typeof nameSchema>>({
+    resolver: zodResolver(nameSchema),
+    defaultValues: { firstName: "", lastName: "" },
+  });
+
+  const updateName = useMutation({
+    mutationFn: async ({ memberId, firstName, lastName }: { memberId: number; firstName: string; lastName: string }) => {
+      return customFetch<unknown>(`/api/companies/${companyId}/members/${memberId}/name`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName, lastName }),
+      });
+    },
+    onSuccess: () => {
+      if (companyId) queryClient.invalidateQueries({ queryKey: getListCompanyMembersQueryKey(companyId) });
+      toast({ title: "Name updated" });
+      setEditingMember(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to update name", description: err?.message || "An error occurred", variant: "destructive" });
+    },
+  });
+
+  function openEditName(member: { id: number; firstName: string; lastName: string; email: string }) {
+    setEditingMember(member);
+    nameForm.reset({ firstName: member.firstName || "", lastName: member.lastName || "" });
+  }
+
+  function onSubmitName(values: z.infer<typeof nameSchema>) {
+    if (!editingMember) return;
+    updateName.mutate({ memberId: editingMember.id, firstName: values.firstName, lastName: values.lastName });
+  }
 
   function onSubmitInvite(values: z.infer<typeof inviteSchema>) {
     createInvitation.mutate(
@@ -203,6 +255,43 @@ export default function Team() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit name dialog */}
+      <Dialog open={!!editingMember} onOpenChange={(open) => { if (!open) setEditingMember(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Member Name</DialogTitle>
+            <DialogDescription>
+              Set a display name for <strong>{editingMember?.email}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...nameForm}>
+            <form onSubmit={nameForm.handleSubmit(onSubmitName)} className="space-y-4">
+              <FormField control={nameForm.control} name="firstName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>First Name</FormLabel>
+                  <FormControl><Input placeholder="e.g. John" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={nameForm.control} name="lastName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Last Name</FormLabel>
+                  <FormControl><Input placeholder="e.g. Smith" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setEditingMember(null)}>Cancel</Button>
+                <Button type="submit" disabled={updateName.isPending}>
+                  {updateName.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Name
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle>Active Members</CardTitle>
@@ -215,40 +304,65 @@ export default function Team() {
             <p className="text-sm text-muted-foreground py-4 text-center">No members yet.</p>
           ) : (
             <div className="space-y-3">
-              {members.map(member => (
-                <div key={member.id} className="flex items-center justify-between p-4 border rounded-md bg-muted/20">
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-10 w-10 bg-primary/20 text-primary border border-primary/20">
-                      <AvatarFallback>{member.firstName[0]}{member.lastName[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">{member.firstName} {member.lastName}</p>
-                      <p className="text-sm text-muted-foreground">{member.email}</p>
+              {(members as any[]).map(member => {
+                const displayName = getMemberDisplayName(member);
+                const initials = getMemberInitials(member);
+                return (
+                  <div key={member.id} className="flex items-center justify-between p-4 border rounded-md bg-muted/20">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-10 w-10 bg-primary/20 text-primary border border-primary/20">
+                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">{initials}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        {displayName ? (
+                          <>
+                            <p className="font-medium">{displayName}</p>
+                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium">{member.email}</p>
+                            {isOwner && member.id !== user?.id && (
+                              <button
+                                type="button"
+                                onClick={() => openEditName(member)}
+                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-0.5"
+                              >
+                                <Pencil className="h-3 w-3" /> Add name
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Badge variant={member.role === "owner" ? "default" : member.role === "foreman" ? "secondary" : "outline"}>
+                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                      </Badge>
+                      {isOwner && member.id !== user?.id && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openEditName(member)}>
+                              <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Name
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "owner")}>Make Owner</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "foreman")}>Make Foreman</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "worker")}>Make Worker</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleRemoveMember(member.id)} className="text-destructive">Remove from Team</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <Badge variant={member.role === "owner" ? "default" : member.role === "foreman" ? "secondary" : "outline"}>
-                      {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                    </Badge>
-                    {isOwner && member.id !== user?.id && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "owner")}>Make Owner</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "foreman")}>Make Foreman</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "worker")}>Make Worker</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleRemoveMember(member.id)} className="text-destructive">Remove from Team</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
