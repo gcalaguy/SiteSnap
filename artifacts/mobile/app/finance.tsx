@@ -18,8 +18,8 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { customFetch, useListAllInvoices, useListAllQuotes, useCreateInvoice, useCreateQuote } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { customFetch, useListAllInvoices, useListAllQuotes } from "@workspace/api-client-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 type TabKey = "invoices" | "quotes";
 
@@ -122,8 +122,14 @@ export default function FinanceScreen() {
   const [clientName, setClientName] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const createInvoice = useCreateInvoice();
-  const createQuote = useCreateQuote();
+  const createInvoice = useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      customFetch("/api/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
+  });
+  const createQuote = useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      customFetch("/api/projects/0/quotes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
+  });
 
   const { data: invoices, isLoading: invLoading, refetch: refetchInv } = useListAllInvoices({});
   const { data: quotes, isLoading: qLoading, refetch: refetchQ } = useListAllQuotes({});
@@ -169,32 +175,19 @@ export default function FinanceScreen() {
     try {
       if (voiceFor === "invoice") {
         await createInvoice.mutateAsync({
-          data: {
-            title: aiResult.title ?? "New Invoice",
-            clientName: aiResult.clientName ?? clientName ?? "Client",
-            lineItems: aiResult.lineItems ?? [],
-            subtotal: aiResult.subtotal ?? 0,
-            taxRate: 0.13,
-            taxAmount: aiResult.taxAmount ?? 0,
-            total: aiResult.total ?? 0,
-            notes: aiResult.notes ?? undefined,
-          },
+          title: aiResult.title ?? "New Invoice",
+          clientName: aiResult.clientName ?? clientName ?? "Client",
+          lineItems: aiResult.lineItems ?? [],
+          notes: aiResult.notes ?? undefined,
         });
         await refetchInv();
         setTab("invoices");
       } else {
         await createQuote.mutateAsync({
-          projectId: 0,
-          data: {
-            title: aiResult.title ?? "New Quote",
-            clientName: aiResult.clientName ?? clientName ?? "Client",
-            lineItems: aiResult.lineItems ?? [],
-            subtotal: aiResult.subtotal ?? 0,
-            taxRate: 0.13,
-            taxAmount: aiResult.taxAmount ?? 0,
-            total: aiResult.total ?? 0,
-            notes: aiResult.notes ?? undefined,
-          },
+          title: aiResult.title ?? "New Quote",
+          clientName: aiResult.clientName ?? clientName ?? "Client",
+          lineItems: aiResult.lineItems ?? [],
+          notes: aiResult.notes ?? undefined,
         });
         await refetchQ();
         setTab("quotes");

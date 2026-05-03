@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, invoicesTable, quotesTable, companiesTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, count } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { UpdateInvoiceBody } from "@workspace/api-zod";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
@@ -8,6 +8,44 @@ import { sendReminderForInvoice } from "../lib/invoiceReminders.js";
 import { format } from "date-fns";
 
 const router = Router();
+
+async function getNextInvoiceNumber(companyId: number): Promise<string> {
+  const [result] = await db.select({ count: count() }).from(invoicesTable).where(eq(invoicesTable.companyId, companyId));
+  const num = (result?.count ?? 0) + 1;
+  return `INV-${String(num).padStart(4, "0")}`;
+}
+
+// POST /invoices — create a standalone invoice directly
+router.post("/invoices", requireAuth, requireCompany, async (req, res) => {
+  const { title, clientName, clientEmail, lineItems = [], notes, dueDate } = req.body ?? {};
+  if (!title || !clientName) { res.status(400).json({ error: "title and clientName are required" }); return; }
+
+  const taxRate = 0.13;
+  const items = Array.isArray(lineItems) ? lineItems : [];
+  const subtotal = items.reduce((s: number, i: any) => s + Number(i.quantity ?? 1) * Number(i.unitPrice ?? 0), 0);
+  const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
+  const total = Math.round((subtotal + taxAmount) * 100) / 100;
+  const invoiceNumber = await getNextInvoiceNumber(req.companyId!);
+
+  const [invoice] = await db.insert(invoicesTable).values({
+    companyId: req.companyId!,
+    quoteId: null,
+    invoiceNumber,
+    title,
+    clientName,
+    clientEmail: clientEmail ?? null,
+    lineItems: items,
+    subtotal: subtotal.toFixed(2),
+    taxRate: taxRate.toFixed(4),
+    taxAmount: taxAmount.toFixed(2),
+    total: total.toFixed(2),
+    notes: notes ?? null,
+    dueDate: dueDate ?? null,
+    status: "draft",
+  }).returning();
+
+  res.status(201).json(invoice);
+});
 
 // GET /quotes — list all company quotes (flat, with optional status filter)
 router.get("/quotes", requireAuth, requireCompany, async (req, res) => {
