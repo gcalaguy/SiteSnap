@@ -22,8 +22,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
-import { Audio } from "expo-av";
-import * as FileSystem from "expo-file-system";
+import {
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from "expo-audio";
+import * as FileSystem from "expo-file-system/legacy";
+import { useRouter } from "expo-router";
 
 type Message = {
   id: string;
@@ -114,6 +120,7 @@ function RecordingPulse({ color }: { color: string }) {
 export default function AskScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -121,14 +128,17 @@ export default function AskScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  const recordingRef = useRef<Audio.Recording | null>(null);
+
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const { data: summary } = useGetDashboardSummary();
   const { data: projects } = useListProjects();
   const { data: activity } = useGetRecentActivity();
 
   const buildContext = useCallback(() => {
-    const activeProjects = (projects ?? []).filter((p) => p.status === "active");
+    const activeProjects = (projects ?? []).filter(
+      (p) => p.status !== "completed" && p.status !== "cancelled",
+    );
     return JSON.stringify({
       activeProjects: activeProjects.map((p) => ({
         name: p.name,
@@ -204,22 +214,18 @@ export default function AskScreen() {
     if (Platform.OS === "web") return;
 
     if (isRecording) {
-      // Stop recording
+      // Stop and transcribe
+      setIsRecording(false);
+      setIsTranscribing(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       try {
-        setIsRecording(false);
-        const rec = recordingRef.current;
-        if (!rec) return;
-        await rec.stopAndUnloadAsync();
-        const uri = rec.getURI();
-        recordingRef.current = null;
-
+        await recorder.stop();
+        const uri = recorder.uri;
         if (!uri) return;
-        setIsTranscribing(true);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        // Read file as base64
         const base64 = await FileSystem.readAsStringAsync(uri, {
-          encoding: FileSystem.EncodingType.Base64,
+          encoding: "base64",
         });
 
         const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -246,24 +252,18 @@ export default function AskScreen() {
 
     // Start recording
     try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== "granted") return;
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) return;
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      );
-      recordingRef.current = recording;
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
       setIsRecording(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {
       // permission denied or hardware not available
     }
-  }, [isRecording]);
+  }, [isRecording, recorder]);
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
   const bottomInsets = Platform.OS === "web" ? 34 : insets.bottom;
@@ -288,24 +288,35 @@ export default function AskScreen() {
       <View
         style={[styles.header, { paddingTop: topInsets + 16, backgroundColor: colors.sidebar }]}
       >
-        <View style={styles.headerLeft}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Feather name="arrow-left" size={22} color="rgba(255,255,255,0.85)" />
+        </TouchableOpacity>
+
+        <View style={styles.headerCenter}>
           <Text style={[styles.title, { color: "#FFFFFF" }]}>Site Snap AI</Text>
           <Text style={[styles.subtitle, { color: "rgba(255,255,255,0.55)" }]}>
             Your construction assistant
           </Text>
         </View>
-        <View style={styles.statusDot} />
-        {hasMessages && (
-          <Pressable
-            style={styles.clearButton}
-            onPress={() => {
-              setMessages([]);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            }}
-          >
-            <Feather name="trash-2" size={18} color="rgba(255,255,255,0.5)" />
-          </Pressable>
-        )}
+
+        <View style={styles.headerRight}>
+          <View style={styles.statusDot} />
+          {hasMessages && (
+            <Pressable
+              style={styles.clearButton}
+              onPress={() => {
+                setMessages([]);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              }}
+            >
+              <Feather name="trash-2" size={18} color="rgba(255,255,255,0.5)" />
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* Messages */}
@@ -435,12 +446,28 @@ export default function AskScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 12,
     flexDirection: "row",
     alignItems: "flex-end",
+    gap: 8,
   },
-  headerLeft: { flex: 1 },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+    flexShrink: 0,
+  },
+  headerCenter: { flex: 1 },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 2,
+  },
   title: { fontSize: 24, fontFamily: "Inter_700Bold" },
   subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
   statusDot: {
@@ -448,8 +475,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: "#22C55E",
-    marginBottom: 2,
-    marginRight: 8,
   },
   list: { flex: 1 },
   listContent: { paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
