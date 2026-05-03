@@ -20,26 +20,27 @@ import { useColors } from "@/hooks/useColors";
 import {
   useGetQuote,
   useSubmitQuoteForApproval,
-  useApproveQuote,
   useConvertQuoteToInvoice,
   getGetQuoteQueryKey,
   getListAllQuotesQueryKey,
+  getListQuotesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
-  pending_approval: "Pending",
+  pending_approval: "Submitted",
   approved: "Approved",
-  rejected: "Rejected",
-  converted: "Converted",
+  rejected: "Needs Revision",
+  converted: "Invoiced",
 };
 const STATUS_COLORS: Record<string, string> = {
   draft: "#6B7280",
-  pending_approval: "#F59E0B",
-  approved: "#22C55E",
-  rejected: "#EF4444",
-  converted: "#3B82F6",
+  pending_approval: "#2563EB",
+  approved: "#16A34A",
+  rejected: "#EA580C",
+  converted: "#7C3AED",
 };
 
 type LineItem = { description: string; quantity: number; unit: string; unitPrice: number; total: number };
@@ -60,6 +61,7 @@ function buildQuoteHTML(quote: any, lineItems: LineItem[]): string {
   const hstPct = (parseFloat(quote.taxRate ?? "0.13") * 100).toFixed(0);
   const validUntil = quote.validUntil ? new Date(quote.validUntil).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "—";
   const createdAt = new Date(quote.createdAt).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+  const statusLabel = STATUS_LABELS[quote.status] ?? quote.status;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body{font-family:Helvetica,Arial,sans-serif;margin:0;padding:0;color:#172034}
     .header{background:#FF6600;color:#fff;padding:24px 32px}
@@ -78,7 +80,7 @@ function buildQuoteHTML(quote: any, lineItems: LineItem[]): string {
     .footer{margin-top:40px;text-align:center;font-size:11px;color:#9CA3AF}
     .clearfix::after{content:"";display:table;clear:both}
   </style></head><body>
-  <div class="header"><div class="inv-num"><div style="font-size:13px;opacity:.75">QUOTE</div><div style="font-size:20px;font-weight:bold">${quote.quoteNumber}</div><div style="font-size:11px;opacity:.7;margin-top:2px">Status: ${STATUS_LABELS[quote.status] ?? quote.status}</div></div><h1>Site Snap</h1><p>Professional Construction Quote</p></div>
+  <div class="header"><div class="inv-num"><div style="font-size:13px;opacity:.75">QUOTE</div><div style="font-size:20px;font-weight:bold">${quote.quoteNumber}</div><div style="font-size:11px;opacity:.7;margin-top:2px">Status: ${statusLabel}</div></div><h1>Site Snap</h1><p>Professional Construction Quote</p></div>
   <div class="body">
   <div class="meta">
     <div><div style="font-size:11px;color:#6B7280;font-weight:bold;margin-bottom:4px">CLIENT</div><div style="font-weight:bold;font-size:15px">${quote.clientName}</div>${quote.clientEmail ? `<div style="font-size:12px;color:#6B7280">${quote.clientEmail}</div>` : ""}</div>
@@ -128,7 +130,6 @@ export default function QuoteDetailScreen() {
 
   const { data: quote, isLoading } = useGetQuote(0, quoteId);
   const submitQuote = useSubmitQuoteForApproval();
-  const approveQuote = useApproveQuote();
   const convertQuote = useConvertQuoteToInvoice();
 
   const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
@@ -139,6 +140,9 @@ export default function QuoteDetailScreen() {
   function invalidate() {
     qc.invalidateQueries({ queryKey: getGetQuoteQueryKey(0, quoteId) });
     qc.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
+    if (quote?.projectId) {
+      qc.invalidateQueries({ queryKey: getListQuotesQueryKey(quote.projectId) });
+    }
   }
 
   const handleExportPDF = useCallback(async () => {
@@ -200,32 +204,27 @@ export default function QuoteDetailScreen() {
   }, [quote, lineItems]);
 
   const handleSubmit = useCallback(() => {
-    Alert.alert("Submit for Approval?", "Move this quote to pending approval status.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Submit", onPress: () => {
-          submitQuote.mutate({ quoteId }, {
-            onSuccess: () => { Alert.alert("Quote submitted for approval"); invalidate(); },
-            onError: () => Alert.alert("Failed to submit quote"),
-          });
-        }
-      },
-    ]);
+    Alert.alert(
+      "Submit Quote?",
+      "The foreman and owner will be notified by email to review this quote. Make sure all line items and totals are correct.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Submit",
+          onPress: () => {
+            submitQuote.mutate({ quoteId }, {
+              onSuccess: () => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert("Quote Submitted", "The foreman and owner have been notified by email.");
+                invalidate();
+              },
+              onError: () => Alert.alert("Failed to submit quote"),
+            });
+          },
+        },
+      ]
+    );
   }, [quoteId, submitQuote]);
-
-  const handleApprove = useCallback(() => {
-    Alert.alert("Approve Quote?", "The quote will be ready to convert to an invoice.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Approve", onPress: () => {
-          approveQuote.mutate({ quoteId }, {
-            onSuccess: () => { Alert.alert("Quote approved"); invalidate(); },
-            onError: () => Alert.alert("Failed to approve quote"),
-          });
-        }
-      },
-    ]);
-  }, [quoteId, approveQuote]);
 
   const handleConvert = useCallback(() => {
     Alert.alert("Convert to Invoice?", "A new invoice will be created from this quote.", [
@@ -233,7 +232,12 @@ export default function QuoteDetailScreen() {
       {
         text: "Convert", onPress: () => {
           convertQuote.mutate({ projectId: quote?.projectId ?? 0, quoteId }, {
-            onSuccess: () => { Alert.alert("Invoice created from quote"); invalidate(); router.replace("/finance"); },
+            onSuccess: (inv) => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert("Invoice Created", `Invoice ${inv.invoiceNumber} is ready.`);
+              invalidate();
+              router.replace("/finance");
+            },
             onError: () => Alert.alert("Failed to convert quote"),
           });
         }
@@ -242,6 +246,7 @@ export default function QuoteDetailScreen() {
   }, [quote, quoteId, convertQuote, router]);
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
+  const isEditable = quote?.status === "draft" || quote?.status === "rejected";
 
   if (isLoading) {
     return (
@@ -299,6 +304,20 @@ export default function QuoteDetailScreen() {
             </View>
           </View>
           <Text style={[styles.quoteNum, { color: colors.mutedForeground }]}>{quote.quoteNumber}</Text>
+
+          {/* Submitted notice */}
+          {quote.status === "pending_approval" && (
+            <View style={[styles.submittedBanner, { backgroundColor: "#DBEAFE", borderColor: "#BFDBFE" }]}>
+              <Feather name="clock" size={13} color="#2563EB" />
+              <Text style={styles.submittedBannerText}>Awaiting review by foreman and owner</Text>
+            </View>
+          )}
+          {quote.status === "rejected" && (
+            <View style={[styles.submittedBanner, { backgroundColor: "#FFF7ED", borderColor: "#FDBA74" }]}>
+              <Feather name="alert-circle" size={13} color="#EA580C" />
+              <Text style={[styles.submittedBannerText, { color: "#EA580C" }]}>Needs revision — edit and re-submit</Text>
+            </View>
+          )}
         </View>
 
         {/* Info */}
@@ -345,56 +364,56 @@ export default function QuoteDetailScreen() {
           <Text style={[styles.actionGroupTitle, { color: colors.mutedForeground }]}>EXPORT</Text>
           <View style={styles.actionRow}>
             <Pressable
-              style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}
+              style={[styles.exportBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={handleExportPDF}
               disabled={exporting !== null}
             >
               {exporting === "pdf" ? <ActivityIndicator color={colors.primary} size="small" /> : <Feather name="file-text" size={18} color={colors.primary} />}
-              <Text style={[styles.actionBtnText, { color: colors.foreground }]}>PDF</Text>
+              <Text style={[styles.exportBtnText, { color: colors.foreground }]}>PDF</Text>
             </Pressable>
             <Pressable
-              style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}
+              style={[styles.exportBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={handleExportXLSX}
               disabled={exporting !== null}
             >
               {exporting === "xlsx" ? <ActivityIndicator color="#22C55E" size="small" /> : <Feather name="grid" size={18} color="#22C55E" />}
-              <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Excel</Text>
+              <Text style={[styles.exportBtnText, { color: colors.foreground }]}>Excel</Text>
             </Pressable>
           </View>
         </View>
 
-        {/* Quote Actions */}
-        {(quote.status === "draft" || quote.status === "rejected" || quote.status === "pending_approval" || quote.status === "approved") && (
+        {/* Actions */}
+        {(isEditable || quote.status === "approved") && (
           <View style={[styles.actionGroup, { borderColor: colors.border }]}>
             <Text style={[styles.actionGroupTitle, { color: colors.mutedForeground }]}>ACTIONS</Text>
             <View style={styles.actionCol}>
-              {(quote.status === "draft" || quote.status === "rejected") && (
+              {/* Submit (draft or needs revision) */}
+              {isEditable && (
                 <Pressable
-                  style={[styles.actionBtnFull, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  style={[styles.actionBtnFull, { backgroundColor: colors.primary }]}
                   onPress={handleSubmit}
                   disabled={submitQuote.isPending}
                 >
-                  {submitQuote.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Feather name="send" size={18} color={colors.primary} />}
-                  <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Submit for Approval</Text>
+                  {submitQuote.isPending
+                    ? <ActivityIndicator color="#FFFFFF" size="small" />
+                    : <Feather name="send" size={18} color="#FFFFFF" />
+                  }
+                  <Text style={[styles.actionBtnText, { color: "#FFFFFF", fontFamily: "Inter_700Bold" }]}>
+                    Submit to Foreman & Owner
+                  </Text>
                 </Pressable>
               )}
-              {quote.status === "pending_approval" && (
-                <Pressable
-                  style={[styles.actionBtnFull, { backgroundColor: "#22C55E18", borderColor: "#22C55E40" }]}
-                  onPress={handleApprove}
-                  disabled={approveQuote.isPending}
-                >
-                  {approveQuote.isPending ? <ActivityIndicator color="#22C55E" size="small" /> : <Feather name="check-circle" size={18} color="#22C55E" />}
-                  <Text style={[styles.actionBtnText, { color: "#22C55E" }]}>Approve</Text>
-                </Pressable>
-              )}
+              {/* Convert to invoice */}
               {quote.status === "approved" && (
                 <Pressable
-                  style={[styles.actionBtnFull, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "40" }]}
+                  style={[styles.actionBtnFull, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "40", borderTopWidth: isEditable ? 1 : 0 }]}
                   onPress={handleConvert}
                   disabled={convertQuote.isPending}
                 >
-                  {convertQuote.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Feather name="file-plus" size={18} color={colors.primary} />}
+                  {convertQuote.isPending
+                    ? <ActivityIndicator color={colors.primary} size="small" />
+                    : <Feather name="file-plus" size={18} color={colors.primary} />
+                  }
                   <Text style={[styles.actionBtnText, { color: colors.primary }]}>Convert to Invoice</Text>
                 </Pressable>
               )}
@@ -413,11 +432,13 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontFamily: "Inter_700Bold", color: "#FFFFFF", flex: 1, textAlign: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 12 },
-  titleCard: { borderRadius: 12, padding: 16, borderWidth: 1 },
+  titleCard: { borderRadius: 12, padding: 16, borderWidth: 1, gap: 4 },
   quoteTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
-  quoteNum: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 4 },
+  quoteNum: { fontSize: 13, fontFamily: "Inter_400Regular" },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  submittedBanner: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, padding: 10, borderRadius: 8, borderWidth: 1 },
+  submittedBannerText: { fontSize: 12, fontFamily: "Inter_500Medium", color: "#2563EB", flex: 1 },
   section: { borderRadius: 12, padding: 16, borderWidth: 1 },
   sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 },
   infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 4 },
@@ -431,9 +452,10 @@ const styles = StyleSheet.create({
   notes: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
   actionGroup: { borderRadius: 12, borderWidth: 1, overflow: "hidden" },
   actionGroupTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
-  actionRow: { flexDirection: "row", gap: 1 },
-  actionCol: { gap: 1 },
-  actionBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderWidth: 0, flex: 1 },
-  actionBtnFull: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderTopWidth: 1 },
-  actionBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  actionRow: { flexDirection: "row" },
+  actionCol: { gap: 0 },
+  exportBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, flex: 1, borderTopWidth: StyleSheet.hairlineWidth },
+  exportBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  actionBtnFull: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
+  actionBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });

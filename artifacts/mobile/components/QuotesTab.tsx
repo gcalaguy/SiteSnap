@@ -18,8 +18,6 @@ import {
   useListQuotes,
   useCreateQuote,
   useSubmitQuoteForApproval,
-  useApproveQuote,
-  useRejectQuote,
   useConvertQuoteToInvoice,
   customFetch,
   getListQuotesQueryKey,
@@ -34,24 +32,24 @@ type AIResult = { title?: string; lineItems?: LineItem[]; notes?: string; client
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
-  pending_approval: "Pending",
+  pending_approval: "Submitted",
   approved: "Approved",
-  rejected: "Rejected",
+  rejected: "Needs Revision",
   converted: "Invoiced",
 };
 const STATUS_COLORS: Record<string, string> = {
   draft: "#6B7280",
-  pending_approval: "#D97706",
+  pending_approval: "#2563EB",
   approved: "#16A34A",
-  rejected: "#DC2626",
-  converted: "#2563EB",
+  rejected: "#EA580C",
+  converted: "#7C3AED",
 };
 const STATUS_BG: Record<string, string> = {
   draft: "#F3F4F6",
-  pending_approval: "#FEF3C7",
+  pending_approval: "#DBEAFE",
   approved: "#DCFCE7",
-  rejected: "#FEE2E2",
-  converted: "#DBEAFE",
+  rejected: "#FFF7ED",
+  converted: "#EDE9FE",
 };
 
 function fmtCAD(v: number | string) {
@@ -67,8 +65,6 @@ export function QuotesTab({ projectId }: { projectId: number }) {
 
   const createQuote = useCreateQuote();
   const submitQuote = useSubmitQuoteForApproval();
-  const approveQuote = useApproveQuote();
-  const rejectQuote = useRejectQuote();
   const convertQuote = useConvertQuoteToInvoice();
 
   const [showModal, setShowModal] = useState(false);
@@ -130,7 +126,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
       const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
       const taxAmount = Math.round(subtotal * 0.13 * 100) / 100;
       const total = subtotal + taxAmount;
-      await createQuote.mutateAsync({
+      const created = await createQuote.mutateAsync({
         projectId,
         data: {
           title: aiResult.title ?? "New Quote",
@@ -145,6 +141,8 @@ export function QuotesTab({ projectId }: { projectId: number }) {
       invalidate();
       setShowModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Navigate directly to the new quote so user can view/edit it
+      setTimeout(() => router.push(`/quote/${created.id}`), 300);
     } catch {
       Alert.alert("Failed to create quote", "Please try again.");
     } finally {
@@ -153,57 +151,29 @@ export function QuotesTab({ projectId }: { projectId: number }) {
   }, [aiResult, clientName, projectId, createQuote]);
 
   async function handleSubmit(q: { id: number }) {
-    setActionLoading((p) => ({ ...p, [q.id]: "submit" }));
-    try {
-      await submitQuote.mutateAsync({ projectId, quoteId: q.id });
-      invalidate();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      Alert.alert("Failed to submit for approval");
-    } finally {
-      setActionLoading((p) => { const n = { ...p }; delete n[q.id]; return n; });
-    }
-  }
-
-  async function handleApprove(q: { id: number }) {
-    Alert.alert("Approve Quote?", "This quote will be marked as approved and ready for invoicing.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Approve", style: "default",
-        onPress: async () => {
-          setActionLoading((p) => ({ ...p, [q.id]: "approve" }));
-          try {
-            await approveQuote.mutateAsync({ projectId, quoteId: q.id });
-            invalidate();
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          } catch {
-            Alert.alert("Failed to approve");
-          } finally {
-            setActionLoading((p) => { const n = { ...p }; delete n[q.id]; return n; });
-          }
+    Alert.alert(
+      "Submit Quote?",
+      "The foreman and owner will be notified by email to review this quote.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Submit",
+          onPress: async () => {
+            setActionLoading((p) => ({ ...p, [q.id]: "submit" }));
+            try {
+              await submitQuote.mutateAsync({ projectId, quoteId: q.id });
+              invalidate();
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert("Quote Submitted", "The foreman and owner have been notified.");
+            } catch {
+              Alert.alert("Failed to submit", "Please try again.");
+            } finally {
+              setActionLoading((p) => { const n = { ...p }; delete n[q.id]; return n; });
+            }
+          },
         },
-      },
-    ]);
-  }
-
-  async function handleReject(q: { id: number }) {
-    Alert.alert("Reject Quote?", "The quote will be sent back to draft.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Reject", style: "destructive",
-        onPress: async () => {
-          setActionLoading((p) => ({ ...p, [q.id]: "reject" }));
-          try {
-            await rejectQuote.mutateAsync({ projectId, quoteId: q.id, data: {} });
-            invalidate();
-          } catch {
-            Alert.alert("Failed to reject");
-          } finally {
-            setActionLoading((p) => { const n = { ...p }; delete n[q.id]; return n; });
-          }
-        },
-      },
-    ]);
+      ]
+    );
   }
 
   async function handleConvert(q: { id: number }) {
@@ -259,92 +229,85 @@ export function QuotesTab({ projectId }: { projectId: number }) {
           renderItem={({ item: q }) => {
             const busy = actionLoading[q.id];
             return (
-              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Pressable onPress={() => router.push(`/quote/${q.id}`)}>
-                  <View style={styles.cardTop}>
-                    <View style={[styles.iconBox, { backgroundColor: `${colors.primary}18` }]}>
-                      <Feather name="file-text" size={18} color={colors.primary} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.cardTitle, { color: colors.foreground }]} numberOfLines={1}>{q.title}</Text>
-                      <Text style={[styles.cardSub, { color: colors.mutedForeground }]}>{q.quoteNumber} · {q.clientName}</Text>
-                    </View>
-                    <View>
-                      <Text style={[styles.cardAmount, { color: colors.foreground }]}>{fmtCAD(q.total)}</Text>
-                      <View style={[styles.statusBadge, { backgroundColor: STATUS_BG[q.status] }]}>
-                        <Text style={[styles.statusText, { color: STATUS_COLORS[q.status] }]}>{STATUS_LABELS[q.status]}</Text>
-                      </View>
+              <Pressable
+                onPress={() => router.push(`/quote/${q.id}`)}
+                style={({ pressed }) => [
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+                ]}
+              >
+                {/* Top row */}
+                <View style={styles.cardTop}>
+                  <View style={[styles.iconBox, { backgroundColor: `${colors.primary}18` }]}>
+                    <Feather name="file-text" size={18} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: colors.foreground }]} numberOfLines={1}>{q.title}</Text>
+                    <Text style={[styles.cardSub, { color: colors.mutedForeground }]}>{q.quoteNumber} · {q.clientName}</Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={[styles.cardAmount, { color: colors.foreground }]}>{fmtCAD(q.total)}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: STATUS_BG[q.status] }]}>
+                      <Text style={[styles.statusText, { color: STATUS_COLORS[q.status] }]}>{STATUS_LABELS[q.status]}</Text>
                     </View>
                   </View>
-                </Pressable>
+                </View>
 
-                {/* Approval workflow actions */}
+                {/* Actions row */}
                 <View style={[styles.actions, { borderTopColor: colors.border }]}>
-                  <TouchableOpacity onPress={() => router.push(`/quote/${q.id}`)} style={styles.editBtn}>
-                    <Text style={[styles.editBtnText, { color: colors.mutedForeground }]}>Edit / View</Text>
+                  {/* View / Edit — always shown */}
+                  <View style={[styles.viewBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                    <Feather name="eye" size={12} color={colors.mutedForeground} />
+                    <Text style={[styles.viewBtnText, { color: colors.mutedForeground }]}>View / Edit</Text>
                     <Feather name="chevron-right" size={12} color={colors.mutedForeground} />
-                  </TouchableOpacity>
+                  </View>
 
                   <View style={{ flex: 1 }} />
 
+                  {/* Draft: Submit */}
                   {q.status === "draft" && (
                     <TouchableOpacity
-                      onPress={() => handleSubmit(q)}
+                      onPress={(e) => { e.stopPropagation?.(); handleSubmit(q); }}
                       disabled={!!busy}
-                      style={[styles.actionBtn, { backgroundColor: "#FEF3C7", borderColor: "#D97706" }]}
+                      style={[styles.actionBtn, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}40` }]}
                     >
                       {busy === "submit" ? (
-                        <ActivityIndicator size="small" color="#D97706" />
+                        <ActivityIndicator size="small" color={colors.primary} />
                       ) : (
-                        <Feather name="send" size={12} color="#D97706" />
+                        <Feather name="send" size={12} color={colors.primary} />
                       )}
-                      <Text style={[styles.actionBtnText, { color: "#D97706" }]}>Submit</Text>
+                      <Text style={[styles.actionBtnText, { color: colors.primary }]}>Submit</Text>
                     </TouchableOpacity>
                   )}
 
+                  {/* Needs Revision: Re-submit */}
                   {q.status === "rejected" && (
                     <TouchableOpacity
-                      onPress={() => handleSubmit(q)}
+                      onPress={(e) => { e.stopPropagation?.(); handleSubmit(q); }}
                       disabled={!!busy}
-                      style={[styles.actionBtn, { backgroundColor: "#FEF3C7", borderColor: "#D97706" }]}
+                      style={[styles.actionBtn, { backgroundColor: "#FFF7ED", borderColor: "#FDBA74" }]}
                     >
                       {busy === "submit" ? (
-                        <ActivityIndicator size="small" color="#D97706" />
+                        <ActivityIndicator size="small" color="#EA580C" />
                       ) : (
-                        <Feather name="send" size={12} color="#D97706" />
+                        <Feather name="send" size={12} color="#EA580C" />
                       )}
-                      <Text style={[styles.actionBtnText, { color: "#D97706" }]}>Re-submit</Text>
+                      <Text style={[styles.actionBtnText, { color: "#EA580C" }]}>Re-submit</Text>
                     </TouchableOpacity>
                   )}
 
+                  {/* Submitted: awaiting */}
                   {q.status === "pending_approval" && (
-                    <>
-                      <TouchableOpacity
-                        onPress={() => handleReject(q)}
-                        disabled={!!busy}
-                        style={[styles.actionBtn, { backgroundColor: "#FEE2E2", borderColor: "#DC2626" }]}
-                      >
-                        <Feather name="x-circle" size={12} color="#DC2626" />
-                        <Text style={[styles.actionBtnText, { color: "#DC2626" }]}>Reject</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleApprove(q)}
-                        disabled={!!busy}
-                        style={[styles.actionBtn, { backgroundColor: "#DCFCE7", borderColor: "#16A34A" }]}
-                      >
-                        {busy === "approve" ? (
-                          <ActivityIndicator size="small" color="#16A34A" />
-                        ) : (
-                          <Feather name="check-circle" size={12} color="#16A34A" />
-                        )}
-                        <Text style={[styles.actionBtnText, { color: "#16A34A" }]}>Approve</Text>
-                      </TouchableOpacity>
-                    </>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Feather name="clock" size={11} color="#2563EB" />
+                      <Text style={{ fontSize: 11, color: "#2563EB", fontFamily: "Inter_600SemiBold" }}>Awaiting review</Text>
+                    </View>
                   )}
 
+                  {/* Approved: Convert to Invoice */}
                   {q.status === "approved" && (
                     <TouchableOpacity
-                      onPress={() => handleConvert(q)}
+                      onPress={(e) => { e.stopPropagation?.(); handleConvert(q); }}
                       disabled={!!busy}
                       style={[styles.actionBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
                     >
@@ -357,14 +320,15 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                     </TouchableOpacity>
                   )}
 
+                  {/* Converted */}
                   {q.status === "converted" && (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Feather name="check-circle" size={12} color="#2563EB" />
-                      <Text style={{ fontSize: 11, color: "#2563EB", fontFamily: "Inter_600SemiBold" }}>Invoice created</Text>
+                      <Feather name="check-circle" size={12} color="#7C3AED" />
+                      <Text style={{ fontSize: 11, color: "#7C3AED", fontFamily: "Inter_600SemiBold" }}>Invoiced</Text>
                     </View>
                   )}
                 </View>
-              </View>
+              </Pressable>
             );
           }}
         />
@@ -479,7 +443,6 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                 <Text style={[styles.fieldLabel, { color: colors.foreground, marginTop: 16 }]}>AI-Generated Line Items</Text>
 
                 <View style={[styles.table, { borderColor: colors.border }]}>
-                  {/* Header */}
                   <View style={[styles.tableRow, styles.tableHeader, { backgroundColor: colors.muted }]}>
                     <Text style={[styles.cellDesc, { color: colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>Item</Text>
                     <Text style={[styles.cellNum, { color: colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>Qty</Text>
@@ -494,7 +457,6 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                       <Text style={[styles.cellNum, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>{fmtCAD(item.total)}</Text>
                     </View>
                   ))}
-                  {/* Totals */}
                   <View style={[styles.tableRow, { borderTopColor: colors.border, borderTopWidth: 1 }]}>
                     <Text style={[styles.cellDesc, { color: colors.mutedForeground }]}>Subtotal</Text>
                     <Text style={[styles.cellNumWide, { color: colors.foreground }]}>{fmtCAD(aiSubtotal)}</Text>
@@ -509,14 +471,17 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                   </View>
                 </View>
 
-                <Text style={[styles.aiNote, { color: colors.mutedForeground }]}>
-                  ✦ AI-suggested pricing — you can edit line items after creating the quote
-                </Text>
+                {aiResult?.notes && (
+                  <View style={[styles.notesBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                    <Text style={[styles.notesLabel, { color: colors.mutedForeground }]}>Notes</Text>
+                    <Text style={[styles.notesText, { color: colors.foreground }]}>{aiResult.notes}</Text>
+                  </View>
+                )}
 
-                <View style={styles.previewActions}>
+                <View style={styles.previewBtns}>
                   <TouchableOpacity
                     onPress={() => setStep("input")}
-                    style={[styles.backBtn, { borderColor: colors.border }]}
+                    style={[styles.backBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
                   >
                     <Feather name="arrow-left" size={16} color={colors.foreground} />
                     <Text style={[styles.backBtnText, { color: colors.foreground }]}>Back</Text>
@@ -524,14 +489,16 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                   <TouchableOpacity
                     onPress={handleCreate}
                     disabled={saving}
-                    style={[styles.createBtn, { backgroundColor: colors.primary, flex: 1 }]}
+                    style={[styles.createBtn, { backgroundColor: saving ? colors.muted : colors.primary }]}
                   >
                     {saving ? (
                       <ActivityIndicator color="#FFFFFF" size="small" />
                     ) : (
                       <Feather name="plus" size={18} color="#FFFFFF" />
                     )}
-                    <Text style={styles.createBtnText}>{saving ? "Creating…" : "Create Quote"}</Text>
+                    <Text style={[styles.createBtnText, { color: saving ? colors.mutedForeground : "#FFFFFF" }]}>
+                      {saving ? "Creating…" : "Create Quote"}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -544,57 +511,59 @@ export function QuotesTab({ projectId }: { projectId: number }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, position: "relative", minHeight: 200 },
-  emptyContainer: { alignItems: "center", paddingVertical: 48, paddingHorizontal: 24 },
-  emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", marginBottom: 16 },
-  emptyTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold", marginBottom: 8 },
-  emptyDesc: { fontSize: 14, textAlign: "center", lineHeight: 20, marginBottom: 24 },
-  emptyBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
-  emptyBtnText: { color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  card: { marginHorizontal: 20, marginBottom: 12, borderRadius: 12, borderWidth: 1, overflow: "hidden" },
+  container: { flex: 1, position: "relative" },
+  emptyContainer: { alignItems: "center", paddingHorizontal: 32, paddingTop: 60, gap: 12 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  emptyTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  emptyDesc: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 21 },
+  emptyBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, marginTop: 8 },
+  emptyBtnText: { color: "#FFFFFF", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  card: { borderRadius: 14, borderWidth: 1, marginHorizontal: 20, marginBottom: 12, overflow: "hidden" },
   cardTop: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
   iconBox: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  cardTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, marginBottom: 2 },
-  cardSub: { fontSize: 12 },
-  cardAmount: { fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right", marginBottom: 4 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, alignSelf: "flex-end" },
-  statusText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
-  actions: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, flexWrap: "wrap" },
-  editBtn: { flexDirection: "row", alignItems: "center", gap: 2 },
-  editBtnText: { fontSize: 11, fontFamily: "Inter_500Medium" },
-  actionBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
-  actionBtnText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  fab: { position: "absolute", bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", elevation: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8 },
+  cardTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  cardSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  cardAmount: { fontSize: 14, fontFamily: "Inter_700Bold", textAlign: "right" },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginTop: 3, alignSelf: "flex-end" },
+  statusText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  actions: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },
+  viewBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
+  viewBtnText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  actionBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
+  actionBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  fab: { position: "absolute", bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 },
   modal: { flex: 1 },
-  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1 },
   modalTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
-  modalContent: { padding: 20, paddingBottom: 40 },
+  modalContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 24, gap: 4 },
   steps: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 0, marginBottom: 6 },
-  stepDot: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  stepNum: { color: "#FFFFFF", fontSize: 11, fontFamily: "Inter_700Bold" },
-  stepLine: { width: 32, height: 2, marginHorizontal: 4 },
-  stepsLabel: { textAlign: "center", fontSize: 12, marginBottom: 20 },
-  fieldLabel: { fontFamily: "Inter_600SemiBold", fontSize: 14, marginBottom: 6 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, marginBottom: 16 },
-  textArea: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, minHeight: 90, marginBottom: 20, textAlignVertical: "top" },
-  voiceBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderRadius: 16, borderWidth: 2, marginBottom: 16 },
-  voiceCircle: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
-  voiceBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, flex: 1 },
+  stepDot: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  stepNum: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  stepLine: { width: 32, height: 2 },
+  stepsLabel: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: 20 },
+  fieldLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginTop: 16, marginBottom: 6 },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: "Inter_400Regular" },
+  textArea: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: "Inter_400Regular", minHeight: 100, textAlignVertical: "top" },
+  voiceBtn: { borderWidth: 1.5, borderRadius: 14, padding: 20, alignItems: "center", gap: 10, marginTop: 8, marginBottom: 8 },
+  voiceCircle: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" },
+  voiceBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   recordingDot: { width: 8, height: 8, borderRadius: 4 },
-  generateBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12 },
-  generateBtnText: { fontFamily: "Inter_700Bold", fontSize: 16 },
-  previewTitle: { fontFamily: "Inter_700Bold", fontSize: 18, marginBottom: 4 },
-  previewClient: { fontSize: 14, marginBottom: 4 },
-  table: { borderWidth: 1, borderRadius: 10, overflow: "hidden", marginBottom: 10 },
-  tableRow: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 10, paddingVertical: 8 },
-  tableHeader: { paddingVertical: 6 },
-  cellDesc: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular" },
-  cellNum: { width: 70, fontSize: 12, textAlign: "right", fontFamily: "Inter_400Regular" },
-  cellNumWide: { flex: 1, fontSize: 12, textAlign: "right" },
-  aiNote: { fontSize: 11, marginTop: 4, marginBottom: 20, textAlign: "center" },
-  previewActions: { flexDirection: "row", gap: 10 },
-  backBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, borderWidth: 1 },
-  backBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  createBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12 },
-  createBtnText: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 16 },
+  generateBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, borderRadius: 12, paddingVertical: 15, marginTop: 8 },
+  generateBtnText: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  previewTitle: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 4 },
+  previewClient: { fontSize: 13, fontFamily: "Inter_400Regular", marginBottom: 16 },
+  table: { borderRadius: 10, borderWidth: 1, overflow: "hidden", marginBottom: 16 },
+  tableRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10 },
+  tableHeader: { paddingVertical: 8 },
+  cellDesc: { flex: 2, fontSize: 13, fontFamily: "Inter_400Regular" },
+  cellNum: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right" },
+  cellNumWide: { flex: 3, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right" },
+  notesBox: { borderRadius: 10, borderWidth: 1, padding: 14, marginBottom: 16 },
+  notesLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
+  notesText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  previewBtns: { flexDirection: "row", gap: 12, marginTop: 8 },
+  backBtn: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, borderWidth: 1 },
+  backBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  createBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 12, paddingVertical: 14 },
+  createBtnText: { fontSize: 15, fontFamily: "Inter_700Bold" },
 });

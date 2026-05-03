@@ -10,11 +10,13 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { customFetch, useGetMe } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListQuotes } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+import { useRouter } from "expo-router";
 
 type TimeEntry = {
   id: number;
@@ -33,12 +35,6 @@ function displayName(user: { firstName?: string | null; lastName?: string | null
   return name || "Worker";
 }
 
-function initials(user: { firstName?: string | null; lastName?: string | null } | null): string {
-  if (!user) return "?";
-  const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
-  return name ? name.slice(0, 2).toUpperCase() : "W";
-}
-
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -48,9 +44,34 @@ function formatDate(iso: string) {
   return d.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric", weekday: "short" });
 }
 
+function fmtCAD(v: number | string) {
+  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
+}
+
+const QUOTE_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  pending_approval: "Submitted",
+  approved: "Approved",
+  rejected: "Needs Revision",
+  converted: "Invoiced",
+};
+const QUOTE_STATUS_COLORS: Record<string, string> = {
+  pending_approval: "#2563EB",
+  approved: "#16A34A",
+  rejected: "#EA580C",
+  converted: "#7C3AED",
+};
+const QUOTE_STATUS_BG: Record<string, string> = {
+  pending_approval: "#DBEAFE",
+  approved: "#DCFCE7",
+  rejected: "#FFF7ED",
+  converted: "#EDE9FE",
+};
+
 export function HoursTab({ projectId }: { projectId: number }) {
   const colors = useColors();
   const qc = useQueryClient();
+  const router = useRouter();
   const { data: me } = useGetMe();
 
   const isPrivileged = me?.role === "owner" || me?.role === "foreman";
@@ -68,6 +89,12 @@ export function HoursTab({ projectId }: { projectId: number }) {
     queryKey: QUERY_KEY,
     queryFn: () => customFetch(`/api/projects/${projectId}/time-entries`),
   });
+
+  // Submitted quotes for this project
+  const { data: allQuotes = [] } = useListQuotes(projectId);
+  const submittedQuotes = allQuotes.filter(
+    (q) => q.status === "pending_approval" || q.status === "approved" || q.status === "rejected"
+  );
 
   const logHours = useMutation({
     mutationFn: (body: { date: string; hours: number; description?: string }) =>
@@ -120,7 +147,6 @@ export function HoursTab({ projectId }: { projectId: number }) {
     ]);
   }, [me?.id, isPrivileged]);
 
-  // Group entries: own vs others (for privileged users)
   const myEntries = entries.filter(e => e.userId === me?.id);
   const otherEntries = entries.filter(e => e.userId !== me?.id);
   const myTotal = myEntries.reduce((s, e) => s + parseFloat(e.hours), 0);
@@ -133,7 +159,44 @@ export function HoursTab({ projectId }: { projectId: number }) {
         contentContainerStyle={s.container}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header row */}
+        {/* ── Submitted Quotes section ─────────────────────────── */}
+        {submittedQuotes.length > 0 && (
+          <View style={s.quotesSection}>
+            <View style={s.quotesSectionHeader}>
+              <Feather name="file-text" size={13} color={colors.primary} />
+              <Text style={[s.quotesSectionTitle, { color: colors.mutedForeground }]}>Submitted Quotes</Text>
+            </View>
+            {submittedQuotes.map((q) => {
+              const statusColor = QUOTE_STATUS_COLORS[q.status] ?? "#6B7280";
+              const statusBg = QUOTE_STATUS_BG[q.status] ?? "#F3F4F6";
+              return (
+                <TouchableOpacity
+                  key={q.id}
+                  onPress={() => router.push(`/quote/${q.id}`)}
+                  activeOpacity={0.75}
+                  style={[s.quoteCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                >
+                  <View style={[s.quoteIconBox, { backgroundColor: `${colors.primary}15` }]}>
+                    <Feather name="file-text" size={16} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[s.quoteTitle, { color: colors.foreground }]} numberOfLines={1}>{q.title}</Text>
+                    <Text style={[s.quoteSub, { color: colors.mutedForeground }]}>{q.quoteNumber} · {q.clientName}</Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end", gap: 4 }}>
+                    <Text style={[s.quoteAmount, { color: colors.primary }]}>{fmtCAD(q.total)}</Text>
+                    <View style={[s.quoteBadge, { backgroundColor: statusBg }]}>
+                      <Text style={[s.quoteBadgeText, { color: statusColor }]}>{QUOTE_STATUS_LABELS[q.status]}</Text>
+                    </View>
+                  </View>
+                  <Feather name="chevron-right" size={14} color={colors.mutedForeground} style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ── Hours section ─────────────────────────────────────── */}
         <View style={s.headerRow}>
           <View>
             <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>
@@ -208,7 +271,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
           </View>
         )}
 
-        {/* My entries */}
+        {/* Entries list */}
         {isLoading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
         ) : (
@@ -239,7 +302,6 @@ export function HoursTab({ projectId }: { projectId: number }) {
               </>
             )}
 
-            {/* Other workers' entries (foreman/owner) */}
             {isPrivileged && otherEntries.length > 0 && (
               <>
                 <Text style={[s.groupLabel, { color: colors.mutedForeground, marginTop: 20 }]}>Team Entries</Text>
@@ -314,6 +376,18 @@ function EntryRow({
 
 const s = StyleSheet.create({
   container: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 4 },
+  // Submitted quotes section
+  quotesSection: { marginBottom: 24 },
+  quotesSectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
+  quotesSectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8 },
+  quoteCard: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 8 },
+  quoteIconBox: { width: 36, height: 36, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  quoteTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  quoteSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
+  quoteAmount: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  quoteBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+  quoteBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  // Hours section
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
   sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8 },
   totalLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginTop: 2 },
