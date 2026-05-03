@@ -1,15 +1,16 @@
 import { useState, useRef } from "react";
 import { useParams, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
-  useGetQuote,
   useUpdateQuote,
   useSubmitQuoteForApproval,
   useApproveQuote,
   useRejectQuote,
   useConvertQuoteToInvoice,
   useGenerateQuoteAI,
-  getGetQuoteQueryKey,
   getListAllQuotesQueryKey,
+  customFetch,
+  type Quote,
 } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -105,12 +106,17 @@ function downloadQuoteXLSX(quote: QuoteForExport) {
 export default function QuoteDetail() {
   const { id } = useParams<{ id: string }>();
   const quoteId = parseInt(id);
-  const projectId = 0;
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: quote, isLoading } = useGetQuote(projectId, quoteId);
+  // Use a direct fetch so the query always fires regardless of projectId.
+  // The backend GET /projects/0/quotes/:id resolves by companyId when projectId=0.
+  const { data: quote, isLoading } = useQuery<Quote>({
+    queryKey: [`/api/projects/0/quotes/${quoteId}`],
+    queryFn: () => customFetch<Quote>(`/api/projects/0/quotes/${quoteId}`),
+    enabled: !!quoteId,
+  });
   // Use the real projectId from the loaded quote for all mutations
   const realProjectId = quote?.projectId ?? 0;
   const updateQuote = useUpdateQuote();
@@ -134,7 +140,7 @@ export default function QuoteDetail() {
     new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(v);
 
   function invalidate() {
-    queryClient.invalidateQueries({ queryKey: getGetQuoteQueryKey(projectId, quoteId) });
+    queryClient.invalidateQueries({ queryKey: [`/api/projects/0/quotes/${quoteId}`] });
     queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
   }
 
