@@ -273,6 +273,180 @@ router.post(
   },
 );
 
+// ── POST /api/estimates/:id/email ────────────────────────────────────────────
+
+const EmailEstimateBody = z.object({
+  to: z.string().email("Please enter a valid email address"),
+  message: z.string().optional(),
+});
+
+router.post("/estimates/:id/email", requireAuth, requireCompany, async (req, res) => {
+  const role = req.userRole;
+  if (role !== "owner" && role !== "foreman") {
+    res.status(403).json({ error: "Foreman or owner role required" });
+    return;
+  }
+
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const parsed = EmailEstimateBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid body" });
+    return;
+  }
+
+  const { to, message } = parsed.data;
+
+  const [estimate] = await db.select().from(estimatesTable)
+    .where(and(eq(estimatesTable.id, id), eq(estimatesTable.companyId, req.companyId!)));
+
+  if (!estimate) { res.status(404).json({ error: "Estimate not found" }); return; }
+  if (estimate.status !== "ready") { res.status(400).json({ error: "Estimate is not ready" }); return; }
+
+  const r = (estimate.result ?? {}) as Record<string, any>;
+
+  function cad(n: number | undefined | null) {
+    if (n == null) return "—";
+    return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
+  }
+
+  function sumLines(lines: { total: number }[] | undefined) {
+    return (lines ?? []).reduce((s: number, l: any) => s + (l.total ?? 0), 0);
+  }
+
+  const materialsTotal = sumLines(r.materials);
+  const laborTotal = sumLines(r.labor);
+  const equipmentTotal = sumLines(r.equipment);
+  const subtotal = r.subtotal ?? (materialsTotal + laborTotal + equipmentTotal);
+  const contingency = r.contingency ?? Math.round(subtotal * ((r.contingencyPct ?? 10) / 100));
+  const totalLow = r.totalLow ?? subtotal;
+  const totalHigh = r.totalHigh ?? (subtotal + contingency);
+
+  function tableRows(rows: any[], cols: (k: any) => string[]) {
+    return (rows ?? []).map((row) =>
+      `<tr>${cols(row).map((c, i) => `<td style="padding:7px 10px;border-bottom:1px solid #eee;${i > 0 ? "text-align:right;" : ""}">${c}</td>`).join("")}</tr>`
+    ).join("");
+  }
+
+  const materialsSection = (r.materials ?? []).length > 0 ? `
+    <h3 style="color:#172034;margin:24px 0 8px">Materials</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#FF6600;color:#fff">
+        <th style="padding:8px 10px;text-align:left">Item</th>
+        <th style="padding:8px 10px;text-align:right">Qty</th>
+        <th style="padding:8px 10px;text-align:right">Unit</th>
+        <th style="padding:8px 10px;text-align:right">Unit Cost</th>
+        <th style="padding:8px 10px;text-align:right">Total</th>
+      </tr></thead>
+      <tbody>${tableRows(r.materials, (m) => [m.item, m.quantity, m.unit, cad(m.unitCost), cad(m.total)])}</tbody>
+      <tfoot><tr style="background:#f5f5f5;font-weight:bold">
+        <td colspan="4" style="padding:7px 10px;text-align:right">Subtotal</td>
+        <td style="padding:7px 10px;text-align:right">${cad(materialsTotal)}</td>
+      </tr></tfoot>
+    </table>` : "";
+
+  const laborSection = (r.labor ?? []).length > 0 ? `
+    <h3 style="color:#172034;margin:24px 0 8px">Labour</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#1E50A0;color:#fff">
+        <th style="padding:8px 10px;text-align:left">Trade / Role</th>
+        <th style="padding:8px 10px;text-align:right">Hours</th>
+        <th style="padding:8px 10px;text-align:right">Rate/hr</th>
+        <th style="padding:8px 10px;text-align:right">Total</th>
+      </tr></thead>
+      <tbody>${tableRows(r.labor, (l) => [l.trade, l.hours, cad(l.hourlyRate), cad(l.total)])}</tbody>
+      <tfoot><tr style="background:#f5f5f5;font-weight:bold">
+        <td colspan="3" style="padding:7px 10px;text-align:right">Subtotal</td>
+        <td style="padding:7px 10px;text-align:right">${cad(laborTotal)}</td>
+      </tr></tfoot>
+    </table>` : "";
+
+  const equipmentSection = (r.equipment ?? []).length > 0 ? `
+    <h3 style="color:#172034;margin:24px 0 8px">Equipment</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#B46400;color:#fff">
+        <th style="padding:8px 10px;text-align:left">Equipment</th>
+        <th style="padding:8px 10px;text-align:right">Days</th>
+        <th style="padding:8px 10px;text-align:right">Day Rate</th>
+        <th style="padding:8px 10px;text-align:right">Total</th>
+      </tr></thead>
+      <tbody>${tableRows(r.equipment, (e) => [e.item, e.days, cad(e.dayRate), cad(e.total)])}</tbody>
+      <tfoot><tr style="background:#f5f5f5;font-weight:bold">
+        <td colspan="3" style="padding:7px 10px;text-align:right">Subtotal</td>
+        <td style="padding:7px 10px;text-align:right">${cad(equipmentTotal)}</td>
+      </tr></tfoot>
+    </table>` : "";
+
+  const assumptionsSection = (r.assumptions ?? []).length > 0 ? `
+    <h3 style="color:#172034;margin:24px 0 8px">Assumptions</h3>
+    <ul style="font-size:13px;color:#444;padding-left:20px;margin:0">
+      ${(r.assumptions as string[]).map((a) => `<li style="margin-bottom:4px">${a}</li>`).join("")}
+    </ul>` : "";
+
+  const notesSection = r.notes ? `
+    <h3 style="color:#172034;margin:24px 0 8px">Notes</h3>
+    <p style="font-size:13px;color:#444;margin:0">${r.notes}</p>` : "";
+
+  const personalNote = message ? `
+    <div style="background:#fff8f0;border-left:4px solid #FF6600;padding:12px 16px;margin-bottom:24px;border-radius:4px">
+      <p style="margin:0;font-size:13px;color:#555">${message}</p>
+    </div>` : "";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Construction Estimate: ${estimate.title}</title></head>
+<body style="margin:0;padding:0;background:#f0f0f0;font-family:Arial,sans-serif">
+  <div style="max-width:680px;margin:24px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+    <div style="background:#172034;padding:24px 32px">
+      <div style="color:#FF6600;font-size:22px;font-weight:bold;letter-spacing:1px">SITE SNAP</div>
+      <div style="color:#aaa;font-size:12px;margin-top:2px">AI Estimating Engine</div>
+    </div>
+    <div style="padding:32px">
+      ${personalNote}
+      <h1 style="color:#172034;margin:0 0 4px;font-size:22px">${estimate.title}</h1>
+      ${r.summary ? `<p style="color:#555;font-size:14px;margin:8px 0 0">${r.summary}</p>` : ""}
+
+      <div style="background:#172034;border-radius:8px;padding:20px 24px;margin:24px 0">
+        <div style="color:#FF6600;font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Estimated Total Range (CAD)</div>
+        <div style="color:#fff;font-size:28px;font-weight:bold">${cad(totalLow)} – ${cad(totalHigh)}</div>
+        <div style="color:#aaa;font-size:12px;margin-top:6px">Subtotal ${cad(subtotal)} · Contingency (${r.contingencyPct ?? 10}%) ${cad(contingency)} · excl. HST/GST</div>
+      </div>
+
+      ${materialsSection}
+      ${laborSection}
+      ${equipmentSection}
+      ${assumptionsSection}
+      ${notesSection}
+
+      <div style="margin-top:40px;padding-top:16px;border-top:1px solid #eee;text-align:center;color:#aaa;font-size:11px">
+        Generated by Site Snap AI Estimating Engine · All amounts in CAD · Excludes HST/GST
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  try {
+    const { sendEmail, ResendSandboxError } = await import("../lib/mailer.js");
+    await sendEmail({
+      to: [to],
+      subject: `Construction Estimate: ${estimate.title}`,
+      html,
+    });
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    if (err instanceof Error && err.constructor.name === "ResendSandboxError") {
+      const sandboxErr = err as any;
+      res.status(422).json({ error: "sandbox", allowedEmail: sandboxErr.allowedEmail });
+      return;
+    }
+    req.log?.error({ err }, "Estimate email send failed");
+    res.status(500).json({ error: "Failed to send email" });
+  }
+});
+
 // ── DELETE /api/estimates/:id ─────────────────────────────────────────────────
 
 router.delete("/estimates/:id", requireAuth, requireCompany, async (req, res) => {

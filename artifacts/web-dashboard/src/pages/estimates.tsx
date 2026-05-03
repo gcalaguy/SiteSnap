@@ -4,16 +4,22 @@ import { useAuth } from "@clerk/react";
 import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { queryClient } from "@/lib/queryClient";
+import { downloadEstimatePDF, downloadEstimateDocx, printEstimate } from "@/lib/estimateExport";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Sparkles, Upload, FileText, Trash2, Clock, ChevronDown, ChevronUp,
   AlertCircle, Loader2, X, HardHat, Hammer, Package, Wrench,
   TrendingUp, ArrowRight, FilePlus, RotateCcw, Info, Mic, MicOff,
+  Download, Printer, Mail, FileDown,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -346,6 +352,14 @@ export default function EstimatesPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingDocx, setExportingDocx] = useState(false);
+  const [printing, setPrinting] = useState(false);
+
   const canAccess = me?.role === "owner" || me?.role === "foreman";
 
   const { data: estimates = [], isLoading } = useQuery<Estimate[]>({
@@ -425,6 +439,34 @@ export default function EstimatesPage() {
     } catch { return null; }
   }
 
+  async function handleSendEmail() {
+    if (!activeEstimate || !emailTo.trim()) return;
+    setIsSendingEmail(true);
+    try {
+      await customFetch(`/api/estimates/${activeEstimate.id}/email`, {
+        method: "POST",
+        body: JSON.stringify({ to: emailTo.trim(), message: emailMessage.trim() || undefined }),
+      });
+      toast({ title: "Estimate sent", description: `Delivered to ${emailTo.trim()}` });
+      setEmailDialogOpen(false);
+      setEmailTo("");
+      setEmailMessage("");
+    } catch (e: any) {
+      const msg = e?.message ?? "";
+      if (msg.includes("sandbox")) {
+        toast({
+          title: "Email sandbox restriction",
+          description: "Resend is in sandbox mode — emails can only be sent to the verified account address. Verify a domain at resend.com to send freely.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Failed to send email", description: msg, variant: "destructive" });
+      }
+    } finally {
+      setIsSendingEmail(false);
+    }
+  }
+
   if (!canAccess) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
@@ -458,7 +500,8 @@ export default function EstimatesPage() {
       {activeEstimate ? (
         /* ── Active Estimate View ── */
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
+          {/* Title row */}
+          <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <h2 className="text-xl font-bold">{activeEstimate.title}</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -475,7 +518,116 @@ export default function EstimatesPage() {
               <RotateCcw className="h-3.5 w-3.5" /> New
             </Button>
           </div>
+
+          {/* Export action bar */}
+          <div className="flex flex-wrap gap-2 rounded-lg border border-border bg-muted/30 p-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 h-8 text-xs"
+              disabled={exportingPdf}
+              onClick={async () => {
+                setExportingPdf(true);
+                try { await downloadEstimatePDF(activeEstimate); }
+                catch { toast({ title: "PDF export failed", variant: "destructive" }); }
+                finally { setExportingPdf(false); }
+              }}
+            >
+              {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 text-red-500" />}
+              Save as PDF
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 h-8 text-xs"
+              disabled={exportingDocx}
+              onClick={async () => {
+                setExportingDocx(true);
+                try { await downloadEstimateDocx(activeEstimate); }
+                catch { toast({ title: "Word export failed", variant: "destructive" }); }
+                finally { setExportingDocx(false); }
+              }}
+            >
+              {exportingDocx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 text-blue-600" />}
+              Save as Word
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 h-8 text-xs"
+              disabled={printing}
+              onClick={async () => {
+                setPrinting(true);
+                try { await printEstimate(activeEstimate); }
+                catch { toast({ title: "Print failed", variant: "destructive" }); }
+                finally { setPrinting(false); }
+              }}
+            >
+              {printing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+              Print
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 h-8 text-xs"
+              onClick={() => setEmailDialogOpen(true)}
+            >
+              <Mail className="h-3.5 w-3.5 text-primary" />
+              Email
+            </Button>
+          </div>
+
           <EstimateReport estimate={activeEstimate} />
+
+          {/* Email dialog */}
+          <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-primary" /> Email Estimate
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="rounded-md bg-muted/50 border border-border p-3">
+                  <p className="text-xs text-muted-foreground font-medium truncate">{activeEstimate.title}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Recipient email address</label>
+                  <Input
+                    type="email"
+                    placeholder="client@example.com"
+                    value={emailTo}
+                    onChange={(e) => setEmailTo(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && emailTo.trim()) handleSendEmail(); }}
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Personal message <span className="font-normal text-muted-foreground">(optional)</span></label>
+                  <Textarea
+                    placeholder="Hi John, please find the estimate for the basement renovation attached below…"
+                    value={emailMessage}
+                    onChange={(e) => setEmailMessage(e.target.value)}
+                    className="min-h-[80px] resize-none text-sm"
+                  />
+                </div>
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
+                <Button
+                  className="gap-2 bg-primary text-white hover:bg-primary/90"
+                  disabled={!emailTo.trim() || isSendingEmail}
+                  onClick={handleSendEmail}
+                >
+                  {isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                  Send Estimate
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       ) : (
         /* ── Input Form ── */
