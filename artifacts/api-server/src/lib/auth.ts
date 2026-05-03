@@ -9,6 +9,7 @@ declare global {
       userId?: number;
       companyId?: number | null;
       userRole?: "owner" | "foreman" | "worker";
+      systemRole?: string | null;
     }
   }
 }
@@ -40,6 +41,20 @@ export const requireAuth = async (
   req.userId = user.id;
   req.companyId = user.companyId;
   req.userRole = user.role;
+  req.systemRole = user.systemRole;
+  next();
+};
+
+// Middleware: require super_admin system role
+export const requireSuperAdmin = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (req.systemRole !== "super_admin") {
+    res.status(403).json({ error: "Super admin access required" });
+    return;
+  }
   next();
 };
 

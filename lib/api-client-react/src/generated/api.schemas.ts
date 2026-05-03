@@ -46,6 +46,8 @@ export interface User {
   lastName: string;
   companyId?: number | null;
   role: UserRole;
+  /** 'super_admin' for global admins, null for regular users */
+  systemRole?: string | null;
   termsAcceptedAt?: string | null;
   createdAt: string;
 }

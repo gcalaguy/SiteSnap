@@ -27,6 +27,7 @@ import timeEntriesRouter from "./timeEntries";
 import companyTimeEntriesRouter from "./companyTimeEntries";
 import estimatesRouter from "./estimates";
 import timesheetsRouter from "./timesheets";
+import superAdminRouter from "./superAdmin";
 
 const router: IRouter = Router();
 
@@ -58,5 +59,6 @@ router.use("/projects/:projectId/time-entries", timeEntriesRouter);
 router.use(companyTimeEntriesRouter);
 router.use(estimatesRouter);
 router.use(timesheetsRouter);
+router.use(superAdminRouter);
 
 export default router;

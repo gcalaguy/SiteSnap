@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: super-admin
+    description: Super Admin — plan, feature, and tenant management
   - name: users
     description: User management and auth sync
   - name: companies
@@ -1768,6 +1770,10 @@ components:
           nullable: true
         role:
           $ref: "#/components/schemas/UserRole"
+        systemRole:
+          type: string
+          nullable: true
+          description: "'super_admin' for global admins, null for regular users"
         termsAcceptedAt:
           type: string
           format: date-time

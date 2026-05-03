@@ -26,6 +26,10 @@ export const GetMeResponse = zod
     lastName: zod.string(),
     companyId: zod.number().nullish(),
     role: zod.enum(["owner", "foreman", "worker"]),
+    systemRole: zod
+      .string()
+      .nullish()
+      .describe("'super_admin' for global admins, null for regular users"),
     termsAcceptedAt: zod.coerce.date().nullish(),
     createdAt: zod.coerce.date(),
   })
@@ -56,6 +60,10 @@ export const AcceptTermsResponse = zod
     lastName: zod.string(),
     companyId: zod.number().nullish(),
     role: zod.enum(["owner", "foreman", "worker"]),
+    systemRole: zod
+      .string()
+      .nullish()
+      .describe("'super_admin' for global admins, null for regular users"),
     termsAcceptedAt: zod.coerce.date().nullish(),
     createdAt: zod.coerce.date(),
   })
@@ -92,6 +100,10 @@ export const SyncUserResponse = zod.object({
   lastName: zod.string(),
   companyId: zod.number().nullish(),
   role: zod.enum(["owner", "foreman", "worker"]),
+  systemRole: zod
+    .string()
+    .nullish()
+    .describe("'super_admin' for global admins, null for regular users"),
   termsAcceptedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
@@ -138,6 +150,10 @@ export const ListCompanyMembersResponseItem = zod
     lastName: zod.string(),
     companyId: zod.number().nullish(),
     role: zod.enum(["owner", "foreman", "worker"]),
+    systemRole: zod
+      .string()
+      .nullish()
+      .describe("'super_admin' for global admins, null for regular users"),
     termsAcceptedAt: zod.coerce.date().nullish(),
     createdAt: zod.coerce.date(),
   })
@@ -188,6 +204,10 @@ export const UpdateMemberRoleResponse = zod
     lastName: zod.string(),
     companyId: zod.number().nullish(),
     role: zod.enum(["owner", "foreman", "worker"]),
+    systemRole: zod
+      .string()
+      .nullish()
+      .describe("'super_admin' for global admins, null for regular users"),
     termsAcceptedAt: zod.coerce.date().nullish(),
     createdAt: zod.coerce.date(),
   })
@@ -323,6 +343,10 @@ export const AcceptInvitationResponse = zod
     lastName: zod.string(),
     companyId: zod.number().nullish(),
     role: zod.enum(["owner", "foreman", "worker"]),
+    systemRole: zod
+      .string()
+      .nullish()
+      .describe("'super_admin' for global admins, null for regular users"),
     termsAcceptedAt: zod.coerce.date().nullish(),
     createdAt: zod.coerce.date(),
   })
@@ -530,6 +554,10 @@ export const ListDailyReportsResponseItem = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      systemRole: zod
+        .string()
+        .nullish()
+        .describe("'super_admin' for global admins, null for regular users"),
       termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
@@ -587,6 +615,10 @@ export const GetDailyReportResponse = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      systemRole: zod
+        .string()
+        .nullish()
+        .describe("'super_admin' for global admins, null for regular users"),
       termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
@@ -636,6 +668,10 @@ export const UpdateDailyReportResponse = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      systemRole: zod
+        .string()
+        .nullish()
+        .describe("'super_admin' for global admins, null for regular users"),
       termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
@@ -734,6 +770,10 @@ export const ListRFIsResponseItem = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      systemRole: zod
+        .string()
+        .nullish()
+        .describe("'super_admin' for global admins, null for regular users"),
       termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
@@ -789,6 +829,10 @@ export const GetRFIResponse = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      systemRole: zod
+        .string()
+        .nullish()
+        .describe("'super_admin' for global admins, null for regular users"),
       termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
@@ -835,6 +879,10 @@ export const UpdateRFIResponse = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      systemRole: zod
+        .string()
+        .nullish()
+        .describe("'super_admin' for global admins, null for regular users"),
       termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })

@@ -26,6 +26,21 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 
 ## Phase Status
 
+### ✅ Phase 9 — MULTI-TENANT SAAS ADMIN SYSTEM (Complete)
+- **New DB tables**: `plans`, `features`, `plan_features`, `subscriptions` + `system_role` TEXT on users
+- **SUPER_ADMIN role**: `system_role = 'super_admin'` on users table; bypasses tenant isolation and feature gates
+- **Plans CRUD** (`/admin/plans`): name, slug, monthly/yearly price, max seats, isActive
+- **Features CRUD** (`/admin/features`): name, key (e.g. AI_ESTIMATING), description, isEnabled global toggle
+- **Plan-Feature assignment** (`PUT /admin/plans/:id/features`): many-to-many via `plan_features` junction table
+- **Subscriptions** (`PATCH /admin/tenants/:id/subscription`): assign plan, status, billing cycle per tenant
+- **Tenant overview** (`GET /admin/tenants`): all companies with user counts, plan, and subscription status
+- **Feature gate middleware** (`lib/featureGate.ts`): `requireFeature("KEY")` checks tenant's plan includes feature; super_admin bypasses
+- **requireSuperAdmin middleware**: added to `lib/auth.ts`, checks `system_role = 'super_admin'`
+- **Seed data**: Starter/Pro/Enterprise plans, 6 features (Scheduling, AI Estimating, Client Portal, Reporting, QuickBooks, AI Chat) assigned to plans
+- **Super Admin web page** (`/super-admin`): 4-tab dashboard — Plans, Features, Plan Features (checkboxes), Tenants
+- **Navigation**: Crown icon link appears in sidebar only for super_admin users
+- **Security**: All `/admin/*` routes protected by `requireAuth + requireSuperAdmin`; tenants cannot access cross-tenant data
+
 ### ✅ Phase 1 — CORE PLATFORM (Complete)
 - Multi-tenancy: companies as DB entities, users belong to one company
 - Authentication: Clerk (email/password + OAuth)

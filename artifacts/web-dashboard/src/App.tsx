@@ -26,6 +26,7 @@ import QuoteDetail from "@/pages/quote-detail";
 import Invoices from "@/pages/invoices";
 import InvoiceDetail from "@/pages/invoice-detail";
 import AdminPage from "@/pages/admin";
+import SuperAdminPage from "@/pages/super-admin";
 import Schedule from "@/pages/schedule";
 import ClientPortal from "@/pages/client-portal";
 import Hours from "@/pages/hours";
@@ -217,6 +218,7 @@ function AuthApp() {
           <Route path="/invoices/:id" component={InvoiceDetail} />
           <Route path="/invoices" component={Invoices} />
           <Route path="/admin" component={AdminPage} />
+          <Route path="/super-admin" component={SuperAdminPage} />
           <Route path="/ai-chat" component={AIChat} />
           <Route path="/team" component={Team} />
           <Route path="/settings" component={Settings} />

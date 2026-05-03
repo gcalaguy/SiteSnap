@@ -15,6 +15,7 @@ import {
   CalendarDays,
   Clock,
   Calculator,
+  Crown,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import {
@@ -50,6 +51,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isOwner = user?.role === "owner";
   const isOwnerOrForeman = user?.role === "owner" || user?.role === "foreman";
+  const isSuperAdmin = (user as any)?.systemRole === "super_admin";
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -64,9 +66,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
-  const adminNavigation = isOwner
-    ? [{ name: "Admin & Billing", href: "/admin", icon: ShieldCheck }]
-    : [];
+  const adminNavigation = [
+    ...(isOwner ? [{ name: "Admin & Billing", href: "/admin", icon: ShieldCheck }] : []),
+    ...(isSuperAdmin ? [{ name: "Super Admin", href: "/super-admin", icon: Crown }] : []),
+  ];
 
   return (
     <SidebarProvider>

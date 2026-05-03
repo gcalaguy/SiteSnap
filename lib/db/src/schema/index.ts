@@ -81,6 +81,7 @@ export const usersTable = pgTable("users", {
   lastName: text("last_name").notNull(),
   companyId: integer("company_id").references(() => companiesTable.id),
   role: userRoleEnum("role").notNull().default("worker"),
+  systemRole: text("system_role"), // null = regular user, 'super_admin' = global admin
   pushToken: text("push_token"),
   termsAcceptedAt: timestamp("terms_accepted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -579,6 +580,69 @@ export const clientPortalMessagesTable = pgTable("client_portal_messages", {
 });
 
 export type ClientPortalMessage = typeof clientPortalMessagesTable.$inferSelect;
+
+// ── Plans ─────────────────────────────────────────────────────────────────────
+
+export const plansTable = pgTable("plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  monthlyPrice: numeric("monthly_price", { precision: 10, scale: 2 }).notNull().default("0"),
+  yearlyPrice: numeric("yearly_price", { precision: 10, scale: 2 }).notNull().default("0"),
+  maxSeats: integer("max_seats").notNull().default(5),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPlanSchema = createInsertSchema(plansTable).omit({ id: true, createdAt: true });
+export type InsertPlan = z.infer<typeof insertPlanSchema>;
+export type Plan = typeof plansTable.$inferSelect;
+
+// ── Features ──────────────────────────────────────────────────────────────────
+
+export const featuresTable = pgTable("features", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  key: text("key").notNull().unique(),
+  description: text("description"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertFeatureSchema = createInsertSchema(featuresTable).omit({ id: true, createdAt: true });
+export type InsertFeature = z.infer<typeof insertFeatureSchema>;
+export type Feature = typeof featuresTable.$inferSelect;
+
+// ── Plan Features ─────────────────────────────────────────────────────────────
+
+export const planFeaturesTable = pgTable(
+  "plan_features",
+  {
+    id: serial("id").primaryKey(),
+    planId: integer("plan_id").notNull().references(() => plansTable.id, { onDelete: "cascade" }),
+    featureId: integer("feature_id").notNull().references(() => featuresTable.id, { onDelete: "cascade" }),
+  },
+  (t) => [unique().on(t.planId, t.featureId)],
+);
+
+export type PlanFeature = typeof planFeaturesTable.$inferSelect;
+
+// ── Subscriptions ─────────────────────────────────────────────────────────────
+
+export const subscriptionsTable = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().unique().references(() => companiesTable.id, { onDelete: "cascade" }),
+  planId: integer("plan_id").notNull().references(() => plansTable.id),
+  status: text("status").notNull().default("active"), // active | trial | past_due | cancelled | inactive
+  billingCycle: text("billing_cycle").notNull().default("monthly"),
+  currentPeriodStart: timestamp("current_period_start").defaultNow(),
+  currentPeriodEnd: timestamp("current_period_end"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type Subscription = typeof subscriptionsTable.$inferSelect;
 
 // ── Estimates ─────────────────────────────────────────────────────────────────
 
