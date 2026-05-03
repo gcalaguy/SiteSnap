@@ -673,22 +673,24 @@ export default function ProjectDetail() {
       )}
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-8 lg:w-[1160px]">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="reports">Daily Reports</TabsTrigger>
-          <TabsTrigger value="cost">Cost Analysis</TabsTrigger>
-          <TabsTrigger value="rfis">RFIs</TabsTrigger>
-          <TabsTrigger value="quotes" className="flex items-center gap-1.5">
-            <FileText className="h-3.5 w-3.5" />Quotes
-          </TabsTrigger>
-          <TabsTrigger value="team" className="flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5" />Team
-          </TabsTrigger>
-          <TabsTrigger value="documents" className="flex items-center gap-1.5">
-            <FolderOpen className="h-3.5 w-3.5" />Documents
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="inline-flex w-max min-w-full h-10">
+            <TabsTrigger value="overview" className="px-4 whitespace-nowrap">Overview</TabsTrigger>
+            <TabsTrigger value="tasks" className="px-4 whitespace-nowrap">Tasks</TabsTrigger>
+            <TabsTrigger value="reports" className="px-4 whitespace-nowrap">Daily Reports</TabsTrigger>
+            <TabsTrigger value="cost" className="px-4 whitespace-nowrap">Cost Analysis</TabsTrigger>
+            <TabsTrigger value="rfis" className="px-4 whitespace-nowrap">RFIs</TabsTrigger>
+            <TabsTrigger value="quotes" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5" />Quotes
+            </TabsTrigger>
+            <TabsTrigger value="team" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5" />Team
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+              <FolderOpen className="h-3.5 w-3.5" />Documents
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="space-y-4 mt-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
