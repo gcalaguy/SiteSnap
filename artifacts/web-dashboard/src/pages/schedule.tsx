@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useGetMe, customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, addDays, startOfWeek, parseISO } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  format, addDays, addMonths, startOfWeek, parseISO,
+  startOfDay, eachDayOfInterval, eachWeekOfInterval,
+  isSameDay, isWeekend,
+} from "date-fns";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -10,152 +14,260 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ChevronLeft, ChevronRight, CalendarDays, Plus, X, Loader2, Users, Building2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ChevronLeft, ChevronRight, CalendarDays, Plus, Loader2,
+  Users, Building2, GanttChartSquare, LayoutGrid, X,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
 type Member = { id: number; firstName: string; lastName: string; role: string; email: string };
-type Project = { id: number; name: string; status: string };
-type Assignment = {
-  id: number;
-  projectId: number;
-  userId: number;
-  startDate: string;
-  endDate: string;
-  notes: string | null;
+type GProject = { id: number; name: string; status: string; startDate: string | null; endDate: string | null };
+type GAssignment = {
+  id: number; projectId: number; userId: number;
+  startDate: string; endDate: string; notes: string | null;
   projectName: string | null;
-  userFirstName: string | null;
-  userLastName: string | null;
-  userRole: string | null;
+  userFirstName: string | null; userLastName: string | null; userRole: string | null;
 };
-
-type ScheduleData = {
-  weekStart: string;
-  weekEnd: string;
-  assignments: Assignment[];
-  members: Member[];
-  projects: Project[];
+type GanttData = { assignments: GAssignment[]; projects: GProject[]; members: Member[] };
+type WeekData = {
+  weekStart: string; weekEnd: string;
+  assignments: GAssignment[]; members: Member[]; projects: GProject[];
 };
+type ViewMode = "gantt" | "team";
+type ZoomLevel = "2w" | "1m" | "3m";
 
-const PROJECT_COLORS = [
-  "bg-blue-500",
-  "bg-emerald-500",
-  "bg-violet-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-cyan-500",
-  "bg-orange-500",
-  "bg-pink-500",
-  "bg-teal-500",
-  "bg-indigo-500",
+// ─── Constants ────────────────────────────────────────────────────────────────
+const USER_COLORS = [
+  { bg: "#FF6600", text: "#fff" }, { bg: "#3B82F6", text: "#fff" },
+  { bg: "#10B981", text: "#fff" }, { bg: "#8B5CF6", text: "#fff" },
+  { bg: "#F59E0B", text: "#1a1a1a" }, { bg: "#EF4444", text: "#fff" },
+  { bg: "#06B6D4", text: "#fff" }, { bg: "#EC4899", text: "#fff" },
+  { bg: "#14B8A6", text: "#fff" }, { bg: "#6366F1", text: "#fff" },
 ];
+const PROJECT_COLORS_BG = [
+  "#FF6600","#3B82F6","#10B981","#8B5CF6","#F59E0B",
+  "#EF4444","#06B6D4","#EC4899","#14B8A6","#6366F1",
+];
+const COL_WIDTH_PX: Record<ZoomLevel, number> = { "2w": 54, "1m": 38, "3m": 82 };
+const BAR_H = 26;
+const BAR_GAP = 4;
+const ROW_PAD = 10;
+const LABEL_W = 224;
 
-function getProjectColor(projectId: number) {
-  return PROJECT_COLORS[projectId % PROJECT_COLORS.length];
+const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  planning:    { label: "Planning",    cls: "bg-slate-100 text-slate-600 border-slate-200" },
+  in_progress: { label: "In Progress", cls: "bg-orange-100 text-orange-700 border-orange-200" },
+  completed:   { label: "Completed",   cls: "bg-green-100 text-green-700 border-green-200" },
+  on_hold:     { label: "On Hold",     cls: "bg-amber-100 text-amber-700 border-amber-200" },
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const getUserColor = (uid: number) => USER_COLORS[uid % USER_COLORS.length];
+const getProjectBg = (pid: number) => PROJECT_COLORS_BG[pid % PROJECT_COLORS_BG.length];
+const initials = (f: string, l: string) => `${f[0] ?? ""}${l[0] ?? ""}`.toUpperCase();
+
+type TrackItem = { id: number; startMs: number; endMs: number };
+function assignTracks<T extends TrackItem>(items: T[]): Array<T & { track: number }> {
+  const sorted = [...items].sort((a, b) => a.startMs - b.startMs);
+  const ends: number[] = [];
+  return sorted.map(item => {
+    const t = ends.findIndex(e => e <= item.startMs);
+    if (t === -1) { ends.push(item.endMs); return { ...item, track: ends.length - 1 }; }
+    ends[t] = item.endMs;
+    return { ...item, track: t };
+  });
 }
 
-function getInitials(firstName: string, lastName: string) {
-  return `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
-}
-
-function weekDays(weekStart: string) {
-  const start = parseISO(weekStart);
-  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
-}
-
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function Schedule() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: me } = useGetMe();
 
-  const [currentWeek, setCurrentWeek] = useState<Date>(() => {
-    const today = new Date();
-    return startOfWeek(today, { weekStartsOn: 1 });
-  });
+  const [view, setView] = useState<ViewMode>("gantt");
+  const [zoom, setZoom] = useState<ZoomLevel>("1m");
+  const [ganttNav, setGanttNav] = useState<Date>(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [teamWeek, setTeamWeek] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
 
+  // Dialog state
   const [showDialog, setShowDialog] = useState(false);
-  const [prefillUserId, setPrefillUserId] = useState<string>("");
-  const [prefillProjectId, setPrefillProjectId] = useState<string>("");
-  const [newUserId, setNewUserId] = useState<string>("");
-  const [newProjectId, setNewProjectId] = useState<string>("");
-  const [newStartDate, setNewStartDate] = useState<string>("");
-  const [newEndDate, setNewEndDate] = useState<string>("");
-  const [newNotes, setNewNotes] = useState<string>("");
-
-  const weekOf = format(currentWeek, "yyyy-MM-dd");
-
-  const { data, isLoading } = useQuery<ScheduleData>({
-    queryKey: ["schedule", weekOf],
-    queryFn: () => customFetch(`/api/schedule?weekOf=${weekOf}`),
-  });
-
-  const days = data ? weekDays(data.weekStart) : weekDays(weekOf);
-
-  const createAssignment = useMutation({
-    mutationFn: (body: object) => customFetch("/api/schedule", { method: "POST", body: JSON.stringify(body) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["schedule"] });
-      qc.invalidateQueries({ queryKey: ["project-schedule"] });
-      setShowDialog(false);
-      resetDialog();
-      toast({ title: "Worker assigned to project" });
-    },
-    onError: (err: any) => toast({ title: err?.message ?? "Failed to assign worker", variant: "destructive" }),
-  });
-
-  const deleteAssignment = useMutation({
-    mutationFn: (id: number) => customFetch(`/api/schedule/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["schedule"] });
-      qc.invalidateQueries({ queryKey: ["project-schedule"] });
-    },
-    onError: (err: any) => toast({ title: err?.message ?? "Failed to remove assignment", variant: "destructive" }),
-  });
-
-  function resetDialog() {
-    setNewUserId(prefillUserId);
-    setNewProjectId(prefillProjectId);
-    setNewStartDate("");
-    setNewEndDate("");
-    setNewNotes("");
-  }
-
-  function openDialog(userId?: string, projectId?: string) {
-    setPrefillUserId(userId ?? "");
-    setPrefillProjectId(projectId ?? "");
-    setNewUserId(userId ?? "");
-    setNewProjectId(projectId ?? "");
-    setNewStartDate(weekOf);
-    setNewEndDate(format(addDays(currentWeek, 4), "yyyy-MM-dd"));
-    setNewNotes("");
-    setShowDialog(true);
-  }
-
-  function handleCreate() {
-    if (!newUserId || !newProjectId || !newStartDate || !newEndDate) return;
-    createAssignment.mutate({
-      userId: Number(newUserId),
-      projectId: Number(newProjectId),
-      startDate: newStartDate,
-      endDate: newEndDate,
-      notes: newNotes || undefined,
-    });
-  }
-
-  function getAssignmentsForCell(userId: number, day: Date) {
-    if (!data) return [];
-    const dayStr = format(day, "yyyy-MM-dd");
-    return data.assignments.filter((a) => {
-      if (a.userId !== userId) return false;
-      return dayStr >= a.startDate && dayStr <= a.endDate;
-    });
-  }
-
-  const prevWeek = () => setCurrentWeek((w) => addDays(w, -7));
-  const nextWeek = () => setCurrentWeek((w) => addDays(w, 7));
-  const goToday = () => setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [dlgUserId, setDlgUserId] = useState("");
+  const [dlgProjectId, setDlgProjectId] = useState("");
+  const [dlgStart, setDlgStart] = useState("");
+  const [dlgEnd, setDlgEnd] = useState("");
+  const [dlgNotes, setDlgNotes] = useState("");
 
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
+  // ── Gantt range ──────────────────────────────────────────────────────────
+  const ganttRange = useMemo(() => {
+    if (zoom === "2w") {
+      const start = startOfWeek(ganttNav, { weekStartsOn: 1 });
+      return { start, end: addDays(start, 13) };
+    }
+    if (zoom === "1m") {
+      const start = new Date(ganttNav.getFullYear(), ganttNav.getMonth(), 1);
+      const end = new Date(ganttNav.getFullYear(), ganttNav.getMonth() + 1, 0);
+      return { start, end };
+    }
+    // 3m
+    const start = new Date(ganttNav.getFullYear(), ganttNav.getMonth(), 1);
+    const end = addDays(addMonths(start, 3), -1);
+    return { start, end };
+  }, [ganttNav, zoom]);
+
+  function ganttPrev() {
+    if (zoom === "2w") setGanttNav(d => addDays(d, -14));
+    else if (zoom === "1m") setGanttNav(d => addMonths(d, -1));
+    else setGanttNav(d => addMonths(d, -3));
+  }
+  function ganttNext() {
+    if (zoom === "2w") setGanttNav(d => addDays(d, 14));
+    else if (zoom === "1m") setGanttNav(d => addMonths(d, 1));
+    else setGanttNav(d => addMonths(d, 3));
+  }
+  function ganttToday() {
+    const n = new Date();
+    setGanttNav(zoom === "2w" ? startOfWeek(n, { weekStartsOn: 1 }) : new Date(n.getFullYear(), n.getMonth(), 1));
+  }
+
+  // ── Computed columns & geometry ──────────────────────────────────────────
+  const { columns, colWidth, viewStartMs, viewEndMs, timelineW } = useMemo(() => {
+    const colWidth = COL_WIDTH_PX[zoom];
+    let columns: Array<{ key: string; label: string; sub: string; weekend: boolean; today: boolean; startMs: number }>;
+
+    if (zoom === "2w" || zoom === "1m") {
+      columns = eachDayOfInterval({ start: ganttRange.start, end: ganttRange.end }).map(d => ({
+        key: format(d, "yyyy-MM-dd"),
+        label: format(d, "d"),
+        sub: format(d, "EEEEE"),
+        weekend: isWeekend(d),
+        today: isSameDay(d, new Date()),
+        startMs: startOfDay(d).getTime(),
+      }));
+    } else {
+      columns = eachWeekOfInterval({ start: ganttRange.start, end: ganttRange.end }, { weekStartsOn: 1 }).map(w => ({
+        key: format(w, "yyyy-MM-dd"),
+        label: format(w, "MMM d"),
+        sub: "",
+        weekend: false,
+        today: false,
+        startMs: startOfDay(w).getTime(),
+      }));
+    }
+
+    const viewStartMs = startOfDay(ganttRange.start).getTime();
+    const viewEndMs = addDays(startOfDay(ganttRange.end), 1).getTime();
+    const timelineW = columns.length * colWidth;
+    return { columns, colWidth, viewStartMs, viewEndMs, timelineW };
+  }, [ganttRange, zoom]);
+
+  const todayLinePx = useMemo(() => {
+    const ms = startOfDay(new Date()).getTime();
+    if (ms < viewStartMs || ms >= viewEndMs) return null;
+    return ((ms - viewStartMs) / (viewEndMs - viewStartMs)) * timelineW;
+  }, [viewStartMs, viewEndMs, timelineW]);
+
+  const barGeometry = useCallback((s: string, e: string) => {
+    const sMs = startOfDay(parseISO(s)).getTime();
+    const eMs = addDays(startOfDay(parseISO(e)), 1).getTime();
+    const clampS = Math.max(sMs, viewStartMs);
+    const clampE = Math.min(eMs, viewEndMs);
+    if (clampS >= clampE) return null;
+    const total = viewEndMs - viewStartMs;
+    return {
+      leftPx: ((clampS - viewStartMs) / total) * timelineW,
+      widthPx: Math.max(((clampE - clampS) / total) * timelineW, 6),
+    };
+  }, [viewStartMs, viewEndMs, timelineW]);
+
+  // ── Queries ──────────────────────────────────────────────────────────────
+  const ganttQuery = useQuery<GanttData>({
+    queryKey: ["schedule-gantt", format(ganttRange.start, "yyyy-MM-dd"), format(ganttRange.end, "yyyy-MM-dd")],
+    queryFn: () => customFetch(`/api/schedule/gantt?from=${format(ganttRange.start, "yyyy-MM-dd")}&to=${format(ganttRange.end, "yyyy-MM-dd")}`),
+    enabled: isOwnerOrForeman && view === "gantt",
+  });
+
+  const weekOf = format(teamWeek, "yyyy-MM-dd");
+  const teamQuery = useQuery<WeekData>({
+    queryKey: ["schedule", weekOf],
+    queryFn: () => customFetch(`/api/schedule?weekOf=${weekOf}`),
+    enabled: isOwnerOrForeman && view === "team",
+  });
+
+  // ── Mutations ────────────────────────────────────────────────────────────
+  const createMut = useMutation({
+    mutationFn: (body: object) => customFetch("/api/schedule", { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["schedule-gantt"] });
+      qc.invalidateQueries({ queryKey: ["schedule"] });
+      setShowDialog(false);
+      toast({ title: "Worker assigned" });
+    },
+    onError: (err: any) => toast({ title: err?.message ?? "Failed", variant: "destructive" }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => customFetch(`/api/schedule/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["schedule-gantt"] });
+      qc.invalidateQueries({ queryKey: ["schedule"] });
+    },
+    onError: (err: any) => toast({ title: err?.message ?? "Failed to remove", variant: "destructive" }),
+  });
+
+  function openDialog(projectId?: string) {
+    setDlgUserId(""); setDlgProjectId(projectId ?? "");
+    setDlgStart(format(new Date(), "yyyy-MM-dd"));
+    setDlgEnd(format(addDays(new Date(), 6), "yyyy-MM-dd"));
+    setDlgNotes(""); setShowDialog(true);
+  }
+
+  // ── Gantt row data ────────────────────────────────────────────────────────
+  const ganttProjects = ganttQuery.data?.projects ?? [];
+  const ganttAssignments = ganttQuery.data?.assignments ?? [];
+  const ganttMembers = ganttQuery.data?.members ?? [];
+
+  const ganttRows = useMemo(() => {
+    return ganttProjects.map(project => {
+      const bars = ganttAssignments
+        .filter(a => a.projectId === project.id)
+        .map(a => ({
+          ...a,
+          startMs: startOfDay(parseISO(a.startDate)).getTime(),
+          endMs: addDays(startOfDay(parseISO(a.endDate)), 1).getTime(),
+        }));
+      const tracked = assignTracks(bars);
+      const numTracks = tracked.length === 0 ? 1 : Math.max(...tracked.map(b => b.track)) + 1;
+      const rowH = Math.max(48, numTracks * (BAR_H + BAR_GAP) + ROW_PAD * 2);
+      return { project, bars: tracked, numTracks, rowH };
+    });
+  }, [ganttProjects, ganttAssignments]);
+
+  // ── Summaries ─────────────────────────────────────────────────────────────
+  const { scheduledWorkers, activeProjects, unscheduled } = useMemo(() => {
+    const allAssignments = view === "gantt" ? ganttAssignments : (teamQuery.data?.assignments ?? []);
+    const allMembers = view === "gantt" ? ganttMembers : (teamQuery.data?.members ?? []);
+    const wIds = new Set(allAssignments.map(a => a.userId));
+    const pIds = new Set(allAssignments.map(a => a.projectId));
+    return { scheduledWorkers: wIds.size, activeProjects: pIds.size, unscheduled: allMembers.length - wIds.size };
+  }, [view, ganttAssignments, ganttMembers, teamQuery.data]);
+
+  // ── Team view helpers ─────────────────────────────────────────────────────
+  const teamWeekDays = useMemo(() => {
+    const start = teamQuery.data ? parseISO(teamQuery.data.weekStart) : teamWeek;
+    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  }, [teamQuery.data, teamWeek]);
+
+  function getTeamCellAssignments(userId: number, day: Date) {
+    if (!teamQuery.data) return [];
+    const dayStr = format(day, "yyyy-MM-dd");
+    return teamQuery.data.assignments.filter(a => a.userId === userId && dayStr >= a.startDate && dayStr <= a.endDate);
+  }
+
+  // ── Access guard ──────────────────────────────────────────────────────────
   if (!isOwnerOrForeman) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
@@ -165,318 +277,528 @@ export default function Schedule() {
     );
   }
 
-  const members = data?.members ?? [];
-  const projects = data?.projects ?? [];
-  const assignments = data?.assignments ?? [];
-
-  // Summary: unique workers scheduled this week
-  const scheduledWorkerIds = new Set(assignments.map((a) => a.userId));
-  const projectsThisWeek = new Set(assignments.map((a) => a.projectId));
+  const isLoading = view === "gantt" ? ganttQuery.isLoading : teamQuery.isLoading;
+  const teamProjects = teamQuery.data?.projects ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
-          <p className="text-muted-foreground">Weekly worker availability across all projects.</p>
-        </div>
-        <Button onClick={() => openDialog()}>
-          <Plus className="mr-2 h-4 w-4" /> Assign Worker
-        </Button>
-      </div>
+    <TooltipProvider delayDuration={200}>
+      <div className="space-y-5">
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{scheduledWorkerIds.size}</p>
-                <p className="text-xs text-muted-foreground">Workers scheduled this week</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-100">
-                <Building2 className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{projectsThisWeek.size}</p>
-                <p className="text-xs text-muted-foreground">Active projects this week</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-100">
-                <CalendarDays className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{members.length - scheduledWorkerIds.size}</p>
-                <p className="text-xs text-muted-foreground">Unscheduled team members</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Week navigator */}
-      <Card>
-        <CardHeader className="pb-3 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevWeek}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="text-center min-w-[200px]">
-                <p className="font-semibold text-sm">
-                  {data ? `${format(parseISO(data.weekStart), "MMM d")} – ${format(parseISO(data.weekEnd), "MMM d, yyyy")}` : "Loading…"}
-                </p>
-              </div>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextWeek}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={goToday}>
-                Today
-              </Button>
-            </div>
-            {/* Legend */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {projects.slice(0, 6).map((p) => (
-                <div key={p.id} className="flex items-center gap-1.5">
-                  <div className={`h-2.5 w-2.5 rounded-sm ${getProjectColor(p.id)}`} />
-                  <span className="text-xs text-muted-foreground truncate max-w-[100px]">{p.name}</span>
-                </div>
-              ))}
-            </div>
+        {/* ── Page header ── */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
+            <p className="text-muted-foreground mt-0.5">
+              {view === "gantt" ? "Project timelines and worker assignments at a glance." : "Weekly worker availability across all projects."}
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-48 text-muted-foreground">
-              <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading schedule…
+          <Button onClick={() => openDialog()} className="shrink-0">
+            <Plus className="mr-2 h-4 w-4" /> Assign Worker
+          </Button>
+        </div>
+
+        {/* ── Summary cards ── */}
+        <div className="grid grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{scheduledWorkers}</p>
+                  <p className="text-xs text-muted-foreground">Workers scheduled</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-100">
+                  <Building2 className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{activeProjects}</p>
+                  <p className="text-xs text-muted-foreground">Active projects</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-100">
+                  <CalendarDays className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{Math.max(0, unscheduled)}</p>
+                  <p className="text-xs text-muted-foreground">Unscheduled members</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── View toggle + nav controls ── */}
+        <Card>
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              {/* View toggle */}
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                <button
+                  onClick={() => setView("gantt")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === "gantt" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <GanttChartSquare className="h-4 w-4" /> Gantt
+                </button>
+                <button
+                  onClick={() => setView("team")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === "team" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <LayoutGrid className="h-4 w-4" /> Team Grid
+                </button>
+              </div>
+
+              {/* Navigation */}
+              <div className="flex items-center gap-2">
+                {/* Zoom (Gantt only) */}
+                {view === "gantt" && (
+                  <div className="flex items-center gap-1 bg-muted rounded-lg p-1 mr-2">
+                    {(["2w", "1m", "3m"] as ZoomLevel[]).map(z => (
+                      <button
+                        key={z}
+                        onClick={() => { setZoom(z); ganttToday(); }}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${zoom === z ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {z === "2w" ? "2 Wks" : z === "1m" ? "1 Mo" : "3 Mo"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={view === "gantt" ? ganttPrev : () => setTeamWeek(w => addDays(w, -7))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                <div className="text-sm font-semibold min-w-[180px] text-center">
+                  {view === "gantt"
+                    ? `${format(ganttRange.start, "MMM d")} – ${format(ganttRange.end, "MMM d, yyyy")}`
+                    : teamQuery.data
+                      ? `${format(parseISO(teamQuery.data.weekStart), "MMM d")} – ${format(parseISO(teamQuery.data.weekEnd), "MMM d, yyyy")}`
+                      : "Loading…"}
+                </div>
+
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={view === "gantt" ? ganttNext : () => setTeamWeek(w => addDays(w, 7))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+
+                <Button variant="ghost" size="sm" className="text-xs h-8 px-3" onClick={view === "gantt" ? ganttToday : () => setTeamWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+                  Today
+                </Button>
+              </div>
             </div>
-          ) : members.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-              <Users className="h-10 w-10 mb-3 opacity-40" />
-              <p className="font-medium">No team members yet.</p>
-              <p className="text-sm mt-1">Invite workers from the Team page first.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    {/* Worker column header */}
-                    <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide w-[180px] bg-muted/30 border-r">
-                      Worker
-                    </th>
-                    {days.map((day) => {
-                      const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-                      return (
-                        <th
-                          key={day.toISOString()}
-                          className={`py-3 px-2 text-center border-r last:border-r-0 min-w-[110px] ${isToday ? "bg-primary/5" : "bg-muted/30"}`}
-                        >
-                          <div className="text-xs text-muted-foreground uppercase tracking-wide">
-                            {format(day, "EEE")}
-                          </div>
-                          <div className={`text-sm font-semibold mt-0.5 ${isToday ? "text-primary" : ""}`}>
-                            {format(day, "MMM d")}
-                          </div>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.map((member, idx) => (
-                    <tr key={member.id} className={`border-b last:border-b-0 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
-                      {/* Worker info cell */}
-                      <td className="py-2 px-3 border-r align-top">
+          </CardContent>
+        </Card>
+
+        {/* ── GANTT VIEW ── */}
+        {view === "gantt" && (
+          <Card className="overflow-hidden">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-64 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading timeline…
+              </div>
+            ) : ganttProjects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                <Building2 className="h-10 w-10 mb-3 opacity-40" />
+                <p className="font-medium">No projects yet.</p>
+              </div>
+            ) : (
+              <div className="flex overflow-hidden">
+                {/* ── Left label panel (fixed) ── */}
+                <div className="shrink-0 border-r bg-muted/20" style={{ width: LABEL_W }}>
+                  {/* Header spacer */}
+                  <div className="border-b bg-muted/40 flex items-end pb-1 px-3" style={{ height: 56 }}>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Project</span>
+                  </div>
+                  {ganttRows.map(({ project, rowH }) => {
+                    const st = STATUS_CONFIG[project.status] ?? STATUS_CONFIG.planning;
+                    return (
+                      <div
+                        key={project.id}
+                        className="border-b flex flex-col justify-center px-3 gap-1 cursor-pointer hover:bg-muted/30 transition-colors"
+                        style={{ height: rowH }}
+                        onClick={() => openDialog(String(project.id))}
+                      >
                         <div className="flex items-center gap-2">
-                          <Avatar className="h-7 w-7 shrink-0">
-                            <AvatarFallback className="text-[10px] font-semibold bg-primary/10 text-primary">
-                              {getInitials(member.firstName, member.lastName)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate leading-tight">
-                              {member.firstName} {member.lastName}
-                            </p>
-                            <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
-                          </div>
+                          <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: getProjectBg(project.id) }} />
+                          <span className="text-sm font-semibold truncate leading-snug">{project.name}</span>
                         </div>
-                      </td>
-                      {/* Day cells */}
-                      {days.map((day) => {
-                        const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-                        const cellAssignments = getAssignmentsForCell(member.id, day);
-                        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 self-start ${st.cls}`}>
+                          {st.label}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                  {/* Member legend */}
+                  {ganttMembers.length > 0 && (
+                    <div className="border-t pt-3 px-3 pb-2 bg-muted/10">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Workers</p>
+                      {ganttMembers.map(m => {
+                        const c = getUserColor(m.id);
                         return (
-                          <td
-                            key={day.toISOString()}
-                            className={`py-1.5 px-1.5 border-r last:border-r-0 align-top min-h-[56px] ${isToday ? "bg-primary/5" : isWeekend ? "bg-muted/20" : ""}`}
-                          >
-                            <div className="space-y-1">
-                              {cellAssignments.map((a) => (
-                                <div
-                                  key={a.id}
-                                  className={`group relative flex items-center gap-1 rounded px-2 py-1 text-white text-xs font-medium ${getProjectColor(a.projectId)} cursor-default`}
-                                  title={a.notes ? `${a.projectName}: ${a.notes}` : a.projectName ?? ""}
-                                >
-                                  <span className="truncate leading-tight">{a.projectName}</span>
-                                  <button
-                                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0 hover:bg-white/20 rounded p-0.5"
-                                    onClick={() => deleteAssignment.mutate(a.id)}
-                                    title="Remove assignment"
-                                  >
-                                    <X className="h-2.5 w-2.5" />
-                                  </button>
-                                </div>
-                              ))}
-                              <button
-                                className="w-full h-5 rounded border border-dashed border-border/50 text-muted-foreground/40 hover:border-primary/40 hover:text-primary/60 transition-colors flex items-center justify-center opacity-0 hover:opacity-100 group-hover:opacity-100"
-                                onClick={() => openDialog(String(member.id))}
-                                title="Add assignment"
-                              >
-                                <Plus className="h-2.5 w-2.5" />
-                              </button>
-                            </div>
-                          </td>
+                          <div key={m.id} className="flex items-center gap-2 mb-1.5">
+                            <div className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: c.bg }} />
+                            <span className="text-xs text-muted-foreground truncate">{m.firstName} {m.lastName}</span>
+                          </div>
                         );
                       })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Project legend with full names */}
-      {projects.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Projects</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              {projects.map((p) => (
-                <div key={p.id} className="flex items-center gap-2">
-                  <div className={`h-3 w-3 rounded-sm shrink-0 ${getProjectColor(p.id)}`} />
-                  <span className="text-sm">{p.name}</span>
-                  <Badge
-                    variant="outline"
-                    className="text-xs capitalize"
-                  >
-                    {p.status.replace("_", " ")}
-                  </Badge>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Assign Worker Dialog */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Assign Worker to Project</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="text-sm font-medium block mb-1">Worker *</label>
-              <Select value={newUserId} onValueChange={setNewUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a worker…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {members.map((m) => (
-                    <SelectItem key={m.id} value={String(m.id)}>
-                      <span className="flex items-center gap-2">
-                        <Avatar className="h-5 w-5">
-                          <AvatarFallback className="text-[9px] bg-muted">
-                            {getInitials(m.firstName, m.lastName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        {m.firstName} {m.lastName}
-                        <span className="text-xs text-muted-foreground capitalize ml-1">({m.role})</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-1">Project *</label>
-              <Select value={newProjectId} onValueChange={setNewProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a project…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      <span className="flex items-center gap-2">
-                        <div className={`h-2.5 w-2.5 rounded-sm shrink-0 ${getProjectColor(p.id)}`} />
-                        {p.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+                {/* ── Right scrollable timeline ── */}
+                <div className="flex-1 overflow-x-auto overflow-y-hidden" style={{ minWidth: 0 }}>
+                  <div style={{ width: timelineW, minWidth: "100%" }}>
+
+                    {/* Date header */}
+                    <div className="flex border-b bg-muted/40" style={{ height: 56 }}>
+                      {columns.map(col => (
+                        <div
+                          key={col.key}
+                          className={`shrink-0 flex flex-col items-center justify-center border-r last:border-r-0 ${col.weekend ? "bg-slate-100/70" : ""} ${col.today ? "bg-orange-50" : ""}`}
+                          style={{ width: colWidth }}
+                        >
+                          {col.sub && (
+                            <span className={`text-[9px] font-medium uppercase ${col.today ? "text-primary" : "text-muted-foreground/60"}`}>
+                              {col.sub}
+                            </span>
+                          )}
+                          <span className={`text-xs font-semibold ${col.today ? "text-primary" : col.weekend ? "text-muted-foreground/70" : "text-foreground/80"}`}>
+                            {col.label}
+                          </span>
+                          {col.today && <div className="w-1 h-1 rounded-full bg-primary mt-0.5" />}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Project rows */}
+                    {ganttRows.map(({ project, bars, rowH }) => {
+                      const projGeo = project.startDate && project.endDate
+                        ? barGeometry(project.startDate, project.endDate)
+                        : null;
+
+                      return (
+                        <div key={project.id} className="border-b relative" style={{ height: rowH }}>
+                          {/* Column bg stripes */}
+                          <div className="absolute inset-0 flex pointer-events-none">
+                            {columns.map(col => (
+                              <div
+                                key={col.key}
+                                className={`shrink-0 h-full border-r last:border-r-0 ${col.weekend ? "bg-slate-50/80" : ""} ${col.today ? "bg-orange-50/60" : ""}`}
+                                style={{ width: colWidth }}
+                              />
+                            ))}
+                          </div>
+
+                          {/* Today indicator */}
+                          {todayLinePx !== null && (
+                            <div
+                              className="absolute top-0 bottom-0 w-0.5 bg-primary/70 z-10 pointer-events-none"
+                              style={{ left: todayLinePx }}
+                            />
+                          )}
+
+                          {/* Project timeline bar (background) */}
+                          {projGeo && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  className="absolute top-1 h-1.5 rounded-full opacity-30 pointer-events-auto cursor-default"
+                                  style={{
+                                    left: projGeo.leftPx,
+                                    width: projGeo.widthPx,
+                                    backgroundColor: getProjectBg(project.id),
+                                  }}
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p className="text-xs font-medium">{project.name} timeline</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(parseISO(project.startDate!), "MMM d")} – {format(parseISO(project.endDate!), "MMM d, yyyy")}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+
+                          {/* Assignment bars */}
+                          {bars.map(bar => {
+                            const geo = barGeometry(bar.startDate, bar.endDate);
+                            if (!geo) return null;
+                            const c = getUserColor(bar.userId);
+                            const topPx = ROW_PAD + bar.track * (BAR_H + BAR_GAP) + (projGeo ? 8 : 0);
+                            const name = `${bar.userFirstName ?? ""} ${bar.userLastName ?? ""}`.trim();
+                            return (
+                              <Tooltip key={bar.id}>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    className="absolute flex items-center gap-1 px-2 rounded-md text-xs font-medium shadow-sm cursor-default group z-20 overflow-hidden"
+                                    style={{
+                                      left: geo.leftPx + 1,
+                                      width: geo.widthPx - 2,
+                                      top: topPx,
+                                      height: BAR_H,
+                                      backgroundColor: c.bg,
+                                      color: c.text,
+                                    }}
+                                  >
+                                    {geo.widthPx > 36 && (
+                                      <div
+                                        className="h-4 w-4 rounded-full flex items-center justify-center shrink-0 text-[8px] font-bold"
+                                        style={{ backgroundColor: `${c.text}22`, color: c.text }}
+                                      >
+                                        {initials(bar.userFirstName ?? "?", bar.userLastName ?? "?")}
+                                      </div>
+                                    )}
+                                    {geo.widthPx > 60 && (
+                                      <span className="truncate text-[11px]">{name}</span>
+                                    )}
+                                    <button
+                                      className="ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/20 rounded p-0.5"
+                                      onClick={() => deleteMut.mutate(bar.id)}
+                                      title="Remove"
+                                    >
+                                      <X className="h-2.5 w-2.5" />
+                                    </button>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-[220px]">
+                                  <p className="font-semibold text-xs">{name}</p>
+                                  <p className="text-xs text-muted-foreground capitalize">{bar.userRole}</p>
+                                  <p className="text-xs mt-1">
+                                    {format(parseISO(bar.startDate), "MMM d")} – {format(parseISO(bar.endDate), "MMM d, yyyy")}
+                                  </p>
+                                  {bar.notes && <p className="text-xs text-muted-foreground mt-0.5 italic">{bar.notes}</p>}
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })}
+
+                          {/* Click to add button overlay */}
+                          {bars.length === 0 && (
+                            <button
+                              className="absolute inset-x-2 inset-y-1 flex items-center justify-center rounded-md border border-dashed border-border/40 text-muted-foreground/40 hover:border-primary/50 hover:text-primary/60 hover:bg-primary/5 transition-all text-xs gap-1 z-20"
+                              onClick={() => openDialog(String(project.id))}
+                            >
+                              <Plus className="h-3 w-3" /> Assign worker
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* ── TEAM GRID VIEW ── */}
+        {view === "team" && (
+          <Card>
+            {isLoading ? (
+              <div className="flex items-center justify-center h-48 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading schedule…
+              </div>
+            ) : (teamQuery.data?.members ?? []).length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                <Users className="h-10 w-10 mb-3 opacity-40" />
+                <p className="font-medium">No team members yet.</p>
+                <p className="text-sm mt-1">Invite workers from the Team page first.</p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide w-[180px] bg-muted/30 border-r">
+                          Worker
+                        </th>
+                        {teamWeekDays.map(day => {
+                          const isToday = isSameDay(day, new Date());
+                          return (
+                            <th key={day.toISOString()}
+                              className={`py-3 px-2 text-center border-r last:border-r-0 min-w-[110px] ${isToday ? "bg-primary/5" : "bg-muted/30"}`}
+                            >
+                              <div className="text-xs text-muted-foreground uppercase tracking-wide">{format(day, "EEE")}</div>
+                              <div className={`text-sm font-semibold mt-0.5 ${isToday ? "text-primary" : ""}`}>{format(day, "MMM d")}</div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(teamQuery.data?.members ?? []).map((member, idx) => (
+                        <tr key={member.id} className={`border-b last:border-b-0 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
+                          <td className="py-2 px-3 border-r align-top">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-7 w-7 shrink-0">
+                                <AvatarFallback className="text-[10px] font-semibold bg-primary/10 text-primary">
+                                  {initials(member.firstName, member.lastName)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate leading-tight">{member.firstName} {member.lastName}</p>
+                                <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+                              </div>
+                            </div>
+                          </td>
+                          {teamWeekDays.map(day => {
+                            const isToday = isSameDay(day, new Date());
+                            const isWknd = isWeekend(day);
+                            const cellA = getTeamCellAssignments(member.id, day);
+                            return (
+                              <td key={day.toISOString()}
+                                className={`py-1.5 px-1.5 border-r last:border-r-0 align-top min-h-[56px] ${isToday ? "bg-primary/5" : isWknd ? "bg-muted/20" : ""}`}
+                              >
+                                <div className="space-y-1">
+                                  {cellA.map(a => {
+                                    const c = getUserColor(a.projectId);
+                                    return (
+                                      <Tooltip key={a.id}>
+                                        <TooltipTrigger asChild>
+                                          <div
+                                            className="group relative flex items-center gap-1 rounded px-2 py-1 text-white text-xs font-medium cursor-default"
+                                            style={{ backgroundColor: c.bg, color: c.text }}
+                                          >
+                                            <span className="truncate leading-tight">{a.projectName}</span>
+                                            <button
+                                              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0 hover:bg-white/20 rounded p-0.5"
+                                              onClick={() => deleteMut.mutate(a.id)}
+                                            >
+                                              <X className="h-2.5 w-2.5" />
+                                            </button>
+                                          </div>
+                                        </TooltipTrigger>
+                                        {a.notes && <TooltipContent><p className="text-xs">{a.notes}</p></TooltipContent>}
+                                      </Tooltip>
+                                    );
+                                  })}
+                                  <button
+                                    className="w-full h-5 rounded border border-dashed border-border/50 text-muted-foreground/40 hover:border-primary/40 hover:text-primary/60 transition-colors flex items-center justify-center opacity-0 hover:opacity-100"
+                                    onClick={() => openDialog()}
+                                    title="Add assignment"
+                                  >
+                                    <Plus className="h-2.5 w-2.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Project legend */}
+                {teamProjects.length > 0 && (
+                  <div className="border-t px-4 py-3 flex flex-wrap gap-3">
+                    {teamProjects.map(p => {
+                      const c = getUserColor(p.id);
+                      return (
+                        <div key={p.id} className="flex items-center gap-2">
+                          <div className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: c.bg }} />
+                          <span className="text-xs text-muted-foreground">{p.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </Card>
+        )}
+
+        {/* ── Assign Worker Dialog ── */}
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Assign Worker to Project</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
               <div>
-                <label className="text-sm font-medium block mb-1">Start Date *</label>
-                <Input
-                  type="date"
-                  value={newStartDate}
-                  onChange={(e) => setNewStartDate(e.target.value)}
-                />
+                <label className="text-sm font-medium block mb-1">Worker *</label>
+                <Select value={dlgUserId} onValueChange={setDlgUserId}>
+                  <SelectTrigger><SelectValue placeholder="Select a worker…" /></SelectTrigger>
+                  <SelectContent>
+                    {(view === "gantt" ? ganttMembers : (teamQuery.data?.members ?? [])).map(m => (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        <span className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5">
+                            <AvatarFallback className="text-[9px] bg-muted">{initials(m.firstName, m.lastName)}</AvatarFallback>
+                          </Avatar>
+                          {m.firstName} {m.lastName}
+                          <span className="text-xs text-muted-foreground capitalize ml-1">({m.role})</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
-                <label className="text-sm font-medium block mb-1">End Date *</label>
-                <Input
-                  type="date"
-                  value={newEndDate}
-                  min={newStartDate}
-                  onChange={(e) => setNewEndDate(e.target.value)}
+                <label className="text-sm font-medium block mb-1">Project *</label>
+                <Select value={dlgProjectId} onValueChange={setDlgProjectId}>
+                  <SelectTrigger><SelectValue placeholder="Select a project…" /></SelectTrigger>
+                  <SelectContent>
+                    {(view === "gantt" ? ganttProjects : teamProjects).map(p => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        <span className="flex items-center gap-2">
+                          <div className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: getProjectBg(p.id) }} />
+                          {p.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium block mb-1">Start Date *</label>
+                  <Input type="date" value={dlgStart} onChange={e => setDlgStart(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-1">End Date *</label>
+                  <Input type="date" value={dlgEnd} min={dlgStart} onChange={e => setDlgEnd(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Notes (optional)</label>
+                <Textarea
+                  placeholder="e.g. Framing crew, 7am–3pm"
+                  value={dlgNotes} onChange={e => setDlgNotes(e.target.value)}
+                  className="min-h-[60px]"
                 />
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium block mb-1">Notes (optional)</label>
-              <Textarea
-                placeholder="e.g. Framing crew, 7am–3pm shift"
-                value={newNotes}
-                onChange={(e) => setNewNotes(e.target.value)}
-                className="min-h-[64px]"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
-            <Button
-              onClick={handleCreate}
-              disabled={!newUserId || !newProjectId || !newStartDate || !newEndDate || createAssignment.isPending}
-            >
-              {createAssignment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Assign
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (!dlgUserId || !dlgProjectId || !dlgStart || !dlgEnd) return;
+                  createMut.mutate({ userId: Number(dlgUserId), projectId: Number(dlgProjectId), startDate: dlgStart, endDate: dlgEnd, notes: dlgNotes || undefined });
+                }}
+                disabled={!dlgUserId || !dlgProjectId || !dlgStart || !dlgEnd || createMut.isPending}
+              >
+                {createMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Assign
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+      </div>
+    </TooltipProvider>
   );
 }

@@ -156,4 +156,63 @@ router.delete("/schedule/:id", requireAuth, requireCompany, requireOwnerOrForema
   res.status(204).end();
 });
 
+// GET /api/schedule/gantt?from=YYYY-MM-DD&to=YYYY-MM-DD
+router.get("/schedule/gantt", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+  const { from, to } = req.query as { from?: string; to?: string };
+  const now = new Date();
+  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  const fromDate = from ?? fmt(firstOfMonth);
+  const toDate = to ?? fmt(lastOfMonth);
+
+  const [assignments, projects, members] = await Promise.all([
+    db
+      .select({
+        id: workerSchedulesTable.id,
+        projectId: workerSchedulesTable.projectId,
+        userId: workerSchedulesTable.userId,
+        startDate: workerSchedulesTable.startDate,
+        endDate: workerSchedulesTable.endDate,
+        notes: workerSchedulesTable.notes,
+        projectName: projectsTable.name,
+        userFirstName: usersTable.firstName,
+        userLastName: usersTable.lastName,
+        userRole: usersTable.role,
+      })
+      .from(workerSchedulesTable)
+      .leftJoin(projectsTable, eq(workerSchedulesTable.projectId, projectsTable.id))
+      .leftJoin(usersTable, eq(workerSchedulesTable.userId, usersTable.id))
+      .where(
+        and(
+          eq(workerSchedulesTable.companyId, req.companyId!),
+          lte(workerSchedulesTable.startDate, toDate),
+          gte(workerSchedulesTable.endDate, fromDate),
+        )
+      ),
+    db
+      .select({
+        id: projectsTable.id,
+        name: projectsTable.name,
+        status: projectsTable.status,
+        startDate: projectsTable.startDate,
+        endDate: projectsTable.endDate,
+      })
+      .from(projectsTable)
+      .where(eq(projectsTable.companyId, req.companyId!)),
+    db
+      .select({
+        id: usersTable.id,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        role: usersTable.role,
+        email: usersTable.email,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.companyId, req.companyId!)),
+  ]);
+
+  res.json({ assignments, projects, members, from: fromDate, to: toDate });
+});
+
 export default router;
