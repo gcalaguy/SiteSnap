@@ -1,14 +1,18 @@
 import { useGetRFI, useUpdateRFI } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
+import * as Haptics from "expo-haptics";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -49,14 +53,17 @@ export default function RFIDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const voice = useVoiceRecorder((transcript) => {
+    setResponse((prev) => (prev.trim() ? `${prev.trimEnd()} ${transcript}` : transcript));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  });
+
   useEffect(() => {
     if (rfi) {
       setSelectedStatus(rfi.status as RFIStatus);
       setResponse(rfi.response ?? "");
     }
   }, [rfi]);
-
-  const isDark = colors.background === "#0F1117" || colors.foreground === "#F8F9FA";
 
   const handleSave = async () => {
     if (!selectedStatus) return;
@@ -72,9 +79,13 @@ export default function RFIDetailScreen() {
           setSaving(false);
           setSaved(true);
           refetch();
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           setTimeout(() => setSaved(false), 2000);
         },
-        onError: () => setSaving(false),
+        onError: () => {
+          setSaving(false);
+          Alert.alert("Error", "Could not save changes. Please try again.");
+        },
       },
     );
   };
@@ -225,15 +236,61 @@ export default function RFIDetailScreen() {
           </View>
         </View>
 
-        {/* Response field */}
+        {/* Response field with voice recorder */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
-            Response / Resolution Notes
-          </Text>
+          <View style={styles.responseLabelRow}>
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+              Response / Resolution Notes
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                voice.toggle();
+              }}
+              disabled={voice.state === "transcribing"}
+              style={[
+                styles.micButton,
+                {
+                  backgroundColor:
+                    voice.state === "recording"
+                      ? "#EF4444"
+                      : voice.state === "transcribing"
+                        ? colors.muted
+                        : `${colors.primary}18`,
+                },
+              ]}
+              activeOpacity={0.75}
+            >
+              {voice.state === "transcribing" ? (
+                <ActivityIndicator size="small" color={colors.mutedForeground} />
+              ) : (
+                <Feather
+                  name={voice.state === "recording" ? "mic-off" : "mic"}
+                  size={16}
+                  color={voice.state === "recording" ? "#FFFFFF" : colors.primary}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {voice.state === "recording" && (
+            <View style={[styles.recordingBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+              <View style={styles.recordingDot} />
+              <Text style={{ color: "#DC2626", fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                Recording… tap mic to stop & transcribe
+              </Text>
+            </View>
+          )}
+          {voice.error && (
+            <Text style={{ color: colors.destructive, fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 4 }}>
+              {voice.error}
+            </Text>
+          )}
+
           <TextInput
             value={response}
             onChangeText={setResponse}
-            placeholder="Add your response or resolution notes here…"
+            placeholder="Add your response or resolution notes here… or tap the mic to dictate"
             placeholderTextColor={colors.mutedForeground}
             multiline
             numberOfLines={5}
@@ -242,7 +299,7 @@ export default function RFIDetailScreen() {
               styles.textarea,
               {
                 backgroundColor: colors.card,
-                borderColor: colors.border,
+                borderColor: voice.state === "recording" ? "#EF4444" : colors.border,
                 color: colors.foreground,
               },
             ]}
@@ -316,7 +373,30 @@ const styles = StyleSheet.create({
   statusGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   statusChip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20 },
   statusChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  textarea: { borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 110, fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  responseLabelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  micButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recordingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#DC2626",
+  },
+  textarea: { borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 120, fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
   saveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 12, paddingVertical: 14 },
   saveBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });

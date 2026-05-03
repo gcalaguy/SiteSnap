@@ -324,7 +324,14 @@ export default function LogScreen() {
   }
 
   const handleGenerateAI = async () => {
-    if (!selectedProject || !notes.trim()) return;
+    if (!selectedProject) {
+      Alert.alert("No Project Selected", "Please select a project before generating an AI summary.");
+      return;
+    }
+    if (!notes.trim()) {
+      Alert.alert("No Notes", "Please describe what happened today before generating a summary.");
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     generateAI.mutate(
       {
@@ -708,31 +715,20 @@ export default function LogScreen() {
           style={[
             styles.aiButton,
             {
-              backgroundColor:
-                notes.trim() && selectedProject ? `${colors.primary}12` : colors.muted,
-              borderColor:
-                notes.trim() && selectedProject ? colors.primary : colors.border,
+              backgroundColor: generateAI.isPending ? colors.muted : `${colors.primary}12`,
+              borderColor: generateAI.isPending ? colors.border : colors.primary,
             },
           ]}
           onPress={handleGenerateAI}
-          disabled={!notes.trim() || !selectedProject || generateAI.isPending}
+          disabled={generateAI.isPending}
           activeOpacity={0.8}
         >
           {generateAI.isPending ? (
             <ActivityIndicator color={colors.primary} size="small" />
           ) : (
-            <Feather
-              name="zap"
-              size={16}
-              color={notes.trim() && selectedProject ? colors.primary : colors.mutedForeground}
-            />
+            <Feather name="zap" size={16} color={colors.primary} />
           )}
-          <Text
-            style={[
-              styles.aiButtonText,
-              { color: notes.trim() && selectedProject ? colors.primary : colors.mutedForeground },
-            ]}
-          >
+          <Text style={[styles.aiButtonText, { color: colors.primary }]}>
             {generateAI.isPending ? "Generating..." : "Generate AI Summary"}
           </Text>
         </TouchableOpacity>
@@ -771,12 +767,11 @@ export default function LogScreen() {
         style={[
           styles.submitButton,
           {
-            backgroundColor:
-              selectedProjectId && notes.trim() ? (!isOnline ? "#D97706" : colors.primary) : colors.muted,
+            backgroundColor: isBusy ? colors.muted : (!isOnline ? "#D97706" : colors.primary),
           },
         ]}
         onPress={handleSubmit}
-        disabled={!selectedProjectId || !notes.trim() || isBusy}
+        disabled={isBusy}
         activeOpacity={0.85}
       >
         {isBusy ? (
@@ -789,15 +784,7 @@ export default function LogScreen() {
             </Text>
           </View>
         ) : (
-          <Text
-            style={[
-              styles.submitText,
-              {
-                color:
-                  selectedProjectId && notes.trim() ? "#FFFFFF" : colors.mutedForeground,
-              },
-            ]}
-          >
+          <Text style={[styles.submitText, { color: "#FFFFFF" }]}>
             {!isOnline
               ? `Save Offline${photos.length > 0 ? ` + ${photos.length} Photo${photos.length !== 1 ? "s" : ""}` : ""}`
               : `Submit Report${photos.length > 0 ? ` + ${photos.length} Photo${photos.length !== 1 ? "s" : ""}` : ""}`}
