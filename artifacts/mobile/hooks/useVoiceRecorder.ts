@@ -1,5 +1,10 @@
-import { useState, useRef, useCallback } from "react";
-import { Audio } from "expo-av";
+import { useState, useCallback } from "react";
+import {
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from "expo-audio";
 import * as FileSystem from "expo-file-system";
 import { customFetch } from "@workspace/api-client-react";
 
@@ -16,60 +21,52 @@ export function useVoiceRecorder(
 ): UseVoiceRecorderReturn {
   const [state, setState] = useState<VoiceState>("idle");
   const [error, setError] = useState<string | null>(null);
-  const recordingRef = useRef<Audio.Recording | null>(null);
+
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const startRecording = useCallback(async () => {
     setError(null);
 
-    const { status } = await Audio.requestPermissionsAsync();
-    if (status !== "granted") {
+    const { granted } = await requestRecordingPermissionsAsync();
+    if (!granted) {
       setError("Microphone permission denied. Enable it in device settings.");
       return;
     }
 
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-    });
-
-    const { recording } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
-
-    recordingRef.current = recording;
-    setState("recording");
-  }, []);
+    try {
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setState("recording");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not start recording";
+      setError(msg);
+    }
+  }, [recorder]);
 
   const stopAndTranscribe = useCallback(async () => {
-    const recording = recordingRef.current;
-    if (!recording) return;
-
     setState("transcribing");
 
     try {
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      await recorder.stop();
+      const uri = recorder.uri;
+      if (!uri) throw new Error("No recording captured");
 
-      const uri = recording.getURI();
-      recordingRef.current = null;
-
-      if (!uri) throw new Error("No recording URI");
-
+      // Read audio file as base64
       const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: "base64",
       });
 
-      const res = await customFetch("/api/ai/transcribe", {
+      // customFetch returns the parsed JSON body directly (not a Response).
+      // It throws an ApiError on non-2xx responses.
+      const result = await customFetch<{ text?: string }>("/api/ai/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audio: base64 }),
       });
 
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-
-      const json = await res.json() as { text?: string };
-      if (json.text?.trim()) {
-        onTranscript(json.text.trim());
+      if (result.text?.trim()) {
+        onTranscript(result.text.trim());
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Transcription failed";
@@ -77,7 +74,7 @@ export function useVoiceRecorder(
     } finally {
       setState("idle");
     }
-  }, [onTranscript]);
+  }, [recorder, onTranscript]);
 
   const toggle = useCallback(async () => {
     if (state === "idle") {

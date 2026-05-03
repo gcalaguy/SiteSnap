@@ -288,7 +288,11 @@ export default function LogScreen() {
 
   async function uploadSinglePhoto(photo: PhotoItem): Promise<string | null> {
     try {
-      const res = await customFetch("/api/storage/uploads/request-url", {
+      // customFetch returns the parsed JSON body directly (throws ApiError on failure).
+      const { uploadURL, objectPath } = await customFetch<{
+        uploadURL: string;
+        objectPath: string;
+      }>("/api/storage/uploads/request-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -297,19 +301,22 @@ export default function LogScreen() {
           contentType: photo.mimeType,
         }),
       });
-      if (!res.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = (await res.json()) as {
-        uploadURL: string;
-        objectPath: string;
-      };
-      const fileRes = await fetch(photo.uri);
-      const blob = await fileRes.blob();
-      const putRes = await fetch(uploadURL, {
-        method: "PUT",
-        headers: { "Content-Type": photo.mimeType },
-        body: blob,
+
+      // Use XMLHttpRequest to reliably upload a file:// URI as binary in React Native.
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadURL);
+        xhr.setRequestHeader("Content-Type", photo.mimeType);
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload HTTP ${xhr.status}`)));
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+        // Send the file as a blob via XHR — more reliable than fetch+blob in React Native.
+        xhr.responseType = "text";
+        fetch(photo.uri)
+          .then((r) => r.blob())
+          .then((blob) => xhr.send(blob))
+          .catch(reject);
       });
-      if (!putRes.ok) throw new Error("Upload failed");
+
       return objectPath;
     } catch {
       return null;
