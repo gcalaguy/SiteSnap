@@ -12,6 +12,7 @@ import {
   FileText,
   Receipt,
   ShieldCheck,
+  CalendarDays,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import {
@@ -46,6 +47,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { signOut } = useClerk();
 
   const isOwner = user?.role === "owner";
+  const isOwnerOrForeman = user?.role === "owner" || user?.role === "foreman";
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -53,6 +55,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Quotes", href: "/quotes", icon: FileText },
     { name: "Invoices", href: "/invoices", icon: Receipt },
     { name: "AI Chat", href: "/ai-chat", icon: Bot },
+    ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays }] : []),
     { name: "Team", href: "/team", icon: Users },
     { name: "Settings", href: "/settings", icon: Settings },
   ];

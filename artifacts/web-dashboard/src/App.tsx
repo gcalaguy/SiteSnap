@@ -26,6 +26,7 @@ import QuoteDetail from "@/pages/quote-detail";
 import Invoices from "@/pages/invoices";
 import InvoiceDetail from "@/pages/invoice-detail";
 import AdminPage from "@/pages/admin";
+import Schedule from "@/pages/schedule";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 
@@ -216,6 +217,7 @@ function AuthApp() {
           <Route path="/ai-chat" component={AIChat} />
           <Route path="/team" component={Team} />
           <Route path="/settings" component={Settings} />
+          <Route path="/schedule" component={Schedule} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>

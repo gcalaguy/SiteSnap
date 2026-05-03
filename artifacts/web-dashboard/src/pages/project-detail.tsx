@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link, useLocation } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { 
   useGetProject, 
   useGetProjectSummary, 
@@ -12,10 +12,12 @@ import {
   useDeleteTask,
   useGetMe,
   useListCompanyMembers,
+  customFetch,
 } from "@workspace/api-client-react";
 import { getListTasksQueryKey } from "@workspace/api-client-react";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { queryClient } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
@@ -31,7 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X } from "lucide-react";
+import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type Task = {
@@ -374,11 +376,31 @@ function TasksTab({ projectId, selectedWorkerId, members }: {
   );
 }
 
+type ProjectAssignment = {
+  id: number;
+  userId: number;
+  startDate: string;
+  endDate: string;
+  notes: string | null;
+  userFirstName: string | null;
+  userLastName: string | null;
+  userRole: string | null;
+  userEmail: string | null;
+};
+
 export default function ProjectDetail() {
   const params = useParams();
   const projectId = Number(params.id);
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [selectedWorkerId, setSelectedWorkerId] = useState<number | null>(null);
+
+  // Assign worker dialog state
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [assignUserId, setAssignUserId] = useState<string>("");
+  const [assignStartDate, setAssignStartDate] = useState<string>("");
+  const [assignEndDate, setAssignEndDate] = useState<string>("");
+  const [assignNotes, setAssignNotes] = useState<string>("");
 
   const { data: me } = useGetMe();
   const companyId = me?.company?.id;
@@ -388,6 +410,42 @@ export default function ProjectDetail() {
     companyId ?? 0,
     { enabled: !!companyId && isOwnerOrForeman }
   ) as { data: Member[] };
+
+  const { data: projectAssignments = [], refetch: refetchAssignments } = useQuery<ProjectAssignment[]>({
+    queryKey: ["project-schedule", projectId],
+    queryFn: () => customFetch(`/api/projects/${projectId}/schedule`),
+    enabled: isOwnerOrForeman,
+  });
+
+  const createAssignment = useMutation({
+    mutationFn: (body: object) => customFetch("/api/schedule", { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      refetchAssignments();
+      queryClient.invalidateQueries({ queryKey: ["schedule"] });
+      setShowAssignDialog(false);
+      setAssignUserId(""); setAssignStartDate(""); setAssignEndDate(""); setAssignNotes("");
+      toast({ title: "Worker scheduled on project" });
+    },
+    onError: (err: any) => toast({ title: err?.message ?? "Failed to assign", variant: "destructive" }),
+  });
+
+  const removeAssignment = useMutation({
+    mutationFn: (id: number) => customFetch(`/api/schedule/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      refetchAssignments();
+      queryClient.invalidateQueries({ queryKey: ["schedule"] });
+    },
+  });
+
+  function openAssignDialog(prefillUserId?: number) {
+    const today = new Date().toISOString().split("T")[0];
+    const nextWeek = addDays(new Date(), 5).toISOString().split("T")[0];
+    setAssignUserId(prefillUserId ? String(prefillUserId) : "");
+    setAssignStartDate(today);
+    setAssignEndDate(nextWeek);
+    setAssignNotes("");
+    setShowAssignDialog(true);
+  }
 
   const { data: project, isLoading: projectLoading } = useGetProject(projectId);
   const { data: summary } = useGetProjectSummary(projectId);
@@ -602,6 +660,67 @@ export default function ProjectDetail() {
               </CardContent>
             </Card>
           )}
+
+          {isOwnerOrForeman && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                    Assigned Workers
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">Workers currently scheduled on this project.</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => openAssignDialog()}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Schedule Worker
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {projectAssignments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border border-dashed rounded-lg">
+                    <Users className="h-8 w-8 mb-2 opacity-40" />
+                    <p className="text-sm font-medium">No workers scheduled yet</p>
+                    <p className="text-xs mt-1">Click "Schedule Worker" to assign a team member.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {projectAssignments.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
+                              {`${a.userFirstName?.[0] ?? ""}${a.userLastName?.[0] ?? ""}`.toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">
+                              {a.userFirstName} {a.userLastName}
+                            </p>
+                            <p className="text-xs text-muted-foreground capitalize">
+                              {a.userRole} · {format(new Date(a.startDate), "MMM d")} – {format(new Date(a.endDate), "MMM d, yyyy")}
+                            </p>
+                            {a.notes && (
+                              <p className="text-xs text-muted-foreground italic mt-0.5">{a.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeAssignment.mutate(a.id)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="tasks" className="mt-6">
@@ -775,6 +894,79 @@ export default function ProjectDetail() {
           <DocumentsTab projectId={projectId} />
         </TabsContent>
       </Tabs>
+
+      {/* Assign Worker to Project Dialog */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule Worker on Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium block mb-1">Worker *</label>
+              <Select value={assignUserId} onValueChange={setAssignUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a worker…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      <span className="flex items-center gap-2">
+                        {m.firstName} {m.lastName}
+                        <span className="text-xs text-muted-foreground capitalize ml-1">({m.role})</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium block mb-1">Start Date *</label>
+                <Input
+                  type="date"
+                  value={assignStartDate}
+                  onChange={(e) => setAssignStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">End Date *</label>
+                <Input
+                  type="date"
+                  value={assignEndDate}
+                  min={assignStartDate}
+                  onChange={(e) => setAssignEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1">Notes (optional)</label>
+              <Textarea
+                placeholder="e.g. Framing crew, 7am–3pm shift"
+                value={assignNotes}
+                onChange={(e) => setAssignNotes(e.target.value)}
+                className="min-h-[64px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>Cancel</Button>
+            <Button
+              onClick={() => createAssignment.mutate({
+                userId: Number(assignUserId),
+                projectId,
+                startDate: assignStartDate,
+                endDate: assignEndDate,
+                notes: assignNotes || undefined,
+              })}
+              disabled={!assignUserId || !assignStartDate || !assignEndDate || createAssignment.isPending}
+            >
+              {createAssignment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

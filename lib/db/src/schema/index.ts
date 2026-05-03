@@ -446,3 +446,18 @@ export const quickbooksConnectionsTable = pgTable("quickbooks_connections", {
 });
 
 export type QuickbooksConnection = typeof quickbooksConnectionsTable.$inferSelect;
+
+// ── Worker Schedules ───────────────────────────────────────────────────────────
+
+export const workerSchedulesTable = pgTable("worker_schedules", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  projectId: integer("project_id").notNull().references(() => projectsTable.id),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type WorkerSchedule = typeof workerSchedulesTable.$inferSelect;
