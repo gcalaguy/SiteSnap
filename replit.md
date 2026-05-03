@@ -154,6 +154,13 @@ All three AI agents now make real OpenAI `gpt-5.4` calls via the Replit AI Integ
 - `POST /api/ai/rfi/generate` — formalizes RFI description and suggests clarifying questions
 - `POST /api/ai/assistant` — conversational chat assistant for field crew (context-aware)
 
+### ✅ Sprint — VOICE QUOTES ON PROJECT DETAIL (Complete)
+- **Web `QuotesTab` component** (`artifacts/web-dashboard/src/components/QuotesTab.tsx`): Embeds inside project detail "Quotes" tab; "New Voice Quote" button opens a 3-step dialog (describe job by voice/type → AI fills materials & pricing → create quote); quote list shows project-specific quotes with status badges; inline approval workflow action bar on each card — Draft→Submit, Pending→Approve/Reject, Approved→Convert to Invoice (one-click with confirmation), Converted→"Invoice created" badge; all cards link to full `/quotes/:id` editor
+- **Mobile `QuotesTab` component** (`artifacts/mobile/components/QuotesTab.tsx`): Same flow but mobile-native RN; voice FAB (orange circle mic button) opens modal; step 1 — type/record description; step 2 — AI preview table with line items + HST totals; step 3 — create quote; quote cards show inline action buttons (Submit / Approve / Reject / Convert to Invoice) with `Alert` confirmations; `useVoiceRecorder` hook for mic; haptic feedback
+- **Web project detail** (`project-detail.tsx`): Added "Quotes" tab as 8th tab (grid-cols-8); `<QuotesTab projectId={projectId} />` in TabsContent
+- **Mobile project detail** (`project/[id].tsx`): Added "Quotes" to TABS array; renders `<QuotesTab projectId={projectId} />` in the tab switcher
+- **Approval step**: All status transitions (draft→pending→approved→converted) are available inline on the card without navigating to the detail page; reject uses AlertDialog/Alert confirmation; convert sends user to the new invoice immediately
+
 ### ✅ Sprint — AI DOCUMENT Q&A (RAG) (Complete)
 - **pgvector**: `CREATE EXTENSION IF NOT EXISTS vector` enabled; `document_chunks` table with `vector(1536)` embedding column and `ivfflat` cosine index
 - **PDF text extraction**: `pdf-parse` v2.x (`PDFParse` class API, `new PDFParse({ data: buffer }).getText()`) extracts full text from PDFs — replaces filename-only profiling

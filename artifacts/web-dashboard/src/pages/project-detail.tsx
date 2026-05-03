@@ -26,6 +26,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import DocumentsTab from "@/components/DocumentsTab";
+import QuotesTab from "@/components/QuotesTab";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -672,12 +673,15 @@ export default function ProjectDetail() {
       )}
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-7 lg:w-[1015px]">
+        <TabsList className="grid w-full grid-cols-8 lg:w-[1160px]">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="reports">Daily Reports</TabsTrigger>
           <TabsTrigger value="cost">Cost Analysis</TabsTrigger>
           <TabsTrigger value="rfis">RFIs</TabsTrigger>
+          <TabsTrigger value="quotes" className="flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5" />Quotes
+          </TabsTrigger>
           <TabsTrigger value="team" className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" />Team
           </TabsTrigger>
@@ -1072,6 +1076,10 @@ export default function ProjectDetail() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="quotes" className="mt-6">
+          <QuotesTab projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="documents" className="mt-6">
