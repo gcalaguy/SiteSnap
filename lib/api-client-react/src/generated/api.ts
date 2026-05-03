@@ -5037,6 +5037,91 @@ export const useSubmitQuoteForApproval = <
 };
 
 /**
+ * @summary Revert a submitted quote back to draft
+ */
+export const getUnsubmitQuoteUrl = (projectId: number, quoteId: number) => {
+  return `/api/projects/${projectId}/quotes/${quoteId}/unsubmit`;
+};
+
+export const unsubmitQuote = async (
+  projectId: number,
+  quoteId: number,
+  options?: RequestInit,
+): Promise<Quote> => {
+  return customFetch<Quote>(getUnsubmitQuoteUrl(projectId, quoteId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getUnsubmitQuoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unsubmitQuote>>,
+    TError,
+    { projectId: number; quoteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unsubmitQuote>>,
+  TError,
+  { projectId: number; quoteId: number },
+  TContext
+> => {
+  const mutationKey = ["unsubmitQuote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unsubmitQuote>>,
+    { projectId: number; quoteId: number }
+  > = (props) => {
+    const { projectId, quoteId } = props ?? {};
+
+    return unsubmitQuote(projectId, quoteId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnsubmitQuoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unsubmitQuote>>
+>;
+
+export type UnsubmitQuoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Revert a submitted quote back to draft
+ */
+export const useUnsubmitQuote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unsubmitQuote>>,
+    TError,
+    { projectId: number; quoteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unsubmitQuote>>,
+  TError,
+  { projectId: number; quoteId: number },
+  TContext
+> => {
+  return useMutation(getUnsubmitQuoteMutationOptions(options));
+};
+
+/**
  * @summary Approve a quote
  */
 export const getApproveQuoteUrl = (projectId: number, quoteId: number) => {

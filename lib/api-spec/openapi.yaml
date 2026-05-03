@@ -1151,6 +1151,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Quote"
 
+  /projects/{projectId}/quotes/{quoteId}/unsubmit:
+    post:
+      operationId: unsubmitQuote
+      tags: [quotes]
+      summary: Revert a submitted quote back to draft
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Quote reverted to draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
   /projects/{projectId}/quotes/{quoteId}/approve:
     post:
       operationId: approveQuote

@@ -18,6 +18,7 @@ import {
   useListQuotes,
   useCreateQuote,
   useSubmitQuoteForApproval,
+  useUnsubmitQuote,
   useConvertQuoteToInvoice,
   customFetch,
   getListQuotesQueryKey,
@@ -65,6 +66,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
 
   const createQuote = useCreateQuote();
   const submitQuote = useSubmitQuoteForApproval();
+  const unsubmitQuote = useUnsubmitQuote();
   const convertQuote = useConvertQuoteToInvoice();
 
   const [showModal, setShowModal] = useState(false);
@@ -142,7 +144,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
       setShowModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Navigate directly to the new quote so user can view/edit it
-      setTimeout(() => router.push(`/quote/${created.id}`), 300);
+      setTimeout(() => router.push(`/quote/${created.id}?projectId=${projectId}`), 300);
     } catch {
       Alert.alert("Failed to create quote", "Please try again.");
     } finally {
@@ -167,6 +169,32 @@ export function QuotesTab({ projectId }: { projectId: number }) {
               Alert.alert("Quote Submitted", "The foreman and owner have been notified.");
             } catch {
               Alert.alert("Failed to submit", "Please try again.");
+            } finally {
+              setActionLoading((p) => { const n = { ...p }; delete n[q.id]; return n; });
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  async function handleUnsubmit(q: { id: number }) {
+    Alert.alert(
+      "Unsubmit Quote?",
+      "This will move the quote back to Draft so you can make changes before resubmitting.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Unsubmit",
+          style: "destructive",
+          onPress: async () => {
+            setActionLoading((p) => ({ ...p, [q.id]: "unsubmit" }));
+            try {
+              await unsubmitQuote.mutateAsync({ projectId, quoteId: q.id });
+              invalidate();
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch {
+              Alert.alert("Failed to unsubmit", "Please try again.");
             } finally {
               setActionLoading((p) => { const n = { ...p }; delete n[q.id]; return n; });
             }
@@ -296,12 +324,20 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                     </TouchableOpacity>
                   )}
 
-                  {/* Submitted: awaiting */}
+                  {/* Submitted: Unsubmit */}
                   {q.status === "pending_approval" && (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Feather name="clock" size={11} color="#2563EB" />
-                      <Text style={{ fontSize: 11, color: "#2563EB", fontFamily: "Inter_600SemiBold" }}>Awaiting review</Text>
-                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleUnsubmit(q)}
+                      disabled={!!busy}
+                      style={[styles.actionBtn, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}
+                    >
+                      {busy === "unsubmit" ? (
+                        <ActivityIndicator size="small" color="#2563EB" />
+                      ) : (
+                        <Feather name="rotate-ccw" size={12} color="#2563EB" />
+                      )}
+                      <Text style={[styles.actionBtnText, { color: "#2563EB" }]}>Unsubmit</Text>
+                    </TouchableOpacity>
                   )}
 
                   {/* Approved: Convert to Invoice */}

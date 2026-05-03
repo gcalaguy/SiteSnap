@@ -1321,6 +1321,53 @@ export const SubmitQuoteForApprovalResponse = zod.object({
 });
 
 /**
+ * @summary Revert a submitted quote back to draft
+ */
+export const UnsubmitQuoteParams = zod.object({
+  projectId: zod.coerce.number(),
+  quoteId: zod.coerce.number(),
+});
+
+export const UnsubmitQuoteResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum([
+    "draft",
+    "pending_approval",
+    "approved",
+    "rejected",
+    "converted",
+  ]),
+  voiceInput: zod.string().nullish(),
+  lineItems: zod.array(
+    zod.object({
+      description: zod.string(),
+      quantity: zod.number(),
+      unit: zod.string(),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  validUntil: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  convertedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary Approve a quote
  */
 export const ApproveQuoteParams = zod.object({

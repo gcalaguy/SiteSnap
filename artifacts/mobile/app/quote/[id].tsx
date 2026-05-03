@@ -20,6 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import {
   useGetQuote,
   useSubmitQuoteForApproval,
+  useUnsubmitQuote,
   useConvertQuoteToInvoice,
   getGetQuoteQueryKey,
   getListAllQuotesQueryKey,
@@ -131,6 +132,7 @@ export default function QuoteDetailScreen() {
 
   const { data: quote, isLoading } = useGetQuote(projectId, quoteId);
   const submitQuote = useSubmitQuoteForApproval();
+  const unsubmitQuote = useUnsubmitQuote();
   const convertQuote = useConvertQuoteToInvoice();
 
   const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
@@ -225,6 +227,29 @@ export default function QuoteDetailScreen() {
     );
   }, [quoteId, submitQuote]);
 
+  const handleUnsubmit = useCallback(() => {
+    Alert.alert(
+      "Unsubmit Quote?",
+      "This will move the quote back to Draft so you can make edits before resubmitting.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Unsubmit",
+          style: "destructive",
+          onPress: () => {
+            unsubmitQuote.mutate({ projectId, quoteId }, {
+              onSuccess: () => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                invalidate();
+              },
+              onError: () => Alert.alert("Failed to unsubmit quote"),
+            });
+          },
+        },
+      ]
+    );
+  }, [projectId, quoteId, unsubmitQuote]);
+
   const handleConvert = useCallback(() => {
     Alert.alert("Convert to Invoice?", "A new invoice will be created from this quote.", [
       { text: "Cancel", style: "cancel" },
@@ -246,6 +271,7 @@ export default function QuoteDetailScreen() {
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
   const isEditable = quote?.status === "draft" || quote?.status === "rejected";
+  const isSubmitted = quote?.status === "pending_approval";
 
   if (isLoading) {
     return (
@@ -382,7 +408,7 @@ export default function QuoteDetailScreen() {
         </View>
 
         {/* Actions */}
-        {(isEditable || quote.status === "approved") && (
+        {(isEditable || isSubmitted || quote.status === "approved") && (
           <View style={[styles.actionGroup, { borderColor: colors.border }]}>
             <Text style={[styles.actionGroupTitle, { color: colors.mutedForeground }]}>ACTIONS</Text>
             <View style={styles.actionCol}>
@@ -400,6 +426,20 @@ export default function QuoteDetailScreen() {
                   <Text style={[styles.actionBtnText, { color: "#FFFFFF", fontFamily: "Inter_700Bold" }]}>
                     Submit to Foreman & Owner
                   </Text>
+                </Pressable>
+              )}
+              {/* Unsubmit (pending_approval) */}
+              {isSubmitted && (
+                <Pressable
+                  style={[styles.actionBtnFull, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE", borderWidth: 1 }]}
+                  onPress={handleUnsubmit}
+                  disabled={unsubmitQuote.isPending}
+                >
+                  {unsubmitQuote.isPending
+                    ? <ActivityIndicator color="#2563EB" size="small" />
+                    : <Feather name="rotate-ccw" size={18} color="#2563EB" />
+                  }
+                  <Text style={[styles.actionBtnText, { color: "#2563EB" }]}>Unsubmit (Back to Draft)</Text>
                 </Pressable>
               )}
               {/* Convert to invoice */}

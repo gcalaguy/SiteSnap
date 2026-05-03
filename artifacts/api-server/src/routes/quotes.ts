@@ -257,6 +257,21 @@ router.post("/:quoteId/submit", requireAuth, requireCompany, async (req, res) =>
   res.json(updated);
 });
 
+// POST /:quoteId/unsubmit — revert pending_approval back to draft
+router.post("/:quoteId/unsubmit", requireAuth, requireCompany, async (req, res) => {
+  const quoteId = parseInt(req.params.quoteId);
+  const [existing] = await db.select().from(quotesTable)
+    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
+  if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
+  if (existing.status !== "pending_approval") {
+    res.status(409).json({ error: "Only submitted quotes can be unsubmitted" }); return;
+  }
+  const [updated] = await db.update(quotesTable)
+    .set({ status: "draft", updatedAt: new Date() })
+    .where(eq(quotesTable.id, quoteId)).returning();
+  res.json(updated);
+});
+
 // POST /:quoteId/approve
 router.post("/:quoteId/approve", requireAuth, requireCompany, async (req, res) => {
   const quoteId = parseInt(req.params.quoteId);
