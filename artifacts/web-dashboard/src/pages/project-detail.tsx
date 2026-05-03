@@ -418,7 +418,10 @@ export default function ProjectDetail() {
   const companyId = me?.company?.id;
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
-  const { data: members = [] } = useListCompanyMembers(companyId ?? 0) as { data: Member[] };
+  const { data: members = [], isLoading: membersLoading } = useListCompanyMembers(
+    companyId ?? 0,
+    { query: { enabled: !!companyId } as any }
+  ) as { data: Member[]; isLoading: boolean };
 
   // Project-level member assignments (controls which workers can see this project)
   const { data: projectMembers = [] } = useListProjectMembers(projectId);
@@ -1005,7 +1008,12 @@ export default function ProjectDetail() {
           </DialogHeader>
           <div className="py-2">
             <label className="text-sm font-medium block mb-2">Select a worker *</label>
-            {unassignedMembers.length === 0 ? (
+            {membersLoading ? (
+              <div className="flex items-center justify-center py-6 text-muted-foreground gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Loading team members…</span>
+              </div>
+            ) : unassignedMembers.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
                 All company members are already assigned to this project.
               </p>
@@ -1036,7 +1044,7 @@ export default function ProjectDetail() {
             <Button variant="outline" onClick={() => setShowAddMemberDialog(false)}>Cancel</Button>
             <Button
               onClick={() => addProjectMember.mutate({ projectId, data: { userId: Number(addMemberUserId) } })}
-              disabled={!addMemberUserId || addProjectMember.isPending || unassignedMembers.length === 0}
+              disabled={!addMemberUserId || addProjectMember.isPending || membersLoading || unassignedMembers.length === 0}
             >
               {addProjectMember.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Assign

@@ -1,4 +1,4 @@
-import { useListProjects } from "@workspace/api-client-react";
+import { useListProjects, useGetMe } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
@@ -148,6 +148,8 @@ export default function ProjectsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { data: projects, isLoading, refetch } = useListProjects();
+  const { data: me } = useGetMe();
+  const isWorker = me?.role === "worker";
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -223,7 +225,11 @@ export default function ProjectsScreen() {
                 {search ? "No matching projects" : "No projects yet"}
               </Text>
               <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
-                Projects are created on the web dashboard
+                {search
+                  ? "Try a different search term or clear your filters."
+                  : isWorker
+                  ? "You haven't been assigned to any projects yet. Ask your manager to add you to a project."
+                  : "Projects are created and managed on the web dashboard."}
               </Text>
             </>
           )}
