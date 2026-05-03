@@ -1,0 +1,51 @@
+import { Router } from "express";
+import { db, timeEntriesTable, projectsTable, usersTable } from "@workspace/db";
+import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+
+const router = Router();
+
+// GET /time-entries — company-wide entries (foreman/owner only)
+// Query params: projectId, userId, from (YYYY-MM-DD), to (YYYY-MM-DD)
+router.get("/time-entries", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+  const { projectId, userId, from, to } = req.query;
+
+  const conditions: ReturnType<typeof eq>[] = [
+    eq(timeEntriesTable.companyId, req.companyId!),
+  ];
+  if (projectId) conditions.push(eq(timeEntriesTable.projectId, parseInt(projectId as string)));
+  if (userId) conditions.push(eq(timeEntriesTable.userId, parseInt(userId as string)));
+  if (from) conditions.push(gte(timeEntriesTable.date, from as string));
+  if (to) conditions.push(lte(timeEntriesTable.date, to as string));
+
+  const entries = await db
+    .select({
+      id: timeEntriesTable.id,
+      projectId: timeEntriesTable.projectId,
+      userId: timeEntriesTable.userId,
+      date: timeEntriesTable.date,
+      hours: timeEntriesTable.hours,
+      description: timeEntriesTable.description,
+      createdAt: timeEntriesTable.createdAt,
+      user: {
+        id: usersTable.id,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        email: usersTable.email,
+        role: usersTable.role,
+      },
+      project: {
+        id: projectsTable.id,
+        name: projectsTable.name,
+      },
+    })
+    .from(timeEntriesTable)
+    .leftJoin(usersTable, eq(timeEntriesTable.userId, usersTable.id))
+    .leftJoin(projectsTable, eq(timeEntriesTable.projectId, projectsTable.id))
+    .where(and(...conditions))
+    .orderBy(desc(timeEntriesTable.date), desc(timeEntriesTable.createdAt));
+
+  res.json(entries);
+});
+
+export default router;

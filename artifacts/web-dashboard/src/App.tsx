@@ -28,6 +28,7 @@ import InvoiceDetail from "@/pages/invoice-detail";
 import AdminPage from "@/pages/admin";
 import Schedule from "@/pages/schedule";
 import ClientPortal from "@/pages/client-portal";
+import Hours from "@/pages/hours";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 
@@ -219,6 +220,7 @@ function AuthApp() {
           <Route path="/team" component={Team} />
           <Route path="/settings" component={Settings} />
           <Route path="/schedule" component={Schedule} />
+          <Route path="/hours" component={Hours} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>

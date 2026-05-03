@@ -23,6 +23,8 @@ import referralsRouter from "./referrals";
 import quickbooksRouter from "./quickbooks";
 import scheduleRouter from "./schedule";
 import portalRouter from "./portal";
+import timeEntriesRouter from "./timeEntries";
+import companyTimeEntriesRouter from "./companyTimeEntries";
 
 const router: IRouter = Router();
 
@@ -50,5 +52,7 @@ router.use(referralsRouter);
 router.use(quickbooksRouter);
 router.use(scheduleRouter);
 router.use(portalRouter);
+router.use("/projects/:projectId/time-entries", timeEntriesRouter);
+router.use(companyTimeEntriesRouter);
 
 export default router;

@@ -13,6 +13,7 @@ import {
   Receipt,
   ShieldCheck,
   CalendarDays,
+  Clock,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import {
@@ -56,6 +57,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Invoices", href: "/invoices", icon: Receipt },
     { name: "AI Chat", href: "/ai-chat", icon: Bot },
     ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock }] : []),
     { name: "Team", href: "/team", icon: Users },
     { name: "Settings", href: "/settings", icon: Settings },
   ];

@@ -486,6 +486,23 @@ export const workerSchedulesTable = pgTable("worker_schedules", {
 
 export type WorkerSchedule = typeof workerSchedulesTable.$inferSelect;
 
+// ── Time Entries ──────────────────────────────────────────────────────────────
+
+export const timeEntriesTable = pgTable("time_entries", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  projectId: integer("project_id").notNull().references(() => projectsTable.id),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+  date: date("date").notNull(),
+  hours: numeric("hours", { precision: 5, scale: 2 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTimeEntrySchema = createInsertSchema(timeEntriesTable).omit({ id: true, createdAt: true });
+export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+export type TimeEntry = typeof timeEntriesTable.$inferSelect;
+
 // ── Client Portal ──────────────────────────────────────────────────────────────
 
 export const clientPortalTokensTable = pgTable("client_portal_tokens", {
