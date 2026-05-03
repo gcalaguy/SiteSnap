@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/react";
 import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { queryClient } from "@/lib/queryClient";
-import { downloadEstimatePDF, downloadEstimateDocx, printEstimate } from "@/lib/estimateExport";
+import { downloadEstimatePDF, downloadEstimateDocx, printEstimate, type CompanyInfo } from "@/lib/estimateExport";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +19,7 @@ import {
   Sparkles, Upload, FileText, Trash2, Clock, ChevronDown, ChevronUp,
   AlertCircle, Loader2, X, HardHat, Hammer, Package, Wrench,
   TrendingUp, ArrowRight, FilePlus, RotateCcw, Info, Mic, MicOff,
-  Download, Printer, Mail, FileDown, Pencil, Save, Plus,
+  Download, Printer, Mail, FileDown, Pencil, Save, Plus, Building2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -268,10 +268,12 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
 
 function EstimateEditor({
   estimate,
+  company,
   onSave,
   onCancel,
 }: {
   estimate: Estimate;
+  company?: CompanyInfo & { id?: number };
   onSave: (updated: Estimate) => void;
   onCancel: () => void;
 }) {
@@ -287,6 +289,15 @@ function EstimateEditor({
   const [notes, setNotes] = useState(r.notes ?? "");
   const [assumptions, setAssumptions] = useState<string[]>(r.assumptions ?? []);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Company detail fields
+  const [coName, setCoName] = useState(company?.name ?? "");
+  const [coPhone, setCoPhone] = useState(company?.phone ?? "");
+  const [coAddress, setCoAddress] = useState(company?.address ?? "");
+  const [coCity, setCoCity] = useState(company?.city ?? "");
+  const [coProvince, setCoProvince] = useState(company?.province ?? "");
+  const [coWebsite, setCoWebsite] = useState(company?.website ?? "");
+  const [coHst, setCoHst] = useState(company?.hstNumber ?? "");
 
   function updateMaterial(i: number, field: keyof MaterialLine, raw: string) {
     setMaterials((prev) =>
@@ -339,6 +350,32 @@ function EstimateEditor({
   async function handleSave() {
     setIsSaving(true);
     try {
+      // Save company details if changed
+      const companyChanged =
+        coName !== (company?.name ?? "") ||
+        coPhone !== (company?.phone ?? "") ||
+        coAddress !== (company?.address ?? "") ||
+        coCity !== (company?.city ?? "") ||
+        coProvince !== (company?.province ?? "") ||
+        coWebsite !== (company?.website ?? "") ||
+        coHst !== (company?.hstNumber ?? "");
+
+      if (companyChanged && company?.id) {
+        await customFetch(`/api/companies/${company.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            name: coName,
+            phone: coPhone,
+            address: coAddress,
+            city: coCity,
+            province: coProvince,
+            website: coWebsite,
+            hstNumber: coHst,
+          }),
+        });
+        queryClient.invalidateQueries({ queryKey: ["me"] });
+      }
+
       const matTotal = sumLines(materials);
       const labTotal = sumLines(labor);
       const equTotal = sumLines(equipment);
@@ -385,6 +422,44 @@ function EstimateEditor({
       <div className="space-y-1.5">
         <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estimate Title</label>
         <Input value={title} onChange={(e) => setTitle(e.target.value)} className="text-base font-semibold" />
+      </div>
+
+      {/* Company Details */}
+      <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/40 p-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <Building2 className="h-4 w-4 text-blue-500" /> Company Details
+          <span className="ml-1 text-xs font-normal text-muted-foreground">(shown on all exports)</span>
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Company Name</label>
+            <Input value={coName} onChange={(e) => setCoName(e.target.value)} className="h-8 text-sm" placeholder="Acme Construction Inc." />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Phone</label>
+            <Input value={coPhone} onChange={(e) => setCoPhone(e.target.value)} className="h-8 text-sm" placeholder="(416) 555-0100" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Street Address</label>
+            <Input value={coAddress} onChange={(e) => setCoAddress(e.target.value)} className="h-8 text-sm" placeholder="123 Main St" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">City</label>
+            <Input value={coCity} onChange={(e) => setCoCity(e.target.value)} className="h-8 text-sm" placeholder="Toronto" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Province</label>
+            <Input value={coProvince} onChange={(e) => setCoProvince(e.target.value)} className="h-8 text-sm" placeholder="ON" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Website</label>
+            <Input value={coWebsite} onChange={(e) => setCoWebsite(e.target.value)} className="h-8 text-sm" placeholder="www.example.ca" />
+          </div>
+          <div className="col-span-2 space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">HST / GST Registration #</label>
+            <Input value={coHst} onChange={(e) => setCoHst(e.target.value)} className="h-8 text-sm" placeholder="123456789 RT0001" />
+          </div>
+        </div>
       </div>
 
       {/* Summary */}
@@ -913,7 +988,8 @@ export default function EstimatesPage() {
                     setExportingPdf(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await downloadEstimatePDF(activeEstimate, false, logo);
+                      const co = me?.company as any;
+                      await downloadEstimatePDF(activeEstimate, false, logo, co ?? undefined);
                     } catch { toast({ title: "PDF export failed", variant: "destructive" }); }
                     finally { setExportingPdf(false); }
                   }}
@@ -931,7 +1007,8 @@ export default function EstimatesPage() {
                     setExportingDocx(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await downloadEstimateDocx(activeEstimate, logo);
+                      const co = me?.company as any;
+                      await downloadEstimateDocx(activeEstimate, logo, co ?? undefined);
                     } catch { toast({ title: "Word export failed", variant: "destructive" }); }
                     finally { setExportingDocx(false); }
                   }}
@@ -949,7 +1026,8 @@ export default function EstimatesPage() {
                     setPrinting(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await downloadEstimatePDF(activeEstimate, true, logo);
+                      const co = me?.company as any;
+                      await printEstimate(activeEstimate, logo, co ?? undefined);
                     } catch { toast({ title: "Print failed", variant: "destructive" }); }
                     finally { setPrinting(false); }
                   }}
@@ -986,6 +1064,7 @@ export default function EstimatesPage() {
           {isEditing ? (
             <EstimateEditor
               estimate={activeEstimate}
+              company={me?.company ? { ...(me.company as any), id: (me.company as any).id } : undefined}
               onSave={(updated) => { setActiveEstimate(updated); setIsEditing(false); }}
               onCancel={() => setIsEditing(false)}
             />

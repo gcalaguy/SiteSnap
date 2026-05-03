@@ -30,6 +30,16 @@ type Estimate = {
   createdAt: string;
 };
 
+export type CompanyInfo = {
+  name?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  website?: string;
+  hstNumber?: string;
+};
+
 function cad(n: number | undefined | null) {
   if (n == null) return "—";
   return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
@@ -41,7 +51,7 @@ function sumLines(lines: { total: number }[] | undefined) {
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
 
-export async function downloadEstimatePDF(estimate: Estimate, open = false, logoDataUrl?: string) {
+export async function downloadEstimatePDF(estimate: Estimate, open = false, logoDataUrl?: string, companyInfo?: CompanyInfo) {
   const { jsPDF } = await import("jspdf");
   const autoTable = (await import("jspdf-autotable")).default;
 
@@ -84,13 +94,46 @@ export async function downloadEstimatePDF(estimate: Estimate, open = false, logo
     doc.text("AI Estimating Engine", margin, 18);
   }
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text(format(new Date(estimate.createdAt), "MMMM d, yyyy"), pageW - margin, 18, { align: "right" });
+  // Company name right-aligned in header
+  if (companyInfo?.name) {
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(companyInfo.name, pageW - margin, 10, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(180, 200, 220);
+    doc.text(format(new Date(estimate.createdAt), "MMMM d, yyyy"), pageW - margin, 18, { align: "right" });
+  } else {
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(format(new Date(estimate.createdAt), "MMMM d, yyyy"), pageW - margin, 18, { align: "right" });
+  }
+
+  // ── Company info bar ─────────────────────────────────────────────────────────
+  let y = 28;
+  const hasCompanyInfo = companyInfo && (companyInfo.address || companyInfo.phone || companyInfo.website || companyInfo.hstNumber || companyInfo.city);
+  if (hasCompanyInfo) {
+    doc.setFillColor(240, 242, 246);
+    doc.rect(0, y, pageW, 9, "F");
+    const parts: string[] = [];
+    if (companyInfo.address) parts.push(companyInfo.address);
+    const cityProv = [companyInfo.city, companyInfo.province].filter(Boolean).join(", ");
+    if (cityProv) parts.push(cityProv);
+    if (companyInfo.phone) parts.push(companyInfo.phone);
+    if (companyInfo.website) parts.push(companyInfo.website);
+    if (companyInfo.hstNumber) parts.push(`HST# ${companyInfo.hstNumber}`);
+    doc.setTextColor(80, 90, 110);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text(parts.join("   ·   "), margin, y + 6);
+    y = 42;
+  } else {
+    y = 38;
+  }
 
   // ── Title ───────────────────────────────────────────────────────────────────
-  let y = 38;
   doc.setTextColor(23, 32, 52);
   doc.setFontSize(15);
   doc.setFont("helvetica", "bold");
@@ -272,7 +315,7 @@ export async function downloadEstimatePDF(estimate: Estimate, open = false, logo
 
 // ── Word Export ───────────────────────────────────────────────────────────────
 
-export async function downloadEstimateDocx(estimate: Estimate, logoDataUrl?: string) {
+export async function downloadEstimateDocx(estimate: Estimate, logoDataUrl?: string, companyInfo?: CompanyInfo) {
   const {
     Document, Packer, Paragraph, Table, TableRow, TableCell,
     TextRun, HeadingLevel, AlignmentType, WidthType, ShadingType,
@@ -350,10 +393,35 @@ export async function downloadEstimateDocx(estimate: Estimate, logoDataUrl?: str
       const mime = logoDataUrl.split(";")[0].replace("data:", "");
       const type = mime.includes("jpeg") || mime.includes("jpg") ? "jpg" : "png";
       sections.push(new Paragraph({
-        spacing: { after: 200 },
+        spacing: { after: 120 },
         children: [new ImageRun({ data: base64, transformation: { width: 160, height: 54 }, type } as any)],
       }));
     } catch { }
+  }
+
+  // Company info block
+  if (companyInfo) {
+    const infoRuns: any[] = [];
+    if (companyInfo.name) {
+      infoRuns.push(new TextRun({ text: companyInfo.name, bold: true, size: 20, color: DARK }));
+      infoRuns.push(new TextRun({ text: "\n", size: 20 }));
+    }
+    const cityProv = [companyInfo.address, companyInfo.city, companyInfo.province].filter(Boolean).join(", ");
+    if (cityProv) {
+      infoRuns.push(new TextRun({ text: cityProv, size: 18, color: "555555" }));
+      infoRuns.push(new TextRun({ text: "\n", size: 18 }));
+    }
+    const contactParts = [companyInfo.phone, companyInfo.website].filter(Boolean).join("   ·   ");
+    if (contactParts) {
+      infoRuns.push(new TextRun({ text: contactParts, size: 18, color: "555555" }));
+      infoRuns.push(new TextRun({ text: "\n", size: 18 }));
+    }
+    if (companyInfo.hstNumber) {
+      infoRuns.push(new TextRun({ text: `HST# ${companyInfo.hstNumber}`, size: 18, color: "555555" }));
+    }
+    if (infoRuns.length > 0) {
+      sections.push(new Paragraph({ spacing: { after: 160 }, children: infoRuns }));
+    }
   }
 
   sections.push(
@@ -491,6 +559,6 @@ export async function downloadEstimateDocx(estimate: Estimate, logoDataUrl?: str
 
 // ── Print ─────────────────────────────────────────────────────────────────────
 
-export async function printEstimate(estimate: Estimate) {
-  await downloadEstimatePDF(estimate, true);
+export async function printEstimate(estimate: Estimate, logoDataUrl?: string, companyInfo?: CompanyInfo) {
+  await downloadEstimatePDF(estimate, true, logoDataUrl, companyInfo);
 }

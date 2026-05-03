@@ -59,6 +59,36 @@ router.get("/companies/:companyId", requireAuth, requireCompany, async (req, res
   res.json(company);
 });
 
+// PATCH /companies/:companyId — update company profile details
+router.patch("/companies/:companyId", requireAuth, requireCompany, async (req, res) => {
+  const companyId = parseInt(req.params.companyId as string);
+  if (companyId !== req.companyId) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  const allowed = ["name", "phone", "address", "city", "province", "website", "hstNumber"] as const;
+  const update: Record<string, string> = {};
+  for (const key of allowed) {
+    if (typeof req.body?.[key] === "string") {
+      update[key === "hstNumber" ? "hstNumber" : key] = req.body[key].trim();
+    }
+  }
+
+  if (Object.keys(update).length === 0) {
+    res.status(400).json({ error: "No updatable fields provided" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(companiesTable)
+    .set(update as any)
+    .where(eq(companiesTable.id, companyId))
+    .returning();
+
+  res.json(updated);
+});
+
 // PATCH /companies/:companyId/logo — update company logo path
 router.patch("/companies/:companyId/logo", requireAuth, requireCompany, async (req, res) => {
   const companyId = parseInt(req.params.companyId);
