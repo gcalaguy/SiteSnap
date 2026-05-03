@@ -465,6 +465,38 @@ const styles = StyleSheet.create({
   rfiBadge: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginTop: 5 },
   rfiBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   rfiEmpty: { alignItems: "center", paddingVertical: 32, gap: 8 },
+  overviewGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  overviewCell: {
+    width: "50%",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    borderRightWidth: 0.5,
+    borderBottomWidth: 0.5,
+  },
+  overviewValue: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 2 },
+  overviewLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  detailCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  detailLabel: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+  detailValue: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  detailDivider: { height: StyleSheet.hairlineWidth, marginLeft: 14 },
   docRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -603,38 +635,77 @@ export default function ProjectDetailScreen() {
       {/* Overview tab */}
       {activeTab === "Overview" && (
         <View style={styles.section}>
-          {project?.description && (
+
+          {/* Description */}
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Description</Text>
+          <Text style={[styles.descText, { color: project?.description ? colors.foreground : colors.mutedForeground }]}>
+            {project?.description ?? "No description added yet."}
+          </Text>
+
+          <View style={{ height: 20 }} />
+
+          {/* Activity summary */}
+          {summary && (
             <>
-              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Description</Text>
-              <Text style={[styles.descText, { color: colors.foreground }]}>{project.description}</Text>
-              <View style={{ height: 16 }} />
+              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Activity</Text>
+              <View style={[styles.overviewGrid, { borderColor: colors.border }]}>
+                <View style={[styles.overviewCell, { borderRightColor: colors.border, borderBottomColor: colors.border }]}>
+                  <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.taskCount ?? 0}</Text>
+                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Tasks</Text>
+                </View>
+                <View style={[styles.overviewCell, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.reportCount ?? 0}</Text>
+                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Reports</Text>
+                </View>
+                <View style={[styles.overviewCell, { borderRightColor: colors.border }]}>
+                  <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.openRFIs ?? 0}</Text>
+                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Open RFIs</Text>
+                </View>
+                <View style={styles.overviewCell}>
+                  <Text style={[styles.overviewValue, { color: colors.primary }]}>{formatCurrency(summary.totalSpend)}</Text>
+                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Total Spend</Text>
+                </View>
+              </View>
+              <View style={{ height: 20 }} />
             </>
           )}
+
+          {/* Project details */}
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Details</Text>
-          {project?.startDate && (
-            <View style={styles.infoRow}>
-              <Feather name="calendar" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.infoText, { color: colors.foreground }]}>
-                Start: {new Date(project.startDate).toLocaleDateString("en-CA")}
+          <View style={[styles.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.detailRow}>
+              <Feather name="tag" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>Status</Text>
+              <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[project?.status ?? "active"], marginRight: 4 }]} />
+              <Text style={[styles.detailValue, { color: colors.foreground }]}>
+                {STATUS_LABELS[project?.status ?? "active"]}
               </Text>
             </View>
-          )}
-          {project?.endDate && (
-            <View style={styles.infoRow}>
+            <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.detailRow}>
               <Feather name="calendar" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.infoText, { color: colors.foreground }]}>
-                End: {new Date(project.endDate).toLocaleDateString("en-CA")}
+              <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>Start Date</Text>
+              <Text style={[styles.detailValue, { color: project?.startDate ? colors.foreground : colors.mutedForeground }]}>
+                {project?.startDate ? new Date(project.startDate).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "Not set"}
               </Text>
             </View>
-          )}
-          {project?.budget != null && (
-            <View style={styles.infoRow}>
+            <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.detailRow}>
+              <Feather name="calendar" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>End Date</Text>
+              <Text style={[styles.detailValue, { color: project?.endDate ? colors.foreground : colors.mutedForeground }]}>
+                {project?.endDate ? new Date(project.endDate).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "Not set"}
+              </Text>
+            </View>
+            <View style={[styles.detailDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.detailRow}>
               <Feather name="dollar-sign" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.infoText, { color: colors.foreground }]}>
-                Budget: {formatCurrency(project.budget)}
+              <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>Budget</Text>
+              <Text style={[styles.detailValue, { color: project?.budget != null ? colors.foreground : colors.mutedForeground }]}>
+                {project?.budget != null ? formatCurrency(project.budget) : "Not set"}
               </Text>
             </View>
-          )}
+          </View>
         </View>
       )}
 
