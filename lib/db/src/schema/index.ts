@@ -426,3 +426,23 @@ export const insertInvoiceSchema = createInsertSchema(invoicesTable).omit({
 });
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type Invoice = typeof invoicesTable.$inferSelect;
+
+// ── QuickBooks Connections ─────────────────────────────────────────────────────
+
+export const quickbooksConnectionsTable = pgTable("quickbooks_connections", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().unique().references(() => companiesTable.id),
+  realmId: text("realm_id").notNull(),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  tokenExpiresAt: timestamp("token_expires_at").notNull(),
+  environment: text("environment").notNull().default("sandbox"),
+  lastInvoiceSyncAt: timestamp("last_invoice_sync_at"),
+  lastCostSyncAt: timestamp("last_cost_sync_at"),
+  syncedInvoiceCount: integer("synced_invoice_count").default(0),
+  syncedCostCount: integer("synced_cost_count").default(0),
+  connectedAt: timestamp("connected_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type QuickbooksConnection = typeof quickbooksConnectionsTable.$inferSelect;
