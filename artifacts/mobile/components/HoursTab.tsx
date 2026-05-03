@@ -27,6 +27,18 @@ type TimeEntry = {
   user: { id: number; firstName: string; lastName: string; role: string } | null;
 };
 
+function displayName(user: { firstName?: string | null; lastName?: string | null } | null): string {
+  if (!user) return "Unknown";
+  const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+  return name || "Worker";
+}
+
+function initials(user: { firstName?: string | null; lastName?: string | null } | null): string {
+  if (!user) return "?";
+  const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+  return name ? name.slice(0, 2).toUpperCase() : "W";
+}
+
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -282,7 +294,7 @@ function EntryRow({
           {showUser && entry.user && (
             <View style={[s.userChip, { backgroundColor: colors.muted }]}>
               <Text style={[s.userChipText, { color: colors.mutedForeground }]}>
-                {entry.user.firstName} {entry.user.lastName}
+                {displayName(entry.user)}
               </Text>
             </View>
           )}

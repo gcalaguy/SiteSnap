@@ -36,6 +36,18 @@ const RANGE_OPTIONS = [
   { label: "All Time", value: "all" },
 ];
 
+function displayName(user: { firstName?: string | null; lastName?: string | null; email?: string | null } | null): string {
+  if (!user) return "Unknown";
+  const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+  return name || user.email?.split("@")[0] || "Unknown";
+}
+
+function initials(user: { firstName?: string | null; lastName?: string | null; email?: string | null } | null): string {
+  if (!user) return "?";
+  if (user.firstName) return `${user.firstName[0]}${user.lastName?.[0] ?? ""}`.toUpperCase();
+  return (user.email?.[0] ?? "?").toUpperCase();
+}
+
 function getRangeDates(range: string): { from?: string; to?: string } {
   const now = new Date();
   switch (range) {
@@ -96,7 +108,7 @@ export default function HoursPage() {
   const workerChartData = Object.values(byWorker)
     .sort((a, b) => b.hours - a.hours)
     .map(w => ({
-      name: w.user ? `${w.user.firstName} ${w.user.lastName}` : "Unknown",
+      name: displayName(w.user),
       hours: Math.round(w.hours * 10) / 10,
     }));
 
@@ -258,12 +270,12 @@ export default function HoursPage() {
                     >
                       <Avatar className="h-8 w-8 bg-primary/10 text-primary border border-primary/20">
                         <AvatarFallback className="text-xs font-bold bg-transparent">
-                          {worker.user?.firstName?.[0]}{worker.user?.lastName?.[0]}
+                          {initials(worker.user)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">
-                          {worker.user ? `${worker.user.firstName} ${worker.user.lastName}` : "Unknown"}
+                          {displayName(worker.user)}
                         </p>
                         <p className="text-xs text-muted-foreground capitalize">{worker.user?.role} · {worker.entries.length} {worker.entries.length === 1 ? "entry" : "entries"}</p>
                       </div>

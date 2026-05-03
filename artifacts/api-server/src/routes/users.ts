@@ -24,16 +24,20 @@ router.post("/users/sync", async (req, res) => {
     .limit(1);
 
   if (existing.length > 0) {
+    // Only update names if the incoming values are non-empty — never overwrite real names with blanks
+    const updates: Record<string, string> = { email };
+    if (firstName && firstName.trim()) updates.firstName = firstName.trim();
+    if (lastName && lastName.trim()) updates.lastName = lastName.trim();
     const [updated] = await db
       .update(usersTable)
-      .set({ email, firstName, lastName })
+      .set(updates)
       .where(eq(usersTable.clerkUserId, clerkUserId))
       .returning();
     res.json(updated);
   } else {
     const [created] = await db
       .insert(usersTable)
-      .values({ clerkUserId, email, firstName, lastName })
+      .values({ clerkUserId, email, firstName: firstName?.trim() || email.split("@")[0], lastName: lastName?.trim() || "" })
       .returning();
     res.json(created);
   }
