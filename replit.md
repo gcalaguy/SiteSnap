@@ -128,6 +128,16 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - **Admin panel** (`/admin`): owner-only; subscription status card, plan cards with monthly/annual toggle, team seats card, company details card; "Manage Billing" opens Stripe portal; "Get Started"/"Switch Plan" redirects to Stripe checkout
 - **Sidebar**: "Admin & Billing" link (ShieldCheck icon) visible only to owners under a separate "Admin" section
 
+### ✅ Sprint — VOICE INVOICES/QUOTES + EXPORT (Complete)
+- **AI invoice generation**: `POST /api/ai/invoice/generate` — voice/text description → GPT generates structured invoice line items with realistic Canadian pricing + HST; mirrors quote generate endpoint
+- **Mobile Finance hub** (`artifacts/mobile/app/finance.tsx`): tabbed Invoices / Quotes list with voice FAB, AI modal (uses `useVoiceRecorder` callback pattern), voice→AI→preview→create flow for both invoices and quotes
+- **Mobile invoice detail** (`artifacts/mobile/app/invoice/[id].tsx`): PDF export (expo-print HTML→PDF→expo-sharing), Excel export (xlsx), send email (PDF base64 → `/api/invoices/:id/send-email`), mark sent/paid, send reminder
+- **Mobile quote detail** (`artifacts/mobile/app/quote/[id].tsx`): PDF export, Excel export, submit/approve/reject/convert-to-invoice actions
+- **Finance card on mobile home**: Quick-access card on home screen navigates to `/finance`
+- **Web invoice detail Excel export**: Excel button added using `xlsx` (`XLSX.writeFile`), `FileSpreadsheet` icon; icon changed from non-existent `Sheet` → `FileSpreadsheet`
+- **Web quote detail PDF + Excel export**: jsPDF dynamic import for PDF (client-side), xlsx for Excel; `QuoteForExport` type defined for type-safe export function
+- **Installed packages**: `expo-print`, `expo-sharing`, `xlsx` (mobile); `xlsx` (web-dashboard)
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

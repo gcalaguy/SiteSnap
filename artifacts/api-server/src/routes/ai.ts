@@ -307,6 +307,79 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
   }
 });
 
+// ── Invoice AI Agent ──────────────────────────────────────────────────────────
+const InvoiceAIInput = z.object({
+  voiceInput: z.string().min(1),
+  projectName: z.string().optional().nullable(),
+  clientName: z.string().optional().nullable(),
+});
+
+router.post("/ai/invoice/generate", requireAuth, requireCompany, async (req, res) => {
+  const parsed = InvoiceAIInput.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+    return;
+  }
+
+  const { voiceInput, projectName, clientName } = parsed.data;
+  const TAX_RATE = 0.13;
+
+  const prompt = `You are a professional construction billing AI for Canadian construction companies.
+
+A contractor has described work that has been completed and needs to be invoiced. Extract and generate a detailed invoice from this description.
+Return ONLY a JSON object with these exact fields:
+- title: string (short invoice title, e.g. "Foundation Concrete Work — Phase 1")
+- clientName: string (client/company name if mentioned, otherwise "Client")
+- lineItems: array of objects, each with:
+  - description: string (material or labour item name)
+  - quantity: number
+  - unit: string (e.g. "hr", "m²", "m³", "ea", "lm", "bag", "sheet", "load")
+  - unitPrice: number (CAD, realistic Canadian construction pricing)
+  - total: number (quantity × unitPrice, rounded to 2 decimals)
+- subtotal: number (sum of all line item totals)
+- taxAmount: number (subtotal × ${TAX_RATE} HST, rounded to 2 decimals)
+- total: number (subtotal + taxAmount)
+- notes: string (any scope notes, payment terms, or work summary)
+
+Use realistic Canadian construction pricing for materials and labour.
+Include both materials AND labour as separate line items when applicable.
+${projectName ? `Project: ${projectName}` : ""}
+${clientName ? `Client: ${clientName}` : ""}
+
+Contractor voice description:
+"${voiceInput}"
+
+Respond with ONLY the JSON object, no markdown, no explanation.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5.4",
+      max_completion_tokens: 8192,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const content = response.choices[0]?.message?.content ?? "{}";
+    let result: Record<string, unknown>;
+    try {
+      result = JSON.parse(content);
+    } catch {
+      result = {
+        title: "Site Invoice",
+        clientName: clientName ?? "Client",
+        lineItems: [],
+        subtotal: 0,
+        taxAmount: 0,
+        total: 0,
+        notes: voiceInput,
+      };
+    }
+    res.json(result);
+  } catch (err: unknown) {
+    req.log?.error({ err }, "AI invoice generation failed");
+    res.status(500).json({ error: "AI generation failed" });
+  }
+});
+
 // ── Voice Transcription ───────────────────────────────────────────────────────
 const TranscribeInput = z.object({
   audio: z.string().min(1),

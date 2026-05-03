@@ -44,7 +44,10 @@ import {
   Receipt,
   Save,
   Loader2,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
@@ -69,6 +72,34 @@ function calcTotals(items: LineItem[], taxRate = 0.13) {
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   return { subtotal, taxAmount, total: subtotal + taxAmount };
+}
+
+type QuoteForExport = { quoteNumber: string; title: string; clientName: string; clientEmail?: string | null; status: string; createdAt: string; validUntil?: string | null; lineItems?: unknown; taxRate: string; subtotal: string; taxAmount: string; total: string };
+
+function downloadQuoteXLSX(quote: QuoteForExport) {
+  const items = (quote.lineItems ?? []) as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[];
+  const taxRate = parseFloat(quote.taxRate ?? "0.13");
+  const wsData = [
+    ["Quote Number", quote.quoteNumber],
+    ["Title", quote.title],
+    ["Client", quote.clientName],
+    ["Client Email", quote.clientEmail ?? ""],
+    ["Status", quote.status],
+    ["Created", format(new Date(quote.createdAt), "yyyy-MM-dd")],
+    ["Valid Until", quote.validUntil ? format(new Date(quote.validUntil), "yyyy-MM-dd") : ""],
+    [],
+    ["Description", "Qty", "Unit", "Unit Price (CAD)", "Total (CAD)"],
+    ...items.map((item) => [item.description, item.quantity, item.unit, Number(item.unitPrice), Number(item.total)]),
+    [],
+    ["Subtotal", "", "", "", Number(quote.subtotal)],
+    [`HST (${(taxRate * 100).toFixed(0)}%)`, "", "", "", Number(quote.taxAmount)],
+    ["TOTAL CAD", "", "", "", Number(quote.total)],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws["!cols"] = [{ wch: 30 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Quote");
+  XLSX.writeFile(wb, `${quote.quoteNumber}.xlsx`);
 }
 
 export default function QuoteDetail() {
@@ -299,6 +330,68 @@ export default function QuoteDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
+          {/* Download PDF */}
+          <Button variant="outline" onClick={() => {
+            if (!quote) return;
+            import("jspdf").then(({ default: jsPDF }) =>
+              import("jspdf-autotable").then(({ default: autoTable }) => {
+                const items = (quote.lineItems ?? []) as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[];
+                const fmtC = (v: number) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(v);
+                const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+                const PRIMARY: [number, number, number] = [255, 102, 0];
+                const DARK: [number, number, number] = [23, 32, 52];
+                const pageW = doc.internal.pageSize.getWidth();
+                const margin = 18;
+                doc.setFillColor(...PRIMARY); doc.rect(0, 0, pageW, 28, "F");
+                doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(255, 255, 255);
+                doc.text("Site Snap", margin, 13);
+                doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(255, 220, 180);
+                doc.text("QUOTE", pageW - margin, 10, { align: "right" });
+                doc.setFontSize(14); doc.setFont("helvetica", "bold");
+                doc.text(quote.quoteNumber, pageW - margin, 19, { align: "right" });
+                let y = 38;
+                doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(...DARK);
+                doc.text(quote.title, margin, y); y += 10;
+                doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100);
+                doc.text(`Client: ${quote.clientName}`, margin, y); y += 6;
+                autoTable(doc, {
+                  startY: y, margin: { left: margin, right: margin },
+                  head: [["Description", "Qty", "Unit", "Unit Price", "Total"]],
+                  body: items.map((i) => [i.description, i.quantity, i.unit, fmtC(i.unitPrice), fmtC(i.total)]),
+                  headStyles: { fillColor: DARK, textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold", cellPadding: 4 },
+                  bodyStyles: { fontSize: 9, cellPadding: 3.5, textColor: DARK },
+                  alternateRowStyles: { fillColor: [245, 245, 245] as [number, number, number] },
+                  columnStyles: { 0: { cellWidth: "auto" }, 1: { halign: "right", cellWidth: 16 }, 2: { halign: "right", cellWidth: 18 }, 3: { halign: "right", cellWidth: 30 }, 4: { halign: "right", cellWidth: 30 } },
+                });
+                const taxRate = parseFloat(quote.taxRate ?? "0.13");
+                const sub = items.reduce((s, i) => s + i.total, 0);
+                const tax = Math.round(sub * taxRate * 100) / 100;
+                const tot = sub + tax;
+                y = (doc as any).lastAutoTable.finalY + 6;
+                const tx = pageW - margin;
+                doc.setFontSize(9); doc.setTextColor(100, 100, 100);
+                doc.text("Subtotal", tx - 40, y, { align: "right" }); doc.setTextColor(...DARK); doc.text(fmtC(sub), tx, y, { align: "right" }); y += 6;
+                doc.setTextColor(100, 100, 100); doc.text(`HST (${(taxRate * 100).toFixed(0)}%)`, tx - 40, y, { align: "right" }); doc.setTextColor(...DARK); doc.text(fmtC(tax), tx, y, { align: "right" }); y += 4;
+                doc.setFillColor(...PRIMARY); doc.roundedRect(tx - 64, y, 65, 10, 1.5, 1.5, "F");
+                doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(255, 255, 255);
+                doc.text("TOTAL", tx - 41, y + 6.5, { align: "right" }); doc.text(fmtC(tot), tx - 1, y + 6.5, { align: "right" });
+                doc.save(`${quote.quoteNumber}.pdf`);
+              })
+            );
+            toast({ title: "PDF downloaded" });
+          }}>
+            <Download className="h-4 w-4 mr-2" />
+            PDF
+          </Button>
+
+          {/* Download Excel */}
+          <Button variant="outline" onClick={() => {
+            if (quote) { downloadQuoteXLSX(quote as QuoteForExport); toast({ title: "Excel downloaded" }); }
+          }}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Excel
+          </Button>
+
           {isEditable && hasUnsavedChanges && (
             <Button variant="outline" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}

@@ -1,0 +1,438 @@
+import React, { useState, useCallback } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  Modal,
+  Alert,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { Feather } from "@expo/vector-icons";
+import { useColors } from "@/hooks/useColors";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { customFetch, useListAllInvoices, useListAllQuotes, useCreateInvoice, useCreateQuote } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+
+type TabKey = "invoices" | "quotes";
+
+const INVOICE_STATUS_COLORS: Record<string, string> = {
+  draft: "#6B7280",
+  sent: "#3B82F6",
+  paid: "#22C55E",
+  overdue: "#EF4444",
+  cancelled: "#9CA3AF",
+};
+const QUOTE_STATUS_COLORS: Record<string, string> = {
+  draft: "#6B7280",
+  pending_approval: "#F59E0B",
+  approved: "#22C55E",
+  rejected: "#EF4444",
+  converted: "#3B82F6",
+};
+const INVOICE_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft", sent: "Sent", paid: "Paid", overdue: "Overdue", cancelled: "Cancelled",
+};
+const QUOTE_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft", pending_approval: "Pending", approved: "Approved", rejected: "Rejected", converted: "Converted",
+};
+
+function fmtCAD(v: string | number) {
+  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
+}
+
+function InvoiceRow({ item }: { item: any }) {
+  const colors = useColors();
+  const router = useRouter();
+  const statusColor = INVOICE_STATUS_COLORS[item.status] ?? "#6B7280";
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.row, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+      onPress={() => router.push(`/invoice/${item.id}`)}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>
+        <Text style={[styles.rowSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+          {item.invoiceNumber} · {item.clientName}
+        </Text>
+      </View>
+      <View style={{ alignItems: "flex-end", gap: 4 }}>
+        <Text style={[styles.rowAmount, { color: colors.foreground }]}>{fmtCAD(item.total)}</Text>
+        <View style={[styles.badge, { backgroundColor: `${statusColor}18` }]}>
+          <Text style={[styles.badgeText, { color: statusColor }]}>{INVOICE_STATUS_LABELS[item.status] ?? item.status}</Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function QuoteRow({ item }: { item: any }) {
+  const colors = useColors();
+  const router = useRouter();
+  const statusColor = QUOTE_STATUS_COLORS[item.status] ?? "#6B7280";
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.row, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+      onPress={() => router.push(`/quote/${item.id}`)}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>
+        <Text style={[styles.rowSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+          {item.quoteNumber} · {item.clientName}
+        </Text>
+      </View>
+      <View style={{ alignItems: "flex-end", gap: 4 }}>
+        <Text style={[styles.rowAmount, { color: colors.foreground }]}>{fmtCAD(item.total)}</Text>
+        <View style={[styles.badge, { backgroundColor: `${statusColor}18` }]}>
+          <Text style={[styles.badgeText, { color: statusColor }]}>{QUOTE_STATUS_LABELS[item.status] ?? item.status}</Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+type AIResult = {
+  title?: string;
+  clientName?: string;
+  lineItems?: { description: string; quantity: number; unit: string; unitPrice: number; total: number }[];
+  subtotal?: number;
+  taxAmount?: number;
+  total?: number;
+  notes?: string;
+};
+
+export default function FinanceScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const qc = useQueryClient();
+
+  const [tab, setTab] = useState<TabKey>("invoices");
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [voiceFor, setVoiceFor] = useState<"invoice" | "quote">("invoice");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<AIResult | null>(null);
+  const [clientName, setClientName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const createInvoice = useCreateInvoice();
+  const createQuote = useCreateQuote();
+
+  const { data: invoices, isLoading: invLoading, refetch: refetchInv } = useListAllInvoices({});
+  const { data: quotes, isLoading: qLoading, refetch: refetchQ } = useListAllQuotes({});
+
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const { state: voiceState, toggle: toggleVoice } = useVoiceRecorder((text) => {
+    setVoiceTranscript((prev) => (prev ? `${prev} ${text}` : text));
+  });
+  const isRecording = voiceState === "recording";
+  const isTranscribing = voiceState === "transcribing";
+
+  const openVoiceModal = (type: "invoice" | "quote") => {
+    setVoiceFor(type);
+    setAiResult(null);
+    setClientName("");
+    setVoiceTranscript("");
+    setShowVoiceModal(true);
+  };
+
+  const handleGenerateAI = useCallback(async () => {
+    if (!voiceTranscript.trim()) {
+      Alert.alert("Please record or type a job description first.");
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const data = await customFetch<AIResult>(`/api/ai/${voiceFor}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voiceInput: voiceTranscript, clientName: clientName || undefined }),
+      });
+      setAiResult(data);
+    } catch {
+      Alert.alert("AI generation failed. Please try again.");
+    } finally {
+      setAiLoading(false);
+    }
+  }, [voiceTranscript, voiceFor, clientName]);
+
+  const handleCreate = useCallback(async () => {
+    if (!aiResult) return;
+    setSaving(true);
+    try {
+      if (voiceFor === "invoice") {
+        await createInvoice.mutateAsync({
+          data: {
+            title: aiResult.title ?? "New Invoice",
+            clientName: aiResult.clientName ?? clientName ?? "Client",
+            lineItems: aiResult.lineItems ?? [],
+            subtotal: aiResult.subtotal ?? 0,
+            taxRate: 0.13,
+            taxAmount: aiResult.taxAmount ?? 0,
+            total: aiResult.total ?? 0,
+            notes: aiResult.notes ?? undefined,
+          },
+        });
+        await refetchInv();
+        setTab("invoices");
+      } else {
+        await createQuote.mutateAsync({
+          projectId: 0,
+          data: {
+            title: aiResult.title ?? "New Quote",
+            clientName: aiResult.clientName ?? clientName ?? "Client",
+            lineItems: aiResult.lineItems ?? [],
+            subtotal: aiResult.subtotal ?? 0,
+            taxRate: 0.13,
+            taxAmount: aiResult.taxAmount ?? 0,
+            total: aiResult.total ?? 0,
+            notes: aiResult.notes ?? undefined,
+          },
+        });
+        await refetchQ();
+        setTab("quotes");
+      }
+      setShowVoiceModal(false);
+      setAiResult(null);
+    } catch {
+      Alert.alert(`Failed to create ${voiceFor}. Please try again.`);
+    } finally {
+      setSaving(false);
+    }
+  }, [aiResult, voiceFor, clientName, createInvoice, createQuote, refetchInv, refetchQ]);
+
+  const topInsets = Platform.OS === "web" ? 67 : insets.top;
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: topInsets + 8, backgroundColor: colors.sidebar }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+          <Feather name="arrow-left" size={22} color="#FFFFFF" />
+        </Pressable>
+        <Text style={styles.headerTitle}>Finance</Text>
+        <View style={{ width: 36 }} />
+      </View>
+
+      {/* Tabs */}
+      <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        {(["invoices", "quotes"] as TabKey[]).map((t) => (
+          <Pressable key={t} style={styles.tabBtn} onPress={() => setTab(t)}>
+            <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.mutedForeground }]}>
+              {t === "invoices" ? "Invoices" : "Quotes"}
+            </Text>
+            {tab === t && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
+          </Pressable>
+        ))}
+      </View>
+
+      {/* List */}
+      {tab === "invoices" ? (
+        invLoading ? (
+          <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+        ) : (
+          <FlatList
+            data={invoices ?? []}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => <InvoiceRow item={item} />}
+            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+            ListEmptyComponent={
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No invoices yet</Text>
+            }
+            refreshControl={<RefreshControl refreshing={invLoading} onRefresh={refetchInv} tintColor={colors.primary} />}
+          />
+        )
+      ) : (
+        qLoading ? (
+          <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+        ) : (
+          <FlatList
+            data={quotes ?? []}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => <QuoteRow item={item} />}
+            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+            ListEmptyComponent={
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No quotes yet</Text>
+            }
+            refreshControl={<RefreshControl refreshing={qLoading} onRefresh={refetchQ} tintColor={colors.primary} />}
+          />
+        )
+      )}
+
+      {/* FABs */}
+      <View style={[styles.fabRow, { bottom: insets.bottom + 20 }]}>
+        <Pressable
+          style={[styles.fabSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => openVoiceModal("quote")}
+        >
+          <Feather name="mic" size={18} color={colors.primary} />
+          <Text style={[styles.fabSecondaryText, { color: colors.primary }]}>Voice Quote</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.fab, { backgroundColor: colors.primary }]}
+          onPress={() => openVoiceModal("invoice")}
+        >
+          <Feather name="mic" size={20} color="#FFFFFF" />
+          <Text style={styles.fabText}>Voice Invoice</Text>
+        </Pressable>
+      </View>
+
+      {/* Voice / AI Modal */}
+      <Modal visible={showVoiceModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowVoiceModal(false)}>
+        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+              Voice {voiceFor === "invoice" ? "Invoice" : "Quote"}
+            </Text>
+            <Pressable onPress={() => setShowVoiceModal(false)} hitSlop={10}>
+              <Feather name="x" size={22} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Client Name (optional)</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="e.g. Maple Construction Ltd."
+              placeholderTextColor={colors.mutedForeground}
+              value={clientName}
+              onChangeText={setClientName}
+            />
+
+            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 16 }]}>Job Description</Text>
+            <View style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.transcriptText, { color: voiceTranscript ? colors.foreground : colors.mutedForeground }]}>
+                {isTranscribing ? "Transcribing…" : (voiceTranscript || "Tap the mic to describe the work, or type below...")}
+              </Text>
+            </View>
+
+            {/* Record button */}
+            <Pressable
+              style={[styles.recordBtn, { backgroundColor: isRecording ? "#EF4444" : colors.primary }]}
+              onPress={toggleVoice}
+              disabled={isTranscribing}
+            >
+              {isTranscribing
+                ? <ActivityIndicator color="#FFFFFF" size="small" />
+                : <Feather name={isRecording ? "square" : "mic"} size={22} color="#FFFFFF" />}
+              <Text style={styles.recordBtnText}>
+                {isTranscribing ? "Transcribing…" : isRecording ? "Stop Recording" : "Start Recording"}
+              </Text>
+            </Pressable>
+
+            {/* Generate */}
+            <Pressable
+              style={[styles.generateBtn, { backgroundColor: colors.primary, opacity: (!voiceTranscript.trim() || aiLoading) ? 0.5 : 1 }]}
+              onPress={handleGenerateAI}
+              disabled={!voiceTranscript.trim() || aiLoading}
+            >
+              {aiLoading ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Feather name="zap" size={18} color="#FFFFFF" />}
+              <Text style={styles.generateBtnText}>{aiLoading ? "Generating…" : "Generate with AI"}</Text>
+            </Pressable>
+
+            {/* AI Result Preview */}
+            {aiResult && (
+              <View style={[styles.resultCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.resultTitle, { color: colors.foreground }]}>{aiResult.title}</Text>
+                {aiResult.clientName && (
+                  <Text style={[styles.resultSub, { color: colors.mutedForeground }]}>Client: {aiResult.clientName}</Text>
+                )}
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                {(aiResult.lineItems ?? []).map((item, i) => (
+                  <View key={i} style={styles.lineItemRow}>
+                    <Text style={[styles.lineItemDesc, { color: colors.foreground }]} numberOfLines={2}>{item.description}</Text>
+                    <Text style={[styles.lineItemTotal, { color: colors.primary }]}>{fmtCAD(item.total)}</Text>
+                  </View>
+                ))}
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View style={styles.totalRow}>
+                  <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
+                  <Text style={[styles.totalVal, { color: colors.foreground }]}>{fmtCAD(aiResult.subtotal ?? 0)}</Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>HST (13%)</Text>
+                  <Text style={[styles.totalVal, { color: colors.foreground }]}>{fmtCAD(aiResult.taxAmount ?? 0)}</Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>Total</Text>
+                  <Text style={[styles.totalVal, { color: colors.primary, fontFamily: "Inter_700Bold" }]}>{fmtCAD(aiResult.total ?? 0)}</Text>
+                </View>
+                {aiResult.notes && (
+                  <Text style={[styles.notes, { color: colors.mutedForeground }]}>{aiResult.notes}</Text>
+                )}
+
+                <Pressable
+                  style={[styles.createBtn, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]}
+                  onPress={handleCreate}
+                  disabled={saving}
+                >
+                  {saving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Feather name="check-circle" size={18} color="#FFFFFF" />}
+                  <Text style={styles.createBtnText}>
+                    {saving ? "Creating…" : `Create ${voiceFor === "invoice" ? "Invoice" : "Quote"}`}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 16 },
+  backBtn: { width: 36 },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  tabBar: { flexDirection: "row", borderBottomWidth: 1 },
+  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 12, position: "relative" },
+  tabText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  tabIndicator: { position: "absolute", bottom: 0, left: "20%", right: "20%", height: 2, borderRadius: 1 },
+  list: { padding: 16, gap: 8 },
+  row: { flexDirection: "row", alignItems: "center", borderRadius: 10, padding: 14, borderWidth: 1, gap: 12 },
+  rowTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  rowSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  rowAmount: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  badgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  emptyText: { textAlign: "center", fontSize: 14, fontFamily: "Inter_400Regular", paddingTop: 40 },
+  fabRow: { position: "absolute", right: 16, flexDirection: "row", gap: 10, alignItems: "center" },
+  fab: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 18, paddingVertical: 14, borderRadius: 28, elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
+  fabText: { color: "#FFFFFF", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  fabSecondary: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 24, borderWidth: 1, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
+  fabSecondaryText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  modal: { flex: 1 },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 20, borderBottomWidth: 1 },
+  modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  modalContent: { padding: 20, gap: 4 },
+  label: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 },
+  input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: "Inter_400Regular" },
+  transcriptBox: { borderWidth: 1, borderRadius: 10, padding: 14, minHeight: 90 },
+  transcriptText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  recordBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, padding: 14, borderRadius: 12, marginTop: 12 },
+  recordBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  generateBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, marginTop: 10 },
+  generateBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  resultCard: { borderWidth: 1, borderRadius: 12, padding: 16, marginTop: 16, gap: 4 },
+  resultTitle: { fontSize: 16, fontFamily: "Inter_700Bold", marginBottom: 2 },
+  resultSub: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  divider: { height: 1, marginVertical: 10 },
+  lineItemRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 4 },
+  lineItemDesc: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
+  lineItemTotal: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  totalRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
+  totalLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  totalVal: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  notes: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 8, lineHeight: 18 },
+  createBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, marginTop: 14 },
+  createBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Inter_600SemiBold" },
+});

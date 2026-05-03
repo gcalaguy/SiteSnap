@@ -17,12 +17,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2, Bell } from "lucide-react";
+import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2, Bell, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetInvoiceQueryKey, getListAllInvoicesQueryKey } from "@workspace/api-client-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -289,6 +290,33 @@ export default function InvoiceDetail() {
     toast({ title: "PDF downloaded" });
   }
 
+  function handleDownloadXLSX() {
+    if (!invoice) return;
+    const items = (invoice.lineItems ?? []) as LineItem[];
+    const wsData = [
+      ["Invoice Number", invoice.invoiceNumber],
+      ["Title", invoice.title],
+      ["Client", invoice.clientName],
+      ["Client Email", invoice.clientEmail ?? ""],
+      ["Status", STATUS_LABELS[invoice.status] ?? invoice.status],
+      ["Issue Date", format(new Date(invoice.createdAt), "yyyy-MM-dd")],
+      ["Due Date", invoice.dueDate ? format(new Date(invoice.dueDate), "yyyy-MM-dd") : ""],
+      [],
+      ["Description", "Qty", "Unit", "Unit Price (CAD)", "Total (CAD)"],
+      ...items.map((item) => [item.description, item.quantity, item.unit, Number(item.unitPrice), Number(item.total)]),
+      [],
+      ["Subtotal", "", "", "", Number(invoice.subtotal)],
+      [`HST (${(parseFloat(invoice.taxRate) * 100).toFixed(0)}%)`, "", "", "", Number(invoice.taxAmount)],
+      ["TOTAL CAD", "", "", "", Number(invoice.total)],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [{ wch: 30 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Invoice");
+    XLSX.writeFile(wb, `${invoice.invoiceNumber}.xlsx`);
+    toast({ title: "Excel downloaded" });
+  }
+
   function handleSendReminder() {
     if (!invoice) return;
     if (!invoice.clientEmail) {
@@ -396,7 +424,13 @@ export default function InvoiceDetail() {
           {/* Download PDF */}
           <Button variant="outline" onClick={handleDownloadPDF}>
             <Download className="h-4 w-4 mr-2" />
-            Download PDF
+            PDF
+          </Button>
+
+          {/* Download Excel */}
+          <Button variant="outline" onClick={handleDownloadXLSX}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Excel
           </Button>
 
           {/* Send via Email */}

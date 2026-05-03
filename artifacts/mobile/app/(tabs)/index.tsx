@@ -162,6 +162,11 @@ const styles = StyleSheet.create({
   activityTime: { fontSize: 12, fontFamily: "Inter_400Regular" },
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  financeCard: { borderRadius: 14, padding: 18, elevation: 3, shadowColor: "#FF6600", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 6 },
+  financeCardInner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  financeCardText: { gap: 2 },
+  financeCardTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  financeCardSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.8)" },
 });
 
 export default function DashboardScreen() {
@@ -246,6 +251,20 @@ export default function DashboardScreen() {
         <StatCard label="Total Spend" value={formatCurrency(summary?.totalSpend)} icon="dollar-sign" />
         <StatCard label="Budget" value={formatCurrency(summary?.totalBudget)} icon="trending-up" />
       </View>
+
+      {/* Finance Quick Access */}
+      <Pressable
+        style={({ pressed }) => [styles.financeCard, { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1, marginHorizontal: 20, marginBottom: 20 }]}
+        onPress={() => router.push("/finance")}
+      >
+        <View style={styles.financeCardInner}>
+          <View style={styles.financeCardText}>
+            <Text style={styles.financeCardTitle}>Finance</Text>
+            <Text style={styles.financeCardSub}>Invoices · Quotes · Voice Create</Text>
+          </View>
+          <Feather name="dollar-sign" size={28} color="rgba(255,255,255,0.9)" />
+        </View>
+      </Pressable>
 
       {/* Active Projects */}
       <View style={styles.section}>
