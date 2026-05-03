@@ -4,8 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   useUpdateQuote,
   useSubmitQuoteForApproval,
-  useApproveQuote,
-  useRejectQuote,
   useConvertQuoteToInvoice,
   useGenerateQuoteAI,
   getListAllQuotesQueryKey,
@@ -40,13 +38,12 @@ import {
   Plus,
   Trash2,
   Send,
-  CheckCircle2,
-  XCircle,
   Receipt,
   Save,
   Loader2,
   Download,
   FileSpreadsheet,
+  CheckCircle,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useQueryClient } from "@tanstack/react-query";
@@ -54,17 +51,17 @@ import { format } from "date-fns";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
-  pending_approval: "Pending Approval",
+  pending_approval: "Submitted",
   approved: "Approved",
-  rejected: "Rejected",
+  rejected: "Needs Revision",
   converted: "Converted to Invoice",
 };
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700 border-gray-200",
-  pending_approval: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  pending_approval: "bg-blue-50 text-blue-700 border-blue-200",
   approved: "bg-green-50 text-green-700 border-green-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-  converted: "bg-blue-50 text-blue-700 border-blue-200",
+  rejected: "bg-orange-50 text-orange-700 border-orange-200",
+  converted: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
 type LineItem = { description: string; quantity: number; unit: string; unitPrice: number; total: number };
@@ -110,19 +107,14 @@ export default function QuoteDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Use a direct fetch so the query always fires regardless of projectId.
-  // The backend GET /projects/0/quotes/:id resolves by companyId when projectId=0.
   const { data: quote, isLoading } = useQuery<Quote>({
     queryKey: [`/api/projects/0/quotes/${quoteId}`],
     queryFn: () => customFetch<Quote>(`/api/projects/0/quotes/${quoteId}`),
     enabled: !!quoteId,
   });
-  // Use the real projectId from the loaded quote for all mutations
   const realProjectId = quote?.projectId ?? 0;
   const updateQuote = useUpdateQuote();
   const submitQuote = useSubmitQuoteForApproval();
-  const approveQuote = useApproveQuote();
-  const rejectQuote = useRejectQuote();
   const convertQuote = useConvertQuoteToInvoice();
   const generateAI = useGenerateQuoteAI();
 
@@ -255,22 +247,11 @@ export default function QuoteDetail() {
 
   function handleSubmit() {
     submitQuote.mutate({ projectId: realProjectId, quoteId }, {
-      onSuccess: () => { toast({ title: "Quote submitted for approval" }); invalidate(); },
+      onSuccess: () => {
+        toast({ title: "Quote submitted!", description: "The foreman and owner have been notified by email." });
+        invalidate();
+      },
       onError: () => toast({ title: "Submission failed", variant: "destructive" }),
-    });
-  }
-
-  function handleApprove() {
-    approveQuote.mutate({ projectId: realProjectId, quoteId }, {
-      onSuccess: () => { toast({ title: "Quote approved!" }); invalidate(); },
-      onError: () => toast({ title: "Approval failed", variant: "destructive" }),
-    });
-  }
-
-  function handleReject() {
-    rejectQuote.mutate({ projectId: realProjectId, quoteId, data: {} }, {
-      onSuccess: () => { toast({ title: "Quote rejected" }); invalidate(); },
-      onError: () => toast({ title: "Rejection failed", variant: "destructive" }),
     });
   }
 
@@ -313,10 +294,10 @@ export default function QuoteDetail() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <button
-            onClick={() => setLocation("/quotes")}
+            onClick={() => history.back()}
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" /> Quotes
+            <ArrowLeft className="h-4 w-4" /> Back
           </button>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">{quote.title}</h1>
@@ -336,7 +317,7 @@ export default function QuoteDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          {/* Download PDF — always uses live (effectiveItems) state */}
+          {/* Download PDF */}
           <Button variant="outline" onClick={() => {
             if (!quote) return;
             const items = effectiveItems;
@@ -395,7 +376,7 @@ export default function QuoteDetail() {
             PDF
           </Button>
 
-          {/* Download Excel — always uses live (effectiveItems) state */}
+          {/* Download Excel */}
           <Button variant="outline" onClick={() => {
             if (!quote) return;
             downloadQuoteXLSX({
@@ -418,25 +399,30 @@ export default function QuoteDetail() {
             Excel
           </Button>
 
+          {/* Save (only when editable + unsaved changes) */}
           {isEditable && hasUnsavedChanges && (
             <Button variant="outline" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Save
             </Button>
           )}
+
+          {/* Submit (draft or needs revision) */}
           {isEditable && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={submitQuote.isPending}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Submit for Approval
+                  {submitQuote.isPending
+                    ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    : <Send className="h-4 w-4 mr-2" />}
+                  Submit
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Submit quote for approval?</AlertDialogTitle>
+                  <AlertDialogTitle>Submit this quote?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will move the quote to pending approval status. Make sure all line items and totals are correct.
+                    The quote will be sent to the foreman and owner for review. They'll receive an email notification. Make sure all line items and totals are correct before submitting.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -446,46 +432,16 @@ export default function QuoteDetail() {
               </AlertDialogContent>
             </AlertDialog>
           )}
+
+          {/* Submitted: waiting for review */}
           {quote.status === "pending_approval" && (
-            <>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" disabled={rejectQuote.isPending}>
-                    <XCircle className="h-4 w-4 mr-2" /> Reject
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Reject this quote?</AlertDialogTitle>
-                    <AlertDialogDescription>The quote will be returned to draft status for revision.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleReject}>Reject</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white" disabled={approveQuote.isPending}>
-                    <CheckCircle2 className="h-4 w-4 mr-2" /> Approve
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Approve this quote?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      The quote will be approved and ready to convert to an invoice.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction className="bg-green-600 hover:bg-green-700" onClick={handleApprove}>Approve</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-sm font-medium">
+              <Send className="h-4 w-4" />
+              Awaiting review
+            </div>
           )}
+
+          {/* Approved: convert to invoice */}
           {quote.status === "approved" && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -507,6 +463,14 @@ export default function QuoteDetail() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          )}
+
+          {/* Converted */}
+          {quote.status === "converted" && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-purple-50 border border-purple-200 text-purple-700 text-sm font-medium">
+              <CheckCircle className="h-4 w-4" />
+              Invoiced
+            </div>
           )}
         </div>
       </div>
@@ -539,9 +503,9 @@ export default function QuoteDetail() {
                 className={isRecording ? "border-red-300 text-red-600 hover:bg-red-50" : ""}
               >
                 {isRecording ? (
-                  <><MicOff className="h-4 w-4 mr-2" /> Stop Recording</>
+                  <><MicOff className="h-4 w-4 mr-1.5" /> Stop Recording</>
                 ) : (
-                  <><Mic className="h-4 w-4 mr-2" /> Voice Input</>
+                  <><Mic className="h-4 w-4 mr-1.5" /> Record Voice</>
                 )}
               </Button>
               <Button
@@ -550,181 +514,223 @@ export default function QuoteDetail() {
                 disabled={aiLoading || !voiceText.trim()}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
-                {aiLoading ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating...</>
-                ) : (
-                  <><Sparkles className="h-4 w-4 mr-2" /> Fill with AI</>
-                )}
+                {aiLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1.5" />}
+                {aiLoading ? "Generating…" : "Generate Items"}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Quote body */}
+      {/* Quote details */}
       <Card>
-        <CardContent className="pt-6 space-y-6">
-          {/* Title + notes */}
-          {isEditable && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quote Title</Label>
-                <Input
-                  value={effectiveTitle}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Foundation Concrete Work"
-                  className="mt-1"
-                />
-              </div>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Quote Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Title</Label>
+            {isEditable ? (
+              <Input
+                value={effectiveTitle}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Quote title"
+              />
+            ) : (
+              <p className="text-sm text-foreground">{effectiveTitle}</p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs text-muted-foreground">Quote Number</Label>
+              <p className="text-sm font-mono">{quote.quoteNumber}</p>
             </div>
-          )}
-
-          {/* Line items */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground">Line Items</p>
-              {isEditable && (
-                <Button variant="ghost" size="sm" onClick={addItem} className="h-7 text-xs">
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Item
-                </Button>
-              )}
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b">
-                    <th className="text-left pb-3 font-medium min-w-[200px]">Description</th>
-                    <th className="text-right pb-3 font-medium w-20">Qty</th>
-                    <th className="text-right pb-3 font-medium w-20">Unit</th>
-                    <th className="text-right pb-3 font-medium w-28">Unit Price</th>
-                    <th className="text-right pb-3 font-medium w-28">Total</th>
-                    {isEditable && <th className="w-10" />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {effectiveItems.map((item, i) => (
-                    <tr key={i} className="border-b last:border-0">
-                      {isEditable ? (
-                        <>
-                          <td className="py-2 pr-2">
-                            <Input
-                              value={item.description}
-                              onChange={(e) => updateItem(i, "description", e.target.value)}
-                              className="h-8 text-sm"
-                            />
-                          </td>
-                          <td className="py-2 px-1">
-                            <Input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => updateItem(i, "quantity", parseFloat(e.target.value) || 0)}
-                              className="h-8 text-sm text-right w-20"
-                            />
-                          </td>
-                          <td className="py-2 px-1">
-                            <Input
-                              value={item.unit}
-                              onChange={(e) => updateItem(i, "unit", e.target.value)}
-                              className="h-8 text-sm text-right w-20"
-                            />
-                          </td>
-                          <td className="py-2 px-1">
-                            <Input
-                              type="number"
-                              value={item.unitPrice}
-                              onChange={(e) => updateItem(i, "unitPrice", parseFloat(e.target.value) || 0)}
-                              className="h-8 text-sm text-right w-28"
-                            />
-                          </td>
-                          <td className="py-2 pl-2 text-right font-medium w-28">{fmtCAD(item.total)}</td>
-                          <td className="py-2 pl-2">
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500" onClick={() => removeItem(i)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="py-3 pr-4">{item.description}</td>
-                          <td className="py-3 text-right">{item.quantity}</td>
-                          <td className="py-3 text-right text-muted-foreground">{item.unit}</td>
-                          <td className="py-3 text-right">{fmtCAD(item.unitPrice)}</td>
-                          <td className="py-3 text-right font-medium">{fmtCAD(item.total)}</td>
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                  {effectiveItems.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-muted-foreground text-sm">
-                        No line items yet. Use AI fill or add items manually.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div>
+              <Label className="text-xs text-muted-foreground">Client</Label>
+              <p className="text-sm">{quote.clientName}</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <Separator />
+      {/* Line items */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardTitle className="text-base">Line Items</CardTitle>
+          {isEditable && (
+            <Button variant="outline" size="sm" onClick={addItem}>
+              <Plus className="h-4 w-4 mr-1.5" /> Add Item
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Description</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-20">Qty</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-20">Unit</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-28">Unit Price</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-28">Total</th>
+                  {isEditable && <th className="w-10" />}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {effectiveItems.map((item, idx) => (
+                  <tr key={idx}>
+                    <td className="px-4 py-2">
+                      {isEditable ? (
+                        <Input
+                          value={item.description}
+                          onChange={(e) => updateItem(idx, "description", e.target.value)}
+                          className="h-8 text-sm"
+                          placeholder="Description"
+                        />
+                      ) : (
+                        <span>{item.description}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {isEditable ? (
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm text-right w-20 ml-auto"
+                          min={0}
+                        />
+                      ) : (
+                        <span>{item.quantity}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {isEditable ? (
+                        <Input
+                          value={item.unit}
+                          onChange={(e) => updateItem(idx, "unit", e.target.value)}
+                          className="h-8 text-sm text-right w-20 ml-auto"
+                          placeholder="ea"
+                        />
+                      ) : (
+                        <span>{item.unit}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {isEditable ? (
+                        <Input
+                          type="number"
+                          value={item.unitPrice}
+                          onChange={(e) => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm text-right w-28 ml-auto"
+                          min={0}
+                          step={0.01}
+                        />
+                      ) : (
+                        <span>{fmtCAD(item.unitPrice)}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right font-medium">
+                      {fmtCAD(item.total)}
+                    </td>
+                    {isEditable && (
+                      <td className="px-2 py-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeItem(idx)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {effectiveItems.length === 0 && (
+                  <tr>
+                    <td colSpan={isEditable ? 6 : 5} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                      No line items yet.{isEditable && " Click \"Add Item\" or use AI fill above."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {/* Totals */}
-          <div className="flex flex-col items-end gap-1.5 text-sm">
-            <div className="flex w-52 justify-between">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span>{fmtCAD(subtotal)}</span>
+          <div className="px-4 py-4 border-t border-border space-y-1.5">
+            <div className="flex justify-end gap-8 text-sm text-muted-foreground">
+              <span>Subtotal</span>
+              <span className="w-28 text-right">{fmtCAD(subtotal)}</span>
             </div>
-            <div className="flex w-52 justify-between">
-              <span className="text-muted-foreground">HST ({(taxRate * 100).toFixed(0)}%)</span>
-              <span>{fmtCAD(taxAmount)}</span>
+            <div className="flex justify-end gap-8 text-sm text-muted-foreground">
+              <span>HST ({(taxRate * 100).toFixed(0)}%)</span>
+              <span className="w-28 text-right">{fmtCAD(taxAmount)}</span>
             </div>
-            <Separator className="w-52 my-1" />
-            <div className="flex w-52 justify-between font-bold text-base">
-              <span>Total</span>
-              <span>{fmtCAD(total)}</span>
+            <Separator className="my-2" />
+            <div className="flex justify-end gap-8">
+              <span className="font-bold text-foreground">Total (CAD)</span>
+              <span className="w-28 text-right font-bold text-xl text-primary">{fmtCAD(total)}</span>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Notes */}
+      {/* Notes */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Notes</CardTitle>
+        </CardHeader>
+        <CardContent>
           {isEditable ? (
-            <div>
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes / Exclusions</Label>
-              <Textarea
-                value={effectiveNotes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Scope clarifications, assumptions, or exclusions..."
-                rows={3}
-                className="resize-none mt-1"
-              />
-            </div>
-          ) : quote.notes ? (
-            <div>
-              <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground mb-1">Notes</p>
-              <p className="text-sm text-foreground whitespace-pre-wrap">{quote.notes}</p>
-            </div>
-          ) : null}
-
-          {/* Valid until */}
-          {quote.validUntil && (
-            <p className="text-sm text-muted-foreground">
-              Valid until {format(new Date(quote.validUntil), "MMMM d, yyyy")}
-            </p>
+            <Textarea
+              value={effectiveNotes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Optional notes, payment terms, or scope details…"
+              rows={4}
+              className="resize-none"
+            />
+          ) : (
+            effectiveNotes
+              ? <p className="text-sm text-foreground whitespace-pre-wrap">{effectiveNotes}</p>
+              : <p className="text-sm text-muted-foreground">No notes.</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Approval history */}
-      {(quote.approvedAt || quote.convertedAt) && (
-        <Card>
-          <CardContent className="pt-4 pb-4 text-sm space-y-1 text-muted-foreground">
-            {quote.approvedAt && (
-              <p>Approved on {format(new Date(quote.approvedAt), "MMMM d, yyyy 'at' h:mm a")}</p>
-            )}
-            {quote.convertedAt && (
-              <p>Converted to invoice on {format(new Date(quote.convertedAt), "MMMM d, yyyy")}</p>
-            )}
-          </CardContent>
-        </Card>
+      {/* Bottom save / submit bar for editable quotes */}
+      {isEditable && (
+        <div className="flex justify-end gap-3 pt-2 border-t border-border">
+          {hasUnsavedChanges && (
+            <Button variant="outline" onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              Save Changes
+            </Button>
+          )}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={submitQuote.isPending}>
+                {submitQuote.isPending
+                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  : <Send className="h-4 w-4 mr-2" />}
+                Submit to Foreman & Owner
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Submit this quote?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  The quote will be sent to the foreman and owner for review. They'll receive an email notification.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleSubmit}>Submit</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       )}
     </div>
   );

@@ -6,9 +6,79 @@ import {
   projectsTable,
   usersTable,
 } from "@workspace/db";
-import { eq, and, count, desc } from "drizzle-orm";
+import { eq, and, count, desc, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { CreateQuoteBody, UpdateQuoteBody, RejectQuoteBody, ConvertQuoteToInvoiceBody } from "@workspace/api-zod";
+import { Resend } from "resend";
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+async function notifyQuoteSubmitted(quote: {
+  quoteNumber: string;
+  title: string;
+  clientName: string;
+  total: string;
+  companyId: number;
+}) {
+  if (!resend) return;
+  try {
+    const recipients = await db
+      .select({ email: usersTable.email, firstName: usersTable.firstName, role: usersTable.role })
+      .from(usersTable)
+      .where(
+        and(
+          eq(usersTable.companyId, quote.companyId),
+          inArray(usersTable.role, ["owner", "foreman"]),
+        ),
+      );
+
+    if (!recipients.length) return;
+
+    const totalFormatted = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(parseFloat(quote.total));
+
+    await Promise.allSettled(
+      recipients.map((r) =>
+        resend!.emails.send({
+          from: "Site Snap <noreply@sitesnap.ca>",
+          to: r.email,
+          subject: `New Quote Submitted: ${quote.quoteNumber} — ${quote.clientName}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+              <div style="background:#FF6600;padding:20px 24px;border-radius:8px 8px 0 0">
+                <h1 style="color:#fff;margin:0;font-size:20px">Site Snap</h1>
+              </div>
+              <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+                <p style="color:#374151;font-size:15px">Hi ${r.firstName},</p>
+                <p style="color:#374151">A quote has been submitted for your review:</p>
+                <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">
+                  <tr style="border-bottom:1px solid #e5e7eb">
+                    <td style="padding:8px 0;color:#6b7280;width:40%">Quote #</td>
+                    <td style="padding:8px 0;font-weight:600;color:#111827">${quote.quoteNumber}</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid #e5e7eb">
+                    <td style="padding:8px 0;color:#6b7280">Title</td>
+                    <td style="padding:8px 0;font-weight:600;color:#111827">${quote.title}</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid #e5e7eb">
+                    <td style="padding:8px 0;color:#6b7280">Client</td>
+                    <td style="padding:8px 0;color:#111827">${quote.clientName}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;color:#6b7280">Total</td>
+                    <td style="padding:8px 0;font-weight:700;color:#FF6600;font-size:16px">${totalFormatted}</td>
+                  </tr>
+                </table>
+                <p style="color:#6b7280;font-size:13px">Log in to Site Snap to view and manage this quote.</p>
+              </div>
+            </div>
+          `,
+        })
+      )
+    );
+  } catch {
+    // Non-fatal — log but don't fail the request
+  }
+}
 
 const router = Router({ mergeParams: true });
 
@@ -174,6 +244,16 @@ router.post("/:quoteId/submit", requireAuth, requireCompany, async (req, res) =>
   const [updated] = await db.update(quotesTable)
     .set({ status: "pending_approval", updatedAt: new Date() })
     .where(eq(quotesTable.id, quoteId)).returning();
+
+  // Fire-and-forget email notification to owners and foremans
+  notifyQuoteSubmitted({
+    quoteNumber: updated.quoteNumber,
+    title: updated.title,
+    clientName: updated.clientName,
+    total: updated.total,
+    companyId: updated.companyId,
+  });
+
   res.json(updated);
 });
 

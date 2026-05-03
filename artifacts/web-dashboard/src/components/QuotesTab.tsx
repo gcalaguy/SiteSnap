@@ -1,11 +1,9 @@
 import { useState, useRef } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   useListQuotes,
   useCreateQuote,
   useSubmitQuoteForApproval,
-  useApproveQuote,
-  useRejectQuote,
   useConvertQuoteToInvoice,
   useGenerateQuoteAI,
   getListQuotesQueryKey,
@@ -44,27 +42,26 @@ import {
   Loader2,
   FileText,
   ChevronRight,
-  CheckCircle2,
   Send,
   Receipt,
-  XCircle,
   ArrowRight,
+  Eye,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
-  pending_approval: "Pending Approval",
+  pending_approval: "Submitted",
   approved: "Approved",
-  rejected: "Rejected",
+  rejected: "Needs Revision",
   converted: "Invoiced",
 };
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700 border-gray-200",
-  pending_approval: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  pending_approval: "bg-blue-50 text-blue-700 border-blue-200",
   approved: "bg-green-50 text-green-700 border-green-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-  converted: "bg-blue-50 text-blue-700 border-blue-200",
+  rejected: "bg-orange-50 text-orange-700 border-orange-200",
+  converted: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
 type LineItem = { description: string; quantity: number; unit: string; unitPrice: number; total: number };
@@ -82,8 +79,6 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
 
   const createQuote = useCreateQuote();
   const submitQuote = useSubmitQuoteForApproval();
-  const approveQuote = useApproveQuote();
-  const rejectQuote = useRejectQuote();
   const convertQuote = useConvertQuoteToInvoice();
   const generateAI = useGenerateQuoteAI();
 
@@ -195,7 +190,11 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
       });
       invalidate();
       setOpen(false);
-      toast({ title: "Quote created!", description: `${created.quoteNumber} saved as draft.` });
+      toast({
+        title: "Quote created!",
+        description: `${created.quoteNumber} saved as draft. Open it to review and submit.`,
+      });
+      setTimeout(() => setLocation(`/quotes/${created.id}`), 400);
     } catch {
       toast({ title: "Failed to create quote", variant: "destructive" });
     } finally {
@@ -208,35 +207,9 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
     try {
       await submitQuote.mutateAsync({ projectId, quoteId: q.id });
       invalidate();
-      toast({ title: "Submitted for approval" });
+      toast({ title: "Quote submitted!", description: "The foreman and owner have been notified." });
     } catch {
       toast({ title: "Failed to submit", variant: "destructive" });
-    } finally {
-      setActionLoading((p) => { const n = { ...p }; delete n[q.id]; return n; });
-    }
-  }
-
-  async function handleApprove(q: { id: number }) {
-    setActionLoading((p) => ({ ...p, [q.id]: "approve" }));
-    try {
-      await approveQuote.mutateAsync({ projectId, quoteId: q.id });
-      invalidate();
-      toast({ title: "Quote approved!" });
-    } catch {
-      toast({ title: "Failed to approve", variant: "destructive" });
-    } finally {
-      setActionLoading((p) => { const n = { ...p }; delete n[q.id]; return n; });
-    }
-  }
-
-  async function handleReject(q: { id: number }) {
-    setActionLoading((p) => ({ ...p, [q.id]: "reject" }));
-    try {
-      await rejectQuote.mutateAsync({ projectId, quoteId: q.id, data: {} });
-      invalidate();
-      toast({ title: "Quote rejected" });
-    } catch {
-      toast({ title: "Failed to reject", variant: "destructive" });
     } finally {
       setActionLoading((p) => { const n = { ...p }; delete n[q.id]; return n; });
     }
@@ -322,80 +295,83 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
                     </div>
                   </div>
 
-                  {/* Approval workflow action bar */}
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border flex-wrap">
-                    {/* Always: View full detail */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs gap-1 text-muted-foreground h-7"
-                      onClick={() => setLocation(`/quotes/${q.id}`)}
-                    >
-                      Edit / View <ChevronRight className="h-3 w-3" />
-                    </Button>
+                    {/* View / Edit — always visible */}
+                    <Link href={`/quotes/${q.id}`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs gap-1.5 h-7"
+                      >
+                        <Eye className="h-3 w-3" />
+                        View / Edit
+                      </Button>
+                    </Link>
 
                     <div className="flex-1" />
 
-                    {/* Draft: submit for approval */}
+                    {/* Draft: submit */}
                     {q.status === "draft" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs gap-1 h-7 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
-                        disabled={!!busy}
-                        onClick={() => handleSubmit(q)}
-                      >
-                        {busy === "submit" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Submit for Approval
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            className="text-xs gap-1.5 h-7 bg-primary hover:bg-primary/90 text-primary-foreground"
+                            disabled={!!busy}
+                          >
+                            {busy === "submit" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                            Submit
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Submit this quote?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              The quote will be sent to the foreman and owner for review. Make sure all line items and totals are correct.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleSubmit(q)}>Submit</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
 
-                    {/* Pending: approve or reject */}
-                    {q.status === "pending_approval" && (
-                      <>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="outline" className="text-xs gap-1 h-7 border-red-200 text-red-600 hover:bg-red-50" disabled={!!busy}>
-                              <XCircle className="h-3 w-3" />
-                              Reject
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Reject this quote?</AlertDialogTitle>
-                              <AlertDialogDescription>The quote will be sent back to draft for revisions.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleReject(q)} className="bg-red-600 hover:bg-red-700">Reject</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-
-                        <Button
-                          size="sm"
-                          className="text-xs gap-1 h-7 bg-green-600 hover:bg-green-700 text-white"
-                          disabled={!!busy}
-                          onClick={() => handleApprove(q)}
-                        >
-                          {busy === "approve" ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                          Approve
-                        </Button>
-                      </>
-                    )}
-
-                    {/* Rejected: re-submit after edits */}
+                    {/* Needs revision: re-submit after edits */}
                     {q.status === "rejected" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs gap-1 h-7 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
-                        disabled={!!busy}
-                        onClick={() => handleSubmit(q)}
-                      >
-                        {busy === "submit" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Re-submit
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs gap-1.5 h-7 border-orange-300 text-orange-700 hover:bg-orange-50"
+                            disabled={!!busy}
+                          >
+                            {busy === "submit" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                            Re-submit
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Re-submit this quote?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              The updated quote will be sent to the foreman and owner for review.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleSubmit(q)}>Re-submit</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+
+                    {/* Submitted: waiting */}
+                    {q.status === "pending_approval" && (
+                      <span className="text-xs text-blue-600 font-medium flex items-center gap-1">
+                        <Send className="h-3 w-3" /> Awaiting review
+                      </span>
                     )}
 
                     {/* Approved: one-click convert to invoice */}
@@ -404,7 +380,7 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
                         <AlertDialogTrigger asChild>
                           <Button
                             size="sm"
-                            className="text-xs gap-1 h-7 bg-primary hover:bg-primary/90 text-primary-foreground"
+                            className="text-xs gap-1.5 h-7 bg-primary hover:bg-primary/90 text-primary-foreground"
                             disabled={!!busy}
                           >
                             {busy === "convert" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Receipt className="h-3 w-3" />}
@@ -430,7 +406,7 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
 
                     {/* Converted: link to invoice */}
                     {q.status === "converted" && (
-                      <span className="text-xs text-blue-600 font-medium flex items-center gap-1">
+                      <span className="text-xs text-purple-600 font-medium flex items-center gap-1">
                         <Receipt className="h-3 w-3" /> Invoice created
                       </span>
                     )}
@@ -544,7 +520,7 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
                         </thead>
                         <tbody className="divide-y divide-border">
                           {lineItems.map((item, i) => (
-                            <tr key={i} className="hover:bg-muted/30">
+                            <tr key={i}>
                               <td className="px-3 py-2">{item.description}</td>
                               <td className="px-3 py-2 text-right">{item.quantity} {item.unit}</td>
                               <td className="px-3 py-2 text-right">{fmtCAD(item.unitPrice)}</td>
@@ -552,27 +528,28 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
                             </tr>
                           ))}
                         </tbody>
-                        <tfoot className="bg-muted/30 border-t border-border">
-                          <tr>
-                            <td colSpan={3} className="px-3 py-2 text-right text-muted-foreground text-xs">Subtotal</td>
-                            <td className="px-3 py-2 text-right font-medium">{fmtCAD(subtotal)}</td>
-                          </tr>
-                          <tr>
-                            <td colSpan={3} className="px-3 py-2 text-right text-muted-foreground text-xs">HST (13%)</td>
-                            <td className="px-3 py-2 text-right font-medium">{fmtCAD(taxAmount)}</td>
-                          </tr>
-                          <tr>
-                            <td colSpan={3} className="px-3 py-2 text-right font-semibold text-foreground">Total CAD</td>
-                            <td className="px-3 py-2 text-right font-bold text-primary">{fmtCAD(subtotal + taxAmount)}</td>
-                          </tr>
-                        </tfoot>
                       </table>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                      <Sparkles className="h-3 w-3 text-primary" />
-                      AI-suggested pricing — you can edit line items after creating the quote
-                    </p>
                   </div>
+
+                  <div className="rounded-lg bg-muted/30 p-3 space-y-1 text-sm">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Subtotal</span><span>{fmtCAD(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>HST (13%)</span><span>{fmtCAD(taxAmount)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border">
+                      <span>Total</span><span>{fmtCAD(subtotal + taxAmount)}</span>
+                    </div>
+                  </div>
+
+                  {aiResult.notes && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Notes</p>
+                      <p className="text-sm text-foreground">{aiResult.notes}</p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -588,12 +565,14 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
                   className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
                 >
                   {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  {aiLoading ? "AI generating…" : "Generate with AI"}
+                  {aiLoading ? "Generating…" : "Generate with AI"}
                 </Button>
               </>
             ) : (
               <>
-                <Button variant="outline" onClick={() => setStep("input")}>Back</Button>
+                <Button variant="outline" onClick={() => setStep("input")}>
+                  ← Back
+                </Button>
                 <Button
                   onClick={handleCreate}
                   disabled={creating}
