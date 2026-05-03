@@ -336,13 +336,14 @@ export default function QuoteDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          {/* Download PDF */}
+          {/* Download PDF — always uses live (effectiveItems) state */}
           <Button variant="outline" onClick={() => {
             if (!quote) return;
+            const items = effectiveItems;
+            const exportTitle = effectiveTitle || quote.title;
+            const fmtC = (v: number) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(v);
             import("jspdf").then(({ default: jsPDF }) =>
               import("jspdf-autotable").then(({ default: autoTable }) => {
-                const items = (quote.lineItems ?? []) as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[];
-                const fmtC = (v: number) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(v);
                 const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
                 const PRIMARY: [number, number, number] = [255, 102, 0];
                 const DARK: [number, number, number] = [23, 32, 52];
@@ -357,7 +358,7 @@ export default function QuoteDetail() {
                 doc.text(quote.quoteNumber, pageW - margin, 19, { align: "right" });
                 let y = 38;
                 doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(...DARK);
-                doc.text(quote.title, margin, y); y += 10;
+                doc.text(exportTitle, margin, y); y += 10;
                 doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100);
                 doc.text(`Client: ${quote.clientName}`, margin, y); y += 6;
                 autoTable(doc, {
@@ -369,18 +370,22 @@ export default function QuoteDetail() {
                   alternateRowStyles: { fillColor: [245, 245, 245] as [number, number, number] },
                   columnStyles: { 0: { cellWidth: "auto" }, 1: { halign: "right", cellWidth: 16 }, 2: { halign: "right", cellWidth: 18 }, 3: { halign: "right", cellWidth: 30 }, 4: { halign: "right", cellWidth: 30 } },
                 });
-                const taxRate = parseFloat(quote.taxRate ?? "0.13");
-                const sub = items.reduce((s, i) => s + i.total, 0);
-                const tax = Math.round(sub * taxRate * 100) / 100;
-                const tot = sub + tax;
                 y = (doc as any).lastAutoTable.finalY + 6;
                 const tx = pageW - margin;
                 doc.setFontSize(9); doc.setTextColor(100, 100, 100);
-                doc.text("Subtotal", tx - 40, y, { align: "right" }); doc.setTextColor(...DARK); doc.text(fmtC(sub), tx, y, { align: "right" }); y += 6;
-                doc.setTextColor(100, 100, 100); doc.text(`HST (${(taxRate * 100).toFixed(0)}%)`, tx - 40, y, { align: "right" }); doc.setTextColor(...DARK); doc.text(fmtC(tax), tx, y, { align: "right" }); y += 4;
+                doc.text("Subtotal", tx - 40, y, { align: "right" }); doc.setTextColor(...DARK); doc.text(fmtC(subtotal), tx, y, { align: "right" }); y += 6;
+                doc.setTextColor(100, 100, 100); doc.text(`HST (${(taxRate * 100).toFixed(0)}%)`, tx - 40, y, { align: "right" }); doc.setTextColor(...DARK); doc.text(fmtC(taxAmount), tx, y, { align: "right" }); y += 4;
                 doc.setFillColor(...PRIMARY); doc.roundedRect(tx - 64, y, 65, 10, 1.5, 1.5, "F");
                 doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(255, 255, 255);
-                doc.text("TOTAL", tx - 41, y + 6.5, { align: "right" }); doc.text(fmtC(tot), tx - 1, y + 6.5, { align: "right" });
+                doc.text("TOTAL", tx - 41, y + 6.5, { align: "right" }); doc.text(fmtC(total), tx - 1, y + 6.5, { align: "right" });
+                if (effectiveNotes) {
+                  const ny = (doc as any).lastAutoTable.finalY + 30;
+                  doc.setFontSize(8); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "italic");
+                  doc.text("Notes:", margin, ny);
+                  doc.setFont("helvetica", "normal");
+                  const lines = doc.splitTextToSize(effectiveNotes, pageW - margin * 2);
+                  doc.text(lines, margin, ny + 5);
+                }
                 doc.save(`${quote.quoteNumber}.pdf`);
               })
             );
@@ -390,9 +395,24 @@ export default function QuoteDetail() {
             PDF
           </Button>
 
-          {/* Download Excel */}
+          {/* Download Excel — always uses live (effectiveItems) state */}
           <Button variant="outline" onClick={() => {
-            if (quote) { downloadQuoteXLSX(quote as QuoteForExport); toast({ title: "Excel downloaded" }); }
+            if (!quote) return;
+            downloadQuoteXLSX({
+              quoteNumber: quote.quoteNumber,
+              title: effectiveTitle || quote.title,
+              clientName: quote.clientName,
+              clientEmail: quote.clientEmail,
+              status: quote.status,
+              createdAt: quote.createdAt,
+              validUntil: quote.validUntil,
+              lineItems: effectiveItems,
+              taxRate: String(taxRate),
+              subtotal: String(subtotal),
+              taxAmount: String(taxAmount),
+              total: String(total),
+            });
+            toast({ title: "Excel downloaded" });
           }}>
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Excel

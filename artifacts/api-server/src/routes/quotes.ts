@@ -109,14 +109,18 @@ router.get("/:quoteId", requireAuth, requireCompany, async (req, res) => {
   res.json(quote);
 });
 
-// PUT /:quoteId
+// PUT /:quoteId — projectId=0 means company-level (skip project ownership check)
 router.put("/:quoteId", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId);
   const quoteId = parseInt(req.params.quoteId);
 
   const [existing] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
-  if (!existing || existing.projectId !== projectId) { res.status(404).json({ error: "Quote not found" }); return; }
+  if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
+  // Only enforce projectId match when a real (> 0) projectId is provided
+  if (projectId > 0 && existing.projectId !== null && existing.projectId !== projectId) {
+    res.status(404).json({ error: "Quote not found" }); return;
+  }
   if (existing.status !== "draft" && existing.status !== "rejected") {
     res.status(409).json({ error: "Only draft or rejected quotes can be edited" }); return;
   }
