@@ -1,11 +1,13 @@
-import { useGetDashboardSummary, useGetRecentActivity, useListProjects, useGetMe, customFetch } from "@workspace/api-client-react";
+import {
+  useGetDashboardSummary, useGetRecentActivity, useListProjects,
+  useGetMe, useListCompanyMembers, customFetch,
+} from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React from "react";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import {
   ActivityIndicator,
-  FlatList,
   Platform,
   Pressable,
   RefreshControl,
@@ -17,21 +19,56 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
-function StatCard({ label, value, icon, accent }: { label: string; value: string; icon: string; accent?: boolean }) {
+// ── Tappable summary card ───────────────────────────────────────────────────
+function SummaryCard({
+  title, value, subtitle, icon, onPress,
+}: {
+  title: string;
+  value: string | number;
+  subtitle: string;
+  icon: string;
+  onPress: () => void;
+}) {
   const colors = useColors();
+
+  function handlePress() {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  }
+
   return (
-    <View style={[styles.statCard, {
-      backgroundColor: accent ? colors.primary : colors.card,
-      borderColor: accent ? colors.primary : colors.border,
-    }]}>
-      <Feather name={icon as any} size={18} color={accent ? "#FFFFFF" : colors.primary} />
-      <Text style={[styles.statValue, { color: accent ? "#FFFFFF" : colors.foreground }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: accent ? "rgba(255,255,255,0.75)" : colors.mutedForeground }]}>{label}</Text>
-    </View>
+    <Pressable
+      style={({ pressed }) => [
+        styles.summaryCard,
+        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.82 : 1 },
+      ]}
+      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}: ${value}. ${subtitle}`}
+    >
+      {/* Top row: label + icon */}
+      <View style={styles.summaryCardTop}>
+        <Text style={[styles.summaryCardTitle, { color: colors.mutedForeground }]}>{title}</Text>
+        <View style={[styles.summaryCardIconBg, { backgroundColor: `${colors.primary}1A` }]}>
+          <Feather name={icon as any} size={16} color={colors.primary} />
+        </View>
+      </View>
+
+      {/* Value */}
+      <Text style={[styles.summaryCardValue, { color: colors.foreground }]}>{value}</Text>
+
+      {/* Bottom row: subtitle + chevron */}
+      <View style={styles.summaryCardBottom}>
+        <Text style={[styles.summaryCardSubtitle, { color: colors.mutedForeground }]}>{subtitle}</Text>
+        <Feather name="chevron-right" size={14} color={colors.primary} />
+      </View>
+    </Pressable>
   );
 }
 
+// ── Project card ────────────────────────────────────────────────────────────
 function ProjectCard({ project }: { project: any }) {
   const colors = useColors();
   const router = useRouter();
@@ -43,7 +80,10 @@ function ProjectCard({ project }: { project: any }) {
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.projectCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+      style={({ pressed }) => [
+        styles.projectCard,
+        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+      ]}
       onPress={() => router.push(`/project/${project.id}`)}
     >
       <View style={{ flex: 1 }}>
@@ -60,6 +100,7 @@ function ProjectCard({ project }: { project: any }) {
   );
 }
 
+// ── Activity helpers ────────────────────────────────────────────────────────
 const ACTIVITY_ICONS: Record<string, string> = {
   daily_report: "file-text",
   rfi_created: "alert-circle",
@@ -119,56 +160,82 @@ function ActivityRow({ item }: { item: any }) {
   );
 }
 
+// ── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
+  header: {
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end",
+  },
   greeting: { fontSize: 13, fontFamily: "Inter_400Regular" },
   name: { fontSize: 26, fontFamily: "Inter_700Bold", marginTop: 2 },
   bellBtn: { position: "relative", padding: 4 },
-  badge: { position: "absolute", top: -2, right: -4, minWidth: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
-  badgeText: { color: "#FFFFFF", fontSize: 11, fontFamily: "Inter_700Bold" },
-  statsRow: { flexDirection: "row", gap: 10, paddingHorizontal: 20, marginBottom: 24 },
-  statCard: {
-    flex: 1,
-    borderRadius: 10,
-    padding: 14,
-    alignItems: "center",
-    gap: 6,
-    borderWidth: 1,
+  badge: {
+    position: "absolute", top: -2, right: -4, minWidth: 18, height: 18,
+    borderRadius: 9, alignItems: "center", justifyContent: "center", paddingHorizontal: 4,
   },
-  statValue: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  statLabel: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center" },
+  badgeText: { color: "#FFFFFF", fontSize: 11, fontFamily: "Inter_700Bold" },
+
+  // Summary cards
+  summaryGrid: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
+  summaryCard: {
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    gap: 4,
+    // subtle shadow
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  summaryCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  summaryCardTitle: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  summaryCardIconBg: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  summaryCardValue: { fontSize: 34, fontFamily: "Inter_700Bold", lineHeight: 40 },
+  summaryCardBottom: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 },
+  summaryCardSubtitle: { fontSize: 12, fontFamily: "Inter_400Regular" },
+
+  // Finance card
+  financeCard: {
+    borderRadius: 14, padding: 18, elevation: 3,
+    shadowColor: "#FF6600", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 6,
+  },
+  financeCardInner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  financeCardText: { gap: 2 },
+  financeCardTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  financeCardSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.8)" },
+
+  // Section
   section: { paddingHorizontal: 20, marginBottom: 20 },
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
   seeAll: { fontSize: 13, fontFamily: "Inter_500Medium" },
+
+  // Project card
   projectCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
+    flexDirection: "row", alignItems: "center", borderRadius: 10,
+    padding: 14, marginBottom: 8, borderWidth: 1,
   },
   projectName: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 4 },
   projectMeta: { fontSize: 12, fontFamily: "Inter_400Regular" },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
   row: { flexDirection: "row", alignItems: "center" },
+
+  // Activity
   activityRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 12, borderBottomWidth: 1 },
   activityIcon: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   activityDesc: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
   activityFooter: { flexDirection: "row", alignItems: "center", marginTop: 2, flexWrap: "wrap" },
   activityMeta: { fontSize: 12, fontFamily: "Inter_400Regular" },
   activityTime: { fontSize: 12, fontFamily: "Inter_400Regular" },
+
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  financeCard: { borderRadius: 14, padding: 18, elevation: 3, shadowColor: "#FF6600", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 6 },
-  financeCardInner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  financeCardText: { gap: 2 },
-  financeCardTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
-  financeCardSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.8)" },
 });
 
+// ── Screen ──────────────────────────────────────────────────────────────────
 export default function DashboardScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -178,6 +245,9 @@ export default function DashboardScreen() {
   const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useGetDashboardSummary();
   const { data: activity, isLoading: activityLoading, refetch: refetchActivity } = useGetRecentActivity();
   const { data: projects, isLoading: projectsLoading, refetch: refetchProjects } = useListProjects();
+  const { data: members } = useListCompanyMembers(me?.companyId ?? 0, {
+    query: { enabled: !!me?.companyId },
+  });
 
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["notifications", "unread"],
@@ -194,7 +264,10 @@ export default function DashboardScreen() {
   const handleRefresh = () => { refetchSummary(); refetchActivity(); refetchProjects(); };
 
   const firstName = me?.firstName ?? "there";
-  const topProjects = (projects ?? []).filter(p => p.status === "active").slice(0, 4);
+  const activeProjects = (projects ?? []).filter(p => p.status === "active");
+  const completedProjects = (projects ?? []).filter(p => p.status === "completed");
+  const topProjects = activeProjects.slice(0, 4);
+  const memberCount = (members as any[])?.length ?? 0;
 
   const formatCurrency = (v?: number | null) => {
     if (v == null) return "—";
@@ -218,55 +291,73 @@ export default function DashboardScreen() {
           <Text style={[styles.greeting, { color: "rgba(255,255,255,0.6)" }]}>Good day,</Text>
           <Text style={[styles.name, { color: "#FFFFFF" }]}>{firstName}</Text>
         </View>
-        <Pressable
-          onPress={() => router.push("/notifications")}
-          style={styles.bellBtn}
-          hitSlop={10}
-        >
+        <Pressable onPress={() => router.push("/notifications")} style={styles.bellBtn} hitSlop={10}>
           <Feather name="bell" size={22} color="#FFFFFF" />
           {unreadCount > 0 && (
             <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.badgeText}>
-                {unreadCount > 99 ? "99+" : String(unreadCount)}
-              </Text>
+              <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : String(unreadCount)}</Text>
             </View>
           )}
         </Pressable>
       </View>
 
       {/* Weather */}
-      <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
+      <View style={{ paddingHorizontal: 20, marginTop: 16, marginBottom: 16 }}>
         <WeatherWidget />
       </View>
 
-      {/* Stats */}
-      <View style={[styles.statsRow, { marginTop: 16 }]}>
-        <StatCard label="Projects" value={String(summary?.activeProjects ?? "—")} icon="folder" accent />
-        <StatCard label="Reports" value={String(summary?.reportsThisWeek ?? "—")} icon="file-text" />
-        <StatCard label="RFIs" value={String(summary?.pendingRFIs ?? "—")} icon="alert-circle" />
-      </View>
-
-      {/* Budget stat */}
-      <View style={[styles.statsRow, { marginTop: 0 }]}>
-        <StatCard label="Total Spend" value={formatCurrency(summary?.totalSpend)} icon="dollar-sign" />
-        <StatCard label="Budget" value={formatCurrency(summary?.totalBudget)} icon="trending-up" />
+      {/* ── Summary cards (tappable) ── */}
+      <View style={styles.summaryGrid}>
+        <SummaryCard
+          title="Active Projects"
+          value={summaryLoading ? "—" : String(summary?.activeProjects ?? 0)}
+          subtitle={`${activeProjects.length} total · ${completedProjects.length} completed`}
+          icon="folder"
+          onPress={() => router.push("/(tabs)/projects")}
+        />
+        <SummaryCard
+          title="Reports This Week"
+          value={summaryLoading ? "—" : String(summary?.reportsThisWeek ?? 0)}
+          subtitle="Daily reports submitted"
+          icon="file-text"
+          onPress={() => router.push("/(tabs)/log")}
+        />
+        <SummaryCard
+          title="Open RFIs"
+          value={summaryLoading ? "—" : String(summary?.pendingRFIs ?? 0)}
+          subtitle="Awaiting response"
+          icon="alert-circle"
+          onPress={() => router.push("/(tabs)/projects")}
+        />
+        <SummaryCard
+          title="Team Members"
+          value={memberCount > 0 ? String(memberCount) : "—"}
+          subtitle="Active in workspace"
+          icon="users"
+          onPress={() => router.push("/(tabs)/profile")}
+        />
       </View>
 
       {/* Finance Quick Access */}
       <Pressable
-        style={({ pressed }) => [styles.financeCard, { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1, marginHorizontal: 20, marginBottom: 20 }]}
+        style={({ pressed }) => [
+          styles.financeCard,
+          { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1, marginHorizontal: 16, marginBottom: 20 },
+        ]}
         onPress={() => router.push("/finance")}
       >
         <View style={styles.financeCardInner}>
           <View style={styles.financeCardText}>
             <Text style={styles.financeCardTitle}>Finance</Text>
-            <Text style={styles.financeCardSub}>Invoices · Quotes · Voice Create</Text>
+            <Text style={styles.financeCardSub}>
+              Budget {formatCurrency(summary?.totalBudget)} · Spend {formatCurrency(summary?.totalSpend)}
+            </Text>
           </View>
-          <Feather name="dollar-sign" size={28} color="rgba(255,255,255,0.9)" />
+          <Feather name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
         </View>
       </Pressable>
 
-      {/* Active Projects */}
+      {/* Active Projects list */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Active Projects</Text>
