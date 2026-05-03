@@ -187,9 +187,15 @@ function ReportRow({ report }: { report: any }) {
 function TaskItem({ task, projectId, onUpdate }: { task: any; projectId: number; onUpdate: () => void }) {
   const colors = useColors();
   const updateTask = useUpdateTask();
+  const [expanded, setExpanded] = useState(false);
   const isDone = task.status === "done";
 
-  const toggle = () => {
+  const priorityColors: Record<string, string> = { high: "#EF4444", medium: "#F59E0B", low: "#6B7280" };
+  const priorityLabels: Record<string, string> = { high: "High", medium: "Medium", low: "Low" };
+  const statusLabels: Record<string, string> = { todo: "To Do", in_progress: "In Progress", done: "Done" };
+  const statusColors: Record<string, string> = { todo: "#6B7280", in_progress: colors.primary, done: "#22C55E" };
+
+  const cycleStatus = () => {
     const nextStatus = task.status === "done" ? "todo" : task.status === "todo" ? "in_progress" : "done";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     updateTask.mutate(
@@ -198,22 +204,119 @@ function TaskItem({ task, projectId, onUpdate }: { task: any; projectId: number;
     );
   };
 
-  const priorityColors: Record<string, string> = { high: "#EF4444", medium: "#F59E0B", low: "#6B7280" };
-
   return (
     <Pressable
-      style={({ pressed }) => [styles.taskItem, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
-      onPress={toggle}
+      style={({ pressed }) => [
+        styles.taskItem,
+        { backgroundColor: colors.card, borderColor: expanded ? colors.primary : colors.border, opacity: pressed ? 0.88 : 1 },
+      ]}
+      onPress={() => setExpanded((v) => !v)}
     >
-      <View style={[styles.taskCheck, { backgroundColor: isDone ? colors.primary : "transparent", borderColor: isDone ? colors.primary : colors.border }]}>
+      {/* Checkbox — tapping it cycles status without expanding */}
+      <Pressable
+        onPress={(e) => { e.stopPropagation(); cycleStatus(); }}
+        hitSlop={8}
+        style={[styles.taskCheck, { backgroundColor: isDone ? colors.primary : "transparent", borderColor: isDone ? colors.primary : colors.border }]}
+      >
         {isDone && <Feather name="check" size={11} color="#FFF" />}
-      </View>
+        {task.status === "in_progress" && !isDone && (
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary }} />
+        )}
+      </Pressable>
+
       <View style={{ flex: 1 }}>
-        <Text style={[styles.taskTitle, { color: isDone ? colors.mutedForeground : colors.foreground }, isDone && { textDecorationLine: "line-through" }]} numberOfLines={2}>
+        {/* Title — always visible, unclamped when expanded */}
+        <Text
+          style={[
+            styles.taskTitle,
+            { color: isDone ? colors.mutedForeground : colors.foreground },
+            isDone && { textDecorationLine: "line-through" },
+          ]}
+          numberOfLines={expanded ? undefined : 2}
+        >
           {task.title}
         </Text>
+
+        {/* Compact meta row (collapsed) */}
+        {!expanded && (
+          <View style={styles.taskMetaRow}>
+            <View style={[styles.taskPriorityDot, { backgroundColor: priorityColors[task.priority] ?? "#6B7280" }]} />
+            <Text style={[styles.taskMetaText, { color: priorityColors[task.priority] ?? "#6B7280" }]}>
+              {priorityLabels[task.priority] ?? "Medium"}
+            </Text>
+            {!!task.dueDate && (
+              <>
+                <Text style={[styles.taskMetaSep, { color: colors.border }]}>·</Text>
+                <Feather name="calendar" size={11} color={colors.mutedForeground} />
+                <Text style={[styles.taskMetaText, { color: colors.mutedForeground }]}>
+                  {new Date(task.dueDate).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+                </Text>
+              </>
+            )}
+            {task.status === "in_progress" && (
+              <>
+                <Text style={[styles.taskMetaSep, { color: colors.border }]}>·</Text>
+                <Text style={[styles.taskMetaText, { color: colors.primary }]}>In Progress</Text>
+              </>
+            )}
+          </View>
+        )}
+
+        {/* Expanded details */}
+        {expanded && (
+          <View style={[styles.taskExpanded, { borderTopColor: colors.border }]}>
+            {/* Description */}
+            {!!task.description && (
+              <View style={styles.taskDetailRow}>
+                <Feather name="align-left" size={13} color={colors.mutedForeground} />
+                <Text style={[styles.taskDetailText, { color: colors.foreground }]}>{task.description}</Text>
+              </View>
+            )}
+
+            {/* Status + Priority + Due Date chips */}
+            <View style={styles.taskChipRow}>
+              <View style={[styles.taskChip, { backgroundColor: `${statusColors[task.status]}18` }]}>
+                <View style={[styles.taskPriorityDot, { backgroundColor: statusColors[task.status] }]} />
+                <Text style={[styles.taskChipText, { color: statusColors[task.status] }]}>
+                  {statusLabels[task.status] ?? task.status}
+                </Text>
+              </View>
+              <View style={[styles.taskChip, { backgroundColor: `${priorityColors[task.priority] ?? "#6B7280"}18` }]}>
+                <Text style={[styles.taskChipText, { color: priorityColors[task.priority] ?? "#6B7280" }]}>
+                  {priorityLabels[task.priority] ?? "Medium"} priority
+                </Text>
+              </View>
+              {!!task.dueDate && (
+                <View style={[styles.taskChip, { backgroundColor: colors.muted }]}>
+                  <Feather name="calendar" size={11} color={colors.mutedForeground} />
+                  <Text style={[styles.taskChipText, { color: colors.mutedForeground }]}>
+                    Due {new Date(task.dueDate).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Tap-to-cycle status hint */}
+            <Pressable
+              onPress={cycleStatus}
+              style={[styles.taskCycleBtn, { backgroundColor: colors.primary }]}
+            >
+              <Feather name="refresh-cw" size={12} color="#FFF" />
+              <Text style={styles.taskCycleBtnText}>
+                Mark as {task.status === "done" ? "To Do" : task.status === "todo" ? "In Progress" : "Done"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </View>
-      <View style={[styles.priorityDot, { backgroundColor: priorityColors[task.priority] ?? "#6B7280" }]} />
+
+      {/* Expand chevron */}
+      <Feather
+        name={expanded ? "chevron-up" : "chevron-down"}
+        size={16}
+        color={expanded ? colors.primary : colors.border}
+        style={{ marginTop: 2 }}
+      />
     </Pressable>
   );
 }
@@ -271,6 +374,18 @@ const styles = StyleSheet.create({
   },
   taskTitle: { fontSize: 14, fontFamily: "Inter_400Regular" },
   priorityDot: { width: 7, height: 7, borderRadius: 3.5 },
+  taskMetaRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4, flexWrap: "wrap" },
+  taskPriorityDot: { width: 6, height: 6, borderRadius: 3 },
+  taskMetaText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  taskMetaSep: { fontSize: 12 },
+  taskExpanded: { borderTopWidth: 1, marginTop: 10, paddingTop: 10, gap: 10 },
+  taskDetailRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  taskDetailText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19, flex: 1 },
+  taskChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  taskChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  taskChipText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  taskCycleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, borderRadius: 8 },
+  taskCycleBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFF" },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
   descText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
   infoRow: { flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 10 },
