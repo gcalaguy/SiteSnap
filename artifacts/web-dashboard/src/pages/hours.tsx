@@ -99,6 +99,7 @@ export default function HoursPage() {
 
   // Timesheet state
   const [tsStatusFilter, setTsStatusFilter] = useState<"all" | "submitted" | "approved" | "denied">("all");
+  const [tsWorkerFilter, setTsWorkerFilter] = useState("all");
   const [denyingId, setDenyingId] = useState<number | null>(null);
   const [denyNotes, setDenyNotes] = useState("");
 
@@ -129,6 +130,7 @@ export default function HoursPage() {
   // Timesheet hooks
   const tsParams: Record<string, string> = {};
   if (tsStatusFilter !== "all") tsParams.status = tsStatusFilter;
+  if (tsWorkerFilter !== "all") tsParams.userId = tsWorkerFilter;
   const { data: timesheets = [], isLoading: tsLoading } = useListTimesheets(tsParams);
 
   const approveTs = useApproveTimesheet({
@@ -654,26 +656,47 @@ export default function HoursPage() {
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5">Weekly timesheet submissions requiring review</p>
           </div>
-          <div className="flex items-center gap-2">
-            {(["all", "submitted", "approved", "denied"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setTsStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  tsStatusFilter === s
-                    ? "bg-primary text-white border-primary"
-                    : "bg-background text-muted-foreground border-border hover:border-primary/40"
-                }`}
-              >
-                {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-                {s !== "all" && (
-                  <span className="ml-1.5 opacity-70">
-                    ({timesheets.filter(t => t.status === s).length})
-                  </span>
-                )}
-                {s === "all" && <span className="ml-1.5 opacity-70">({timesheets.length})</span>}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Worker dropdown */}
+            <Select value={tsWorkerFilter} onValueChange={(v) => { setTsWorkerFilter(v); setDenyingId(null); }}>
+              <SelectTrigger className="h-8 w-44 text-xs">
+                <SelectValue placeholder="All Workers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Workers</SelectItem>
+                {members?.map((m) => {
+                  const name = `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim() || m.email;
+                  return (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      {name}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+
+            {/* Status pills */}
+            <div className="flex items-center gap-1.5">
+              {(["all", "submitted", "approved", "denied"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setTsStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    tsStatusFilter === s
+                      ? "bg-primary text-white border-primary"
+                      : "bg-background text-muted-foreground border-border hover:border-primary/40"
+                  }`}
+                >
+                  {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                  {s !== "all" && (
+                    <span className="ml-1.5 opacity-70">
+                      ({timesheets.filter(t => t.status === s).length})
+                    </span>
+                  )}
+                  {s === "all" && <span className="ml-1.5 opacity-70">({timesheets.length})</span>}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
