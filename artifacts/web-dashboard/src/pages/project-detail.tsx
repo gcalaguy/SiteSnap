@@ -57,10 +57,15 @@ type Member = {
 };
 
 function getInitials(m: Member) {
-  return `${m.firstName[0] ?? ""}${m.lastName[0] ?? ""}`.toUpperCase();
+  const first = m.firstName?.[0] ?? "";
+  const last = m.lastName?.[0] ?? "";
+  if (first || last) return `${first}${last}`.toUpperCase();
+  return (m.email?.[0] ?? "?").toUpperCase();
 }
 function getMemberName(m: Member) {
-  return `${m.firstName} ${m.lastName}`;
+  const full = `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim();
+  if (full) return full;
+  return m.email?.split("@")[0] ?? m.role;
 }
 
 function TaskCard({ task, onStatusChange, onDelete, assigneeName }: {
