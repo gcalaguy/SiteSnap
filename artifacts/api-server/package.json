@@ -23,7 +23,9 @@
     "express": "^5",
     "google-auth-library": "^9.15.1",
     "http-proxy-middleware": "^3.0.5",
+    "mammoth": "^1.12.0",
     "node-cron": "^4.2.1",
+    "pdf-parse": "^2.4.5",
     "pino": "^9",
     "pino-http": "^10",
     "zod": "catalog:"

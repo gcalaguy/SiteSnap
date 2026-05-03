@@ -4,6 +4,12 @@ const path = require("path");
 const config = getDefaultConfig(__dirname);
 
 config.resolver = config.resolver ?? {};
+
+// Block Metro from watching pdf-parse tmp test directories (server-only package)
+config.resolver.blockList = [
+  /node_modules\/pdf-parse[^/]*\/.*_tmp_.*/,
+];
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   // Shim expo-secure-store with AsyncStorage-based fallback (Expo Go compatible)
   if (moduleName === "expo-secure-store") {

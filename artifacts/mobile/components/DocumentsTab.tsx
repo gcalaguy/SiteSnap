@@ -42,8 +42,9 @@ type ExtractedFields = {
 
 type SearchResult = ProjectDoc & { relevance: "high" | "medium" | "low"; reason: string };
 type SearchResponse = { results: SearchResult[]; answer: string };
-type QAResponse = { answer: string; citations: { id: number; filename: string }[] };
-type QAMessage = { role: "user" | "assistant"; text: string; citations?: { id: number; filename: string }[] };
+type QACitation = { id: number; filename: string; excerpt?: string };
+type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolean };
+type QAMessage = { role: "user" | "assistant"; text: string; citations?: QACitation[]; ragEnabled?: boolean };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function baseUrl() {
@@ -269,14 +270,21 @@ function SearchPanel({ projectId }: { projectId: number }) {
   );
 }
 
+const MOBILE_QA_STARTERS = [
+  "What's the total spend on this project?",
+  "List all vendors and amounts",
+  "Any safety inspection issues?",
+  "What is the contract scope of work?",
+  "Any outstanding change orders?",
+];
+
 function QAPanel({ projectId }: { projectId: number }) {
   const colors = useColors();
   const [messages, setMessages] = useState<QAMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ragActive, setRagActive] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-
-  const STARTERS = ["What's the total spend on this project?", "List all vendors", "Any safety inspection issues?"];
 
   async function ask() {
     const q = input.trim();
@@ -286,12 +294,14 @@ function QAPanel({ projectId }: { projectId: number }) {
     setLoading(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
     try {
+      const history = messages.slice(-10);
       const data = await customFetch(`/api/projects/${projectId}/documents/qa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, history }),
       }) as QAResponse;
-      setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations }]);
+      if (data.ragEnabled) setRagActive(true);
+      setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations, ragEnabled: data.ragEnabled }]);
     } catch {
       setMessages(m => [...m, { role: "assistant", text: "Sorry, Q&A failed. Please try again." }]);
     } finally {
@@ -302,6 +312,13 @@ function QAPanel({ projectId }: { projectId: number }) {
 
   return (
     <View style={{ gap: 10 }}>
+      {ragActive && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: `${colors.primary}10`, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5 }}>
+          <Feather name="zap" size={11} color={colors.primary} />
+          <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.primary }}>Semantic RAG active</Text>
+          <Text style={{ fontSize: 10, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>— grounded in document embeddings</Text>
+        </View>
+      )}
       {messages.length === 0 ? (
         <View style={{ gap: 8 }}>
           <View style={[docStyles.aiAnswerBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}25` }]}>
@@ -311,7 +328,7 @@ function QAPanel({ projectId }: { projectId: number }) {
             </Text>
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {STARTERS.map(s => (
+            {MOBILE_QA_STARTERS.slice(0, 3).map(s => (
               <Pressable
                 key={s}
                 onPress={() => setInput(s)}

@@ -28,6 +28,7 @@ type ProjectDoc = {
   objectPath: string; fileSize: number | null; status: DocStatus;
   extractedData: Record<string, unknown> | null;
   aiSummary: string | null; extractedText: string | null; createdAt: string;
+  chunkCount?: number;
 };
 
 type ExtractedFields = {
@@ -41,9 +42,10 @@ type ExtractedFields = {
   };
 };
 
-type SearchResult = ProjectDoc & { relevance: "high" | "medium" | "low"; reason: string };
-type SearchResponse = { results: SearchResult[]; answer: string };
-type QAResponse = { answer: string; citations: { id: number; filename: string }[] };
+type SearchResult = ProjectDoc & { relevance: "high" | "medium" | "low"; reason: string; semantic?: boolean };
+type SearchResponse = { results: SearchResult[]; answer: string; semantic?: boolean };
+type QACitation = { id: number; filename: string; excerpt?: string };
+type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolean };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/heic"];
@@ -233,28 +235,40 @@ function SearchPanel({ projectId }: { projectId: number }) {
 }
 
 // ─── Q&A Panel ────────────────────────────────────────────────────────────────
-type QAMessage = { role: "user" | "assistant"; text: string; citations?: { id: number; filename: string }[] };
+type QAMessage = { role: "user" | "assistant"; text: string; citations?: QACitation[]; ragEnabled?: boolean };
+
+const QA_STARTERS = [
+  "What's the total spend across all invoices?",
+  "List all vendors and their amounts",
+  "Are there any safety inspection concerns?",
+  "What is the contract scope of work?",
+  "Any outstanding change orders or RFIs?",
+];
 
 function QAPanel({ projectId }: { projectId: number }) {
   const [messages, setMessages] = useState<QAMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ragActive, setRagActive] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   async function ask() {
     const q = input.trim();
     if (!q || loading) return;
     setInput("");
-    setMessages(m => [...m, { role: "user", text: q }]);
+    const newUserMsg: QAMessage = { role: "user", text: q };
+    setMessages(m => [...m, newUserMsg]);
     setLoading(true);
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
     try {
+      const history = messages.slice(-10); // send last 10 messages for context
       const data = await customFetch(`/api/projects/${projectId}/documents/qa`, {
         method: "POST",
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, history }),
       }) as QAResponse;
-      setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations }]);
+      if (data.ragEnabled) setRagActive(true);
+      setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations, ragEnabled: data.ragEnabled }]);
     } catch (err: any) {
       setMessages(m => [...m, { role: "assistant", text: err?.message ?? "Sorry, Q&A failed. Please try again." }]);
     } finally {
@@ -265,13 +279,20 @@ function QAPanel({ projectId }: { projectId: number }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {ragActive && (
+        <div className="flex items-center gap-1.5 text-[10px] text-primary bg-primary/5 border border-primary/20 rounded px-2 py-1">
+          <Sparkles className="h-3 w-3" />
+          <span className="font-medium">Semantic RAG active</span>
+          <span className="text-muted-foreground">— answers grounded in your document embeddings</span>
+        </div>
+      )}
       {messages.length === 0 ? (
-        <div className="text-center py-6 text-muted-foreground">
+        <div className="text-center py-5 text-muted-foreground">
           <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-40" />
           <p className="text-sm font-medium">Ask anything about your project documents</p>
-          <p className="text-xs mt-1">e.g. "What's the total spend on concrete?" or "Who is our main supplier?"</p>
+          <p className="text-xs mt-1 text-muted-foreground">Analyze your files first, then ask construction-specific questions.</p>
           <div className="flex flex-wrap gap-2 justify-center mt-3">
-            {["What's the total amount across all invoices?", "List all vendors on this project", "Any safety inspection issues?"].map(s => (
+            {QA_STARTERS.slice(0, 3).map(s => (
               <button key={s} onClick={() => setInput(s)} className="text-xs border rounded-full px-3 py-1 hover:bg-muted transition-colors text-left">
                 {s}
               </button>
@@ -279,7 +300,7 @@ function QAPanel({ projectId }: { projectId: number }) {
           </div>
         </div>
       ) : (
-        <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
               {m.role === "assistant" && (
@@ -290,12 +311,16 @@ function QAPanel({ projectId }: { projectId: number }) {
               <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
                 <p className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
                 {m.citations && m.citations.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-border/30 flex flex-wrap gap-1">
-                    {m.citations.map(c => (
-                      <span key={c.id} className="text-[10px] bg-background/50 rounded px-1.5 py-0.5 flex items-center gap-1">
-                        <FileText className="h-2.5 w-2.5" />{c.filename}
-                      </span>
-                    ))}
+                  <div className="mt-2 pt-2 border-t border-border/30 space-y-1">
+                    <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">Sources</p>
+                    <div className="flex flex-wrap gap-1">
+                      {m.citations.map(c => (
+                        <span key={c.id} className="text-[10px] bg-background/60 border border-border/40 rounded px-1.5 py-0.5 flex items-center gap-1">
+                          <FileText className="h-2.5 w-2.5 text-primary" />
+                          <span className="truncate max-w-[140px]">{c.filename}</span>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -555,6 +580,11 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm truncate max-w-xs">{doc.filename}</span>
                         {statusBadge(displayStatus)}
+                        {(doc as any).chunkCount > 0 && (
+                          <Badge variant="outline" className="text-[10px] gap-1 border-primary/30 text-primary px-1.5">
+                            <Sparkles className="h-2.5 w-2.5" />RAG
+                          </Badge>
+                        )}
                         {formatSize(doc.fileSize) && (
                           <span className="text-xs text-muted-foreground">{formatSize(doc.fileSize)}</span>
                         )}

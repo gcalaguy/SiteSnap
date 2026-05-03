@@ -154,9 +154,25 @@ All three AI agents now make real OpenAI `gpt-5.4` calls via the Replit AI Integ
 - `POST /api/ai/rfi/generate` — formalizes RFI description and suggests clarifying questions
 - `POST /api/ai/assistant` — conversational chat assistant for field crew (context-aware)
 
+### ✅ Sprint — AI DOCUMENT Q&A (RAG) (Complete)
+- **pgvector**: `CREATE EXTENSION IF NOT EXISTS vector` enabled; `document_chunks` table with `vector(1536)` embedding column and `ivfflat` cosine index
+- **PDF text extraction**: `pdf-parse` v2.x (`PDFParse` class API, `new PDFParse({ data: buffer }).getText()`) extracts full text from PDFs — replaces filename-only profiling
+- **Word text extraction**: `mammoth` extracts raw text from `.docx` / `.doc` files for analysis and embedding
+- **Chunking**: `chunkText()` splits text into ~900-char chunks with 150-char overlap, splitting by paragraphs then sentences
+- **Embeddings**: `text-embedding-3-small` (1536 dims, OpenAI) embedded in batches of 20; stored in `document_chunks` via `embedAndStoreChunks()` — auto-triggered after any document analysis
+- **Semantic search**: `semanticSearch()` embeds the query, runs `<=> vector_cosine_ops` pgvector search for top-8 chunks with similarity > 0.15
+- **`POST /api/projects/:id/documents/qa`**: RAG path — embed query → cosine search → GPT-4o with chunk context + multi-turn history; fallback to extractedText stuffing when no embeddings exist
+- **`POST /api/projects/:id/documents/:id/embed`**: manual re-embed endpoint for already-analyzed docs
+- **`GET /api/projects/:id/documents`**: now returns `chunkCount` per document (from `document_chunks` table)
+- **`POST /api/projects/:id/documents/search`**: tries semantic chunk search first; falls back to LLM keyword search
+- **Multi-turn chat**: both web and mobile QAPanel send last-10 messages as `history` to `/qa` for real conversation context
+- **RAG status badges**: web shows orange "RAG" badge on docs with embeddings; chat panel shows "Semantic RAG active" banner when embeddings are used
+- **Mobile Metro fix**: `config.resolver.blockList` in `metro.config.js` excludes `pdf-parse_tmp_*` directories that Metro was trying to watch (causing ENOENT crash)
+- **Construction starters**: both web + mobile Ask AI panels updated with construction-specific question prompts (invoices, vendors, scope, change orders, RFIs)
+
 ## Database Schema
 
-Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`, `notifications`, `project_documents`, `quotes`, `invoices`
+Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`, `notifications`, `project_documents`, `document_chunks`, `quotes`, `invoices`
 `users` has `pushToken text` (nullable) for Expo push tokens.
 `notifications`: userId, type ("task"|"rfi"), title, body, referenceId, projectId, isRead (boolean, default false), createdAt.
 Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_status`, `task_status`, `task_priority`, `document_status`
