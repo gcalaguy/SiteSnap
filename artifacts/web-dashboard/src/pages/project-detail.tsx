@@ -12,6 +12,10 @@ import {
   useDeleteTask,
   useGetMe,
   useListCompanyMembers,
+  useListProjectMembers,
+  useAddProjectMember,
+  useRemoveProjectMember,
+  getListProjectMembersQueryKey,
   customFetch,
 } from "@workspace/api-client-react";
 import { getListTasksQueryKey } from "@workspace/api-client-react";
@@ -33,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays } from "lucide-react";
+import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type Task = {
@@ -407,14 +411,41 @@ export default function ProjectDetail() {
   const [assignEndDate, setAssignEndDate] = useState<string>("");
   const [assignNotes, setAssignNotes] = useState<string>("");
 
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
+  const [addMemberUserId, setAddMemberUserId] = useState<string>("");
+
   const { data: me } = useGetMe();
   const companyId = me?.company?.id;
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
-  const { data: members = [] } = useListCompanyMembers(
-    companyId ?? 0,
-    { enabled: !!companyId && isOwnerOrForeman }
-  ) as { data: Member[] };
+  const { data: members = [] } = useListCompanyMembers(companyId ?? 0) as { data: Member[] };
+
+  // Project-level member assignments (controls which workers can see this project)
+  const { data: projectMembers = [] } = useListProjectMembers(projectId);
+  const assignedIds = new Set((projectMembers as any[]).map((m: any) => m.id));
+  const unassignedMembers = members.filter((m) => !assignedIds.has(m.id));
+
+  const addProjectMember = useAddProjectMember({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListProjectMembersQueryKey(projectId) });
+        setShowAddMemberDialog(false);
+        setAddMemberUserId("");
+        toast({ title: "Worker added to project" });
+      },
+      onError: (err: any) => toast({ title: err?.message ?? "Failed to add worker", variant: "destructive" }),
+    },
+  });
+
+  const removeProjectMember = useRemoveProjectMember({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListProjectMembersQueryKey(projectId) });
+        toast({ title: "Worker removed from project" });
+      },
+      onError: (err: any) => toast({ title: err?.message ?? "Failed to remove worker", variant: "destructive" }),
+    },
+  });
 
   const { data: projectAssignments = [], refetch: refetchAssignments } = useQuery<ProjectAssignment[]>({
     queryKey: ["project-schedule", projectId],
@@ -594,12 +625,15 @@ export default function ProjectDetail() {
       )}
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-6 lg:w-[870px]">
+        <TabsList className="grid w-full grid-cols-7 lg:w-[1015px]">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="reports">Daily Reports</TabsTrigger>
           <TabsTrigger value="cost">Cost Analysis</TabsTrigger>
           <TabsTrigger value="rfis">RFIs</TabsTrigger>
+          <TabsTrigger value="team" className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" />Team
+          </TabsTrigger>
           <TabsTrigger value="documents" className="flex items-center gap-1.5">
             <FolderOpen className="h-3.5 w-3.5" />Documents
           </TabsTrigger>
@@ -895,10 +929,121 @@ export default function ProjectDetail() {
           )}
         </TabsContent>
 
+        <TabsContent value="team" className="mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h3 className="text-xl font-bold">Project Team</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Workers assigned here can see and access this project.
+              </p>
+            </div>
+            {isOwnerOrForeman && (
+              <Button onClick={() => { setAddMemberUserId(""); setShowAddMemberDialog(true); }}>
+                <UserPlus className="mr-2 h-4 w-4" /> Assign Worker
+              </Button>
+            )}
+          </div>
+
+          {(projectMembers as any[]).length === 0 ? (
+            <div className="text-center p-12 border rounded-md bg-card">
+              <Users className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+              <p className="font-medium">No workers assigned yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {isOwnerOrForeman
+                  ? "Assign workers to give them access to this project."
+                  : "No team members have been assigned to this project."}
+              </p>
+              {isOwnerOrForeman && (
+                <Button className="mt-4" onClick={() => { setAddMemberUserId(""); setShowAddMemberDialog(true); }}>
+                  <UserPlus className="mr-2 h-4 w-4" /> Assign First Worker
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {(projectMembers as any[]).map((m: any) => (
+                <div key={m.id} className="flex items-center justify-between p-4 border rounded-md bg-card">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-9 w-9">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                        {getInitials(m)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{getMemberName(m)}</p>
+                      <p className="text-sm text-muted-foreground">{m.email}</p>
+                    </div>
+                    <Badge variant="outline" className="capitalize ml-2">{m.role}</Badge>
+                  </div>
+                  {isOwnerOrForeman && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => removeProjectMember.mutate({ projectId, memberId: m.id })}
+                      disabled={removeProjectMember.isPending}
+                    >
+                      <UserMinus className="h-4 w-4 mr-1.5" /> Remove
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
         <TabsContent value="documents" className="mt-6">
           <DocumentsTab projectId={projectId} />
         </TabsContent>
       </Tabs>
+
+      {/* Add Worker to Project Dialog */}
+      <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Worker to Project</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="text-sm font-medium block mb-2">Select a worker *</label>
+            {unassignedMembers.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                All company members are already assigned to this project.
+              </p>
+            ) : (
+              <Select value={addMemberUserId} onValueChange={setAddMemberUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a team member…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unassignedMembers.map((m) => (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      <span className="flex items-center gap-2">
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                            {getInitials(m)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {getMemberName(m)}
+                        <span className="text-xs text-muted-foreground capitalize ml-1">({m.role})</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddMemberDialog(false)}>Cancel</Button>
+            <Button
+              onClick={() => addProjectMember.mutate({ projectId, data: { userId: Number(addMemberUserId) } })}
+              disabled={!addMemberUserId || addProjectMember.isPending || unassignedMembers.length === 0}
+            >
+              {addProjectMember.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Assign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Assign Worker to Project Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>

@@ -5,6 +5,8 @@ import {
   dailyReportsTable,
   rfisTable,
   costAnalysesTable,
+  projectMembersTable,
+  usersTable,
 } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
@@ -14,11 +16,26 @@ const router = Router();
 
 // GET /projects
 router.get("/projects", requireAuth, requireCompany, async (req, res) => {
-  const projects = await db
-    .select()
-    .from(projectsTable)
-    .where(eq(projectsTable.companyId, req.companyId!));
-  res.json(projects);
+  if (req.userRole === "worker") {
+    const rows = await db
+      .select({ project: projectsTable })
+      .from(projectsTable)
+      .innerJoin(
+        projectMembersTable,
+        and(
+          eq(projectMembersTable.projectId, projectsTable.id),
+          eq(projectMembersTable.userId, req.userId!),
+        ),
+      )
+      .where(eq(projectsTable.companyId, req.companyId!));
+    res.json(rows.map((r) => r.project));
+  } else {
+    const projects = await db
+      .select()
+      .from(projectsTable)
+      .where(eq(projectsTable.companyId, req.companyId!));
+    res.json(projects);
+  }
 });
 
 // POST /projects
@@ -66,6 +83,26 @@ router.get(
       res.status(404).json({ error: "Project not found" });
       return;
     }
+
+    // Workers may only access projects they are explicitly assigned to
+    if (req.userRole === "worker") {
+      const [membership] = await db
+        .select()
+        .from(projectMembersTable)
+        .where(
+          and(
+            eq(projectMembersTable.projectId, projectId),
+            eq(projectMembersTable.userId, req.userId!),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
+    }
+
     res.json(project);
   },
 );
@@ -187,6 +224,123 @@ router.get(
       closedRFICount: closedRFIs,
       lastReportDate: lastReport?.reportDate ?? null,
     });
+  },
+);
+
+// GET /projects/:projectId/members — list workers assigned to a project
+router.get(
+  "/projects/:projectId/members",
+  requireAuth,
+  requireCompany,
+  async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+
+    const rows = await db
+      .select({
+        id: usersTable.id,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        email: usersTable.email,
+        role: usersTable.role,
+        addedAt: projectMembersTable.addedAt,
+      })
+      .from(projectMembersTable)
+      .innerJoin(usersTable, eq(usersTable.id, projectMembersTable.userId))
+      .where(
+        and(
+          eq(projectMembersTable.projectId, projectId),
+          eq(projectMembersTable.companyId, req.companyId!),
+        ),
+      );
+
+    res.json(rows);
+  },
+);
+
+// POST /projects/:projectId/members — assign a worker to a project
+router.post(
+  "/projects/:projectId/members",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+    const { userId } = req.body;
+
+    if (!userId) {
+      res.status(400).json({ error: "userId is required" });
+      return;
+    }
+
+    const [project] = await db
+      .select()
+      .from(projectsTable)
+      .where(
+        and(
+          eq(projectsTable.id, projectId),
+          eq(projectsTable.companyId, req.companyId!),
+        ),
+      )
+      .limit(1);
+
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(
+        and(
+          eq(usersTable.id, userId),
+          eq(usersTable.companyId, req.companyId!),
+        ),
+      )
+      .limit(1);
+
+    if (!user) {
+      res.status(404).json({ error: "User not found in this company" });
+      return;
+    }
+
+    try {
+      const [member] = await db
+        .insert(projectMembersTable)
+        .values({ projectId, userId, companyId: req.companyId! })
+        .returning();
+      res.status(201).json(member);
+    } catch (e: any) {
+      if (e.code === "23505") {
+        res.status(409).json({ error: "User is already assigned to this project" });
+      } else {
+        throw e;
+      }
+    }
+  },
+);
+
+// DELETE /projects/:projectId/members/:userId — remove a worker from a project
+router.delete(
+  "/projects/:projectId/members/:memberId",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+    const memberId = parseInt(req.params.memberId);
+
+    await db
+      .delete(projectMembersTable)
+      .where(
+        and(
+          eq(projectMembersTable.projectId, projectId),
+          eq(projectMembersTable.userId, memberId),
+          eq(projectMembersTable.companyId, req.companyId!),
+        ),
+      );
+
+    res.status(204).send();
   },
 );
 

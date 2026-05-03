@@ -17,6 +17,27 @@ export const UserRole = {
   worker: "worker",
 } as const;
 
+export interface ProjectMember {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: UserRole;
+  addedAt: string;
+}
+
+export interface ProjectMemberRecord {
+  id: number;
+  projectId: number;
+  userId: number;
+  companyId: number;
+  addedAt: string;
+}
+
+export interface AddProjectMemberBody {
+  userId: number;
+}
+
 export interface User {
   id: number;
   clerkUserId: string;

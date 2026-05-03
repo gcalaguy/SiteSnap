@@ -321,6 +321,59 @@ paths:
         "204":
           description: Project deleted
 
+  /projects/{projectId}/members:
+    get:
+      operationId: listProjectMembers
+      tags: [projects]
+      summary: List workers assigned to a project
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      responses:
+        "200":
+          description: Assigned project members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectMember"
+
+    post:
+      operationId: addProjectMember
+      tags: [projects]
+      summary: Assign a worker to a project (owner/foreman only)
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddProjectMemberBody"
+      responses:
+        "201":
+          description: Member assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMemberRecord"
+
+  /projects/{projectId}/members/{memberId}:
+    delete:
+      operationId: removeProjectMember
+      tags: [projects]
+      summary: Remove a worker from a project (owner/foreman only)
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Member removed
+
   /projects/{projectId}/summary:
     get:
       operationId: getProjectSummary
@@ -1446,6 +1499,48 @@ components:
         status:
           type: string
       required: [status]
+
+    # ── Project Members ──────────────────────────────────────────────────────
+    ProjectMember:
+      type: object
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        addedAt:
+          type: string
+          format: date-time
+      required: [id, firstName, lastName, email, role, addedAt]
+
+    ProjectMemberRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        userId:
+          type: integer
+        companyId:
+          type: integer
+        addedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, userId, companyId, addedAt]
+
+    AddProjectMemberBody:
+      type: object
+      properties:
+        userId:
+          type: integer
+      required: [userId]
 
     # ── Users ────────────────────────────────────────────────────────────────
     User:

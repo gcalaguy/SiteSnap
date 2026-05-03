@@ -9,6 +9,7 @@ import {
   pgEnum,
   json,
   boolean,
+  unique,
 } from "drizzle-orm/pg-core";
 
 export * from "./conversations";
@@ -446,6 +447,28 @@ export const quickbooksConnectionsTable = pgTable("quickbooks_connections", {
 });
 
 export type QuickbooksConnection = typeof quickbooksConnectionsTable.$inferSelect;
+
+// ── Project Members ────────────────────────────────────────────────────────────
+
+export const projectMembersTable = pgTable(
+  "project_members",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projectsTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companiesTable.id, { onDelete: "cascade" }),
+    addedAt: timestamp("added_at").defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.projectId, t.userId)],
+);
+
+export type ProjectMember = typeof projectMembersTable.$inferSelect;
 
 // ── Worker Schedules ───────────────────────────────────────────────────────────
 

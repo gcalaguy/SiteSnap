@@ -368,6 +368,44 @@ export const DeleteProjectParams = zod.object({
 });
 
 /**
+ * @summary List workers assigned to a project
+ */
+export const ListProjectMembersParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListProjectMembersResponseItem = zod.object({
+  id: zod.number(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  email: zod.string(),
+  role: zod.enum(["owner", "foreman", "worker"]),
+  addedAt: zod.coerce.date(),
+});
+export const ListProjectMembersResponse = zod.array(
+  ListProjectMembersResponseItem,
+);
+
+/**
+ * @summary Assign a worker to a project (owner/foreman only)
+ */
+export const AddProjectMemberParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const AddProjectMemberBody = zod.object({
+  userId: zod.number(),
+});
+
+/**
+ * @summary Remove a worker from a project (owner/foreman only)
+ */
+export const RemoveProjectMemberParams = zod.object({
+  projectId: zod.coerce.number(),
+  memberId: zod.coerce.number(),
+});
+
+/**
  * @summary Get a project overview with cost totals, report count, and RFI stats
  */
 export const GetProjectSummaryParams = zod.object({
