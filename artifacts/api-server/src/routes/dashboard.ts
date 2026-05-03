@@ -7,38 +7,73 @@ import {
   costAnalysesTable,
   usersTable,
   invitationsTable,
+  tasksTable,
+  workerSchedulesTable,
+  projectMembersTable,
 } from "@workspace/db";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 
 const router = Router();
 
-// GET /dashboard/summary — company-wide overview
-router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) => {
-  const companyId = req.companyId!;
-
-  const projects = await db
-    .select()
+async function getAccessibleProjectIds(companyId: number, userId: number, userRole: string): Promise<number[]> {
+  if (userRole === "worker") {
+    const rows = await db
+      .select({ projectId: projectMembersTable.projectId })
+      .from(projectMembersTable)
+      .where(
+        and(
+          eq(projectMembersTable.companyId, companyId),
+          eq(projectMembersTable.userId, userId),
+        ),
+      );
+    return rows.map((r) => r.projectId);
+  }
+  const rows = await db
+    .select({ id: projectsTable.id })
     .from(projectsTable)
     .where(eq(projectsTable.companyId, companyId));
+  return rows.map((r) => r.id);
+}
 
-  const projectIds = projects.map((p) => p.id);
+function displayName(firstName: string, lastName: string, email?: string): string {
+  const full = `${firstName ?? ""} ${lastName ?? ""}`.trim();
+  return full || email || "Unknown";
+}
+
+// GET /dashboard/summary — company-wide (or worker-scoped) overview
+router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) => {
+  const companyId = req.companyId!;
+  const userId = req.userId!;
+  const userRole = req.userRole!;
+
+  const projectIds = await getAccessibleProjectIds(companyId, userId, userRole);
 
   const members = await db
     .select()
     .from(usersTable)
     .where(eq(usersTable.companyId, companyId));
 
-  // Reports this week
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
   const weekStr = oneWeekAgo.toISOString().split("T")[0];
 
   let reportsThisWeek = 0;
   let openRFIs = 0;
-  let totalSpentThisMonth = 0;
+  let totalSpend = 0;
+  let totalBudget = 0;
+  let activeProjects = 0;
+  let totalProjects = projectIds.length;
 
   if (projectIds.length > 0) {
+    const projects = await db
+      .select()
+      .from(projectsTable)
+      .where(inArray(projectsTable.id, projectIds));
+
+    activeProjects = projects.filter((p) => p.status === "active").length;
+    totalBudget = projects.reduce((s, p) => s + (p.budget ? parseFloat(p.budget) : 0), 0);
+
     for (const pid of projectIds) {
       const reports = await db
         .select()
@@ -73,36 +108,42 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
             gte(costAnalysesTable.createdAt, thisMonthStart),
           ),
         );
-      totalSpentThisMonth += analyses.reduce((s, a) => s + parseFloat(a.totalCost), 0);
+      totalSpend += analyses.reduce((s, a) => s + parseFloat(a.totalCost), 0);
     }
   }
 
-  const totalBudget = projects.reduce(
-    (s, p) => s + (p.budget ? parseFloat(p.budget) : 0),
-    0,
-  );
-
   res.json({
-    totalProjects: projects.length,
-    activeProjects: projects.filter((p) => p.status === "active").length,
-    completedProjects: projects.filter((p) => p.status === "completed").length,
+    totalProjects,
+    activeProjects,
+    completedProjects: 0,
     reportsThisWeek,
     openRFIs,
-    totalSpentThisMonth,
+    pendingRFIs: openRFIs,
+    totalSpentThisMonth: totalSpend,
+    totalSpend,
+    totalBudget,
     totalBudgetAllProjects: totalBudget,
     teamMemberCount: members.length,
   });
 });
 
-// GET /dashboard/activity — recent activity feed
+// GET /dashboard/activity — recent activity feed (worker-scoped + tasks + schedules)
 router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) => {
   const companyId = req.companyId!;
+  const userId = req.userId!;
+  const userRole = req.userRole!;
+
+  const projectIds = await getAccessibleProjectIds(companyId, userId, userRole);
+
+  if (projectIds.length === 0) {
+    res.json([]);
+    return;
+  }
 
   const projects = await db
     .select()
     .from(projectsTable)
-    .where(eq(projectsTable.companyId, companyId));
-  const projectIds = projects.map((p) => p.id);
+    .where(inArray(projectsTable.id, projectIds));
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
 
   const members = await db
@@ -110,7 +151,7 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
     .from(usersTable)
     .where(eq(usersTable.companyId, companyId));
   const userMap = Object.fromEntries(
-    members.map((u) => [u.id, `${u.firstName} ${u.lastName}`]),
+    members.map((u) => [u.id, displayName(u.firstName, u.lastName, u.email)]),
   );
 
   const activity: Array<{
@@ -122,58 +163,111 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
     createdAt: Date;
   }> = [];
 
-  if (projectIds.length > 0) {
-    for (const pid of projectIds) {
-      const reports = await db
-        .select()
-        .from(dailyReportsTable)
-        .where(eq(dailyReportsTable.projectId, pid));
-      for (const r of reports) {
-        const workPreview = r.workPerformed?.trim();
-        const description = workPreview
-          ? workPreview.length > 120
-            ? `${workPreview.slice(0, 120).trimEnd()}…`
-            : workPreview
-          : `Daily report submitted for ${projectMap[pid]}`;
-        activity.push({
-          id: `report-${r.id}`,
-          type: "daily_report",
-          description,
-          projectName: projectMap[pid] ?? null,
-          userName: userMap[r.submittedByUserId] ?? "Unknown",
-          createdAt: r.createdAt,
-        });
-      }
-
-      const rfis = await db
-        .select()
-        .from(rfisTable)
-        .where(eq(rfisTable.projectId, pid));
-      for (const r of rfis) {
-        activity.push({
-          id: `rfi-${r.id}`,
-          type: "rfi_created",
-          description: `${r.rfiNumber}: ${r.subject}`,
-          projectName: projectMap[pid] ?? null,
-          userName: userMap[r.submittedByUserId] ?? "Unknown",
-          createdAt: r.createdAt,
-        });
-      }
+  for (const pid of projectIds) {
+    // Daily reports
+    const reports = await db
+      .select()
+      .from(dailyReportsTable)
+      .where(eq(dailyReportsTable.projectId, pid));
+    for (const r of reports) {
+      const workPreview = r.workPerformed?.trim();
+      const who = userMap[r.submittedByUserId] ?? "Someone";
+      const description = workPreview
+        ? workPreview.length > 100
+          ? `${workPreview.slice(0, 100).trimEnd()}…`
+          : workPreview
+        : `Daily report submitted by ${who}`;
+      activity.push({
+        id: `report-${r.id}`,
+        type: "daily_report",
+        description,
+        projectName: projectMap[pid] ?? null,
+        userName: who,
+        createdAt: r.createdAt,
+      });
     }
 
-    for (const p of projects) {
+    // RFIs
+    const rfis = await db
+      .select()
+      .from(rfisTable)
+      .where(eq(rfisTable.projectId, pid));
+    for (const r of rfis) {
       activity.push({
-        id: `project-${p.id}`,
-        type: "project_created",
-        description: `Project "${p.name}" created`,
-        projectName: p.name,
-        userName: "System",
-        createdAt: p.createdAt,
+        id: `rfi-${r.id}`,
+        type: "rfi_created",
+        description: `RFI ${r.rfiNumber}: ${r.subject}`,
+        projectName: projectMap[pid] ?? null,
+        userName: userMap[r.submittedByUserId] ?? "Unknown",
+        createdAt: r.createdAt,
+      });
+    }
+
+    // Tasks — for workers only show tasks assigned to them
+    const taskRows = await db
+      .select()
+      .from(tasksTable)
+      .where(
+        userRole === "worker"
+          ? and(eq(tasksTable.projectId, pid), eq(tasksTable.assignedToUserId, userId))
+          : eq(tasksTable.projectId, pid),
+      );
+    for (const t of taskRows) {
+      const assignee = t.assignedToUserId ? userMap[t.assignedToUserId] : null;
+      const description = assignee
+        ? `Task "${t.title}" assigned to ${assignee}`
+        : `Task "${t.title}" created`;
+      activity.push({
+        id: `task-${t.id}`,
+        type: "task_created",
+        description,
+        projectName: projectMap[pid] ?? null,
+        userName: assignee ?? "System",
+        createdAt: t.createdAt,
       });
     }
   }
 
-  // Sort by date descending, return last 20
+  // Project created events
+  for (const p of projects) {
+    activity.push({
+      id: `project-${p.id}`,
+      type: "project_created",
+      description: `Project "${p.name}" created`,
+      projectName: p.name,
+      userName: "System",
+      createdAt: p.createdAt,
+    });
+  }
+
+  // Worker schedules — scoped to the accessible projects
+  const scheduleRows = await db
+    .select()
+    .from(workerSchedulesTable)
+    .where(
+      and(
+        eq(workerSchedulesTable.companyId, companyId),
+        userRole === "worker"
+          ? eq(workerSchedulesTable.userId, userId)
+          : inArray(workerSchedulesTable.projectId, projectIds),
+      ),
+    );
+  for (const s of scheduleRows) {
+    const who = userMap[s.userId] ?? "A worker";
+    const proj = projectMap[s.projectId] ?? "a project";
+    activity.push({
+      id: `schedule-${s.id}`,
+      type: "schedule_assigned",
+      description:
+        userRole === "worker"
+          ? `You are scheduled on "${proj}" from ${s.startDate} to ${s.endDate}`
+          : `${who} scheduled on "${proj}" from ${s.startDate} to ${s.endDate}`,
+      projectName: proj,
+      userName: who,
+      createdAt: s.createdAt,
+    });
+  }
+
   activity.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   res.json(activity.slice(0, 20));
 });

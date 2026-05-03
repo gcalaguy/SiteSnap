@@ -60,25 +60,60 @@ function ProjectCard({ project }: { project: any }) {
   );
 }
 
+const ACTIVITY_ICONS: Record<string, string> = {
+  daily_report: "file-text",
+  rfi_created: "alert-circle",
+  project_created: "folder",
+  task_created: "check-square",
+  schedule_assigned: "calendar",
+  cost_added: "dollar-sign",
+};
+
+const ACTIVITY_COLORS: Record<string, string> = {
+  daily_report: "#3B82F6",
+  rfi_created: "#F59E0B",
+  project_created: "#8B5CF6",
+  task_created: "#22C55E",
+  schedule_assigned: "#FF6600",
+  cost_added: "#6B7280",
+};
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+}
+
 function ActivityRow({ item }: { item: any }) {
   const colors = useColors();
-  const icons: Record<string, string> = {
-    daily_report: "file-text",
-    rfi_created: "alert-circle",
-    project_created: "folder",
-    task_created: "check-square",
-    cost_added: "dollar-sign",
-  };
+  const iconName = ACTIVITY_ICONS[item.type] ?? "activity";
+  const iconColor = ACTIVITY_COLORS[item.type] ?? colors.primary;
+
   return (
     <View style={[styles.activityRow, { borderBottomColor: colors.border }]}>
-      <View style={[styles.activityIcon, { backgroundColor: colors.muted }]}>
-        <Feather name={(icons[item.type] ?? "activity") as any} size={14} color={colors.primary} />
+      <View style={[styles.activityIcon, { backgroundColor: `${iconColor}18` }]}>
+        <Feather name={iconName as any} size={14} color={iconColor} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.activityDesc, { color: colors.foreground }]} numberOfLines={2}>{item.description}</Text>
-        {!!item.projectName && (
-          <Text style={[styles.activityMeta, { color: colors.mutedForeground }]}>{item.projectName}</Text>
-        )}
+        <View style={styles.activityFooter}>
+          {!!item.projectName && (
+            <Text style={[styles.activityMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {item.projectName}
+            </Text>
+          )}
+          {!!item.createdAt && (
+            <Text style={[styles.activityTime, { color: colors.mutedForeground }]}>
+              {item.projectName ? " · " : ""}{timeAgo(item.createdAt)}
+            </Text>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -122,7 +157,9 @@ const styles = StyleSheet.create({
   activityRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 12, borderBottomWidth: 1 },
   activityIcon: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   activityDesc: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
-  activityMeta: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  activityFooter: { flexDirection: "row", alignItems: "center", marginTop: 2, flexWrap: "wrap" },
+  activityMeta: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  activityTime: { fontSize: 12, fontFamily: "Inter_400Regular" },
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
 });
