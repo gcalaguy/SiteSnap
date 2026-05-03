@@ -137,14 +137,12 @@ function ExtractedDataPanel({ doc }: { doc: ProjectDoc }) {
   );
 }
 
-async function requestUploadUrl(name: string, size: number, contentType: string) {
-  const res = await customFetch("/api/storage/uploads/request-url", {
+async function requestUploadUrl(name: string, size: number, contentType: string): Promise<{ uploadURL: string; objectPath: string }> {
+  return customFetch("/api/storage/uploads/request-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, size, contentType }),
-  });
-  if (!res.ok) throw new Error("Failed to get upload URL");
-  return res.json() as Promise<{ uploadURL: string; objectPath: string }>;
+  }) as Promise<{ uploadURL: string; objectPath: string }>;
 }
 
 async function uploadToStorage(uploadURL: string, file: File) {
@@ -153,19 +151,15 @@ async function uploadToStorage(uploadURL: string, file: File) {
 }
 
 async function registerDoc(projectId: number, data: { filename: string; fileType: string; objectPath: string; fileSize?: number }): Promise<ProjectDoc> {
-  const res = await customFetch(`/api/projects/${projectId}/documents`, {
+  return customFetch(`/api/projects/${projectId}/documents`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error("Failed to register document");
-  return res.json();
+  }) as Promise<ProjectDoc>;
 }
 
 async function triggerExtract(projectId: number, docId: number): Promise<ProjectDoc> {
-  const res = await customFetch(`/api/projects/${projectId}/documents/${docId}/extract`, { method: "POST" });
-  if (!res.ok) throw new Error("Extraction failed");
-  return res.json();
+  return customFetch(`/api/projects/${projectId}/documents/${docId}/extract`, { method: "POST" }) as Promise<ProjectDoc>;
 }
 
 export default function DocumentsTab({ projectId }: { projectId: number }) {
@@ -175,21 +169,15 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
 
   const { data: docs = [], isLoading } = useQuery<ProjectDoc[]>({
     queryKey,
-    queryFn: async () => {
-      const res = await customFetch(`/api/projects/${projectId}/documents`);
-      if (!res.ok) throw new Error("Failed to fetch documents");
-      return res.json();
-    },
+    queryFn: () => customFetch(`/api/projects/${projectId}/documents`) as Promise<ProjectDoc[]>,
   });
 
   const [uploading, setUploading] = useState(false);
   const [extractingIds, setExtractingIds] = useState<Set<number>>(new Set());
 
   const deleteMutation = useMutation({
-    mutationFn: async (docId: number) => {
-      const res = await customFetch(`/api/projects/${projectId}/documents/${docId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Delete failed");
-    },
+    mutationFn: (docId: number) =>
+      customFetch(`/api/projects/${projectId}/documents/${docId}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
     onError: () => toast({ title: "Delete failed", variant: "destructive" }),
   });
