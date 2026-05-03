@@ -14,6 +14,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -39,12 +40,10 @@ function SummaryCard({
   }
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.summaryCard,
-        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.82 : 1 },
-      ]}
+    <TouchableOpacity
+      style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={handlePress}
+      activeOpacity={0.75}
       accessibilityRole="button"
       accessibilityLabel={`${title}: ${value}. ${subtitle}`}
     >
@@ -64,7 +63,7 @@ function SummaryCard({
         <Text style={[styles.summaryCardSubtitle, { color: colors.mutedForeground }]}>{subtitle}</Text>
         <Feather name="chevron-right" size={14} color={colors.primary} />
       </View>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
@@ -313,28 +312,28 @@ export default function DashboardScreen() {
           value={summaryLoading ? "—" : String(summary?.activeProjects ?? 0)}
           subtitle={`${activeProjects.length} total · ${completedProjects.length} completed`}
           icon="folder"
-          onPress={() => router.push("/(tabs)/projects")}
+          onPress={() => router.navigate("/(tabs)/projects")}
         />
         <SummaryCard
           title="Reports This Week"
           value={summaryLoading ? "—" : String(summary?.reportsThisWeek ?? 0)}
           subtitle="Daily reports submitted"
           icon="file-text"
-          onPress={() => router.push("/(tabs)/log")}
+          onPress={() => router.navigate("/(tabs)/log")}
         />
         <SummaryCard
           title="Open RFIs"
           value={summaryLoading ? "—" : String(summary?.pendingRFIs ?? 0)}
           subtitle="Awaiting response"
           icon="alert-circle"
-          onPress={() => router.push("/(tabs)/projects")}
+          onPress={() => router.navigate("/(tabs)/projects")}
         />
         <SummaryCard
           title="Team Members"
           value={memberCount > 0 ? String(memberCount) : "—"}
           subtitle="Active in workspace"
           icon="users"
-          onPress={() => router.push("/(tabs)/profile")}
+          onPress={() => router.navigate("/(tabs)/profile")}
         />
       </View>
 
