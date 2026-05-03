@@ -129,10 +129,16 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
         .from(dailyReportsTable)
         .where(eq(dailyReportsTable.projectId, pid));
       for (const r of reports) {
+        const workPreview = r.workPerformed?.trim();
+        const description = workPreview
+          ? workPreview.length > 120
+            ? `${workPreview.slice(0, 120).trimEnd()}…`
+            : workPreview
+          : `Daily report submitted for ${projectMap[pid]}`;
         activity.push({
           id: `report-${r.id}`,
           type: "daily_report",
-          description: `Daily report submitted for ${projectMap[pid]}`,
+          description,
           projectName: projectMap[pid] ?? null,
           userName: userMap[r.submittedByUserId] ?? "Unknown",
           createdAt: r.createdAt,

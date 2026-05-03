@@ -63,11 +63,11 @@ function ProjectCard({ project }: { project: any }) {
 function ActivityRow({ item }: { item: any }) {
   const colors = useColors();
   const icons: Record<string, string> = {
-    report: "file-text",
-    rfi: "alert-circle",
-    project: "folder",
-    task: "check-square",
-    cost: "dollar-sign",
+    daily_report: "file-text",
+    rfi_created: "alert-circle",
+    project_created: "folder",
+    task_created: "check-square",
+    cost_added: "dollar-sign",
   };
   return (
     <View style={[styles.activityRow, { borderBottomColor: colors.border }]}>
