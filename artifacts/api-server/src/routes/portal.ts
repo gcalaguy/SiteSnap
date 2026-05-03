@@ -54,7 +54,7 @@ router.post(
       .where(
         and(
           eq(projectsTable.id, projectId),
-          eq(projectsTable.companyId, req.dbUser!.companyId),
+          eq(projectsTable.companyId, req.companyId!),
         ),
       )
       .limit(1);
@@ -113,7 +113,7 @@ router.delete(
       .where(
         and(
           eq(projectsTable.id, projectId),
-          eq(projectsTable.companyId, req.dbUser!.companyId),
+          eq(projectsTable.companyId, req.companyId!),
         ),
       )
       .limit(1);
