@@ -13,21 +13,21 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     };
   }
 
-  // Redirect ExpoCryptoAES native module to its pure-JS Web Crypto implementation.
-  // @clerk/clerk-expo v2 uses expo-crypto@55 which has ExpoCryptoAES as a native module
-  // that is not compiled into Expo Go SDK 54. The .web.js version uses WebCrypto API
-  // (available in React Native via Hermes) and works without a native binary.
+  // Shim ExpoCryptoAES with a pure-JS Web Crypto implementation.
+  // @clerk/clerk-expo v2 uses expo-crypto@55 which has ExpoCryptoAES as a native
+  // module. Expo Go SDK 54 has an incompatible version compiled in, so we bypass
+  // both by providing a standalone WebCrypto-based implementation that does NOT
+  // call registerWebModule (avoids "cannot override host object" error).
   if (
     moduleName === "./ExpoCryptoAES" &&
     context.originModulePath &&
     context.originModulePath.includes("expo-crypto") &&
     context.originModulePath.includes("/aes/")
   ) {
-    const webImpl = path.resolve(
-      path.dirname(context.originModulePath),
-      "ExpoCryptoAES.web.js"
-    );
-    return { filePath: webImpl, type: "sourceFile" };
+    return {
+      filePath: path.resolve(__dirname, "shims/ExpoCryptoAES.js"),
+      type: "sourceFile",
+    };
   }
 
   return context.resolveRequest(context, moduleName, platform);
