@@ -305,6 +305,7 @@ export const projectDocumentsTable = pgTable("project_documents", {
   status: documentStatusEnum("status").notNull().default("pending"),
   extractedData: json("extracted_data"),
   aiSummary: text("ai_summary"),
+  extractedText: text("extracted_text"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
