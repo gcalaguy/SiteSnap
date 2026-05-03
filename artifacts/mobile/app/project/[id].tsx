@@ -2,6 +2,7 @@ import {
   useGetProject,
   useGetProjectSummary,
   useListDailyReports,
+  useListDocuments,
   useListRFIs,
   useListTasks,
   useUpdateTask,
@@ -12,6 +13,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -45,7 +47,7 @@ const STATUS_LABELS: Record<string, string> = {
   on_hold: "On Hold",
 };
 
-const TABS = ["Overview", "Reports", "Tasks", "RFIs"] as const;
+const TABS = ["Overview", "Reports", "Tasks", "RFIs", "Documents"] as const;
 type Tab = (typeof TABS)[number];
 
 const RFI_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -462,6 +464,28 @@ const styles = StyleSheet.create({
   rfiBadge: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginTop: 5 },
   rfiBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   rfiEmpty: { alignItems: "center", paddingVertical: 32, gap: 8 },
+  docRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    gap: 12,
+  },
+  docIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  docFilename: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
+  docMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  docSummary: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 4, lineHeight: 17 },
+  docStatusChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  docStatusText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
 });
 
 function RFIRow({ rfi, onPress }: { rfi: any; onPress: () => void }) {
@@ -506,6 +530,7 @@ export default function ProjectDetailScreen() {
   const { data: reports, refetch: refetchReports } = useListDailyReports(projectId);
   const { data: tasks, refetch: refetchTasks } = useListTasks(projectId);
   const { data: rfis } = useListRFIs(projectId);
+  const { data: documents } = useListDocuments(projectId);
 
   const formatCurrency = (v?: number | null) => {
     if (v == null) return "—";
@@ -660,6 +685,102 @@ export default function ProjectDetailScreen() {
                   }
                 />
               ))
+          )}
+        </View>
+      )}
+
+      {/* Documents tab */}
+      {activeTab === "Documents" && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Uploaded Files</Text>
+          {(documents ?? []).length === 0 ? (
+            <View style={styles.rfiEmpty}>
+              <Feather name="folder" size={32} color={colors.border} />
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                No documents uploaded yet
+              </Text>
+            </View>
+          ) : (
+            [...(documents ?? [])]
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .map((doc: any) => {
+                const isImage = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"].includes(
+                  (doc.fileType ?? "").toLowerCase()
+                );
+                const isPdf = doc.fileType === "application/pdf";
+                const iconName = isImage ? "image" : isPdf ? "file-text" : "file";
+                const fileUrl = `${
+                  process.env.EXPO_PUBLIC_DOMAIN
+                    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+                    : ""
+                }${doc.objectPath.replace(/^\/objects\//, "/api/storage/objects/")}`;
+
+                const statusColors: Record<string, string> = {
+                  ready: "#22C55E",
+                  processing: "#F59E0B",
+                  pending: "#6B7280",
+                  failed: "#EF4444",
+                };
+                const statusLabels: Record<string, string> = {
+                  ready: "AI Ready",
+                  processing: "Processing",
+                  pending: "Pending",
+                  failed: "Failed",
+                };
+
+                return (
+                  <Pressable
+                    key={doc.id}
+                    onPress={() => Linking.openURL(fileUrl)}
+                    style={({ pressed }) => [
+                      styles.docRow,
+                      { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+                    ]}
+                  >
+                    {/* Icon */}
+                    <View style={[styles.docIcon, { backgroundColor: `${colors.primary}15` }]}>
+                      <Feather name={iconName as any} size={20} color={colors.primary} />
+                    </View>
+
+                    {/* Content */}
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        style={[styles.docFilename, { color: colors.foreground }]}
+                        numberOfLines={1}
+                      >
+                        {doc.filename}
+                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
+                        {doc.fileSize && (
+                          <Text style={[styles.docMeta, { color: colors.mutedForeground }]}>
+                            {doc.fileSize > 1_000_000
+                              ? `${(doc.fileSize / 1_000_000).toFixed(1)} MB`
+                              : `${Math.round(doc.fileSize / 1024)} KB`}
+                          </Text>
+                        )}
+                        {doc.status && (
+                          <View style={[styles.docStatusChip, { backgroundColor: `${statusColors[doc.status] ?? "#6B7280"}18` }]}>
+                            <Text style={[styles.docStatusText, { color: statusColors[doc.status] ?? "#6B7280" }]}>
+                              {statusLabels[doc.status] ?? doc.status}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      {doc.aiSummary && (
+                        <Text style={[styles.docSummary, { color: colors.mutedForeground }]} numberOfLines={2}>
+                          {doc.aiSummary}
+                        </Text>
+                      )}
+                      <Text style={[styles.docMeta, { color: colors.mutedForeground, marginTop: 2 }]}>
+                        {new Date(doc.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
+                      </Text>
+                    </View>
+
+                    {/* Open arrow */}
+                    <Feather name="external-link" size={15} color={colors.mutedForeground} style={{ marginLeft: 8 }} />
+                  </Pressable>
+                );
+              })
           )}
         </View>
       )}
