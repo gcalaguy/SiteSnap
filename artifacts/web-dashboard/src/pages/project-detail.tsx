@@ -10,6 +10,8 @@ import {
   useCreateTask,
   useUpdateTask,
   useDeleteTask,
+  useGetMe,
+  useListCompanyMembers,
 } from "@workspace/api-client-react";
 import { getListTasksQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
@@ -28,7 +30,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type Task = {
@@ -43,10 +46,26 @@ type Task = {
   createdAt: string;
 };
 
-function TaskCard({ task, onStatusChange, onDelete }: {
+type Member = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+};
+
+function getInitials(m: Member) {
+  return `${m.firstName[0] ?? ""}${m.lastName[0] ?? ""}`.toUpperCase();
+}
+function getMemberName(m: Member) {
+  return `${m.firstName} ${m.lastName}`;
+}
+
+function TaskCard({ task, onStatusChange, onDelete, assigneeName }: {
   task: Task;
   onStatusChange: (id: number, status: Task["status"]) => void;
   onDelete: (id: number) => void;
+  assigneeName?: string;
 }) {
   const priorityColors: Record<string, string> = {
     low: "bg-slate-100 text-slate-700 border-slate-200",
@@ -89,21 +108,31 @@ function TaskCard({ task, onStatusChange, onDelete }: {
       {task.description && (
         <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{task.description}</p>
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${priorityColors[task.priority]}`}>
           {task.priority}
         </span>
         {task.dueDate && (
           <span className="text-xs text-muted-foreground">Due {format(new Date(task.dueDate), "MMM d")}</span>
         )}
+        {assigneeName && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1 ml-auto">
+            <User className="h-3 w-3" />
+            {assigneeName}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function TasksTab({ projectId }: { projectId: number }) {
+function TasksTab({ projectId, selectedWorkerId, members }: {
+  projectId: number;
+  selectedWorkerId: number | null;
+  members: Member[];
+}) {
   const { toast } = useToast();
-  const { data: tasks = [], isLoading } = useListTasks(projectId);
+  const { data: allTasks = [], isLoading } = useListTasks(projectId);
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
@@ -113,6 +142,13 @@ function TasksTab({ projectId }: { projectId: number }) {
   const [newDesc, setNewDesc] = useState("");
   const [newPriority, setNewPriority] = useState<"low" | "medium" | "high">("medium");
   const [newDueDate, setNewDueDate] = useState("");
+  const [newAssigneeId, setNewAssigneeId] = useState<string>(
+    selectedWorkerId ? String(selectedWorkerId) : "unassigned"
+  );
+
+  const tasks = selectedWorkerId
+    ? (allTasks as Task[]).filter((t) => t.assignedToUserId === selectedWorkerId)
+    : (allTasks as Task[]);
 
   const columns: { key: Task["status"]; label: string; color: string }[] = [
     { key: "todo", label: "To Do", color: "bg-slate-50 border-slate-200" },
@@ -121,10 +157,24 @@ function TasksTab({ projectId }: { projectId: number }) {
   ];
 
   const byStatus = (status: Task["status"]) =>
-    (tasks as Task[]).filter((t) => t.status === status);
+    tasks.filter((t) => t.status === status);
+
+  function getMemberNameById(id?: number | null) {
+    if (!id) return undefined;
+    const m = members.find((m) => m.id === id);
+    return m ? getMemberName(m) : undefined;
+  }
+
+  function handleOpenDialog() {
+    setNewAssigneeId(selectedWorkerId ? String(selectedWorkerId) : "unassigned");
+    setShowDialog(true);
+  }
 
   function handleCreate() {
     if (!newTitle.trim()) return;
+    const assignedToUserId = newAssigneeId && newAssigneeId !== "unassigned"
+      ? Number(newAssigneeId)
+      : undefined;
     createTask.mutate(
       {
         projectId,
@@ -133,6 +183,7 @@ function TasksTab({ projectId }: { projectId: number }) {
           description: newDesc.trim() || undefined,
           priority: newPriority,
           dueDate: newDueDate || undefined,
+          assignedToUserId,
         },
       },
       {
@@ -143,6 +194,7 @@ function TasksTab({ projectId }: { projectId: number }) {
           setNewDesc("");
           setNewPriority("medium");
           setNewDueDate("");
+          setNewAssigneeId("unassigned");
           toast({ title: "Task created" });
         },
         onError: () => toast({ title: "Failed to create task", variant: "destructive" }),
@@ -173,22 +225,37 @@ function TasksTab({ projectId }: { projectId: number }) {
     );
   }
 
+  const workerName = selectedWorkerId ? getMemberNameById(selectedWorkerId) : null;
+
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold">Tasks</h3>
-        <Button onClick={() => setShowDialog(true)}>
+        <div>
+          <h3 className="text-xl font-bold">Tasks</h3>
+          {workerName && (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Showing tasks assigned to <span className="font-medium text-foreground">{workerName}</span>
+            </p>
+          )}
+        </div>
+        <Button onClick={handleOpenDialog}>
           <Plus className="mr-2 h-4 w-4" /> Add Task
         </Button>
       </div>
 
       {isLoading ? (
         <div className="text-center p-8 text-muted-foreground animate-pulse">Loading tasks...</div>
-      ) : (tasks as Task[]).length === 0 ? (
+      ) : tasks.length === 0 ? (
         <div className="text-center p-8 border rounded-md bg-card">
           <CheckSquare className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-          <p className="font-medium">No tasks yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Add tasks to track work items for this project.</p>
+          <p className="font-medium">
+            {selectedWorkerId ? `No tasks assigned to ${workerName}` : "No tasks yet"}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {selectedWorkerId
+              ? "Add a task and assign it to this worker."
+              : "Add tasks to track work items for this project."}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -209,6 +276,7 @@ function TasksTab({ projectId }: { projectId: number }) {
                       task={task}
                       onStatusChange={handleStatusChange}
                       onDelete={handleDelete}
+                      assigneeName={!selectedWorkerId ? getMemberNameById(task.assignedToUserId) : undefined}
                     />
                   ))}
                   {colTasks.length === 0 && (
@@ -268,6 +336,27 @@ function TasksTab({ projectId }: { projectId: number }) {
                 />
               </div>
             </div>
+            {members.length > 0 && (
+              <div>
+                <label className="text-sm font-medium block mb-1">Assign To</label>
+                <Select value={newAssigneeId} onValueChange={setNewAssigneeId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select worker..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {members.map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        <span className="flex items-center gap-2">
+                          {getMemberName(m)}
+                          <span className="text-xs text-muted-foreground capitalize">({m.role})</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
@@ -289,12 +378,28 @@ export default function ProjectDetail() {
   const params = useParams();
   const projectId = Number(params.id);
   const [, setLocation] = useLocation();
+  const [selectedWorkerId, setSelectedWorkerId] = useState<number | null>(null);
+
+  const { data: me } = useGetMe();
+  const companyId = me?.company?.id;
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+
+  const { data: members = [] } = useListCompanyMembers(
+    companyId ?? 0,
+    { enabled: !!companyId && isOwnerOrForeman }
+  ) as { data: Member[] };
 
   const { data: project, isLoading: projectLoading } = useGetProject(projectId);
   const { data: summary } = useGetProjectSummary(projectId);
   const { data: reports } = useListDailyReports(projectId);
   const { data: costAnalyses } = useListCostAnalyses(projectId);
   const { data: rfis } = useListRFIs(projectId);
+
+  const selectedMember = selectedWorkerId ? members.find((m) => m.id === selectedWorkerId) : null;
+
+  const filteredReports = selectedWorkerId
+    ? (reports ?? []).filter((r: any) => r.submittedByUserId === selectedWorkerId)
+    : (reports ?? []);
 
   const getStatusBadge = (status?: string) => {
     if (!status) return null;
@@ -323,21 +428,107 @@ export default function ProjectDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => setLocation("/projects")}>
+      <div className="flex items-start gap-4">
+        <Button variant="outline" size="icon" onClick={() => setLocation("/projects")} className="mt-1 shrink-0">
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-1">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-1 flex-wrap">
             <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
             {getStatusBadge(project.status)}
           </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {project.address}, {project.city}, {project.province}</span>
             {project.startDate && <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> Started: {format(new Date(project.startDate), "MMM d, yyyy")}</span>}
           </div>
         </div>
+
+        {isOwnerOrForeman && members.length > 0 && (
+          <div className="shrink-0 flex items-center gap-2">
+            <div className="flex flex-col items-end gap-1">
+              <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">View as</label>
+              <div className="flex items-center gap-1.5">
+                <Select
+                  value={selectedWorkerId ? String(selectedWorkerId) : "all"}
+                  onValueChange={(v) => setSelectedWorkerId(v === "all" ? null : Number(v))}
+                >
+                  <SelectTrigger className="w-[200px] h-9">
+                    {selectedMember ? (
+                      <span className="flex items-center gap-2">
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                            {getInitials(selectedMember)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">{getMemberName(selectedMember)}</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <Users className="h-4 w-4" /> All Workers
+                      </span>
+                    )}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <span className="flex items-center gap-2">
+                        <Users className="h-4 w-4" /> All Workers
+                      </span>
+                    </SelectItem>
+                    {members.map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        <span className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5">
+                            <AvatarFallback className="text-[10px] bg-muted">
+                              {getInitials(m)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{getMemberName(m)}</span>
+                          <span className="text-xs text-muted-foreground capitalize ml-auto">({m.role})</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedWorkerId && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                    onClick={() => setSelectedWorkerId(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {selectedMember && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+              {getInitials(selectedMember)}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-sm font-medium">
+              Viewing as <span className="text-primary">{getMemberName(selectedMember)}</span>
+              <Badge variant="outline" className="ml-2 capitalize text-xs">{selectedMember.role}</Badge>
+            </p>
+            <p className="text-xs text-muted-foreground">Tasks and reports filtered to this worker's activity.</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto text-muted-foreground hover:text-foreground h-7 px-2"
+            onClick={() => setSelectedWorkerId(null)}
+          >
+            <X className="h-3.5 w-3.5 mr-1" /> Clear
+          </Button>
+        </div>
+      )}
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-6 lg:w-[870px]">
@@ -376,12 +567,18 @@ export default function ProjectDetail() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Daily Reports</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  {selectedMember ? `${selectedMember.firstName}'s Reports` : "Daily Reports"}
+                </CardTitle>
                 <FileText className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{summary?.reportCount || 0}</div>
-                {summary?.lastReportDate && <p className="text-xs text-muted-foreground">Last: {format(new Date(summary.lastReportDate), "MMM d")}</p>}
+                <div className="text-2xl font-bold">{filteredReports.length}</div>
+                {filteredReports.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Last: {format(new Date((filteredReports[0] as any).reportDate), "MMM d")}
+                  </p>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -408,30 +605,49 @@ export default function ProjectDetail() {
         </TabsContent>
 
         <TabsContent value="tasks" className="mt-6">
-          <TasksTab projectId={projectId} />
+          <TasksTab
+            projectId={projectId}
+            selectedWorkerId={selectedWorkerId}
+            members={members}
+          />
         </TabsContent>
 
         <TabsContent value="reports" className="mt-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold">Daily Reports</h3>
+            <div>
+              <h3 className="text-xl font-bold">Daily Reports</h3>
+              {selectedMember && (
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Showing reports submitted by <span className="font-medium text-foreground">{getMemberName(selectedMember)}</span>
+                </p>
+              )}
+            </div>
             <Button onClick={() => setLocation(`/projects/${projectId}/reports/new`)}>
               <Plus className="mr-2 h-4 w-4" /> New Report
             </Button>
           </div>
-          {reports?.length === 0 ? (
+          {filteredReports.length === 0 ? (
             <div className="text-center p-8 border rounded-md bg-card">
               <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-              <p>No daily reports yet.</p>
+              <p>{selectedMember ? `No reports submitted by ${getMemberName(selectedMember)}.` : "No daily reports yet."}</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {reports?.map(report => (
+              {filteredReports.map((report: any) => (
                 <Card key={report.id} className="hover:border-primary/50 transition-colors cursor-pointer">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-bold text-lg">{format(new Date(report.reportDate), "MMM d, yyyy")}</span>
-                      <Badge variant="outline">Crew: {report.crewCount}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">Crew: {report.crewCount}</Badge>
+                      </div>
                     </div>
+                    {!selectedMember && report.submittedBy && (
+                      <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {report.submittedBy.firstName} {report.submittedBy.lastName}
+                      </p>
+                    )}
                     <p className="text-sm text-muted-foreground line-clamp-2 mt-2">{report.workPerformed}</p>
                     {report.aiSummary && (
                       <div className="mt-3 text-xs bg-muted/30 p-2 rounded border border-border/50">
@@ -554,6 +770,7 @@ export default function ProjectDetail() {
             </div>
           )}
         </TabsContent>
+
         <TabsContent value="documents" className="mt-6">
           <DocumentsTab projectId={projectId} />
         </TabsContent>
