@@ -13,6 +13,7 @@ import React, { useState, useEffect } from "react";
 import { DocumentsTab } from "@/components/DocumentsTab";
 import { HoursTab } from "@/components/HoursTab";
 import { QuotesTab } from "@/components/QuotesTab";
+import { TimesheetsTab } from "@/components/TimesheetsTab";
 import {
   ActivityIndicator,
   Image,
@@ -50,7 +51,7 @@ const STATUS_LABELS: Record<string, string> = {
   on_hold: "On Hold",
 };
 
-const TABS = ["Overview", "Reports", "Tasks", "RFIs", "Quotes", "Documents", "Hours"] as const;
+const TABS = ["Overview", "Reports", "Tasks", "RFIs", "Quotes", "Documents", "Hours", "Timesheets"] as const;
 type Tab = (typeof TABS)[number];
 
 const RFI_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -791,6 +792,11 @@ export default function ProjectDetailScreen() {
       {/* Hours tab */}
       {activeTab === "Hours" && (
         <HoursTab projectId={projectId} />
+      )}
+
+      {/* Timesheets tab */}
+      {activeTab === "Timesheets" && (
+        <TimesheetsTab projectId={projectId} />
       )}
     </ScrollView>
   );

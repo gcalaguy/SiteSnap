@@ -634,9 +634,12 @@ export interface Timesheet {
   id: number;
   companyId: number;
   userId: number;
+  projectId?: number | null;
   weekStart: string;
   status: TimesheetStatus;
   totalHours: string;
+  hourlyRate?: string | null;
+  description?: string | null;
   notes?: string | null;
   submittedAt: string;
   reviewedByUserId?: number | null;
@@ -650,7 +653,10 @@ export interface Timesheet {
 export interface SubmitTimesheetBody {
   weekStart: string;
   totalHours: number;
+  hourlyRate?: number | null;
+  description?: string | null;
   notes?: string;
+  projectId?: number | null;
 }
 
 export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus];

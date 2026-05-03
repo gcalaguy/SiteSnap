@@ -2672,6 +2672,9 @@ components:
           type: integer
         userId:
           type: integer
+        projectId:
+          type: integer
+          nullable: true
         weekStart:
           type: string
           format: date
@@ -2680,6 +2683,12 @@ components:
           enum: [submitted, approved, denied]
         totalHours:
           type: string
+        hourlyRate:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
         notes:
           type: string
           nullable: true
@@ -2735,8 +2744,17 @@ components:
           format: date
         totalHours:
           type: number
+        hourlyRate:
+          type: number
+          nullable: true
+        description:
+          type: string
+          nullable: true
         notes:
           type: string
+        projectId:
+          type: integer
+          nullable: true
 
     # ── Invoices ─────────────────────────────────────────────────────────────────
 

@@ -766,13 +766,26 @@ export default function HoursPage() {
                             <span className="text-xs font-semibold text-primary">
                               {parseFloat(ts.totalHours).toFixed(1)}h total
                             </span>
+                            {ts.hourlyRate && (
+                              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                                @ ${parseFloat(ts.hourlyRate).toFixed(2)}/hr
+                                <span className="text-primary font-bold">
+                                  = ${(parseFloat(ts.totalHours) * parseFloat(ts.hourlyRate)).toFixed(2)}
+                                </span>
+                              </span>
+                            )}
                             <span className="text-xs text-muted-foreground">
                               Submitted {format(new Date(ts.submittedAt), "MMM d 'at' h:mm a")}
                             </span>
                           </div>
+                          {ts.description && !isDenying && (
+                            <p className="text-xs text-foreground/80 mt-1.5 leading-relaxed">
+                              {ts.description}
+                            </p>
+                          )}
                           {ts.notes && !isDenying && (
-                            <p className="text-xs text-muted-foreground mt-1.5 italic">
-                              {ts.status === "denied" ? "Reason: " : ""}{ts.notes}
+                            <p className="text-xs text-muted-foreground mt-1 italic">
+                              {ts.status === "denied" ? "Reason: " : "Note: "}{ts.notes}
                             </p>
                           )}
                           {reviewerName && ts.status !== "submitted" && (

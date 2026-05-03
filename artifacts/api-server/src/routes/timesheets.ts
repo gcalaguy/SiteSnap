@@ -9,7 +9,10 @@ const router = Router();
 const SubmitTimesheetBody = z.object({
   weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "weekStart must be YYYY-MM-DD"),
   totalHours: z.number().nonnegative(),
+  hourlyRate: z.number().nonnegative().optional().nullable(),
+  description: z.string().max(2000).optional().nullable(),
   notes: z.string().max(1000).optional(),
+  projectId: z.number().int().optional().nullable(),
 });
 
 const ReviewBody = z.object({
@@ -73,7 +76,7 @@ router.post("/timesheets", requireAuth, requireCompany, async (req, res) => {
   const parsed = SubmitTimesheetBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
 
-  const { weekStart, totalHours, notes } = parsed.data;
+  const { weekStart, totalHours, hourlyRate, description, notes, projectId } = parsed.data;
 
   // Upsert: if same user+company+weekStart exists, update it
   const [existing] = await db
@@ -88,7 +91,18 @@ router.post("/timesheets", requireAuth, requireCompany, async (req, res) => {
 
   if (existing) {
     const [updated] = await db.update(timesheetsTable)
-      .set({ status: "submitted", totalHours: totalHours.toFixed(2), notes: notes ?? null, submittedAt: new Date(), reviewedByUserId: null, reviewedAt: null, updatedAt: new Date() })
+      .set({
+        status: "submitted",
+        totalHours: totalHours.toFixed(2),
+        hourlyRate: hourlyRate != null ? hourlyRate.toFixed(2) : null,
+        description: description ?? null,
+        notes: notes ?? null,
+        projectId: projectId ?? null,
+        submittedAt: new Date(),
+        reviewedByUserId: null,
+        reviewedAt: null,
+        updatedAt: new Date(),
+      })
       .where(eq(timesheetsTable.id, existing.id))
       .returning();
     const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
@@ -99,9 +113,12 @@ router.post("/timesheets", requireAuth, requireCompany, async (req, res) => {
   const [ts] = await db.insert(timesheetsTable).values({
     companyId: req.companyId!,
     userId: req.userId!,
+    projectId: projectId ?? null,
     weekStart,
     status: "submitted",
     totalHours: totalHours.toFixed(2),
+    hourlyRate: hourlyRate != null ? hourlyRate.toFixed(2) : null,
+    description: description ?? null,
     notes: notes ?? null,
   }).returning();
 
