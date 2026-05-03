@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -127,7 +128,16 @@ export default function AskScreen() {
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
@@ -265,8 +275,16 @@ export default function AskScreen() {
     }
   }, [isRecording, recorder]);
 
+  const TAB_BAR_HEIGHT = 49;
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
-  const bottomInsets = Platform.OS === "web" ? 34 : insets.bottom;
+  // When keyboard is visible it covers the tab bar, so we only need safe area.
+  // When keyboard is hidden, add the tab bar height so content isn't hidden behind it.
+  const bottomInsets =
+    Platform.OS === "web"
+      ? 34
+      : keyboardVisible
+        ? insets.bottom
+        : insets.bottom + TAB_BAR_HEIGHT;
   const hasMessages = messages.length > 0;
 
   const micColor =
