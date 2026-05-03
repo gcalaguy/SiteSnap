@@ -2,7 +2,6 @@ import {
   useGetProject,
   useGetProjectSummary,
   useListDailyReports,
-  useListDocuments,
   useListRFIs,
   useListTasks,
   useUpdateTask,
@@ -11,6 +10,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState, useEffect } from "react";
+import { DocumentsTab } from "@/components/DocumentsTab";
 import {
   ActivityIndicator,
   Image,
@@ -567,7 +567,6 @@ export default function ProjectDetailScreen() {
   const { data: reports, refetch: refetchReports } = useListDailyReports(projectId);
   const { data: tasks, refetch: refetchTasks } = useListTasks(projectId);
   const { data: rfis } = useListRFIs(projectId);
-  const { data: documents } = useListDocuments(projectId);
 
   const [clientUploads, setClientUploads] = useState<any[]>([]);
   useEffect(() => {
@@ -779,156 +778,7 @@ export default function ProjectDetailScreen() {
 
       {/* Documents tab */}
       {activeTab === "Documents" && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Uploaded Files</Text>
-          {(documents ?? []).length === 0 ? (
-            <View style={styles.rfiEmpty}>
-              <Feather name="folder" size={32} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                No documents uploaded yet
-              </Text>
-            </View>
-          ) : (
-            [...(documents ?? [])]
-              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-              .map((doc: any) => {
-                const isImage = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"].includes(
-                  (doc.fileType ?? "").toLowerCase()
-                );
-                const isPdf = doc.fileType === "application/pdf";
-                const iconName = isImage ? "image" : isPdf ? "file-text" : "file";
-                const fileUrl = `${
-                  process.env.EXPO_PUBLIC_DOMAIN
-                    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                    : ""
-                }${doc.objectPath.replace(/^\/objects\//, "/api/storage/objects/")}`;
-
-                const statusColors: Record<string, string> = {
-                  ready: "#22C55E",
-                  processing: "#F59E0B",
-                  pending: "#6B7280",
-                  failed: "#EF4444",
-                };
-                const statusLabels: Record<string, string> = {
-                  ready: "AI Ready",
-                  processing: "Processing",
-                  pending: "Pending",
-                  failed: "Failed",
-                };
-
-                return (
-                  <Pressable
-                    key={doc.id}
-                    onPress={() => Linking.openURL(fileUrl)}
-                    style={({ pressed }) => [
-                      styles.docRow,
-                      { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-                    ]}
-                  >
-                    {/* Icon */}
-                    <View style={[styles.docIcon, { backgroundColor: `${colors.primary}15` }]}>
-                      <Feather name={iconName as any} size={20} color={colors.primary} />
-                    </View>
-
-                    {/* Content */}
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text
-                        style={[styles.docFilename, { color: colors.foreground }]}
-                        numberOfLines={1}
-                      >
-                        {doc.filename}
-                      </Text>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
-                        {doc.fileSize && (
-                          <Text style={[styles.docMeta, { color: colors.mutedForeground }]}>
-                            {doc.fileSize > 1_000_000
-                              ? `${(doc.fileSize / 1_000_000).toFixed(1)} MB`
-                              : `${Math.round(doc.fileSize / 1024)} KB`}
-                          </Text>
-                        )}
-                        {doc.status && (
-                          <View style={[styles.docStatusChip, { backgroundColor: `${statusColors[doc.status] ?? "#6B7280"}18` }]}>
-                            <Text style={[styles.docStatusText, { color: statusColors[doc.status] ?? "#6B7280" }]}>
-                              {statusLabels[doc.status] ?? doc.status}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      {doc.aiSummary && (
-                        <Text style={[styles.docSummary, { color: colors.mutedForeground }]} numberOfLines={2}>
-                          {doc.aiSummary}
-                        </Text>
-                      )}
-                      <Text style={[styles.docMeta, { color: colors.mutedForeground, marginTop: 2 }]}>
-                        {new Date(doc.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
-                      </Text>
-                    </View>
-
-                    {/* Open arrow */}
-                    <Feather name="external-link" size={15} color={colors.mutedForeground} style={{ marginLeft: 8 }} />
-                  </Pressable>
-                );
-              })
-          )}
-
-          {/* Client uploads */}
-          {clientUploads.length > 0 && (
-            <>
-              <View style={[styles.clientUploadHeader, { marginTop: (documents ?? []).length > 0 ? 20 : 0 }]}>
-                <Feather name="user" size={14} color="#3B82F6" />
-                <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0, flex: 1 }]}>Client Uploads</Text>
-                <View style={styles.clientUploadBadge}>
-                  <Text style={styles.clientUploadBadgeText}>{clientUploads.length}</Text>
-                </View>
-              </View>
-              {clientUploads.map((upload: any) => {
-                const isImage = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"].includes(
-                  (upload.fileType ?? "").toLowerCase()
-                );
-                const isPdf = upload.fileType === "application/pdf";
-                const iconName = isImage ? "image" : isPdf ? "file-text" : "file";
-                const fileUrl = `${
-                  process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : ""
-                }${upload.objectPath.replace(/^\/objects\//, "/api/storage/objects/")}`;
-                return (
-                  <Pressable
-                    key={upload.id}
-                    onPress={() => Linking.openURL(fileUrl)}
-                    style={({ pressed }) => [
-                      styles.docRow,
-                      { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE", opacity: pressed ? 0.85 : 1 },
-                    ]}
-                  >
-                    <View style={[styles.docIcon, { backgroundColor: "#3B82F618" }]}>
-                      <Feather name={iconName as any} size={20} color="#3B82F6" />
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={[styles.docFilename, { color: colors.foreground }]} numberOfLines={1}>
-                        {upload.filename}
-                      </Text>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
-                        {upload.fileSize && (
-                          <Text style={[styles.docMeta, { color: colors.mutedForeground }]}>
-                            {upload.fileSize > 1_000_000
-                              ? `${(upload.fileSize / 1_000_000).toFixed(1)} MB`
-                              : `${Math.round(upload.fileSize / 1024)} KB`}
-                          </Text>
-                        )}
-                        <View style={[styles.docStatusChip, { backgroundColor: "#3B82F618" }]}>
-                          <Text style={[styles.docStatusText, { color: "#3B82F6" }]}>From Client</Text>
-                        </View>
-                      </View>
-                      <Text style={[styles.docMeta, { color: colors.mutedForeground, marginTop: 2 }]}>
-                        {new Date(upload.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
-                      </Text>
-                    </View>
-                    <Feather name="external-link" size={15} color={colors.mutedForeground} style={{ marginLeft: 8 }} />
-                  </Pressable>
-                );
-              })}
-            </>
-          )}
-        </View>
+        <DocumentsTab projectId={projectId} clientUploads={clientUploads} />
       )}
     </ScrollView>
   );

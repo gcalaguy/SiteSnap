@@ -1,0 +1,816 @@
+import React, { useState, useRef, useCallback } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  Linking,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import { customFetch, useListDocuments } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useColors } from "@/hooks/useColors";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+type DocStatus = "pending" | "processing" | "ready" | "failed";
+
+type ProjectDoc = {
+  id: number; projectId: number; filename: string; fileType: string;
+  objectPath: string; fileSize: number | null; status: DocStatus;
+  extractedData: Record<string, unknown> | null;
+  aiSummary: string | null; extractedText: string | null; createdAt: string;
+};
+
+type ExtractedFields = {
+  documentType?: string; confidence?: string; ocrText?: string;
+  extractedData?: {
+    vendor?: string | null; amount?: number | null; currency?: string | null;
+    date?: string | null; invoiceNumber?: string | null;
+    projectReference?: string | null; notes?: string | null; version?: string | null;
+    items?: { description: string; quantity: string; unitPrice: string; total: string }[];
+  };
+};
+
+type SearchResult = ProjectDoc & { relevance: "high" | "medium" | "low"; reason: string };
+type SearchResponse = { results: SearchResult[]; answer: string };
+type QAResponse = { answer: string; citations: { id: number; filename: string }[] };
+type QAMessage = { role: "user" | "assistant"; text: string; citations?: { id: number; filename: string }[] };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function baseUrl() {
+  return process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "";
+}
+
+function fileDownloadUrl(objectPath: string) {
+  return `${baseUrl()}${objectPath.replace(/^\/objects\//, "/api/storage/objects/")}`;
+}
+
+function formatSize(bytes: number | null) {
+  if (!bytes) return null;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
+}
+
+const STATUS_COLORS: Record<DocStatus, string> = {
+  pending: "#6B7280", processing: "#F59E0B", ready: "#22C55E", failed: "#EF4444",
+};
+const STATUS_LABELS: Record<DocStatus, string> = {
+  pending: "Pending", processing: "Analyzing…", ready: "AI Ready", failed: "Failed",
+};
+const RELEVANCE_COLORS: Record<string, string> = {
+  high: "#22C55E", medium: "#F59E0B", low: "#6B7280",
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function VoiceMicButton({ onTranscript, disabled }: { onTranscript: (t: string) => void; disabled?: boolean }) {
+  const colors = useColors();
+  const { state, toggle } = useVoiceRecorder(onTranscript);
+  const isRecording = state === "recording";
+  const isTranscribing = state === "transcribing";
+
+  return (
+    <Pressable
+      onPress={toggle}
+      disabled={disabled || isTranscribing}
+      style={[
+        docStyles.micBtn,
+        { backgroundColor: isRecording ? "#EF444420" : `${colors.primary}15`, borderColor: isRecording ? "#EF4444" : colors.border },
+      ]}
+    >
+      {isTranscribing ? (
+        <ActivityIndicator size={16} color={colors.primary} />
+      ) : (
+        <Feather name={isRecording ? "mic-off" : "mic"} size={16} color={isRecording ? "#EF4444" : colors.primary} />
+      )}
+    </Pressable>
+  );
+}
+
+function ExtractedPanel({ doc }: { doc: ProjectDoc }) {
+  const colors = useColors();
+  const [open, setOpen] = useState(false);
+  if (doc.status !== "ready" || !doc.extractedData) return null;
+
+  const data = doc.extractedData as ExtractedFields;
+  const fields = data.extractedData ?? {};
+  const hasFields = !!(fields.vendor || fields.amount != null || fields.date || fields.invoiceNumber);
+
+  return (
+    <View style={{ marginTop: 8 }}>
+      <Pressable
+        style={[docStyles.extractedHeader, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}25` }]}
+        onPress={() => setOpen(v => !v)}
+      >
+        <Feather name="zap" size={12} color={colors.primary} />
+        <Text style={[docStyles.extractedHeaderText, { color: colors.primary }]}>
+          {data.documentType ?? "AI Analysis"}
+          {data.confidence === "low" ? " · filename profile" : ""}
+        </Text>
+        <Feather name={open ? "chevron-up" : "chevron-down"} size={12} color={colors.primary} style={{ marginLeft: "auto" }} />
+      </Pressable>
+
+      {open && (
+        <View style={[docStyles.extractedBody, { borderColor: `${colors.primary}20`, backgroundColor: colors.card }]}>
+          {doc.aiSummary && (
+            <Text style={[docStyles.extractedSummary, { color: colors.mutedForeground }]}>{doc.aiSummary}</Text>
+          )}
+          {hasFields && (
+            <View style={docStyles.fieldsGrid}>
+              {fields.vendor && (
+                <View style={docStyles.fieldItem}>
+                  <Text style={[docStyles.fieldLabel, { color: colors.mutedForeground }]}>Vendor</Text>
+                  <Text style={[docStyles.fieldValue, { color: colors.foreground }]}>{fields.vendor}</Text>
+                </View>
+              )}
+              {fields.amount != null && (
+                <View style={docStyles.fieldItem}>
+                  <Text style={[docStyles.fieldLabel, { color: colors.mutedForeground }]}>Amount</Text>
+                  <Text style={[docStyles.fieldValue, { color: colors.foreground }]}>
+                    {fields.currency ?? "CAD"}${fields.amount.toLocaleString()}
+                  </Text>
+                </View>
+              )}
+              {fields.date && (
+                <View style={docStyles.fieldItem}>
+                  <Text style={[docStyles.fieldLabel, { color: colors.mutedForeground }]}>Date</Text>
+                  <Text style={[docStyles.fieldValue, { color: colors.foreground }]}>{fields.date}</Text>
+                </View>
+              )}
+              {fields.invoiceNumber && (
+                <View style={docStyles.fieldItem}>
+                  <Text style={[docStyles.fieldLabel, { color: colors.mutedForeground }]}>Invoice #</Text>
+                  <Text style={[docStyles.fieldValue, { color: colors.foreground }]}>{fields.invoiceNumber}</Text>
+                </View>
+              )}
+            </View>
+          )}
+          {fields.items && fields.items.length > 0 && (
+            <View style={{ marginTop: 8 }}>
+              <Text style={[docStyles.fieldLabel, { color: colors.mutedForeground, marginBottom: 4 }]}>LINE ITEMS</Text>
+              {fields.items.map((item, i) => (
+                <View key={i} style={[docStyles.lineItem, { borderTopColor: colors.border }]}>
+                  <Text style={[docStyles.lineItemDesc, { color: colors.foreground }]} numberOfLines={1}>{item.description}</Text>
+                  <Text style={[docStyles.lineItemAmt, { color: colors.foreground }]}>{item.total}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+          {data.ocrText ? (
+            <View style={{ marginTop: 8 }}>
+              <Text style={[docStyles.fieldLabel, { color: colors.mutedForeground, marginBottom: 4 }]}>EXTRACTED TEXT (OCR)</Text>
+              <Text style={[docStyles.ocrText, { color: colors.mutedForeground, backgroundColor: `${colors.muted}50` }]} numberOfLines={6}>
+                {data.ocrText}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function SearchPanel({ projectId }: { projectId: number }) {
+  const colors = useColors();
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<SearchResponse | null>(null);
+
+  async function run() {
+    if (!query.trim() || loading) return;
+    setLoading(true);
+    setResult(null);
+    try {
+      const data = await customFetch(`/api/projects/${projectId}/documents/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: query.trim() }),
+      }) as SearchResponse;
+      setResult(data);
+    } catch {
+      setResult({ results: [], answer: "Search failed. Please try again." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={[docStyles.inputRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <Feather name="search" size={15} color={colors.mutedForeground} style={{ marginLeft: 10 }} />
+        <TextInput
+          style={[docStyles.textInput, { color: colors.foreground, flex: 1 }]}
+          placeholder="Search docs… e.g. 'concrete receipts'"
+          placeholderTextColor={colors.mutedForeground}
+          value={query}
+          onChangeText={setQuery}
+          onSubmitEditing={run}
+          returnKeyType="search"
+        />
+        <VoiceMicButton onTranscript={t => setQuery(q => q ? `${q} ${t}` : t)} disabled={loading} />
+        <Pressable
+          onPress={run}
+          disabled={loading || !query.trim()}
+          style={[docStyles.sendBtn, { backgroundColor: colors.primary, opacity: (loading || !query.trim()) ? 0.5 : 1 }]}
+        >
+          {loading
+            ? <ActivityIndicator size={13} color="#fff" />
+            : <Feather name="search" size={13} color="#fff" />}
+        </Pressable>
+      </View>
+
+      {result && (
+        <View style={{ gap: 8 }}>
+          {result.answer ? (
+            <View style={[docStyles.aiAnswerBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}25` }]}>
+              <Feather name="zap" size={13} color={colors.primary} style={{ marginTop: 1 }} />
+              <Text style={[docStyles.aiAnswerText, { color: colors.foreground }]}>{result.answer}</Text>
+            </View>
+          ) : null}
+          {result.results.length === 0
+            ? <Text style={[docStyles.emptyText, { color: colors.mutedForeground }]}>No matching documents found.</Text>
+            : result.results.map(doc => (
+              <Pressable
+                key={doc.id}
+                style={[docStyles.searchResultRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => Linking.openURL(fileDownloadUrl(doc.objectPath))}
+              >
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[docStyles.docFilename, { color: colors.foreground }]} numberOfLines={1}>
+                    {doc.filename}
+                  </Text>
+                  <Text style={[docStyles.docMeta, { color: colors.mutedForeground }]} numberOfLines={2}>
+                    {doc.reason}
+                  </Text>
+                </View>
+                <View style={[docStyles.relevanceChip, { backgroundColor: `${RELEVANCE_COLORS[doc.relevance]}18` }]}>
+                  <Text style={[docStyles.relevanceText, { color: RELEVANCE_COLORS[doc.relevance] }]}>{doc.relevance}</Text>
+                </View>
+              </Pressable>
+            ))
+          }
+        </View>
+      )}
+    </View>
+  );
+}
+
+function QAPanel({ projectId }: { projectId: number }) {
+  const colors = useColors();
+  const [messages, setMessages] = useState<QAMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const STARTERS = ["What's the total spend on this project?", "List all vendors", "Any safety inspection issues?"];
+
+  async function ask() {
+    const q = input.trim();
+    if (!q || loading) return;
+    setInput("");
+    setMessages(m => [...m, { role: "user", text: q }]);
+    setLoading(true);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+    try {
+      const data = await customFetch(`/api/projects/${projectId}/documents/qa`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q }),
+      }) as QAResponse;
+      setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations }]);
+    } catch {
+      setMessages(m => [...m, { role: "assistant", text: "Sorry, Q&A failed. Please try again." }]);
+    } finally {
+      setLoading(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+    }
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      {messages.length === 0 ? (
+        <View style={{ gap: 8 }}>
+          <View style={[docStyles.aiAnswerBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}25` }]}>
+            <Feather name="zap" size={13} color={colors.primary} />
+            <Text style={[docStyles.aiAnswerText, { color: colors.mutedForeground }]}>
+              Ask anything about your project documents. Analyze files first for best results.
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {STARTERS.map(s => (
+              <Pressable
+                key={s}
+                onPress={() => setInput(s)}
+                style={[docStyles.starterChip, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              >
+                <Text style={[docStyles.starterText, { color: colors.mutedForeground }]}>{s}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : (
+        <ScrollView ref={scrollRef} style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
+          <View style={{ gap: 10, paddingBottom: 4 }}>
+            {messages.map((m, i) => (
+              <View key={i} style={{ alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
+                {m.role === "assistant" && (
+                  <View style={[docStyles.aiBubbleHeader]}>
+                    <Feather name="zap" size={11} color={colors.primary} />
+                    <Text style={[docStyles.fieldLabel, { color: colors.primary }]}>Site Snap AI</Text>
+                  </View>
+                )}
+                <View style={[
+                  docStyles.bubble,
+                  m.role === "user"
+                    ? { backgroundColor: colors.primary }
+                    : { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+                ]}>
+                  <Text style={[docStyles.bubbleText, { color: m.role === "user" ? "#fff" : colors.foreground }]}>
+                    {m.text}
+                  </Text>
+                  {m.citations && m.citations.length > 0 && (
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                      {m.citations.map(c => (
+                        <View key={c.id} style={[docStyles.citationChip, { backgroundColor: `${colors.primary}12` }]}>
+                          <Feather name="file-text" size={10} color={colors.primary} />
+                          <Text style={[docStyles.citationText, { color: colors.primary }]} numberOfLines={1}>{c.filename}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </View>
+            ))}
+            {loading && (
+              <View style={{ alignItems: "flex-start" }}>
+                <View style={[docStyles.bubble, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}>
+                  <ActivityIndicator size={14} color={colors.primary} />
+                </View>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      )}
+
+      <View style={[docStyles.inputRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <TextInput
+          style={[docStyles.textInput, { color: colors.foreground, flex: 1, marginLeft: 10 }]}
+          placeholder="Ask about your documents…"
+          placeholderTextColor={colors.mutedForeground}
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={ask}
+          returnKeyType="send"
+          multiline
+        />
+        <VoiceMicButton onTranscript={t => setInput(q => q ? `${q} ${t}` : t)} disabled={loading} />
+        <Pressable
+          onPress={ask}
+          disabled={loading || !input.trim()}
+          style={[docStyles.sendBtn, { backgroundColor: colors.primary, opacity: (loading || !input.trim()) ? 0.5 : 1 }]}
+        >
+          <Feather name="send" size={13} color="#fff" />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+export function DocumentsTab({ projectId, clientUploads }: { projectId: number; clientUploads: any[] }) {
+  const colors = useColors();
+  const queryClient = useQueryClient();
+  const { data: documents } = useListDocuments(projectId);
+  const docs: ProjectDoc[] = (documents as ProjectDoc[]) ?? [];
+
+  const [uploading, setUploading] = useState(false);
+  const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
+  const [mode, setMode] = useState<"list" | "search" | "qa">("list");
+
+  const docQueryKey = ["documents", projectId];
+
+  const triggerAnalyze = useCallback(async (doc: ProjectDoc) => {
+    setAnalyzingIds(prev => new Set(prev).add(doc.id));
+    try {
+      const updated = await customFetch(`/api/projects/${projectId}/documents/${doc.id}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }) as ProjectDoc;
+      queryClient.setQueryData<ProjectDoc[]>(docQueryKey, (old = []) =>
+        old.map(d => d.id === updated.id ? updated : d)
+      );
+    } catch {
+      Alert.alert("Analysis failed", "Could not analyze this file. Please try again.");
+    } finally {
+      setAnalyzingIds(prev => { const s = new Set(prev); s.delete(doc.id); return s; });
+    }
+  }, [projectId, queryClient]);
+
+  const handleUpload = useCallback(async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permission needed", "Allow photo library access in Settings to upload images.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets.length) return;
+    setUploading(true);
+
+    for (const asset of result.assets) {
+      try {
+        const ext = (asset.fileName?.split(".").pop() ?? "jpg").toLowerCase();
+        const mimeType = asset.mimeType ?? `image/${ext}`;
+        const filename = asset.fileName ?? `photo_${Date.now()}.${ext}`;
+        const fileSize = asset.fileSize ?? undefined;
+
+        // 1. Request presigned upload URL
+        const { uploadURL, objectPath } = await customFetch("/api/storage/uploads/request-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: filename, size: fileSize ?? 0, contentType: mimeType }),
+        }) as { uploadURL: string; objectPath: string };
+
+        // 2. Upload binary to storage
+        await FileSystem.uploadAsync(uploadURL, asset.uri, {
+          httpMethod: "PUT",
+          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+          headers: { "Content-Type": mimeType },
+        });
+
+        // 3. Register document
+        const doc = await customFetch(`/api/projects/${projectId}/documents`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename, fileType: mimeType, objectPath, fileSize }),
+        }) as ProjectDoc;
+
+        queryClient.invalidateQueries({ queryKey: docQueryKey });
+
+        // 4. Auto-analyze images
+        setAnalyzingIds(prev => new Set(prev).add(doc.id));
+        try {
+          const updated = await customFetch(`/api/projects/${projectId}/documents/${doc.id}/analyze`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          }) as ProjectDoc;
+          queryClient.setQueryData<ProjectDoc[]>(docQueryKey, (old = []) =>
+            old.map(d => d.id === updated.id ? updated : d)
+          );
+        } finally {
+          setAnalyzingIds(prev => { const s = new Set(prev); s.delete(doc.id); return s; });
+        }
+      } catch {
+        Alert.alert("Upload failed", "Could not upload one or more photos.");
+      }
+    }
+    setUploading(false);
+  }, [projectId, queryClient]);
+
+  const handleCamera = useCallback(async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permission needed", "Allow camera access in Settings to take photos.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
+    if (result.canceled || !result.assets.length) return;
+
+    const asset = result.assets[0];
+    setUploading(true);
+    try {
+      const ext = "jpg";
+      const mimeType = "image/jpeg";
+      const filename = `site_photo_${Date.now()}.${ext}`;
+
+      const { uploadURL, objectPath } = await customFetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: filename, size: asset.fileSize ?? 0, contentType: mimeType }),
+      }) as { uploadURL: string; objectPath: string };
+
+      await FileSystem.uploadAsync(uploadURL, asset.uri, {
+        httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { "Content-Type": mimeType },
+      });
+
+      const doc = await customFetch(`/api/projects/${projectId}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename, fileType: mimeType, objectPath, fileSize: asset.fileSize }),
+      }) as ProjectDoc;
+
+      queryClient.invalidateQueries({ queryKey: docQueryKey });
+
+      setAnalyzingIds(prev => new Set(prev).add(doc.id));
+      try {
+        const updated = await customFetch(`/api/projects/${projectId}/documents/${doc.id}/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }) as ProjectDoc;
+        queryClient.setQueryData<ProjectDoc[]>(docQueryKey, (old = []) =>
+          old.map(d => d.id === updated.id ? updated : d)
+        );
+      } finally {
+        setAnalyzingIds(prev => { const s = new Set(prev); s.delete(doc.id); return s; });
+      }
+    } catch {
+      Alert.alert("Upload failed", "Could not upload the photo.");
+    } finally {
+      setUploading(false);
+    }
+  }, [projectId, queryClient]);
+
+  const analyzedCount = docs.filter(d => d.status === "ready").length;
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: 20, paddingBottom: 20, gap: 14 }}>
+
+        {/* Header row */}
+        <View style={docStyles.headerRow}>
+          <View>
+            <Text style={[docStyles.heading, { color: colors.foreground }]}>Documents</Text>
+            {docs.length > 0 && (
+              <Text style={[docStyles.subheading, { color: colors.mutedForeground }]}>
+                {analyzedCount}/{docs.length} analyzed{clientUploads.length > 0 ? ` · ${clientUploads.length} client` : ""}
+              </Text>
+            )}
+          </View>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable
+              onPress={() => Alert.alert("Upload", "Choose a source", [
+                { text: "Camera", onPress: handleCamera },
+                { text: "Photo Library", onPress: handleUpload },
+                { text: "Cancel", style: "cancel" },
+              ])}
+              disabled={uploading}
+              style={[docStyles.headerBtn, { backgroundColor: colors.primary }]}
+            >
+              {uploading
+                ? <ActivityIndicator size={14} color="#fff" />
+                : <Feather name="upload" size={14} color="#fff" />}
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Mode tabs */}
+        <View style={[docStyles.modeRow, { backgroundColor: colors.muted, borderRadius: 10 }]}>
+          {(["list", "search", "qa"] as const).map(m => {
+            const active = mode === m;
+            const icons = { list: "file", search: "search", qa: "message-square" } as const;
+            const labels = { list: "Files", search: "Search", qa: "Ask AI" };
+            return (
+              <Pressable
+                key={m}
+                onPress={() => setMode(m)}
+                style={[docStyles.modeTab, active && { backgroundColor: colors.card, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 }]}
+              >
+                <Feather name={icons[m]} size={13} color={active ? colors.primary : colors.mutedForeground} />
+                <Text style={[docStyles.modeTabText, { color: active ? colors.primary : colors.mutedForeground }]}>{labels[m]}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Search panel */}
+        {mode === "search" && (
+          <View style={[docStyles.panel, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={docStyles.panelHeader}>
+              <Feather name="search" size={14} color={colors.primary} />
+              <Text style={[docStyles.panelTitle, { color: colors.foreground }]}>Semantic Search</Text>
+              <View style={[docStyles.aiBadge, { backgroundColor: `${colors.primary}15` }]}>
+                <Feather name="zap" size={9} color={colors.primary} />
+                <Text style={[docStyles.aiBadgeText, { color: colors.primary }]}>AI</Text>
+              </View>
+            </View>
+            <SearchPanel projectId={projectId} />
+          </View>
+        )}
+
+        {/* Q&A panel */}
+        {mode === "qa" && (
+          <View style={[docStyles.panel, { backgroundColor: colors.card, borderColor: `${colors.primary}30` }]}>
+            <View style={docStyles.panelHeader}>
+              <Feather name="message-square" size={14} color={colors.primary} />
+              <Text style={[docStyles.panelTitle, { color: colors.foreground }]}>Document Q&A</Text>
+              <View style={[docStyles.aiBadge, { backgroundColor: `${colors.primary}15` }]}>
+                <Feather name="zap" size={9} color={colors.primary} />
+                <Text style={[docStyles.aiBadgeText, { color: colors.primary }]}>AI</Text>
+              </View>
+            </View>
+            <QAPanel projectId={projectId} />
+          </View>
+        )}
+
+        {/* File list */}
+        {mode === "list" && (
+          <>
+            {/* Tip */}
+            <View style={[docStyles.tipBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}20` }]}>
+              <Feather name="zap" size={13} color={colors.primary} style={{ marginTop: 1 }} />
+              <Text style={[docStyles.tipText, { color: colors.mutedForeground }]}>
+                Photos & receipts are analyzed automatically. Tap <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.primary }}>Analyze</Text> on other files, then use Search or Ask AI.
+              </Text>
+            </View>
+
+            {docs.length === 0 ? (
+              <View style={docStyles.emptyBox}>
+                <Feather name="folder" size={36} color={colors.border} />
+                <Text style={[docStyles.emptyTitle, { color: colors.foreground }]}>No documents yet</Text>
+                <Text style={[docStyles.emptySubtext, { color: colors.mutedForeground }]}>
+                  Upload photos, receipts, or invoices using the upload button above.
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: 10 }}>
+                {[...docs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(doc => {
+                  const isAnalyzing = analyzingIds.has(doc.id);
+                  const effectiveStatus: DocStatus = isAnalyzing ? "processing" : doc.status;
+                  const isImage = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"].includes(doc.fileType.toLowerCase());
+                  const isPdf = doc.fileType === "application/pdf";
+                  const iconName = isImage ? "image" : isPdf ? "file-text" : "file";
+                  const canAnalyze = !isAnalyzing && doc.status !== "processing" && doc.status !== "ready";
+
+                  return (
+                    <View key={doc.id} style={[docStyles.docCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <View style={docStyles.docCardMain}>
+                        <View style={[docStyles.docIcon, { backgroundColor: `${colors.primary}15` }]}>
+                          <Feather name={iconName as any} size={20} color={colors.primary} />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={[docStyles.docFilename, { color: colors.foreground }]} numberOfLines={1}>
+                            {doc.filename}
+                          </Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+                            {formatSize(doc.fileSize) && (
+                              <Text style={[docStyles.docMeta, { color: colors.mutedForeground }]}>{formatSize(doc.fileSize)}</Text>
+                            )}
+                            <View style={[docStyles.statusChip, { backgroundColor: `${STATUS_COLORS[effectiveStatus]}15` }]}>
+                              {effectiveStatus === "processing" && <ActivityIndicator size={10} color={STATUS_COLORS[effectiveStatus]} style={{ marginRight: 3 }} />}
+                              <Text style={[docStyles.statusText, { color: STATUS_COLORS[effectiveStatus] }]}>
+                                {STATUS_LABELS[effectiveStatus]}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={[docStyles.docMeta, { color: colors.mutedForeground, marginTop: 2 }]}>
+                            {formatDate(doc.createdAt)}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
+                          {canAnalyze && (
+                            <Pressable
+                              onPress={() => triggerAnalyze(doc)}
+                              style={[docStyles.analyzeBtn, { borderColor: colors.primary, backgroundColor: `${colors.primary}10` }]}
+                            >
+                              <Feather name="zap" size={11} color={colors.primary} />
+                              <Text style={[docStyles.analyzeBtnText, { color: colors.primary }]}>Analyze</Text>
+                            </Pressable>
+                          )}
+                          <Pressable
+                            onPress={() => Linking.openURL(fileDownloadUrl(doc.objectPath))}
+                            style={[docStyles.iconBtn, { backgroundColor: colors.muted }]}
+                          >
+                            <Feather name="external-link" size={14} color={colors.mutedForeground} />
+                          </Pressable>
+                        </View>
+                      </View>
+                      <ExtractedPanel doc={doc} />
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Client uploads */}
+            {clientUploads.length > 0 && (
+              <View style={{ gap: 8, marginTop: 4 }}>
+                <View style={docStyles.sectionLabelRow}>
+                  <Feather name="user" size={13} color="#3B82F6" />
+                  <Text style={[docStyles.sectionLabel, { color: colors.mutedForeground }]}>Client Uploads</Text>
+                  <View style={docStyles.clientBadge}>
+                    <Text style={docStyles.clientBadgeText}>{clientUploads.length}</Text>
+                  </View>
+                </View>
+                {clientUploads.map((upload: any) => {
+                  const isImage = ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes((upload.fileType ?? "").toLowerCase());
+                  const iconName = isImage ? "image" : "file-text";
+                  return (
+                    <Pressable
+                      key={upload.id}
+                      onPress={() => Linking.openURL(fileDownloadUrl(upload.objectPath))}
+                      style={({ pressed }) => [docStyles.docCard, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE", opacity: pressed ? 0.85 : 1 }]}
+                    >
+                      <View style={docStyles.docCardMain}>
+                        <View style={[docStyles.docIcon, { backgroundColor: "#3B82F618" }]}>
+                          <Feather name={iconName as any} size={20} color="#3B82F6" />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={[docStyles.docFilename, { color: "#1E3A5F" }]} numberOfLines={1}>{upload.filename}</Text>
+                          <View style={{ flexDirection: "row", gap: 6, marginTop: 3 }}>
+                            {upload.fileSize && (
+                              <Text style={[docStyles.docMeta, { color: "#64748B" }]}>{formatSize(upload.fileSize)}</Text>
+                            )}
+                            <View style={[docStyles.statusChip, { backgroundColor: "#3B82F618" }]}>
+                              <Text style={[docStyles.statusText, { color: "#3B82F6" }]}>From Client</Text>
+                            </View>
+                          </View>
+                          <Text style={[docStyles.docMeta, { color: "#64748B", marginTop: 2 }]}>{formatDate(upload.createdAt)}</Text>
+                        </View>
+                        <Feather name="external-link" size={14} color="#94A3B8" />
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        )}
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const docStyles = StyleSheet.create({
+  headerRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  heading: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  subheading: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  headerBtn: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  modeRow: { flexDirection: "row", padding: 3, gap: 2 },
+  modeTab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 8, borderRadius: 8 },
+  modeTabText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  panel: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 12 },
+  panelHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 },
+  panelTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1 },
+  aiBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  aiBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  tipBox: { flexDirection: "row", gap: 8, borderWidth: 1, borderRadius: 10, padding: 10 },
+  tipText: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17, flex: 1 },
+  emptyBox: { alignItems: "center", paddingVertical: 36, gap: 8 },
+  emptyTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  emptySubtext: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", maxWidth: 260 },
+  emptyText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 8 },
+  docCard: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 0 },
+  docCardMain: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  docIcon: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  docFilename: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
+  docMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  statusChip: { flexDirection: "row", alignItems: "center", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  statusText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  analyzeBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
+  analyzeBtnText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  iconBtn: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  extractedHeader: { flexDirection: "row", alignItems: "center", gap: 6, padding: 8, borderRadius: 8, borderWidth: 1, marginTop: 8 },
+  extractedHeaderText: { fontSize: 11, fontFamily: "Inter_600SemiBold", flex: 1 },
+  extractedBody: { borderWidth: 1, borderTopWidth: 0, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, padding: 10, gap: 0 },
+  extractedSummary: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17, fontStyle: "italic", marginBottom: 8 },
+  fieldsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  fieldItem: { minWidth: "40%", gap: 1 },
+  fieldLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
+  fieldValue: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  lineItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4, borderTopWidth: StyleSheet.hairlineWidth },
+  lineItemDesc: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
+  lineItemAmt: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginLeft: 8 },
+  ocrText: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 16, borderRadius: 6, padding: 8 },
+  sectionLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  sectionLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, flex: 1 },
+  clientBadge: { backgroundColor: "#3B82F620", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  clientBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#3B82F6" },
+  inputRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 12, overflow: "hidden", gap: 6, paddingRight: 6, paddingVertical: 4 },
+  textInput: { fontSize: 13, fontFamily: "Inter_400Regular", paddingVertical: 6, minHeight: 32 },
+  micBtn: { width: 32, height: 32, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  sendBtn: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  aiAnswerBox: { flexDirection: "row", gap: 8, borderWidth: 1, borderRadius: 10, padding: 10 },
+  aiAnswerText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18, flex: 1 },
+  searchResultRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, borderWidth: 1 },
+  relevanceChip: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  relevanceText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  aiBubbleHeader: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3, paddingLeft: 2 },
+  bubble: { maxWidth: "88%", borderRadius: 14, padding: 10 },
+  bubbleText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  citationChip: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  citationText: { fontSize: 10, fontFamily: "Inter_500Medium", maxWidth: 140 },
+  starterChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
+  starterText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+});
