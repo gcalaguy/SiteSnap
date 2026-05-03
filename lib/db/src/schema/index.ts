@@ -57,6 +57,7 @@ export const companiesTable = pgTable("companies", {
   stripeSubscriptionId: text("stripe_subscription_id"),
   referralCode: text("referral_code").unique(),
   referredByCode: text("referred_by_code"),
+  logoPath: text("logo_path"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

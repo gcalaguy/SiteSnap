@@ -41,7 +41,7 @@ function sumLines(lines: { total: number }[] | undefined) {
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
 
-export async function downloadEstimatePDF(estimate: Estimate, open = false) {
+export async function downloadEstimatePDF(estimate: Estimate, open = false, logoDataUrl?: string) {
   const { jsPDF } = await import("jspdf");
   const autoTable = (await import("jspdf-autotable")).default;
 
@@ -63,15 +63,30 @@ export async function downloadEstimatePDF(estimate: Estimate, open = false) {
   doc.setFillColor(23, 32, 52); // #172034
   doc.rect(0, 0, pageW, 28, "F");
 
-  doc.setTextColor(255, 102, 0); // #FF6600
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text("SITE SNAP", margin, 12);
+  let logoRendered = false;
+  if (logoDataUrl) {
+    try {
+      doc.addImage(logoDataUrl, margin, 3, 44, 22);
+      logoRendered = true;
+    } catch {
+      logoRendered = false;
+    }
+  }
+
+  if (!logoRendered) {
+    doc.setTextColor(255, 102, 0);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("SITE SNAP", margin, 12);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("AI Estimating Engine", margin, 18);
+  }
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text("AI Estimating Engine", margin, 18);
   doc.text(format(new Date(estimate.createdAt), "MMMM d, yyyy"), pageW - margin, 18, { align: "right" });
 
   // ── Title ───────────────────────────────────────────────────────────────────
@@ -257,11 +272,11 @@ export async function downloadEstimatePDF(estimate: Estimate, open = false) {
 
 // ── Word Export ───────────────────────────────────────────────────────────────
 
-export async function downloadEstimateDocx(estimate: Estimate) {
+export async function downloadEstimateDocx(estimate: Estimate, logoDataUrl?: string) {
   const {
     Document, Packer, Paragraph, Table, TableRow, TableCell,
     TextRun, HeadingLevel, AlignmentType, WidthType, ShadingType,
-    BorderStyle, TableLayoutType,
+    BorderStyle, TableLayoutType, ImageRun,
   } = await import("docx");
 
   const r = estimate.result ?? {};
@@ -327,8 +342,21 @@ export async function downloadEstimateDocx(estimate: Estimate) {
     });
   }
 
-  const sections: any[] = [
-    // Title
+  const sections: any[] = [];
+
+  if (logoDataUrl) {
+    try {
+      const base64 = logoDataUrl.split(",")[1] ?? "";
+      const mime = logoDataUrl.split(";")[0].replace("data:", "");
+      const type = mime.includes("jpeg") || mime.includes("jpg") ? "jpg" : "png";
+      sections.push(new Paragraph({
+        spacing: { after: 200 },
+        children: [new ImageRun({ data: base64, transformation: { width: 160, height: 54 }, type } as any)],
+      }));
+    } catch { }
+  }
+
+  sections.push(
     new Paragraph({
       heading: HeadingLevel.HEADING_1,
       spacing: { before: 0, after: 160 },
@@ -341,7 +369,7 @@ export async function downloadEstimateDocx(estimate: Estimate) {
         new TextRun({ text: format(new Date(estimate.createdAt), "MMMM d, yyyy"), color: "888888", size: 18 }),
       ],
     }),
-  ];
+  );
 
   if (estimate.sourceFilename) {
     sections.push(new Paragraph({

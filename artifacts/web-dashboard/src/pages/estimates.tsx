@@ -19,7 +19,7 @@ import {
   Sparkles, Upload, FileText, Trash2, Clock, ChevronDown, ChevronUp,
   AlertCircle, Loader2, X, HardHat, Hammer, Package, Wrench,
   TrendingUp, ArrowRight, FilePlus, RotateCcw, Info, Mic, MicOff,
-  Download, Printer, Mail, FileDown,
+  Download, Printer, Mail, FileDown, Pencil, Save, Plus,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -264,6 +264,364 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
   );
 }
 
+// ── Estimate Editor ────────────────────────────────────────────────────────────
+
+function EstimateEditor({
+  estimate,
+  onSave,
+  onCancel,
+}: {
+  estimate: Estimate;
+  onSave: (updated: Estimate) => void;
+  onCancel: () => void;
+}) {
+  const { toast } = useToast();
+  const r = estimate.result ?? {};
+
+  const [title, setTitle] = useState(estimate.title);
+  const [summary, setSummary] = useState(r.summary ?? "");
+  const [materials, setMaterials] = useState<MaterialLine[]>(r.materials ?? []);
+  const [labor, setLabor] = useState<LaborLine[]>(r.labor ?? []);
+  const [equipment, setEquipment] = useState<EquipmentLine[]>(r.equipment ?? []);
+  const [contingencyPct, setContingencyPct] = useState(r.contingencyPct ?? 10);
+  const [notes, setNotes] = useState(r.notes ?? "");
+  const [assumptions, setAssumptions] = useState<string[]>(r.assumptions ?? []);
+  const [isSaving, setIsSaving] = useState(false);
+
+  function updateMaterial(i: number, field: keyof MaterialLine, raw: string) {
+    setMaterials((prev) =>
+      prev.map((m, idx) => {
+        if (idx !== i) return m;
+        const val = field === "item" || field === "unit" ? raw : parseFloat(raw) || 0;
+        const updated = { ...m, [field]: val };
+        if (field === "quantity" || field === "unitCost") {
+          const qty = field === "quantity" ? (parseFloat(raw) || 0) : m.quantity;
+          const uc = field === "unitCost" ? (parseFloat(raw) || 0) : m.unitCost;
+          updated.total = Math.round(qty * uc);
+        }
+        return updated;
+      })
+    );
+  }
+
+  function updateLabor(i: number, field: keyof LaborLine, raw: string) {
+    setLabor((prev) =>
+      prev.map((l, idx) => {
+        if (idx !== i) return l;
+        const val = field === "trade" ? raw : parseFloat(raw) || 0;
+        const updated = { ...l, [field]: val };
+        if (field === "hours" || field === "hourlyRate") {
+          const h = field === "hours" ? (parseFloat(raw) || 0) : l.hours;
+          const r = field === "hourlyRate" ? (parseFloat(raw) || 0) : l.hourlyRate;
+          updated.total = Math.round(h * r);
+        }
+        return updated;
+      })
+    );
+  }
+
+  function updateEquipment(i: number, field: keyof EquipmentLine, raw: string) {
+    setEquipment((prev) =>
+      prev.map((e, idx) => {
+        if (idx !== i) return e;
+        const val = field === "item" ? raw : parseFloat(raw) || 0;
+        const updated = { ...e, [field]: val };
+        if (field === "days" || field === "dayRate") {
+          const d = field === "days" ? (parseFloat(raw) || 0) : e.days;
+          const dr = field === "dayRate" ? (parseFloat(raw) || 0) : e.dayRate;
+          updated.total = Math.round(d * dr);
+        }
+        return updated;
+      })
+    );
+  }
+
+  async function handleSave() {
+    setIsSaving(true);
+    try {
+      const matTotal = sumLines(materials);
+      const labTotal = sumLines(labor);
+      const equTotal = sumLines(equipment);
+      const subtotal = matTotal + labTotal + equTotal;
+      const contingency = Math.round(subtotal * (contingencyPct / 100));
+      const totalLow = subtotal;
+      const totalHigh = Math.round(subtotal + contingency + subtotal * 0.15);
+
+      const result = {
+        ...r,
+        summary,
+        materials,
+        labor,
+        equipment,
+        subtotal,
+        contingencyPct,
+        contingency,
+        totalLow,
+        totalHigh,
+        notes,
+        assumptions,
+      };
+
+      const updated = await customFetch<Estimate>(`/api/estimates/${estimate.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title, result }),
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
+      onSave(updated);
+      toast({ title: "Estimate saved" });
+    } catch (e: any) {
+      toast({ title: "Failed to save", description: e?.message, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const cellInput = "h-7 text-xs border-transparent focus:border-input px-2 rounded-none";
+
+  return (
+    <div className="space-y-6">
+      {/* Title */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estimate Title</label>
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} className="text-base font-semibold" />
+      </div>
+
+      {/* Summary */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Summary</label>
+        <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="resize-none text-sm min-h-[72px]" />
+      </div>
+
+      {/* Materials */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <Package className="h-4 w-4 text-primary" /> Materials
+          </h3>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setMaterials((p) => [...p, { item: "", quantity: 1, unit: "ea", unitCost: 0, total: 0 }])}>
+            <Plus className="h-3 w-3" /> Add Row
+          </Button>
+        </div>
+        <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Item</th>
+                <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground w-16">Qty</th>
+                <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground w-16">Unit</th>
+                <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground w-24">Unit Cost</th>
+                <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground w-24">Total</th>
+                <th className="w-8" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {materials.map((m, i) => (
+                <tr key={i}>
+                  <td className="px-1 py-0.5">
+                    <Input value={m.item} onChange={(e) => updateMaterial(i, "item", e.target.value)} className={cellInput} placeholder="Item name" />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input type="number" value={m.quantity} onChange={(e) => updateMaterial(i, "quantity", e.target.value)} className={`${cellInput} text-right w-16`} />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input value={m.unit} onChange={(e) => updateMaterial(i, "unit", e.target.value)} className={`${cellInput} text-right w-16`} />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input type="number" value={m.unitCost} onChange={(e) => updateMaterial(i, "unitCost", e.target.value)} className={`${cellInput} text-right w-24`} />
+                  </td>
+                  <td className="px-3 py-2 text-right font-semibold text-xs">{fmt(m.total)}</td>
+                  <td className="pr-1">
+                    <button onClick={() => setMaterials((p) => p.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {materials.length > 0 && (
+              <tfoot className="bg-slate-50 border-t border-slate-200">
+                <tr>
+                  <td colSpan={4} className="px-3 py-2 text-xs font-semibold text-muted-foreground text-right">Subtotal</td>
+                  <td className="px-3 py-2 text-right font-bold text-sm">{fmt(sumLines(materials))}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+
+      {/* Labour */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <HardHat className="h-4 w-4 text-blue-500" /> Labour
+          </h3>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setLabor((p) => [...p, { trade: "", hours: 8, hourlyRate: 60, total: 0 }])}>
+            <Plus className="h-3 w-3" /> Add Row
+          </Button>
+        </div>
+        <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Trade / Role</th>
+                <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground w-16">Hours</th>
+                <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground w-24">Rate/hr</th>
+                <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground w-24">Total</th>
+                <th className="w-8" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {labor.map((l, i) => (
+                <tr key={i}>
+                  <td className="px-1 py-0.5">
+                    <Input value={l.trade} onChange={(e) => updateLabor(i, "trade", e.target.value)} className={cellInput} placeholder="Trade or role" />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input type="number" value={l.hours} onChange={(e) => updateLabor(i, "hours", e.target.value)} className={`${cellInput} text-right w-16`} />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input type="number" value={l.hourlyRate} onChange={(e) => updateLabor(i, "hourlyRate", e.target.value)} className={`${cellInput} text-right w-24`} />
+                  </td>
+                  <td className="px-3 py-2 text-right font-semibold text-xs">{fmt(l.total)}</td>
+                  <td className="pr-1">
+                    <button onClick={() => setLabor((p) => p.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {labor.length > 0 && (
+              <tfoot className="bg-slate-50 border-t border-slate-200">
+                <tr>
+                  <td colSpan={3} className="px-3 py-2 text-xs font-semibold text-muted-foreground text-right">Subtotal</td>
+                  <td className="px-3 py-2 text-right font-bold text-sm">{fmt(sumLines(labor))}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+
+      {/* Equipment */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <Wrench className="h-4 w-4 text-amber-500" /> Equipment
+          </h3>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setEquipment((p) => [...p, { item: "", days: 1, dayRate: 0, total: 0 }])}>
+            <Plus className="h-3 w-3" /> Add Row
+          </Button>
+        </div>
+        <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Equipment</th>
+                <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground w-16">Days</th>
+                <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground w-24">Day Rate</th>
+                <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground w-24">Total</th>
+                <th className="w-8" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {equipment.map((e, i) => (
+                <tr key={i}>
+                  <td className="px-1 py-0.5">
+                    <Input value={e.item} onChange={(ev) => updateEquipment(i, "item", ev.target.value)} className={cellInput} placeholder="Equipment name" />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input type="number" value={e.days} onChange={(ev) => updateEquipment(i, "days", ev.target.value)} className={`${cellInput} text-right w-16`} />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input type="number" value={e.dayRate} onChange={(ev) => updateEquipment(i, "dayRate", ev.target.value)} className={`${cellInput} text-right w-24`} />
+                  </td>
+                  <td className="px-3 py-2 text-right font-semibold text-xs">{fmt(e.total)}</td>
+                  <td className="pr-1">
+                    <button onClick={() => setEquipment((p) => p.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {equipment.length > 0 && (
+              <tfoot className="bg-slate-50 border-t border-slate-200">
+                <tr>
+                  <td colSpan={3} className="px-3 py-2 text-xs font-semibold text-muted-foreground text-right">Subtotal</td>
+                  <td className="px-3 py-2 text-right font-bold text-sm">{fmt(sumLines(equipment))}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+
+      {/* Contingency */}
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Contingency %</label>
+        <Input
+          type="number"
+          value={contingencyPct}
+          onChange={(e) => setContingencyPct(parseFloat(e.target.value) || 0)}
+          className="w-20 text-sm"
+          min={0}
+          max={50}
+        />
+        <span className="text-xs text-muted-foreground">of subtotal</span>
+      </div>
+
+      {/* Assumptions */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+            <Info className="h-3.5 w-3.5" /> Assumptions
+          </label>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setAssumptions((p) => [...p, ""])}>
+            <Plus className="h-3 w-3" /> Add
+          </Button>
+        </div>
+        <div className="space-y-1.5">
+          {assumptions.map((a, i) => (
+            <div key={i} className="flex gap-2 items-center">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0 mt-0.5" />
+              <Input value={a} onChange={(e) => setAssumptions((p) => p.map((x, j) => j === i ? e.target.value : x))} className="h-7 text-sm flex-1" />
+              <button onClick={() => setAssumptions((p) => p.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          {assumptions.length === 0 && (
+            <p className="text-xs text-muted-foreground italic">No assumptions — click Add to include one.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes / Exclusions</label>
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="resize-none text-sm min-h-[72px]" placeholder="Any important caveats, exclusions, or clarifications…" />
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-2 border-t border-border">
+        <Button onClick={handleSave} disabled={isSaving} className="gap-2 bg-primary text-white hover:bg-primary/90">
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save Changes
+        </Button>
+        <Button variant="outline" onClick={onCancel} disabled={isSaving}>
+          Discard
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ── History Card ───────────────────────────────────────────────────────────────
 
 function HistoryCard({ estimate, onDelete, onView }: {
@@ -359,6 +717,29 @@ export default function EstimatesPage() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  async function fetchLogoDataUrl(): Promise<string | undefined> {
+    const logoPath = (me?.company as any)?.logoPath;
+    if (!logoPath) return undefined;
+    try {
+      const cleanPath = logoPath.replace(/^\/objects\//, "");
+      const token = await getToken();
+      const res = await fetch(`/api/storage/objects/${cleanPath}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return undefined;
+      const blob = await res.blob();
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return undefined;
+    }
+  }
 
   const canAccess = me?.role === "owner" || me?.role === "foreman";
 
@@ -521,66 +902,96 @@ export default function EstimatesPage() {
 
           {/* Export action bar */}
           <div className="flex flex-wrap gap-2 rounded-lg border border-border bg-muted/30 p-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 h-8 text-xs"
-              disabled={exportingPdf}
-              onClick={async () => {
-                setExportingPdf(true);
-                try { await downloadEstimatePDF(activeEstimate); }
-                catch { toast({ title: "PDF export failed", variant: "destructive" }); }
-                finally { setExportingPdf(false); }
-              }}
-            >
-              {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 text-red-500" />}
-              Save as PDF
-            </Button>
+            {!isEditing && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 h-8 text-xs"
+                  disabled={exportingPdf}
+                  onClick={async () => {
+                    setExportingPdf(true);
+                    try {
+                      const logo = await fetchLogoDataUrl();
+                      await downloadEstimatePDF(activeEstimate, false, logo);
+                    } catch { toast({ title: "PDF export failed", variant: "destructive" }); }
+                    finally { setExportingPdf(false); }
+                  }}
+                >
+                  {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 text-red-500" />}
+                  Save as PDF
+                </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 h-8 text-xs"
-              disabled={exportingDocx}
-              onClick={async () => {
-                setExportingDocx(true);
-                try { await downloadEstimateDocx(activeEstimate); }
-                catch { toast({ title: "Word export failed", variant: "destructive" }); }
-                finally { setExportingDocx(false); }
-              }}
-            >
-              {exportingDocx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 text-blue-600" />}
-              Save as Word
-            </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 h-8 text-xs"
+                  disabled={exportingDocx}
+                  onClick={async () => {
+                    setExportingDocx(true);
+                    try {
+                      const logo = await fetchLogoDataUrl();
+                      await downloadEstimateDocx(activeEstimate, logo);
+                    } catch { toast({ title: "Word export failed", variant: "destructive" }); }
+                    finally { setExportingDocx(false); }
+                  }}
+                >
+                  {exportingDocx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 text-blue-600" />}
+                  Save as Word
+                </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 h-8 text-xs"
-              disabled={printing}
-              onClick={async () => {
-                setPrinting(true);
-                try { await printEstimate(activeEstimate); }
-                catch { toast({ title: "Print failed", variant: "destructive" }); }
-                finally { setPrinting(false); }
-              }}
-            >
-              {printing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
-              Print
-            </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 h-8 text-xs"
+                  disabled={printing}
+                  onClick={async () => {
+                    setPrinting(true);
+                    try {
+                      const logo = await fetchLogoDataUrl();
+                      await downloadEstimatePDF(activeEstimate, true, logo);
+                    } catch { toast({ title: "Print failed", variant: "destructive" }); }
+                    finally { setPrinting(false); }
+                  }}
+                >
+                  {printing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+                  Print
+                </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 h-8 text-xs"
-              onClick={() => setEmailDialogOpen(true)}
-            >
-              <Mail className="h-3.5 w-3.5 text-primary" />
-              Email
-            </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 h-8 text-xs"
+                  onClick={() => setEmailDialogOpen(true)}
+                >
+                  <Mail className="h-3.5 w-3.5 text-primary" />
+                  Email
+                </Button>
+              </>
+            )}
+
+            <div className="ml-auto">
+              <Button
+                variant={isEditing ? "default" : "outline"}
+                size="sm"
+                className={`gap-2 h-8 text-xs ${isEditing ? "bg-slate-700 hover:bg-slate-800 text-white" : ""}`}
+                onClick={() => setIsEditing((v) => !v)}
+              >
+                {isEditing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+                {isEditing ? "Cancel Edit" : "Edit Estimate"}
+              </Button>
+            </div>
           </div>
 
-          <EstimateReport estimate={activeEstimate} />
+          {isEditing ? (
+            <EstimateEditor
+              estimate={activeEstimate}
+              onSave={(updated) => { setActiveEstimate(updated); setIsEditing(false); }}
+              onCancel={() => setIsEditing(false)}
+            />
+          ) : (
+            <EstimateReport estimate={activeEstimate} />
+          )}
 
           {/* Email dialog */}
           <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>

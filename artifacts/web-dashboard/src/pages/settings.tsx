@@ -1,11 +1,12 @@
 import { useGetMe, customFetch } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface SendResult {
@@ -460,6 +461,111 @@ function QuickBooksCard() {
   );
 }
 
+// ── Company Logo Card ──────────────────────────────────────────────────────────
+
+function CompanyLogoCard({ company }: { company: any }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const logoUrl = company.logoPath
+    ? company.logoPath.replace(/^\/objects\//, "/api/storage/objects/")
+    : null;
+
+  async function handleLogoUpload(file: File) {
+    setUploading(true);
+    try {
+      const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
+        "/api/storage/uploads/request-url",
+        {
+          method: "POST",
+          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+        }
+      );
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      await customFetch(`/api/companies/${company.id}/logo`, {
+        method: "PATCH",
+        body: JSON.stringify({ logoPath: objectPath }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      toast({ title: "Logo uploaded", description: "Your logo will appear on exported estimates." });
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleRemoveLogo() {
+    try {
+      await customFetch(`/api/companies/${company.id}/logo`, {
+        method: "PATCH",
+        body: JSON.stringify({ logoPath: "" }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      toast({ title: "Logo removed" });
+    } catch {
+      toast({ title: "Failed to remove logo", variant: "destructive" });
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ImageIcon className="h-5 w-5 text-primary" />
+          Company Logo
+        </CardTitle>
+        <CardDescription>
+          Your logo appears on exported estimates (PDF, Word) and email headers.
+          Recommended: landscape format, PNG or JPG.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {logoUrl ? (
+          <div className="relative rounded-lg border border-border bg-muted/30 p-4 flex items-center justify-center h-28">
+            <img src={logoUrl} alt="Company logo" className="max-h-20 max-w-full object-contain" />
+            <button
+              onClick={handleRemoveLogo}
+              className="absolute top-2 right-2 p-1 rounded-full bg-background border border-border hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
+              title="Remove logo"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-lg border-2 border-dashed border-border bg-muted/20 p-6 flex items-center justify-center h-28">
+            <div className="text-center">
+              <ImageIcon className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">No logo uploaded</p>
+            </div>
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ""; }}
+        />
+        <Button
+          variant="outline"
+          className="gap-2"
+          disabled={uploading}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          {company.logoPath ? "Replace Logo" : "Upload Logo"}
+        </Button>
+        <p className="text-xs text-muted-foreground">PNG, JPG, or WebP · max 20 MB · landscape format works best</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Settings Page ──────────────────────────────────────────────────────────────
+
 export default function Settings() {
   const { data: user } = useGetMe();
   const company = user?.company;
@@ -532,6 +638,7 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      <CompanyLogoCard company={company} />
       <DigestCard />
       <QuickBooksCard />
     </div>

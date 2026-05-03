@@ -447,6 +447,45 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, async (req, res
   }
 });
 
+// ── PATCH /api/estimates/:id — update title + result ─────────────────────────
+
+const PatchEstimateBody = z.object({
+  title: z.string().min(1).optional(),
+  result: z.record(z.unknown()).optional(),
+});
+
+router.patch("/estimates/:id", requireAuth, requireCompany, async (req, res) => {
+  const role = req.userRole;
+  if (role !== "owner" && role !== "foreman") {
+    res.status(403).json({ error: "Foreman or owner role required" });
+    return;
+  }
+
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const parsed = PatchEstimateBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid body" });
+    return;
+  }
+
+  const [estimate] = await db.select().from(estimatesTable)
+    .where(and(eq(estimatesTable.id, id), eq(estimatesTable.companyId, req.companyId!)));
+  if (!estimate) { res.status(404).json({ error: "Estimate not found" }); return; }
+
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (parsed.data.title != null) updates.title = parsed.data.title;
+  if (parsed.data.result != null) updates.result = parsed.data.result;
+
+  const [updated] = await db.update(estimatesTable)
+    .set(updates as any)
+    .where(eq(estimatesTable.id, id))
+    .returning();
+
+  res.json(updated);
+});
+
 // ── DELETE /api/estimates/:id ─────────────────────────────────────────────────
 
 router.delete("/estimates/:id", requireAuth, requireCompany, async (req, res) => {

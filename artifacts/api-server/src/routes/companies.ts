@@ -59,6 +59,29 @@ router.get("/companies/:companyId", requireAuth, requireCompany, async (req, res
   res.json(company);
 });
 
+// PATCH /companies/:companyId/logo — update company logo path
+router.patch("/companies/:companyId/logo", requireAuth, requireCompany, async (req, res) => {
+  const companyId = parseInt(req.params.companyId);
+  if (companyId !== req.companyId) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  const logoPath = typeof req.body?.logoPath === "string" ? req.body.logoPath : null;
+  if (!logoPath) {
+    res.status(400).json({ error: "logoPath is required" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(companiesTable)
+    .set({ logoPath })
+    .where(eq(companiesTable.id, companyId))
+    .returning();
+
+  res.json(updated);
+});
+
 // GET /companies/:companyId/members
 router.get(
   "/companies/:companyId/members",
