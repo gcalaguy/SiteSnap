@@ -27,6 +27,7 @@ import Invoices from "@/pages/invoices";
 import InvoiceDetail from "@/pages/invoice-detail";
 import AdminPage from "@/pages/admin";
 import Schedule from "@/pages/schedule";
+import ClientPortal from "@/pages/client-portal";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 
@@ -246,6 +247,7 @@ function ClerkProviderWithRoutes() {
           <Route path="/sign-in/*?" component={SignInPage} />
           <Route path="/sign-up/*?" component={SignUpPage} />
           <Route path="/onboarding" component={OnboardingPage} />
+          <Route path="/portal/:token" component={ClientPortal} />
           <Route path="/*">
             <AuthApp />
           </Route>

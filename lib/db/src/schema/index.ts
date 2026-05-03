@@ -484,3 +484,35 @@ export const workerSchedulesTable = pgTable("worker_schedules", {
 });
 
 export type WorkerSchedule = typeof workerSchedulesTable.$inferSelect;
+
+// ── Client Portal ──────────────────────────────────────────────────────────────
+
+export const clientPortalTokensTable = pgTable("client_portal_tokens", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  clientName: text("client_name"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ClientPortalToken = typeof clientPortalTokensTable.$inferSelect;
+
+export const clientPortalUploadsTable = pgTable("client_portal_uploads", {
+  id: serial("id").primaryKey(),
+  portalTokenId: integer("portal_token_id")
+    .notNull()
+    .references(() => clientPortalTokensTable.id, { onDelete: "cascade" }),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(),
+  fileType: text("file_type").notNull(),
+  objectPath: text("object_path").notNull(),
+  fileSize: integer("file_size"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ClientPortalUpload = typeof clientPortalUploadsTable.$inferSelect;

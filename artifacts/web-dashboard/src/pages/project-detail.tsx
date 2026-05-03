@@ -37,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus } from "lucide-react";
+import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type Task = {
@@ -414,6 +414,12 @@ export default function ProjectDetail() {
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [addMemberUserId, setAddMemberUserId] = useState<string>("");
 
+  // Client portal share state
+  const [showPortalDialog, setShowPortalDialog] = useState(false);
+  const [portalToken, setPortalToken] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   const { data: me } = useGetMe();
   const companyId = me?.company?.id;
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
@@ -486,6 +492,32 @@ export default function ProjectDetail() {
     setShowAssignDialog(true);
   }
 
+  async function openPortalDialog() {
+    setShowPortalDialog(true);
+    if (portalToken) return;
+    setPortalLoading(true);
+    try {
+      const res = await customFetch(`/api/projects/${projectId}/portal/token`, {
+        method: "POST",
+      });
+      setPortalToken((res as any).token);
+    } catch {
+      toast({ title: "Failed to generate portal link", variant: "destructive" });
+      setShowPortalDialog(false);
+    } finally {
+      setPortalLoading(false);
+    }
+  }
+
+  function copyPortalLink() {
+    if (!portalToken) return;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/portal/${portalToken}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   const { data: project, isLoading: projectLoading } = useGetProject(projectId);
   const { data: summary } = useGetProjectSummary(projectId);
   const { data: reports } = useListDailyReports(projectId);
@@ -539,6 +571,18 @@ export default function ProjectDetail() {
             {project.startDate && <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> Started: {format(new Date(project.startDate), "MMM d, yyyy")}</span>}
           </div>
         </div>
+
+        {isOwnerOrForeman && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-2"
+            onClick={openPortalDialog}
+          >
+            <Share2 className="h-4 w-4" />
+            Share Client Portal
+          </Button>
+        )}
 
         {isOwnerOrForeman && members.length > 0 && (
           <div className="shrink-0 flex items-center gap-2">
@@ -1157,6 +1201,53 @@ export default function ProjectDetail() {
               {createAssignment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Schedule
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Client Portal Share Dialog */}
+      <Dialog open={showPortalDialog} onOpenChange={setShowPortalDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="h-4 w-4 text-primary" />
+              Share Client Portal
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Share this link with your client. They can view project progress, documents, and upload files — no login required.
+            </p>
+            {portalLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : portalToken ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={`${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/portal/${portalToken}`}
+                    className="text-xs font-mono bg-muted"
+                  />
+                  <Button size="icon" variant="outline" onClick={copyPortalLink} className="shrink-0">
+                    {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <a
+                  href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/portal/${portalToken}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open portal in new tab
+                </a>
+              </>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPortalDialog(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

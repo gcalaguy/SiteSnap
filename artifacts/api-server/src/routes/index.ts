@@ -22,6 +22,7 @@ import billingRouter from "./billing";
 import referralsRouter from "./referrals";
 import quickbooksRouter from "./quickbooks";
 import scheduleRouter from "./schedule";
+import portalRouter from "./portal";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(billingRouter);
 router.use(referralsRouter);
 router.use(quickbooksRouter);
 router.use(scheduleRouter);
+router.use(portalRouter);
 
 export default router;
