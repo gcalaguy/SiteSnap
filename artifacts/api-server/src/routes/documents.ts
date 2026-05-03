@@ -54,17 +54,11 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     return;
   }
 
-  const userId = (req as any).dbUser?.id;
-  if (!userId) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
-  }
-
   const [doc] = await db
     .insert(projectDocumentsTable)
     .values({
       projectId,
-      uploadedByUserId: userId,
+      uploadedByUserId: req.userId!,
       filename: parsed.data.filename,
       fileType: parsed.data.fileType,
       objectPath: parsed.data.objectPath,
