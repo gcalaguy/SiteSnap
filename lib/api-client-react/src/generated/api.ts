@@ -232,6 +232,87 @@ export function useGetMe<
 }
 
 /**
+ * @summary Record that the current user accepted the Terms and Conditions
+ */
+export const getAcceptTermsUrl = () => {
+  return `/api/users/accept-terms`;
+};
+
+export const acceptTerms = async (
+  options?: RequestInit,
+): Promise<UserWithCompany> => {
+  return customFetch<UserWithCompany>(getAcceptTermsUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAcceptTermsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptTerms>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acceptTerms>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["acceptTerms"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acceptTerms>>,
+    void
+  > = () => {
+    return acceptTerms(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcceptTermsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptTerms>>
+>;
+
+export type AcceptTermsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Record that the current user accepted the Terms and Conditions
+ */
+export const useAcceptTerms = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptTerms>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof acceptTerms>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getAcceptTermsMutationOptions(options));
+};
+
+/**
  * @summary Sync Clerk user to database (called after sign-in/sign-up)
  */
 export const getSyncUserUrl = () => {

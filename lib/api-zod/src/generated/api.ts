@@ -26,6 +26,37 @@ export const GetMeResponse = zod
     lastName: zod.string(),
     companyId: zod.number().nullish(),
     role: zod.enum(["owner", "foreman", "worker"]),
+    termsAcceptedAt: zod.coerce.date().nullish(),
+    createdAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      company: zod
+        .object({
+          id: zod.number(),
+          name: zod.string(),
+          province: zod.string(),
+          city: zod.string(),
+          phone: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        })
+        .nullish(),
+    }),
+  );
+
+/**
+ * @summary Record that the current user accepted the Terms and Conditions
+ */
+export const AcceptTermsResponse = zod
+  .object({
+    id: zod.number(),
+    clerkUserId: zod.string(),
+    email: zod.string(),
+    firstName: zod.string(),
+    lastName: zod.string(),
+    companyId: zod.number().nullish(),
+    role: zod.enum(["owner", "foreman", "worker"]),
+    termsAcceptedAt: zod.coerce.date().nullish(),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -61,6 +92,7 @@ export const SyncUserResponse = zod.object({
   lastName: zod.string(),
   companyId: zod.number().nullish(),
   role: zod.enum(["owner", "foreman", "worker"]),
+  termsAcceptedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -106,6 +138,7 @@ export const ListCompanyMembersResponseItem = zod
     lastName: zod.string(),
     companyId: zod.number().nullish(),
     role: zod.enum(["owner", "foreman", "worker"]),
+    termsAcceptedAt: zod.coerce.date().nullish(),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -155,6 +188,7 @@ export const UpdateMemberRoleResponse = zod
     lastName: zod.string(),
     companyId: zod.number().nullish(),
     role: zod.enum(["owner", "foreman", "worker"]),
+    termsAcceptedAt: zod.coerce.date().nullish(),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -289,6 +323,7 @@ export const AcceptInvitationResponse = zod
     lastName: zod.string(),
     companyId: zod.number().nullish(),
     role: zod.enum(["owner", "foreman", "worker"]),
+    termsAcceptedAt: zod.coerce.date().nullish(),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -495,6 +530,7 @@ export const ListDailyReportsResponseItem = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -551,6 +587,7 @@ export const GetDailyReportResponse = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -599,6 +636,7 @@ export const UpdateDailyReportResponse = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -696,6 +734,7 @@ export const ListRFIsResponseItem = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -750,6 +789,7 @@ export const GetRFIResponse = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -795,6 +835,7 @@ export const UpdateRFIResponse = zod.object({
       lastName: zod.string(),
       companyId: zod.number().nullish(),
       role: zod.enum(["owner", "foreman", "worker"]),
+      termsAcceptedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     })
     .nullish(),

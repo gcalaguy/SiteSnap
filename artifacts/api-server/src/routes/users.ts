@@ -69,6 +69,27 @@ router.get("/users/me", requireAuth, async (req, res) => {
   res.json({ ...user, company });
 });
 
+// POST /users/accept-terms — record that the current user accepted the T&C
+router.post("/users/accept-terms", requireAuth, async (req, res) => {
+  const [updated] = await db
+    .update(usersTable)
+    .set({ termsAcceptedAt: new Date() })
+    .where(eq(usersTable.id, req.userId!))
+    .returning();
+
+  let company = null;
+  if (updated?.companyId) {
+    const [c] = await db
+      .select()
+      .from(companiesTable)
+      .where(eq(companiesTable.id, updated.companyId))
+      .limit(1);
+    company = c ?? null;
+  }
+
+  res.json({ ...updated, company });
+});
+
 // POST /users/push-token — store Expo push token for the current user
 router.post("/users/push-token", requireAuth, async (req, res) => {
   const { token } = req.body as { token?: string };

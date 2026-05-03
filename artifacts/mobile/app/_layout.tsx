@@ -22,6 +22,7 @@ import {
   useGetMe,
   useSyncUser,
 } from "@workspace/api-client-react";
+import { TermsModal } from "@/components/TermsModal";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { tokenCache } from "@/utils/cache";
@@ -165,8 +166,12 @@ function ProtectedNav() {
     }
   }, [isSignedIn, isLoaded, segments, me, meLoading]);
 
+  const needsTerms = !!me && !me.termsAcceptedAt;
+
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
+    <>
+      <TermsModal visible={needsTerms} />
+      <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
@@ -199,6 +204,7 @@ function ProtectedNav() {
         }}
       />
     </Stack>
+    </>
   );
 }
 

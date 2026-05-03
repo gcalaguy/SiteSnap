@@ -3,6 +3,7 @@ import { useUser } from "@clerk/react";
 import { useGetMe, useSyncUser, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
+import { TermsModal } from "@/components/TermsModal";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn } = useUser();
@@ -77,5 +78,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  const needsTerms = !!dbUser && !dbUser.termsAcceptedAt;
+
+  return (
+    <>
+      <TermsModal open={needsTerms} />
+      {children}
+    </>
+  );
 }

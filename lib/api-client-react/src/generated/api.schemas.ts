@@ -46,6 +46,7 @@ export interface User {
   lastName: string;
   companyId?: number | null;
   role: UserRole;
+  termsAcceptedAt?: string | null;
   createdAt: string;
 }
 

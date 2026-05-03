@@ -82,6 +82,7 @@ export const usersTable = pgTable("users", {
   companyId: integer("company_id").references(() => companiesTable.id),
   role: userRoleEnum("role").notNull().default("worker"),
   pushToken: text("push_token"),
+  termsAcceptedAt: timestamp("terms_accepted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

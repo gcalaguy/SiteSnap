@@ -71,6 +71,21 @@ paths:
         "401":
           description: Unauthorized
 
+  /users/accept-terms:
+    post:
+      operationId: acceptTerms
+      tags: [users]
+      summary: Record that the current user accepted the Terms and Conditions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Updated user with termsAcceptedAt set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithCompany"
+
   /users/sync:
     post:
       operationId: syncUser
@@ -1753,6 +1768,10 @@ components:
           nullable: true
         role:
           $ref: "#/components/schemas/UserRole"
+        termsAcceptedAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
