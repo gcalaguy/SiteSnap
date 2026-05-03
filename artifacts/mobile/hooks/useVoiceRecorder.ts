@@ -5,7 +5,7 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
 } from "expo-audio";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { customFetch } from "@workspace/api-client-react";
 
 export type VoiceState = "idle" | "recording" | "transcribing";

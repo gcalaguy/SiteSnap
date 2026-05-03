@@ -413,7 +413,9 @@ export default function LogScreen() {
   };
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
-  const activeProjects = (projects ?? []).filter((p) => p.status === "active");
+  const activeProjects = (projects ?? []).filter(
+    (p) => p.status !== "completed" && p.status !== "cancelled"
+  );
   const isBusy = createReport.isPending || uploading;
 
   return (
