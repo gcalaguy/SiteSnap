@@ -6,6 +6,8 @@ import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth"
 import { requireSeatAvailable } from "../lib/seatEnforcement";
 import { CreateInvitationBody } from "@workspace/api-zod";
 import crypto from "crypto";
+import { sendEmail, ResendSandboxError } from "../lib/mailer";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -43,6 +45,42 @@ router.post(
       .from(companiesTable)
       .where(eq(companiesTable.id, req.companyId!))
       .limit(1);
+
+    // Send invite email if an address was provided — best-effort, never blocks the response
+    if (parsed.data.email) {
+      const domain =
+        process.env["REPLIT_DOMAINS"]?.split(",")[0] ??
+        req.headers["origin"] ??
+        "your-app.replit.app";
+      const inviteUrl = `https://${domain}/onboarding?token=${token}`;
+      const companyName = company?.name ?? "your company";
+
+      sendEmail({
+        to: [parsed.data.email],
+        subject: `You've been invited to join ${companyName} on Site Snap`,
+        html: `
+<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
+  <div style="text-align:center;margin-bottom:28px;">
+    <span style="font-size:32px;">🏗️</span>
+    <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">You're invited to Site Snap</h1>
+    <p style="color:#64748b;margin:0;">Join <strong>${companyName}</strong> as a <strong>${parsed.data.role}</strong></p>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;margin-bottom:20px;">
+    <p style="color:#334155;margin:0 0 16px;">Click the button below to accept your invitation and set up your account:</p>
+    <a href="${inviteUrl}" style="display:inline-block;background:#FF6600;color:#fff;font-weight:700;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;">Accept Invitation</a>
+    <p style="color:#94a3b8;font-size:13px;margin:20px 0 0;">Or paste this token manually in the app:</p>
+    <code style="display:block;background:#f1f5f9;padding:10px 14px;border-radius:6px;font-size:13px;color:#172034;word-break:break-all;margin-top:6px;">${token}</code>
+  </div>
+  <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">This invitation expires in 7 days.</p>
+</div>`,
+      }).catch((err: unknown) => {
+        if (err instanceof ResendSandboxError) {
+          logger.warn({ allowedEmail: err.allowedEmail }, "Invite email skipped — Resend sandbox mode");
+        } else {
+          logger.error({ err }, "Failed to send invite email");
+        }
+      });
+    }
 
     res.status(201).json({ ...invitation, company: company ?? null });
   },

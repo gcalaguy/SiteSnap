@@ -15,7 +15,13 @@ import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { setBaseUrl, setAuthTokenGetter, customFetch } from "@workspace/api-client-react";
+import {
+  setBaseUrl,
+  setAuthTokenGetter,
+  customFetch,
+  useGetMe,
+  useSyncUser,
+} from "@workspace/api-client-react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { tokenCache } from "@/utils/cache";
@@ -112,24 +118,58 @@ function AuthSetup() {
 }
 
 function ProtectedNav() {
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn, isLoaded, user: clerkUser } = useUser();
   const router = useRouter();
   const segments = useSegments();
+
+  const syncUser = useSyncUser();
+
+  // Sync Clerk user into local DB on sign-in so API can resolve companyId
+  useEffect(() => {
+    if (!isSignedIn || !clerkUser) return;
+    syncUser.mutate({
+      data: {
+        clerkUserId: clerkUser.id,
+        email: clerkUser.primaryEmailAddress?.emailAddress ?? "",
+        firstName: clerkUser.firstName ?? "",
+        lastName: clerkUser.lastName ?? "",
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, clerkUser?.id]);
+
+  // Check whether the signed-in user belongs to a company
+  const { data: me, isLoading: meLoading } = useGetMe({
+    query: { enabled: !!isSignedIn, retry: 4, retryDelay: 1000 },
+  });
 
   useEffect(() => {
     if (!isLoaded) return;
     const inSignIn = segments[0] === "sign-in";
-    if (!isSignedIn && !inSignIn) {
-      router.replace("/sign-in");
-    } else if (isSignedIn && inSignIn) {
-      router.replace("/(tabs)");
+    const inOnboarding = segments[0] === "onboarding";
+
+    if (!isSignedIn) {
+      if (!inSignIn) router.replace("/sign-in");
+      return;
     }
-  }, [isSignedIn, isLoaded, segments]);
+
+    // Wait until we know the user's company status before routing
+    if (meLoading || !me) return;
+
+    if (!me.companyId) {
+      // Signed in but not yet part of a company → onboarding
+      if (!inOnboarding) router.replace("/onboarding");
+    } else {
+      // Has a company → main app
+      if (inSignIn || inOnboarding) router.replace("/(tabs)");
+    }
+  }, [isSignedIn, isLoaded, segments, me, meLoading]);
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen
         name="project/[id]"
         options={{
