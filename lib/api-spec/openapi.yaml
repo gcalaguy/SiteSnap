@@ -1284,6 +1284,130 @@ paths:
               schema:
                 $ref: "#/components/schemas/QuoteAIGenerateResponse"
 
+  /timesheets:
+    get:
+      operationId: listTimesheets
+      tags: [timesheets]
+      summary: List timesheets (owner/foreman sees all, worker sees own)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: List of timesheets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Timesheet"
+    post:
+      operationId: submitTimesheet
+      tags: [timesheets]
+      summary: Submit a timesheet for a week
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitTimesheetBody"
+      responses:
+        "201":
+          description: Timesheet submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Timesheet"
+
+  /timesheets/{timesheetId}:
+    get:
+      operationId: getTimesheet
+      tags: [timesheets]
+      summary: Get a single timesheet
+      parameters:
+        - name: timesheetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Timesheet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Timesheet"
+
+  /timesheets/{timesheetId}/approve:
+    post:
+      operationId: approveTimesheet
+      tags: [timesheets]
+      summary: Approve a timesheet
+      parameters:
+        - name: timesheetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Timesheet approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Timesheet"
+
+  /timesheets/{timesheetId}/deny:
+    post:
+      operationId: denyTimesheet
+      tags: [timesheets]
+      summary: Deny a timesheet
+      parameters:
+        - name: timesheetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Timesheet denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Timesheet"
+
   /quotes:
     get:
       operationId: listAllQuotes
@@ -2532,6 +2656,84 @@ components:
         taxAmount:
           type: number
         total:
+          type: number
+        notes:
+          type: string
+
+    # ── Timesheets ────────────────────────────────────────────────────────────────
+
+    Timesheet:
+      type: object
+      required: [id, companyId, userId, weekStart, status, totalHours, submittedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        userId:
+          type: integer
+        weekStart:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [submitted, approved, denied]
+        totalHours:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        submittedAt:
+          type: string
+          format: date-time
+        reviewedByUserId:
+          type: integer
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        user:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            firstName:
+              type: string
+            lastName:
+              type: string
+            email:
+              type: string
+            role:
+              type: string
+        reviewer:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            firstName:
+              type: string
+            lastName:
+              type: string
+            email:
+              type: string
+
+    SubmitTimesheetBody:
+      type: object
+      required: [weekStart, totalHours]
+      properties:
+        weekStart:
+          type: string
+          format: date
+        totalHours:
           type: number
         notes:
           type: string

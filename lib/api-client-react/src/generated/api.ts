@@ -28,6 +28,7 @@ import type {
   ActivityItem,
   AddPhotoBody,
   AddProjectMemberBody,
+  ApproveTimesheetBody,
   Company,
   ConvertQuoteToInvoiceBody,
   CostAnalysis,
@@ -42,12 +43,14 @@ import type {
   DailyReport,
   DailyReportPhoto,
   DashboardSummary,
+  DenyTimesheetBody,
   ErrorEnvelope,
   HealthStatus,
   Invitation,
   Invoice,
   ListAllInvoicesParams,
   ListAllQuotesParams,
+  ListTimesheetsParams,
   Project,
   ProjectDocument,
   ProjectMember,
@@ -62,8 +65,10 @@ import type {
   SendInvoiceEmail200,
   SendInvoiceEmailBody,
   SendInvoiceReminder200,
+  SubmitTimesheetBody,
   SyncUserBody,
   Task,
+  Timesheet,
   UpdateInvoiceBody,
   UpdateMemberRoleBody,
   UpdateProjectBody,
@@ -5490,6 +5495,448 @@ export const useGenerateQuoteAI = <
   TContext
 > => {
   return useMutation(getGenerateQuoteAIMutationOptions(options));
+};
+
+/**
+ * @summary List timesheets (owner/foreman sees all, worker sees own)
+ */
+export const getListTimesheetsUrl = (params?: ListTimesheetsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/timesheets?${stringifiedParams}`
+    : `/api/timesheets`;
+};
+
+export const listTimesheets = async (
+  params?: ListTimesheetsParams,
+  options?: RequestInit,
+): Promise<Timesheet[]> => {
+  return customFetch<Timesheet[]>(getListTimesheetsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTimesheetsQueryKey = (params?: ListTimesheetsParams) => {
+  return [`/api/timesheets`, ...(params ? [params] : [])] as const;
+};
+
+export const getListTimesheetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTimesheets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListTimesheetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTimesheets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTimesheetsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTimesheets>>> = ({
+    signal,
+  }) => listTimesheets(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTimesheets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTimesheetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTimesheets>>
+>;
+export type ListTimesheetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List timesheets (owner/foreman sees all, worker sees own)
+ */
+
+export function useListTimesheets<
+  TData = Awaited<ReturnType<typeof listTimesheets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListTimesheetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTimesheets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTimesheetsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a timesheet for a week
+ */
+export const getSubmitTimesheetUrl = () => {
+  return `/api/timesheets`;
+};
+
+export const submitTimesheet = async (
+  submitTimesheetBody: SubmitTimesheetBody,
+  options?: RequestInit,
+): Promise<Timesheet> => {
+  return customFetch<Timesheet>(getSubmitTimesheetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(submitTimesheetBody),
+  });
+};
+
+export const getSubmitTimesheetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitTimesheet>>,
+    TError,
+    { data: BodyType<SubmitTimesheetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitTimesheet>>,
+  TError,
+  { data: BodyType<SubmitTimesheetBody> },
+  TContext
+> => {
+  const mutationKey = ["submitTimesheet"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitTimesheet>>,
+    { data: BodyType<SubmitTimesheetBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitTimesheet(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitTimesheetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitTimesheet>>
+>;
+export type SubmitTimesheetMutationBody = BodyType<SubmitTimesheetBody>;
+export type SubmitTimesheetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Submit a timesheet for a week
+ */
+export const useSubmitTimesheet = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitTimesheet>>,
+    TError,
+    { data: BodyType<SubmitTimesheetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitTimesheet>>,
+  TError,
+  { data: BodyType<SubmitTimesheetBody> },
+  TContext
+> => {
+  return useMutation(getSubmitTimesheetMutationOptions(options));
+};
+
+/**
+ * @summary Get a single timesheet
+ */
+export const getGetTimesheetUrl = (timesheetId: number) => {
+  return `/api/timesheets/${timesheetId}`;
+};
+
+export const getTimesheet = async (
+  timesheetId: number,
+  options?: RequestInit,
+): Promise<Timesheet> => {
+  return customFetch<Timesheet>(getGetTimesheetUrl(timesheetId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTimesheetQueryKey = (timesheetId: number) => {
+  return [`/api/timesheets/${timesheetId}`] as const;
+};
+
+export const getGetTimesheetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTimesheet>>,
+  TError = ErrorType<unknown>,
+>(
+  timesheetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTimesheet>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTimesheetQueryKey(timesheetId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTimesheet>>> = ({
+    signal,
+  }) => getTimesheet(timesheetId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!timesheetId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTimesheet>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTimesheetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTimesheet>>
+>;
+export type GetTimesheetQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a single timesheet
+ */
+
+export function useGetTimesheet<
+  TData = Awaited<ReturnType<typeof getTimesheet>>,
+  TError = ErrorType<unknown>,
+>(
+  timesheetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTimesheet>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTimesheetQueryOptions(timesheetId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Approve a timesheet
+ */
+export const getApproveTimesheetUrl = (timesheetId: number) => {
+  return `/api/timesheets/${timesheetId}/approve`;
+};
+
+export const approveTimesheet = async (
+  timesheetId: number,
+  approveTimesheetBody: ApproveTimesheetBody,
+  options?: RequestInit,
+): Promise<Timesheet> => {
+  return customFetch<Timesheet>(getApproveTimesheetUrl(timesheetId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(approveTimesheetBody),
+  });
+};
+
+export const getApproveTimesheetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveTimesheet>>,
+    TError,
+    { timesheetId: number; data: BodyType<ApproveTimesheetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveTimesheet>>,
+  TError,
+  { timesheetId: number; data: BodyType<ApproveTimesheetBody> },
+  TContext
+> => {
+  const mutationKey = ["approveTimesheet"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveTimesheet>>,
+    { timesheetId: number; data: BodyType<ApproveTimesheetBody> }
+  > = (props) => {
+    const { timesheetId, data } = props ?? {};
+
+    return approveTimesheet(timesheetId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveTimesheetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveTimesheet>>
+>;
+export type ApproveTimesheetMutationBody = BodyType<ApproveTimesheetBody>;
+export type ApproveTimesheetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Approve a timesheet
+ */
+export const useApproveTimesheet = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveTimesheet>>,
+    TError,
+    { timesheetId: number; data: BodyType<ApproveTimesheetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveTimesheet>>,
+  TError,
+  { timesheetId: number; data: BodyType<ApproveTimesheetBody> },
+  TContext
+> => {
+  return useMutation(getApproveTimesheetMutationOptions(options));
+};
+
+/**
+ * @summary Deny a timesheet
+ */
+export const getDenyTimesheetUrl = (timesheetId: number) => {
+  return `/api/timesheets/${timesheetId}/deny`;
+};
+
+export const denyTimesheet = async (
+  timesheetId: number,
+  denyTimesheetBody: DenyTimesheetBody,
+  options?: RequestInit,
+): Promise<Timesheet> => {
+  return customFetch<Timesheet>(getDenyTimesheetUrl(timesheetId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(denyTimesheetBody),
+  });
+};
+
+export const getDenyTimesheetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof denyTimesheet>>,
+    TError,
+    { timesheetId: number; data: BodyType<DenyTimesheetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof denyTimesheet>>,
+  TError,
+  { timesheetId: number; data: BodyType<DenyTimesheetBody> },
+  TContext
+> => {
+  const mutationKey = ["denyTimesheet"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof denyTimesheet>>,
+    { timesheetId: number; data: BodyType<DenyTimesheetBody> }
+  > = (props) => {
+    const { timesheetId, data } = props ?? {};
+
+    return denyTimesheet(timesheetId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DenyTimesheetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof denyTimesheet>>
+>;
+export type DenyTimesheetMutationBody = BodyType<DenyTimesheetBody>;
+export type DenyTimesheetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Deny a timesheet
+ */
+export const useDenyTimesheet = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof denyTimesheet>>,
+    TError,
+    { timesheetId: number; data: BodyType<DenyTimesheetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof denyTimesheet>>,
+  TError,
+  { timesheetId: number; data: BodyType<DenyTimesheetBody> },
+  TContext
+> => {
+  return useMutation(getDenyTimesheetMutationOptions(options));
 };
 
 /**

@@ -1504,6 +1504,183 @@ export const GenerateQuoteAIResponse = zod.object({
 });
 
 /**
+ * @summary List timesheets (owner/foreman sees all, worker sees own)
+ */
+export const ListTimesheetsQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  userId: zod.coerce.number().optional(),
+  from: zod.date().optional(),
+  to: zod.date().optional(),
+});
+
+export const ListTimesheetsResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  userId: zod.number(),
+  weekStart: zod.coerce.date(),
+  status: zod.enum(["submitted", "approved", "denied"]),
+  totalHours: zod.string(),
+  notes: zod.string().nullish(),
+  submittedAt: zod.coerce.date(),
+  reviewedByUserId: zod.number().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  user: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+      role: zod.string().optional(),
+    })
+    .nullish(),
+  reviewer: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+    })
+    .nullish(),
+});
+export const ListTimesheetsResponse = zod.array(ListTimesheetsResponseItem);
+
+/**
+ * @summary Submit a timesheet for a week
+ */
+export const SubmitTimesheetBody = zod.object({
+  weekStart: zod.coerce.date(),
+  totalHours: zod.number(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get a single timesheet
+ */
+export const GetTimesheetParams = zod.object({
+  timesheetId: zod.coerce.number(),
+});
+
+export const GetTimesheetResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  userId: zod.number(),
+  weekStart: zod.coerce.date(),
+  status: zod.enum(["submitted", "approved", "denied"]),
+  totalHours: zod.string(),
+  notes: zod.string().nullish(),
+  submittedAt: zod.coerce.date(),
+  reviewedByUserId: zod.number().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  user: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+      role: zod.string().optional(),
+    })
+    .nullish(),
+  reviewer: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Approve a timesheet
+ */
+export const ApproveTimesheetParams = zod.object({
+  timesheetId: zod.coerce.number(),
+});
+
+export const ApproveTimesheetBody = zod.object({
+  notes: zod.string().optional(),
+});
+
+export const ApproveTimesheetResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  userId: zod.number(),
+  weekStart: zod.coerce.date(),
+  status: zod.enum(["submitted", "approved", "denied"]),
+  totalHours: zod.string(),
+  notes: zod.string().nullish(),
+  submittedAt: zod.coerce.date(),
+  reviewedByUserId: zod.number().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  user: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+      role: zod.string().optional(),
+    })
+    .nullish(),
+  reviewer: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Deny a timesheet
+ */
+export const DenyTimesheetParams = zod.object({
+  timesheetId: zod.coerce.number(),
+});
+
+export const DenyTimesheetBody = zod.object({
+  notes: zod.string().optional(),
+});
+
+export const DenyTimesheetResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  userId: zod.number(),
+  weekStart: zod.coerce.date(),
+  status: zod.enum(["submitted", "approved", "denied"]),
+  totalHours: zod.string(),
+  notes: zod.string().nullish(),
+  submittedAt: zod.coerce.date(),
+  reviewedByUserId: zod.number().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  user: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+      role: zod.string().optional(),
+    })
+    .nullish(),
+  reviewer: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+      email: zod.string().optional(),
+    })
+    .nullish(),
+});
+
+/**
  * @summary List all quotes for the company
  */
 export const ListAllQuotesQueryParams = zod.object({

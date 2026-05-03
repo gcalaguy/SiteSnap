@@ -606,6 +606,53 @@ export interface QuoteAIGenerateResponse {
   notes: string;
 }
 
+export type TimesheetStatus =
+  (typeof TimesheetStatus)[keyof typeof TimesheetStatus];
+
+export const TimesheetStatus = {
+  submitted: "submitted",
+  approved: "approved",
+  denied: "denied",
+} as const;
+
+export type TimesheetUser = {
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: string;
+} | null;
+
+export type TimesheetReviewer = {
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+} | null;
+
+export interface Timesheet {
+  id: number;
+  companyId: number;
+  userId: number;
+  weekStart: string;
+  status: TimesheetStatus;
+  totalHours: string;
+  notes?: string | null;
+  submittedAt: string;
+  reviewedByUserId?: number | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: TimesheetUser;
+  reviewer?: TimesheetReviewer;
+}
+
+export interface SubmitTimesheetBody {
+  weekStart: string;
+  totalHours: number;
+  notes?: string;
+}
+
 export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus];
 
 export const InvoiceStatus = {
@@ -659,6 +706,21 @@ export type RejectQuoteBody = {
 
 export type ConvertQuoteToInvoiceBody = {
   dueDate?: string | null;
+};
+
+export type ListTimesheetsParams = {
+  status?: string;
+  userId?: number;
+  from?: string;
+  to?: string;
+};
+
+export type ApproveTimesheetBody = {
+  notes?: string;
+};
+
+export type DenyTimesheetBody = {
+  notes?: string;
 };
 
 export type ListAllQuotesParams = {

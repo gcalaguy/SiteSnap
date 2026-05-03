@@ -26,6 +26,7 @@ import portalRouter from "./portal";
 import timeEntriesRouter from "./timeEntries";
 import companyTimeEntriesRouter from "./companyTimeEntries";
 import estimatesRouter from "./estimates";
+import timesheetsRouter from "./timesheets";
 
 const router: IRouter = Router();
 
@@ -56,5 +57,6 @@ router.use(portalRouter);
 router.use("/projects/:projectId/time-entries", timeEntriesRouter);
 router.use(companyTimeEntriesRouter);
 router.use(estimatesRouter);
+router.use(timesheetsRouter);
 
 export default router;

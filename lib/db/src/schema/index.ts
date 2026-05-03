@@ -507,6 +507,25 @@ export const insertTimeEntrySchema = createInsertSchema(timeEntriesTable).omit({
 export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
 export type TimeEntry = typeof timeEntriesTable.$inferSelect;
 
+// ── Timesheets ─────────────────────────────────────────────────────────────────
+
+export const timesheetsTable = pgTable("timesheets", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  weekStart: date("week_start").notNull(), // Monday YYYY-MM-DD
+  status: text("status").notNull().default("submitted"), // submitted | approved | denied
+  totalHours: numeric("total_hours", { precision: 7, scale: 2 }).notNull().default("0"),
+  notes: text("notes"), // denial reason or reviewer comment
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  reviewedByUserId: integer("reviewed_by_user_id").references(() => usersTable.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type Timesheet = typeof timesheetsTable.$inferSelect;
+
 // ── Client Portal ──────────────────────────────────────────────────────────────
 
 export const clientPortalTokensTable = pgTable("client_portal_tokens", {

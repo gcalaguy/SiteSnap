@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { customFetch, useGetMe, useListProjects, useListCompanyMembers } from "@workspace/api-client-react";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from "date-fns";
+import {
+  customFetch, useGetMe, useListProjects, useListCompanyMembers,
+  useListTimesheets, useApproveTimesheet, useDenyTimesheet,
+} from "@workspace/api-client-react";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, addDays } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,9 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Clock, Users, Building2, TrendingUp, Trash2,
   ChevronDown, ChevronUp, CalendarRange, UserCheck, X,
+  ClipboardCheck, CheckCircle2, XCircle, AlertCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
@@ -92,6 +97,11 @@ export default function HoursPage() {
   const [filterUser, setFilterUser] = useState("all");
   const [expandedUser, setExpandedUser] = useState<number | null>(null);
 
+  // Timesheet state
+  const [tsStatusFilter, setTsStatusFilter] = useState<"all" | "submitted" | "approved" | "denied">("all");
+  const [denyingId, setDenyingId] = useState<number | null>(null);
+  const [denyNotes, setDenyNotes] = useState("");
+
   const isCustom = range === "custom";
   const { from, to } = getRangeDates(range, customFrom, customTo);
 
@@ -115,6 +125,26 @@ export default function HoursPage() {
     },
     onError: () => toast({ title: "Failed to delete entry", variant: "destructive" }),
   });
+
+  // Timesheet hooks
+  const tsParams: Record<string, string> = {};
+  if (tsStatusFilter !== "all") tsParams.status = tsStatusFilter;
+  const { data: timesheets = [], isLoading: tsLoading } = useListTimesheets(tsParams);
+
+  const approveTs = useApproveTimesheet({
+    mutation: {
+      onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/timesheets"] }); toast({ title: "Timesheet approved" }); },
+      onError: () => toast({ title: "Failed to approve", variant: "destructive" }),
+    },
+  });
+  const denyTs = useDenyTimesheet({
+    mutation: {
+      onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/timesheets"] }); setDenyingId(null); setDenyNotes(""); toast({ title: "Timesheet denied" }); },
+      onError: () => toast({ title: "Failed to deny", variant: "destructive" }),
+    },
+  });
+
+  const isPrivileged = me?.role === "owner" || me?.role === "foreman";
 
   const totalHours = entries.reduce((sum, e) => sum + parseFloat(e.hours), 0);
 
@@ -613,6 +643,186 @@ export default function HoursPage() {
           </Card>
         </>
       )}
+
+      {/* ── TIMESHEETS SECTION ── */}
+      <div className="mt-2">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <div>
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-primary" />
+              Timesheets
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Weekly timesheet submissions requiring review</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {(["all", "submitted", "approved", "denied"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setTsStatusFilter(s)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  tsStatusFilter === s
+                    ? "bg-primary text-white border-primary"
+                    : "bg-background text-muted-foreground border-border hover:border-primary/40"
+                }`}
+              >
+                {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                {s !== "all" && (
+                  <span className="ml-1.5 opacity-70">
+                    ({timesheets.filter(t => t.status === s).length})
+                  </span>
+                )}
+                {s === "all" && <span className="ml-1.5 opacity-70">({timesheets.length})</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            {tsLoading ? (
+              <div className="p-10 text-center text-muted-foreground text-sm">Loading timesheets…</div>
+            ) : timesheets.length === 0 ? (
+              <div className="p-10 text-center">
+                <ClipboardCheck className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">
+                  {tsStatusFilter === "submitted" ? "No pending timesheets to review." : "No timesheets found."}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {timesheets.map((ts) => {
+                  const weekEnd = addDays(new Date(ts.weekStart + "T00:00:00"), 6);
+                  const weekLabel = `${format(new Date(ts.weekStart + "T00:00:00"), "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`;
+                  const workerName = ts.user
+                    ? `${ts.user.firstName ?? ""} ${ts.user.lastName ?? ""}`.trim() || ts.user.email
+                    : "Unknown";
+                  const workerInitials = ts.user?.firstName
+                    ? `${ts.user.firstName[0]}${ts.user.lastName?.[0] ?? ""}`.toUpperCase()
+                    : "?";
+                  const reviewerName = ts.reviewer
+                    ? `${ts.reviewer.firstName ?? ""} ${ts.reviewer.lastName ?? ""}`.trim() || ts.reviewer.email
+                    : null;
+
+                  const isDenying = denyingId === ts.id;
+
+                  return (
+                    <div key={ts.id} className="px-4 py-4">
+                      <div className="flex items-start gap-3 flex-wrap">
+                        {/* Worker avatar */}
+                        <Avatar className="h-9 w-9 bg-primary/10 border border-primary/20 shrink-0 mt-0.5">
+                          <AvatarFallback className="text-xs font-bold bg-transparent text-primary">
+                            {workerInitials}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm">{workerName}</span>
+                            <span className="text-xs text-muted-foreground capitalize">{ts.user?.role}</span>
+                            {ts.status === "submitted" && (
+                              <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs gap-1">
+                                <AlertCircle className="h-3 w-3" /> Pending Review
+                              </Badge>
+                            )}
+                            {ts.status === "approved" && (
+                              <Badge className="bg-green-100 text-green-700 border-green-200 text-xs gap-1">
+                                <CheckCircle2 className="h-3 w-3" /> Approved
+                              </Badge>
+                            )}
+                            {ts.status === "denied" && (
+                              <Badge className="bg-red-100 text-red-700 border-red-200 text-xs gap-1">
+                                <XCircle className="h-3 w-3" /> Denied
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <CalendarRange className="h-3 w-3" /> {weekLabel}
+                            </span>
+                            <span className="text-xs font-semibold text-primary">
+                              {parseFloat(ts.totalHours).toFixed(1)}h total
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              Submitted {format(new Date(ts.submittedAt), "MMM d 'at' h:mm a")}
+                            </span>
+                          </div>
+                          {ts.notes && !isDenying && (
+                            <p className="text-xs text-muted-foreground mt-1.5 italic">
+                              {ts.status === "denied" ? "Reason: " : ""}{ts.notes}
+                            </p>
+                          )}
+                          {reviewerName && ts.status !== "submitted" && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {ts.status === "approved" ? "Approved" : "Denied"} by {reviewerName}
+                              {ts.reviewedAt ? ` on ${format(new Date(ts.reviewedAt), "MMM d")}` : ""}
+                            </p>
+                          )}
+
+                          {/* Deny notes input (inline) */}
+                          {isDenying && (
+                            <div className="mt-3 space-y-2">
+                              <Textarea
+                                placeholder="Reason for denial (optional)…"
+                                value={denyNotes}
+                                onChange={(e) => setDenyNotes(e.target.value)}
+                                className="text-sm h-20 resize-none"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  disabled={denyTs.isPending}
+                                  onClick={() => denyTs.mutate({ timesheetId: ts.id, data: { notes: denyNotes || undefined } })}
+                                >
+                                  {denyTs.isPending ? "Denying…" : "Confirm Denial"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => { setDenyingId(null); setDenyNotes(""); }}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action buttons (owner/foreman only, submitted timesheets) */}
+                        {isPrivileged && ts.status === "submitted" && !isDenying && (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-green-300 text-green-700 hover:bg-green-50 gap-1.5"
+                              disabled={approveTs.isPending}
+                              onClick={() => approveTs.mutate({ timesheetId: ts.id, data: {} })}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-300 text-red-700 hover:bg-red-50 gap-1.5"
+                              onClick={() => { setDenyingId(ts.id); setDenyNotes(""); }}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              Deny
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
