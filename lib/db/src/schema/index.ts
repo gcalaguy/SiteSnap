@@ -552,3 +552,21 @@ export const clientPortalMessagesTable = pgTable("client_portal_messages", {
 });
 
 export type ClientPortalMessage = typeof clientPortalMessagesTable.$inferSelect;
+
+// ── Estimates ─────────────────────────────────────────────────────────────────
+
+export const estimatesTable = pgTable("estimates", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
+  title: text("title").notNull(),
+  scopeText: text("scope_text"),
+  sourceType: text("source_type").notNull().default("text"), // "text" | "file"
+  sourceFilename: text("source_filename"),
+  result: json("result"),
+  status: text("status").notNull().default("generating"), // "generating" | "ready" | "failed"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type Estimate = typeof estimatesTable.$inferSelect;

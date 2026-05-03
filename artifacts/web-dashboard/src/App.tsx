@@ -29,6 +29,7 @@ import AdminPage from "@/pages/admin";
 import Schedule from "@/pages/schedule";
 import ClientPortal from "@/pages/client-portal";
 import Hours from "@/pages/hours";
+import Estimates from "@/pages/estimates";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 
@@ -221,6 +222,7 @@ function AuthApp() {
           <Route path="/settings" component={Settings} />
           <Route path="/schedule" component={Schedule} />
           <Route path="/hours" component={Hours} />
+          <Route path="/estimates" component={Estimates} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>
