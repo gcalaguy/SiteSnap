@@ -172,7 +172,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
               return (
                 <TouchableOpacity
                   key={q.id}
-                  onPress={() => router.push(`/quote/${q.id}`)}
+                  onPress={() => router.push(`/quote/${q.id}?projectId=${projectId}`)}
                   activeOpacity={0.75}
                   style={[s.quoteCard, { backgroundColor: colors.card, borderColor: colors.border }]}
                 >

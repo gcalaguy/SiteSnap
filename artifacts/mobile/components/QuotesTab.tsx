@@ -230,7 +230,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
             const busy = actionLoading[q.id];
             return (
               <Pressable
-                onPress={() => router.push(`/quote/${q.id}`)}
+                onPress={() => router.push(`/quote/${q.id}?projectId=${projectId}`)}
                 style={({ pressed }) => [
                   styles.card,
                   { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
@@ -267,7 +267,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                   {/* Draft: Submit */}
                   {q.status === "draft" && (
                     <TouchableOpacity
-                      onPress={(e) => { e.stopPropagation?.(); handleSubmit(q); }}
+                      onPress={() => handleSubmit(q)}
                       disabled={!!busy}
                       style={[styles.actionBtn, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}40` }]}
                     >

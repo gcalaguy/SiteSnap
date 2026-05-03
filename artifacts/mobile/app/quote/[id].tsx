@@ -121,14 +121,15 @@ function InfoRow({ label, value, highlight }: { label: string; value: string; hi
 }
 
 export default function QuoteDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, projectId: projectIdParam } = useLocalSearchParams<{ id: string; projectId?: string }>();
   const quoteId = parseInt(id ?? "0");
+  const projectId = parseInt(projectIdParam ?? "0");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: quote, isLoading } = useGetQuote(0, quoteId);
+  const { data: quote, isLoading } = useGetQuote(projectId, quoteId);
   const submitQuote = useSubmitQuoteForApproval();
   const convertQuote = useConvertQuoteToInvoice();
 
@@ -138,11 +139,9 @@ export default function QuoteDetailScreen() {
   const statusColor = STATUS_COLORS[quote?.status ?? "draft"] ?? "#6B7280";
 
   function invalidate() {
-    qc.invalidateQueries({ queryKey: getGetQuoteQueryKey(0, quoteId) });
+    qc.invalidateQueries({ queryKey: getGetQuoteQueryKey(projectId, quoteId) });
     qc.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
-    if (quote?.projectId) {
-      qc.invalidateQueries({ queryKey: getListQuotesQueryKey(quote.projectId) });
-    }
+    qc.invalidateQueries({ queryKey: getListQuotesQueryKey(projectId) });
   }
 
   const handleExportPDF = useCallback(async () => {
