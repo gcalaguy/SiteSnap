@@ -69,6 +69,7 @@ import type {
   SyncUserBody,
   Task,
   Timesheet,
+  UpdateInvitationBody,
   UpdateInvoiceBody,
   UpdateMemberRoleBody,
   UpdateProjectBody,
@@ -917,6 +918,177 @@ export function useListInvitations<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Edit a pending invitation's email or role
+ */
+export const getUpdateInvitationUrl = (id: number) => {
+  return `/api/invitations/${id}`;
+};
+
+export const updateInvitation = async (
+  id: number,
+  updateInvitationBody: UpdateInvitationBody,
+  options?: RequestInit,
+): Promise<Invitation> => {
+  return customFetch<Invitation>(getUpdateInvitationUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateInvitationBody),
+  });
+};
+
+export const getUpdateInvitationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateInvitation>>,
+    TError,
+    { id: number; data: BodyType<UpdateInvitationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateInvitation>>,
+  TError,
+  { id: number; data: BodyType<UpdateInvitationBody> },
+  TContext
+> => {
+  const mutationKey = ["updateInvitation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateInvitation>>,
+    { id: number; data: BodyType<UpdateInvitationBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateInvitation(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateInvitation>>
+>;
+export type UpdateInvitationMutationBody = BodyType<UpdateInvitationBody>;
+export type UpdateInvitationMutationError = ErrorType<void>;
+
+/**
+ * @summary Edit a pending invitation's email or role
+ */
+export const useUpdateInvitation = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateInvitation>>,
+    TError,
+    { id: number; data: BodyType<UpdateInvitationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateInvitation>>,
+  TError,
+  { id: number; data: BodyType<UpdateInvitationBody> },
+  TContext
+> => {
+  return useMutation(getUpdateInvitationMutationOptions(options));
+};
+
+/**
+ * @summary Revoke a pending invitation
+ */
+export const getRevokeInvitationUrl = (id: number) => {
+  return `/api/invitations/${id}`;
+};
+
+export const revokeInvitation = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRevokeInvitationUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRevokeInvitationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeInvitation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeInvitation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["revokeInvitation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeInvitation>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return revokeInvitation(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeInvitation>>
+>;
+
+export type RevokeInvitationMutationError = ErrorType<void>;
+
+/**
+ * @summary Revoke a pending invitation
+ */
+export const useRevokeInvitation = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeInvitation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokeInvitation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRevokeInvitationMutationOptions(options));
+};
 
 /**
  * @summary Verify and get invitation details by token

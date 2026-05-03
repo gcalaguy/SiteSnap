@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useGetMe, useListCompanyMembers, useListInvitations, useCreateInvitation, useRemoveCompanyMember, useUpdateMemberRole, customFetch } from "@workspace/api-client-react";
+import {
+  useGetMe, useListCompanyMembers, useListInvitations,
+  useCreateInvitation, useRemoveCompanyMember, useUpdateMemberRole,
+  useUpdateInvitation, useRevokeInvitation,
+  customFetch,
+} from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { getListCompanyMembersQueryKey, getListInvitationsQueryKey } from "@workspace/api-client-react";
@@ -10,11 +15,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Loader2, MoreHorizontal, Mail, Copy, Check, Link2, Pencil } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  UserPlus, Loader2, MoreHorizontal, Mail, Copy, Check,
+  Link2, Pencil, Trash2, AlertTriangle,
+} from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogTrigger, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,7 +42,7 @@ function makeInviteLink(token: string) {
 
 function getMemberInitials(m: { firstName?: string; lastName?: string; email?: string }) {
   const first = (m.firstName ?? "").trim();
-  const last = (m.lastName ?? "").trim();
+  const last  = (m.lastName ?? "").trim();
   if (first || last) return `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase();
   return (m.email?.[0] ?? "?").toUpperCase();
 }
@@ -43,9 +57,14 @@ const inviteSchema = z.object({
   role: z.enum(["owner", "foreman", "worker"]).default("worker"),
 });
 
+const editInviteSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  role: z.enum(["owner", "foreman", "worker"]),
+});
+
 const nameSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  lastName:  z.string().min(1, "Last name is required"),
 });
 
 function CopyButton({ text }: { text: string }) {
@@ -64,28 +83,44 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+type Invite = { id: number; email: string; role: string; token: string; expiresAt?: string | null };
+
 export default function Team() {
   const { data: user } = useGetMe();
   const companyId = user?.companyId;
 
   const { data: members, isLoading: membersLoading } = useListCompanyMembers(companyId || 0);
-
   const { data: invitations, isLoading: invitationsLoading } = useListInvitations({
-    query: { queryKey: getListInvitationsQueryKey(), enabled: !!companyId }
+    query: { queryKey: getListInvitationsQueryKey(), enabled: !!companyId },
   });
 
   const createInvitation = useCreateInvitation();
-  const removeMember = useRemoveCompanyMember();
-  const updateRole = useUpdateMemberRole();
+  const removeMember     = useRemoveCompanyMember();
+  const updateRole       = useUpdateMemberRole();
   const { toast } = useToast();
 
-  const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [newInviteToken, setNewInviteToken] = useState<string | null>(null);
+  // ── dialog state ───────────────────────────────────────────────────────────
+  const [isInviteOpen,    setIsInviteOpen]    = useState(false);
+  const [newInviteToken,  setNewInviteToken]  = useState<string | null>(null);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+
+  // member name edit
   const [editingMember, setEditingMember] = useState<{ id: number; firstName: string; lastName: string; email: string } | null>(null);
 
+  // invitation edit
+  const [editingInvite, setEditingInvite] = useState<Invite | null>(null);
+
+  // invitation revoke confirm
+  const [revokingInvite, setRevokingInvite] = useState<Invite | null>(null);
+
+  // ── forms ──────────────────────────────────────────────────────────────────
   const form = useForm<z.infer<typeof inviteSchema>>({
     resolver: zodResolver(inviteSchema),
+    defaultValues: { email: "", role: "worker" },
+  });
+
+  const editInviteForm = useForm<z.infer<typeof editInviteSchema>>({
+    resolver: zodResolver(editInviteSchema),
     defaultValues: { email: "", role: "worker" },
   });
 
@@ -94,32 +129,54 @@ export default function Team() {
     defaultValues: { firstName: "", lastName: "" },
   });
 
+  // ── mutations ──────────────────────────────────────────────────────────────
   const updateName = useMutation({
-    mutationFn: async ({ memberId, firstName, lastName }: { memberId: number; firstName: string; lastName: string }) => {
-      return customFetch<unknown>(`/api/companies/${companyId}/members/${memberId}/name`, {
+    mutationFn: async ({ memberId, firstName, lastName }: { memberId: number; firstName: string; lastName: string }) =>
+      customFetch<unknown>(`/api/companies/${companyId}/members/${memberId}/name`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ firstName, lastName }),
-      });
-    },
+      }),
     onSuccess: () => {
       if (companyId) queryClient.invalidateQueries({ queryKey: getListCompanyMembersQueryKey(companyId) });
       toast({ title: "Name updated" });
       setEditingMember(null);
     },
-    onError: (err: any) => {
-      toast({ title: "Failed to update name", description: err?.message || "An error occurred", variant: "destructive" });
+    onError: (err: any) =>
+      toast({ title: "Failed to update name", description: err?.message, variant: "destructive" }),
+  });
+
+  const updateInvitation = useUpdateInvitation({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
+        toast({ title: "Invitation updated" });
+        setEditingInvite(null);
+      },
+      onError: () => toast({ title: "Failed to update invitation", variant: "destructive" }),
     },
   });
 
-  function openEditName(member: { id: number; firstName: string; lastName: string; email: string }) {
-    setEditingMember(member);
-    nameForm.reset({ firstName: member.firstName || "", lastName: member.lastName || "" });
+  const revokeInvitation = useRevokeInvitation({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
+        toast({ title: "Invitation revoked" });
+        setRevokingInvite(null);
+      },
+      onError: () => toast({ title: "Failed to revoke invitation", variant: "destructive" }),
+    },
+  });
+
+  // ── handlers ───────────────────────────────────────────────────────────────
+  function openEditInvite(invite: Invite) {
+    setEditingInvite(invite);
+    editInviteForm.reset({ email: invite.email, role: invite.role as any });
   }
 
-  function onSubmitName(values: z.infer<typeof nameSchema>) {
-    if (!editingMember) return;
-    updateName.mutate({ memberId: editingMember.id, firstName: values.firstName, lastName: values.lastName });
+  function onSubmitEditInvite(values: z.infer<typeof editInviteSchema>) {
+    if (!editingInvite) return;
+    updateInvitation.mutate({ id: editingInvite.id, data: values });
   }
 
   function onSubmitInvite(values: z.infer<typeof inviteSchema>) {
@@ -133,15 +190,20 @@ export default function Team() {
           setNewInviteToken(data.token);
           setIsLinkDialogOpen(true);
         },
-        onError: (err: any) => {
-          toast({
-            title: "Failed to send invitation",
-            description: err?.message || "An error occurred",
-            variant: "destructive",
-          });
-        },
-      }
+        onError: (err: any) =>
+          toast({ title: "Failed to send invitation", description: err?.message, variant: "destructive" }),
+      },
     );
+  }
+
+  function openEditName(member: { id: number; firstName: string; lastName: string; email: string }) {
+    setEditingMember(member);
+    nameForm.reset({ firstName: member.firstName || "", lastName: member.lastName || "" });
+  }
+
+  function onSubmitName(values: z.infer<typeof nameSchema>) {
+    if (!editingMember) return;
+    updateName.mutate({ memberId: editingMember.id, firstName: values.firstName, lastName: values.lastName });
   }
 
   function handleRemoveMember(userId: number) {
@@ -151,7 +213,7 @@ export default function Team() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListCompanyMembersQueryKey(companyId) });
           toast({ title: "Member removed" });
-        }
+        },
       });
     }
   }
@@ -162,17 +224,18 @@ export default function Team() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListCompanyMembersQueryKey(companyId) });
         toast({ title: "Role updated" });
-      }
+      },
     });
   }
 
   const isOwner = user?.role === "owner";
-  const pendingInvites = (invitations ?? []).filter(i => i.status === "pending");
+  const pendingInvites = (invitations ?? []).filter(i => i.status === "pending") as Invite[];
 
   if (!companyId) return null;
 
   return (
     <div className="space-y-6">
+      {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Team Members</h1>
@@ -196,7 +259,11 @@ export default function Team() {
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmitInvite)} className="space-y-4">
                   <FormField control={form.control} name="email" render={({ field }) => (
-                    <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input placeholder="email@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Email Address</FormLabel>
+                      <FormControl><Input placeholder="email@example.com" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name="role" render={({ field }) => (
                     <FormItem>
@@ -227,7 +294,7 @@ export default function Team() {
         )}
       </div>
 
-      {/* Invite link dialog shown after creation */}
+      {/* ── Invite link dialog (post-creation) ───────────────────────────────── */}
       <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -236,7 +303,7 @@ export default function Team() {
               Invite Link Ready
             </DialogTitle>
             <DialogDescription>
-              Share this link with your team member. It expires in 7 days. They'll need to sign up or log in first, then the link will add them to your company automatically.
+              Share this link with your team member. It expires in 7 days.
             </DialogDescription>
           </DialogHeader>
           {newInviteToken && (
@@ -255,14 +322,12 @@ export default function Team() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit name dialog */}
+      {/* ── Member name edit dialog ───────────────────────────────────────────── */}
       <Dialog open={!!editingMember} onOpenChange={(open) => { if (!open) setEditingMember(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Member Name</DialogTitle>
-            <DialogDescription>
-              Set a display name for <strong>{editingMember?.email}</strong>.
-            </DialogDescription>
+            <DialogDescription>Set a display name for <strong>{editingMember?.email}</strong>.</DialogDescription>
           </DialogHeader>
           <Form {...nameForm}>
             <form onSubmit={nameForm.handleSubmit(onSubmitName)} className="space-y-4">
@@ -292,6 +357,80 @@ export default function Team() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Edit invitation dialog ────────────────────────────────────────────── */}
+      <Dialog open={!!editingInvite} onOpenChange={(open) => { if (!open) setEditingInvite(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Invitation</DialogTitle>
+            <DialogDescription>
+              Update the email address or role for this pending invitation.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editInviteForm}>
+            <form onSubmit={editInviteForm.handleSubmit(onSubmitEditInvite)} className="space-y-4">
+              <FormField control={editInviteForm.control} name="email" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email Address</FormLabel>
+                  <FormControl><Input placeholder="email@example.com" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={editInviteForm.control} name="role" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Role</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="owner">Owner</SelectItem>
+                      <SelectItem value="foreman">Foreman</SelectItem>
+                      <SelectItem value="worker">Worker</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setEditingInvite(null)}>Cancel</Button>
+                <Button type="submit" disabled={updateInvitation.isPending}>
+                  {updateInvitation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Revoke confirmation dialog ────────────────────────────────────────── */}
+      <Dialog open={!!revokingInvite} onOpenChange={(open) => { if (!open) setRevokingInvite(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Revoke Invitation
+            </DialogTitle>
+            <DialogDescription>
+              This will immediately cancel the invite link sent to{" "}
+              <strong>{revokingInvite?.email}</strong>. The link will stop working.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevokingInvite(null)}>Keep It</Button>
+            <Button
+              variant="destructive"
+              disabled={revokeInvitation.isPending}
+              onClick={() => revokingInvite && revokeInvitation.mutate({ id: revokingInvite.id })}
+            >
+              {revokeInvitation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Yes, Revoke
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Active members card ───────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle>Active Members</CardTitle>
@@ -355,7 +494,9 @@ export default function Team() {
                             <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "foreman")}>Make Foreman</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "worker")}>Make Worker</DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleRemoveMember(member.id)} className="text-destructive">Remove from Team</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleRemoveMember(member.id)} className="text-destructive">
+                              Remove from Team
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
@@ -368,6 +509,7 @@ export default function Team() {
         </CardContent>
       </Card>
 
+      {/* ── Pending invitations card ──────────────────────────────────────────── */}
       {isOwner && (
         <Card>
           <CardHeader>
@@ -382,12 +524,15 @@ export default function Team() {
             ) : pendingInvites.length === 0 ? (
               <div className="py-6 text-center text-muted-foreground space-y-2">
                 <Mail className="h-8 w-8 mx-auto opacity-30" />
-                <p className="text-sm">No pending invitations. Use the <strong>Invite Member</strong> button above to generate a link.</p>
+                <p className="text-sm">
+                  No pending invitations. Use the <strong>Invite Member</strong> button above to generate a link.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {pendingInvites.map(invite => (
                   <div key={invite.id} className="flex items-center justify-between gap-4 p-4 border rounded-md">
+                    {/* Left: avatar + info */}
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0">
                         <Mail className="h-4 w-4 text-muted-foreground" />
@@ -395,11 +540,39 @@ export default function Team() {
                       <div className="min-w-0">
                         <p className="font-medium truncate">{invite.email}</p>
                         <p className="text-xs text-muted-foreground">
-                          {invite.role.charAt(0).toUpperCase() + invite.role.slice(1)} · Expires {invite.expiresAt ? format(new Date(invite.expiresAt), "MMM d, yyyy") : "—"}
+                          {invite.role.charAt(0).toUpperCase() + invite.role.slice(1)} ·{" "}
+                          Expires {invite.expiresAt ? format(new Date(invite.expiresAt), "MMM d, yyyy") : "—"}
                         </p>
                       </div>
                     </div>
-                    <CopyButton text={makeInviteLink(invite.token)} />
+
+                    {/* Right: copy + actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <CopyButton text={makeInviteLink(invite.token)} />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Invitation</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openEditInvite(invite)}>
+                            <Pencil className="h-3.5 w-3.5 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setRevokingInvite(invite)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-2" />
+                            Revoke
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 ))}
               </div>

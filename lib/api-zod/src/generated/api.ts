@@ -206,6 +206,46 @@ export const ListInvitationsResponseItem = zod.object({
 export const ListInvitationsResponse = zod.array(ListInvitationsResponseItem);
 
 /**
+ * @summary Edit a pending invitation's email or role
+ */
+export const UpdateInvitationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateInvitationBody = zod.object({
+  email: zod.string().optional(),
+  role: zod.enum(["owner", "foreman", "worker"]).optional(),
+});
+
+export const UpdateInvitationResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  email: zod.string(),
+  role: zod.enum(["owner", "foreman", "worker"]),
+  token: zod.string(),
+  status: zod.enum(["pending", "accepted", "expired"]),
+  expiresAt: zod.coerce.date(),
+  createdAt: zod.coerce.date(),
+  company: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      province: zod.string(),
+      city: zod.string(),
+      phone: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Revoke a pending invitation
+ */
+export const RevokeInvitationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Verify and get invitation details by token
  */
 export const GetInvitationParams = zod.object({

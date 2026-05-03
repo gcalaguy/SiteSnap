@@ -106,6 +106,11 @@ export interface CreateInvitationBody {
   role: UserRole;
 }
 
+export interface UpdateInvitationBody {
+  email?: string;
+  role?: UserRole;
+}
+
 export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus];
 
 export const ProjectStatus = {

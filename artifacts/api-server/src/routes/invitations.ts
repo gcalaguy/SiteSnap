@@ -86,6 +86,69 @@ router.post(
   },
 );
 
+// PATCH /invitations/:id — edit a pending invitation's email and/or role
+router.patch(
+  "/invitations/:id",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const { email, role } = req.body as { email?: string; role?: string };
+    if (!email && !role) { res.status(400).json({ error: "Provide email or role to update" }); return; }
+
+    const [existing] = await db
+      .select()
+      .from(invitationsTable)
+      .where(and(eq(invitationsTable.id, id), eq(invitationsTable.companyId, req.companyId!)))
+      .limit(1);
+
+    if (!existing) { res.status(404).json({ error: "Invitation not found" }); return; }
+    if (existing.status !== "pending") { res.status(409).json({ error: "Only pending invitations can be edited" }); return; }
+
+    const updates: Record<string, unknown> = {};
+    if (email) updates.email = email;
+    if (role && ["owner", "foreman", "worker"].includes(role)) updates.role = role;
+
+    const [updated] = await db
+      .update(invitationsTable)
+      .set(updates)
+      .where(eq(invitationsTable.id, id))
+      .returning();
+
+    res.json({ ...updated, company: null });
+  },
+);
+
+// DELETE /invitations/:id — revoke a pending invitation
+router.delete(
+  "/invitations/:id",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const [existing] = await db
+      .select()
+      .from(invitationsTable)
+      .where(and(eq(invitationsTable.id, id), eq(invitationsTable.companyId, req.companyId!)))
+      .limit(1);
+
+    if (!existing) { res.status(404).json({ error: "Invitation not found" }); return; }
+
+    await db
+      .update(invitationsTable)
+      .set({ status: "expired" })
+      .where(eq(invitationsTable.id, id));
+
+    res.status(204).end();
+  },
+);
+
 // GET /invitations/company — list pending invitations for my company
 router.get(
   "/invitations/company",

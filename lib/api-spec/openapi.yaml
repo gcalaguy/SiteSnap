@@ -210,6 +210,50 @@ paths:
                 items:
                   $ref: "#/components/schemas/Invitation"
 
+  /invitations/{id}:
+    patch:
+      operationId: updateInvitation
+      tags: [invitations]
+      summary: Edit a pending invitation's email or role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInvitationBody"
+      responses:
+        "200":
+          description: Updated invitation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "404":
+          description: Not found
+        "409":
+          description: Not pending
+    delete:
+      operationId: revokeInvitation
+      tags: [invitations]
+      summary: Revoke a pending invitation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Revoked
+        "404":
+          description: Not found
+
   /invitations/{token}:
     get:
       operationId: getInvitation
@@ -1816,6 +1860,14 @@ components:
         role:
           $ref: "#/components/schemas/UserRole"
       required: [email, role]
+
+    UpdateInvitationBody:
+      type: object
+      properties:
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
 
     # ── Projects ─────────────────────────────────────────────────────────────
     Project:
