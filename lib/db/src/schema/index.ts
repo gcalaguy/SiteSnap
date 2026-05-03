@@ -534,3 +534,21 @@ export const clientPortalUploadsTable = pgTable("client_portal_uploads", {
 });
 
 export type ClientPortalUpload = typeof clientPortalUploadsTable.$inferSelect;
+
+// ── Client Portal Messages ────────────────────────────────────────────────────
+
+export const clientPortalMessagesTable = pgTable("client_portal_messages", {
+  id: serial("id").primaryKey(),
+  portalTokenId: integer("portal_token_id")
+    .notNull()
+    .references(() => clientPortalTokensTable.id, { onDelete: "cascade" }),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
+  senderRole: text("sender_role").notNull(), // "client" | "contractor"
+  senderName: text("sender_name"),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ClientPortalMessage = typeof clientPortalMessagesTable.$inferSelect;
