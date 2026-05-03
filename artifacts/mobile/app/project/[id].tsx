@@ -11,6 +11,8 @@ import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -23,6 +25,13 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
+
+function photoUrl(objectPath: string): string {
+  const base = process.env.EXPO_PUBLIC_DOMAIN
+    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+    : "";
+  return `${base}${objectPath.replace(/^\/objects\//, "/api/storage/objects/")}`;
+}
 
 const STATUS_COLORS: Record<string, string> = {
   active: "#22C55E",
@@ -66,6 +75,8 @@ const stat = StyleSheet.create({
 function ReportRow({ report }: { report: any }) {
   const colors = useColors();
   const [expanded, setExpanded] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+  const photos: any[] = report.photos ?? [];
 
   const dateLabel = new Date(report.reportDate).toLocaleDateString("en-CA", {
     weekday: "short",
@@ -123,6 +134,14 @@ function ReportRow({ report }: { report: any }) {
               </Text>
             </View>
           )}
+          {photos.length > 0 && (
+            <View style={styles.reportMetaChip}>
+              <Feather name="camera" size={11} color={colors.mutedForeground} />
+              <Text style={[styles.reportSub, { color: colors.mutedForeground }]}>
+                {photos.length}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Expanded details */}
@@ -164,6 +183,37 @@ function ReportRow({ report }: { report: any }) {
                 <Text style={[styles.reportDetailText, { color: colors.foreground, marginTop: 4 }]}>{report.aiSummary}</Text>
               </View>
             )}
+
+            {/* Photo thumbnails */}
+            {photos.length > 0 && (
+              <View style={{ marginTop: 10 }}>
+                <View style={styles.reportDetailRow}>
+                  <Feather name="camera" size={13} color={colors.primary} />
+                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>
+                    Site Photos ({photos.length})
+                  </Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                  {photos.map((photo: any) => {
+                    const uri = photoUrl(photo.objectPath);
+                    return (
+                      <Pressable
+                        key={photo.id}
+                        onPress={() => setLightboxPhoto(uri)}
+                        style={{ marginRight: 8 }}
+                      >
+                        <Image
+                          source={{ uri }}
+                          style={{ width: 80, height: 80, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}
+                          resizeMode="cover"
+                        />
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
             {!!submittedBy && (
               <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 6 }]}>
                 Submitted by {submittedBy}
@@ -172,6 +222,25 @@ function ReportRow({ report }: { report: any }) {
           </View>
         )}
       </View>
+
+      {/* Fullscreen photo lightbox */}
+      <Modal visible={lightboxPhoto !== null} transparent animationType="fade" onRequestClose={() => setLightboxPhoto(null)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", alignItems: "center", justifyContent: "center" }}
+          onPress={() => setLightboxPhoto(null)}
+        >
+          {lightboxPhoto && (
+            <Image
+              source={{ uri: lightboxPhoto }}
+              style={{ width: "95%", height: "75%", borderRadius: 10 }}
+              resizeMode="contain"
+            />
+          )}
+          <View style={{ position: "absolute", top: 52, right: 20 }}>
+            <Feather name="x" size={28} color="#fff" />
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Expand chevron */}
       <Feather
