@@ -794,31 +794,66 @@ export default function ProjectDetail() {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {filteredReports.map((report: any) => (
-                <Card key={report.id} className="hover:border-primary/50 transition-colors cursor-pointer">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="font-bold text-lg">{format(new Date(report.reportDate), "MMM d, yyyy")}</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">Crew: {report.crewCount}</Badge>
+              {filteredReports.map((report: any) => {
+                const photos: any[] = report.photos ?? [];
+                return (
+                  <Card key={report.id} className="hover:border-primary/50 transition-colors cursor-pointer">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-bold text-lg">{format(new Date(report.reportDate), "MMM d, yyyy")}</span>
+                        <div className="flex items-center gap-2">
+                          {report.crewCount != null && <Badge variant="outline">Crew: {report.crewCount}</Badge>}
+                          {photos.length > 0 && (
+                            <Badge variant="secondary" className="gap-1">
+                              <span>📷</span> {photos.length}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    {!selectedMember && report.submittedBy && (
-                      <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {report.submittedBy.firstName} {report.submittedBy.lastName}
-                      </p>
-                    )}
-                    <p className="text-sm text-muted-foreground line-clamp-2 mt-2">{report.workPerformed}</p>
-                    {report.aiSummary && (
-                      <div className="mt-3 text-xs bg-muted/30 p-2 rounded border border-border/50">
-                        <span className="font-semibold block mb-1">AI Summary:</span>
-                        <span className="line-clamp-2 text-muted-foreground">{report.aiSummary}</span>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                      {!selectedMember && report.submittedBy && (
+                        <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {report.submittedBy.firstName} {report.submittedBy.lastName}
+                        </p>
+                      )}
+                      <p className="text-sm text-muted-foreground line-clamp-2 mt-2">{report.workPerformed}</p>
+
+                      {/* Photo thumbnails */}
+                      {photos.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {photos.map((photo: any) => {
+                            const src = photo.objectPath.replace(/^\/objects\//, "/api/storage/objects/");
+                            return (
+                              <a
+                                key={photo.id}
+                                href={src}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <img
+                                  src={src}
+                                  alt={photo.caption ?? "Site photo"}
+                                  className="h-20 w-20 object-cover rounded-md border border-border hover:opacity-80 transition-opacity"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                />
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {report.aiSummary && (
+                        <div className="mt-3 text-xs bg-muted/30 p-2 rounded border border-border/50">
+                          <span className="font-semibold block mb-1">AI Summary:</span>
+                          <span className="line-clamp-2 text-muted-foreground">{report.aiSummary}</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>

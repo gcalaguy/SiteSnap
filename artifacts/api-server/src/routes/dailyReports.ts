@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, dailyReportsTable, usersTable, projectsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, dailyReportsTable, usersTable, projectsTable, dailyReportPhotosTable } from "@workspace/db";
+import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { CreateDailyReportBody, UpdateDailyReportBody } from "@workspace/api-zod";
 
@@ -27,18 +27,34 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
     .from(dailyReportsTable)
     .where(eq(dailyReportsTable.projectId, projectId));
 
-  // Attach submittedBy user for each report
-  const userIds = [...new Set(reports.map((r) => r.submittedByUserId))];
-  const users = userIds.length
-    ? await db.select().from(usersTable).where(
-        userIds.length === 1
-          ? eq(usersTable.id, userIds[0])
-          : eq(usersTable.id, userIds[0]), // simplified; full IN needed for prod
-      )
-    : [];
-  const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
+  if (reports.length === 0) {
+    res.json([]);
+    return;
+  }
 
-  res.json(reports.map((r) => ({ ...r, submittedBy: userMap[r.submittedByUserId] ?? null })));
+  // Batch-fetch users and photos for all reports in two queries
+  const reportIds = reports.map((r) => r.id);
+  const userIds = [...new Set(reports.map((r) => r.submittedByUserId))];
+
+  const [users, photos] = await Promise.all([
+    userIds.length
+      ? db.select().from(usersTable).where(inArray(usersTable.id, userIds))
+      : Promise.resolve([]),
+    db.select().from(dailyReportPhotosTable).where(inArray(dailyReportPhotosTable.reportId, reportIds)),
+  ]);
+
+  const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
+  const photosByReport: Record<number, typeof photos> = {};
+  for (const p of photos) {
+    if (!photosByReport[p.reportId]) photosByReport[p.reportId] = [];
+    photosByReport[p.reportId].push(p);
+  }
+
+  res.json(reports.map((r) => ({
+    ...r,
+    submittedBy: userMap[r.submittedByUserId] ?? null,
+    photos: photosByReport[r.id] ?? [],
+  })));
 });
 
 // POST /projects/:projectId/daily-reports
