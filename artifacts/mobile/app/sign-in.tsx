@@ -99,8 +99,36 @@ export default function SignInScreen() {
         }
       }
     } catch (e: any) {
-      setError(e?.errors?.[0]?.message ?? "Invalid code. Please try again.");
+      const errMsg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Invalid code. Please try again.";
+      setError(errMsg);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!signInLoaded || !signUpLoaded || loading) return;
+    setLoading(true);
+    setError("");
+    setCode("");
+
+    try {
+      if (isSignUp) {
+        await signUp!.prepareEmailAddressVerification({ strategy: "email_code" });
+      } else {
+        const emailFactor = signIn!.supportedFirstFactors?.find(
+          (f: any) => f.strategy === "email_code"
+        ) as any;
+        if (emailFactor) {
+          await signIn!.prepareFirstFactor({
+            strategy: "email_code",
+            emailAddressId: emailFactor.emailAddressId,
+          });
+        }
+      }
+    } catch (e: any) {
+      setError(e?.errors?.[0]?.message ?? "Could not resend code. Please go back and try again.");
     } finally {
       setLoading(false);
     }
@@ -322,6 +350,18 @@ export default function SignInScreen() {
                 ) : (
                   <Text style={s.buttonText}>Verify & Sign In</Text>
                 )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleResend}
+                disabled={loading}
+                activeOpacity={0.7}
+                style={{ alignItems: "center", paddingVertical: 8 }}
+              >
+                <Text style={s.hint}>
+                  Didn't receive a code?{" "}
+                  <Text style={{ color: colors.primary, fontWeight: "600" }}>Resend</Text>
+                </Text>
               </TouchableOpacity>
             </>
           )}

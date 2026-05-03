@@ -23,15 +23,20 @@ const companySchema = z.object({
   phone: z.string().optional(),
 });
 
+const INVITE_TOKEN_KEY = "sitesnap_pending_invite_token";
+
 export default function OnboardingPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user: clerkUser } = useUser();
   const searchParams = new URLSearchParams(window.location.search);
-  const token = searchParams.get("token");
+  const urlToken = searchParams.get("token");
   const refCode = searchParams.get("ref") ?? undefined;
 
-  const [activeTab, setActiveTab] = useState(token ? "join" : "create");
+  // Resolve token: prefer URL param, then sessionStorage (restored after sign-up redirect)
+  const resolvedToken = urlToken || sessionStorage.getItem(INVITE_TOKEN_KEY) || "";
+
+  const [activeTab, setActiveTab] = useState(resolvedToken ? "join" : "create");
 
   const createCompany = useCreateCompany();
   const acceptInvitation = useAcceptInvitation();
@@ -47,7 +52,12 @@ export default function OnboardingPage() {
     },
   });
 
-  const [inviteToken, setInviteToken] = useState(token || "");
+  const [inviteToken, setInviteToken] = useState(resolvedToken);
+
+  // Persist URL token to sessionStorage so it survives a sign-up redirect
+  useState(() => {
+    if (urlToken) sessionStorage.setItem(INVITE_TOKEN_KEY, urlToken);
+  });
 
   function onSubmitCreate(values: z.infer<typeof companySchema>) {
     createCompany.mutate(
@@ -55,6 +65,7 @@ export default function OnboardingPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          sessionStorage.removeItem(INVITE_TOKEN_KEY);
           toast({ title: "Company created successfully" });
           setLocation("/dashboard");
         },
@@ -71,10 +82,11 @@ export default function OnboardingPage() {
 
   function doAccept() {
     acceptInvitation.mutate(
-      { token: inviteToken },
+      { token: inviteToken.trim() },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          sessionStorage.removeItem(INVITE_TOKEN_KEY);
           toast({ title: "Joined company successfully" });
           setLocation("/dashboard");
         },
@@ -91,26 +103,33 @@ export default function OnboardingPage() {
 
   function onJoin(e: React.FormEvent) {
     e.preventDefault();
-    if (!inviteToken) return;
+    if (!inviteToken.trim()) return;
 
-    if (clerkUser) {
-      syncUser.mutate(
-        {
-          data: {
-            clerkUserId: clerkUser.id,
-            email: clerkUser.primaryEmailAddress?.emailAddress || "",
-            firstName: clerkUser.firstName || "",
-            lastName: clerkUser.lastName || "",
-          },
-        },
-        {
-          onSuccess: () => doAccept(),
-          onError: () => doAccept(),
-        }
-      );
-    } else {
-      doAccept();
+    // Not signed in — save token and send them to sign up first
+    if (!clerkUser) {
+      if (inviteToken.trim()) sessionStorage.setItem(INVITE_TOKEN_KEY, inviteToken.trim());
+      toast({
+        title: "Sign in first",
+        description: "Create an account or sign in, then you'll be automatically brought back to join your company.",
+      });
+      setLocation("/sign-up");
+      return;
     }
+
+    syncUser.mutate(
+      {
+        data: {
+          clerkUserId: clerkUser.id,
+          email: clerkUser.primaryEmailAddress?.emailAddress || "",
+          firstName: clerkUser.firstName || "",
+          lastName: clerkUser.lastName || "",
+        },
+      },
+      {
+        onSuccess: () => doAccept(),
+        onError: () => doAccept(),
+      }
+    );
   }
 
   return (
