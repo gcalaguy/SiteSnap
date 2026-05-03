@@ -1,8 +1,9 @@
 import { useGetDashboardSummary, useGetRecentActivity } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, FileText, MessageSquareWarning, Users, Activity } from "lucide-react";
+import { Building2, FileText, MessageSquareWarning, Users, Activity, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { WeatherCard } from "@/components/WeatherCard";
+import { Link } from "wouter";
 
 export default function Dashboard() {
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
@@ -20,48 +21,71 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
-            <Building2 className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary?.activeProjects ?? 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {summary?.totalProjects ?? 0} total · {((summary?.totalProjects ?? 0) - (summary?.activeProjects ?? 0))} completed
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Reports This Week</CardTitle>
-            <FileText className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary?.reportsThisWeek || 0}</div>
-            <p className="text-xs text-muted-foreground">Daily reports submitted</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open RFIs</CardTitle>
-            <MessageSquareWarning className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary?.openRFIs || 0}</div>
-            <p className="text-xs text-muted-foreground">Awaiting response</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Team Members</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary?.teamMemberCount || 0}</div>
-            <p className="text-xs text-muted-foreground">Active in workspace</p>
-          </CardContent>
-        </Card>
+        <Link href="/projects" className="block group">
+          <Card className="cursor-pointer transition-all duration-150 hover:border-primary/50 hover:shadow-md group-hover:bg-muted/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+              <Building2 className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary?.activeProjects ?? 0}</div>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground">
+                  {summary?.totalProjects ?? 0} total · {((summary?.totalProjects ?? 0) - (summary?.activeProjects ?? 0))} completed
+                </p>
+                <ChevronRight className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/projects" className="block group">
+          <Card className="cursor-pointer transition-all duration-150 hover:border-primary/50 hover:shadow-md group-hover:bg-muted/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Reports This Week</CardTitle>
+              <FileText className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary?.reportsThisWeek || 0}</div>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground">Daily reports submitted</p>
+                <ChevronRight className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/projects" className="block group">
+          <Card className="cursor-pointer transition-all duration-150 hover:border-destructive/40 hover:shadow-md group-hover:bg-muted/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Open RFIs</CardTitle>
+              <MessageSquareWarning className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary?.openRFIs || 0}</div>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground">Awaiting response</p>
+                <ChevronRight className="h-3.5 w-3.5 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/team" className="block group">
+          <Card className="cursor-pointer transition-all duration-150 hover:border-primary/50 hover:shadow-md group-hover:bg-muted/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Team Members</CardTitle>
+              <Users className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary?.teamMemberCount || 0}</div>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground">Active in workspace</p>
+                <ChevronRight className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
