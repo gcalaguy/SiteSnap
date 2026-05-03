@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign } from "lucide-react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -153,6 +153,129 @@ interface QbStatus {
     syncedCostCount: number | null;
     connectedAt: string;
   } | null;
+}
+
+interface EmailConfig {
+  fromEmail: string;
+  isCustomDomain: boolean;
+  resendKeySet: boolean;
+}
+
+function EmailDomainCard() {
+  const { data: cfg, isLoading } = useQuery<EmailConfig>({
+    queryKey: ["email-config"],
+    queryFn: () => customFetch("/api/settings/email-config"),
+    refetchOnWindowFocus: false,
+  });
+
+  const steps = [
+    {
+      n: 1,
+      title: "Create a Resend account & add your domain",
+      body: (
+        <>
+          Go to{" "}
+          <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center gap-0.5">
+            resend.com/domains <ExternalLink className="h-3 w-3" />
+          </a>{" "}
+          and click <strong>Add Domain</strong>. Enter your domain (e.g. <code className="font-mono bg-muted px-1 rounded text-xs">sitesnap.ca</code>).
+        </>
+      ),
+    },
+    {
+      n: 2,
+      title: "Add the DNS records Resend provides",
+      body: "Resend will show you SPF, DKIM, and DMARC records. Add them to your domain registrar (e.g. GoDaddy, Namecheap, Cloudflare). DNS propagation can take up to 48 hours.",
+    },
+    {
+      n: 3,
+      title: 'Click "Verify" in Resend once DNS is ready',
+      body: 'Once verified, the domain status turns green. You can then send from any address at that domain, e.g. noreply@sitesnap.ca.',
+    },
+    {
+      n: 4,
+      title: "Set your from address in Replit Secrets",
+      body: (
+        <>
+          In the Replit Secrets tab, set{" "}
+          <code className="font-mono bg-muted px-1 rounded text-xs">DIGEST_FROM_EMAIL</code> to{" "}
+          <code className="font-mono bg-muted px-1 rounded text-xs">Site Snap &lt;noreply@sitesnap.ca&gt;</code>{" "}
+          (use your own domain). The server will pick it up on next restart.
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Globe className="h-5 w-5 text-primary" />
+          Custom Email Domain
+          {!isLoading && cfg && (
+            cfg.isCustomDomain
+              ? <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50 ml-1">Active</Badge>
+              : <Badge variant="outline" className="text-muted-foreground ml-1">Not configured</Badge>
+          )}
+        </CardTitle>
+        <CardDescription>
+          Send digest and billing emails from your own domain (e.g.{" "}
+          <code className="font-mono text-xs">noreply@sitesnap.ca</code>) instead of the default Resend address.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!isLoading && cfg && (
+          <div className={`rounded-md border p-3 text-sm flex items-start gap-2 ${cfg.isCustomDomain ? "bg-green-50 border-green-200 text-green-800" : "bg-muted/40 border-border text-muted-foreground"}`}>
+            {cfg.isCustomDomain
+              ? <CheckCircle className="h-4 w-4 mt-0.5 shrink-0 text-green-600" />
+              : <Info className="h-4 w-4 mt-0.5 shrink-0" />}
+            <span>
+              Emails are currently sent from:{" "}
+              <code className="font-mono text-xs bg-white/60 px-1 rounded">{cfg.fromEmail}</code>
+            </span>
+          </div>
+        )}
+
+        {!isLoading && cfg && !cfg.resendKeySet && (
+          <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+            <span>
+              <strong>RESEND_API_KEY</strong> is not set. Email sending is disabled until you add it in Replit Secrets.
+            </span>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-foreground">Setup steps:</p>
+          <ol className="space-y-3">
+            {steps.map((s) => (
+              <li key={s.n} className="flex gap-3 text-sm">
+                <span className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-bold mt-0.5">
+                  {s.n}
+                </span>
+                <div className="space-y-0.5">
+                  <p className="font-medium text-foreground">{s.title}</p>
+                  <p className="text-muted-foreground leading-relaxed">{s.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <div className="pt-1">
+          <a
+            href="https://resend.com/domains"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+          >
+            Open Resend Domain Settings
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function QuickBooksCard() {

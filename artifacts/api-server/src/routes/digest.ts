@@ -61,4 +61,11 @@ router.post("/digest/send-now", requireAuth, requireCompany, async (req, res) =>
   }
 });
 
+router.get("/settings/email-config", requireAuth, requireCompany, (req, res) => {
+  const raw = process.env["DIGEST_FROM_EMAIL"] ?? "";
+  const isDefault = !raw || raw === "Site Snap <onboarding@resend.dev>";
+  const fromEmail = isDefault ? "onboarding@resend.dev (Resend default)" : raw;
+  res.json({ fromEmail, isCustomDomain: !isDefault, resendKeySet: !!process.env["RESEND_API_KEY"] });
+});
+
 export default router;
