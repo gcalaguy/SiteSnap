@@ -740,6 +740,39 @@ export default function ProjectDetail() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Task Overview */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CheckSquare className="h-4 w-4 text-primary" />
+                Task Overview
+              </CardTitle>
+              <span className="text-sm text-muted-foreground font-normal">
+                {(summary as any)?.taskTotal ?? 0} total
+              </span>
+            </CardHeader>
+            <CardContent>
+              {!(summary as any)?.taskTotal ? (
+                <p className="text-sm text-muted-foreground">No tasks yet — go to the Tasks tab to add some.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 py-3 px-2">
+                    <p className="text-2xl font-bold text-slate-700">{(summary as any)?.taskTodoCount ?? 0}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">To Do</p>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/50 py-3 px-2">
+                    <p className="text-2xl font-bold text-amber-700">{(summary as any)?.taskInProgressCount ?? 0}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">In Progress</p>
+                  </div>
+                  <div className="rounded-lg border border-green-200 bg-green-50/50 py-3 px-2">
+                    <p className="text-2xl font-bold text-green-700">{(summary as any)?.taskDoneCount ?? 0}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Done</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
           {project.description && (
             <Card>
               <CardHeader>

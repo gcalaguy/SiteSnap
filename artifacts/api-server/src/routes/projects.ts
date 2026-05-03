@@ -5,6 +5,7 @@ import {
   dailyReportsTable,
   rfisTable,
   costAnalysesTable,
+  tasksTable,
   projectMembersTable,
   usersTable,
 } from "@workspace/db";
@@ -186,20 +187,12 @@ router.get(
       return;
     }
 
-    const reports = await db
-      .select()
-      .from(dailyReportsTable)
-      .where(eq(dailyReportsTable.projectId, projectId));
-
-    const rfis = await db
-      .select()
-      .from(rfisTable)
-      .where(eq(rfisTable.projectId, projectId));
-
-    const analyses = await db
-      .select()
-      .from(costAnalysesTable)
-      .where(eq(costAnalysesTable.projectId, projectId));
+    const [reports, rfis, analyses, tasks] = await Promise.all([
+      db.select().from(dailyReportsTable).where(eq(dailyReportsTable.projectId, projectId)),
+      db.select().from(rfisTable).where(eq(rfisTable.projectId, projectId)),
+      db.select().from(costAnalysesTable).where(eq(costAnalysesTable.projectId, projectId)),
+      db.select().from(tasksTable).where(eq(tasksTable.projectId, projectId)),
+    ]);
 
     const totalSpent = analyses.reduce(
       (sum, a) => sum + parseFloat(a.totalCost),
@@ -212,6 +205,10 @@ router.get(
       b.reportDate.localeCompare(a.reportDate),
     )[0];
 
+    const todoCount = tasks.filter((t) => t.status === "todo").length;
+    const inProgressCount = tasks.filter((t) => t.status === "in_progress").length;
+    const doneCount = tasks.filter((t) => t.status === "done").length;
+
     res.json({
       projectId: project.id,
       projectName: project.name,
@@ -223,6 +220,10 @@ router.get(
       openRFICount: openRFIs,
       closedRFICount: closedRFIs,
       lastReportDate: lastReport?.reportDate ?? null,
+      taskTotal: tasks.length,
+      taskTodoCount: todoCount,
+      taskInProgressCount: inProgressCount,
+      taskDoneCount: doneCount,
     });
   },
 );
