@@ -263,9 +263,12 @@ export default function DashboardScreen() {
   const handleRefresh = () => { refetchSummary(); refetchActivity(); refetchProjects(); };
 
   const firstName = me?.firstName ?? "there";
-  const activeProjects = (projects ?? []).filter(p => p.status === "active");
-  const completedProjects = (projects ?? []).filter(p => p.status === "completed");
-  const topProjects = activeProjects.slice(0, 4);
+  const isWorker = me?.role === "worker";
+  const allProjects = projects ?? [];
+  const activeProjects = allProjects.filter(p => p.status === "active");
+  const completedProjects = allProjects.filter(p => p.status === "completed");
+  // Workers: show all their projects (planning + active + on_hold); owners: show active only
+  const topProjects = isWorker ? allProjects.slice(0, 4) : activeProjects.slice(0, 4);
   const memberCount = (members as any[])?.length ?? 0;
 
   const formatCurrency = (v?: number | null) => {
@@ -308,9 +311,9 @@ export default function DashboardScreen() {
       {/* ── Summary cards (tappable) ── */}
       <View style={styles.summaryGrid}>
         <SummaryCard
-          title="Active Projects"
-          value={summaryLoading ? "—" : String(summary?.activeProjects ?? 0)}
-          subtitle={`${activeProjects.length} total · ${completedProjects.length} completed`}
+          title={isWorker ? "My Projects" : "Active Projects"}
+          value={summaryLoading ? "—" : isWorker ? String(allProjects.length) : String(summary?.activeProjects ?? 0)}
+          subtitle={isWorker ? `${allProjects.length === 1 ? "1 project" : `${allProjects.length} projects`} assigned` : `${activeProjects.length} total · ${completedProjects.length} completed`}
           icon="folder"
           onPress={() => router.navigate("/(tabs)/projects")}
         />
@@ -356,10 +359,10 @@ export default function DashboardScreen() {
         </View>
       </Pressable>
 
-      {/* Active Projects list */}
+      {/* Projects list */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Active Projects</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{isWorker ? "My Projects" : "Active Projects"}</Text>
           <Pressable onPress={() => router.push("/(tabs)/projects")}>
             <Text style={[styles.seeAll, { color: colors.primary }]}>See all</Text>
           </Pressable>
@@ -367,7 +370,7 @@ export default function DashboardScreen() {
         {projectsLoading ? (
           <ActivityIndicator color={colors.primary} />
         ) : topProjects.length === 0 ? (
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No active projects</Text>
+          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{isWorker ? "No projects assigned to you" : "No active projects"}</Text>
         ) : (
           topProjects.map(p => <ProjectCard key={p.id} project={p} />)
         )}

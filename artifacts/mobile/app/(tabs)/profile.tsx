@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Share } from "react-native";
 import React, { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
   Alert,
@@ -20,7 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -77,6 +78,13 @@ export default function ProfileScreen() {
   const { data: me, isLoading } = useGetMe();
 
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+  const isWorker = me?.role === "worker";
+
+  const { data: workerTasks, isLoading: workerTasksLoading } = useQuery({
+    queryKey: ["my-tasks"],
+    queryFn: () => customFetch<any[]>("/api/dashboard/my-tasks"),
+    enabled: isWorker && !!me?.companyId,
+  });
 
   const { data: referralData } = useQuery({
     queryKey: ["referrals"],
@@ -241,6 +249,61 @@ export default function ProfileScreen() {
             <MenuItem icon="briefcase" label={me.company.name} />
             {!!me.company.province && (
               <MenuItem icon="map-pin" label="Province" value={me.company.province} />
+            )}
+          </View>
+        )}
+
+        {/* Worker: My Tasks snapshot */}
+        {isWorker && (
+          <View style={styles.section}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>My Tasks</Text>
+              <TouchableOpacity onPress={() => router.push("/(tabs)/tasks")}>
+                <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "600" }}>See all</Text>
+              </TouchableOpacity>
+            </View>
+            {workerTasksLoading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : !workerTasks || workerTasks.length === 0 ? (
+              <View style={[styles.emptyTasks, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Feather name="check-circle" size={28} color={colors.mutedForeground} />
+                <Text style={[{ color: colors.mutedForeground, marginTop: 8, fontSize: 14 }]}>No tasks assigned to you</Text>
+              </View>
+            ) : (
+              workerTasks.slice(0, 4).map((task: any) => {
+                const statusColors: Record<string, string> = {
+                  todo: "#6B7280",
+                  in_progress: "#F59E0B",
+                  done: "#10B981",
+                  blocked: "#EF4444",
+                };
+                const statusLabels: Record<string, string> = {
+                  todo: "To Do",
+                  in_progress: "In Progress",
+                  done: "Done",
+                  blocked: "Blocked",
+                };
+                const sc = statusColors[task.status] ?? "#6B7280";
+                return (
+                  <TouchableOpacity
+                    key={task.id}
+                    style={[styles.taskCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => router.push("/(tabs)/tasks")}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.taskDot, { backgroundColor: sc }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.taskTitle, { color: colors.foreground }]} numberOfLines={1}>{task.title}</Text>
+                      {task.projectName && (
+                        <Text style={[styles.taskProject, { color: colors.mutedForeground }]} numberOfLines={1}>{task.projectName}</Text>
+                      )}
+                    </View>
+                    <View style={[styles.taskBadge, { backgroundColor: `${sc}20` }]}>
+                      <Text style={[styles.taskBadgeText, { color: sc }]}>{statusLabels[task.status] ?? task.status}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
             )}
           </View>
         )}
@@ -588,6 +651,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   financeLinkText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
+
+  // Worker tasks
+  emptyTasks: { borderRadius: 10, borderWidth: 1, padding: 24, alignItems: "center" },
+  taskCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    gap: 10,
+  },
+  taskDot: { width: 8, height: 8, borderRadius: 4 },
+  taskTitle: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  taskProject: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  taskBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  taskBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
 
   // Modal
   modal: { flex: 1 },
