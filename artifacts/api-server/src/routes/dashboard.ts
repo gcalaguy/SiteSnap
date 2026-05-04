@@ -272,4 +272,64 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
   res.json(activity.slice(0, 20));
 });
 
+// GET /rfis — company-wide RFI list (worker-scoped to accessible projects)
+router.get("/rfis", requireAuth, requireCompany, async (req, res) => {
+  const companyId = req.companyId!;
+  const userId = req.userId!;
+  const userRole = req.userRole!;
+
+  const projectIds = await getAccessibleProjectIds(companyId, userId, userRole);
+  if (projectIds.length === 0) { res.json([]); return; }
+
+  const projects = await db.select().from(projectsTable).where(inArray(projectsTable.id, projectIds));
+  const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
+
+  const rfis = await db
+    .select()
+    .from(rfisTable)
+    .where(inArray(rfisTable.projectId, projectIds));
+
+  const userIds = [...new Set(rfis.map((r) => r.submittedByUserId))];
+  const users = userIds.length
+    ? await db.select().from(usersTable).where(inArray(usersTable.id, userIds))
+    : [];
+  const userMap = Object.fromEntries(users.map((u) => [u.id, displayName(u.firstName, u.lastName, u.email)]));
+
+  res.json(rfis.map((r) => ({
+    ...r,
+    projectName: projectMap[r.projectId] ?? null,
+    submittedByName: userMap[r.submittedByUserId] ?? "Unknown",
+  })));
+});
+
+// GET /daily-reports — company-wide daily report list (worker-scoped to accessible projects)
+router.get("/daily-reports", requireAuth, requireCompany, async (req, res) => {
+  const companyId = req.companyId!;
+  const userId = req.userId!;
+  const userRole = req.userRole!;
+
+  const projectIds = await getAccessibleProjectIds(companyId, userId, userRole);
+  if (projectIds.length === 0) { res.json([]); return; }
+
+  const projects = await db.select().from(projectsTable).where(inArray(projectsTable.id, projectIds));
+  const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
+
+  const reports = await db
+    .select()
+    .from(dailyReportsTable)
+    .where(inArray(dailyReportsTable.projectId, projectIds));
+
+  const userIds = [...new Set(reports.map((r) => r.submittedByUserId))];
+  const users = userIds.length
+    ? await db.select().from(usersTable).where(inArray(usersTable.id, userIds))
+    : [];
+  const userMap = Object.fromEntries(users.map((u) => [u.id, displayName(u.firstName, u.lastName, u.email)]));
+
+  res.json(reports.map((r) => ({
+    ...r,
+    projectName: projectMap[r.projectId] ?? null,
+    submittedByName: userMap[r.submittedByUserId] ?? "Unknown",
+  })));
+});
+
 export default router;

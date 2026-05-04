@@ -38,6 +38,8 @@ import TradehubProfilePage from "@/pages/tradehub-profile";
 import TradehubNotificationsPage from "@/pages/tradehub-notifications";
 import TradehubMessagesPage from "@/pages/tradehub-messages";
 import CalculatorsPage from "@/pages/calculators";
+import RFIsPage from "@/pages/rfis";
+import ReportsPage from "@/pages/reports";
 import SafetyPage from "@/pages/safety";
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
@@ -251,6 +253,8 @@ function AuthApp() {
           <Route path="/hours" component={Hours} />
           <Route path="/estimates" component={Estimates} />
           <Route path="/calculators" component={CalculatorsPage} />
+          <Route path="/rfis" component={RFIsPage} />
+          <Route path="/reports" component={ReportsPage} />
           <Route path="/tradehub/messages/:conversationId" component={TradehubMessagesPage} />
           <Route path="/tradehub/messages" component={TradehubMessagesPage} />
           <Route path="/tradehub/notifications" component={TradehubNotificationsPage} />

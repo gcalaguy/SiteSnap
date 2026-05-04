@@ -39,7 +39,7 @@ export default function Dashboard() {
           </Card>
         </Link>
 
-        <Link href="/projects" className="block group">
+        <Link href="/reports" className="block group">
           <Card className="cursor-pointer transition-all duration-150 hover:border-primary/50 hover:shadow-md group-hover:bg-muted/30">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Reports This Week</CardTitle>
@@ -55,7 +55,7 @@ export default function Dashboard() {
           </Card>
         </Link>
 
-        <Link href="/projects" className="block group">
+        <Link href="/rfis" className="block group">
           <Card className="cursor-pointer transition-all duration-150 hover:border-destructive/40 hover:shadow-md group-hover:bg-muted/30">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Open RFIs</CardTitle>
