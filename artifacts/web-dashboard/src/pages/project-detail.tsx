@@ -38,7 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink } from "lucide-react";
+import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type Task = {
@@ -420,6 +420,7 @@ export default function ProjectDetail() {
   const [portalToken, setPortalToken] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [expandedReportId, setExpandedReportId] = useState<number | null>(null);
 
   const { data: me } = useGetMe();
   const companyId = me?.company?.id;
@@ -879,9 +880,15 @@ export default function ProjectDetail() {
             <div className="grid gap-4 md:grid-cols-2">
               {filteredReports.map((report: any) => {
                 const photos: any[] = report.photos ?? [];
+                const isExpanded = expandedReportId === report.id;
                 return (
-                  <Card key={report.id} className="hover:border-primary/50 transition-colors cursor-pointer">
+                  <Card
+                    key={report.id}
+                    className="hover:border-primary/50 transition-colors cursor-pointer select-none"
+                    onClick={() => setExpandedReportId(isExpanded ? null : report.id)}
+                  >
                     <CardContent className="p-4">
+                      {/* Header row */}
                       <div className="flex justify-between items-start mb-2">
                         <span className="font-bold text-lg">{format(new Date(report.reportDate), "MMM d, yyyy")}</span>
                         <div className="flex items-center gap-2">
@@ -891,47 +898,143 @@ export default function ProjectDetail() {
                               <span>📷</span> {photos.length}
                             </Badge>
                           )}
+                          {isExpanded
+                            ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                            : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                         </div>
                       </div>
+
                       {!selectedMember && report.submittedBy && (
                         <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
                           <User className="h-3 w-3" />
                           {report.submittedBy.firstName} {report.submittedBy.lastName}
                         </p>
                       )}
-                      <p className="text-sm text-muted-foreground line-clamp-2 mt-2">{report.workPerformed}</p>
 
-                      {/* Photo thumbnails */}
-                      {photos.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {photos.map((photo: any) => {
-                            const src = photo.objectPath.replace(/^\/objects\//, "/api/storage/objects/");
-                            return (
-                              <a
-                                key={photo.id}
-                                href={src}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <img
-                                  src={src}
-                                  alt={photo.caption ?? "Site photo"}
-                                  className="h-20 w-20 object-cover rounded-md border border-border hover:opacity-80 transition-opacity"
-                                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                />
-                              </a>
-                            );
-                          })}
+                      {/* Work performed — truncated when collapsed */}
+                      <p className={`text-sm text-muted-foreground mt-1 ${isExpanded ? "" : "line-clamp-2"}`}>
+                        {report.workPerformed}
+                      </p>
+
+                      {/* Expanded detail */}
+                      {isExpanded && (
+                        <div className="mt-4 space-y-3 border-t border-border pt-3">
+                          {/* Weather row */}
+                          {(report.weather || report.temperature) && (
+                            <div className="flex flex-wrap gap-3 text-sm">
+                              {report.weather && (
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Cloud className="h-3.5 w-3.5" /> {report.weather}
+                                </span>
+                              )}
+                              {report.temperature && (
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Thermometer className="h-3.5 w-3.5" /> {report.temperature}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Materials */}
+                          {report.materialsUsed && (
+                            <div>
+                              <p className="text-xs font-semibold text-foreground flex items-center gap-1 mb-0.5">
+                                <Package className="h-3.5 w-3.5" /> Materials Used
+                              </p>
+                              <p className="text-sm text-muted-foreground">{report.materialsUsed}</p>
+                            </div>
+                          )}
+
+                          {/* Equipment */}
+                          {report.equipment && (
+                            <div>
+                              <p className="text-xs font-semibold text-foreground flex items-center gap-1 mb-0.5">
+                                <Wrench className="h-3.5 w-3.5" /> Equipment
+                              </p>
+                              <p className="text-sm text-muted-foreground">{report.equipment}</p>
+                            </div>
+                          )}
+
+                          {/* Issues */}
+                          {report.issues && (
+                            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+                              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1 mb-0.5">
+                                <TriangleAlert className="h-3.5 w-3.5" /> Issues / Delays
+                              </p>
+                              <p className="text-sm text-amber-800 dark:text-amber-300">{report.issues}</p>
+                            </div>
+                          )}
+
+                          {/* Photos */}
+                          {photos.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-foreground mb-2">Site Photos</p>
+                              <div className="flex flex-wrap gap-2">
+                                {photos.map((photo: any) => {
+                                  const src = photo.objectPath.replace(/^\/objects\//, "/api/storage/objects/");
+                                  return (
+                                    <a
+                                      key={photo.id}
+                                      href={src}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <img
+                                        src={src}
+                                        alt={photo.caption ?? "Site photo"}
+                                        className="h-24 w-24 object-cover rounded-md border border-border hover:opacity-80 transition-opacity"
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                      />
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* AI Summary */}
+                          {report.aiSummary && (
+                            <div className="bg-muted/30 p-3 rounded border border-border/50">
+                              <p className="text-xs font-semibold mb-1">AI Summary</p>
+                              <p className="text-sm text-muted-foreground">{report.aiSummary}</p>
+                            </div>
+                          )}
                         </div>
                       )}
 
-                      {report.aiSummary && (
-                        <div className="mt-3 text-xs bg-muted/30 p-2 rounded border border-border/50">
-                          <span className="font-semibold block mb-1">AI Summary:</span>
-                          <span className="line-clamp-2 text-muted-foreground">{report.aiSummary}</span>
-                        </div>
+                      {/* Collapsed photo strip + AI summary hint */}
+                      {!isExpanded && (
+                        <>
+                          {photos.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {photos.slice(0, 3).map((photo: any) => {
+                                const src = photo.objectPath.replace(/^\/objects\//, "/api/storage/objects/");
+                                return (
+                                  <img
+                                    key={photo.id}
+                                    src={src}
+                                    alt={photo.caption ?? "Site photo"}
+                                    className="h-16 w-16 object-cover rounded-md border border-border opacity-80"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                  />
+                                );
+                              })}
+                              {photos.length > 3 && (
+                                <div className="h-16 w-16 rounded-md border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground font-medium">
+                                  +{photos.length - 3}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {report.aiSummary && (
+                            <div className="mt-3 text-xs bg-muted/30 p-2 rounded border border-border/50">
+                              <span className="font-semibold block mb-1">AI Summary:</span>
+                              <span className="line-clamp-2 text-muted-foreground">{report.aiSummary}</span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </CardContent>
                   </Card>
