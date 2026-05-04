@@ -47,10 +47,10 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 };
 
 const categoryColor: Record<string, string> = {
-  injury: "bg-red-100 text-red-700 border-red-200",
-  safety: "bg-blue-100 text-blue-700 border-blue-200",
-  hazard: "bg-orange-100 text-orange-700 border-orange-200",
-  toolbox: "bg-green-100 text-green-700 border-green-200",
+  injury: "bg-red-950/40 text-red-400 border-red-900/60",
+  safety: "bg-blue-950/40 text-blue-400 border-blue-900/60",
+  hazard: "bg-orange-950/40 text-orange-400 border-orange-900/60",
+  toolbox: "bg-green-950/40 text-green-400 border-green-900/60",
 };
 
 export default function SafetyPage() {
@@ -212,7 +212,7 @@ export default function SafetyPage() {
                           {s.templateCategory && (
                             <span
                               className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                                categoryColor[s.templateCategory] ?? "bg-gray-100 text-gray-600"
+                                categoryColor[s.templateCategory] ?? "bg-muted text-muted-foreground"
                               }`}
                             >
                               {s.templateCategory}

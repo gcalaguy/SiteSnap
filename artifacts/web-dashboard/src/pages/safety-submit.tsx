@@ -243,7 +243,7 @@ export default function SafetySubmitPage() {
                     <CardTitle className="text-base">{t.name}</CardTitle>
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        categoryColor[t.category] ?? "bg-gray-100 text-gray-600"
+                        categoryColor[t.category] ?? "bg-muted text-muted-foreground"
                       }`}
                     >
                       {t.category}
@@ -267,7 +267,7 @@ export default function SafetySubmitPage() {
               {selectedTemplate?.category && (
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    categoryColor[selectedTemplate.category] ?? "bg-gray-100 text-gray-600"
+                    categoryColor[selectedTemplate.category] ?? "bg-muted text-muted-foreground"
                   }`}
                 >
                   {selectedTemplate.category}

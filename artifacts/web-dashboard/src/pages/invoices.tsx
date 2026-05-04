@@ -18,11 +18,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700 border-gray-200",
+  draft: "bg-muted text-muted-foreground border-border",
   sent: "bg-blue-50 text-blue-700 border-blue-200",
   paid: "bg-green-50 text-green-700 border-green-200",
   overdue: "bg-red-50 text-red-700 border-red-200",
-  cancelled: "bg-gray-100 text-gray-400 border-gray-200",
+  cancelled: "bg-muted/50 text-muted-foreground/60 border-border",
 };
 
 type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";

@@ -81,24 +81,24 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
       {/* Summary banner */}
       {r.summary && (
         <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
-          <p className="text-sm text-slate-700 leading-relaxed">{r.summary}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{r.summary}</p>
         </div>
       )}
 
       {/* Cost summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-center">
+        <div className="rounded-lg bg-muted/30 border border-border p-3 text-center">
           <p className="text-xs text-muted-foreground mb-1">Materials</p>
-          <p className="text-lg font-bold text-slate-900">{fmt(materialsTotal)}</p>
+          <p className="text-lg font-bold text-foreground">{fmt(materialsTotal)}</p>
         </div>
-        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-center">
+        <div className="rounded-lg bg-muted/30 border border-border p-3 text-center">
           <p className="text-xs text-muted-foreground mb-1">Labour</p>
-          <p className="text-lg font-bold text-slate-900">{fmt(laborTotal)}</p>
+          <p className="text-lg font-bold text-foreground">{fmt(laborTotal)}</p>
         </div>
         {equipmentTotal > 0 && (
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-center">
+          <div className="rounded-lg bg-muted/30 border border-border p-3 text-center">
             <p className="text-xs text-muted-foreground mb-1">Equipment</p>
-            <p className="text-lg font-bold text-slate-900">{fmt(equipmentTotal)}</p>
+            <p className="text-lg font-bold text-foreground">{fmt(equipmentTotal)}</p>
           </div>
         )}
         <div className="rounded-lg bg-primary/10 border border-primary/30 p-3 text-center col-span-2 sm:col-span-1">
@@ -110,26 +110,26 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
       {/* Total range */}
       <div className="rounded-xl bg-[#172034] text-white p-5 flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Estimated Total Range (CAD)</p>
+          <p className="text-xs text-muted-foreground/70 uppercase tracking-wider mb-1">Estimated Total Range (CAD)</p>
           <p className="text-3xl font-black text-[#FF6600]">{fmt(totalLow)}</p>
-          <p className="text-sm text-slate-400 mt-0.5">to {fmt(totalHigh)}</p>
+          <p className="text-sm text-muted-foreground/70 mt-0.5">to {fmt(totalHigh)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-slate-400">Subtotal</p>
+          <p className="text-xs text-muted-foreground/70">Subtotal</p>
           <p className="text-xl font-bold">{fmt(subtotal)}</p>
-          <p className="text-xs text-slate-500 mt-1">excl. HST/GST</p>
+          <p className="text-xs text-muted-foreground mt-1">excl. HST/GST</p>
         </div>
       </div>
 
       {/* Materials table */}
       {(r.materials ?? []).length > 0 && (
         <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-3">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
             <Package className="h-4 w-4 text-primary" /> Materials
           </h3>
-          <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <div className="rounded-lg border border-border overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-muted/30 border-b border-border">
                 <tr>
                   <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Item</th>
                   <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Qty</th>
@@ -138,9 +138,9 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
                   <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border/40">
                 {r.materials!.map((m, i) => (
-                  <tr key={i} className="hover:bg-slate-50/50">
+                  <tr key={i} className="hover:bg-muted/20">
                     <td className="px-3 py-2.5 font-medium">{m.item}</td>
                     <td className="px-3 py-2.5 text-right text-muted-foreground">{m.quantity}</td>
                     <td className="px-3 py-2.5 text-right text-muted-foreground">{m.unit}</td>
@@ -149,7 +149,7 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-slate-50 border-t border-slate-200">
+              <tfoot className="bg-muted/30 border-t border-border">
                 <tr>
                   <td colSpan={4} className="px-3 py-2 text-xs font-semibold text-muted-foreground text-right">Subtotal</td>
                   <td className="px-3 py-2 text-right font-bold">{fmt(materialsTotal)}</td>
@@ -163,12 +163,12 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
       {/* Labour table */}
       {(r.labor ?? []).length > 0 && (
         <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-3">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
             <HardHat className="h-4 w-4 text-blue-500" /> Labour
           </h3>
-          <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <div className="rounded-lg border border-border overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-muted/30 border-b border-border">
                 <tr>
                   <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Trade / Role</th>
                   <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Hours</th>
@@ -176,9 +176,9 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
                   <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border/40">
                 {r.labor!.map((l, i) => (
-                  <tr key={i} className="hover:bg-slate-50/50">
+                  <tr key={i} className="hover:bg-muted/20">
                     <td className="px-3 py-2.5 font-medium">{l.trade}</td>
                     <td className="px-3 py-2.5 text-right text-muted-foreground">{l.hours}</td>
                     <td className="px-3 py-2.5 text-right text-muted-foreground">{fmt(l.hourlyRate)}</td>
@@ -186,7 +186,7 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-slate-50 border-t border-slate-200">
+              <tfoot className="bg-muted/30 border-t border-border">
                 <tr>
                   <td colSpan={3} className="px-3 py-2 text-xs font-semibold text-muted-foreground text-right">Subtotal</td>
                   <td className="px-3 py-2 text-right font-bold">{fmt(laborTotal)}</td>
@@ -200,12 +200,12 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
       {/* Equipment table */}
       {(r.equipment ?? []).length > 0 && (
         <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-3">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
             <Wrench className="h-4 w-4 text-amber-500" /> Equipment
           </h3>
-          <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <div className="rounded-lg border border-border overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-muted/30 border-b border-border">
                 <tr>
                   <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Equipment</th>
                   <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Days</th>
@@ -213,9 +213,9 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
                   <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border/40">
                 {r.equipment!.map((e, i) => (
-                  <tr key={i} className="hover:bg-slate-50/50">
+                  <tr key={i} className="hover:bg-muted/20">
                     <td className="px-3 py-2.5 font-medium">{e.item}</td>
                     <td className="px-3 py-2.5 text-right text-muted-foreground">{e.days}</td>
                     <td className="px-3 py-2.5 text-right text-muted-foreground">{fmt(e.dayRate)}</td>
@@ -223,7 +223,7 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-slate-50 border-t border-slate-200">
+              <tfoot className="bg-muted/30 border-t border-border">
                 <tr>
                   <td colSpan={3} className="px-3 py-2 text-xs font-semibold text-muted-foreground text-right">Subtotal</td>
                   <td className="px-3 py-2 text-right font-bold">{fmt(equipmentTotal)}</td>
@@ -236,15 +236,15 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
 
       {/* Assumptions & Notes */}
       {((r.assumptions ?? []).length > 0 || r.notes) && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
           {(r.assumptions ?? []).length > 0 && (
             <div>
-              <h4 className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+              <h4 className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 <Info className="h-3.5 w-3.5" /> Assumptions
               </h4>
               <ul className="space-y-1">
                 {r.assumptions!.map((a, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                  <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
                     <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
                     {a}
                   </li>
@@ -254,8 +254,8 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
           )}
           {r.notes && (
             <div>
-              <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Notes</h4>
-              <p className="text-sm text-slate-600">{r.notes}</p>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Notes</h4>
+              <p className="text-sm text-muted-foreground">{r.notes}</p>
             </div>
           )}
         </div>
@@ -425,8 +425,8 @@ function EstimateEditor({
       </div>
 
       {/* Company Details */}
-      <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/40 p-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Building2 className="h-4 w-4 text-blue-500" /> Company Details
           <span className="ml-1 text-xs font-normal text-muted-foreground">(shown on all exports)</span>
         </h3>
@@ -471,16 +471,16 @@ function EstimateEditor({
       {/* Materials */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Package className="h-4 w-4 text-primary" /> Materials
           </h3>
           <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setMaterials((p) => [...p, { item: "", quantity: 1, unit: "ea", unitCost: 0, total: 0 }])}>
             <Plus className="h-3 w-3" /> Add Row
           </Button>
         </div>
-        <div className="rounded-lg border border-slate-200 overflow-hidden">
+        <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-muted/30 border-b border-border">
               <tr>
                 <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Item</th>
                 <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground w-16">Qty</th>
@@ -490,7 +490,7 @@ function EstimateEditor({
                 <th className="w-8" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border/40">
               {materials.map((m, i) => (
                 <tr key={i}>
                   <td className="px-1 py-0.5">
@@ -515,7 +515,7 @@ function EstimateEditor({
               ))}
             </tbody>
             {materials.length > 0 && (
-              <tfoot className="bg-slate-50 border-t border-slate-200">
+              <tfoot className="bg-muted/30 border-t border-border">
                 <tr>
                   <td colSpan={4} className="px-3 py-2 text-xs font-semibold text-muted-foreground text-right">Subtotal</td>
                   <td className="px-3 py-2 text-right font-bold text-sm">{fmt(sumLines(materials))}</td>
@@ -530,16 +530,16 @@ function EstimateEditor({
       {/* Labour */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <HardHat className="h-4 w-4 text-blue-500" /> Labour
           </h3>
           <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setLabor((p) => [...p, { trade: "", hours: 8, hourlyRate: 60, total: 0 }])}>
             <Plus className="h-3 w-3" /> Add Row
           </Button>
         </div>
-        <div className="rounded-lg border border-slate-200 overflow-hidden">
+        <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-muted/30 border-b border-border">
               <tr>
                 <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Trade / Role</th>
                 <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground w-16">Hours</th>
@@ -548,7 +548,7 @@ function EstimateEditor({
                 <th className="w-8" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border/40">
               {labor.map((l, i) => (
                 <tr key={i}>
                   <td className="px-1 py-0.5">
@@ -570,7 +570,7 @@ function EstimateEditor({
               ))}
             </tbody>
             {labor.length > 0 && (
-              <tfoot className="bg-slate-50 border-t border-slate-200">
+              <tfoot className="bg-muted/30 border-t border-border">
                 <tr>
                   <td colSpan={3} className="px-3 py-2 text-xs font-semibold text-muted-foreground text-right">Subtotal</td>
                   <td className="px-3 py-2 text-right font-bold text-sm">{fmt(sumLines(labor))}</td>
@@ -585,16 +585,16 @@ function EstimateEditor({
       {/* Equipment */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Wrench className="h-4 w-4 text-amber-500" /> Equipment
           </h3>
           <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setEquipment((p) => [...p, { item: "", days: 1, dayRate: 0, total: 0 }])}>
             <Plus className="h-3 w-3" /> Add Row
           </Button>
         </div>
-        <div className="rounded-lg border border-slate-200 overflow-hidden">
+        <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-muted/30 border-b border-border">
               <tr>
                 <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Equipment</th>
                 <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground w-16">Days</th>
@@ -603,7 +603,7 @@ function EstimateEditor({
                 <th className="w-8" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border/40">
               {equipment.map((e, i) => (
                 <tr key={i}>
                   <td className="px-1 py-0.5">
@@ -625,7 +625,7 @@ function EstimateEditor({
               ))}
             </tbody>
             {equipment.length > 0 && (
-              <tfoot className="bg-slate-50 border-t border-slate-200">
+              <tfoot className="bg-muted/30 border-t border-border">
                 <tr>
                   <td colSpan={3} className="px-3 py-2 text-xs font-semibold text-muted-foreground text-right">Subtotal</td>
                   <td className="px-3 py-2 text-right font-bold text-sm">{fmt(sumLines(equipment))}</td>
@@ -639,7 +639,7 @@ function EstimateEditor({
 
       {/* Contingency */}
       <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Contingency %</label>
+        <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Contingency %</label>
         <Input
           type="number"
           value={contingencyPct}
@@ -1052,7 +1052,7 @@ export default function EstimatesPage() {
               <Button
                 variant={isEditing ? "default" : "outline"}
                 size="sm"
-                className={`gap-2 h-8 text-xs ${isEditing ? "bg-slate-700 hover:bg-slate-800 text-white" : ""}`}
+                className={`gap-2 h-8 text-xs ${isEditing ? "bg-muted hover:bg-muted/80 text-foreground" : ""}`}
                 onClick={() => setIsEditing((v) => !v)}
               >
                 {isEditing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
@@ -1085,7 +1085,7 @@ export default function EstimatesPage() {
                   <p className="text-xs text-muted-foreground font-medium truncate">{activeEstimate.title}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700">Recipient email address</label>
+                  <label className="text-xs font-semibold text-muted-foreground">Recipient email address</label>
                   <Input
                     type="email"
                     placeholder="client@example.com"
@@ -1096,7 +1096,7 @@ export default function EstimatesPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700">Personal message <span className="font-normal text-muted-foreground">(optional)</span></label>
+                  <label className="text-xs font-semibold text-muted-foreground">Personal message <span className="font-normal text-muted-foreground">(optional)</span></label>
                   <Textarea
                     placeholder="Hi John, please find the estimate for the basement renovation attached below…"
                     value={emailMessage}
@@ -1206,7 +1206,7 @@ export default function EstimatesPage() {
                     {/* File drop zone */}
                     <div
                       className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                        dragActive ? "border-primary bg-primary/5" : "border-slate-200 hover:border-primary/50 hover:bg-slate-50"
+                        dragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"
                       }`}
                       onClick={() => fileInputRef.current?.click()}
                       onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
@@ -1244,10 +1244,10 @@ export default function EstimatesPage() {
                       ) : (
                         <div className="flex flex-col items-center gap-2">
                           <Upload className="h-10 w-10 text-slate-300" />
-                          <p className="text-sm font-medium text-slate-600">
+                          <p className="text-sm font-medium text-muted-foreground">
                             Drop plans here or <span className="text-primary">browse</span>
                           </p>
-                          <p className="text-xs text-slate-400">PDF, Word, images (PNG/JPG), or text files — max 20 MB</p>
+                          <p className="text-xs text-muted-foreground/70">PDF, Word, images (PNG/JPG), or text files — max 20 MB</p>
                         </div>
                       )}
                     </div>

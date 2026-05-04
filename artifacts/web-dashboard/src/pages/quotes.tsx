@@ -18,7 +18,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700 border-gray-200",
+  draft: "bg-muted text-muted-foreground border-border",
   pending_approval: "bg-yellow-50 text-yellow-700 border-yellow-200",
   approved: "bg-green-50 text-green-700 border-green-200",
   rejected: "bg-red-50 text-red-700 border-red-200",

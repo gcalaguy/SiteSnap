@@ -232,7 +232,7 @@ function EmailDomainCard() {
               : <Info className="h-4 w-4 mt-0.5 shrink-0" />}
             <span>
               Emails are currently sent from:{" "}
-              <code className="font-mono text-xs bg-white/60 px-1 rounded">{cfg.fromEmail}</code>
+              <code className="font-mono text-xs bg-muted/60 px-1 rounded">{cfg.fromEmail}</code>
             </span>
           </div>
         )}

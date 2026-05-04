@@ -82,9 +82,9 @@ function TaskCard({ task, onStatusChange, onDelete, assigneeName }: {
   const [expanded, setExpanded] = useState(false);
 
   const priorityColors: Record<string, string> = {
-    low: "bg-slate-100 text-slate-700 border-slate-200",
-    medium: "bg-amber-50 text-amber-700 border-amber-200",
-    high: "bg-red-50 text-red-700 border-red-200",
+    low: "bg-slate-100 text-foreground border-border",
+    medium: "bg-amber-950/30 text-amber-400 border-amber-900/50",
+    high: "bg-red-950/30 text-red-400 border-red-900/50",
   };
   const statusNext: Record<Task["status"], { label: string; next: Task["status"]; icon: React.ReactNode }[]> = {
     todo: [{ label: "Start", next: "in_progress", icon: <Loader2 className="h-3 w-3" /> }],
@@ -209,9 +209,9 @@ function TasksTab({ projectId, selectedWorkerId, members }: {
     : (allTasks as Task[]);
 
   const columns: { key: Task["status"]; label: string; color: string }[] = [
-    { key: "todo", label: "To Do", color: "bg-slate-50 border-slate-200" },
-    { key: "in_progress", label: "In Progress", color: "bg-amber-50/50 border-amber-200" },
-    { key: "done", label: "Done", color: "bg-green-50/50 border-green-200" },
+    { key: "todo", label: "To Do", color: "bg-muted/30 border-border" },
+    { key: "in_progress", label: "In Progress", color: "bg-amber-950/20 border-amber-900/40" },
+    { key: "done", label: "Done", color: "bg-green-950/20 border-green-900/40" },
   ];
 
   const byStatus = (status: Task["status"]) =>
@@ -323,7 +323,7 @@ function TasksTab({ projectId, selectedWorkerId, members }: {
               <div key={col.key} className={`rounded-lg border p-3 ${col.color}`}>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-semibold text-sm">{col.label}</h4>
-                  <span className="text-xs bg-white border rounded-full px-2 py-0.5 font-medium">
+                  <span className="text-xs bg-muted border-border border rounded-full px-2 py-0.5 font-medium">
                     {colTasks.length}
                   </span>
                 </div>
@@ -808,8 +808,8 @@ export default function ProjectDetail() {
                 <p className="text-sm text-muted-foreground">No tasks yet — go to the Tasks tab to add some.</p>
               ) : (
                 <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 py-3 px-2">
-                    <p className="text-2xl font-bold text-slate-700">{(summary as any)?.taskTodoCount ?? 0}</p>
+                  <div className="rounded-lg border border-border bg-muted/30 py-3 px-2">
+                    <p className="text-2xl font-bold text-foreground">{(summary as any)?.taskTodoCount ?? 0}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">To Do</p>
                   </div>
                   <div className="rounded-lg border border-amber-200 bg-amber-50/50 py-3 px-2">
@@ -1005,7 +1005,7 @@ export default function ProjectDetail() {
 
                           {/* Issues */}
                           {report.issues && (
-                            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+                            <div className="bg-amber-950/30 border border-amber-900/50 rounded-md p-3">
                               <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1 mb-0.5">
                                 <TriangleAlert className="h-3.5 w-3.5" /> Issues / Delays
                               </p>
