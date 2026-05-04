@@ -17,22 +17,10 @@ import {
   Clock,
   Calculator,
   Crown,
+  Bell,
+  Hammer,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,10 +29,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const GOLD = "#D4AF37";
+const BLACK = "#0A0A0A";
+const SURFACE = "#141414";
+const SURFACE2 = "#1C1C1C";
+const GOLD_BORDER = "#2A2200";
 
 interface ActionCounts {
   pendingQuotes: number;
@@ -54,15 +47,16 @@ interface ActionCounts {
   pendingTimesheets: number;
 }
 
-function NavBadge({ count, variant = "orange" }: { count: number; variant?: "orange" | "blue" | "red" }) {
+function NavBadge({ count, gold = false }: { count: number; gold?: boolean }) {
   if (!count) return null;
-  const colors = {
-    orange: "bg-primary text-white",
-    blue: "bg-blue-500 text-white",
-    red: "bg-red-500 text-white",
-  };
   return (
-    <span className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${colors[variant]}`}>
+    <span
+      className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none"
+      style={gold
+        ? { background: GOLD, color: BLACK }
+        : { background: "#222", color: "#888" }
+      }
+    >
       {count > 99 ? "99+" : count}
     </span>
   );
@@ -85,137 +79,292 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     staleTime: 30_000,
   });
 
-  // Quotes badge: pending_approval (needs review) + drafts
   const quotesBadge = (counts?.pendingQuotes ?? 0) + (counts?.draftQuotes ?? 0);
-  // Invoices badge: drafts only
   const invoicesBadge = counts?.draftInvoices ?? 0;
-  // Safety badge: submitted (unreviewed) forms
   const safetyBadge = counts?.submittedForms ?? 0;
-  // Hours badge: pending timesheets
   const hoursBadge = counts?.pendingTimesheets ?? 0;
 
   const navigation = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0, badgeVariant: "orange" as const },
-    { name: "Projects", href: "/projects", icon: Building2, badge: 0, badgeVariant: "orange" as const },
-    { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge, badgeVariant: (counts?.pendingQuotes ?? 0) > 0 ? "orange" as const : "blue" as const },
-    { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge, badgeVariant: "blue" as const },
-    { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, badgeVariant: "orange" as const },
-    { name: "Safety", href: "/safety", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, badgeVariant: "red" as const },
-    ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, badgeVariant: "orange" as const }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, badgeVariant: "orange" as const }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0, badgeVariant: "orange" as const }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, badgeVariant: "orange" as const }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Estimates", href: "/estimates", icon: Calculator, badge: 0, badgeVariant: "orange" as const }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0, badgeVariant: "orange" as const }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0, badgeVariant: "orange" as const }] : []),
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0 },
+    { name: "Projects", href: "/projects", icon: Building2, badge: 0 },
+    { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge },
+    { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge },
+    { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0 },
+    { name: "Safety", href: "/safety", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0 },
+    ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0 }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0 }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0 }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0 }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Estimates", href: "/estimates", icon: Calculator, badge: 0 }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0 }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0 }] : []),
   ];
 
   const adminNavigation = [
-    ...(isOwner ? [{ name: "Admin & Billing", href: "/admin", icon: ShieldCheck, badge: 0, badgeVariant: "orange" as const }] : []),
-    ...(isSuperAdmin ? [{ name: "Super Admin", href: "/super-admin", icon: Crown, badge: 0, badgeVariant: "orange" as const }] : []),
+    ...(isOwner ? [{ name: "Admin & Billing", href: "/admin", icon: ShieldCheck, badge: 0 }] : []),
+    ...(isSuperAdmin ? [{ name: "Super Admin", href: "/super-admin", icon: Crown, badge: 0 }] : []),
   ];
 
+  const firstName = user?.firstName ?? "";
+  const lastName = user?.lastName ?? "";
+  const initials = `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
+  const companyName = (user as any)?.company?.name ?? "No Company";
+  const companyInitials = companyName.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
+
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-muted/10">
-        <Sidebar className="border-r border-border bg-sidebar">
-          <SidebarHeader className="border-b border-border/10 p-4">
-            <div className="flex items-center gap-3">
-              <img src="/sitesnap-logo.png" alt="Site Snap" className="h-9 w-9 rounded object-contain bg-black" />
-              <span className="text-lg font-bold tracking-tight text-sidebar-foreground">Site Snap</span>
-            </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 px-4">Menu</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {navigation.map((item) => {
-                    const isActive = location.startsWith(item.href);
-                    return (
-                      <SidebarMenuItem key={item.name}>
-                        <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
-                          <Link href={item.href} className="flex items-center gap-3 font-medium">
-                            <item.icon className="h-5 w-5 shrink-0" />
-                            <span className="flex-1 truncate">{item.name}</span>
-                            <NavBadge count={item.badge} variant={item.badgeVariant} />
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+    <div className="flex min-h-screen w-full" style={{ background: "#0f0f0f" }}>
+      {/* Black & Gold Sidebar */}
+      <div
+        className="hidden md:flex flex-col h-screen sticky top-0 overflow-hidden flex-shrink-0"
+        style={{
+          width: 260,
+          background: BLACK,
+          borderRight: `1px solid ${GOLD_BORDER}`,
+        }}
+      >
+        {/* Gold radial glow */}
+        <div
+          style={{
+            position: "absolute",
+            top: -60,
+            left: -60,
+            width: 220,
+            height: 220,
+            background: `radial-gradient(circle, ${GOLD}14 0%, transparent 70%)`,
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
 
-            {adminNavigation.length > 0 && (
-              <SidebarGroup>
-                <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 px-4">Admin</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {adminNavigation.map((item) => {
-                      const isActive = location.startsWith(item.href);
-                      return (
-                        <SidebarMenuItem key={item.name}>
-                          <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
-                            <Link href={item.href} className="flex items-center gap-3 font-medium">
-                              <item.icon className="h-5 w-5 shrink-0" />
-                              <span className="flex-1 truncate">{item.name}</span>
-                              <NavBadge count={item.badge} variant={item.badgeVariant} />
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
-          </SidebarContent>
-          <SidebarFooter className="border-t border-border/10 p-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors outline-none focus:ring-2 focus:ring-sidebar-ring">
-                  <Avatar className="h-8 w-8 bg-primary/20 text-primary border border-primary/20">
-                    <AvatarFallback className="text-xs font-bold bg-transparent">
-                      {user?.firstName?.[0]}{user?.lastName?.[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-1 flex-col overflow-hidden">
-                    <span className="truncate text-sm font-medium text-sidebar-foreground">
-                      {user?.firstName} {user?.lastName}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {(user as any)?.company?.name || "No Company"}
-                    </span>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut({ redirectUrl: basePath || "/" })} className="text-destructive focus:text-destructive cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarFooter>
-        </Sidebar>
+        {/* Logo */}
+        <div
+          className="flex items-center gap-3 px-5 py-5 relative z-10 flex-shrink-0"
+          style={{ borderBottom: `1px solid ${GOLD_BORDER}` }}
+        >
+          <div
+            className="flex items-center justify-center rounded-lg"
+            style={{
+              width: 36,
+              height: 36,
+              background: `linear-gradient(135deg, ${GOLD}33 0%, ${GOLD}11 100%)`,
+              border: `1px solid ${GOLD}55`,
+            }}
+          >
+            <Hammer size={18} style={{ color: GOLD }} />
+          </div>
+          <span className="font-bold text-base tracking-tight" style={{ color: "#FFF" }}>
+            Site<span style={{ color: GOLD }}>Snap</span>
+          </span>
+        </div>
 
-        <div className="flex w-full flex-col overflow-hidden">
-          <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-card px-6 md:hidden">
-            <SidebarTrigger />
-            <span className="text-lg font-bold tracking-tight">Site Snap</span>
-          </header>
-          <main className="flex-1 overflow-y-auto p-4 md:p-8">
-            <div className="mx-auto max-w-6xl">
-              {children}
+        {/* Company switcher */}
+        <div className="px-4 py-3 relative z-10 flex-shrink-0">
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer"
+            style={{ background: SURFACE, border: `1px solid ${GOLD_BORDER}` }}
+          >
+            <div
+              className="rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0"
+              style={{
+                width: 28,
+                height: 28,
+                background: `${GOLD}22`,
+                color: GOLD,
+                border: `1px solid ${GOLD}44`,
+              }}
+            >
+              {companyInitials || "?"}
             </div>
-          </main>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold truncate" style={{ color: "#FFF" }}>{companyName}</p>
+              <p className="text-xs capitalize" style={{ color: "#666" }}>{user?.role ?? "Member"}</p>
+            </div>
+            <ChevronDown size={13} style={{ color: "#555" }} />
+          </div>
+        </div>
+
+        {/* Nav label */}
+        <div className="px-5 pb-1 relative z-10">
+          <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#444" }}>Menu</p>
+        </div>
+
+        {/* Nav items */}
+        <nav className="flex-1 px-3 overflow-y-auto space-y-0.5 relative z-10">
+          {navigation.map((item) => {
+            const isActive = location.startsWith(item.href);
+            return (
+              <Link key={item.name} href={item.href}>
+                <div
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer relative transition-all duration-150"
+                  style={{
+                    background: isActive ? `${GOLD}18` : "transparent",
+                    border: isActive ? `1px solid ${GOLD}33` : "1px solid transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) (e.currentTarget as HTMLElement).style.background = SURFACE2;
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent";
+                  }}
+                >
+                  {isActive && (
+                    <div style={{
+                      position: "absolute",
+                      left: 0,
+                      top: "20%",
+                      height: "60%",
+                      width: 3,
+                      background: GOLD,
+                      borderRadius: "0 2px 2px 0",
+                    }} />
+                  )}
+                  <item.icon
+                    size={17}
+                    style={{ color: isActive ? GOLD : "#555", flexShrink: 0 }}
+                  />
+                  <span
+                    className="flex-1 text-sm font-medium truncate"
+                    style={{ color: isActive ? "#FFF" : "#888" }}
+                  >
+                    {item.name}
+                  </span>
+                  <NavBadge count={item.badge} gold={isActive} />
+                </div>
+              </Link>
+            );
+          })}
+
+          {adminNavigation.length > 0 && (
+            <>
+              <div style={{ height: 1, background: GOLD_BORDER, margin: "8px 8px" }} />
+              <p className="px-3 pb-1 text-xs font-semibold tracking-widest uppercase" style={{ color: "#444" }}>Admin</p>
+              {adminNavigation.map((item) => {
+                const isActive = location.startsWith(item.href);
+                return (
+                  <Link key={item.name} href={item.href}>
+                    <div
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer relative transition-all duration-150"
+                      style={{
+                        background: isActive ? `${GOLD}18` : "transparent",
+                        border: isActive ? `1px solid ${GOLD}33` : "1px solid transparent",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) (e.currentTarget as HTMLElement).style.background = SURFACE2;
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }}
+                    >
+                      {isActive && (
+                        <div style={{
+                          position: "absolute",
+                          left: 0,
+                          top: "20%",
+                          height: "60%",
+                          width: 3,
+                          background: GOLD,
+                          borderRadius: "0 2px 2px 0",
+                        }} />
+                      )}
+                      <item.icon size={17} style={{ color: isActive ? GOLD : "#555", flexShrink: 0 }} />
+                      <span className="flex-1 text-sm font-medium truncate" style={{ color: isActive ? "#FFF" : "#888" }}>
+                        {item.name}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </>
+          )}
+        </nav>
+
+        {/* Bottom items */}
+        <div className="px-3 py-2 space-y-0.5 relative z-10 flex-shrink-0" style={{ borderTop: `1px solid ${GOLD_BORDER}` }}>
+          <div
+            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer"
+            style={{ background: "transparent" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = SURFACE2; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+          >
+            <Bell size={16} style={{ color: "#555" }} />
+            <span className="flex-1 text-sm" style={{ color: "#666" }}>Notifications</span>
+          </div>
+        </div>
+
+        {/* User profile card */}
+        <div className="mx-3 mb-4 relative z-10 flex-shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="w-full flex items-center gap-3 rounded-xl p-3 text-left outline-none transition-all"
+                style={{
+                  background: SURFACE,
+                  border: `1px solid ${GOLD}22`,
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${GOLD}44`; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${GOLD}22`; }}
+              >
+                <div
+                  className="rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    background: `linear-gradient(135deg, ${GOLD}44, ${GOLD}22)`,
+                    border: `1.5px solid ${GOLD}66`,
+                    color: GOLD,
+                  }}
+                >
+                  {initials || "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate" style={{ color: "#FFF" }}>
+                    {firstName} {lastName}
+                  </p>
+                  <p className="text-xs truncate" style={{ color: GOLD, opacity: 0.7 }}>
+                    {user?.email ?? ""}
+                  </p>
+                </div>
+                <ChevronDown size={13} style={{ color: "#444" }} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => signOut({ redirectUrl: basePath || "/" })}
+                className="text-destructive focus:text-destructive cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
-    </SidebarProvider>
+
+      {/* Main content */}
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+        {/* Mobile header */}
+        <header className="flex md:hidden h-14 items-center gap-3 px-4 flex-shrink-0"
+          style={{ background: BLACK, borderBottom: `1px solid ${GOLD_BORDER}` }}>
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center justify-center rounded-lg"
+              style={{ width: 28, height: 28, background: `${GOLD}22`, border: `1px solid ${GOLD}44` }}
+            >
+              <Hammer size={14} style={{ color: GOLD }} />
+            </div>
+            <span className="font-bold tracking-tight" style={{ color: "#FFF" }}>
+              Site<span style={{ color: GOLD }}>Snap</span>
+            </span>
+          </div>
+        </header>
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="mx-auto max-w-6xl">
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }
