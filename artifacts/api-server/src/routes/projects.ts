@@ -7,9 +7,10 @@ import {
   costAnalysesTable,
   tasksTable,
   projectMembersTable,
+  workerSchedulesTable,
   usersTable,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { CreateProjectBody, UpdateProjectBody } from "@workspace/api-zod";
 
@@ -18,18 +19,36 @@ const router = Router();
 // GET /projects
 router.get("/projects", requireAuth, requireCompany, async (req, res) => {
   if (req.userRole === "worker") {
-    const rows = await db
-      .select({ project: projectsTable })
+    const userId = req.userId!;
+    const companyId = req.companyId!;
+
+    // Collect project IDs from both project_members and worker_schedules
+    const memberRows = await db
+      .select({ projectId: projectMembersTable.projectId })
+      .from(projectMembersTable)
+      .where(and(eq(projectMembersTable.userId, userId), eq(projectMembersTable.companyId, companyId)));
+
+    const scheduleRows = await db
+      .select({ projectId: workerSchedulesTable.projectId })
+      .from(workerSchedulesTable)
+      .where(and(eq(workerSchedulesTable.userId, userId), eq(workerSchedulesTable.companyId, companyId)));
+
+    const projectIdSet = new Set([
+      ...memberRows.map((r) => r.projectId),
+      ...scheduleRows.map((r) => r.projectId),
+    ]);
+
+    if (projectIdSet.size === 0) {
+      res.json([]);
+      return;
+    }
+
+    const projects = await db
+      .select()
       .from(projectsTable)
-      .innerJoin(
-        projectMembersTable,
-        and(
-          eq(projectMembersTable.projectId, projectsTable.id),
-          eq(projectMembersTable.userId, req.userId!),
-        ),
-      )
-      .where(eq(projectsTable.companyId, req.companyId!));
-    res.json(rows.map((r) => r.project));
+      .where(and(eq(projectsTable.companyId, companyId), inArray(projectsTable.id, [...projectIdSet])));
+
+    res.json(projects);
   } else {
     const projects = await db
       .select()
@@ -85,7 +104,7 @@ router.get(
       return;
     }
 
-    // Workers may only access projects they are explicitly assigned to
+    // Workers may only access projects they are assigned to (via project_members or worker_schedules)
     if (req.userRole === "worker") {
       const [membership] = await db
         .select()
@@ -99,8 +118,21 @@ router.get(
         .limit(1);
 
       if (!membership) {
-        res.status(403).json({ error: "Access denied" });
-        return;
+        const [schedule] = await db
+          .select()
+          .from(workerSchedulesTable)
+          .where(
+            and(
+              eq(workerSchedulesTable.projectId, projectId),
+              eq(workerSchedulesTable.userId, req.userId!),
+            ),
+          )
+          .limit(1);
+
+        if (!schedule) {
+          res.status(403).json({ error: "Access denied" });
+          return;
+        }
       }
     }
 
