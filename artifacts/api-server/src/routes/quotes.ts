@@ -6,7 +6,7 @@ import {
   projectsTable,
   usersTable,
 } from "@workspace/db";
-import { eq, and, count, desc, inArray } from "drizzle-orm";
+import { eq, and, count, desc, inArray, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { CreateQuoteBody, UpdateQuoteBody, RejectQuoteBody, ConvertQuoteToInvoiceBody } from "@workspace/api-zod";
 import { Resend } from "resend";
@@ -76,7 +76,7 @@ async function notifyQuoteSubmitted(quote: {
       )
     );
   } catch {
-    // Non-fatal — log but don't fail the request
+    // Non-fatal
   }
 }
 
@@ -107,25 +107,33 @@ function calcTotals(lineItems: { quantity: number; unitPrice: number; total?: nu
   return { subtotal: subtotal.toFixed(2), taxAmount: taxAmount.toFixed(2), total: total.toFixed(2) };
 }
 
+/** Worker visibility: created by me OR assigned to me */
+function workerVisibility(userId: number) {
+  return or(eq(quotesTable.createdByUserId, userId), eq(quotesTable.assignedToUserId, userId))!;
+}
+
 // GET / — list quotes for a project
 router.get("/", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
+  const isWorker = req.userRole === "worker";
+  const baseCondition = and(eq(quotesTable.projectId, projectId), eq(quotesTable.companyId, req.companyId!))!;
+  const where = isWorker ? and(baseCondition, workerVisibility(req.userId!))! : baseCondition;
+
   const quotes = await db
     .select()
     .from(quotesTable)
-    .where(and(eq(quotesTable.projectId, projectId), eq(quotesTable.companyId, req.companyId!)))
+    .where(where)
     .orderBy(desc(quotesTable.createdAt));
   res.json(quotes);
 });
 
-// POST / — create quote (projectId=0 means company-level, not tied to a project)
+// POST / — create quote
 router.post("/", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId);
 
-  // Only verify project access when a real projectId is provided
   if (projectId > 0) {
     const project = await verifyProjectAccess(projectId, req.companyId!);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -161,36 +169,41 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
   res.status(201).json(quote);
 });
 
-// GET /:quoteId — projectId=0 means fetch from any project (company-level access)
+// GET /:quoteId
 router.get("/:quoteId", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId);
   const quoteId = parseInt(req.params.quoteId);
+  const isWorker = req.userRole === "worker";
 
-  const [quote] = await db
-    .select()
-    .from(quotesTable)
-    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!)))
-    .limit(1);
+  const baseCondition = and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))!;
+  const where = isWorker ? and(baseCondition, workerVisibility(req.userId!))! : baseCondition;
+
+  const [quote] = await db.select().from(quotesTable).where(where).limit(1);
   if (!quote) { res.status(404).json({ error: "Quote not found" }); return; }
-  // Only enforce projectId match when caller passes a valid (> 0) projectId
   if (projectId > 0 && quote.projectId !== null && quote.projectId !== projectId) {
     res.status(404).json({ error: "Quote not found" }); return;
   }
   res.json(quote);
 });
 
-// PUT /:quoteId — projectId=0 means company-level (skip project ownership check)
+// PUT /:quoteId
 router.put("/:quoteId", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId);
   const quoteId = parseInt(req.params.quoteId);
+  const isWorker = req.userRole === "worker";
 
   const [existing] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
   if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
-  // Only enforce projectId match when a real (> 0) projectId is provided
   if (projectId > 0 && existing.projectId !== null && existing.projectId !== projectId) {
     res.status(404).json({ error: "Quote not found" }); return;
   }
+
+  // Workers can only edit quotes they created
+  if (isWorker && existing.createdByUserId !== req.userId!) {
+    res.status(403).json({ error: "You can only edit quotes you created" }); return;
+  }
+
   if (existing.status !== "draft" && existing.status !== "rejected") {
     res.status(409).json({ error: "Only draft or rejected quotes can be edited" }); return;
   }
@@ -223,10 +236,16 @@ router.put("/:quoteId", requireAuth, requireCompany, async (req, res) => {
 router.delete("/:quoteId", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId);
   const quoteId = parseInt(req.params.quoteId);
+  const isWorker = req.userRole === "worker";
 
   const [existing] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
   if (!existing || existing.projectId !== projectId) { res.status(404).json({ error: "Quote not found" }); return; }
+
+  // Workers can only delete quotes they created
+  if (isWorker && existing.createdByUserId !== req.userId!) {
+    res.status(403).json({ error: "You can only delete quotes you created" }); return;
+  }
 
   await db.delete(quotesTable).where(eq(quotesTable.id, quoteId));
   res.status(204).send();
@@ -235,8 +254,12 @@ router.delete("/:quoteId", requireAuth, requireCompany, async (req, res) => {
 // POST /:quoteId/submit
 router.post("/:quoteId/submit", requireAuth, requireCompany, async (req, res) => {
   const quoteId = parseInt(req.params.quoteId);
-  const [existing] = await db.select().from(quotesTable)
-    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
+  const isWorker = req.userRole === "worker";
+
+  const baseCondition = and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))!;
+  const where = isWorker ? and(baseCondition, workerVisibility(req.userId!))! : baseCondition;
+
+  const [existing] = await db.select().from(quotesTable).where(where).limit(1);
   if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
   if (existing.status !== "draft" && existing.status !== "rejected") {
     res.status(409).json({ error: "Only draft or rejected quotes can be submitted" }); return;
@@ -245,7 +268,6 @@ router.post("/:quoteId/submit", requireAuth, requireCompany, async (req, res) =>
     .set({ status: "pending_approval", updatedAt: new Date() })
     .where(eq(quotesTable.id, quoteId)).returning();
 
-  // Fire-and-forget email notification to owners and foremans
   notifyQuoteSubmitted({
     quoteNumber: updated.quoteNumber,
     title: updated.title,
@@ -257,7 +279,7 @@ router.post("/:quoteId/submit", requireAuth, requireCompany, async (req, res) =>
   res.json(updated);
 });
 
-// POST /:quoteId/unsubmit — revert pending_approval back to draft
+// POST /:quoteId/unsubmit
 router.post("/:quoteId/unsubmit", requireAuth, requireCompany, async (req, res) => {
   const quoteId = parseInt(req.params.quoteId);
   const [existing] = await db.select().from(quotesTable)
@@ -274,6 +296,7 @@ router.post("/:quoteId/unsubmit", requireAuth, requireCompany, async (req, res) 
 
 // POST /:quoteId/approve
 router.post("/:quoteId/approve", requireAuth, requireCompany, async (req, res) => {
+  if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
   const quoteId = parseInt(req.params.quoteId);
   const [existing] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
@@ -290,6 +313,7 @@ router.post("/:quoteId/approve", requireAuth, requireCompany, async (req, res) =
 
 // POST /:quoteId/reject
 router.post("/:quoteId/reject", requireAuth, requireCompany, async (req, res) => {
+  if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
   const quoteId = parseInt(req.params.quoteId);
   const [existing] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
@@ -305,8 +329,28 @@ router.post("/:quoteId/reject", requireAuth, requireCompany, async (req, res) =>
   res.json(updated);
 });
 
+// PATCH /:quoteId/assign — owners/foremen assign a quote to a worker
+router.patch("/:quoteId/assign", requireAuth, requireCompany, async (req, res) => {
+  if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
+
+  const quoteId = parseInt(req.params.quoteId);
+  const { assignedToUserId } = req.body ?? {};
+
+  const [existing] = await db.select().from(quotesTable)
+    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
+  if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
+
+  const [updated] = await db.update(quotesTable)
+    .set({ assignedToUserId: assignedToUserId ?? null, updatedAt: new Date() })
+    .where(eq(quotesTable.id, quoteId))
+    .returning();
+  res.json(updated);
+});
+
 // POST /:quoteId/convert-to-invoice
 router.post("/:quoteId/convert-to-invoice", requireAuth, requireCompany, async (req, res) => {
+  if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
+
   const quoteId = parseInt(req.params.quoteId);
   const [quote] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);

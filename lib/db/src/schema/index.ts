@@ -379,6 +379,7 @@ export const quotesTable = pgTable("quotes", {
   notes: text("notes"),
   validUntil: date("valid_until"),
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
+  assignedToUserId: integer("assigned_to_user_id").references(() => usersTable.id),
   approvedByUserId: integer("approved_by_user_id").references(() => usersTable.id),
   approvedAt: timestamp("approved_at"),
   convertedAt: timestamp("converted_at"),
@@ -425,6 +426,7 @@ export const invoicesTable = pgTable("invoices", {
   paidAt: timestamp("paid_at"),
   reminderSentAt: timestamp("reminder_sent_at"),
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
+  assignedToUserId: integer("assigned_to_user_id").references(() => usersTable.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

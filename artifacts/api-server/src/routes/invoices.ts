@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, invoicesTable, quotesTable, companiesTable } from "@workspace/db";
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, count, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { UpdateInvoiceBody } from "@workspace/api-zod";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
@@ -13,6 +13,14 @@ async function getNextInvoiceNumber(companyId: number): Promise<string> {
   const [result] = await db.select({ count: count() }).from(invoicesTable).where(eq(invoicesTable.companyId, companyId));
   const num = (result?.count ?? 0) + 1;
   return `INV-${String(num).padStart(4, "0")}`;
+}
+
+/** Build a worker visibility condition: created by me OR assigned to me */
+function workerVisibilityQuotes(userId: number) {
+  return or(eq(quotesTable.createdByUserId, userId), eq(quotesTable.assignedToUserId, userId))!;
+}
+function workerVisibilityInvoices(userId: number) {
+  return or(eq(invoicesTable.createdByUserId, userId), eq(invoicesTable.assignedToUserId, userId))!;
 }
 
 // POST /invoices — create a standalone invoice directly
@@ -42,6 +50,7 @@ router.post("/invoices", requireAuth, requireCompany, async (req, res) => {
     notes: notes ?? null,
     dueDate: dueDate ?? null,
     status: "draft",
+    createdByUserId: req.userId!,
   }).returning();
 
   res.status(201).json(invoice);
@@ -50,12 +59,16 @@ router.post("/invoices", requireAuth, requireCompany, async (req, res) => {
 // GET /quotes — list all company quotes (flat, with optional status filter)
 router.get("/quotes", requireAuth, requireCompany, async (req, res) => {
   const { status } = req.query;
-  const where = status
-    ? and(
-        eq(quotesTable.companyId, req.companyId!),
-        eq(quotesTable.status, status as "draft" | "pending_approval" | "approved" | "rejected" | "converted"),
-      )
-    : eq(quotesTable.companyId, req.companyId!);
+  const isWorker = req.userRole === "worker";
+
+  const companyFilter = eq(quotesTable.companyId, req.companyId!);
+  const statusFilter = status
+    ? eq(quotesTable.status, status as "draft" | "pending_approval" | "approved" | "rejected" | "converted")
+    : undefined;
+  const workerFilter = isWorker ? workerVisibilityQuotes(req.userId!) : undefined;
+
+  const conditions = [companyFilter, statusFilter, workerFilter].filter(Boolean);
+  const where = conditions.length === 1 ? conditions[0]! : and(...conditions as any);
 
   const quotes = await db
     .select()
@@ -68,12 +81,16 @@ router.get("/quotes", requireAuth, requireCompany, async (req, res) => {
 // GET /invoices — list all invoices for company
 router.get("/invoices", requireAuth, requireCompany, async (req, res) => {
   const { status } = req.query;
-  const where = status
-    ? and(
-        eq(invoicesTable.companyId, req.companyId!),
-        eq(invoicesTable.status, status as "draft" | "sent" | "paid" | "overdue" | "cancelled"),
-      )
-    : eq(invoicesTable.companyId, req.companyId!);
+  const isWorker = req.userRole === "worker";
+
+  const companyFilter = eq(invoicesTable.companyId, req.companyId!);
+  const statusFilter = status
+    ? eq(invoicesTable.status, status as "draft" | "sent" | "paid" | "overdue" | "cancelled")
+    : undefined;
+  const workerFilter = isWorker ? workerVisibilityInvoices(req.userId!) : undefined;
+
+  const conditions = [companyFilter, statusFilter, workerFilter].filter(Boolean);
+  const where = conditions.length === 1 ? conditions[0]! : and(...conditions as any);
 
   const invoices = await db
     .select()
@@ -86,10 +103,17 @@ router.get("/invoices", requireAuth, requireCompany, async (req, res) => {
 // GET /invoices/:invoiceId
 router.get("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId);
+  const isWorker = req.userRole === "worker";
+
+  const baseCondition = and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!))!;
+  const where = isWorker
+    ? and(baseCondition, workerVisibilityInvoices(req.userId!))!
+    : baseCondition;
+
   const [invoice] = await db
     .select()
     .from(invoicesTable)
-    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)))
+    .where(where)
     .limit(1);
   if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
   res.json(invoice);
@@ -98,12 +122,20 @@ router.get("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res)
 // PUT /invoices/:invoiceId
 router.put("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId);
+  const isWorker = req.userRole === "worker";
+
   const [existing] = await db
     .select()
     .from(invoicesTable)
     .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)))
     .limit(1);
   if (!existing) { res.status(404).json({ error: "Invoice not found" }); return; }
+
+  // Workers can only edit invoices they created
+  if (isWorker && existing.createdByUserId !== req.userId!) {
+    res.status(403).json({ error: "You can only edit invoices you created" }); return;
+  }
+
   if (existing.status === "paid" || existing.status === "cancelled") {
     res.status(409).json({ error: "Cannot edit a paid or cancelled invoice" }); return;
   }
@@ -125,6 +157,28 @@ router.put("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res)
   if (total !== undefined) updates.total = total?.toFixed(2);
 
   const [updated] = await db.update(invoicesTable).set(updates).where(eq(invoicesTable.id, invoiceId)).returning();
+  res.json(updated);
+});
+
+// PATCH /invoices/:invoiceId/assign — owners/foremen assign an invoice to a worker
+router.patch("/invoices/:invoiceId/assign", requireAuth, requireCompany, async (req, res) => {
+  if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
+
+  const invoiceId = parseInt(req.params.invoiceId);
+  const { assignedToUserId } = req.body ?? {};
+
+  const [existing] = await db
+    .select()
+    .from(invoicesTable)
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!existing) { res.status(404).json({ error: "Invoice not found" }); return; }
+
+  const [updated] = await db
+    .update(invoicesTable)
+    .set({ assignedToUserId: assignedToUserId ?? null, updatedAt: new Date() })
+    .where(eq(invoicesTable.id, invoiceId))
+    .returning();
   res.json(updated);
 });
 
@@ -169,7 +223,6 @@ router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyn
     return;
   }
 
-  // Fetch company name for the email
   const [company] = await db
     .select({ name: companiesTable.name })
     .from(companiesTable)
