@@ -306,6 +306,23 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {/* Tools */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Tools</Text>
+          <MenuItem
+            icon="percent"
+            label="Calculators"
+            value="Concrete · Paint · Lumber & more"
+            onPress={() => router.push("/calculators")}
+          />
+          <MenuItem
+            icon="globe"
+            label="TradeHub"
+            value="Canadian Trades Community"
+            onPress={() => router.push("/tradehub")}
+          />
+        </View>
+
         {/* Account */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Account</Text>
