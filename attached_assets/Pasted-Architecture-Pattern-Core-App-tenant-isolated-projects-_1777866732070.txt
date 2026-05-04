@@ -1,0 +1,224 @@
+Architecture Pattern
+Core App (tenant-isolated)
+↳ projects, tasks, reports
+
+TradeHub (cross-tenant shared layer)
+↳ posts, jobs, comments, messaging
+Tech Stack (recommended)
+•	Backend: Node.js (NestJS or Express) 
+•	DB: PostgreSQL 
+•	Cache: Redis (for feed + rate limiting) 
+•	Storage: S3 (images) 
+•	Queue: BullMQ (for async jobs) 
+________________________________________
+🗄️ 2. DATABASE SCHEMA (PRODUCTION-READY)
+🔑 USERS & COMPANIES
+CREATE TABLE companies (
+  id UUID PRIMARY KEY,
+  name TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  company_id UUID REFERENCES companies(id),
+  name TEXT,
+  email TEXT,
+  role TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+________________________________________
+🌐 TRADEHUB PROFILES (PUBLIC IDENTITY)
+CREATE TABLE tradehub_profiles (
+  id UUID PRIMARY KEY,
+  user_id UUID UNIQUE REFERENCES users(id),
+  company_id UUID,
+  display_name TEXT,
+  trade TEXT,
+  location TEXT,
+  bio TEXT,
+  is_verified BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+________________________________________
+📝 POSTS (CORE SOCIAL LAYER)
+CREATE TYPE post_type AS ENUM ('job', 'discussion', 'showcase');
+
+CREATE TABLE tradehub_posts (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  company_id UUID,
+  type post_type,
+  title TEXT,
+  content TEXT,
+  trade TEXT,
+  location TEXT,
+  visibility TEXT DEFAULT 'public', -- public, local, private
+  created_at TIMESTAMP DEFAULT NOW()
+);
+________________________________________
+🖼️ POST MEDIA
+CREATE TABLE tradehub_post_media (
+  id UUID PRIMARY KEY,
+  post_id UUID REFERENCES tradehub_posts(id) ON DELETE CASCADE,
+  url TEXT,
+  type TEXT
+);
+________________________________________
+💬 COMMENTS
+CREATE TABLE tradehub_comments (
+  id UUID PRIMARY KEY,
+  post_id UUID REFERENCES tradehub_posts(id) ON DELETE CASCADE,
+  user_id UUID,
+  content TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+________________________________________
+👍 REACTIONS (LIKE SYSTEM)
+CREATE TABLE tradehub_reactions (
+  id UUID PRIMARY KEY,
+  post_id UUID,
+  user_id UUID,
+  type TEXT DEFAULT 'like',
+  UNIQUE(post_id, user_id)
+);
+________________________________________
+📩 CROSS-TENANT MESSAGING
+CREATE TABLE tradehub_conversations (
+  id UUID PRIMARY KEY,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE tradehub_conversation_participants (
+  conversation_id UUID REFERENCES tradehub_conversations(id),
+  user_id UUID,
+  PRIMARY KEY (conversation_id, user_id)
+);
+
+CREATE TABLE tradehub_messages (
+  id UUID PRIMARY KEY,
+  conversation_id UUID,
+  sender_id UUID,
+  content TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+________________________________________
+🧰 JOB APPLICATIONS (CRITICAL FEATURE)
+CREATE TABLE tradehub_job_applications (
+  id UUID PRIMARY KEY,
+  post_id UUID REFERENCES tradehub_posts(id),
+  applicant_id UUID,
+  message TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+________________________________________
+🚩 REPORTING / MODERATION
+CREATE TABLE tradehub_reports (
+  id UUID PRIMARY KEY,
+  reporter_id UUID,
+  target_type TEXT, -- post, user, comment
+  target_id UUID,
+  reason TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+________________________________________
+🔐 3. SECURITY RULES (NON-NEGOTIABLE)
+NEVER expose:
+•	core project data 
+•	client info 
+•	internal documents 
+________________________________________
+Backend Enforcement
+•	All TradeHub endpoints ignore company_id filtering 
+•	BUT validate: 
+// Only allow user-owned actions
+if (post.user_id !== currentUser.id) throw Forbidden
+________________________________________
+⚙️ 4. API DESIGN (READY FOR IMPLEMENTATION)
+🔹 POSTS
+GET    /tradehub/feed
+POST   /tradehub/posts
+GET    /tradehub/posts/:id
+DELETE /tradehub/posts/:id
+________________________________________
+🔹 COMMENTS
+POST /tradehub/posts/:id/comment
+GET  /tradehub/posts/:id/comments
+________________________________________
+🔹 JOBS
+POST /tradehub/jobs
+POST /tradehub/jobs/:id/apply
+GET  /tradehub/jobs
+________________________________________
+🔹 MESSAGING
+POST /tradehub/conversations
+GET  /tradehub/conversations
+POST /tradehub/messages
+________________________________________
+🧠 5. FEED ALGORITHM (MVP LOGIC)
+Start simple (SQL-based ranking):
+SELECT *
+FROM tradehub_posts
+WHERE visibility = 'public'
+ORDER BY 
+  (CASE WHEN location = 'Toronto' THEN 1 ELSE 0 END) DESC,
+  created_at DESC
+LIMIT 50;
+________________________________________
+Later improvements:
+•	engagement score 
+•	user preferences 
+•	trade matching 
+________________________________________
+⚡ 6. REDIS (PERFORMANCE LAYER)
+Use Redis for:
+Feed caching
+feed:user:{id}
+Rate limiting
+post_limit:user:{id}
+Message queue
+queue:messages
+________________________________________
+🔁 7. BACKGROUND JOBS (BULLMQ)
+Jobs:
+•	image processing 
+•	notifications 
+•	feed ranking updates 
+________________________________________
+📣 8. NOTIFICATIONS SYSTEM
+CREATE TABLE tradehub_notifications (
+  id UUID PRIMARY KEY,
+  user_id UUID,
+  type TEXT,
+  reference_id UUID,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+________________________________________
+🛡️ 9. ANTI-SPAM CONTROLS
+Enforce:
+•	Max posts/day per user 
+•	Max messages/minute 
+•	Captcha for new users 
+________________________________________
+🚀 10. REPLIT PROMPT (COPY/PASTE THIS)
+Use this in Replit AI:
+Build a Node.js (Express or NestJS) backend for a SaaS platform with a cross-tenant social network called TradeHub.
+
+Requirements:
+- PostgreSQL database with tables for users, companies, tradehub_profiles, posts, comments, reactions, messaging, job applications
+- REST API endpoints for posts, comments, jobs, messaging
+- JWT authentication
+- Role-based access control
+- Ensure core SaaS data is tenant-isolated but TradeHub is cross-tenant
+- Implement feed endpoint with location + recency ranking
+- Add rate limiting and input validation
+- Use clean architecture (controllers, services, repositories)
+
+Return:
+- Folder structure
+- Example controllers
+- Example SQL queries
+- Middleware for auth
+

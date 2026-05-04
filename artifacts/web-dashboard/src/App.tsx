@@ -31,6 +31,10 @@ import Schedule from "@/pages/schedule";
 import ClientPortal from "@/pages/client-portal";
 import Hours from "@/pages/hours";
 import Estimates from "@/pages/estimates";
+import TradehubFeedPage from "@/pages/tradehub-feed";
+import TradehubPostPage from "@/pages/tradehub-post";
+import TradehubJobsPage from "@/pages/tradehub-jobs";
+import TradehubProfilePage from "@/pages/tradehub-profile";
 import SafetyPage from "@/pages/safety";
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
@@ -243,6 +247,10 @@ function AuthApp() {
           <Route path="/schedule" component={Schedule} />
           <Route path="/hours" component={Hours} />
           <Route path="/estimates" component={Estimates} />
+          <Route path="/tradehub/jobs" component={TradehubJobsPage} />
+          <Route path="/tradehub/posts/:id" component={TradehubPostPage} />
+          <Route path="/tradehub/profile/:userId" component={TradehubProfilePage} />
+          <Route path="/tradehub" component={TradehubFeedPage} />
           <Route path="/safety/submit" component={SafetySubmitPage} />
           <Route path="/safety/submissions/:id" component={SafetyDetailPage} />
           <Route path="/safety" component={SafetyPage} />

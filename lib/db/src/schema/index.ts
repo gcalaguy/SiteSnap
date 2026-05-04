@@ -709,3 +709,99 @@ export const estimatesTable = pgTable("estimates", {
 });
 
 export type Estimate = typeof estimatesTable.$inferSelect;
+
+// ── TradeHub (Cross-Tenant Social + Job Board) ────────────────────────────────
+
+export const tradehubProfilesTable = pgTable("tradehub_profiles", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().unique().references(() => usersTable.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").references(() => companiesTable.id),
+  displayName: text("display_name").notNull(),
+  trade: text("trade"), // e.g. Electrician, Plumber, General Contractor
+  location: text("location"),
+  province: text("province"),
+  bio: text("bio"),
+  website: text("website"),
+  isVerified: boolean("is_verified").notNull().default(false),
+  avatarUrl: text("avatar_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type TradehubProfile = typeof tradehubProfilesTable.$inferSelect;
+
+export const tradehubPostsTable = pgTable("tradehub_posts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+  companyId: integer("company_id").references(() => companiesTable.id),
+  type: text("type").notNull().default("discussion"), // discussion | job | showcase
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  trade: text("trade"),
+  location: text("location"),
+  province: text("province"),
+  budget: text("budget"), // for job posts
+  jobType: text("job_type"), // full-time | contract | subcontract
+  visibility: text("visibility").notNull().default("public"), // public | local
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type TradehubPost = typeof tradehubPostsTable.$inferSelect;
+
+export const tradehubPostMediaTable = pgTable("tradehub_post_media", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").notNull().references(() => tradehubPostsTable.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  objectPath: text("object_path"),
+  mediaType: text("media_type").notNull().default("image"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const tradehubCommentsTable = pgTable("tradehub_comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").notNull().references(() => tradehubPostsTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type TradehubComment = typeof tradehubCommentsTable.$inferSelect;
+
+export const tradehubReactionsTable = pgTable(
+  "tradehub_reactions",
+  {
+    id: serial("id").primaryKey(),
+    postId: integer("post_id").notNull().references(() => tradehubPostsTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id").notNull().references(() => usersTable.id),
+    type: text("type").notNull().default("like"),
+  },
+  (t) => [unique().on(t.postId, t.userId)],
+);
+
+export const tradehubJobApplicationsTable = pgTable("tradehub_job_applications", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").notNull().references(() => tradehubPostsTable.id, { onDelete: "cascade" }),
+  applicantId: integer("applicant_id").notNull().references(() => usersTable.id),
+  message: text("message"),
+  status: text("status").notNull().default("pending"), // pending | reviewed | accepted | rejected
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type TradehubJobApplication = typeof tradehubJobApplicationsTable.$inferSelect;
+
+export const tradehubReportsTable = pgTable("tradehub_reports", {
+  id: serial("id").primaryKey(),
+  reporterId: integer("reporter_id").notNull().references(() => usersTable.id),
+  targetType: text("target_type").notNull(), // post | comment | user
+  targetId: integer("target_id").notNull(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const tradehubNotificationsTable = pgTable("tradehub_notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+  type: text("type").notNull(), // comment | reaction | application | application_update
+  referenceId: integer("reference_id"),
+  message: text("message").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type TradehubNotification = typeof tradehubNotificationsTable.$inferSelect;
