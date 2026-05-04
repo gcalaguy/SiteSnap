@@ -145,6 +145,32 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
   res.status(201).json(full);
 });
 
+// PATCH /api/schedule/:id — update dates
+router.patch("/schedule/:id", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+  const id = Number(req.params.id);
+  const { startDate, endDate } = req.body;
+
+  if (!startDate || !endDate) {
+    res.status(400).json({ error: "startDate and endDate are required" });
+    return;
+  }
+
+  const [updated] = await db.update(workerSchedulesTable)
+    .set({ startDate, endDate })
+    .where(and(
+      eq(workerSchedulesTable.id, id),
+      eq(workerSchedulesTable.companyId, req.companyId!),
+    ))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Assignment not found" });
+    return;
+  }
+
+  res.json(updated);
+});
+
 // DELETE /api/schedule/:id
 router.delete("/schedule/:id", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   const id = Number(req.params.id);

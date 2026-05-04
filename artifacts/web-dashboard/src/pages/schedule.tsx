@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useGetMe, customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -51,6 +51,7 @@ const PROJECT_COLORS_BG = [
   "#EF4444","#06B6D4","#EC4899","#14B8A6","#6366F1",
 ];
 const COL_WIDTH_PX: Record<ZoomLevel, number> = { "2w": 54, "1m": 38, "3m": 82 };
+const MS_DAY = 86_400_000;
 const BAR_H = 26;
 const BAR_GAP = 4;
 const ROW_PAD = 10;
@@ -217,6 +218,73 @@ export default function Schedule() {
     },
     onError: (err: any) => toast({ title: err?.message ?? "Failed to remove", variant: "destructive" }),
   });
+
+  const patchMut = useMutation({
+    mutationFn: ({ id, startDate, endDate }: { id: number; startDate: string; endDate: string }) =>
+      customFetch(`/api/schedule/${id}`, { method: "PATCH", body: JSON.stringify({ startDate, endDate }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["schedule-gantt"] });
+      qc.invalidateQueries({ queryKey: ["schedule"] });
+      toast({ title: "Assignment updated" });
+    },
+    onError: (err: any) => toast({ title: err?.message ?? "Failed to update", variant: "destructive" }),
+  });
+
+  // ── Drag state (Gantt) ────────────────────────────────────────────────────
+  type DragInfo = { id: number; kind: "move" | "resize"; startClientX: number; origStartMs: number; origEndMs: number };
+  const dragRef = useRef<DragInfo | null>(null);
+  const [dragPreview, setDragPreview] = useState<{ id: number; leftPx: number; widthPx: number; startDate: string; endDate: string } | null>(null);
+
+  // ── Drag state (Team grid) ────────────────────────────────────────────────
+  const teamDragRef = useRef<{ id: number; fromDay: string; startDate: string; endDate: string } | null>(null);
+  const [teamDragOver, setTeamDragOver] = useState<string | null>(null);
+
+  function handleBarPointerDown(e: React.PointerEvent, bar: GAssignment, kind: "move" | "resize") {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    dragRef.current = {
+      id: bar.id, kind,
+      startClientX: e.clientX,
+      origStartMs: startOfDay(parseISO(bar.startDate)).getTime(),
+      origEndMs: startOfDay(parseISO(bar.endDate)).getTime(),
+    };
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    if (!dragRef.current) return;
+    const dr = dragRef.current;
+    const deltaX = e.clientX - dr.startClientX;
+    const totalMs = viewEndMs - viewStartMs;
+    const rawDeltaMs = (deltaX / timelineW) * totalMs;
+    const daysPerSnap = zoom === "3m" ? 7 : 1;
+    const deltaDays = Math.round(rawDeltaMs / (MS_DAY * daysPerSnap)) * daysPerSnap;
+
+    let newStartMs = dr.kind === "move" ? dr.origStartMs + deltaDays * MS_DAY : dr.origStartMs;
+    let newEndMs = dr.origEndMs + deltaDays * MS_DAY;
+    if (dr.kind === "resize") newEndMs = Math.max(newEndMs, dr.origStartMs);
+
+    const clampS = Math.max(newStartMs, viewStartMs);
+    const clampE = Math.min(newEndMs + MS_DAY, viewEndMs);
+    if (clampS >= clampE) return;
+
+    const total = viewEndMs - viewStartMs;
+    setDragPreview({
+      id: dr.id,
+      leftPx: ((clampS - viewStartMs) / total) * timelineW,
+      widthPx: Math.max(((clampE - clampS) / total) * timelineW, 6),
+      startDate: format(new Date(newStartMs), "yyyy-MM-dd"),
+      endDate: format(new Date(newEndMs), "yyyy-MM-dd"),
+    });
+  }
+
+  function handlePointerUp() {
+    if (dragRef.current && dragPreview && dragPreview.id === dragRef.current.id) {
+      patchMut.mutate({ id: dragPreview.id, startDate: dragPreview.startDate, endDate: dragPreview.endDate });
+    }
+    dragRef.current = null;
+    setDragPreview(null);
+  }
 
   function openDialog(projectId?: string) {
     setDlgUserId(""); setDlgProjectId(projectId ?? "");
@@ -533,16 +601,21 @@ export default function Schedule() {
 
                           {/* Assignment bars */}
                           {bars.map(bar => {
-                            const geo = barGeometry(bar.startDate, bar.endDate);
+                            const isDragging = dragPreview?.id === bar.id;
+                            const geo = isDragging
+                              ? { leftPx: dragPreview!.leftPx, widthPx: dragPreview!.widthPx }
+                              : barGeometry(bar.startDate, bar.endDate);
                             if (!geo) return null;
                             const c = getUserColor(bar.userId);
                             const topPx = ROW_PAD + bar.track * (BAR_H + BAR_GAP) + (projGeo ? 8 : 0);
                             const name = `${bar.userFirstName ?? ""} ${bar.userLastName ?? ""}`.trim();
+                            const displayStart = isDragging ? dragPreview!.startDate : bar.startDate;
+                            const displayEnd = isDragging ? dragPreview!.endDate : bar.endDate;
                             return (
-                              <Tooltip key={bar.id}>
+                              <Tooltip key={bar.id} open={isDragging ? false : undefined}>
                                 <TooltipTrigger asChild>
                                   <div
-                                    className="absolute flex items-center gap-1 px-2 rounded-md text-xs font-medium shadow-sm cursor-default group z-20 overflow-hidden"
+                                    className={`absolute flex items-center gap-1 px-2 rounded-md text-xs font-medium shadow-sm group z-20 overflow-hidden select-none touch-none ${isDragging ? "cursor-grabbing opacity-95 ring-2 ring-white/60 shadow-lg" : "cursor-grab"}`}
                                     style={{
                                       left: geo.leftPx + 1,
                                       width: geo.widthPx - 2,
@@ -550,7 +623,14 @@ export default function Schedule() {
                                       height: BAR_H,
                                       backgroundColor: c.bg,
                                       color: c.text,
+                                      transition: isDragging ? "none" : undefined,
                                     }}
+                                    onPointerDown={(e) => {
+                                      if ((e.target as HTMLElement).closest("[data-nondrag]")) return;
+                                      handleBarPointerDown(e, bar, "move");
+                                    }}
+                                    onPointerMove={handlePointerMove}
+                                    onPointerUp={handlePointerUp}
                                   >
                                     {geo.widthPx > 36 && (
                                       <div
@@ -564,21 +644,36 @@ export default function Schedule() {
                                       <span className="truncate text-[11px]">{name}</span>
                                     )}
                                     <button
+                                      data-nondrag
                                       className="ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/20 rounded p-0.5"
+                                      onPointerDown={e => e.stopPropagation()}
                                       onClick={() => deleteMut.mutate(bar.id)}
                                       title="Remove"
                                     >
                                       <X className="h-2.5 w-2.5" />
                                     </button>
+                                    {/* Resize handle — right edge */}
+                                    <div
+                                      data-nondrag
+                                      className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/20 rounded-r-md"
+                                      title="Drag to resize"
+                                      onPointerDown={(e) => {
+                                        e.stopPropagation();
+                                        handleBarPointerDown(e, bar, "resize");
+                                      }}
+                                      onPointerMove={handlePointerMove}
+                                      onPointerUp={handlePointerUp}
+                                    />
                                   </div>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="max-w-[220px]">
                                   <p className="font-semibold text-xs">{name}</p>
                                   <p className="text-xs text-muted-foreground capitalize">{bar.userRole}</p>
                                   <p className="text-xs mt-1">
-                                    {format(parseISO(bar.startDate), "MMM d")} – {format(parseISO(bar.endDate), "MMM d, yyyy")}
+                                    {format(parseISO(displayStart), "MMM d")} – {format(parseISO(displayEnd), "MMM d, yyyy")}
                                   </p>
                                   {bar.notes && <p className="text-xs text-muted-foreground mt-0.5 italic">{bar.notes}</p>}
+                                  {!isDragging && <p className="text-[10px] text-muted-foreground mt-1 opacity-70">Drag to move · drag right edge to resize</p>}
                                 </TooltipContent>
                               </Tooltip>
                             );
@@ -657,10 +752,31 @@ export default function Schedule() {
                           {teamWeekDays.map(day => {
                             const isToday = isSameDay(day, new Date());
                             const isWknd = isWeekend(day);
+                            const dayStr = format(day, "yyyy-MM-dd");
+                            const cellKey = `${member.id}-${dayStr}`;
+                            const isDragTarget = teamDragOver === cellKey;
                             const cellA = getTeamCellAssignments(member.id, day);
                             return (
                               <td key={day.toISOString()}
-                                className={`py-1.5 px-1.5 border-r last:border-r-0 align-top min-h-[56px] ${isToday ? "bg-primary/5" : isWknd ? "bg-muted/20" : ""}`}
+                                className={`py-1.5 px-1.5 border-r last:border-r-0 align-top min-h-[56px] transition-colors ${isToday ? "bg-primary/5" : isWknd ? "bg-muted/20" : ""} ${isDragTarget ? "bg-primary/10 ring-1 ring-inset ring-primary/30" : ""}`}
+                                onDragOver={(e) => { e.preventDefault(); setTeamDragOver(cellKey); }}
+                                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setTeamDragOver(null); }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  setTeamDragOver(null);
+                                  if (!teamDragRef.current) return;
+                                  const dr = teamDragRef.current;
+                                  const fromMs = startOfDay(parseISO(dr.fromDay)).getTime();
+                                  const toMs = startOfDay(day).getTime();
+                                  const deltaDays = Math.round((toMs - fromMs) / MS_DAY);
+                                  if (deltaDays === 0) return;
+                                  patchMut.mutate({
+                                    id: dr.id,
+                                    startDate: format(addDays(parseISO(dr.startDate), deltaDays), "yyyy-MM-dd"),
+                                    endDate: format(addDays(parseISO(dr.endDate), deltaDays), "yyyy-MM-dd"),
+                                  });
+                                  teamDragRef.current = null;
+                                }}
                               >
                                 <div className="space-y-1">
                                   {cellA.map(a => {
@@ -669,8 +785,13 @@ export default function Schedule() {
                                       <Tooltip key={a.id}>
                                         <TooltipTrigger asChild>
                                           <div
-                                            className="group relative flex items-center gap-1 rounded px-2 py-1 text-white text-xs font-medium cursor-default"
+                                            className="group relative flex items-center gap-1 rounded px-2 py-1 text-white text-xs font-medium cursor-grab select-none"
                                             style={{ backgroundColor: c.bg, color: c.text }}
+                                            draggable
+                                            onDragStart={() => {
+                                              teamDragRef.current = { id: a.id, fromDay: dayStr, startDate: a.startDate, endDate: a.endDate };
+                                            }}
+                                            onDragEnd={() => { teamDragRef.current = null; setTeamDragOver(null); }}
                                           >
                                             <span className="truncate leading-tight">{a.projectName}</span>
                                             <button
@@ -681,7 +802,11 @@ export default function Schedule() {
                                             </button>
                                           </div>
                                         </TooltipTrigger>
-                                        {a.notes && <TooltipContent><p className="text-xs">{a.notes}</p></TooltipContent>}
+                                        <TooltipContent>
+                                          <p className="text-xs font-medium">{a.projectName}</p>
+                                          {a.notes && <p className="text-xs text-muted-foreground">{a.notes}</p>}
+                                          <p className="text-[10px] text-muted-foreground mt-1 opacity-70">Drag to another day to reschedule</p>
+                                        </TooltipContent>
                                       </Tooltip>
                                     );
                                   })}
