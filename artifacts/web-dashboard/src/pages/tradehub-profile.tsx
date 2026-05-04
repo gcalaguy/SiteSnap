@@ -6,8 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
   ArrowLeft, Pencil, Save, Loader2, Globe, Briefcase,
-  MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2, MessageCircle
+  MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2, MessageCircle, Mic
 } from "lucide-react";
+import { VoiceRecorder, VoicePlayer } from "@/components/voice-recorder";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -187,6 +188,17 @@ export default function TradehubProfilePage() {
                   </Button>
                 </Link>
               )}
+
+              {/* Voice intro — playback for others, recorder for self */}
+              {!isMe && displayData.voiceIntroUrl && (
+                <div className="mt-3">
+                  <VoicePlayer
+                    url={displayData.voiceIntroUrl}
+                    duration={displayData.voiceIntroDuration}
+                    name={displayData.displayName}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -208,6 +220,26 @@ export default function TradehubProfilePage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
+          {/* Voice Intro — own profile recorder */}
+          {isMe && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Mic className="h-4 w-4 text-primary" />
+                  Voice Introduction
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <VoiceRecorder
+                  existingUrl={profile?.voiceIntroUrl}
+                  existingDuration={profile?.voiceIntroDuration}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["tradehub-profile-me"] })}
+                  onDeleted={() => queryClient.invalidateQueries({ queryKey: ["tradehub-profile-me"] })}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {/* Edit form */}
           {editing && isMe && (
             <Card>

@@ -725,6 +725,9 @@ export const tradehubProfilesTable = pgTable("tradehub_profiles", {
   website: text("website"),
   isVerified: boolean("is_verified").notNull().default(false),
   avatarUrl: text("avatar_url"),
+  voiceIntroUrl: text("voice_intro_url"),
+  voiceIntroObjectPath: text("voice_intro_object_path"),
+  voiceIntroDuration: integer("voice_intro_duration"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

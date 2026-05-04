@@ -597,6 +597,65 @@ router.get("/tradehub/my-applications", requireAuth, async (req, res) => {
   }
 });
 
+// ── VOICE INTRO ──────────────────────────────────────────────────────────────
+
+// PUT /tradehub/profile/voice — save voice intro objectPath to profile
+router.put("/tradehub/profile/voice", requireAuth, async (req, res) => {
+  try {
+    const { objectPath, duration } = req.body as { objectPath: string; duration?: number };
+    if (!objectPath?.trim()) { res.status(400).json({ error: "objectPath required" }); return; }
+
+    // Build a serve URL from the objectPath (e.g. /objects/uploads/uuid)
+    const voiceIntroUrl = objectPath.startsWith("/objects/")
+      ? `/api/storage${objectPath}`
+      : objectPath;
+
+    const [existing] = await db
+      .select()
+      .from(tradehubProfilesTable)
+      .where(eq(tradehubProfilesTable.userId, req.userId!))
+      .limit(1);
+
+    if (existing) {
+      const [updated] = await db
+        .update(tradehubProfilesTable)
+        .set({ voiceIntroUrl, voiceIntroObjectPath: objectPath, voiceIntroDuration: duration ?? null, updatedAt: new Date() })
+        .where(eq(tradehubProfilesTable.userId, req.userId!))
+        .returning();
+      res.json(updated);
+    } else {
+      // Create a minimal profile if none exists yet
+      const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+      const [created] = await db.insert(tradehubProfilesTable).values({
+        userId: req.userId!,
+        companyId: req.companyId ?? null,
+        displayName: `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "TradeHub User",
+        voiceIntroUrl,
+        voiceIntroObjectPath: objectPath,
+        voiceIntroDuration: duration ?? null,
+      }).returning();
+      res.json(created);
+    }
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/voice PUT error");
+    res.status(500).json({ error: "Failed to save voice intro" });
+  }
+});
+
+// DELETE /tradehub/profile/voice
+router.delete("/tradehub/profile/voice", requireAuth, async (req, res) => {
+  try {
+    await db
+      .update(tradehubProfilesTable)
+      .set({ voiceIntroUrl: null, voiceIntroObjectPath: null, voiceIntroDuration: null, updatedAt: new Date() })
+      .where(eq(tradehubProfilesTable.userId, req.userId!));
+    res.json({ success: true });
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/voice DELETE error");
+    res.status(500).json({ error: "Failed to remove voice intro" });
+  }
+});
+
 // ── MESSAGING ─────────────────────────────────────────────────────────────────
 
 // GET /tradehub/users/search?q=
