@@ -79,47 +79,69 @@ function TaskCard({ task, onStatusChange, onDelete, assigneeName }: {
   onDelete: (id: number) => void;
   assigneeName?: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   const priorityColors: Record<string, string> = {
     low: "bg-slate-100 text-slate-700 border-slate-200",
     medium: "bg-amber-50 text-amber-700 border-amber-200",
     high: "bg-red-50 text-red-700 border-red-200",
   };
+  const statusNext: Record<Task["status"], { label: string; next: Task["status"]; icon: React.ReactNode }[]> = {
+    todo: [{ label: "Start", next: "in_progress", icon: <Loader2 className="h-3 w-3" /> }],
+    in_progress: [{ label: "Mark Done", next: "done", icon: <CheckSquare className="h-3 w-3" /> }],
+    done: [{ label: "Reopen", next: "todo", icon: <Circle className="h-3 w-3" /> }],
+  };
 
   return (
-    <div className="bg-card border rounded-lg p-3 shadow-sm hover:border-primary/40 transition-colors group">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <p className="font-medium text-sm leading-snug">{task.title}</p>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-              <MoreVertical className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {task.status !== "todo" && (
-              <DropdownMenuItem onClick={() => onStatusChange(task.id, "todo")}>
-                <Circle className="mr-2 h-3 w-3" /> Mark To Do
+    <div
+      className="bg-card border rounded-lg p-3 shadow-sm hover:border-primary/40 transition-colors group cursor-pointer select-none"
+      onClick={() => setExpanded(v => !v)}
+    >
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <p className="font-medium text-sm leading-snug flex-1">{task.title}</p>
+        <div className="flex items-center gap-1 shrink-0">
+          {expanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {task.status !== "todo" && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, "todo"); }}>
+                  <Circle className="mr-2 h-3 w-3" /> Mark To Do
+                </DropdownMenuItem>
+              )}
+              {task.status !== "in_progress" && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, "in_progress"); }}>
+                  <Loader2 className="mr-2 h-3 w-3" /> Mark In Progress
+                </DropdownMenuItem>
+              )}
+              {task.status !== "done" && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, "done"); }}>
+                  <CheckSquare className="mr-2 h-3 w-3" /> Mark Done
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}>
+                <Trash2 className="mr-2 h-3 w-3" /> Delete
               </DropdownMenuItem>
-            )}
-            {task.status !== "in_progress" && (
-              <DropdownMenuItem onClick={() => onStatusChange(task.id, "in_progress")}>
-                <Loader2 className="mr-2 h-3 w-3" /> Mark In Progress
-              </DropdownMenuItem>
-            )}
-            {task.status !== "done" && (
-              <DropdownMenuItem onClick={() => onStatusChange(task.id, "done")}>
-                <CheckSquare className="mr-2 h-3 w-3" /> Mark Done
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem className="text-destructive" onClick={() => onDelete(task.id)}>
-              <Trash2 className="mr-2 h-3 w-3" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+
       {task.description && (
-        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{task.description}</p>
+        <p className={`text-xs text-muted-foreground mb-2 ${expanded ? "" : "line-clamp-2"}`}>
+          {task.description}
+        </p>
       )}
+
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${priorityColors[task.priority]}`}>
           {task.priority}
@@ -134,6 +156,30 @@ function TaskCard({ task, onStatusChange, onDelete, assigneeName }: {
           </span>
         )}
       </div>
+
+      {expanded && (
+        <div className="mt-3 pt-3 border-t border-border flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+          {statusNext[task.status].map(({ label, next, icon }) => (
+            <Button
+              key={next}
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, next); }}
+            >
+              {icon} {label}
+            </Button>
+          ))}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 ml-auto"
+            onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+          >
+            <Trash2 className="h-3 w-3" /> Delete
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -421,6 +467,8 @@ export default function ProjectDetail() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [expandedReportId, setExpandedReportId] = useState<number | null>(null);
+  const [expandedCostId, setExpandedCostId] = useState<number | null>(null);
+  const [expandedRfiId, setExpandedRfiId] = useState<number | null>(null);
 
   const { data: me } = useGetMe();
   const companyId = me?.company?.id;
@@ -1089,30 +1137,52 @@ export default function ProjectDetail() {
             </div>
           ) : (
             <div className="space-y-4">
-              {costAnalyses?.map(cost => (
-                <Card key={cost.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center">
-                      <CardTitle className="text-lg">{cost.periodLabel}</CardTitle>
-                      <span className="font-bold text-lg text-destructive">${cost.totalCost.toLocaleString()}</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-2 border-t pt-4">
-                      <div><span className="text-muted-foreground block text-xs">Labour</span><span className="font-medium">${cost.labourCost.toLocaleString()}</span></div>
-                      <div><span className="text-muted-foreground block text-xs">Materials</span><span className="font-medium">${cost.materialsCost.toLocaleString()}</span></div>
-                      <div><span className="text-muted-foreground block text-xs">Equipment</span><span className="font-medium">${cost.equipmentCost.toLocaleString()}</span></div>
-                      <div><span className="text-muted-foreground block text-xs">Other</span><span className="font-medium">${cost.otherCost.toLocaleString()}</span></div>
-                    </div>
-                    {cost.aiAnalysis && (
-                      <div className="mt-4 text-sm bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded border border-blue-200 dark:border-blue-800">
-                        <span className="font-semibold block mb-1 text-blue-700 dark:text-blue-400">AI Insight:</span>
-                        <span className="text-muted-foreground whitespace-pre-wrap">{cost.aiAnalysis}</span>
+              {costAnalyses?.map(cost => {
+                const isCostExpanded = expandedCostId === cost.id;
+                return (
+                  <Card
+                    key={cost.id}
+                    className="hover:border-primary/50 transition-colors cursor-pointer select-none"
+                    onClick={() => setExpandedCostId(isCostExpanded ? null : cost.id)}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg">{cost.periodLabel}</CardTitle>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-lg text-destructive">${cost.totalCost.toLocaleString()}</span>
+                          {isCostExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
                       </div>
+                    </CardHeader>
+                    {isCostExpanded && (
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-2 border-t pt-4">
+                          <div><span className="text-muted-foreground block text-xs">Labour</span><span className="font-medium">${cost.labourCost.toLocaleString()}</span></div>
+                          <div><span className="text-muted-foreground block text-xs">Materials</span><span className="font-medium">${cost.materialsCost.toLocaleString()}</span></div>
+                          <div><span className="text-muted-foreground block text-xs">Equipment</span><span className="font-medium">${cost.equipmentCost.toLocaleString()}</span></div>
+                          <div><span className="text-muted-foreground block text-xs">Other</span><span className="font-medium">${cost.otherCost.toLocaleString()}</span></div>
+                        </div>
+                        {cost.aiAnalysis && (
+                          <div className="mt-4 text-sm bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded border border-blue-200 dark:border-blue-800">
+                            <span className="font-semibold block mb-1 text-blue-700 dark:text-blue-400">AI Insight:</span>
+                            <span className="text-muted-foreground whitespace-pre-wrap">{cost.aiAnalysis}</span>
+                          </div>
+                        )}
+                      </CardContent>
                     )}
-                  </CardContent>
-                </Card>
-              ))}
+                    {!isCostExpanded && (
+                      <CardContent className="pb-3 pt-0">
+                        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                          <span>Labour: <span className="font-medium text-foreground">${cost.labourCost.toLocaleString()}</span></span>
+                          <span>Materials: <span className="font-medium text-foreground">${cost.materialsCost.toLocaleString()}</span></span>
+                          <span>Equipment: <span className="font-medium text-foreground">${cost.equipmentCost.toLocaleString()}</span></span>
+                          <span>Other: <span className="font-medium text-foreground">${cost.otherCost.toLocaleString()}</span></span>
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -1131,24 +1201,65 @@ export default function ProjectDetail() {
             </div>
           ) : (
             <div className="space-y-3">
-              {rfis?.map(rfi => (
-                <div key={rfi.id} className="flex items-start justify-between p-4 border rounded-md bg-card hover:border-primary/50 transition-colors cursor-pointer">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium text-muted-foreground">{rfi.rfiNumber}</span>
-                      <h4 className="font-bold text-lg">{rfi.subject}</h4>
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-1 max-w-2xl">{rfi.description}</p>
-                    {rfi.dueDate && <p className="text-xs text-muted-foreground mt-2">Due: {format(new Date(rfi.dueDate), "MMM d, yyyy")}</p>}
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <Badge variant={rfi.status === 'open' || rfi.status === 'in_review' ? 'default' : 'secondary'} className={rfi.status === 'open' ? 'bg-orange-600' : ''}>
-                      {rfi.status.replace("_", " ").toUpperCase()}
-                    </Badge>
-                    {getPriorityBadge(rfi.priority)}
-                  </div>
-                </div>
-              ))}
+              {rfis?.map(rfi => {
+                const isRfiExpanded = expandedRfiId === rfi.id;
+                return (
+                  <Card
+                    key={rfi.id}
+                    className="hover:border-primary/50 transition-colors cursor-pointer select-none"
+                    onClick={() => setExpandedRfiId(isRfiExpanded ? null : rfi.id)}
+                  >
+                    <CardContent className="p-4">
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-sm font-medium text-muted-foreground shrink-0">{rfi.rfiNumber}</span>
+                            <h4 className="font-bold text-base">{rfi.subject}</h4>
+                          </div>
+                          <p className={`text-sm text-muted-foreground ${isRfiExpanded ? "" : "line-clamp-1"}`}>{rfi.description}</p>
+                          {rfi.dueDate && <p className="text-xs text-muted-foreground mt-1.5">Due: {format(new Date(rfi.dueDate), "MMM d, yyyy")}</p>}
+                        </div>
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={rfi.status === 'open' || rfi.status === 'in_review' ? 'default' : 'secondary'} className={rfi.status === 'open' ? 'bg-orange-600' : ''}>
+                              {rfi.status.replace("_", " ").toUpperCase()}
+                            </Badge>
+                            {isRfiExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          </div>
+                          {getPriorityBadge(rfi.priority)}
+                        </div>
+                      </div>
+
+                      {/* Expanded detail */}
+                      {isRfiExpanded && (
+                        <div className="mt-4 space-y-3 border-t border-border pt-3">
+                          {rfi.response && (
+                            <div>
+                              <p className="text-xs font-semibold text-foreground mb-1">Response</p>
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{rfi.response}</p>
+                            </div>
+                          )}
+                          {rfi.aiDraftResponse && (
+                            <div className="bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                              <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1 flex items-center gap-1">
+                                <span>✦</span> AI Draft Response
+                              </p>
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{rfi.aiDraftResponse}</p>
+                            </div>
+                          )}
+                          {rfi.closedAt && (
+                            <p className="text-xs text-muted-foreground">Closed: {format(new Date(rfi.closedAt), "MMM d, yyyy")}</p>
+                          )}
+                          {!rfi.response && !rfi.aiDraftResponse && (
+                            <p className="text-sm text-muted-foreground italic">No response recorded yet.</p>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
