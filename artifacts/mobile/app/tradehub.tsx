@@ -22,15 +22,24 @@ import { useColors } from "@/hooks/useColors";
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-type PostKind = "discussion" | "job_posting" | "resource" | "showcase";
+type PostType = "discussion" | "job" | "showcase";
+
+interface PostAuthor {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
 
 interface TradePost {
   id: number;
-  kind: PostKind;
+  type: PostType;
   title: string;
-  body: string;
-  tags: string[];
-  authorName: string;
+  content: string;
+  trade: string | null;
+  location: string | null;
+  province: string | null;
+  author: PostAuthor | null;
   reactionCount: number;
   commentCount: number;
   hasReacted: boolean;
@@ -38,24 +47,26 @@ interface TradePost {
   isMine?: boolean;
 }
 
-const KIND_LABELS: Record<PostKind, string> = {
+const TYPE_LABELS: Record<PostType, string> = {
   discussion: "Discussion",
-  job_posting: "Job",
-  resource: "Resource",
+  job: "Job",
   showcase: "Showcase",
 };
-const KIND_COLORS: Record<PostKind, string> = {
+const TYPE_COLORS: Record<PostType, string> = {
   discussion: "#3B82F6",
-  job_posting: "#FF6600",
-  resource: "#10B981",
+  job: "#FF6600",
   showcase: "#8B5CF6",
 };
-const KIND_ICONS: Record<PostKind, string> = {
+const TYPE_ICONS: Record<PostType, string> = {
   discussion: "message-circle",
-  job_posting: "briefcase",
-  resource: "book-open",
+  job: "briefcase",
   showcase: "star",
 };
+
+function authorName(author: PostAuthor | null): string {
+  if (!author) return "Unknown";
+  return `${author.firstName ?? ""} ${author.lastName ?? ""}`.trim() || author.email;
+}
 
 function timeAgo(dateStr: string) {
   const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
@@ -71,18 +82,17 @@ export default function TradeHubScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [activeKind, setActiveKind] = useState<PostKind | "all">("all");
+  const [activeType, setActiveType] = useState<PostType | "all">("all");
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newBody, setNewBody] = useState("");
-  const [newKind, setNewKind] = useState<PostKind>("discussion");
-  const [newTags, setNewTags] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [newType, setNewType] = useState<PostType>("discussion");
 
   const { data: posts = [], isLoading, refetch, isRefetching } = useQuery<TradePost[]>({
-    queryKey: ["tradehub-feed-mobile", activeKind],
+    queryKey: ["tradehub-feed-mobile", activeType],
     queryFn: () =>
       customFetch<TradePost[]>(
-        activeKind === "all" ? "/api/tradehub/posts" : `/api/tradehub/posts?kind=${activeKind}`
+        activeType === "all" ? "/api/tradehub/posts" : `/api/tradehub/posts?kind=${activeType}`
       ),
   });
 
@@ -93,7 +103,7 @@ export default function TradeHubScreen() {
   });
 
   const createPost = useMutation({
-    mutationFn: (data: { title: string; body: string; kind: PostKind; tags: string[] }) =>
+    mutationFn: (data: { title: string; content: string; type: PostType }) =>
       customFetch("/api/tradehub/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -103,40 +113,38 @@ export default function TradeHubScreen() {
       queryClient.invalidateQueries({ queryKey: ["tradehub-feed-mobile"] });
       setShowCreate(false);
       setNewTitle("");
-      setNewBody("");
-      setNewTags("");
+      setNewContent("");
+      setNewType("discussion");
     },
     onError: () => Alert.alert("Failed to post", "Please try again."),
   });
 
   function handlePost() {
-    if (!newTitle.trim() || !newBody.trim()) {
+    if (!newTitle.trim() || !newContent.trim()) {
       Alert.alert("Missing fields", "Title and body are required.");
       return;
     }
-    const tags = newTags
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-    createPost.mutate({ title: newTitle.trim(), body: newBody.trim(), kind: newKind, tags });
+    createPost.mutate({ title: newTitle.trim(), content: newContent.trim(), type: newType });
   }
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
-  const kinds: (PostKind | "all")[] = ["all", "discussion", "job_posting", "resource", "showcase"];
+  const types: (PostType | "all")[] = ["all", "discussion", "job", "showcase"];
 
   function renderPost({ item }: { item: TradePost }) {
-    const kindColor = KIND_COLORS[item.kind];
+    const typeColor = TYPE_COLORS[item.type] ?? colors.primary;
+    const typeLabel = TYPE_LABELS[item.type] ?? item.type;
+    const typeIcon = (TYPE_ICONS[item.type] ?? "file-text") as any;
     return (
       <TouchableOpacity
         style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         onPress={() => router.push(`/tradehub/${item.id}` as any)}
         activeOpacity={0.82}
       >
-        {/* Kind badge */}
+        {/* Type badge */}
         <View style={styles.postTop}>
-          <View style={[styles.kindBadge, { backgroundColor: kindColor + "18" }]}>
-            <Feather name={KIND_ICONS[item.kind] as any} size={11} color={kindColor} />
-            <Text style={[styles.kindText, { color: kindColor }]}>{KIND_LABELS[item.kind]}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: typeColor + "18" }]}>
+            <Feather name={typeIcon} size={11} color={typeColor} />
+            <Text style={[styles.typeText, { color: typeColor }]}>{typeLabel}</Text>
           </View>
           <Text style={[styles.timeText, { color: colors.mutedForeground }]}>{timeAgo(item.createdAt)}</Text>
         </View>
@@ -145,23 +153,12 @@ export default function TradeHubScreen() {
           {item.title}
         </Text>
         <Text style={[styles.postBody, { color: colors.mutedForeground }]} numberOfLines={3}>
-          {item.body}
+          {item.content}
         </Text>
-
-        {/* Tags */}
-        {item.tags.length > 0 && (
-          <View style={styles.tagsRow}>
-            {item.tags.slice(0, 4).map((tag) => (
-              <View key={tag} style={[styles.tag, { backgroundColor: colors.muted }]}>
-                <Text style={[styles.tagText, { color: colors.mutedForeground }]}>#{tag}</Text>
-              </View>
-            ))}
-          </View>
-        )}
 
         {/* Footer */}
         <View style={styles.postFooter}>
-          <Text style={[styles.authorText, { color: colors.mutedForeground }]}>{item.authorName}</Text>
+          <Text style={[styles.authorText, { color: colors.mutedForeground }]}>{authorName(item.author)}</Text>
           <View style={styles.postActions}>
             <Pressable
               style={styles.actionBtn}
@@ -207,27 +204,27 @@ export default function TradeHubScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Kind filter */}
+      {/* Type filter */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={[styles.filterRow, { borderBottomColor: colors.border }]}
         contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingVertical: 10 }}
       >
-        {kinds.map((k) => {
-          const isActive = activeKind === k;
-          const label = k === "all" ? "All" : KIND_LABELS[k];
-          const color = k === "all" ? colors.primary : KIND_COLORS[k];
+        {types.map((t) => {
+          const isActive = activeType === t;
+          const label = t === "all" ? "All" : TYPE_LABELS[t];
+          const color = t === "all" ? colors.primary : TYPE_COLORS[t];
           return (
             <TouchableOpacity
-              key={k}
-              onPress={() => setActiveKind(k)}
+              key={t}
+              onPress={() => setActiveType(t)}
               style={[
                 styles.filterChip,
                 { borderColor: isActive ? color : colors.border, backgroundColor: isActive ? color + "15" : colors.card },
               ]}
             >
-              {k !== "all" && <Feather name={KIND_ICONS[k] as any} size={12} color={isActive ? color : colors.mutedForeground} />}
+              {t !== "all" && <Feather name={TYPE_ICONS[t] as any} size={12} color={isActive ? color : colors.mutedForeground} />}
               <Text style={[styles.filterChipText, { color: isActive ? color : colors.mutedForeground }]}>{label}</Text>
             </TouchableOpacity>
           );
@@ -277,27 +274,27 @@ export default function TradeHubScreen() {
             </View>
 
             <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-              {/* Kind picker */}
+              {/* Type picker */}
               <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Type</Text>
-              <View style={styles.kindRow}>
-                {(["discussion", "job_posting", "resource", "showcase"] as PostKind[]).map((k) => (
+              <View style={styles.typeRow}>
+                {(["discussion", "job", "showcase"] as PostType[]).map((t) => (
                   <TouchableOpacity
-                    key={k}
-                    onPress={() => setNewKind(k)}
+                    key={t}
+                    onPress={() => setNewType(t)}
                     style={[
-                      styles.kindChip,
-                      { borderColor: newKind === k ? KIND_COLORS[k] : colors.border, backgroundColor: newKind === k ? KIND_COLORS[k] + "15" : colors.card },
+                      styles.typeChip,
+                      { borderColor: newType === t ? TYPE_COLORS[t] : colors.border, backgroundColor: newType === t ? TYPE_COLORS[t] + "15" : colors.card },
                     ]}
                   >
-                    <Feather name={KIND_ICONS[k] as any} size={12} color={newKind === k ? KIND_COLORS[k] : colors.mutedForeground} />
-                    <Text style={[styles.kindChipText, { color: newKind === k ? KIND_COLORS[k] : colors.mutedForeground }]}>
-                      {KIND_LABELS[k]}
+                    <Feather name={TYPE_ICONS[t] as any} size={12} color={newType === t ? TYPE_COLORS[t] : colors.mutedForeground} />
+                    <Text style={[styles.typeChipText, { color: newType === t ? TYPE_COLORS[t] : colors.mutedForeground }]}>
+                      {TYPE_LABELS[t]}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 16 }]}>Title</Text>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 20 }]}>Title</Text>
               <TextInput
                 style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
                 placeholder="What's this about?"
@@ -307,26 +304,15 @@ export default function TradeHubScreen() {
                 returnKeyType="next"
               />
 
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 16 }]}>Body</Text>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 16 }]}>Details</Text>
               <TextInput
                 style={[styles.textInput, styles.bodyInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
                 placeholder="Share details, ask a question, post a job…"
                 placeholderTextColor={colors.mutedForeground}
-                value={newBody}
-                onChangeText={setNewBody}
+                value={newContent}
+                onChangeText={setNewContent}
                 multiline
                 textAlignVertical="top"
-              />
-
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 16 }]}>Tags (comma-separated)</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-                placeholder="e.g. concrete, toronto, framing"
-                placeholderTextColor={colors.mutedForeground}
-                value={newTags}
-                onChangeText={setNewTags}
-                autoCapitalize="none"
-                returnKeyType="done"
               />
             </ScrollView>
           </View>
@@ -363,14 +349,11 @@ const styles = StyleSheet.create({
   feedContent: { padding: 12, gap: 10 },
   postCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 8 },
   postTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  kindBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  kindText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  typeBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  typeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   timeText: { fontSize: 11, fontFamily: "Inter_400Regular" },
   postTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", lineHeight: 21 },
   postBody: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
-  tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  tagText: { fontSize: 11, fontFamily: "Inter_400Regular" },
   postFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   authorText: { fontSize: 12, fontFamily: "Inter_400Regular" },
   postActions: { flexDirection: "row", gap: 14 },
@@ -393,18 +376,18 @@ const styles = StyleSheet.create({
   postBtn: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   modalScroll: { flex: 1 },
   modalContent: { padding: 20, gap: 4 },
-  fieldLabel: { fontSize: 13, fontFamily: "Inter_500Medium", marginBottom: 6 },
-  kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  kindChip: {
+  fieldLabel: { fontSize: 13, fontFamily: "Inter_500Medium", marginBottom: 8 },
+  typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  typeChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
   },
-  kindChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  typeChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   textInput: {
     borderWidth: 1,
     borderRadius: 10,
@@ -413,5 +396,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_400Regular",
   },
-  bodyInput: { minHeight: 120 },
+  bodyInput: { minHeight: 140 },
 });

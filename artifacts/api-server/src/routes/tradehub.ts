@@ -128,6 +128,33 @@ router.get("/tradehub/feed", requireAuth, async (req, res) => {
 
 // ── POSTS ─────────────────────────────────────────────────────────────────────
 
+// GET /tradehub/posts?kind=&page=
+router.get("/tradehub/posts", requireAuth, async (req, res) => {
+  try {
+    const { kind, page = "1" } = req.query as Record<string, string>;
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limit = 30;
+    const offset = (pageNum - 1) * limit;
+
+    const conditions: any[] = [eq(tradehubPostsTable.visibility, "public")];
+    if (kind && kind !== "all") conditions.push(eq(tradehubPostsTable.type, kind));
+
+    const posts = await db
+      .select()
+      .from(tradehubPostsTable)
+      .where(and(...conditions))
+      .orderBy(desc(tradehubPostsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const enriched = await Promise.all(posts.map((p) => enrichPost(p, req.userId)));
+    res.json(enriched);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/posts GET error");
+    res.status(500).json({ error: "Failed to load posts" });
+  }
+});
+
 // POST /tradehub/posts
 router.post("/tradehub/posts", requireAuth, async (req, res) => {
   try {
