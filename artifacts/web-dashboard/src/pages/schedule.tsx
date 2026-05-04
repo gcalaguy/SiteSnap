@@ -57,7 +57,7 @@ const ROW_PAD = 10;
 const LABEL_W = 224;
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
-  planning:    { label: "Planning",    cls: "bg-slate-100 text-slate-600 border-slate-200" },
+  planning:    { label: "Active",      cls: "bg-green-100 text-green-700 border-green-200" },
   in_progress: { label: "In Progress", cls: "bg-orange-100 text-orange-700 border-orange-200" },
   completed:   { label: "Completed",   cls: "bg-green-100 text-green-700 border-green-200" },
   on_hold:     { label: "On Hold",     cls: "bg-amber-100 text-amber-700 border-amber-200" },

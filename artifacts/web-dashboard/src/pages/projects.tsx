@@ -23,7 +23,7 @@ const projectSchema = z.object({
   address: z.string().min(2, "Address is required"),
   city: z.string().min(2, "City is required"),
   province: z.string().min(2, "Province is required"),
-  status: z.enum(["planning", "active", "on_hold", "completed", "cancelled"]).default("planning"),
+  status: z.enum(["planning", "active", "on_hold", "completed", "cancelled"]).default("active"),
   budget: z.coerce.number().positive("Budget must be positive").optional(),
   description: z.string().optional(),
 });
@@ -43,7 +43,7 @@ export default function Projects() {
       address: "",
       city: "",
       province: "",
-      status: "planning",
+      status: "active",
       budget: undefined,
       description: "",
     },
@@ -79,7 +79,7 @@ export default function Projects() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active": return <Badge variant="default" className="bg-green-600">Active</Badge>;
-      case "planning": return <Badge variant="secondary">Planning</Badge>;
+      case "planning": return <Badge variant="default" className="bg-green-600">Active</Badge>;
       case "on_hold": return <Badge variant="outline" className="text-orange-600 border-orange-600">On Hold</Badge>;
       case "completed": return <Badge variant="default" className="bg-blue-600">Completed</Badge>;
       case "cancelled": return <Badge variant="destructive">Cancelled</Badge>;
@@ -129,7 +129,6 @@ export default function Projects() {
                         <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="planning">Planning</SelectItem>
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="on_hold">On Hold</SelectItem>
                       </SelectContent>

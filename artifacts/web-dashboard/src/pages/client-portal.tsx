@@ -130,7 +130,7 @@ function formatCurrency(amount: string | null) {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
   active: { label: "Active", color: "bg-green-100 text-green-800 border-green-200", icon: CheckCircle2 },
-  planning: { label: "Planning", color: "bg-blue-100 text-blue-800 border-blue-200", icon: Clock },
+  planning: { label: "Active", color: "bg-green-100 text-green-800 border-green-200", icon: CheckCircle2 },
   on_hold: { label: "On Hold", color: "bg-amber-100 text-amber-800 border-amber-200", icon: AlertCircle },
   completed: { label: "Completed", color: "bg-slate-100 text-slate-800 border-slate-200", icon: CheckCircle2 },
   cancelled: { label: "Cancelled", color: "bg-red-100 text-red-800 border-red-200", icon: X },

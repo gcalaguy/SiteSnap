@@ -535,7 +535,7 @@ export default function ProjectDetail() {
     if (!status) return null;
     switch (status) {
       case "active": return <Badge variant="default" className="bg-green-600">Active</Badge>;
-      case "planning": return <Badge variant="secondary">Planning</Badge>;
+      case "planning": return <Badge variant="default" className="bg-green-600">Active</Badge>;
       case "on_hold": return <Badge variant="outline" className="text-orange-600 border-orange-600">On Hold</Badge>;
       case "completed": return <Badge variant="default" className="bg-blue-600">Completed</Badge>;
       case "cancelled": return <Badge variant="destructive">Cancelled</Badge>;

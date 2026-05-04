@@ -265,9 +265,9 @@ export default function DashboardScreen() {
   const firstName = me?.firstName ?? "there";
   const isWorker = me?.role === "worker";
   const allProjects = projects ?? [];
-  const activeProjects = allProjects.filter(p => p.status === "active");
+  const activeProjects = allProjects.filter(p => p.status === "active" || p.status === "planning");
   const completedProjects = allProjects.filter(p => p.status === "completed");
-  // Workers: show all their projects (planning + active + on_hold); owners: show active only
+  // Workers: show all their projects (active + on_hold); owners: show active only
   const topProjects = isWorker ? allProjects.slice(0, 4) : activeProjects.slice(0, 4);
   const memberCount = (members as any[])?.length ?? 0;
 

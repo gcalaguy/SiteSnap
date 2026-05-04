@@ -18,12 +18,14 @@ import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 
 const STATUS_LABELS: Record<string, string> = {
+  planning: "Active",
   active: "Active",
   completed: "Completed",
   on_hold: "On Hold",
 };
 
 const STATUS_COLORS: Record<string, string> = {
+  planning: "#22C55E",
   active: "#22C55E",
   completed: "#6B7280",
   on_hold: "#F59E0B",
@@ -156,7 +158,9 @@ export default function ProjectsScreen() {
 
   const filtered = (projects ?? []).filter(p => {
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.location ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || p.status === statusFilter;
+    const matchStatus = statusFilter === "all"
+      || p.status === statusFilter
+      || (statusFilter === "active" && p.status === "planning");
     return matchSearch && matchStatus;
   });
 
