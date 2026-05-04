@@ -67,8 +67,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays }] : []),
     ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock }] : []),
     ...(isOwnerOrForeman ? [{ name: "Estimates", href: "/estimates", icon: Calculator }] : []),
-    { name: "Team", href: "/team", icon: Users },
-    { name: "Settings", href: "/settings", icon: Settings },
+    ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings }] : []),
   ];
 
   const adminNavigation = [
