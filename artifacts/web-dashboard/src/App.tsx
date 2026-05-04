@@ -31,6 +31,9 @@ import Schedule from "@/pages/schedule";
 import ClientPortal from "@/pages/client-portal";
 import Hours from "@/pages/hours";
 import Estimates from "@/pages/estimates";
+import SafetyPage from "@/pages/safety";
+import SafetySubmitPage from "@/pages/safety-submit";
+import SafetyDetailPage from "@/pages/safety-detail";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 
@@ -225,6 +228,9 @@ function AuthApp() {
           <Route path="/schedule" component={Schedule} />
           <Route path="/hours" component={Hours} />
           <Route path="/estimates" component={Estimates} />
+          <Route path="/safety/submit" component={SafetySubmitPage} />
+          <Route path="/safety/submissions/:id" component={SafetyDetailPage} />
+          <Route path="/safety" component={SafetyPage} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>

@@ -644,6 +644,54 @@ export const subscriptionsTable = pgTable("subscriptions", {
 
 export type Subscription = typeof subscriptionsTable.$inferSelect;
 
+// ── Safety & Incident Management ──────────────────────────────────────────────
+
+export const formTemplatesTable = pgTable("form_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category").notNull(), // safety | injury | hazard | toolbox
+  schema: json("schema").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type FormTemplate = typeof formTemplatesTable.$inferSelect;
+
+export const formSubmissionsTable = pgTable("form_submissions", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => formTemplatesTable.id),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  projectId: integer("project_id"),
+  data: json("data").notNull(),
+  status: text("status").notNull().default("draft"), // draft | submitted | reviewed | approved
+  aiSummary: text("ai_summary"),
+  reviewedByUserId: integer("reviewed_by_user_id").references(() => usersTable.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type FormSubmission = typeof formSubmissionsTable.$inferSelect;
+
+export const submissionPhotosTable = pgTable("submission_photos", {
+  id: serial("id").primaryKey(),
+  submissionId: integer("submission_id").notNull().references(() => formSubmissionsTable.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  filename: text("filename").notNull(),
+  objectPath: text("object_path"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type SubmissionPhoto = typeof submissionPhotosTable.$inferSelect;
+
+export const submissionCommentsTable = pgTable("submission_comments", {
+  id: serial("id").primaryKey(),
+  submissionId: integer("submission_id").notNull().references(() => formSubmissionsTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+  comment: text("comment").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type SubmissionComment = typeof submissionCommentsTable.$inferSelect;
+
 // ── Estimates ─────────────────────────────────────────────────────────────────
 
 export const estimatesTable = pgTable("estimates", {
