@@ -1,7 +1,7 @@
 import { useClerk } from "@clerk/react";
 import { useGetMe } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
-import { LogOut, ShieldAlert, ChevronRight, Home } from "lucide-react";
+import { LogOut, ShieldAlert, ChevronRight, Home, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -43,9 +43,15 @@ export function WorkerLayout({ children, breadcrumbs }: WorkerLayoutProps) {
             </div>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Link href="/tradehub">
+              <button className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-colors font-medium">
+                <Globe className="h-3.5 w-3.5" />
+                TradeHub
+              </button>
+            </Link>
             {user && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ml-1">
                 <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                   {initials}
                 </div>

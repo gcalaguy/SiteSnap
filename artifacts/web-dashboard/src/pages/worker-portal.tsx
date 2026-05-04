@@ -13,6 +13,9 @@ import {
   ChevronRight,
   AlertTriangle,
   Inbox,
+  Globe,
+  Briefcase,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +84,32 @@ export default function WorkerPortalPage() {
           </p>
         </div>
       )}
+
+      {/* TradeHub Quick Access */}
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <Link href="/tradehub/jobs">
+          <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 flex items-center gap-3 cursor-pointer hover:border-primary/30 hover:shadow-md transition-all shadow-sm">
+            <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Briefcase className="h-4 w-4 text-green-700" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-gray-900 leading-tight">Find Jobs</p>
+              <p className="text-xs text-gray-400 mt-0.5">TradeHub board</p>
+            </div>
+          </div>
+        </Link>
+        <Link href="/tradehub/messages">
+          <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 flex items-center gap-3 cursor-pointer hover:border-primary/30 hover:shadow-md transition-all shadow-sm">
+            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+              <MessageCircle className="h-4 w-4 text-blue-700" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-gray-900 leading-tight">Messages</p>
+              <p className="text-xs text-gray-400 mt-0.5">TradeHub DMs</p>
+            </div>
+          </div>
+        </Link>
+      </div>
 
       {/* New Form CTA */}
       <Link href="/worker-portal/submit">
