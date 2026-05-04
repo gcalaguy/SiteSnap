@@ -234,6 +234,7 @@ export default function Schedule() {
   type DragInfo = { id: number; kind: "move" | "resize"; startClientX: number; origStartMs: number; origEndMs: number };
   const dragRef = useRef<DragInfo | null>(null);
   const [dragPreview, setDragPreview] = useState<{ id: number; leftPx: number; widthPx: number; startDate: string; endDate: string } | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
 
   // ── Drag state (Team grid) ────────────────────────────────────────────────
   const teamDragRef = useRef<{ id: number; fromDay: string; startDate: string; endDate: string } | null>(null);
@@ -249,6 +250,7 @@ export default function Schedule() {
       origStartMs: startOfDay(parseISO(bar.startDate)).getTime(),
       origEndMs: startOfDay(parseISO(bar.endDate)).getTime(),
     };
+    setIsDragActive(true);
   }
 
   function handlePointerMove(e: React.PointerEvent) {
@@ -284,6 +286,7 @@ export default function Schedule() {
     }
     dragRef.current = null;
     setDragPreview(null);
+    setIsDragActive(false);
   }
 
   function openDialog(projectId?: string) {
@@ -612,7 +615,7 @@ export default function Schedule() {
                             const displayStart = isDragging ? dragPreview!.startDate : bar.startDate;
                             const displayEnd = isDragging ? dragPreview!.endDate : bar.endDate;
                             return (
-                              <Tooltip key={bar.id} open={isDragging ? false : undefined}>
+                              <Tooltip key={bar.id}>
                                 <TooltipTrigger asChild>
                                   <div
                                     className={`absolute flex items-center gap-1 px-2 rounded-md text-xs font-medium shadow-sm group z-20 overflow-hidden select-none touch-none ${isDragging ? "cursor-grabbing opacity-95 ring-2 ring-white/60 shadow-lg" : "cursor-grab"}`}
@@ -666,15 +669,17 @@ export default function Schedule() {
                                     />
                                   </div>
                                 </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-[220px]">
-                                  <p className="font-semibold text-xs">{name}</p>
-                                  <p className="text-xs text-muted-foreground capitalize">{bar.userRole}</p>
-                                  <p className="text-xs mt-1">
-                                    {format(parseISO(displayStart), "MMM d")} – {format(parseISO(displayEnd), "MMM d, yyyy")}
-                                  </p>
-                                  {bar.notes && <p className="text-xs text-muted-foreground mt-0.5 italic">{bar.notes}</p>}
-                                  {!isDragging && <p className="text-[10px] text-muted-foreground mt-1 opacity-70">Drag to move · drag right edge to resize</p>}
-                                </TooltipContent>
+                                {!isDragActive && (
+                                  <TooltipContent side="top" className="max-w-[220px]">
+                                    <p className="font-semibold text-xs">{name}</p>
+                                    <p className="text-xs text-muted-foreground capitalize">{bar.userRole}</p>
+                                    <p className="text-xs mt-1">
+                                      {format(parseISO(displayStart), "MMM d")} – {format(parseISO(displayEnd), "MMM d, yyyy")}
+                                    </p>
+                                    {bar.notes && <p className="text-xs text-muted-foreground mt-0.5 italic">{bar.notes}</p>}
+                                    <p className="text-[10px] text-muted-foreground mt-1 opacity-70">Drag to move · drag right edge to resize</p>
+                                  </TooltipContent>
+                                )}
                               </Tooltip>
                             );
                           })}
