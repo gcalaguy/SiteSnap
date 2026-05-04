@@ -64,8 +64,8 @@ function MenuItem({ icon, label, value, onPress, danger }: {
       <View style={[styles.menuIcon, { backgroundColor: danger ? "#FEE2E2" : colors.muted }]}>
         <Feather name={icon as any} size={18} color={danger ? colors.destructive : colors.primary} />
       </View>
-      <Text style={[styles.menuLabel, { color: danger ? colors.destructive : colors.foreground }]}>{label}</Text>
-      {!!value && <Text style={[styles.menuValue, { color: colors.mutedForeground }]}>{value}</Text>}
+      <Text style={[styles.menuLabel, { color: danger ? colors.destructive : colors.foreground }]} numberOfLines={1}>{label}</Text>
+      {!!value && <Text style={[styles.menuValue, { color: colors.mutedForeground }]} numberOfLines={1}>{value}</Text>}
       {onPress && !danger && <Feather name="chevron-right" size={16} color={colors.border} />}
     </Pressable>
   );
@@ -420,12 +420,14 @@ export default function ProfileScreen() {
         {/* Tools */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Tools</Text>
-          <MenuItem
-            icon="percent"
-            label="Calculators"
-            value="Concrete · Paint · Lumber & more"
-            onPress={() => router.push("/calculators")}
-          />
+          {!isWorker && (
+            <MenuItem
+              icon="percent"
+              label="Calculators"
+              value="Concrete · Paint · Lumber & more"
+              onPress={() => router.push("/calculators")}
+            />
+          )}
           <MenuItem
             icon="globe"
             label="TradeHub"
@@ -653,8 +655,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuIcon: { width: 36, height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  menuLabel: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium" },
-  menuValue: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  menuLabel: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium", minWidth: 0 },
+  menuValue: { fontSize: 13, fontFamily: "Inter_400Regular", flexShrink: 1, textAlign: "right", maxWidth: "55%" },
   versionText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", paddingTop: 8 },
   referralCard: { borderRadius: 10, borderWidth: 1, padding: 14, gap: 12 },
   referralHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
