@@ -10,6 +10,10 @@ import {
   tasksTable,
   workerSchedulesTable,
   projectMembersTable,
+  quotesTable,
+  invoicesTable,
+  formSubmissionsTable,
+  timesheetsTable,
 } from "@workspace/db";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
@@ -124,6 +128,69 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
     totalBudget,
     totalBudgetAllProjects: totalBudget,
     teamMemberCount: members.length,
+  });
+});
+
+// GET /dashboard/action-counts — badge counts for sidebar nav
+router.get("/dashboard/action-counts", requireAuth, requireCompany, async (req, res) => {
+  const companyId = req.companyId!;
+  const userId = req.userId!;
+  const userRole = req.userRole!;
+  const isWorker = userRole === "worker";
+
+  // Quotes: pending_approval (owner/foreman review needed) + draft (worker's own)
+  const [pendingQuotesResult] = isWorker
+    ? [{ count: 0n }]
+    : await db
+        .select({ count: sql<bigint>`count(*)` })
+        .from(quotesTable)
+        .where(and(eq(quotesTable.companyId, companyId), sql`${quotesTable.status} = 'pending_approval'`));
+
+  const [draftQuotesResult] = await db
+    .select({ count: sql<bigint>`count(*)` })
+    .from(quotesTable)
+    .where(
+      and(
+        eq(quotesTable.companyId, companyId),
+        sql`${quotesTable.status} = 'draft'`,
+        isWorker ? eq(quotesTable.createdByUserId, userId) : sql`1=1`,
+      )
+    );
+
+  // Invoices: draft count
+  const [draftInvoicesResult] = await db
+    .select({ count: sql<bigint>`count(*)` })
+    .from(invoicesTable)
+    .where(
+      and(
+        eq(invoicesTable.companyId, companyId),
+        sql`${invoicesTable.status} = 'draft'`,
+        isWorker ? eq(invoicesTable.createdByUserId, userId) : sql`1=1`,
+      )
+    );
+
+  // Safety: submitted (unreviewed) forms
+  const [submittedFormsResult] = isWorker
+    ? [{ count: 0n }]
+    : await db
+        .select({ count: sql<bigint>`count(*)` })
+        .from(formSubmissionsTable)
+        .where(and(eq(formSubmissionsTable.companyId, companyId), sql`${formSubmissionsTable.status} = 'submitted'`));
+
+  // Hours: submitted timesheets pending review
+  const [pendingTimesheetsResult] = isWorker
+    ? [{ count: 0n }]
+    : await db
+        .select({ count: sql<bigint>`count(*)` })
+        .from(timesheetsTable)
+        .where(and(eq(timesheetsTable.companyId, companyId), sql`${timesheetsTable.status} = 'submitted'`));
+
+  res.json({
+    pendingQuotes: Number(pendingQuotesResult?.count ?? 0),
+    draftQuotes: Number(draftQuotesResult?.count ?? 0),
+    draftInvoices: Number(draftInvoicesResult?.count ?? 0),
+    submittedForms: Number(submittedFormsResult?.count ?? 0),
+    pendingTimesheets: Number(pendingTimesheetsResult?.count ?? 0),
   });
 });
 

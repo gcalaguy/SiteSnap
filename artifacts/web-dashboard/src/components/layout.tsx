@@ -1,9 +1,8 @@
 import { Link, useLocation } from "wouter";
-import { useGetMe } from "@workspace/api-client-react";
+import { useGetMe, customFetch } from "@workspace/api-client-react";
 import {
   LayoutDashboard,
   Building2,
-  Hammer,
   Users,
   Settings,
   LogOut,
@@ -43,8 +42,31 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useQuery } from "@tanstack/react-query";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+interface ActionCounts {
+  pendingQuotes: number;
+  draftQuotes: number;
+  draftInvoices: number;
+  submittedForms: number;
+  pendingTimesheets: number;
+}
+
+function NavBadge({ count, variant = "orange" }: { count: number; variant?: "orange" | "blue" | "red" }) {
+  if (!count) return null;
+  const colors = {
+    orange: "bg-primary text-white",
+    blue: "bg-blue-500 text-white",
+    red: "bg-red-500 text-white",
+  };
+  return (
+    <span className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${colors[variant]}`}>
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -55,25 +77,42 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isOwnerOrForeman = user?.role === "owner" || user?.role === "foreman";
   const isSuperAdmin = (user as any)?.systemRole === "super_admin";
 
+  const { data: counts } = useQuery<ActionCounts>({
+    queryKey: ["dashboard-action-counts"],
+    queryFn: () => customFetch<ActionCounts>("/api/dashboard/action-counts"),
+    refetchInterval: 60_000,
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+
+  // Quotes badge: pending_approval (needs review) + drafts
+  const quotesBadge = (counts?.pendingQuotes ?? 0) + (counts?.draftQuotes ?? 0);
+  // Invoices badge: drafts only
+  const invoicesBadge = counts?.draftInvoices ?? 0;
+  // Safety badge: submitted (unreviewed) forms
+  const safetyBadge = counts?.submittedForms ?? 0;
+  // Hours badge: pending timesheets
+  const hoursBadge = counts?.pendingTimesheets ?? 0;
+
   const navigation = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Projects", href: "/projects", icon: Building2 },
-    { name: "Quotes", href: "/quotes", icon: FileText },
-    { name: "Invoices", href: "/invoices", icon: Receipt },
-    { name: "AI Chat", href: "/ai-chat", icon: Bot },
-    { name: "Safety", href: "/safety", icon: ShieldAlert },
-    ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Estimates", href: "/estimates", icon: Calculator }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings }] : []),
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0, badgeVariant: "orange" as const },
+    { name: "Projects", href: "/projects", icon: Building2, badge: 0, badgeVariant: "orange" as const },
+    { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge, badgeVariant: (counts?.pendingQuotes ?? 0) > 0 ? "orange" as const : "blue" as const },
+    { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge, badgeVariant: "blue" as const },
+    { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, badgeVariant: "orange" as const },
+    { name: "Safety", href: "/safety", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, badgeVariant: "red" as const },
+    ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, badgeVariant: "orange" as const }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, badgeVariant: "orange" as const }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0, badgeVariant: "orange" as const }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, badgeVariant: "orange" as const }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Estimates", href: "/estimates", icon: Calculator, badge: 0, badgeVariant: "orange" as const }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0, badgeVariant: "orange" as const }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0, badgeVariant: "orange" as const }] : []),
   ];
 
   const adminNavigation = [
-    ...(isOwner ? [{ name: "Admin & Billing", href: "/admin", icon: ShieldCheck }] : []),
-    ...(isSuperAdmin ? [{ name: "Super Admin", href: "/super-admin", icon: Crown }] : []),
+    ...(isOwner ? [{ name: "Admin & Billing", href: "/admin", icon: ShieldCheck, badge: 0, badgeVariant: "orange" as const }] : []),
+    ...(isSuperAdmin ? [{ name: "Super Admin", href: "/super-admin", icon: Crown, badge: 0, badgeVariant: "orange" as const }] : []),
   ];
 
   return (
@@ -97,8 +136,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       <SidebarMenuItem key={item.name}>
                         <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
                           <Link href={item.href} className="flex items-center gap-3 font-medium">
-                            <item.icon className="h-5 w-5" />
-                            <span>{item.name}</span>
+                            <item.icon className="h-5 w-5 shrink-0" />
+                            <span className="flex-1 truncate">{item.name}</span>
+                            <NavBadge count={item.badge} variant={item.badgeVariant} />
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -119,8 +159,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         <SidebarMenuItem key={item.name}>
                           <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
                             <Link href={item.href} className="flex items-center gap-3 font-medium">
-                              <item.icon className="h-5 w-5" />
-                              <span>{item.name}</span>
+                              <item.icon className="h-5 w-5 shrink-0" />
+                              <span className="flex-1 truncate">{item.name}</span>
+                              <NavBadge count={item.badge} variant={item.badgeVariant} />
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -145,7 +186,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       {user?.firstName} {user?.lastName}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {user?.company?.name || "No Company"}
+                      {(user as any)?.company?.name || "No Company"}
                     </span>
                   </div>
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
