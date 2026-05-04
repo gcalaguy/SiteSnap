@@ -308,6 +308,54 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {/* Worker: Trade Calculators card */}
+        {isWorker && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Trade Calculators</Text>
+            <TouchableOpacity
+              style={[styles.calcFeatureCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => router.push("/calculators")}
+              activeOpacity={0.8}
+            >
+              {/* Gradient-like top banner */}
+              <View style={[styles.calcFeatureBanner, { backgroundColor: colors.sidebar }]}>
+                <View style={styles.calcFeatureRow}>
+                  <View style={[styles.calcFeatureIconWrap, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+                    <Feather name="percent" size={22} color="#FF6600" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.calcFeatureTitle}>19 Trade Calculators</Text>
+                    <Text style={styles.calcFeatureSubtitle}>Concrete · Framing · Electrical · Plumbing · Roofing · HVAC</Text>
+                  </View>
+                  <View style={[styles.calcFeatureOpenBtn, { backgroundColor: "#FF6600" }]}>
+                    <Feather name="arrow-right" size={14} color="#FFFFFF" />
+                  </View>
+                </View>
+              </View>
+
+              {/* Quick-access category chips */}
+              <View style={styles.calcChipRow}>
+                {[
+                  { label: "Concrete", icon: "grid", color: "#78716C" },
+                  { label: "Electrical", icon: "zap", color: "#F59E0B" },
+                  { label: "Plumbing", icon: "droplet", color: "#3B82F6" },
+                  { label: "Roofing", icon: "home", color: "#EF4444" },
+                ].map((cat) => (
+                  <TouchableOpacity
+                    key={cat.label}
+                    style={[styles.calcChip, { backgroundColor: `${cat.color}14`, borderColor: `${cat.color}30` }]}
+                    onPress={() => router.push("/calculators")}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name={cat.icon as any} size={13} color={cat.color} />
+                    <Text style={[styles.calcChipText, { color: cat.color }]}>{cat.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Quick Create — owners & foremen only */}
         {isOwnerOrForeman && (
           <View style={styles.section}>
@@ -651,6 +699,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   financeLinkText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
+
+  // Worker: Trade Calculators feature card
+  calcFeatureCard: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
+  calcFeatureBanner: { paddingHorizontal: 14, paddingVertical: 14 },
+  calcFeatureRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  calcFeatureIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  calcFeatureTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  calcFeatureSubtitle: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 2 },
+  calcFeatureOpenBtn: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  calcChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 },
+  calcChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  calcChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 
   // Worker tasks
   emptyTasks: { borderRadius: 10, borderWidth: 1, padding: 24, alignItems: "center" },
