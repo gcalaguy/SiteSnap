@@ -7,19 +7,8 @@ import { format } from "date-fns";
 import {
   ArrowLeft, Pencil, Save, Loader2, Globe, Briefcase,
   MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2, MessageCircle, Mic,
-  Calculator, Pin, PinOff, Trash2, ChevronRight, Zap, Droplets, Wind, Home, Layers
 } from "lucide-react";
 import { VoiceRecorder, VoicePlayer } from "@/components/voice-recorder";
-
-const categoryMeta: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
-  Concrete:   { icon: Layers,     color: "text-stone-700",  bg: "bg-stone-100" },
-  Framing:    { icon: Home,       color: "text-amber-700",  bg: "bg-amber-100" },
-  Electrical: { icon: Zap,        color: "text-yellow-700", bg: "bg-yellow-100" },
-  Plumbing:   { icon: Droplets,   color: "text-blue-700",   bg: "bg-blue-100" },
-  Roofing:    { icon: Home,       color: "text-red-700",    bg: "bg-red-100" },
-  HVAC:       { icon: Wind,       color: "text-cyan-700",   bg: "bg-cyan-100" },
-  General:    { icon: Calculator, color: "text-purple-700", bg: "bg-purple-100" },
-};
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,37 +52,10 @@ export default function TradehubProfilePage() {
     enabled: !isMe,
   });
 
-  // Notifications (only for own profile)
   const { data: notifications = [] } = useQuery<any[]>({
     queryKey: ["tradehub-notifications"],
     queryFn: () => customFetch("/api/tradehub/notifications"),
     enabled: isMe,
-  });
-
-  // Saved calculations
-  const profileNumericId = profile?.userId ?? (isMe ? null : parseInt(userId ?? "0"));
-  const { data: savedCalcs = [] } = useQuery<any[]>({
-    queryKey: isMe ? ["tradehub-calcs-me"] : ["tradehub-calcs", userId],
-    queryFn: () =>
-      isMe
-        ? customFetch("/api/tradehub/profile/me/calculations")
-        : customFetch(`/api/tradehub/profile/${userId}/calculations`),
-    enabled: !!profile,
-  });
-
-  const pinCalcMutation = useMutation({
-    mutationFn: (id: number) =>
-      customFetch(`/api/tradehub/profile/calculations/${id}/pin`, { method: "PATCH" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-calcs-me"] }),
-  });
-
-  const deleteCalcMutation = useMutation({
-    mutationFn: (id: number) =>
-      customFetch(`/api/tradehub/profile/calculations/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tradehub-calcs-me"] });
-      toast({ title: "Calculation removed" });
-    },
   });
 
   const markReadMutation = useMutation({
@@ -135,7 +97,6 @@ export default function TradehubProfilePage() {
     );
   }
 
-  // No profile yet — show setup form
   if (!profile && isMe) {
     return (
       <div className="p-6 max-w-lg mx-auto">
@@ -181,7 +142,6 @@ export default function TradehubProfilePage() {
         <div className="lg:col-span-1 space-y-4">
           <Card>
             <CardContent className="pt-6">
-              {/* Avatar */}
               <div className="flex flex-col items-center text-center mb-4">
                 <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl mb-3">
                   {displayData.avatarUrl
@@ -226,7 +186,6 @@ export default function TradehubProfilePage() {
                 </Link>
               )}
 
-              {/* Voice intro — playback for others, recorder for self */}
               {!isMe && displayData.voiceIntroUrl && (
                 <div className="mt-3">
                   <VoicePlayer
@@ -239,7 +198,6 @@ export default function TradehubProfilePage() {
             </CardContent>
           </Card>
 
-          {/* TradeHub Nav */}
           <Card>
             <CardContent className="p-2 space-y-1">
               {[
@@ -257,7 +215,7 @@ export default function TradehubProfilePage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-          {/* Voice Intro — own profile recorder */}
+          {/* Voice Intro */}
           {isMe && (
             <Card>
               <CardHeader>
@@ -294,7 +252,7 @@ export default function TradehubProfilePage() {
             </Card>
           )}
 
-          {/* Notifications (own profile only) */}
+          {/* Notifications */}
           {isMe && notifications.length > 0 && (
             <Card>
               <CardHeader className="flex-row items-center justify-between">
@@ -328,7 +286,7 @@ export default function TradehubProfilePage() {
             </Card>
           )}
 
-          {/* Recent posts (other user's profile) */}
+          {/* Recent posts (other user) */}
           {!isMe && recentPosts.length > 0 && (
             <Card>
               <CardHeader><CardTitle className="text-base">Recent Posts</CardTitle></CardHeader>
@@ -354,87 +312,7 @@ export default function TradehubProfilePage() {
             </Card>
           )}
 
-          {/* Saved Calculations */}
-          {savedCalcs.length > 0 && (
-            <Card>
-              <CardHeader className="flex-row items-center justify-between pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Calculator className="h-4 w-4 text-primary" />
-                  Saved Calculations
-                  <Badge variant="secondary" className="ml-1 text-xs">{savedCalcs.length}</Badge>
-                </CardTitle>
-                {isMe && (
-                  <Link href="/calculators">
-                    <Button variant="ghost" size="sm" className="gap-1 text-xs">
-                      Open Calculator <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {savedCalcs.map((calc: any) => {
-                  const meta = categoryMeta[calc.category] ?? categoryMeta.General;
-                  const Icon = meta.icon;
-                  const highlight = (calc.results as any[]).find((r: any) => r.highlight);
-                  return (
-                    <div
-                      key={calc.id}
-                      className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${
-                        calc.isPinned ? "bg-primary/5 border-primary/20" : "bg-muted/30 border-transparent"
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${meta.bg} ${meta.color}`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium text-sm text-foreground">{calc.calculatorName}</p>
-                          {calc.isPinned && (
-                            <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-0 px-1.5 py-0">pinned</Badge>
-                          )}
-                        </div>
-                        {highlight && (
-                          <p className="text-xs font-semibold text-primary mt-0.5">
-                            {highlight.label}: {highlight.value}
-                          </p>
-                        )}
-                        {calc.aiSummary ? (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{calc.aiSummary}</p>
-                        ) : calc.summary ? (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{calc.summary}</p>
-                        ) : null}
-                        <p className="text-xs text-muted-foreground/70 mt-1">
-                          {format(new Date(calc.createdAt), "MMM d, yyyy")}
-                        </p>
-                      </div>
-                      {isMe && (
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            onClick={() => pinCalcMutation.mutate(calc.id)}
-                            className={`p-1.5 rounded-md transition-colors ${
-                              calc.isPinned ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted"
-                            }`}
-                            title={calc.isPinned ? "Unpin" : "Pin to top"}
-                          >
-                            {calc.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-                          </button>
-                          <button
-                            onClick={() => deleteCalcMutation.mutate(calc.id)}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                            title="Remove"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Empty state for own profile with no posts */}
+          {/* Empty state */}
           {isMe && !editing && (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12 gap-3 text-center">
@@ -456,42 +334,39 @@ export default function TradehubProfilePage() {
 }
 
 function ProfileForm({ form, setForm }: { form: any; setForm: any }) {
-  const TRADES = ["Electrician","Plumber","HVAC","General Contractor","Carpenter","Welder","Roofer","Painter","Mason","Ironworker","Concrete","Landscaping","Other"];
-  const PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
-
   return (
     <>
-      <div>
+      <div className="space-y-1.5">
         <Label>Display Name *</Label>
-        <Input value={form.displayName} onChange={(e) => setForm((f: any) => ({ ...f, displayName: e.target.value }))} placeholder="John Smith" className="mt-1" />
+        <Input value={form.displayName} onChange={(e) => setForm((p: any) => ({ ...p, displayName: e.target.value }))} placeholder="Your name as tradespeople will see it" />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Trade</Label>
+        <Select value={form.trade} onValueChange={(v) => setForm((p: any) => ({ ...p, trade: v }))}>
+          <SelectTrigger><SelectValue placeholder="Select your trade" /></SelectTrigger>
+          <SelectContent>{TRADES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+        </Select>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>Trade</Label>
-          <Select value={form.trade} onValueChange={(v) => setForm((f: any) => ({ ...f, trade: v }))}>
-            <SelectTrigger className="mt-1"><SelectValue placeholder="Select trade" /></SelectTrigger>
-            <SelectContent>{TRADES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-          </Select>
+        <div className="space-y-1.5">
+          <Label>City</Label>
+          <Input value={form.location} onChange={(e) => setForm((p: any) => ({ ...p, location: e.target.value }))} placeholder="e.g. Calgary" />
         </div>
-        <div>
+        <div className="space-y-1.5">
           <Label>Province</Label>
-          <Select value={form.province} onValueChange={(v) => setForm((f: any) => ({ ...f, province: v }))}>
-            <SelectTrigger className="mt-1"><SelectValue placeholder="Select province" /></SelectTrigger>
+          <Select value={form.province} onValueChange={(v) => setForm((p: any) => ({ ...p, province: v }))}>
+            <SelectTrigger><SelectValue placeholder="Prov." /></SelectTrigger>
             <SelectContent>{PROVINCES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </div>
-      <div>
-        <Label>City / Location</Label>
-        <Input value={form.location} onChange={(e) => setForm((f: any) => ({ ...f, location: e.target.value }))} placeholder="Toronto" className="mt-1" />
-      </div>
-      <div>
+      <div className="space-y-1.5">
         <Label>Bio</Label>
-        <Textarea value={form.bio} onChange={(e) => setForm((f: any) => ({ ...f, bio: e.target.value }))} placeholder="Tell the trade community about yourself…" rows={3} className="mt-1" />
+        <Textarea value={form.bio} onChange={(e) => setForm((p: any) => ({ ...p, bio: e.target.value }))} placeholder="A few lines about your experience, specialties, and availability…" rows={3} />
       </div>
-      <div>
-        <Label>Website</Label>
-        <Input value={form.website} onChange={(e) => setForm((f: any) => ({ ...f, website: e.target.value }))} placeholder="https://yourcompany.ca" className="mt-1" />
+      <div className="space-y-1.5">
+        <Label>Website / LinkedIn</Label>
+        <Input value={form.website} onChange={(e) => setForm((p: any) => ({ ...p, website: e.target.value }))} placeholder="https://" />
       </div>
     </>
   );

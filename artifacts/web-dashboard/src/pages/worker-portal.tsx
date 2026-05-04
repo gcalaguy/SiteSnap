@@ -16,10 +16,11 @@ import {
   Globe,
   Briefcase,
   MessageCircle,
+  Calculator,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { WorkerLayout } from "@/components/worker-layout";
+import { WorkerCalculator } from "@/components/worker-calculator";
 
 interface Submission {
   id: number;
@@ -48,6 +49,7 @@ const categoryColor: Record<string, string> = {
 export default function WorkerPortalPage() {
   const { data: me } = useGetMe();
   const [tab, setTab] = useState<"all" | "draft" | "submitted" | "reviewed">("all");
+  const [showCalc, setShowCalc] = useState(false);
 
   const { data: submissions = [], isLoading } = useQuery<Submission[]>({
     queryKey: ["safety-submissions"],
@@ -85,30 +87,55 @@ export default function WorkerPortalPage() {
         </div>
       )}
 
-      {/* TradeHub Quick Access */}
-      <div className="mb-4 grid grid-cols-2 gap-3">
+      {/* Quick Access */}
+      <div className="mb-4 grid grid-cols-3 gap-2.5">
         <Link href="/tradehub/jobs">
-          <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 flex items-center gap-3 cursor-pointer hover:border-primary/30 hover:shadow-md transition-all shadow-sm">
-            <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+          <div className="bg-white border border-gray-100 rounded-2xl px-3 py-3 flex flex-col items-center gap-2 cursor-pointer hover:border-primary/30 hover:shadow-md transition-all shadow-sm">
+            <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center">
               <Briefcase className="h-4 w-4 text-green-700" />
             </div>
-            <div className="min-w-0">
-              <p className="font-semibold text-sm text-gray-900 leading-tight">Find Jobs</p>
-              <p className="text-xs text-gray-400 mt-0.5">TradeHub board</p>
-            </div>
+            <p className="font-semibold text-xs text-gray-900 text-center leading-tight">Find Jobs</p>
           </div>
         </Link>
         <Link href="/tradehub/messages">
-          <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 flex items-center gap-3 cursor-pointer hover:border-primary/30 hover:shadow-md transition-all shadow-sm">
-            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+          <div className="bg-white border border-gray-100 rounded-2xl px-3 py-3 flex flex-col items-center gap-2 cursor-pointer hover:border-primary/30 hover:shadow-md transition-all shadow-sm">
+            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
               <MessageCircle className="h-4 w-4 text-blue-700" />
             </div>
-            <div className="min-w-0">
-              <p className="font-semibold text-sm text-gray-900 leading-tight">Messages</p>
-              <p className="text-xs text-gray-400 mt-0.5">TradeHub DMs</p>
-            </div>
+            <p className="font-semibold text-xs text-gray-900 text-center leading-tight">Messages</p>
           </div>
         </Link>
+        <Link href="/tradehub">
+          <div className="bg-white border border-gray-100 rounded-2xl px-3 py-3 flex flex-col items-center gap-2 cursor-pointer hover:border-primary/30 hover:shadow-md transition-all shadow-sm">
+            <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center">
+              <Globe className="h-4 w-4 text-purple-700" />
+            </div>
+            <p className="font-semibold text-xs text-gray-900 text-center leading-tight">Feed</p>
+          </div>
+        </Link>
+      </div>
+
+      {/* Calculators Section */}
+      <div className="mb-5">
+        <button
+          onClick={() => setShowCalc(!showCalc)}
+          className="w-full bg-white border border-gray-100 rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-sm hover:border-primary/30 hover:shadow-md transition-all"
+        >
+          <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Calculator className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="font-semibold text-sm text-gray-900">Trade Calculators</p>
+            <p className="text-xs text-gray-400 mt-0.5">16 field calculators — concrete, framing, electrical…</p>
+          </div>
+          <ChevronRight className={`h-4 w-4 text-gray-300 transition-transform ${showCalc ? "rotate-90" : ""}`} />
+        </button>
+
+        {showCalc && (
+          <div className="mt-2 bg-gray-50 rounded-2xl border border-gray-100 p-4">
+            <WorkerCalculator />
+          </div>
+        )}
       </div>
 
       {/* New Form CTA */}
