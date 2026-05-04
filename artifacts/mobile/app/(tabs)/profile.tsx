@@ -326,18 +326,18 @@ export default function ProfileScreen() {
 
             {/* Report button */}
             <TouchableOpacity
-              style={[styles.incidentReportBtn, { backgroundColor: colors.sidebar }]}
+              style={[styles.featureBanner, { backgroundColor: colors.sidebar }]}
               onPress={() => router.push("/safety")}
               activeOpacity={0.85}
             >
-              <View style={[styles.incidentIconWrap, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
                 <Feather name="alert-triangle" size={22} color="#FF6600" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.incidentBtnTitle}>Report an Incident</Text>
-                <Text style={styles.incidentBtnSub}>Injury · Hazard · Safety Check · Toolbox</Text>
+                <Text style={styles.featureBannerTitle}>Report an Incident</Text>
+                <Text style={styles.featureBannerSub}>Injury · Hazard · Safety Check · Toolbox</Text>
               </View>
-              <View style={[styles.incidentArrow, { backgroundColor: "#FF6600" }]}>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
                 <Feather name="arrow-right" size={14} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
@@ -395,47 +395,44 @@ export default function ProfileScreen() {
         {isWorker && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Trade Calculators</Text>
-            <TouchableOpacity
-              style={[styles.calcFeatureCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => router.push("/calculators")}
-              activeOpacity={0.8}
-            >
-              {/* Gradient-like top banner */}
-              <View style={[styles.calcFeatureBanner, { backgroundColor: colors.sidebar }]}>
-                <View style={styles.calcFeatureRow}>
-                  <View style={[styles.calcFeatureIconWrap, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                    <Feather name="percent" size={22} color="#FF6600" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.calcFeatureTitle}>19 Trade Calculators</Text>
-                    <Text style={styles.calcFeatureSubtitle}>Concrete · Framing · Electrical · Plumbing · Roofing · HVAC</Text>
-                  </View>
-                  <View style={[styles.calcFeatureOpenBtn, { backgroundColor: "#FF6600" }]}>
-                    <Feather name="arrow-right" size={14} color="#FFFFFF" />
-                  </View>
-                </View>
-              </View>
 
-              {/* Quick-access category chips */}
-              <View style={styles.calcChipRow}>
-                {[
-                  { label: "Concrete", icon: "grid", color: "#78716C" },
-                  { label: "Electrical", icon: "zap", color: "#F59E0B" },
-                  { label: "Plumbing", icon: "droplet", color: "#3B82F6" },
-                  { label: "Roofing", icon: "home", color: "#EF4444" },
-                ].map((cat) => (
-                  <TouchableOpacity
-                    key={cat.label}
-                    style={[styles.calcChip, { backgroundColor: `${cat.color}14`, borderColor: `${cat.color}30` }]}
-                    onPress={() => router.push("/calculators")}
-                    activeOpacity={0.7}
-                  >
-                    <Feather name={cat.icon as any} size={13} color={cat.color} />
-                    <Text style={[styles.calcChipText, { color: cat.color }]}>{cat.label}</Text>
-                  </TouchableOpacity>
-                ))}
+            {/* Main banner button */}
+            <TouchableOpacity
+              style={[styles.featureBanner, { backgroundColor: colors.sidebar, marginBottom: 8 }]}
+              onPress={() => router.push("/calculators")}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+                <Feather name="percent" size={22} color="#FF6600" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.featureBannerTitle}>19 Trade Calculators</Text>
+                <Text style={styles.featureBannerSub}>Concrete · Framing · Electrical · Plumbing · Roofing · HVAC</Text>
+              </View>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+                <Feather name="arrow-right" size={14} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
+
+            {/* Quick-access category chips */}
+            <View style={[styles.calcChipRow, { backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border }]}>
+              {[
+                { label: "Concrete", icon: "grid", color: "#78716C" },
+                { label: "Electrical", icon: "zap", color: "#F59E0B" },
+                { label: "Plumbing", icon: "droplet", color: "#3B82F6" },
+                { label: "Roofing", icon: "home", color: "#EF4444" },
+              ].map((cat) => (
+                <TouchableOpacity
+                  key={cat.label}
+                  style={[styles.calcChip, { backgroundColor: `${cat.color}14`, borderColor: `${cat.color}30` }]}
+                  onPress={() => router.push("/calculators")}
+                  activeOpacity={0.7}
+                >
+                  <Feather name={cat.icon as any} size={13} color={cat.color} />
+                  <Text style={[styles.calcChipText, { color: cat.color }]}>{cat.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
 
@@ -443,59 +440,59 @@ export default function ProfileScreen() {
         {isOwnerOrForeman && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Quick Create</Text>
-            <Text style={[styles.sectionDesc, { color: colors.mutedForeground }]}>
-              Describe the job by voice — AI fills materials & pricing instantly.
-            </Text>
 
-            <View style={styles.quickRow}>
-              {/* Voice Quote */}
-              <TouchableOpacity
-                style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => openVoiceModal("quote")}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.quickIcon, { backgroundColor: `${colors.primary}18` }]}>
-                  <Feather name="file-text" size={22} color={colors.primary} />
-                </View>
-                <Text style={[styles.quickLabel, { color: colors.foreground }]}>Voice Quote</Text>
-                <Text style={[styles.quickDesc, { color: colors.mutedForeground }]}>
-                  Record on-site, AI fills pricing
-                </Text>
-                <View style={[styles.quickBtn, { backgroundColor: colors.primary }]}>
-                  <Feather name="mic" size={14} color="#FFFFFF" />
-                  <Text style={styles.quickBtnText}>Start</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Voice Invoice */}
-              <TouchableOpacity
-                style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => openVoiceModal("invoice")}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.quickIcon, { backgroundColor: "#3B82F618" }]}>
-                  <Feather name="dollar-sign" size={22} color="#3B82F6" />
-                </View>
-                <Text style={[styles.quickLabel, { color: colors.foreground }]}>Voice Invoice</Text>
-                <Text style={[styles.quickDesc, { color: colors.mutedForeground }]}>
-                  Speak it, send it, get paid
-                </Text>
-                <View style={[styles.quickBtn, { backgroundColor: "#3B82F6" }]}>
-                  <Feather name="mic" size={14} color="#FFFFFF" />
-                  <Text style={styles.quickBtnText}>Start</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Finance hub link */}
+            {/* Voice Quote banner */}
             <TouchableOpacity
-              style={[styles.financeLink, { backgroundColor: colors.muted, borderColor: colors.border }]}
-              onPress={() => router.push("/finance")}
-              activeOpacity={0.7}
+              style={[styles.featureBanner, { backgroundColor: colors.sidebar, marginBottom: 8 }]}
+              onPress={() => openVoiceModal("quote")}
+              activeOpacity={0.85}
             >
-              <Feather name="trending-up" size={16} color={colors.primary} />
-              <Text style={[styles.financeLinkText, { color: colors.foreground }]}>View all Invoices & Quotes</Text>
-              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+                <Feather name="file-text" size={22} color="#FF6600" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.featureBannerTitle}>Voice Quote</Text>
+                <Text style={styles.featureBannerSub}>Record on-site · AI fills pricing instantly</Text>
+              </View>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+                <Feather name="mic" size={14} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+
+            {/* Voice Invoice banner */}
+            <TouchableOpacity
+              style={[styles.featureBanner, { backgroundColor: colors.sidebar, marginBottom: 8 }]}
+              onPress={() => openVoiceModal("invoice")}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+                <Feather name="dollar-sign" size={22} color="#FF6600" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.featureBannerTitle}>Voice Invoice</Text>
+                <Text style={styles.featureBannerSub}>Speak it · AI builds it · Send & get paid</Text>
+              </View>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+                <Feather name="mic" size={14} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+
+            {/* Finance hub banner */}
+            <TouchableOpacity
+              style={[styles.featureBanner, { backgroundColor: colors.sidebar }]}
+              onPress={() => router.push("/finance")}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+                <Feather name="trending-up" size={22} color="#FF6600" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.featureBannerTitle}>Invoices & Quotes</Text>
+                <Text style={styles.featureBannerSub}>View, manage & send all documents</Text>
+              </View>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+                <Feather name="arrow-right" size={14} color="#FFFFFF" />
+              </View>
             </TouchableOpacity>
           </View>
         )}
@@ -504,19 +501,39 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Tools</Text>
           {!isWorker && (
-            <MenuItem
-              icon="percent"
-              label="Calculators"
-              value="Concrete · Paint · Lumber & more"
+            <TouchableOpacity
+              style={[styles.featureBanner, { backgroundColor: colors.sidebar, marginBottom: 8 }]}
               onPress={() => router.push("/calculators")}
-            />
+              activeOpacity={0.85}
+            >
+              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+                <Feather name="percent" size={22} color="#FF6600" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.featureBannerTitle}>Trade Calculators</Text>
+                <Text style={styles.featureBannerSub}>Concrete · Electrical · Plumbing · Roofing</Text>
+              </View>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+                <Feather name="arrow-right" size={14} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
           )}
-          <MenuItem
-            icon="globe"
-            label="TradeHub"
-            value="Canadian Trades Community"
+          <TouchableOpacity
+            style={[styles.featureBanner, { backgroundColor: colors.sidebar }]}
             onPress={() => router.push("/tradehub")}
-          />
+            activeOpacity={0.85}
+          >
+            <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+              <Feather name="globe" size={22} color="#FF6600" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.featureBannerTitle}>TradeHub</Text>
+              <Text style={styles.featureBannerSub}>Canadian Trades Community</Text>
+            </View>
+            <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+              <Feather name="arrow-right" size={14} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Account */}
@@ -784,6 +801,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   financeLinkText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
+
+  // Shared: Feature banner (dark sidebar + orange icon + orange arrow)
+  featureBanner: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14 },
+  featureBannerIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  featureBannerTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  featureBannerSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 2 },
+  featureBannerArrow: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
 
   // Worker: Incident reporting
   incidentReportBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14 },
