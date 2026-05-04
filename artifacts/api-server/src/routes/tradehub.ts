@@ -15,6 +15,7 @@ import {
   tradehubConversationsTable,
   tradehubConversationParticipantsTable,
   tradehubMessagesTable,
+  tradehubSavedCalculationsTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { logger } from "../lib/logger";
@@ -594,6 +595,112 @@ router.get("/tradehub/my-applications", requireAuth, async (req, res) => {
     res.json(apps.map((a) => ({ ...a, post: postMap[a.postId] ?? null })));
   } catch (err: any) {
     res.status(500).json({ error: "Failed to load applications" });
+  }
+});
+
+// ── SAVED CALCULATIONS ────────────────────────────────────────────────────────
+
+// POST /tradehub/profile/calculations — save a calculation to own profile
+router.post("/tradehub/profile/calculations", requireAuth, async (req, res) => {
+  try {
+    const { calculatorId, calculatorName, category, inputs, results, summary, aiSummary } = req.body;
+    if (!calculatorId || !calculatorName || !category) {
+      res.status(400).json({ error: "calculatorId, calculatorName, category required" });
+      return;
+    }
+    // Cap at 20 saved calculations per user — delete oldest if needed
+    const existing = await db
+      .select({ id: tradehubSavedCalculationsTable.id })
+      .from(tradehubSavedCalculationsTable)
+      .where(eq(tradehubSavedCalculationsTable.userId, req.userId!))
+      .orderBy(desc(tradehubSavedCalculationsTable.createdAt));
+    if (existing.length >= 20) {
+      const toDelete = existing.slice(19).map((r) => r.id);
+      for (const id of toDelete) {
+        await db.delete(tradehubSavedCalculationsTable).where(eq(tradehubSavedCalculationsTable.id, id));
+      }
+    }
+    const [saved] = await db.insert(tradehubSavedCalculationsTable).values({
+      userId: req.userId!,
+      calculatorId,
+      calculatorName,
+      category,
+      inputs: inputs ?? {},
+      results: results ?? [],
+      summary: summary ?? "",
+      aiSummary: aiSummary ?? null,
+      isPinned: false,
+    }).returning();
+    res.json(saved);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/calculations POST error");
+    res.status(500).json({ error: "Failed to save calculation" });
+  }
+});
+
+// GET /tradehub/profile/me/calculations — own saved calculations
+router.get("/tradehub/profile/me/calculations", requireAuth, async (req, res) => {
+  try {
+    const calcs = await db
+      .select()
+      .from(tradehubSavedCalculationsTable)
+      .where(eq(tradehubSavedCalculationsTable.userId, req.userId!))
+      .orderBy(desc(tradehubSavedCalculationsTable.isPinned), desc(tradehubSavedCalculationsTable.createdAt));
+    res.json(calcs);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/me/calculations GET error");
+    res.status(500).json({ error: "Failed to fetch calculations" });
+  }
+});
+
+// GET /tradehub/profile/:userId/calculations — public calculations for another user
+router.get("/tradehub/profile/:userId/calculations", requireAuth, async (req, res) => {
+  try {
+    const profileUserId = parseInt(req.params.userId);
+    if (isNaN(profileUserId)) { res.status(400).json({ error: "Invalid userId" }); return; }
+    const calcs = await db
+      .select()
+      .from(tradehubSavedCalculationsTable)
+      .where(eq(tradehubSavedCalculationsTable.userId, profileUserId))
+      .orderBy(desc(tradehubSavedCalculationsTable.isPinned), desc(tradehubSavedCalculationsTable.createdAt))
+      .limit(10);
+    res.json(calcs);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/:userId/calculations GET error");
+    res.status(500).json({ error: "Failed to fetch calculations" });
+  }
+});
+
+// PATCH /tradehub/profile/calculations/:id/pin — toggle pin
+router.patch("/tradehub/profile/calculations/:id/pin", requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    const [calc] = await db.select().from(tradehubSavedCalculationsTable)
+      .where(and(eq(tradehubSavedCalculationsTable.id, id), eq(tradehubSavedCalculationsTable.userId, req.userId!)));
+    if (!calc) { res.status(404).json({ error: "Not found" }); return; }
+    const [updated] = await db.update(tradehubSavedCalculationsTable)
+      .set({ isPinned: !calc.isPinned })
+      .where(eq(tradehubSavedCalculationsTable.id, id))
+      .returning();
+    res.json(updated);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/calculations PATCH pin error");
+    res.status(500).json({ error: "Failed to toggle pin" });
+  }
+});
+
+// DELETE /tradehub/profile/calculations/:id
+router.delete("/tradehub/profile/calculations/:id", requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    await db.delete(tradehubSavedCalculationsTable)
+      .where(and(eq(tradehubSavedCalculationsTable.id, id), eq(tradehubSavedCalculationsTable.userId, req.userId!)));
+    res.json({ success: true });
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/calculations DELETE error");
+    res.status(500).json({ error: "Failed to delete calculation" });
   }
 });
 

@@ -8,6 +8,7 @@ import {
   date,
   pgEnum,
   json,
+  jsonb,
   boolean,
   unique,
   primaryKey,
@@ -732,6 +733,21 @@ export const tradehubProfilesTable = pgTable("tradehub_profiles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type TradehubProfile = typeof tradehubProfilesTable.$inferSelect;
+
+export const tradehubSavedCalculationsTable = pgTable("tradehub_saved_calculations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  calculatorId: text("calculator_id").notNull(),
+  calculatorName: text("calculator_name").notNull(),
+  category: text("category").notNull(),
+  inputs: jsonb("inputs").notNull().default({}),
+  results: jsonb("results").notNull().default([]),
+  summary: text("summary").notNull().default(""),
+  aiSummary: text("ai_summary"),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type TradehubSavedCalculation = typeof tradehubSavedCalculationsTable.$inferSelect;
 
 export const tradehubPostsTable = pgTable("tradehub_posts", {
   id: serial("id").primaryKey(),

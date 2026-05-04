@@ -2,7 +2,8 @@ import { useState, useCallback } from "react";
 import { Link } from "wouter";
 import {
   Calculator, Zap, Droplets, Wind, Home, Wrench, Layers,
-  ChevronRight, Star, Clock, ArrowLeft, Info, RotateCcw, Sparkles, Loader2, Mic
+  ChevronRight, Star, Clock, ArrowLeft, Info, RotateCcw, Sparkles, Loader2, Mic,
+  BookmarkPlus, CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -575,6 +576,8 @@ export default function CalculatorsPage() {
   const [showSteps, setShowSteps] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [recent, setRecent] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("calc-recent") ?? "[]"); } catch { return []; }
   });
@@ -587,6 +590,32 @@ export default function CalculatorsPage() {
   const recentCalcs = recent.map((id) => CALCULATORS.find((c) => c.id === id)).filter(Boolean) as Calculator[];
   const favCalcs = favorites.map((id) => CALCULATORS.find((c) => c.id === id)).filter(Boolean) as Calculator[];
 
+  const saveToProfile = async () => {
+    if (!activeCalc || !result) return;
+    setSaving(true);
+    try {
+      await customFetch("/api/tradehub/profile/calculations", {
+        method: "POST",
+        body: JSON.stringify({
+          calculatorId: activeCalc.id,
+          calculatorName: activeCalc.name,
+          category: activeCalc.category,
+          inputs,
+          results: result.results,
+          summary: result.summary,
+          aiSummary: aiSummary ?? null,
+        }),
+      });
+      setSaved(true);
+      toast({ title: "Saved to your TradeHub profile!" });
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      toast({ title: "Error", description: "Could not save to profile", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openCalc = useCallback((calc: Calculator) => {
     setActiveCalc(calc);
     const defaults: Record<string, string> = {};
@@ -597,6 +626,7 @@ export default function CalculatorsPage() {
     setResult(null);
     setShowSteps(false);
     setAiSummary(null);
+    setSaved(false);
     const updated = [calc.id, ...recent.filter((r) => r !== calc.id)].slice(0, 5);
     setRecent(updated);
     localStorage.setItem("calc-recent", JSON.stringify(updated));
@@ -710,8 +740,23 @@ export default function CalculatorsPage() {
         {result && (
           <div className="space-y-4">
             <Card className="border-primary/20 bg-primary/3">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 flex-row items-center justify-between">
                 <CardTitle className="text-base">Results</CardTitle>
+                <Button
+                  size="sm"
+                  variant={saved ? "secondary" : "outline"}
+                  onClick={saveToProfile}
+                  disabled={saving || saved}
+                  className="gap-1.5 h-8 text-xs"
+                >
+                  {saving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : saved ? (
+                    <><CheckCircle2 className="h-3.5 w-3.5 text-green-600" />Saved!</>
+                  ) : (
+                    <><BookmarkPlus className="h-3.5 w-3.5" />Save to Profile</>
+                  )}
+                </Button>
               </CardHeader>
               <CardContent className="space-y-2">
                 {result.results.map((r, i) => (

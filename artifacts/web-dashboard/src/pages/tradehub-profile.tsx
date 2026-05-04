@@ -6,9 +6,20 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
   ArrowLeft, Pencil, Save, Loader2, Globe, Briefcase,
-  MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2, MessageCircle, Mic
+  MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2, MessageCircle, Mic,
+  Calculator, Pin, PinOff, Trash2, ChevronRight, Zap, Droplets, Wind, Home, Layers
 } from "lucide-react";
 import { VoiceRecorder, VoicePlayer } from "@/components/voice-recorder";
+
+const categoryMeta: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
+  Concrete:   { icon: Layers,     color: "text-stone-700",  bg: "bg-stone-100" },
+  Framing:    { icon: Home,       color: "text-amber-700",  bg: "bg-amber-100" },
+  Electrical: { icon: Zap,        color: "text-yellow-700", bg: "bg-yellow-100" },
+  Plumbing:   { icon: Droplets,   color: "text-blue-700",   bg: "bg-blue-100" },
+  Roofing:    { icon: Home,       color: "text-red-700",    bg: "bg-red-100" },
+  HVAC:       { icon: Wind,       color: "text-cyan-700",   bg: "bg-cyan-100" },
+  General:    { icon: Calculator, color: "text-purple-700", bg: "bg-purple-100" },
+};
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,6 +68,32 @@ export default function TradehubProfilePage() {
     queryKey: ["tradehub-notifications"],
     queryFn: () => customFetch("/api/tradehub/notifications"),
     enabled: isMe,
+  });
+
+  // Saved calculations
+  const profileNumericId = profile?.userId ?? (isMe ? null : parseInt(userId ?? "0"));
+  const { data: savedCalcs = [] } = useQuery<any[]>({
+    queryKey: isMe ? ["tradehub-calcs-me"] : ["tradehub-calcs", userId],
+    queryFn: () =>
+      isMe
+        ? customFetch("/api/tradehub/profile/me/calculations")
+        : customFetch(`/api/tradehub/profile/${userId}/calculations`),
+    enabled: !!profile,
+  });
+
+  const pinCalcMutation = useMutation({
+    mutationFn: (id: number) =>
+      customFetch(`/api/tradehub/profile/calculations/${id}/pin`, { method: "PATCH" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-calcs-me"] }),
+  });
+
+  const deleteCalcMutation = useMutation({
+    mutationFn: (id: number) =>
+      customFetch(`/api/tradehub/profile/calculations/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tradehub-calcs-me"] });
+      toast({ title: "Calculation removed" });
+    },
   });
 
   const markReadMutation = useMutation({
@@ -311,6 +348,86 @@ export default function TradehubProfilePage() {
                         </div>
                       </div>
                     </Link>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Saved Calculations */}
+          {savedCalcs.length > 0 && (
+            <Card>
+              <CardHeader className="flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calculator className="h-4 w-4 text-primary" />
+                  Saved Calculations
+                  <Badge variant="secondary" className="ml-1 text-xs">{savedCalcs.length}</Badge>
+                </CardTitle>
+                {isMe && (
+                  <Link href="/calculators">
+                    <Button variant="ghost" size="sm" className="gap-1 text-xs">
+                      Open Calculator <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {savedCalcs.map((calc: any) => {
+                  const meta = categoryMeta[calc.category] ?? categoryMeta.General;
+                  const Icon = meta.icon;
+                  const highlight = (calc.results as any[]).find((r: any) => r.highlight);
+                  return (
+                    <div
+                      key={calc.id}
+                      className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${
+                        calc.isPinned ? "bg-primary/5 border-primary/20" : "bg-muted/30 border-transparent"
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${meta.bg} ${meta.color}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-sm text-foreground">{calc.calculatorName}</p>
+                          {calc.isPinned && (
+                            <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-0 px-1.5 py-0">pinned</Badge>
+                          )}
+                        </div>
+                        {highlight && (
+                          <p className="text-xs font-semibold text-primary mt-0.5">
+                            {highlight.label}: {highlight.value}
+                          </p>
+                        )}
+                        {calc.aiSummary ? (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{calc.aiSummary}</p>
+                        ) : calc.summary ? (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{calc.summary}</p>
+                        ) : null}
+                        <p className="text-xs text-muted-foreground/70 mt-1">
+                          {format(new Date(calc.createdAt), "MMM d, yyyy")}
+                        </p>
+                      </div>
+                      {isMe && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => pinCalcMutation.mutate(calc.id)}
+                            className={`p-1.5 rounded-md transition-colors ${
+                              calc.isPinned ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted"
+                            }`}
+                            title={calc.isPinned ? "Unpin" : "Pin to top"}
+                          >
+                            {calc.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => deleteCalcMutation.mutate(calc.id)}
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            title="Remove"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </CardContent>
