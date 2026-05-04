@@ -328,6 +328,27 @@ router.post("/invoices/:invoiceId/send-reminder", requireAuth, requireCompany, a
   }
 });
 
+// DELETE /invoices/:invoiceId — only draft invoices; workers may only delete their own
+router.delete("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res) => {
+  const invoiceId = parseInt(req.params.invoiceId);
+  const [existing] = await db
+    .select()
+    .from(invoicesTable)
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!existing) { res.status(404).json({ error: "Invoice not found" }); return; }
+  if (existing.status !== "draft") {
+    res.status(409).json({ error: "Only draft invoices can be deleted" });
+    return;
+  }
+  if (req.userRole === "worker" && existing.createdByUserId !== req.userId) {
+    res.status(403).json({ error: "You can only delete invoices you created" });
+    return;
+  }
+  await db.delete(invoicesTable).where(eq(invoicesTable.id, invoiceId));
+  res.status(204).end();
+});
+
 // POST /invoices/:invoiceId/mark-paid
 router.post("/invoices/:invoiceId/mark-paid", requireAuth, requireCompany, async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId);

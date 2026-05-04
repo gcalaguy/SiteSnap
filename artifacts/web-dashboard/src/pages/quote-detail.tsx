@@ -3,9 +3,11 @@ import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   useUpdateQuote,
+  useDeleteQuote,
   useSubmitQuoteForApproval,
   useConvertQuoteToInvoice,
   useGenerateQuoteAI,
+  useGetMe,
   getListAllQuotesQueryKey,
   customFetch,
   type Quote,
@@ -118,6 +120,9 @@ export default function QuoteDetail() {
   const convertQuote = useConvertQuoteToInvoice();
   const generateAI = useGenerateQuoteAI();
 
+  const { data: me } = useGetMe();
+  const deleteQuote = useDeleteQuote();
+
   const [voiceText, setVoiceText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [lineItems, setLineItems] = useState<LineItem[] | null>(null);
@@ -143,6 +148,18 @@ export default function QuoteDetail() {
   const { subtotal, taxAmount, total } = calcTotals(effectiveItems, taxRate);
 
   const isEditable = quote?.status === "draft" || quote?.status === "rejected";
+  const canDelete = isEditable && (me?.role !== "worker" || quote?.createdByUserId === me?.id);
+
+  async function handleDelete() {
+    try {
+      await deleteQuote.mutateAsync({ projectId: realProjectId, quoteId });
+      queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
+      toast({ title: "Quote deleted" });
+      setLocation("/quotes");
+    } catch {
+      toast({ title: "Failed to delete quote", variant: "destructive" });
+    }
+  }
 
   async function handleAIFill() {
     if (!voiceText.trim()) { toast({ title: "Enter a job description first", variant: "destructive" }); return; }
@@ -471,6 +488,32 @@ export default function QuoteDetail() {
               <CheckCircle className="h-4 w-4" />
               Invoiced
             </div>
+          )}
+
+          {/* Delete (draft/rejected only; workers only see if they created it) */}
+          {canDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive" disabled={deleteQuote.isPending}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this quote?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete quote {quote.quoteNumber}. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDelete}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       </div>

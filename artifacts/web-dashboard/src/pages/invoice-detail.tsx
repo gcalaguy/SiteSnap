@@ -1,8 +1,12 @@
+import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { useGetInvoice, useMarkInvoiceSent, useMarkInvoicePaid, useGetMe, useSendInvoiceEmail, useSendInvoiceReminder } from "@workspace/api-client-react";
+import { useGetInvoice, useMarkInvoiceSent, useMarkInvoicePaid, useGetMe, useSendInvoiceEmail, useSendInvoiceReminder, useUpdateInvoice, customFetch } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -17,13 +21,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2, Bell, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2, Bell, FileSpreadsheet, Plus, Trash2, Save } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetInvoiceQueryKey, getListAllInvoicesQueryKey } from "@workspace/api-client-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -70,9 +76,16 @@ interface Invoice {
   reminderSentAt?: string | null;
   createdAt: string;
   lineItems?: unknown;
+  createdByUserId?: number;
 }
 
-// Shared PDF builder — returns a jsPDF instance without saving
+function calcTotals(items: LineItem[], taxRate = 0.13) {
+  const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
+  return { subtotal, taxAmount, total: subtotal + taxAmount };
+}
+
+// Shared PDF builder
 function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: string): jsPDF {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
 
@@ -242,7 +255,6 @@ function downloadInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName
 }
 
 function buildPdfBase64(invoice: Invoice, lineItems: LineItem[], companyName: string): string {
-  // output("datauristring") returns "data:application/pdf;base64,<b64>" — strip the prefix
   const dataUri = buildPdfDoc(invoice, lineItems, companyName).output("datauristring");
   return dataUri.split(",")[1] ?? dataUri;
 }
@@ -260,6 +272,14 @@ export default function InvoiceDetail() {
   const markPaid = useMarkInvoicePaid();
   const sendEmail = useSendInvoiceEmail();
   const sendReminder = useSendInvoiceReminder();
+  const updateInvoice = useUpdateInvoice();
+
+  // Edit state
+  const [editedItems, setEditedItems] = useState<LineItem[] | null>(null);
+  const [editedTitle, setEditedTitle] = useState<string | null>(null);
+  const [editedNotes, setEditedNotes] = useState<string | null>(null);
+  const [editedDueDate, setEditedDueDate] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   function getCompanyName() {
     return (me as (typeof me & { company?: { name?: string } }) | undefined)?.company?.name ?? "Site Snap";
@@ -268,6 +288,80 @@ export default function InvoiceDetail() {
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoiceId) });
     queryClient.invalidateQueries({ queryKey: getListAllInvoicesQueryKey({}) });
+  }
+
+  // Permission logic
+  const isWorker = me?.role === "worker";
+  const invoiceAny = invoice as (Invoice & { createdByUserId?: number }) | undefined;
+  const isCreator = invoiceAny?.createdByUserId === me?.id;
+  const canEdit = invoice?.status === "draft" && (!isWorker || isCreator);
+  const canDelete = invoice?.status === "draft" && (!isWorker || isCreator);
+
+  // Effective values (edited or from server)
+  const effectiveItems: LineItem[] = editedItems ?? ((invoice?.lineItems ?? []) as LineItem[]);
+  const effectiveTitle = editedTitle ?? invoice?.title ?? "";
+  const effectiveNotes = editedNotes ?? invoice?.notes ?? "";
+  const effectiveDueDate = editedDueDate ?? invoice?.dueDate ?? "";
+  const taxRate = parseFloat(invoice?.taxRate ?? "0.13");
+  const { subtotal, taxAmount, total } = calcTotals(effectiveItems, taxRate);
+  const hasUnsavedChanges = editedItems !== null || editedTitle !== null || editedNotes !== null || editedDueDate !== null;
+
+  function updateItem(idx: number, field: keyof LineItem, value: string | number) {
+    const items = effectiveItems.map((item, i) => {
+      if (i !== idx) return item;
+      const updated = { ...item, [field]: value };
+      updated.total = Math.round(updated.quantity * updated.unitPrice * 100) / 100;
+      return updated;
+    });
+    setEditedItems(items);
+  }
+
+  function addItem() {
+    setEditedItems([...effectiveItems, { description: "", quantity: 1, unit: "ea", unitPrice: 0, total: 0 }]);
+  }
+
+  function removeItem(idx: number) {
+    setEditedItems(effectiveItems.filter((_, i) => i !== idx));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await updateInvoice.mutateAsync({
+        invoiceId,
+        data: {
+          title: effectiveTitle || undefined,
+          notes: effectiveNotes || undefined,
+          dueDate: effectiveDueDate || undefined,
+          lineItems: effectiveItems,
+          subtotal,
+          taxRate,
+          taxAmount,
+          total,
+        },
+      });
+      setEditedItems(null);
+      setEditedTitle(null);
+      setEditedNotes(null);
+      setEditedDueDate(null);
+      toast({ title: "Invoice saved" });
+      invalidate();
+    } catch {
+      toast({ title: "Failed to save invoice", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    try {
+      await customFetch(`${BASE}/api/invoices/${invoiceId}`, { method: "DELETE" });
+      queryClient.invalidateQueries({ queryKey: getListAllInvoicesQueryKey({}) });
+      toast({ title: "Invoice deleted" });
+      setLocation("/invoices");
+    } catch {
+      toast({ title: "Failed to delete invoice", variant: "destructive" });
+    }
   }
 
   function handleMarkSent() {
@@ -286,16 +380,15 @@ export default function InvoiceDetail() {
 
   function handleDownloadPDF() {
     if (!invoice) return;
-    downloadInvoicePDF(invoice as Invoice, (invoice.lineItems ?? []) as LineItem[], getCompanyName());
+    downloadInvoicePDF(invoice as Invoice, effectiveItems, getCompanyName());
     toast({ title: "PDF downloaded" });
   }
 
   function handleDownloadXLSX() {
     if (!invoice) return;
-    const items = (invoice.lineItems ?? []) as LineItem[];
     const wsData = [
       ["Invoice Number", invoice.invoiceNumber],
-      ["Title", invoice.title],
+      ["Title", effectiveTitle || invoice.title],
       ["Client", invoice.clientName],
       ["Client Email", invoice.clientEmail ?? ""],
       ["Status", STATUS_LABELS[invoice.status] ?? invoice.status],
@@ -303,11 +396,11 @@ export default function InvoiceDetail() {
       ["Due Date", invoice.dueDate ? format(new Date(invoice.dueDate), "yyyy-MM-dd") : ""],
       [],
       ["Description", "Qty", "Unit", "Unit Price (CAD)", "Total (CAD)"],
-      ...items.map((item) => [item.description, item.quantity, item.unit, Number(item.unitPrice), Number(item.total)]),
+      ...effectiveItems.map((item) => [item.description, item.quantity, item.unit, Number(item.unitPrice), Number(item.total)]),
       [],
-      ["Subtotal", "", "", "", Number(invoice.subtotal)],
-      [`HST (${(parseFloat(invoice.taxRate) * 100).toFixed(0)}%)`, "", "", "", Number(invoice.taxAmount)],
-      ["TOTAL CAD", "", "", "", Number(invoice.total)],
+      ["Subtotal", "", "", "", subtotal],
+      [`HST (${(taxRate * 100).toFixed(0)}%)`, "", "", "", taxAmount],
+      ["TOTAL CAD", "", "", "", total],
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws["!cols"] = [{ wch: 30 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
@@ -349,11 +442,7 @@ export default function InvoiceDetail() {
       toast({ title: "No client email on this invoice", variant: "destructive" });
       return;
     }
-    const pdfBase64 = buildPdfBase64(
-      invoice as Invoice,
-      (invoice.lineItems ?? []) as LineItem[],
-      getCompanyName()
-    );
+    const pdfBase64 = buildPdfBase64(invoice as Invoice, effectiveItems, getCompanyName());
     sendEmail.mutate(
       { invoiceId, data: { pdfBase64 } },
       {
@@ -394,7 +483,6 @@ export default function InvoiceDetail() {
     );
   }
 
-  const lineItems = (invoice.lineItems ?? []) as LineItem[];
   const hasClientEmail = !!invoice.clientEmail;
 
   return (
@@ -409,7 +497,7 @@ export default function InvoiceDetail() {
             <ArrowLeft className="h-4 w-4" /> Invoices
           </button>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-foreground">{invoice.title}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{effectiveTitle || invoice.title}</h1>
             <Badge variant="outline" className={STATUS_COLORS[invoice.status]}>
               {STATUS_LABELS[invoice.status]}
             </Badge>
@@ -446,7 +534,7 @@ export default function InvoiceDetail() {
             {sendEmail.isPending ? "Sending…" : "Send via Email"}
           </Button>
 
-          {/* Send Reminder — only for unpaid sent/overdue invoices */}
+          {/* Send Reminder */}
           {(invoice.status === "sent" || invoice.status === "overdue" || invoice.status === "draft") && (
             <Button
               variant="outline"
@@ -461,7 +549,16 @@ export default function InvoiceDetail() {
             </Button>
           )}
 
-          {invoice.status === "draft" && (
+          {/* Save (editable + unsaved) */}
+          {canEdit && hasUnsavedChanges && (
+            <Button variant="outline" onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              Save
+            </Button>
+          )}
+
+          {/* Mark Sent */}
+          {invoice.status === "draft" && !isWorker && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" disabled={markSent.isPending}>
@@ -483,7 +580,9 @@ export default function InvoiceDetail() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          {(invoice.status === "sent" || invoice.status === "overdue") && (
+
+          {/* Mark Paid */}
+          {(invoice.status === "sent" || invoice.status === "overdue") && !isWorker && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button className="bg-green-600 hover:bg-green-700 text-white" disabled={markPaid.isPending}>
@@ -507,11 +606,39 @@ export default function InvoiceDetail() {
               </AlertDialogContent>
             </AlertDialog>
           )}
+
+          {/* Paid indicator */}
           {invoice.status === "paid" && (
             <div className="flex items-center gap-2 text-green-600 font-semibold text-sm">
               <CheckCircle2 className="h-5 w-5" />
               Paid {invoice.paidAt ? format(new Date(invoice.paidAt), "MMM d, yyyy") : ""}
             </div>
+          )}
+
+          {/* Delete */}
+          {canDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this invoice?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete invoice {invoice.invoiceNumber}. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDelete}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       </div>
@@ -520,32 +647,51 @@ export default function InvoiceDetail() {
       <Card>
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start flex-wrap gap-4">
-            <div>
-              <CardTitle className="text-lg">Invoice Details</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Issued {format(new Date(invoice.createdAt), "MMMM d, yyyy")}
-              </p>
-              {invoice.dueDate && (
-                <p className="text-sm text-muted-foreground">
-                  Due {format(new Date(invoice.dueDate), "MMMM d, yyyy")}
-                </p>
+            <div className="flex-1 space-y-3">
+              <CardTitle className="text-base">Invoice Details</CardTitle>
+
+              {/* Editable title */}
+              {canEdit ? (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Title</Label>
+                  <Input
+                    value={effectiveTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    placeholder="Invoice title"
+                    className="max-w-sm"
+                  />
+                </div>
+              ) : null}
+
+              {/* Editable due date */}
+              {canEdit ? (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Due Date</Label>
+                  <Input
+                    type="date"
+                    value={effectiveDueDate}
+                    onChange={(e) => setEditedDueDate(e.target.value)}
+                    className="max-w-xs"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Issued {format(new Date(invoice.createdAt), "MMMM d, yyyy")}
+                  </p>
+                  {invoice.dueDate && (
+                    <p className="text-sm text-muted-foreground">
+                      Due {format(new Date(invoice.dueDate), "MMMM d, yyyy")}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-            <div className="text-right">
-              {invoice.sentAt && (
-                <p className="text-xs text-muted-foreground">
-                  Sent {format(new Date(invoice.sentAt), "MMM d, yyyy")}
-                </p>
-              )}
-              {invoice.paidAt && (
-                <p className="text-xs text-green-600 font-medium">
-                  Paid {format(new Date(invoice.paidAt), "MMM d, yyyy")}
-                </p>
-              )}
+            <div className="text-right text-xs text-muted-foreground space-y-1">
+              {invoice.sentAt && <p>Sent {format(new Date(invoice.sentAt), "MMM d, yyyy")}</p>}
+              {invoice.paidAt && <p className="text-green-600 font-medium">Paid {format(new Date(invoice.paidAt), "MMM d, yyyy")}</p>}
               {(invoice as Invoice).reminderSentAt && (
-                <p className="text-xs text-orange-500">
-                  Reminder sent {format(new Date((invoice as Invoice).reminderSentAt!), "MMM d, yyyy")}
-                </p>
+                <p className="text-orange-500">Reminder sent {format(new Date((invoice as Invoice).reminderSentAt!), "MMM d, yyyy")}</p>
               )}
             </div>
           </div>
@@ -553,58 +699,129 @@ export default function InvoiceDetail() {
         <CardContent>
           <Separator className="mb-4" />
 
+          {/* Line items */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b">
-                  <th className="text-left pb-3 font-medium">Description</th>
-                  <th className="text-right pb-3 font-medium">Qty</th>
-                  <th className="text-right pb-3 font-medium">Unit</th>
-                  <th className="text-right pb-3 font-medium">Unit Price</th>
-                  <th className="text-right pb-3 font-medium">Total</th>
+              <thead className="bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Description</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-20">Qty</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-20">Unit</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-28">Unit Price</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-28">Total</th>
+                  {canEdit && <th className="w-10" />}
                 </tr>
               </thead>
-              <tbody>
-                {lineItems.map((item, i) => (
-                  <tr key={i} className="border-b last:border-0">
-                    <td className="py-3 pr-4">{item.description}</td>
-                    <td className="py-3 text-right">{item.quantity}</td>
-                    <td className="py-3 text-right text-muted-foreground">{item.unit}</td>
-                    <td className="py-3 text-right">{fmtCAD(item.unitPrice)}</td>
-                    <td className="py-3 text-right font-medium">{fmtCAD(item.total)}</td>
+              <tbody className="divide-y divide-border">
+                {effectiveItems.map((item, idx) => (
+                  <tr key={idx}>
+                    <td className="px-4 py-2">
+                      {canEdit ? (
+                        <Input
+                          value={item.description}
+                          onChange={(e) => updateItem(idx, "description", e.target.value)}
+                          className="h-8 text-sm"
+                          placeholder="Description"
+                        />
+                      ) : item.description}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {canEdit ? (
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm text-right w-20 ml-auto"
+                          min={0}
+                        />
+                      ) : item.quantity}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {canEdit ? (
+                        <Input
+                          value={item.unit}
+                          onChange={(e) => updateItem(idx, "unit", e.target.value)}
+                          className="h-8 text-sm text-right w-20 ml-auto"
+                          placeholder="ea"
+                        />
+                      ) : <span className="text-muted-foreground">{item.unit}</span>}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {canEdit ? (
+                        <Input
+                          type="number"
+                          value={item.unitPrice}
+                          onChange={(e) => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm text-right w-28 ml-auto"
+                          min={0}
+                          step={0.01}
+                        />
+                      ) : fmtCAD(item.unitPrice)}
+                    </td>
+                    <td className="px-4 py-2 text-right font-medium">{fmtCAD(item.total)}</td>
+                    {canEdit && (
+                      <td className="px-2 py-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem(idx)}
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
+          {canEdit && (
+            <div className="mt-2 px-4">
+              <Button variant="outline" size="sm" onClick={addItem}>
+                <Plus className="h-4 w-4 mr-1.5" /> Add Item
+              </Button>
+            </div>
+          )}
+
           <Separator className="my-4" />
 
           <div className="flex flex-col items-end gap-1.5 text-sm">
             <div className="flex w-52 justify-between">
               <span className="text-muted-foreground">Subtotal</span>
-              <span>{fmtCAD(invoice.subtotal)}</span>
+              <span>{fmtCAD(subtotal)}</span>
             </div>
             <div className="flex w-52 justify-between">
-              <span className="text-muted-foreground">HST ({(parseFloat(invoice.taxRate) * 100).toFixed(0)}%)</span>
-              <span>{fmtCAD(invoice.taxAmount)}</span>
+              <span className="text-muted-foreground">HST ({(taxRate * 100).toFixed(0)}%)</span>
+              <span>{fmtCAD(taxAmount)}</span>
             </div>
             <Separator className="w-52 my-1" />
             <div className="flex w-52 justify-between font-bold text-base">
               <span>Total</span>
-              <span>{fmtCAD(invoice.total)}</span>
+              <span>{fmtCAD(total)}</span>
             </div>
           </div>
 
-          {invoice.notes && (
-            <>
-              <Separator className="my-4" />
-              <div>
-                <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground mb-1">Notes</p>
-                <p className="text-sm text-foreground whitespace-pre-wrap">{invoice.notes}</p>
-              </div>
-            </>
-          )}
+          {/* Notes */}
+          <Separator className="my-4" />
+          {canEdit ? (
+            <div className="space-y-1">
+              <Label className="text-xs uppercase tracking-wide font-medium text-muted-foreground">Notes</Label>
+              <Textarea
+                value={effectiveNotes}
+                onChange={(e) => setEditedNotes(e.target.value)}
+                placeholder="Optional notes for this invoice…"
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+          ) : invoice.notes ? (
+            <div>
+              <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground mb-1">Notes</p>
+              <p className="text-sm text-foreground whitespace-pre-wrap">{invoice.notes}</p>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>
