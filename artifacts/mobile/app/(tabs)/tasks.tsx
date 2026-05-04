@@ -1,4 +1,4 @@
-import { useListProjects, useListTasks, useUpdateTask, useGetMe } from "@workspace/api-client-react";
+import { useListProjects, useListTasks, useUpdateTask, useGetMe, customFetch } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type Task = {
   id: number;
@@ -85,7 +86,7 @@ function FilterToggle({
   );
 }
 
-function TaskRow({ task, onToggle }: { task: Task; onToggle: (task: Task) => void }) {
+function TaskRow({ task, projectName, onToggle }: { task: Task; projectName?: string; onToggle: (task: Task) => void }) {
   const colors = useColors();
   const isDone = task.status === "done";
   const priorityConf = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.medium;
@@ -131,6 +132,14 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (task: Task) => voi
           <Text style={[styles.priorityText, { color: priorityConf.color }]}>
             {priorityConf.label}
           </Text>
+          {!!projectName && (
+            <>
+              <Text style={[styles.metaDivider, { color: colors.border }]}>·</Text>
+              <Text style={[styles.metaText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {projectName}
+              </Text>
+            </>
+          )}
           {!!task.dueDate && (
             <>
               <Text style={[styles.metaDivider, { color: colors.border }]}>·</Text>
@@ -159,11 +168,13 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (task: Task) => voi
 function TaskSection({
   label,
   tasks,
+  projectMap,
   onToggle,
   labelColor,
 }: {
   label: string;
   tasks: Task[];
+  projectMap: Record<number, string>;
   onToggle: (t: Task) => void;
   labelColor: string;
 }) {
@@ -175,7 +186,7 @@ function TaskSection({
         <Text style={[styles.sectionCount, { color: labelColor }]}>{tasks.length}</Text>
       </View>
       {tasks.map((t) => (
-        <TaskRow key={t.id} task={t} onToggle={onToggle} />
+        <TaskRow key={t.id} task={t} projectName={projectMap[t.projectId]} onToggle={onToggle} />
       ))}
     </>
   );
@@ -218,7 +229,7 @@ const styles = StyleSheet.create({
   },
   taskTitle: { fontSize: 14, fontFamily: "Inter_500Medium", lineHeight: 20 },
   taskDone: { textDecorationLine: "line-through" },
-  taskMeta: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 4 },
+  taskMeta: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 4, flexWrap: "wrap" },
   priorityDot: { width: 6, height: 6, borderRadius: 3 },
   priorityText: { fontSize: 11, fontFamily: "Inter_500Medium" },
   metaDivider: { fontSize: 12 },
@@ -232,16 +243,90 @@ const styles = StyleSheet.create({
   noProjectSub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6 },
 });
 
-export default function TasksScreen() {
+// ── Worker view: all tasks assigned to me across all projects ──────────────
+function WorkerTasksScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
 
+  const { data: projects } = useListProjects();
+  const projectMap: Record<number, string> = {};
+  (projects ?? []).forEach((p) => { projectMap[p.id] = p.name; });
+
+  const { data: tasks, isLoading, refetch } = useQuery<Task[]>({
+    queryKey: ["my-tasks"],
+    queryFn: () => customFetch<Task[]>("/api/dashboard/my-tasks"),
+  });
+
+  const updateTask = useUpdateTask();
+
+  const handleToggle = (task: Task) => {
+    const nextStatus: Task["status"] =
+      task.status === "done" ? "todo" : task.status === "todo" ? "in_progress" : "done";
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updateTask.mutate(
+      { projectId: task.projectId, taskId: task.id, data: { status: nextStatus } },
+      { onSuccess: () => { refetch(); qc.invalidateQueries({ queryKey: ["my-tasks"] }); } },
+    );
+  };
+
+  const allTasks = tasks ?? [];
+  const inProgress = allTasks.filter((t) => t.status === "in_progress");
+  const todo = allTasks.filter((t) => t.status === "todo");
+  const done = allTasks.filter((t) => t.status === "done");
+  const topInsets = Platform.OS === "web" ? 67 : insets.top;
+
+  return (
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
+      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
+    >
+      <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: colors.foreground }]}>My Tasks</Text>
+          {allTasks.length > 0 && (
+            <Text style={[styles.sectionCount, { color: colors.mutedForeground, fontSize: 14 }]}>
+              {allTasks.length} total
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {isLoading ? (
+        <ActivityIndicator color={colors.primary} style={styles.loader} />
+      ) : allTasks.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Feather name="check-square" size={40} color={colors.border} />
+          <Text style={[styles.emptyText, { color: colors.foreground }]}>No tasks assigned to you</Text>
+          <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
+            When a foreman assigns a task to you, it will appear here.
+          </Text>
+        </View>
+      ) : (
+        <>
+          <TaskSection label="In Progress" tasks={inProgress} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.primary} />
+          <TaskSection label="To Do" tasks={todo} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.mutedForeground} />
+          <TaskSection label="Done" tasks={done} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.mutedForeground} />
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
+// ── Owner / Foreman view: tasks per project ────────────────────────────────
+function OwnerTasksScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { data: me } = useGetMe();
   const { data: projects, isLoading: projectsLoading } = useListProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
 
-  const resolvedProjectId = selectedProjectId ?? ((projects ?? [])[0]?.id ?? 0);
+  // Use all projects in selector (not just "active")
+  const allProjects = projects ?? [];
+  const resolvedProjectId = selectedProjectId ?? (allProjects[0]?.id ?? 0);
 
   const { data: tasks, isLoading: tasksLoading, refetch } = useListTasks(resolvedProjectId);
   const updateTask = useUpdateTask();
@@ -258,55 +343,36 @@ export default function TasksScreen() {
 
   const allTasks = (tasks ?? []) as Task[];
   const myUserId = me?.id;
-  const isWorker = me?.role === "worker";
-
-  // Workers see only their tasks from the API; others can filter by "mine"
   const myTasksAll = myUserId ? allTasks.filter((t) => t.assignedToUserId === myUserId) : [];
-
-  // Apply filter — workers always see all returned tasks (already scoped by API)
-  const visibleTasks = isWorker || filterMode === "mine" ? (isWorker ? allTasks : myTasksAll) : allTasks;
+  const visibleTasks = filterMode === "mine" ? myTasksAll : allTasks;
 
   const inProgress = visibleTasks.filter((t) => t.status === "in_progress");
   const todo = visibleTasks.filter((t) => t.status === "todo");
   const done = visibleTasks.filter((t) => t.status === "done");
 
-  const activeProjects = (projects ?? []).filter((p) => p.status === "active");
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
+  const projectMap: Record<number, string> = {};
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={tasksLoading} onRefresh={refetch} tintColor={colors.primary} />
-      }
-      contentContainerStyle={{
-        paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90,
-        flexGrow: 1,
-      }}
+      refreshControl={<RefreshControl refreshing={tasksLoading} onRefresh={refetch} tintColor={colors.primary} />}
+      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
     >
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
-        {/* Title */}
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>Tasks</Text>
         </View>
 
-        {/* All / Assigned to Me toggle — hidden for workers (API scopes for them) */}
-        {!isWorker && (
-          <FilterToggle
-            mode={filterMode}
-            onChange={setFilterMode}
-            mineCount={myTasksAll.length}
-          />
-        )}
+        <FilterToggle mode={filterMode} onChange={setFilterMode} mineCount={myTasksAll.length} />
 
-        {/* Project selector */}
         {projectsLoading ? (
           <ActivityIndicator color={colors.primary} />
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.projectSelector}>
-              {activeProjects.map((p) => {
+              {allProjects.map((p) => {
                 const active = resolvedProjectId === p.id;
                 return (
                   <Pressable
@@ -339,53 +405,36 @@ export default function TasksScreen() {
       {!resolvedProjectId ? (
         <View style={styles.noProjectBanner}>
           <Feather name="layers" size={44} color={colors.border} />
-          <Text style={[styles.noProjectText, { color: colors.foreground }]}>
-            No active projects
-          </Text>
+          <Text style={[styles.noProjectText, { color: colors.foreground }]}>No projects yet</Text>
           <Text style={[styles.noProjectSub, { color: colors.mutedForeground }]}>
-            Create a project on the web dashboard to manage tasks
+            Create a project on the web dashboard to manage tasks.
           </Text>
         </View>
       ) : tasksLoading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : visibleTasks.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Feather
-            name={filterMode === "mine" ? "user-check" : "check-square"}
-            size={40}
-            color={colors.border}
-          />
+          <Feather name={filterMode === "mine" ? "user-check" : "check-square"} size={40} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.foreground }]}>
-            {isWorker || filterMode === "mine" ? "Nothing assigned to you" : "No tasks for this project"}
+            {filterMode === "mine" ? "Nothing assigned to you" : "No tasks for this project"}
           </Text>
-          {(isWorker || filterMode === "mine") && (
-            <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
-              When a foreman assigns a task to you, it will appear here.
-            </Text>
-          )}
         </View>
       ) : (
         <>
-          <TaskSection
-            label="In Progress"
-            tasks={inProgress}
-            onToggle={handleToggle}
-            labelColor={colors.primary}
-          />
-          <TaskSection
-            label="To Do"
-            tasks={todo}
-            onToggle={handleToggle}
-            labelColor={colors.mutedForeground}
-          />
-          <TaskSection
-            label="Done"
-            tasks={done}
-            onToggle={handleToggle}
-            labelColor={colors.mutedForeground}
-          />
+          <TaskSection label="In Progress" tasks={inProgress} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.primary} />
+          <TaskSection label="To Do" tasks={todo} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.mutedForeground} />
+          <TaskSection label="Done" tasks={done} projectMap={projectMap} onToggle={handleToggle} labelColor={colors.mutedForeground} />
         </>
       )}
     </ScrollView>
   );
+}
+
+// ── Entry point: routes to correct view based on role ─────────────────────
+export default function TasksScreen() {
+  const { data: me } = useGetMe();
+  const isWorker = me?.role === "worker";
+
+  if (isWorker) return <WorkerTasksScreen />;
+  return <OwnerTasksScreen />;
 }

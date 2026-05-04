@@ -131,6 +131,33 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
   });
 });
 
+// GET /dashboard/my-tasks — all tasks assigned to the current worker across all their projects
+router.get("/dashboard/my-tasks", requireAuth, requireCompany, async (req, res) => {
+  const companyId = req.companyId!;
+  const userId = req.userId!;
+  const userRole = req.userRole!;
+
+  const projectIds = await getAccessibleProjectIds(companyId, userId, userRole);
+
+  if (projectIds.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  const whereClause =
+    userRole === "worker"
+      ? and(inArray(tasksTable.projectId, projectIds), eq(tasksTable.assignedToUserId, userId))
+      : inArray(tasksTable.projectId, projectIds);
+
+  const tasks = await db
+    .select()
+    .from(tasksTable)
+    .where(whereClause)
+    .orderBy(tasksTable.createdAt);
+
+  res.json(tasks);
+});
+
 // GET /dashboard/action-counts — badge counts for sidebar nav
 router.get("/dashboard/action-counts", requireAuth, requireCompany, async (req, res) => {
   const companyId = req.companyId!;
