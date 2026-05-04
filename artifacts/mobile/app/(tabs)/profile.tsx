@@ -86,6 +86,12 @@ export default function ProfileScreen() {
     enabled: isWorker && !!me?.companyId,
   });
 
+  const { data: workerSubmissions, isLoading: workerSubmissionsLoading } = useQuery({
+    queryKey: ["safety-submissions"],
+    queryFn: () => customFetch<any[]>("/api/safety/submissions"),
+    enabled: isWorker && !!me?.companyId,
+  });
+
   const { data: referralData } = useQuery({
     queryKey: ["referrals"],
     queryFn: async () => {
@@ -304,6 +310,83 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 );
               })
+            )}
+          </View>
+        )}
+
+        {/* Worker: Report an Incident ── */}
+        {isWorker && (
+          <View style={styles.section}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Safety & Incidents</Text>
+              <TouchableOpacity onPress={() => router.push("/safety")}>
+                <Text style={{ fontSize: 13, color: colors.primary, fontFamily: "Inter_600SemiBold" }}>See all</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Report button */}
+            <TouchableOpacity
+              style={[styles.incidentReportBtn, { backgroundColor: colors.sidebar }]}
+              onPress={() => router.push("/safety")}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.incidentIconWrap, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+                <Feather name="alert-triangle" size={22} color="#FF6600" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.incidentBtnTitle}>Report an Incident</Text>
+                <Text style={styles.incidentBtnSub}>Injury · Hazard · Safety Check · Toolbox</Text>
+              </View>
+              <View style={[styles.incidentArrow, { backgroundColor: "#FF6600" }]}>
+                <Feather name="arrow-right" size={14} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+
+            {/* Recent submissions */}
+            {workerSubmissionsLoading ? (
+              <ActivityIndicator color={colors.primary} style={{ marginTop: 10 }} />
+            ) : workerSubmissions && workerSubmissions.length > 0 ? (
+              <View style={{ gap: 8, marginTop: 10 }}>
+                {workerSubmissions.slice(0, 3).map((sub: any) => {
+                  const statusColors: Record<string, string> = { draft: "#6B7280", submitted: "#F59E0B", reviewed: "#3B82F6", approved: "#10B981" };
+                  const statusLabels: Record<string, string> = { draft: "Draft", submitted: "Submitted", reviewed: "Reviewed", approved: "Approved" };
+                  const statusIcons: Record<string, string> = { draft: "clock", submitted: "send", reviewed: "eye", approved: "check-circle" };
+                  const catColors: Record<string, string> = { injury: "#B91C1C", safety: "#1D4ED8", hazard: "#C2410C", toolbox: "#15803D" };
+                  const catBg: Record<string, string> = { injury: "#FEE2E2", safety: "#DBEAFE", hazard: "#FFEDD5", toolbox: "#DCFCE7" };
+                  const sc = statusColors[sub.status] ?? "#6B7280";
+                  return (
+                    <TouchableOpacity
+                      key={sub.id}
+                      style={[styles.submissionRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => router.push("/safety")}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[styles.submissionDot, { backgroundColor: sc }]} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={[styles.submissionName, { color: colors.foreground }]} numberOfLines={1}>
+                          {sub.templateName ?? "Safety Form"}
+                        </Text>
+                        {sub.templateCategory && (
+                          <View style={[styles.submissionCatTag, { backgroundColor: catBg[sub.templateCategory] ?? "#F3F4F6" }]}>
+                            <Text style={[styles.submissionCatText, { color: catColors[sub.templateCategory] ?? "#374151" }]}>
+                              {sub.templateCategory}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={[styles.submissionBadge, { backgroundColor: `${sc}18` }]}>
+                        <Feather name={statusIcons[sub.status] as any ?? "clock"} size={11} color={sc} />
+                        <Text style={[styles.submissionBadgeText, { color: sc }]}>{statusLabels[sub.status] ?? sub.status}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={[styles.incidentEmpty, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Feather name="shield" size={22} color={colors.mutedForeground} />
+                <Text style={[{ color: colors.mutedForeground, fontSize: 13, marginTop: 6 }]}>No reports filed yet</Text>
+              </View>
             )}
           </View>
         )}
@@ -701,6 +784,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   financeLinkText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
+
+  // Worker: Incident reporting
+  incidentReportBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14 },
+  incidentIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  incidentBtnTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  incidentBtnSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 2 },
+  incidentArrow: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  incidentEmpty: { borderRadius: 10, borderWidth: 1, padding: 20, alignItems: "center" },
+  submissionRow: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 10, padding: 12, gap: 10 },
+  submissionDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  submissionName: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  submissionCatTag: { alignSelf: "flex-start", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 3 },
+  submissionCatText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  submissionBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+  submissionBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
 
   // Worker: Trade Calculators feature card
   calcFeatureCard: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
