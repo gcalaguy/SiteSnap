@@ -34,6 +34,9 @@ import Estimates from "@/pages/estimates";
 import SafetyPage from "@/pages/safety";
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
+import WorkerPortalPage from "@/pages/worker-portal";
+import WorkerPortalSubmitPage from "@/pages/worker-portal-submit";
+import WorkerPortalDetailPage from "@/pages/worker-portal-detail";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 
@@ -204,6 +207,18 @@ function DashboardPlaceholder() {
   )
 }
 
+function WorkerPortalApp() {
+  return (
+    <AuthGuard>
+      <Switch>
+        <Route path="/worker-portal/submit" component={WorkerPortalSubmitPage} />
+        <Route path="/worker-portal/submissions/:id" component={WorkerPortalDetailPage} />
+        <Route path="/worker-portal" component={WorkerPortalPage} />
+      </Switch>
+    </AuthGuard>
+  );
+}
+
 function AuthApp() {
   return (
     <AuthGuard>
@@ -235,7 +250,7 @@ function AuthApp() {
         </Switch>
       </AppLayout>
     </AuthGuard>
-  )
+  );
 }
 
 function ClerkProviderWithRoutes() {
@@ -260,6 +275,9 @@ function ClerkProviderWithRoutes() {
           <Route path="/sign-up/*?" component={SignUpPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/portal/:token" component={ClientPortal} />
+          <Route path="/worker-portal/*?">
+            <WorkerPortalApp />
+          </Route>
           <Route path="/*">
             <AuthApp />
           </Route>
