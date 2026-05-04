@@ -10,6 +10,7 @@ import {
   json,
   boolean,
   unique,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 export * from "./conversations";
@@ -805,3 +806,29 @@ export const tradehubNotificationsTable = pgTable("tradehub_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type TradehubNotification = typeof tradehubNotificationsTable.$inferSelect;
+
+export const tradehubConversationsTable = pgTable("tradehub_conversations", {
+  id: serial("id").primaryKey(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type TradehubConversation = typeof tradehubConversationsTable.$inferSelect;
+
+export const tradehubConversationParticipantsTable = pgTable(
+  "tradehub_conversation_participants",
+  {
+    conversationId: integer("conversation_id").notNull().references(() => tradehubConversationsTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+    lastReadAt: timestamp("last_read_at"),
+  },
+  (t) => [primaryKey({ columns: [t.conversationId, t.userId] })],
+);
+
+export const tradehubMessagesTable = pgTable("tradehub_messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull().references(() => tradehubConversationsTable.id, { onDelete: "cascade" }),
+  senderId: integer("sender_id").notNull().references(() => usersTable.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type TradehubMessage = typeof tradehubMessagesTable.$inferSelect;

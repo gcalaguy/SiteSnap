@@ -12,6 +12,9 @@ import {
   tradehubJobApplicationsTable,
   tradehubReportsTable,
   tradehubNotificationsTable,
+  tradehubConversationsTable,
+  tradehubConversationParticipantsTable,
+  tradehubMessagesTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { logger } from "../lib/logger";
@@ -591,6 +594,277 @@ router.get("/tradehub/my-applications", requireAuth, async (req, res) => {
     res.json(apps.map((a) => ({ ...a, post: postMap[a.postId] ?? null })));
   } catch (err: any) {
     res.status(500).json({ error: "Failed to load applications" });
+  }
+});
+
+// ── MESSAGING ─────────────────────────────────────────────────────────────────
+
+// GET /tradehub/users/search?q=
+router.get("/tradehub/users/search", requireAuth, async (req, res) => {
+  try {
+    const q = (req.query.q as string ?? "").trim();
+    if (q.length < 2) { res.json([]); return; }
+
+    const profiles = await db
+      .select()
+      .from(tradehubProfilesTable)
+      .where(
+        sql`(lower(${tradehubProfilesTable.displayName}) LIKE ${`%${q.toLowerCase()}%`} OR lower(${tradehubProfilesTable.trade}) LIKE ${`%${q.toLowerCase()}%`})`
+      )
+      .limit(15);
+
+    // Exclude self
+    const filtered = profiles.filter((p) => p.userId !== req.userId);
+    res.json(filtered);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/users/search error");
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+
+// POST /tradehub/conversations — start or find existing conversation
+router.post("/tradehub/conversations", requireAuth, async (req, res) => {
+  try {
+    const { recipientId, message } = req.body as { recipientId: number; message: string };
+    if (!recipientId || !message?.trim()) {
+      res.status(400).json({ error: "recipientId and message required" }); return;
+    }
+    if (recipientId === req.userId) {
+      res.status(400).json({ error: "Cannot message yourself" }); return;
+    }
+
+    // Check if a conversation already exists between these two users
+    const existing = await db.execute(
+      sql`SELECT cp1.conversation_id FROM tradehub_conversation_participants cp1
+          JOIN tradehub_conversation_participants cp2 ON cp1.conversation_id = cp2.conversation_id
+          WHERE cp1.user_id = ${req.userId} AND cp2.user_id = ${recipientId}
+          LIMIT 1`
+    );
+
+    let conversationId: number;
+    if (existing.rows.length > 0) {
+      conversationId = (existing.rows[0] as any).conversation_id;
+    } else {
+      const [conv] = await db.insert(tradehubConversationsTable).values({}).returning();
+      conversationId = conv.id;
+      await db.insert(tradehubConversationParticipantsTable).values([
+        { conversationId, userId: req.userId! },
+        { conversationId, userId: recipientId },
+      ]);
+    }
+
+    // Send the first message
+    await db.insert(tradehubMessagesTable).values({
+      conversationId,
+      senderId: req.userId!,
+      content: message.trim(),
+    });
+
+    // Update conversation timestamp
+    await db.update(tradehubConversationsTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(tradehubConversationsTable.id, conversationId));
+
+    // Notify recipient
+    const [sender] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    const [senderProfile] = await db.select().from(tradehubProfilesTable).where(eq(tradehubProfilesTable.userId, req.userId!));
+    const senderName = senderProfile?.displayName ?? `${sender?.firstName ?? ""} ${sender?.lastName ?? ""}`.trim();
+    await db.insert(tradehubNotificationsTable).values({
+      userId: recipientId,
+      type: "message",
+      referenceId: conversationId,
+      message: `${senderName} sent you a message on TradeHub`,
+    }).catch(() => {});
+
+    res.json({ conversationId });
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/conversations POST error");
+    res.status(500).json({ error: "Failed to create conversation" });
+  }
+});
+
+// GET /tradehub/conversations — list my conversations
+router.get("/tradehub/conversations", requireAuth, async (req, res) => {
+  try {
+    const myConvIds = await db
+      .select({ conversationId: tradehubConversationParticipantsTable.conversationId })
+      .from(tradehubConversationParticipantsTable)
+      .where(eq(tradehubConversationParticipantsTable.userId, req.userId!));
+
+    if (myConvIds.length === 0) { res.json([]); return; }
+
+    const ids = myConvIds.map((r) => r.conversationId);
+    const conversations = await db
+      .select()
+      .from(tradehubConversationsTable)
+      .where(inArray(tradehubConversationsTable.id, ids))
+      .orderBy(desc(tradehubConversationsTable.updatedAt));
+
+    const result = await Promise.all(
+      conversations.map(async (conv) => {
+        // Get other participant
+        const [otherPart] = await db
+          .select()
+          .from(tradehubConversationParticipantsTable)
+          .where(
+            and(
+              eq(tradehubConversationParticipantsTable.conversationId, conv.id),
+              sql`${tradehubConversationParticipantsTable.userId} != ${req.userId}`
+            )
+          )
+          .limit(1);
+
+        let otherParticipant = null;
+        if (otherPart) {
+          const [profile] = await db
+            .select()
+            .from(tradehubProfilesTable)
+            .where(eq(tradehubProfilesTable.userId, otherPart.userId))
+            .limit(1);
+          otherParticipant = profile ?? { userId: otherPart.userId, displayName: "Unknown" };
+        }
+
+        // Last message
+        const [lastMessage] = await db
+          .select()
+          .from(tradehubMessagesTable)
+          .where(eq(tradehubMessagesTable.conversationId, conv.id))
+          .orderBy(desc(tradehubMessagesTable.createdAt))
+          .limit(1);
+
+        // Unread count
+        const myPart = await db
+          .select()
+          .from(tradehubConversationParticipantsTable)
+          .where(
+            and(
+              eq(tradehubConversationParticipantsTable.conversationId, conv.id),
+              eq(tradehubConversationParticipantsTable.userId, req.userId!)
+            )
+          )
+          .limit(1);
+
+        const lastReadAt = myPart[0]?.lastReadAt;
+        const [{ count: unreadCount }] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(tradehubMessagesTable)
+          .where(
+            and(
+              eq(tradehubMessagesTable.conversationId, conv.id),
+              sql`${tradehubMessagesTable.senderId} != ${req.userId}`,
+              lastReadAt
+                ? sql`${tradehubMessagesTable.createdAt} > ${lastReadAt}`
+                : sql`1=1`
+            )
+          );
+
+        return { ...conv, otherParticipant, lastMessage: lastMessage ?? null, unreadCount };
+      })
+    );
+
+    res.json(result);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/conversations GET error");
+    res.status(500).json({ error: "Failed to load conversations" });
+  }
+});
+
+// GET /tradehub/conversations/:id/messages
+router.get("/tradehub/conversations/:id/messages", requireAuth, async (req, res) => {
+  try {
+    const convId = parseInt(req.params.id);
+
+    // Verify participant
+    const [part] = await db
+      .select()
+      .from(tradehubConversationParticipantsTable)
+      .where(
+        and(
+          eq(tradehubConversationParticipantsTable.conversationId, convId),
+          eq(tradehubConversationParticipantsTable.userId, req.userId!)
+        )
+      )
+      .limit(1);
+    if (!part) { res.status(403).json({ error: "Not a participant" }); return; }
+
+    const messages = await db
+      .select()
+      .from(tradehubMessagesTable)
+      .where(eq(tradehubMessagesTable.conversationId, convId))
+      .orderBy(tradehubMessagesTable.createdAt)
+      .limit(100);
+
+    res.json(messages);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/conversations/:id/messages GET error");
+    res.status(500).json({ error: "Failed to load messages" });
+  }
+});
+
+// POST /tradehub/conversations/:id/messages — send a message
+router.post("/tradehub/conversations/:id/messages", requireAuth, async (req, res) => {
+  try {
+    const convId = parseInt(req.params.id);
+    const { content } = req.body as { content: string };
+    if (!content?.trim()) { res.status(400).json({ error: "content required" }); return; }
+
+    // Verify participant
+    const participants = await db
+      .select()
+      .from(tradehubConversationParticipantsTable)
+      .where(eq(tradehubConversationParticipantsTable.conversationId, convId));
+
+    const isMember = participants.some((p) => p.userId === req.userId);
+    if (!isMember) { res.status(403).json({ error: "Not a participant" }); return; }
+
+    const [msg] = await db.insert(tradehubMessagesTable).values({
+      conversationId: convId,
+      senderId: req.userId!,
+      content: content.trim(),
+    }).returning();
+
+    // Update conversation timestamp
+    await db.update(tradehubConversationsTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(tradehubConversationsTable.id, convId));
+
+    // Notify the other participant
+    const other = participants.find((p) => p.userId !== req.userId);
+    if (other) {
+      const [senderProfile] = await db.select().from(tradehubProfilesTable).where(eq(tradehubProfilesTable.userId, req.userId!));
+      const [senderUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+      const name = senderProfile?.displayName ?? `${senderUser?.firstName ?? ""}`.trim();
+      await db.insert(tradehubNotificationsTable).values({
+        userId: other.userId,
+        type: "message",
+        referenceId: convId,
+        message: `${name}: ${content.trim().slice(0, 60)}${content.trim().length > 60 ? "…" : ""}`,
+      }).catch(() => {});
+    }
+
+    res.json(msg);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/conversations/:id/messages POST error");
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+// POST /tradehub/conversations/:id/read — mark as read
+router.post("/tradehub/conversations/:id/read", requireAuth, async (req, res) => {
+  try {
+    const convId = parseInt(req.params.id);
+    await db
+      .update(tradehubConversationParticipantsTable)
+      .set({ lastReadAt: new Date() })
+      .where(
+        and(
+          eq(tradehubConversationParticipantsTable.conversationId, convId),
+          eq(tradehubConversationParticipantsTable.userId, req.userId!)
+        )
+      );
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Failed to mark read" });
   }
 });
 

@@ -36,6 +36,7 @@ import TradehubPostPage from "@/pages/tradehub-post";
 import TradehubJobsPage from "@/pages/tradehub-jobs";
 import TradehubProfilePage from "@/pages/tradehub-profile";
 import TradehubNotificationsPage from "@/pages/tradehub-notifications";
+import TradehubMessagesPage from "@/pages/tradehub-messages";
 import SafetyPage from "@/pages/safety";
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
@@ -248,6 +249,8 @@ function AuthApp() {
           <Route path="/schedule" component={Schedule} />
           <Route path="/hours" component={Hours} />
           <Route path="/estimates" component={Estimates} />
+          <Route path="/tradehub/messages/:conversationId" component={TradehubMessagesPage} />
+          <Route path="/tradehub/messages" component={TradehubMessagesPage} />
           <Route path="/tradehub/notifications" component={TradehubNotificationsPage} />
           <Route path="/tradehub/jobs" component={TradehubJobsPage} />
           <Route path="/tradehub/posts/:id" component={TradehubPostPage} />

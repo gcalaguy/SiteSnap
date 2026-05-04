@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
   ArrowLeft, Pencil, Save, Loader2, Globe, Briefcase,
-  MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2
+  MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2, MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,10 +176,16 @@ export default function TradehubProfilePage() {
                 </a>
               )}
 
-              {isMe && (
+              {isMe ? (
                 <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setEditing(!editing)}>
                   <Pencil className="h-3.5 w-3.5" />{editing ? "Cancel Edit" : "Edit Profile"}
                 </Button>
+              ) : (
+                <Link href="/tradehub/messages">
+                  <Button size="sm" className="w-full gap-2">
+                    <MessageCircle className="h-3.5 w-3.5" />Send Message
+                  </Button>
+                </Link>
               )}
             </CardContent>
           </Card>

@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import {
   Globe, Plus, ThumbsUp, MessageSquare, Briefcase, Image as ImageIcon,
   Hammer, Search, Bell, User, ChevronRight, X, Send, Loader2,
-  Sparkles, Wrench, Users
+  Sparkles, Wrench, Users, MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -353,6 +353,7 @@ export default function TradehubFeedPage() {
               {[
                 { href: "/tradehub", label: "Feed", icon: Globe },
                 { href: "/tradehub/jobs", label: "Job Board", icon: Briefcase },
+                { href: "/tradehub/messages", label: "Messages", icon: MessageCircle },
                 { href: "/tradehub/profile/me", label: "My Profile", icon: User },
               ].map(({ href, label, icon: Icon }) => (
                 <Link key={href} href={href}>
