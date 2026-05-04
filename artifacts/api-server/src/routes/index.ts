@@ -30,6 +30,7 @@ import timesheetsRouter from "./timesheets";
 import superAdminRouter from "./superAdmin";
 import safetyRouter from "./safety";
 import tradehubRouter from "./tradehub";
+import calculatorsRouter from "./calculators";
 
 const router: IRouter = Router();
 
@@ -64,5 +65,6 @@ router.use(timesheetsRouter);
 router.use(superAdminRouter);
 router.use(safetyRouter);
 router.use(tradehubRouter);
+router.use(calculatorsRouter);
 
 export default router;

@@ -63,6 +63,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "AI Chat", href: "/ai-chat", icon: Bot },
     { name: "Safety", href: "/safety", icon: ShieldAlert },
     { name: "TradeHub", href: "/tradehub", icon: Globe },
+    { name: "Calculators", href: "/calculators", icon: Calculator },
     ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays }] : []),
     ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock }] : []),
     ...(isOwnerOrForeman ? [{ name: "Estimates", href: "/estimates", icon: Calculator }] : []),
