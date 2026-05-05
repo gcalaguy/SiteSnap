@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { HelpChatWidget } from "@/components/HelpChatWidget";
 import { useGetMe, customFetch, useListNotifications, useGetNotificationsUnreadCount, useMarkAllNotificationsRead, useMarkNotificationRead } from "@workspace/api-client-react";
 import {
   LayoutDashboard,
@@ -479,6 +480,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      {/* Floating Help Chat Widget — available on every page */}
+      <HelpChatWidget />
     </div>
   );
 }
