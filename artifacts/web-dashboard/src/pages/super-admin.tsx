@@ -30,6 +30,9 @@ import {
   RefreshCw, DatabaseZap,
 } from "lucide-react";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 // ── Types ───────────────────────────────────────────────────────────────────────
@@ -639,39 +642,37 @@ export default function SuperAdminPage() {
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Plans", value: plans.length, icon: Crown },
-          { label: "Features", value: features.length, icon: Zap },
-          { label: "Active Features", value: features.filter((f) => f.isEnabled).length, icon: Check },
+          { label: "Plans",           value: plans.length,                                   icon: Crown },
+          { label: "Features",        value: features.length,                                icon: Zap   },
+          { label: "Active Features", value: features.filter((f) => f.isEnabled).length,    icon: Check },
         ].map(({ label, value, icon: Icon }) => (
-          <Card key={label} className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center">
-                <Icon className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{value}</p>
-                <p className="text-xs text-muted-foreground">{label}</p>
-              </div>
+          <div key={label} className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+              <Icon size={15} style={{ color: GOLD }} />
             </div>
-          </Card>
+            <p className="text-2xl font-bold text-white">{value}</p>
+          </div>
         ))}
       </div>
 
       {/* Main tabs */}
       <Tabs defaultValue="plans">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="plans" className="flex items-center gap-2">
-            <Crown className="h-3.5 w-3.5" />Plans
-          </TabsTrigger>
-          <TabsTrigger value="features" className="flex items-center gap-2">
-            <Zap className="h-3.5 w-3.5" />Features
-          </TabsTrigger>
-          <TabsTrigger value="plan-features" className="flex items-center gap-2">
-            <DatabaseZap className="h-3.5 w-3.5" />Plan Features
-          </TabsTrigger>
-          <TabsTrigger value="tenants" className="flex items-center gap-2">
-            <Building2 className="h-3.5 w-3.5" />Tenants
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4" style={{ background: BLACK }}>
+          {[
+            { value: "plans",         label: "Plans",         Icon: Crown       },
+            { value: "features",      label: "Features",      Icon: Zap         },
+            { value: "plan-features", label: "Plan Features", Icon: DatabaseZap },
+            { value: "tenants",       label: "Tenants",       Icon: Building2   },
+          ].map(({ value, label, Icon }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="flex items-center gap-2 text-neutral-400 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-[#111111] data-[state=active]:shadow-none"
+            >
+              <Icon className="h-3.5 w-3.5" />{label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="plans" className="mt-4">
