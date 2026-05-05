@@ -32,6 +32,9 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -212,107 +215,101 @@ export default function AdminPage() {
       )}
 
       {/* Current Subscription */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CreditCard className="h-4 w-4" />
-            Current Subscription
-          </CardTitle>
-          <CardDescription>Your company's active billing plan</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {subLoading ? (
-            <div className="h-16 rounded-md bg-muted animate-pulse" />
-          ) : subscription ? (
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-4">
-                {planIcon(currentPlan?.metadata?.plan)}
-                <div>
-                  <div className="font-semibold text-sm">
-                    {currentPlan?.name ?? "Site Snap Plan"}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    Renews {new Date((subscription.current_period_end ?? 0) * 1000).toLocaleDateString("en-CA", { dateStyle: "medium" })}
-                  </div>
+      <div className="rounded-xl p-5" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <CreditCard size={15} style={{ color: GOLD }} />
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Current Subscription</span>
+          </div>
+        </div>
+        <p className="text-xs mb-4" style={{ color: "#71717a" }}>Your company's active billing plan</p>
+        {subLoading ? (
+          <div className="h-10 rounded-md animate-pulse" style={{ background: "#1f1f1f" }} />
+        ) : subscription ? (
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              {planIcon(currentPlan?.metadata?.plan)}
+              <div>
+                <div className="font-semibold text-sm text-white">
+                  {currentPlan?.name ?? "Site Snap Plan"}
                 </div>
-                {statusBadge(subscription.status)}
+                <div className="text-xs mt-0.5" style={{ color: GOLD }}>
+                  Renews {new Date((subscription.current_period_end ?? 0) * 1000).toLocaleDateString("en-CA", { dateStyle: "medium" })}
+                </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => portalMutation.mutate()}
-                disabled={portalMutation.isPending}
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                {portalMutation.isPending ? "Opening…" : "Manage Billing"}
-              </Button>
+              {statusBadge(subscription.status)}
             </div>
-          ) : (
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <AlertCircle className="h-5 w-5 shrink-0" />
-              <span className="text-sm">No active subscription. Choose a plan below to get started.</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            <Button
+              size="sm"
+              className="gap-2"
+              style={{ background: GOLD, color: BLACK }}
+              onClick={() => portalMutation.mutate()}
+              disabled={portalMutation.isPending}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              {portalMutation.isPending ? "Opening…" : "Manage Billing"}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3" style={{ color: "#71717a" }}>
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            <span className="text-sm">No active subscription. Choose a plan below to get started.</span>
+          </div>
+        )}
+      </div>
 
       {/* Team Seats */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="h-4 w-4" />
-            Team Seats
-          </CardTitle>
-          <CardDescription>Active team members on your plan</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {seatsLoading ? (
-            <div className="h-12 rounded-md bg-muted animate-pulse" />
-          ) : seatData ? (
-            <div className="space-y-3">
-              <div className="flex items-end justify-between">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-bold text-primary">{seatData.currentSeats}</span>
-                  <span className="text-muted-foreground text-sm">
-                    / {seatData.maxSeats === "unlimited" ? "∞" : seatData.maxSeats} seats
-                  </span>
-                </div>
-                {seatData.maxSeats !== "unlimited" && !seatData.canAddMore && (
-                  <Badge variant="destructive" className="flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" />
-                    Limit Reached
-                  </Badge>
-                )}
-                {seatData.maxSeats !== "unlimited" && seatData.canAddMore && (
-                  <span className="text-xs text-muted-foreground">
-                    {(seatData.maxSeats as number) - seatData.currentSeats} seat{(seatData.maxSeats as number) - seatData.currentSeats === 1 ? "" : "s"} remaining
-                  </span>
-                )}
-                {seatData.maxSeats === "unlimited" && (
-                  <span className="text-xs text-muted-foreground">Unlimited seats</span>
-                )}
+      <div className="rounded-xl p-5" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+        <div className="flex items-center gap-2 mb-1">
+          <Users size={15} style={{ color: GOLD }} />
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Team Seats</span>
+        </div>
+        <p className="text-xs mb-4" style={{ color: "#71717a" }}>Active team members on your plan</p>
+        {seatsLoading ? (
+          <div className="h-10 rounded-md animate-pulse" style={{ background: "#1f1f1f" }} />
+        ) : seatData ? (
+          <div className="space-y-3">
+            <div className="flex items-end justify-between">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-bold text-white">{seatData.currentSeats}</span>
+                <span className="text-sm" style={{ color: "#71717a" }}>
+                  / {seatData.maxSeats === "unlimited" ? "∞" : seatData.maxSeats} seats
+                </span>
               </div>
-              {seatData.maxSeats !== "unlimited" && (
-                <Progress
-                  value={Math.min(100, (seatData.currentSeats / (seatData.maxSeats as number)) * 100)}
-                  className={`h-2 ${!seatData.canAddMore ? "[&>div]:bg-destructive" : seatData.currentSeats / (seatData.maxSeats as number) > 0.8 ? "[&>div]:bg-amber-500" : ""}`}
-                />
+              {seatData.maxSeats !== "unlimited" && !seatData.canAddMore && (
+                <Badge variant="destructive" className="flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" />
+                  Limit Reached
+                </Badge>
               )}
-              {!seatData.canAddMore && (
-                <p className="text-xs text-muted-foreground">
-                  You've reached the seat limit for your{seatData.planName ? ` ${seatData.planName}` : ""} plan. Upgrade to add more team members.
-                </p>
+              {seatData.maxSeats !== "unlimited" && seatData.canAddMore && (
+                <span className="text-xs" style={{ color: "#71717a" }}>
+                  {(seatData.maxSeats as number) - seatData.currentSeats} seat{(seatData.maxSeats as number) - seatData.currentSeats === 1 ? "" : "s"} remaining
+                </span>
+              )}
+              {seatData.maxSeats === "unlimited" && (
+                <span className="text-xs" style={{ color: "#71717a" }}>Unlimited seats</span>
               )}
             </div>
-          ) : (
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <AlertCircle className="h-5 w-5 shrink-0" />
-              <span className="text-sm">Unable to load seat information.</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            {seatData.maxSeats !== "unlimited" && (
+              <Progress
+                value={Math.min(100, (seatData.currentSeats / (seatData.maxSeats as number)) * 100)}
+                className={`h-2 ${!seatData.canAddMore ? "[&>div]:bg-destructive" : seatData.currentSeats / (seatData.maxSeats as number) > 0.8 ? "[&>div]:bg-amber-500" : "[&>div]:bg-[#C9A84C]"}`}
+              />
+            )}
+            {!seatData.canAddMore && (
+              <p className="text-xs" style={{ color: "#71717a" }}>
+                You've reached the seat limit for your{seatData.planName ? ` ${seatData.planName}` : ""} plan. Upgrade to add more team members.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3" style={{ color: "#71717a" }}>
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            <span className="text-sm">Unable to load seat information.</span>
+          </div>
+        )}
+      </div>
 
       {/* Billing Interval Toggle */}
       <div className="flex items-center gap-4">
