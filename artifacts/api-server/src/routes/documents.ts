@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, projectDocumentsTable, projectsTable, pool } from "@workspace/db";
+import { db, projectDocumentsTable, projectsTable, costAnalysesTable, pool } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth.js";
 import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
@@ -717,5 +717,71 @@ Respond with ONLY the JSON object, no markdown.`;
     res.status(500).json({ error: "Analysis failed" });
   }
 }
+
+// POST /projects/:projectId/documents/:docId/push-to-costs
+router.post("/:docId/push-to-costs", requireAuth, requireCompany, async (req, res) => {
+  const projectId = parseInt(req.params.projectId);
+  const docId = parseInt(req.params.docId);
+  if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
+
+  const { category } = req.body as { category?: string };
+  const validCategories = ["materials", "labour", "equipment", "other"] as const;
+  type Category = typeof validCategories[number];
+  const cat: Category = (validCategories.includes(category as Category) ? category : "other") as Category;
+
+  const [doc] = await db.select().from(projectDocumentsTable).where(
+    and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId))
+  );
+  if (!doc) { res.status(404).json({ error: "Document not found" }); return; }
+  if (doc.status !== "ready" || !doc.extractedData) {
+    res.status(400).json({ error: "Document must be analyzed before pushing to costs." }); return;
+  }
+
+  const data = doc.extractedData as Record<string, unknown>;
+  const fields = (data.extractedData ?? {}) as Record<string, unknown>;
+  const rawAmount = typeof fields.amount === "number" ? fields.amount : 0;
+  if (rawAmount <= 0) {
+    res.status(400).json({ error: "No financial amount found in this document." }); return;
+  }
+
+  const vendor = typeof fields.vendor === "string" ? fields.vendor : null;
+  const docDate = typeof fields.date === "string" ? fields.date : null;
+  const docType = typeof data.documentType === "string" ? data.documentType : "Document";
+  const summary = typeof data.summary === "string" ? data.summary : doc.aiSummary ?? "";
+
+  const labelParts: string[] = [];
+  if (vendor) labelParts.push(vendor);
+  if (docDate) labelParts.push(docDate.slice(0, 10));
+  else labelParts.push(new Date().toISOString().slice(0, 10));
+  const periodLabel = labelParts.join(" — ") || `${docType} — ${new Date().toISOString().slice(0, 10)}`;
+
+  const amount = rawAmount.toFixed(2);
+  const costs: Record<Category, string> = {
+    materials: "0.00", labour: "0.00", equipment: "0.00", other: "0.00",
+  };
+  costs[cat] = amount;
+  const total = rawAmount.toFixed(2);
+
+  const invoiceNum = typeof fields.invoiceNumber === "string" ? fields.invoiceNumber : null;
+  const noteParts: string[] = [];
+  if (doc.filename) noteParts.push(`Source: ${doc.filename}`);
+  if (invoiceNum) noteParts.push(`Invoice #${invoiceNum}`);
+  if (fields.notes && typeof fields.notes === "string") noteParts.push(fields.notes);
+  const notes = noteParts.join(" · ") || null;
+
+  const [entry] = await db.insert(costAnalysesTable).values({
+    projectId,
+    periodLabel,
+    labourCost: costs.labour,
+    materialsCost: costs.materials,
+    equipmentCost: costs.equipment,
+    otherCost: costs.other,
+    totalCost: total,
+    notes,
+    aiAnalysis: summary || null,
+  }).returning();
+
+  res.status(201).json(entry);
+});
 
 export default router;

@@ -11,6 +11,7 @@ import {
   Upload, FileText, Image, Trash2, Sparkles, Download,
   Loader2, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
   Clock, UserCircle, Search, MessageSquare, X, Send, BookOpen,
+  DollarSign, ArrowRight, CheckCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -56,6 +57,13 @@ const RELEVANCE_COLOR: Record<string, string> = {
   low: "bg-slate-100 text-slate-600 border-slate-300",
 };
 
+const CATEGORY_LABELS: Record<string, string> = {
+  materials: "Materials",
+  labour: "Labour",
+  equipment: "Equipment",
+  other: "Other",
+};
+
 // ─── Helper components ────────────────────────────────────────────────────────
 function statusBadge(status: DocStatus) {
   switch (status) {
@@ -79,7 +87,122 @@ function formatSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function ExtractedDataPanel({ doc }: { doc: ProjectDoc }) {
+// ─── Push to Costs Panel ──────────────────────────────────────────────────────
+function PushToCostsPanel({
+  doc, projectId, fields,
+}: {
+  doc: ProjectDoc;
+  projectId: number;
+  fields: NonNullable<ExtractedFields["extractedData"]>;
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState<"materials" | "labour" | "equipment" | "other">("materials");
+  const [pushed, setPushed] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  if (!fields.amount || fields.amount <= 0) return null;
+  const currency = fields.currency ?? "CAD";
+
+  async function handlePush() {
+    setLoading(true);
+    try {
+      await customFetch(`/api/projects/${projectId}/documents/${doc.id}/push-to-costs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category }),
+      });
+      setPushed(true);
+      setOpen(false);
+      toast({
+        title: "Added to Cost Tracking",
+        description: `${currency}$${fields.amount!.toLocaleString()} added as ${CATEGORY_LABELS[category]} cost.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Failed to push cost", description: err?.message ?? "Unknown error", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="mt-2">
+      {pushed ? (
+        <div className="flex items-center gap-1.5 text-xs text-green-700 font-medium py-1">
+          <CheckCheck className="h-3.5 w-3.5" />
+          Added to Cost Tracking
+        </div>
+      ) : !open ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs gap-1.5 border-amber-400 text-amber-700 hover:bg-amber-50"
+          onClick={() => setOpen(true)}
+        >
+          <DollarSign className="h-3 w-3" />
+          Push to Costs
+          <span className="font-semibold">{currency}${fields.amount!.toLocaleString()}</span>
+        </Button>
+      ) : (
+        <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-amber-800 flex items-center gap-1.5">
+              <DollarSign className="h-3.5 w-3.5" />
+              Push {currency}${fields.amount!.toLocaleString()} to Cost Tracking
+            </span>
+            <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div>
+            <p className="text-[10px] text-muted-foreground mb-1.5 font-medium uppercase tracking-wide">Cost Category</p>
+            <div className="flex flex-wrap gap-1.5">
+              {(["materials", "labour", "equipment", "other"] as const).map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setCategory(cat)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
+                    category === cat
+                      ? "bg-amber-500 text-white border-amber-500"
+                      : "bg-white text-amber-700 border-amber-300 hover:bg-amber-50"
+                  }`}
+                >
+                  {CATEGORY_LABELS[cat]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {fields.vendor && (
+            <p className="text-[10px] text-muted-foreground">
+              Vendor: <span className="font-medium text-foreground">{fields.vendor}</span>
+              {fields.date && <> · Date: <span className="font-medium text-foreground">{fields.date.slice(0, 10)}</span></>}
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="h-7 text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={handlePush}
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
+              Confirm
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Extracted Data Panel ─────────────────────────────────────────────────────
+function ExtractedDataPanel({ doc, projectId }: { doc: ProjectDoc; projectId: number }) {
   const [open, setOpen] = useState(false);
   if (doc.status !== "ready" || !doc.extractedData) return null;
 
@@ -97,6 +220,11 @@ function ExtractedDataPanel({ doc }: { doc: ProjectDoc }) {
           <span className="text-xs font-semibold">{data.documentType ?? "AI Analysis"}</span>
           {data.confidence && (
             <span className="text-[10px] text-muted-foreground font-normal">({data.confidence} confidence)</span>
+          )}
+          {fields.amount != null && fields.amount > 0 && (
+            <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">
+              {fields.currency ?? "CAD"}${fields.amount.toLocaleString()}
+            </span>
           )}
         </span>
         {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -149,6 +277,8 @@ function ExtractedDataPanel({ doc }: { doc: ProjectDoc }) {
             </div>
           )}
           {fields.notes && <div><p className="text-[10px] text-muted-foreground mb-1">Notes</p><p className="text-xs">{fields.notes}</p></div>}
+
+          <PushToCostsPanel doc={doc} projectId={projectId} fields={fields} />
         </div>
       )}
     </div>
@@ -157,22 +287,23 @@ function ExtractedDataPanel({ doc }: { doc: ProjectDoc }) {
 
 // ─── Search Panel ─────────────────────────────────────────────────────────────
 function SearchPanel({ projectId }: { projectId: number }) {
+  const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SearchResponse | null>(null);
 
-  async function runSearch() {
+  async function search() {
     if (!query.trim()) return;
     setLoading(true);
-    setResult(null);
     try {
-      const data = await customFetch(`/api/projects/${projectId}/documents/search`, {
+      const res = await customFetch(`/api/projects/${projectId}/documents/search`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: query.trim() }),
       }) as SearchResponse;
-      setResult(data);
-    } catch (err: any) {
-      setResult({ results: [], answer: err?.message ?? "Search failed." });
+      setResult(res);
+    } catch {
+      toast({ title: "Search failed", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -181,53 +312,35 @@ function SearchPanel({ projectId }: { projectId: number }) {
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <input
-            className="w-full pl-9 pr-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
-            placeholder="Search documents… e.g. 'concrete receipts' or 'invoices over $5000'"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && runSearch()}
-          />
-        </div>
-        <VoiceNoteButton onTranscript={t => setQuery(q => q ? `${q} ${t}` : t)} size="icon" />
-        <Button onClick={runSearch} disabled={loading || !query.trim()} size="sm">
+        <input
+          className="flex-1 border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          placeholder="e.g. lumber costs, safety inspection, contract…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && search()}
+        />
+        <Button size="sm" onClick={search} disabled={loading || !query.trim()}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         </Button>
       </div>
-
       {result && (
         <div className="space-y-2">
-          {result.answer && (
-            <div className="flex gap-2 bg-primary/5 border border-primary/20 rounded-md p-3">
-              <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-sm text-foreground">{result.answer}</p>
-            </div>
+          <p className="text-xs text-muted-foreground italic">{result.answer}</p>
+          {result.semantic && (
+            <Badge variant="outline" className="text-[10px] gap-1 border-primary/30 text-primary">
+              <Sparkles className="h-2.5 w-2.5" />Semantic match
+            </Badge>
           )}
-          {result.results.length > 0 ? (
-            <div className="space-y-1.5">
-              {result.results.map(doc => (
-                <div key={doc.id} className="flex items-start gap-3 p-2.5 border rounded-md bg-card hover:bg-muted/30 transition-colors">
-                  <FileIcon fileType={doc.fileType} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium truncate">{doc.filename}</span>
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${RELEVANCE_COLOR[doc.relevance]}`}>
-                        {doc.relevance}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{doc.reason}</p>
-                  </div>
-                  <a href={doc.objectPath.replace(/^\/objects\//, "/api/storage/objects/")} target="_blank" rel="noopener noreferrer">
-                    <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="h-3.5 w-3.5" /></Button>
-                  </a>
-                </div>
-              ))}
+          {result.results.map((r, i) => (
+            <div key={i} className="flex items-start gap-2 p-2 rounded-md border bg-muted/20">
+              <FileText className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{r.filename}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{r.reason}</p>
+              </div>
+              <Badge className={`text-[10px] border shrink-0 ${RELEVANCE_COLOR[r.relevance]}`}>{r.relevance}</Badge>
             </div>
-          ) : (
-            <p className="text-xs text-muted-foreground text-center py-2">No matching documents found.</p>
-          )}
+          ))}
         </div>
       )}
     </div>
@@ -235,105 +348,63 @@ function SearchPanel({ projectId }: { projectId: number }) {
 }
 
 // ─── Q&A Panel ────────────────────────────────────────────────────────────────
-type QAMessage = { role: "user" | "assistant"; text: string; citations?: QACitation[]; ragEnabled?: boolean };
-
-const QA_STARTERS = [
-  "What's the total spend across all invoices?",
-  "List all vendors and their amounts",
-  "Are there any safety inspection concerns?",
-  "What is the contract scope of work?",
-  "Any outstanding change orders or RFIs?",
-];
-
 function QAPanel({ projectId }: { projectId: number }) {
-  const [messages, setMessages] = useState<QAMessage[]>([]);
+  const { toast } = useToast();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ragActive, setRagActive] = useState(false);
+  const [history, setHistory] = useState<{ role: "user" | "ai"; text: string; citations?: QACitation[]; ragEnabled?: boolean }[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   async function ask() {
     const q = input.trim();
-    if (!q || loading) return;
+    if (!q) return;
     setInput("");
-    const newUserMsg: QAMessage = { role: "user", text: q };
-    setMessages(m => [...m, newUserMsg]);
+    const next = [...history, { role: "user" as const, text: q }];
+    setHistory(next);
     setLoading(true);
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-
     try {
-      const history = messages.slice(-10); // send last 10 messages for context
-      const data = await customFetch(`/api/projects/${projectId}/documents/qa`, {
+      const res = await customFetch(`/api/projects/${projectId}/documents/qa`, {
         method: "POST",
-        body: JSON.stringify({ question: q, history }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q, history: history.slice(-6).map(h => ({ role: h.role, text: h.text })) }),
       }) as QAResponse;
-      if (data.ragEnabled) setRagActive(true);
-      setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations, ragEnabled: data.ragEnabled }]);
-    } catch (err: any) {
-      setMessages(m => [...m, { role: "assistant", text: err?.message ?? "Sorry, Q&A failed. Please try again." }]);
+      setHistory([...next, { role: "ai", text: res.answer, citations: res.citations, ragEnabled: res.ragEnabled }]);
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    } catch {
+      toast({ title: "Q&A failed", variant: "destructive" });
+      setHistory([...next, { role: "ai", text: "Sorry, I could not answer that." }]);
     } finally {
       setLoading(false);
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {ragActive && (
-        <div className="flex items-center gap-1.5 text-[10px] text-primary bg-primary/5 border border-primary/20 rounded px-2 py-1">
-          <Sparkles className="h-3 w-3" />
-          <span className="font-medium">Semantic RAG active</span>
-          <span className="text-muted-foreground">— answers grounded in your document embeddings</span>
-        </div>
+    <div className="space-y-3">
+      {history.length === 0 && (
+        <p className="text-xs text-muted-foreground italic">Ask anything about your project documents. I'll search across all analyzed files.</p>
       )}
-      {messages.length === 0 ? (
-        <div className="text-center py-5 text-muted-foreground">
-          <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-40" />
-          <p className="text-sm font-medium">Ask anything about your project documents</p>
-          <p className="text-xs mt-1 text-muted-foreground">Analyze your files first, then ask construction-specific questions.</p>
-          <div className="flex flex-wrap gap-2 justify-center mt-3">
-            {QA_STARTERS.slice(0, 3).map(s => (
-              <button key={s} onClick={() => setInput(s)} className="text-xs border rounded-full px-3 py-1 hover:bg-muted transition-colors text-left">
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-          {messages.map((m, i) => (
-            <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              {m.role === "assistant" && (
-                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+      {history.length > 0 && (
+        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+          {history.map((h, i) => (
+            <div key={i} className={`text-xs rounded-md p-2.5 ${h.role === "user" ? "bg-primary/10 ml-4" : "bg-muted/40 mr-4"}`}>
+              <p className="leading-relaxed">{h.text}</p>
+              {h.ragEnabled === false && h.role === "ai" && (
+                <p className="text-[10px] text-muted-foreground mt-1 italic">Note: Full semantic search unavailable — using document summaries.</p>
+              )}
+              {h.citations && h.citations.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {h.citations.map((c, j) => (
+                    <span key={j} className="text-[10px] bg-background border rounded px-1.5 py-0.5 text-muted-foreground">
+                      <BookOpen className="inline h-2.5 w-2.5 mr-0.5" />{c.filename}
+                    </span>
+                  ))}
                 </div>
               )}
-              <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                <p className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
-                {m.citations && m.citations.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-border/30 space-y-1">
-                    <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">Sources</p>
-                    <div className="flex flex-wrap gap-1">
-                      {m.citations.map(c => (
-                        <span key={c.id} className="text-[10px] bg-background/60 border border-border/40 rounded px-1.5 py-0.5 flex items-center gap-1">
-                          <FileText className="h-2.5 w-2.5 text-primary" />
-                          <span className="truncate max-w-[140px]">{c.filename}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           ))}
           {loading && (
-            <div className="flex gap-2">
-              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <div className="bg-muted rounded-lg px-3 py-2">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              </div>
+            <div className="text-xs rounded-md p-2.5 bg-muted/40 mr-4">
+              <Loader2 className="h-3 w-3 animate-spin inline mr-1" />Thinking…
             </div>
           )}
           <div ref={bottomRef} />
@@ -548,6 +619,7 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
             <span className="font-medium text-foreground">AI-Powered Documents — </span>
             Photos & receipts are analyzed automatically on upload (OCR, amounts, vendors). PDFs and other files can be analyzed on demand.
             Use <span className="font-medium">Search</span> to find documents, or <span className="font-medium">Ask AI</span> to answer questions across all files.
+            Invoices and receipts with a dollar amount can be <span className="font-medium">pushed directly to Cost Tracking</span>.
           </div>
         </div>
       )}
@@ -595,7 +667,7 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
                       {doc.aiSummary && displayStatus !== "ready" && (
                         <p className="text-xs text-muted-foreground mt-1 italic">{doc.aiSummary}</p>
                       )}
-                      <ExtractedDataPanel doc={doc} />
+                      <ExtractedDataPanel doc={doc} projectId={projectId} />
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {canAnalyze && (
