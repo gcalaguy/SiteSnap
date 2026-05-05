@@ -51,6 +51,9 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ParsedParams = {
