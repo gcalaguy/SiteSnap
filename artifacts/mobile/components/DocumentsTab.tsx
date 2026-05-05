@@ -102,14 +102,62 @@ function VoiceMicButton({ onTranscript, disabled }: { onTranscript: (t: string) 
   );
 }
 
-function ExtractedPanel({ doc }: { doc: ProjectDoc }) {
+const CATEGORY_LABELS: Record<string, string> = {
+  materials: "Materials",
+  labour: "Labour",
+  equipment: "Equipment",
+  other: "Other",
+};
+
+function ExtractedPanel({ doc, projectId }: { doc: ProjectDoc; projectId: number }) {
   const colors = useColors();
   const [open, setOpen] = useState(false);
+  const [pushed, setPushed] = useState(false);
+  const [pushing, setPushing] = useState(false);
+
   if (doc.status !== "ready" || !doc.extractedData) return null;
 
   const data = doc.extractedData as ExtractedFields;
   const fields = data.extractedData ?? {};
   const hasFields = !!(fields.vendor || fields.amount != null || fields.date || fields.invoiceNumber);
+  const hasAmount = fields.amount != null && fields.amount > 0;
+  const currency = fields.currency ?? "CAD";
+
+  async function pushToCosts(category: string) {
+    setPushing(true);
+    try {
+      await customFetch(`/api/projects/${projectId}/documents/${doc.id}/push-to-costs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category }),
+      });
+      setPushed(true);
+      Alert.alert(
+        "Added to Cost Tracking",
+        `${currency}$${fields.amount!.toLocaleString()} added as ${CATEGORY_LABELS[category]} cost.`,
+        [{ text: "OK" }]
+      );
+    } catch {
+      Alert.alert("Failed", "Could not push to cost tracking. Please try again.");
+    } finally {
+      setPushing(false);
+    }
+  }
+
+  function promptCategory() {
+    if (pushed) return;
+    Alert.alert(
+      `Push ${currency}$${fields.amount!.toLocaleString()} to Costs`,
+      "Select a cost category:",
+      [
+        { text: "Materials", onPress: () => pushToCosts("materials") },
+        { text: "Labour", onPress: () => pushToCosts("labour") },
+        { text: "Equipment", onPress: () => pushToCosts("equipment") },
+        { text: "Other", onPress: () => pushToCosts("other") },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  }
 
   return (
     <View style={{ marginTop: 8 }}>
@@ -122,7 +170,14 @@ function ExtractedPanel({ doc }: { doc: ProjectDoc }) {
           {data.documentType ?? "AI Analysis"}
           {data.confidence === "low" ? " · filename profile" : ""}
         </Text>
-        <Feather name={open ? "chevron-up" : "chevron-down"} size={12} color={colors.primary} style={{ marginLeft: "auto" }} />
+        {hasAmount && (
+          <View style={[docStyles.amountPill, { backgroundColor: "#C9A84C20", borderColor: "#C9A84C50" }]}>
+            <Text style={[docStyles.amountPillText, { color: "#C9A84C" }]}>
+              {currency}${fields.amount!.toLocaleString()}
+            </Text>
+          </View>
+        )}
+        <Feather name={open ? "chevron-up" : "chevron-down"} size={12} color={colors.primary} style={{ marginLeft: 4 }} />
       </Pressable>
 
       {open && (
@@ -142,7 +197,7 @@ function ExtractedPanel({ doc }: { doc: ProjectDoc }) {
                 <View style={docStyles.fieldItem}>
                   <Text style={[docStyles.fieldLabel, { color: colors.mutedForeground }]}>Amount</Text>
                   <Text style={[docStyles.fieldValue, { color: colors.foreground }]}>
-                    {fields.currency ?? "CAD"}${fields.amount.toLocaleString()}
+                    {currency}${fields.amount.toLocaleString()}
                   </Text>
                 </View>
               )}
@@ -179,6 +234,34 @@ function ExtractedPanel({ doc }: { doc: ProjectDoc }) {
               </Text>
             </View>
           ) : null}
+
+          {/* Push to Costs */}
+          {hasAmount && (
+            <View style={{ marginTop: 10 }}>
+              {pushed ? (
+                <View style={[docStyles.pushedBadge, { backgroundColor: "#22C55E15", borderColor: "#22C55E40" }]}>
+                  <Feather name="check-circle" size={13} color="#22C55E" />
+                  <Text style={[docStyles.pushedText, { color: "#22C55E" }]}>Added to Cost Tracking</Text>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={promptCategory}
+                  disabled={pushing}
+                  style={({ pressed }) => [
+                    docStyles.pushBtn,
+                    { backgroundColor: "#C9A84C", opacity: pressed || pushing ? 0.75 : 1 },
+                  ]}
+                >
+                  {pushing
+                    ? <ActivityIndicator size={13} color="#fff" />
+                    : <Feather name="dollar-sign" size={13} color="#fff" />}
+                  <Text style={docStyles.pushBtnText}>
+                    {pushing ? "Adding…" : `Push to Costs · ${currency}$${fields.amount!.toLocaleString()}`}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -713,7 +796,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                           </Pressable>
                         </View>
                       </View>
-                      <ExtractedPanel doc={doc} />
+                      <ExtractedPanel doc={doc} projectId={projectId} />
                     </View>
                   );
                 })}
@@ -810,6 +893,12 @@ const docStyles = StyleSheet.create({
   lineItemDesc: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
   lineItemAmt: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginLeft: 8 },
   ocrText: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 16, borderRadius: 6, padding: 8 },
+  amountPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, borderWidth: 1, marginLeft: "auto" as any },
+  amountPillText: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  pushBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 9 },
+  pushBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  pushedBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1 },
+  pushedText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   sectionLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   sectionLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, flex: 1 },
   clientBadge: { backgroundColor: "#3B82F620", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
