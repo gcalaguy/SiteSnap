@@ -331,13 +331,15 @@ export default function DashboardScreen() {
           icon="alert-circle"
           onPress={() => router.navigate("/(tabs)/projects")}
         />
-        <SummaryCard
-          title="Team Members"
-          value={memberCount > 0 ? String(memberCount) : "—"}
-          subtitle="Active in workspace"
-          icon="users"
-          onPress={() => router.navigate("/(tabs)/profile")}
-        />
+        {!isWorker && (
+          <SummaryCard
+            title="Team Members"
+            value={memberCount > 0 ? String(memberCount) : "—"}
+            subtitle="Active in workspace"
+            icon="users"
+            onPress={() => router.navigate("/(tabs)/profile")}
+          />
+        )}
       </View>
 
       {/* Finance Quick Access */}
