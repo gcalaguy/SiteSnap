@@ -342,24 +342,26 @@ export default function DashboardScreen() {
         )}
       </View>
 
-      {/* Finance Quick Access */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.financeCard,
-          { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1, marginHorizontal: 16, marginBottom: 20 },
-        ]}
-        onPress={() => router.push("/finance")}
-      >
-        <View style={styles.financeCardInner}>
-          <View style={styles.financeCardText}>
-            <Text style={styles.financeCardTitle}>Finance</Text>
-            <Text style={styles.financeCardSub}>
-              Budget {formatCurrency(summary?.totalBudget)} · Spend {formatCurrency(summary?.totalSpend)}
-            </Text>
+      {/* Finance Quick Access — owners and foremen only */}
+      {!isWorker && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.financeCard,
+            { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1, marginHorizontal: 16, marginBottom: 20 },
+          ]}
+          onPress={() => router.push("/finance")}
+        >
+          <View style={styles.financeCardInner}>
+            <View style={styles.financeCardText}>
+              <Text style={styles.financeCardTitle}>Finance</Text>
+              <Text style={styles.financeCardSub}>
+                Budget {formatCurrency(summary?.totalBudget)} · Spend {formatCurrency(summary?.totalSpend)}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
           </View>
-          <Feather name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
-        </View>
-      </Pressable>
+        </Pressable>
+      )}
 
       {/* Projects list */}
       <View style={styles.section}>
