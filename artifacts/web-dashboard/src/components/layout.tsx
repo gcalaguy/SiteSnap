@@ -251,22 +251,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             const isActive = location.startsWith(item.href);
             const locked = !!(item as any).featureKey && !has((item as any).featureKey);
 
-            if (locked) {
-              return (
-                <div
-                  key={item.name}
-                  title="Upgrade your plan to access this feature"
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg relative select-none"
-                  style={{ opacity: 0.4, cursor: "not-allowed" }}
-                >
-                  <item.icon size={17} style={{ color: "#555", flexShrink: 0 }} />
-                  <span className="flex-1 text-sm font-medium truncate" style={{ color: "#666" }}>
-                    {item.name}
-                  </span>
-                  <Lock size={11} style={{ color: "#555", flexShrink: 0 }} />
-                </div>
-              );
-            }
+            if (locked) return null;
 
             return (
               <Link key={item.name} href={item.href}>
