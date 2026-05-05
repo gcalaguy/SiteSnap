@@ -347,6 +347,7 @@ export default function InvoiceDetail() {
   const [editedTitle, setEditedTitle] = useState<string | null>(null);
   const [editedNotes, setEditedNotes] = useState<string | null>(null);
   const [editedDueDate, setEditedDueDate] = useState<string | null>(null);
+  const [editedClientEmail, setEditedClientEmail] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   function getCompanyName() {
@@ -370,9 +371,10 @@ export default function InvoiceDetail() {
   const effectiveTitle = editedTitle ?? invoice?.title ?? "";
   const effectiveNotes = editedNotes ?? invoice?.notes ?? "";
   const effectiveDueDate = editedDueDate ?? invoice?.dueDate ?? "";
+  const effectiveClientEmail = editedClientEmail ?? invoice?.clientEmail ?? "";
   const taxRate = parseFloat(invoice?.taxRate ?? "0.13");
   const { subtotal, taxAmount, total } = calcTotals(effectiveItems, taxRate);
-  const hasUnsavedChanges = editedItems !== null || editedTitle !== null || editedNotes !== null || editedDueDate !== null;
+  const hasUnsavedChanges = editedItems !== null || editedTitle !== null || editedNotes !== null || editedDueDate !== null || editedClientEmail !== null;
 
   function updateItem(idx: number, field: keyof LineItem, value: string | number) {
     const items = effectiveItems.map((item, i) => {
@@ -399,6 +401,7 @@ export default function InvoiceDetail() {
         invoiceId,
         data: {
           title: effectiveTitle || undefined,
+          clientEmail: effectiveClientEmail || null,
           notes: effectiveNotes || undefined,
           dueDate: effectiveDueDate || undefined,
           lineItems: effectiveItems,
@@ -412,6 +415,7 @@ export default function InvoiceDetail() {
       setEditedTitle(null);
       setEditedNotes(null);
       setEditedDueDate(null);
+      setEditedClientEmail(null);
       toast({ title: "Invoice saved" });
       invalidate();
     } catch {
@@ -559,7 +563,7 @@ export default function InvoiceDetail() {
     );
   }
 
-  const hasClientEmail = !!invoice.clientEmail;
+  const hasClientEmail = !!effectiveClientEmail;
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -737,6 +741,22 @@ export default function InvoiceDetail() {
                     className="max-w-sm"
                   />
                 </div>
+              ) : null}
+
+              {/* Editable client email */}
+              {canEdit ? (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Client Email</Label>
+                  <Input
+                    type="email"
+                    value={effectiveClientEmail}
+                    onChange={(e) => setEditedClientEmail(e.target.value)}
+                    placeholder="client@example.com"
+                    className="max-w-sm"
+                  />
+                </div>
+              ) : invoice.clientEmail ? (
+                <p className="text-sm text-muted-foreground">{invoice.clientEmail}</p>
               ) : null}
 
               {/* Editable due date */}
