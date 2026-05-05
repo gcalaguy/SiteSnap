@@ -240,7 +240,7 @@ router.delete("/:quoteId", requireAuth, requireCompany, async (req, res) => {
 
   const [existing] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
-  if (!existing || existing.projectId !== projectId) { res.status(404).json({ error: "Quote not found" }); return; }
+  if (!existing || (projectId > 0 && existing.projectId !== null && existing.projectId !== projectId)) { res.status(404).json({ error: "Quote not found" }); return; }
 
   // Workers can only delete quotes they created
   if (isWorker && existing.createdByUserId !== req.userId!) {
