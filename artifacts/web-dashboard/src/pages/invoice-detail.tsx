@@ -31,6 +31,12 @@ import * as XLSX from "xlsx";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function imgFmt(dataUrl: string): string {
+  if (dataUrl.startsWith("data:image/png")) return "PNG";
+  if (dataUrl.startsWith("data:image/webp")) return "WEBP";
+  return "JPEG";
+}
+
 async function loadTemplateDataUrl(objectPath: string | null | undefined): Promise<string | undefined> {
   if (!objectPath) return undefined;
   try {
@@ -123,7 +129,7 @@ function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: strin
     // Custom template: full-width banner, then a dark strip for the doc metadata
     const TEMPLATE_H = 50;
     const META_H = 13;
-    doc.addImage(templateDataUrl, 0, 0, pageW, TEMPLATE_H);
+    doc.addImage(templateDataUrl, imgFmt(templateDataUrl), 0, 0, pageW, TEMPLATE_H);
     // Dark strip below the template image — always readable regardless of template colours
     doc.setFillColor(...DARK);
     doc.rect(0, TEMPLATE_H, pageW, META_H, "F");
@@ -150,7 +156,7 @@ function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: strin
 
     if (logoDataUrl) {
       // Company logo on the left of the gold header
-      doc.addImage(logoDataUrl, margin, 3, 52, 22);
+      doc.addImage(logoDataUrl, imgFmt(logoDataUrl), margin, 3, 52, 22);
     } else {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
