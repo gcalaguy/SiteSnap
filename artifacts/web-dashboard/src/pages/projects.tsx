@@ -228,17 +228,14 @@ export default function Projects() {
           <div
             key={label}
             className="rounded-xl p-4"
-            style={{ background: SURFACE, border: `1px solid ${BORDER}`, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
+            style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium" style={{ color: MUTED }}>{label}</span>
-              <div className="rounded-lg flex items-center justify-center"
-                style={{ width: 30, height: 30, background: `${GOLD}18`, border: `1px solid ${GOLD}33` }}>
-                <Icon size={14} style={{ color: GOLD }} />
-              </div>
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+              <Icon size={15} style={{ color: GOLD }} />
             </div>
-            <p className="text-xl font-bold mb-1" style={{ color: TEXT }}>{isLoading ? "—" : value}</p>
-            <p className="text-xs" style={{ color: MUTED }}>{sub}</p>
+            <p className="text-2xl font-bold mb-1 text-white">{isLoading ? "—" : value}</p>
+            <p className="text-xs" style={{ color: "#71717a" }}>{sub}</p>
           </div>
         ))}
       </div>
