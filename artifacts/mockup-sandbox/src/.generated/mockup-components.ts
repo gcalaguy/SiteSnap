@@ -8,5 +8,8 @@ export const modules: ModuleMap = {
   "./components/mockups/black-gold/Sidebar.tsx": () => import("../components/mockups/black-gold/Sidebar.tsx"),
   "./components/mockups/themes/ThemeA.tsx": () => import("../components/mockups/themes/ThemeA.tsx"),
   "./components/mockups/themes/ThemeB.tsx": () => import("../components/mockups/themes/ThemeB.tsx"),
-  "./components/mockups/themes/ThemeC.tsx": () => import("../components/mockups/themes/ThemeC.tsx")
+  "./components/mockups/themes/ThemeC.tsx": () => import("../components/mockups/themes/ThemeC.tsx"),
+  "./components/mockups/schemes/SchemeA.tsx": () => import("../components/mockups/schemes/SchemeA.tsx"),
+  "./components/mockups/schemes/SchemeB.tsx": () => import("../components/mockups/schemes/SchemeB.tsx"),
+  "./components/mockups/schemes/SchemeC.tsx": () => import("../components/mockups/schemes/SchemeC.tsx")
 };
