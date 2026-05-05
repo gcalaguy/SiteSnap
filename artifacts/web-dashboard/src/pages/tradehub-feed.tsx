@@ -22,6 +22,9 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 const TRADES = ["Electrician","Plumber","HVAC","General Contractor","Carpenter","Welder","Roofer","Painter","Mason","Ironworker","Concrete","Landscaping","Other"];
 const PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
 
@@ -320,85 +323,91 @@ export default function TradehubFeedPage() {
         {/* Sidebar */}
         <div className="lg:col-span-1 space-y-4">
           {/* Profile card */}
-          <Card>
-            <CardContent className="p-4">
-              {myProfile ? (
-                <Link href="/tradehub/profile/me">
-                  <div className="flex items-center gap-3 cursor-pointer group">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0">
-                      {myProfile.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{myProfile.displayName}</p>
-                      <p className="text-xs text-muted-foreground truncate">{myProfile.trade ?? "No trade set"}</p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <div className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+            {myProfile ? (
+              <Link href="/tradehub/profile/me">
+                <div className="flex items-center gap-3 cursor-pointer group">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
+                    style={{ background: GOLD, color: BLACK }}>
+                    {myProfile.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
                   </div>
-                </Link>
-              ) : (
-                <div>
-                  <p className="text-sm font-medium mb-2">Complete your profile</p>
-                  <p className="text-xs text-muted-foreground mb-3">Set up your TradeHub profile to connect with contractors.</p>
-                  <Link href="/tradehub/profile/me">
-                    <Button size="sm" className="w-full">Set Up Profile</Button>
-                  </Link>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate text-white">{myProfile.displayName}</p>
+                    <p className="text-xs truncate" style={{ color: GOLD }}>{myProfile.trade ?? "No trade set"}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4" style={{ color: GOLD }} />
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </Link>
+            ) : (
+              <div>
+                <p className="text-sm font-medium mb-2 text-white">Complete your profile</p>
+                <p className="text-xs mb-3" style={{ color: GOLD }}>Set up your TradeHub profile to connect with contractors.</p>
+                <Link href="/tradehub/profile/me">
+                  <Button size="sm" className="w-full" style={{ background: GOLD, color: BLACK }}>Set Up Profile</Button>
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* Nav */}
-          <Card>
-            <CardContent className="p-2 space-y-1">
-              {[
-                { href: "/tradehub", label: "Feed", icon: Globe },
-                { href: "/tradehub/jobs", label: "Job Board", icon: Briefcase },
-                { href: "/tradehub/messages", label: "Messages", icon: MessageCircle },
-                { href: "/tradehub/profile/me", label: "My Profile", icon: User },
-              ].map(({ href, label, icon: Icon }) => (
-                <Link key={href} href={href}>
-                  <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                    <Icon className="h-4 w-4" />{label}
-                  </button>
-                </Link>
-              ))}
-            </CardContent>
-          </Card>
+          <div className="rounded-xl p-2 space-y-1" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+            {[
+              { href: "/tradehub", label: "Feed", icon: Globe },
+              { href: "/tradehub/jobs", label: "Job Board", icon: Briefcase },
+              { href: "/tradehub/messages", label: "Messages", icon: MessageCircle },
+              { href: "/tradehub/profile/me", label: "My Profile", icon: User },
+            ].map(({ href, label, icon: Icon }) => (
+              <Link key={href} href={href}>
+                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: "#d4d4d4" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = GOLD; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#d4d4d4"; }}>
+                  <Icon className="h-4 w-4" style={{ color: GOLD }} />{label}
+                </button>
+              </Link>
+            ))}
+          </div>
 
           {/* Filters */}
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filter Feed</p>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="All types" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="discussion">Discussions</SelectItem>
-                  <SelectItem value="job">Jobs</SelectItem>
-                  <SelectItem value="showcase">Showcases</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={tradeFilter} onValueChange={setTradeFilter}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="All trades" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Trades</SelectItem>
-                  {TRADES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={provinceFilter} onValueChange={setProvinceFilter}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="All provinces" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Provinces</SelectItem>
-                  {PROVINCES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {(typeFilter !== "all" || tradeFilter !== "all" || provinceFilter !== "all") && (
-                <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => { setTypeFilter("all"); setTradeFilter("all"); setProvinceFilter("all"); }}>
-                  <X className="h-3 w-3 mr-1" />Clear Filters
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          <div className="rounded-xl p-4 space-y-3" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Filter Feed</p>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="text-sm border-0" style={{ background: "#1f1f1f", color: "white" }}>
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="discussion">Discussions</SelectItem>
+                <SelectItem value="job">Jobs</SelectItem>
+                <SelectItem value="showcase">Showcases</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={tradeFilter} onValueChange={setTradeFilter}>
+              <SelectTrigger className="text-sm border-0" style={{ background: "#1f1f1f", color: "white" }}>
+                <SelectValue placeholder="All trades" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Trades</SelectItem>
+                {TRADES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={provinceFilter} onValueChange={setProvinceFilter}>
+              <SelectTrigger className="text-sm border-0" style={{ background: "#1f1f1f", color: "white" }}>
+                <SelectValue placeholder="All provinces" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Provinces</SelectItem>
+                {PROVINCES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {(typeFilter !== "all" || tradeFilter !== "all" || provinceFilter !== "all") && (
+              <button className="w-full text-xs py-1.5 rounded-lg transition-colors"
+                style={{ color: GOLD, background: "#1f1f1f" }}
+                onClick={() => { setTypeFilter("all"); setTradeFilter("all"); setProvinceFilter("all"); }}>
+                <X className="h-3 w-3 mr-1 inline" />Clear Filters
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Feed */}
