@@ -300,6 +300,8 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
         notes: voiceInput,
       };
     }
+    const items = result.lineItems as { unit?: unknown }[] | undefined;
+    req.log.info({ firstItemUnit: items?.[0]?.unit, itemCount: items?.length }, "AI quote response sample");
     res.json(result);
   } catch (err: unknown) {
     req.log?.error({ err }, "AI quote generation failed");

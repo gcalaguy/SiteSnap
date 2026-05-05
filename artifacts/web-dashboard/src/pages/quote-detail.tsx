@@ -399,7 +399,14 @@ export default function QuoteDetail() {
     queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
   }
 
-  const effectiveItems: LineItem[] = lineItems ?? ((quote?.lineItems ?? []) as LineItem[]);
+  const rawDbItems = ((quote?.lineItems ?? []) as Record<string, unknown>[]).map((item) => ({
+    description: String(item.description || ""),
+    quantity: Number(item.quantity ?? 1),
+    unit: String(item.unit || "ea").trim() || "ea",
+    unitPrice: Number(item.unitPrice ?? item.unit_price ?? 0),
+    total: Number(item.total ?? 0),
+  }));
+  const effectiveItems: LineItem[] = lineItems ?? rawDbItems;
   const effectiveTitle = title ?? quote?.title ?? "";
   const effectiveNotes = notes ?? quote?.notes ?? "";
   const effectiveClientName = clientName ?? quote?.clientName ?? "";
@@ -432,13 +439,19 @@ export default function QuoteDetail() {
         data: { voiceInput: voiceText, projectName: undefined, clientName: quote?.clientName ?? undefined },
       });
       if (result.lineItems) {
-        const normalized: LineItem[] = (result.lineItems as Record<string, unknown>[]).map((item) => ({
-          description: String(item.description ?? ""),
-          quantity: Number(item.quantity ?? 1),
-          unit: String(item.unit ?? item.unit_type ?? item.uom ?? "ea"),
-          unitPrice: Number(item.unitPrice ?? item.unit_price ?? item.unitCost ?? item.unit_cost ?? 0),
-          total: Number(item.total ?? 0),
-        }));
+        const normalized: LineItem[] = (result.lineItems as Record<string, unknown>[]).map((item) => {
+          const rawUnit = item.unit || item.unit_type || item.uom || item.measure || "ea";
+          const rawUnitPrice = item.unitPrice ?? item.unit_price ?? item.unitCost ?? item.unit_cost ?? 0;
+          const qty = Number(item.quantity ?? 1);
+          const price = Number(rawUnitPrice);
+          return {
+            description: String(item.description || ""),
+            quantity: qty,
+            unit: String(rawUnit).trim() || "ea",
+            unitPrice: price,
+            total: Number(item.total ?? (qty * price)),
+          };
+        });
         setLineItems(normalized);
       }
       if (result.title && !title) setTitle(result.title);
