@@ -201,7 +201,7 @@ export default function TradehubMessagesPage() {
           <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div className="flex items-center gap-3 flex-1">
-          <div className="p-2 bg-[#172034] rounded-xl">
+          <div className="p-2 bg-[#0A0A0A] rounded-xl">
             <MessageCircle className="h-5 w-5 text-white" />
           </div>
           <div>

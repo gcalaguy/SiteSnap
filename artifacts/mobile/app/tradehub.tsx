@@ -54,7 +54,7 @@ const TYPE_LABELS: Record<PostType, string> = {
 };
 const TYPE_COLORS: Record<PostType, string> = {
   discussion: "#3B82F6",
-  job: "#FF6600",
+  job: "#D4AF37",
   showcase: "#8B5CF6",
 };
 const TYPE_ICONS: Record<PostType, string> = {

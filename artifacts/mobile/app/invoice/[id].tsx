@@ -56,20 +56,20 @@ function buildInvoiceHTML(invoice: any, lineItems: LineItem[], companyName: stri
   const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "—";
   const createdAt = new Date(invoice.createdAt).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    body{font-family:Helvetica,Arial,sans-serif;margin:0;padding:0;color:#172034}
-    .header{background:#FF6600;color:#fff;padding:24px 32px}
+    body{font-family:Helvetica,Arial,sans-serif;margin:0;padding:0;color:#0A0A0A}
+    .header{background:#D4AF37;color:#fff;padding:24px 32px}
     .header h1{margin:0;font-size:20px}
     .header p{margin:4px 0 0;opacity:.8;font-size:13px}
     .inv-num{float:right;text-align:right}
     .body{padding:32px}
     .meta{display:flex;justify-content:space-between;background:#f5f5f5;border-radius:6px;padding:16px;margin-bottom:24px}
     table{width:100%;border-collapse:collapse;margin:24px 0}
-    th{background:#172034;color:#fff;padding:10px 12px;text-align:left;font-size:12px}
+    th{background:#0A0A0A;color:#fff;padding:10px 12px;text-align:left;font-size:12px}
     th:not(:first-child){text-align:right}
     td{padding:9px 12px;font-size:13px;border-bottom:1px solid #eee}
     .totals{float:right;width:260px;margin-top:16px}
     .totals tr td{border-bottom:none;padding:5px 8px}
-    .totals .grand td{background:#FF6600;color:#fff;font-weight:bold;border-radius:4px}
+    .totals .grand td{background:#D4AF37;color:#fff;font-weight:bold;border-radius:4px}
     .footer{margin-top:40px;text-align:center;font-size:11px;color:#9CA3AF}
     .clearfix::after{content:"";display:table;clear:both}
   </style></head><body>

@@ -1123,7 +1123,7 @@ export default function ProjectDetail() {
                     <Legend />
                     <Bar dataKey="Labour" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
                     <Bar dataKey="Materials" stackId="a" fill="#f59e0b" />
-                    <Bar dataKey="Equipment" stackId="a" fill="#FF6600" />
+                    <Bar dataKey="Equipment" stackId="a" fill="#D4AF37" />
                     <Bar dataKey="Other" stackId="a" fill="#94a3b8" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

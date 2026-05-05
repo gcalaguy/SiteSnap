@@ -140,7 +140,7 @@ export default function WorkerPortalPage() {
 
       {/* New Form CTA */}
       <Link href="/worker-portal/submit">
-        <div className="mb-5 rounded-2xl bg-[#172034] text-white px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-[#1e2d47] transition-colors shadow-md">
+        <div className="mb-5 rounded-2xl bg-[#0A0A0A] text-white px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-[#1A1A1A] transition-colors shadow-md">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center flex-shrink-0">
               <ShieldAlert className="h-5 w-5 text-white" />

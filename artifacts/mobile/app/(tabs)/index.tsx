@@ -114,7 +114,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
   rfi_created: "#F59E0B",
   project_created: "#8B5CF6",
   task_created: "#22C55E",
-  schedule_assigned: "#FF6600",
+  schedule_assigned: "#D4AF37",
   cost_added: "#6B7280",
 };
 
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   // Finance card
   financeCard: {
     borderRadius: 14, padding: 18, elevation: 3,
-    shadowColor: "#FF6600", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 6,
+    shadowColor: "#D4AF37", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 6,
   },
   financeCardInner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   financeCardText: { gap: 2 },

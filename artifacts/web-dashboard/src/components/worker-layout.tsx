@@ -27,7 +27,7 @@ export function WorkerLayout({ children, breadcrumbs }: WorkerLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Nav */}
-      <header className="bg-[#172034] text-white sticky top-0 z-20 shadow-md">
+      <header className="bg-[#0A0A0A] text-white sticky top-0 z-20 shadow-md">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <Link href="/worker-portal">
             <div className="flex items-center gap-2 cursor-pointer">
@@ -73,7 +73,7 @@ export function WorkerLayout({ children, breadcrumbs }: WorkerLayoutProps) {
 
         {/* Breadcrumbs */}
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <div className="border-t border-white/10 bg-[#172034]/80">
+          <div className="border-t border-white/10 bg-[#0A0A0A]/80">
             <div className="max-w-2xl mx-auto px-4 py-1.5 flex items-center gap-1 text-xs text-white/60">
               <Link href="/worker-portal">
                 <span className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer">

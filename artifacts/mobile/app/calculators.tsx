@@ -563,7 +563,7 @@ const CALCS: CalcDef[] = [
   },
   {
     id: "markup", category: "General", name: "Job Markup", description: "Material + labour pricing",
-    icon: "percent", color: "#FF6600",
+    icon: "percent", color: "#D4AF37",
     fields: [
       { id: "materials", label: "Materials cost", unit: "$", type: "number", placeholder: "2500" },
       { id: "labour",    label: "Labour cost",    unit: "$", type: "number", placeholder: "1800" },

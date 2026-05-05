@@ -395,7 +395,7 @@ export default function HoursPage() {
                         <XAxis dataKey="date" tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} />
                         <YAxis tick={{ fontSize: 11 }} unit="h" />
                         <Tooltip formatter={(v: number) => [`${v}h`, "Hours"]} />
-                        <Line type="monotone" dataKey="hours" stroke="#FF6600" strokeWidth={2} dot={{ fill: "#FF6600", r: 4 }} />
+                        <Line type="monotone" dataKey="hours" stroke="#D4AF37" strokeWidth={2} dot={{ fill: "#D4AF37", r: 4 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
@@ -405,7 +405,7 @@ export default function HoursPage() {
                         <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                         <YAxis tick={{ fontSize: 11 }} unit="h" />
                         <Tooltip formatter={(v: number) => [`${v}h`, "Hours"]} />
-                        <Bar dataKey="hours" fill="#FF6600" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="hours" fill="#D4AF37" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
@@ -425,9 +425,9 @@ export default function HoursPage() {
                         <XAxis type="number" tick={{ fontSize: 11 }} unit="h" />
                         <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
                         <Tooltip formatter={(v: number) => [`${v}h`, "Hours"]} />
-                        <Bar dataKey="hours" fill="#172034" radius={[0, 4, 4, 0]}>
+                        <Bar dataKey="hours" fill="#0A0A0A" radius={[0, 4, 4, 0]}>
                           {workerProjectData.map((_, i) => (
-                            <Cell key={i} fill="#172034" opacity={1 - i * 0.15} />
+                            <Cell key={i} fill="#0A0A0A" opacity={1 - i * 0.15} />
                           ))}
                         </Bar>
                       </BarChart>
@@ -540,7 +540,7 @@ export default function HoursPage() {
                       <Tooltip formatter={(v: number) => [`${v}h`, "Hours"]} />
                       <Bar dataKey="hours" radius={[4, 4, 0, 0]}>
                         {workerChartData.map((_, i) => (
-                          <Cell key={i} fill="#FF6600" opacity={1 - i * 0.1} />
+                          <Cell key={i} fill="#D4AF37" opacity={1 - i * 0.1} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -559,7 +559,7 @@ export default function HoursPage() {
                       <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} />
                       <YAxis tick={{ fontSize: 11 }} unit="h" />
                       <Tooltip formatter={(v: number) => [`${v}h`, "Hours"]} />
-                      <Bar dataKey="hours" fill="#172034" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="hours" fill="#0A0A0A" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>

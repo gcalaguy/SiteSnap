@@ -112,7 +112,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const companyInitials = companyName.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
 
   return (
-    <div className="flex min-h-screen w-full" style={{ background: "#0f0f0f" }}>
+    <div className="flex min-h-screen w-full" style={{ background: "#F8F8F8" }}>
       {/* Black & Gold Sidebar */}
       <div
         className="hidden md:flex flex-col h-screen sticky top-0 overflow-hidden flex-shrink-0"

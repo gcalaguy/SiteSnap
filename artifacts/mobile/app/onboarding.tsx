@@ -22,8 +22,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
-const PRIMARY = "#FF6600";
-const BG = "#172034";
+const PRIMARY = "#D4AF37";
+const BG = "#0A0A0A";
 const CARD = "#1e2d45";
 const INPUT_BG = "#0f1927";
 const BORDER = "#2d3e55";

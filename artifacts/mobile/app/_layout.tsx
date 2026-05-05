@@ -59,7 +59,7 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
       name: "Site Snap",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#FF6600",
+      lightColor: "#D4AF37",
     });
   }
 
@@ -180,7 +180,7 @@ function ProtectedNav() {
         options={{
           headerShown: true,
           title: "",
-          headerStyle: { backgroundColor: "#172034" },
+          headerStyle: { backgroundColor: "#0A0A0A" },
           headerTintColor: "#FFFFFF",
         }}
       />

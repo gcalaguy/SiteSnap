@@ -166,7 +166,7 @@ function SubmissionCard({ sub, colors, onPress }: { sub: Submission; colors: any
     <TouchableOpacity style={[styles.subCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={onPress} activeOpacity={0.75}>
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
         <View style={[styles.subIconWrap, { backgroundColor: "#FEF3EB" }]}>
-          <Feather name="shield" size={16} color="#FF6600" />
+          <Feather name="shield" size={16} color="#D4AF37" />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -314,7 +314,7 @@ export default function SafetyScreen() {
 
           {/* New report CTA */}
           <TouchableOpacity
-            style={[styles.newReportCta, { backgroundColor: "#FF6600" }]}
+            style={[styles.newReportCta, { backgroundColor: "#D4AF37" }]}
             onPress={() => setTab("new")}
             activeOpacity={0.85}
           >
@@ -349,7 +349,7 @@ export default function SafetyScreen() {
               /* Template picker */
               <>
                 <View style={[styles.formPickerHeader, { backgroundColor: "#FFF7F0", borderColor: "#FFDAB8" }]}>
-                  <Feather name="alert-triangle" size={18} color="#FF6600" />
+                  <Feather name="alert-triangle" size={18} color="#D4AF37" />
                   <Text style={[styles.formPickerHint, { color: "#CC5200" }]}>
                     Select the type of report that best describes the situation.
                   </Text>
@@ -401,7 +401,7 @@ export default function SafetyScreen() {
                 </View>
 
                 <View style={[styles.formHeader, { backgroundColor: "#FFF7F0", borderColor: "#FFDAB8" }]}>
-                  <Feather name="shield" size={18} color="#FF6600" />
+                  <Feather name="shield" size={18} color="#D4AF37" />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.formHeaderName, { color: "#CC5200" }]}>{selectedTemplate.name}</Text>
                     <Text style={[styles.formHeaderCat, { color: "#CC5200" }]}>{selectedTemplate.category}</Text>
@@ -437,7 +437,7 @@ export default function SafetyScreen() {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.submitBtn, { backgroundColor: validateRequired() ? "#FF6600" : colors.muted, opacity: validateRequired() ? 1 : 0.6 }]}
+                    style={[styles.submitBtn, { backgroundColor: validateRequired() ? "#D4AF37" : colors.muted, opacity: validateRequired() ? 1 : 0.6 }]}
                     onPress={() => validateRequired() && submitMutation.mutate({ status: "submitted" })}
                     disabled={submitMutation.isPending || !validateRequired()}
                   >

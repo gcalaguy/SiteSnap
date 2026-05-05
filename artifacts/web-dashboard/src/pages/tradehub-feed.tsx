@@ -290,7 +290,7 @@ export default function TradehubFeedPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#172034] rounded-xl">
+          <div className="p-2 bg-[#0A0A0A] rounded-xl">
             <Globe className="h-5 w-5 text-white" />
           </div>
           <div>

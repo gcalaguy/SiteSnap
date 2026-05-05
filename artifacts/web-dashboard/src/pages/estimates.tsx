@@ -108,10 +108,10 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
       </div>
 
       {/* Total range */}
-      <div className="rounded-xl bg-[#172034] text-white p-5 flex items-center justify-between gap-4 flex-wrap">
+      <div className="rounded-xl bg-[#0A0A0A] text-white p-5 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <p className="text-xs text-muted-foreground/70 uppercase tracking-wider mb-1">Estimated Total Range (CAD)</p>
-          <p className="text-3xl font-black text-[#FF6600]">{fmt(totalLow)}</p>
+          <p className="text-3xl font-black text-[#D4AF37]">{fmt(totalLow)}</p>
           <p className="text-sm text-muted-foreground/70 mt-0.5">to {fmt(totalHigh)}</p>
         </div>
         <div className="text-right">

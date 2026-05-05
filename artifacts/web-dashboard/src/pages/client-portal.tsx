@@ -316,7 +316,7 @@ export default function ClientPortal() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-[#FF6600]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
       </div>
     );
   }
@@ -348,9 +348,9 @@ export default function ClientPortal() {
       )}
 
       {/* Header */}
-      <header className="bg-[#172034] text-white sticky top-0 z-10 shadow-md">
+      <header className="bg-[#0A0A0A] text-white sticky top-0 z-10 shadow-md">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
-          <Building2 className="h-7 w-7 text-[#FF6600]" />
+          <Building2 className="h-7 w-7 text-[#D4AF37]" />
           <div>
             <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Client Portal</p>
             <p className="text-sm font-semibold text-white leading-tight">Powered by Site Snap</p>
@@ -361,7 +361,7 @@ export default function ClientPortal() {
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
         {/* Project hero */}
         <Card className="border-0 shadow-sm overflow-hidden">
-          <div className="h-2 bg-[#FF6600]" />
+          <div className="h-2 bg-[#D4AF37]" />
           <CardContent className="pt-6 pb-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
@@ -399,14 +399,14 @@ export default function ClientPortal() {
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-              <ClipboardList className="h-4 w-4 text-[#FF6600]" />
+              <ClipboardList className="h-4 w-4 text-[#D4AF37]" />
               Live Job Progress
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3 mb-2">
               <Progress value={progress.progressPct} className="flex-1 h-3" />
-              <span className="text-lg font-bold text-[#FF6600] shrink-0">{progress.progressPct}%</span>
+              <span className="text-lg font-bold text-[#D4AF37] shrink-0">{progress.progressPct}%</span>
             </div>
             <p className="text-xs text-slate-500">
               {progress.doneTasks} of {progress.totalTasks} task{progress.totalTasks !== 1 ? "s" : ""} completed
@@ -417,8 +417,8 @@ export default function ClientPortal() {
               <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Recent Site Updates</p>
                 {reports.slice(0, 3).map((r) => (
-                  <div key={r.id} className="border-l-2 border-[#FF6600]/30 pl-3">
-                    <p className="text-xs font-medium text-[#FF6600] mb-0.5">{formatDate(r.reportDate)}</p>
+                  <div key={r.id} className="border-l-2 border-[#D4AF37]/30 pl-3">
+                    <p className="text-xs font-medium text-[#D4AF37] mb-0.5">{formatDate(r.reportDate)}</p>
                     <p className="text-sm text-slate-700 leading-relaxed">{r.aiSummary ?? r.workPerformed}</p>
                   </div>
                 ))}
@@ -431,7 +431,7 @@ export default function ClientPortal() {
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-              <Camera className="h-4 w-4 text-[#FF6600]" />
+              <Camera className="h-4 w-4 text-[#D4AF37]" />
               Photo Updates
               {photos.length > 0 && (
                 <span className="ml-auto text-xs font-normal text-slate-400">{photos.length} photo{photos.length !== 1 ? "s" : ""}</span>
@@ -450,7 +450,7 @@ export default function ClientPortal() {
                 {photos.map((photo, i) => (
                   <button
                     key={photo.id}
-                    className="group relative aspect-square rounded-lg overflow-hidden bg-slate-100 hover:ring-2 hover:ring-[#FF6600] transition-all"
+                    className="group relative aspect-square rounded-lg overflow-hidden bg-slate-100 hover:ring-2 hover:ring-[#D4AF37] transition-all"
                     onClick={() => setLightboxIndex(i)}
                   >
                     <img
@@ -478,7 +478,7 @@ export default function ClientPortal() {
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-[#FF6600]" />
+              <CreditCard className="h-4 w-4 text-[#D4AF37]" />
               Payment Requests
               {paymentRequests.length > 0 && (
                 <span className="ml-auto text-xs font-normal text-slate-400">{paymentRequests.length} invoice{paymentRequests.length !== 1 ? "s" : ""}</span>
@@ -532,7 +532,7 @@ export default function ClientPortal() {
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-[#FF6600]" />
+              <MessageCircle className="h-4 w-4 text-[#D4AF37]" />
               Messages
               {messages.length > 0 && (
                 <span className="ml-auto text-xs font-normal text-slate-400">{messages.length} message{messages.length !== 1 ? "s" : ""}</span>
@@ -554,7 +554,7 @@ export default function ClientPortal() {
                   return (
                     <div key={msg.id} className={`flex gap-2 ${isClient ? "justify-end" : "justify-start"}`}>
                       {!isClient && (
-                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[#172034] flex items-center justify-center mt-0.5">
+                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[#0A0A0A] flex items-center justify-center mt-0.5">
                           <Building2 className="h-3.5 w-3.5 text-white" />
                         </div>
                       )}
@@ -566,15 +566,15 @@ export default function ClientPortal() {
                         </div>
                         <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                           isClient
-                            ? "bg-[#FF6600] text-white rounded-tr-sm"
+                            ? "bg-[#D4AF37] text-white rounded-tr-sm"
                             : "bg-white border border-slate-200 text-slate-800 rounded-tl-sm shadow-sm"
                         }`}>
                           {msg.message}
                         </div>
                       </div>
                       {isClient && (
-                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[#FF6600]/20 flex items-center justify-center mt-0.5">
-                          <span className="text-xs font-bold text-[#FF6600]">
+                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[#D4AF37]/20 flex items-center justify-center mt-0.5">
+                          <span className="text-xs font-bold text-[#D4AF37]">
                             {(msg.senderName ?? "C")[0].toUpperCase()}
                           </span>
                         </div>
@@ -608,7 +608,7 @@ export default function ClientPortal() {
                   className="flex-1 min-h-[72px] resize-none text-sm border-slate-200"
                 />
                 <Button
-                  className="self-end bg-[#FF6600] hover:bg-[#e55c00] text-white h-10 px-4"
+                  className="self-end bg-[#D4AF37] hover:bg-[#e55c00] text-white h-10 px-4"
                   onClick={handleSendMessage}
                   disabled={!messageText.trim() || sendingMessage}
                 >
@@ -625,7 +625,7 @@ export default function ClientPortal() {
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-                <FileText className="h-4 w-4 text-[#FF6600]" />
+                <FileText className="h-4 w-4 text-[#D4AF37]" />
                 Project Documents
               </CardTitle>
             </CardHeader>
@@ -652,7 +652,7 @@ export default function ClientPortal() {
                       href={`${BASE}/api/storage/objects/uploads/${doc.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="shrink-0 p-1.5 rounded-md text-slate-400 hover:text-[#FF6600] hover:bg-orange-50 transition-colors"
+                      className="shrink-0 p-1.5 rounded-md text-slate-400 hover:text-[#D4AF37] hover:bg-orange-50 transition-colors"
                       title="Download"
                     >
                       <ArrowDownToLine className="h-4 w-4" />
@@ -668,14 +668,14 @@ export default function ClientPortal() {
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-              <Upload className="h-4 w-4 text-[#FF6600]" />
+              <Upload className="h-4 w-4 text-[#D4AF37]" />
               Your Documents
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div
               className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-                dragActive ? "border-[#FF6600] bg-orange-50" : "border-slate-200 hover:border-[#FF6600]/50 hover:bg-slate-50"
+                dragActive ? "border-[#D4AF37] bg-orange-50" : "border-slate-200 hover:border-[#D4AF37]/50 hover:bg-slate-50"
               }`}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
@@ -685,14 +685,14 @@ export default function ClientPortal() {
               <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
               {uploading ? (
                 <div className="flex flex-col items-center gap-2">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#FF6600]" />
+                  <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
                   <p className="text-sm text-slate-500">Uploading...</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2">
                   <Upload className="h-8 w-8 text-slate-300" />
                   <p className="text-sm font-medium text-slate-600">
-                    Drop files here or <span className="text-[#FF6600]">browse</span>
+                    Drop files here or <span className="text-[#D4AF37]">browse</span>
                   </p>
                   <p className="text-xs text-slate-400">PDF, images, Word, Excel — any file type accepted</p>
                 </div>

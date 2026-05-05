@@ -21,7 +21,6 @@ import {
   AlertCircle,
   MoreHorizontal,
   Search,
-  SlidersHorizontal,
   ChevronUp,
   ChevronDown,
   Plus,
@@ -32,19 +31,19 @@ import {
 
 const GOLD = "#D4AF37";
 const BLACK = "#0A0A0A";
-const SURFACE = "#111111";
-const SURFACE2 = "#181818";
-const SURFACE3 = "#1E1E1E";
-const BORDER = "#242424";
-const WHITE = "#FFFFFF";
+const SURFACE = "#FFFFFF";
+const SURFACE2 = "#F8F8F8";
+const SURFACE3 = "#F0F0F0";
+const BORDER = "#E5E5E5";
+const TEXT = "#111111";
 const MUTED = "#888888";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  active:    { label: "Active",    color: GOLD,       bg: `${GOLD}18`,    border: `${GOLD}33` },
-  planning:  { label: "Planning",  color: "#60A5FA",  bg: "#1e3a5f33",    border: "#1e3a5f66" },
-  on_hold:   { label: "On Hold",   color: "#FBBF24",  bg: "#3b2f0033",    border: "#5a480066" },
-  completed: { label: "Completed", color: "#4ADE80",  bg: "#0f3b1e33",    border: "#1a5a2e66" },
-  cancelled: { label: "Cancelled", color: "#F87171",  bg: "#3b0f0f33",    border: "#5a1a1a66" },
+  active:    { label: "Active",    color: "#16A34A", bg: "#DCFCE7", border: "#BBF7D0" },
+  planning:  { label: "Planning",  color: "#2563EB", bg: "#DBEAFE", border: "#BFDBFE" },
+  on_hold:   { label: "On Hold",   color: "#D97706", bg: "#FEF3C7", border: "#FDE68A" },
+  completed: { label: "Completed", color: "#16A34A", bg: "#DCFCE7", border: "#BBF7D0" },
+  cancelled: { label: "Cancelled", color: "#DC2626", bg: "#FEE2E2", border: "#FECACA" },
 };
 
 const projectSchema = z.object({
@@ -144,7 +143,7 @@ export default function Projects() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold tracking-tight" style={{ color: WHITE }}>Project Overview</h1>
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: TEXT }}>Project Overview</h1>
           <p className="text-sm mt-0.5" style={{ color: MUTED }}>All your job sites in one place</p>
         </div>
         <div className="flex items-center gap-2">
@@ -228,40 +227,36 @@ export default function Projects() {
         {statCards.map(({ label, value, icon: Icon, sub }) => (
           <div
             key={label}
-            className="rounded-xl p-4 relative overflow-hidden"
-            style={{ background: SURFACE, border: `1px solid ${BORDER}` }}
+            className="rounded-xl p-4"
+            style={{ background: SURFACE, border: `1px solid ${BORDER}`, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
           >
-            <div style={{
-              position: "absolute", top: -20, right: -20, width: 80, height: 80,
-              background: `radial-gradient(circle, ${GOLD}0A 0%, transparent 70%)`,
-            }} />
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium" style={{ color: MUTED }}>{label}</span>
               <div className="rounded-lg flex items-center justify-center"
-                style={{ width: 28, height: 28, background: `${GOLD}14`, border: `1px solid ${GOLD}2A` }}>
-                <Icon size={13} style={{ color: GOLD }} />
+                style={{ width: 30, height: 30, background: `${GOLD}18`, border: `1px solid ${GOLD}33` }}>
+                <Icon size={14} style={{ color: GOLD }} />
               </div>
             </div>
-            <p className="text-xl font-bold mb-1" style={{ color: WHITE }}>{isLoading ? "—" : value}</p>
-            <p className="text-xs" style={{ color: "#555" }}>{sub}</p>
+            <p className="text-xl font-bold mb-1" style={{ color: TEXT }}>{isLoading ? "—" : value}</p>
+            <p className="text-xs" style={{ color: MUTED }}>{sub}</p>
           </div>
         ))}
       </div>
 
       {/* Table container */}
-      <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}`, background: SURFACE }}>
+      <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}`, background: SURFACE, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
         {/* Toolbar */}
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
           <div className="flex items-center gap-2 rounded-lg px-3 py-1.5"
-            style={{ background: SURFACE2, border: `1px solid ${BORDER}`, width: 260, position: "relative" }}>
-            <Search size={13} style={{ color: "#555", flexShrink: 0 }} />
+            style={{ background: SURFACE2, border: `1px solid ${BORDER}`, width: 260 }}>
+            <Search size={13} style={{ color: MUTED, flexShrink: 0 }} />
             <input
               type="text"
               placeholder="Search projects…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="bg-transparent border-none outline-none text-xs flex-1"
-              style={{ color: WHITE }}
+              style={{ color: TEXT }}
             />
           </div>
           <div className="flex items-center gap-3">
@@ -292,10 +287,10 @@ export default function Projects() {
             <span className="text-sm">Loading projects…</span>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16" style={{ color: MUTED }}>
-            <Building2 size={36} style={{ color: "#333", marginBottom: 12 }} />
-            <p className="text-sm font-medium" style={{ color: "#555" }}>No projects found</p>
-            <p className="text-xs mt-1" style={{ color: "#444" }}>Create your first project to get started</p>
+          <div className="flex flex-col items-center justify-center py-16">
+            <Building2 size={36} style={{ color: BORDER, marginBottom: 12 }} />
+            <p className="text-sm font-medium" style={{ color: TEXT }}>No projects found</p>
+            <p className="text-xs mt-1" style={{ color: MUTED }}>Create your first project to get started</p>
           </div>
         ) : (
           <>
@@ -339,14 +334,14 @@ export default function Projects() {
                       <td className="px-4 py-3">
                         <Link href={`/projects/${project.id}`}>
                           <div>
-                            <p className="font-semibold hover:underline" style={{ color: WHITE, fontSize: 12 }}>{project.name}</p>
-                            <p style={{ color: "#555", fontSize: 10 }}>#{project.id}</p>
+                            <p className="font-semibold hover:underline" style={{ color: TEXT, fontSize: 12 }}>{project.name}</p>
+                            <p style={{ color: MUTED, fontSize: 10 }}>#{project.id}</p>
                           </div>
                         </Link>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5" style={{ color: MUTED, fontSize: 12 }}>
-                          <MapPin size={11} style={{ color: "#555", flexShrink: 0 }} />
+                          <MapPin size={11} style={{ color: MUTED, flexShrink: 0 }} />
                           <span>{project.city}, {project.province}</span>
                         </div>
                       </td>
@@ -356,7 +351,7 @@ export default function Projects() {
                             ${budget.toLocaleString("en-CA")}
                           </span>
                         ) : (
-                          <span style={{ color: "#444", fontSize: 12 }}>—</span>
+                          <span style={{ color: MUTED, fontSize: 12 }}>—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -369,13 +364,13 @@ export default function Projects() {
                           {st.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: isOverdue ? "#F87171" : MUTED, fontSize: 11 }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: isOverdue ? "#DC2626" : MUTED, fontSize: 11 }}>
                         {format(new Date(project.createdAt), "MMM d, yyyy")}
                       </td>
                       <td className="px-4 py-3">
                         <Link href={`/projects/${project.id}`}>
                           <button className="rounded-md p-1" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
-                            <MoreHorizontal size={14} style={{ color: "#555" }} />
+                            <MoreHorizontal size={14} style={{ color: MUTED }} />
                           </button>
                         </Link>
                       </td>
@@ -390,7 +385,7 @@ export default function Projects() {
               className="flex items-center justify-between px-4 py-3"
               style={{ borderTop: `1px solid ${BORDER}`, background: SURFACE2 }}
             >
-              <span className="text-xs" style={{ color: "#555" }}>
+              <span className="text-xs" style={{ color: MUTED }}>
                 Showing {filtered.length} of {allProjects.length} project{allProjects.length !== 1 ? "s" : ""}
               </span>
             </div>

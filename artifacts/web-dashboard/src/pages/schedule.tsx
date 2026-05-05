@@ -40,14 +40,14 @@ type ZoomLevel = "2w" | "1m" | "3m";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const USER_COLORS = [
-  { bg: "#FF6600", text: "#fff" }, { bg: "#3B82F6", text: "#fff" },
+  { bg: "#D4AF37", text: "#fff" }, { bg: "#3B82F6", text: "#fff" },
   { bg: "#10B981", text: "#fff" }, { bg: "#8B5CF6", text: "#fff" },
   { bg: "#F59E0B", text: "#1a1a1a" }, { bg: "#EF4444", text: "#fff" },
   { bg: "#06B6D4", text: "#fff" }, { bg: "#EC4899", text: "#fff" },
   { bg: "#14B8A6", text: "#fff" }, { bg: "#6366F1", text: "#fff" },
 ];
 const PROJECT_COLORS_BG = [
-  "#FF6600","#3B82F6","#10B981","#8B5CF6","#F59E0B",
+  "#D4AF37","#3B82F6","#10B981","#8B5CF6","#F59E0B",
   "#EF4444","#06B6D4","#EC4899","#14B8A6","#6366F1",
 ];
 const COL_WIDTH_PX: Record<ZoomLevel, number> = { "2w": 54, "1m": 38, "3m": 82 };

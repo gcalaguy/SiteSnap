@@ -70,7 +70,7 @@ export async function downloadEstimatePDF(estimate: Estimate, open = false, logo
   const contentW = pageW - margin * 2;
 
   // ── Header bar ──────────────────────────────────────────────────────────────
-  doc.setFillColor(23, 32, 52); // #172034
+  doc.setFillColor(23, 32, 52); // #0A0A0A
   doc.rect(0, 0, pageW, 28, "F");
 
   let logoRendered = false;
@@ -331,8 +331,8 @@ export async function downloadEstimateDocx(estimate: Estimate, logoDataUrl?: str
   const totalLow = r.totalLow ?? subtotal;
   const totalHigh = r.totalHigh ?? (subtotal + contingency);
 
-  const ORANGE = "FF6600";
-  const DARK = "172034";
+  const ORANGE = "D4AF37";
+  const DARK = "0A0A0A";
   const GREY = "F5F5F5";
 
   function headerRow(cols: string[], bgColor = ORANGE) {

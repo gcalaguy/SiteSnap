@@ -331,13 +331,13 @@ export default function ProfileScreen() {
               activeOpacity={0.85}
             >
               <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="alert-triangle" size={22} color="#FF6600" />
+                <Feather name="alert-triangle" size={22} color="#D4AF37" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.featureBannerTitle}>Report an Incident</Text>
                 <Text style={styles.featureBannerSub}>Injury · Hazard · Safety Check · Toolbox</Text>
               </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
                 <Feather name="arrow-right" size={14} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
@@ -403,13 +403,13 @@ export default function ProfileScreen() {
               activeOpacity={0.85}
             >
               <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="percent" size={22} color="#FF6600" />
+                <Feather name="percent" size={22} color="#D4AF37" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.featureBannerTitle}>19 Trade Calculators</Text>
                 <Text style={styles.featureBannerSub}>Concrete · Framing · Electrical · Plumbing · Roofing · HVAC</Text>
               </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
                 <Feather name="arrow-right" size={14} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
@@ -448,13 +448,13 @@ export default function ProfileScreen() {
               activeOpacity={0.85}
             >
               <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="file-text" size={22} color="#FF6600" />
+                <Feather name="file-text" size={22} color="#D4AF37" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.featureBannerTitle}>Voice Quote</Text>
                 <Text style={styles.featureBannerSub}>Record on-site · AI fills pricing instantly</Text>
               </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
                 <Feather name="mic" size={14} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
@@ -466,13 +466,13 @@ export default function ProfileScreen() {
               activeOpacity={0.85}
             >
               <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="dollar-sign" size={22} color="#FF6600" />
+                <Feather name="dollar-sign" size={22} color="#D4AF37" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.featureBannerTitle}>Voice Invoice</Text>
                 <Text style={styles.featureBannerSub}>Speak it · AI builds it · Send & get paid</Text>
               </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
                 <Feather name="mic" size={14} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
@@ -484,13 +484,13 @@ export default function ProfileScreen() {
               activeOpacity={0.85}
             >
               <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="trending-up" size={22} color="#FF6600" />
+                <Feather name="trending-up" size={22} color="#D4AF37" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.featureBannerTitle}>Invoices & Quotes</Text>
                 <Text style={styles.featureBannerSub}>View, manage & send all documents</Text>
               </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
                 <Feather name="arrow-right" size={14} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
@@ -507,13 +507,13 @@ export default function ProfileScreen() {
               activeOpacity={0.85}
             >
               <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="percent" size={22} color="#FF6600" />
+                <Feather name="percent" size={22} color="#D4AF37" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.featureBannerTitle}>Trade Calculators</Text>
                 <Text style={styles.featureBannerSub}>Concrete · Electrical · Plumbing · Roofing</Text>
               </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
                 <Feather name="arrow-right" size={14} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
@@ -524,13 +524,13 @@ export default function ProfileScreen() {
             activeOpacity={0.85}
           >
             <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-              <Feather name="globe" size={22} color="#FF6600" />
+              <Feather name="globe" size={22} color="#D4AF37" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.featureBannerTitle}>TradeHub</Text>
               <Text style={styles.featureBannerSub}>Canadian Trades Community</Text>
             </View>
-            <View style={[styles.featureBannerArrow, { backgroundColor: "#FF6600" }]}>
+            <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
               <Feather name="arrow-right" size={14} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
