@@ -489,7 +489,7 @@ function CompanyLogoCard({ company }: { company: any }) {
         method: "PATCH",
         body: JSON.stringify({ logoPath: objectPath }),
       });
-      queryClient.invalidateQueries({ queryKey: ["me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({ title: "Logo uploaded", description: "Your logo will appear on exported estimates." });
     } catch (e: any) {
       toast({ title: "Upload failed", description: e?.message, variant: "destructive" });
@@ -504,7 +504,7 @@ function CompanyLogoCard({ company }: { company: any }) {
         method: "PATCH",
         body: JSON.stringify({ logoPath: "" }),
       });
-      queryClient.invalidateQueries({ queryKey: ["me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({ title: "Logo removed" });
     } catch {
       toast({ title: "Failed to remove logo", variant: "destructive" });
@@ -591,7 +591,7 @@ function DocumentTemplatesCard({ company }: { company: any }) {
         method: "PATCH",
         body: JSON.stringify({ templatePath: objectPath }),
       });
-      queryClient.invalidateQueries({ queryKey: ["me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({ title: `${type === "quote" ? "Quote" : "Invoice"} template uploaded`, description: "It will appear on all new PDFs." });
     } catch (e: any) {
       toast({ title: "Upload failed", description: e?.message, variant: "destructive" });
@@ -606,7 +606,7 @@ function DocumentTemplatesCard({ company }: { company: any }) {
         method: "PATCH",
         body: JSON.stringify({ templatePath: "" }),
       });
-      queryClient.invalidateQueries({ queryKey: ["me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({ title: `${type === "quote" ? "Quote" : "Invoice"} template removed` });
     } catch {
       toast({ title: "Failed to remove template", variant: "destructive" });
