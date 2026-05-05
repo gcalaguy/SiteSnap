@@ -14,9 +14,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   ClipboardCheck, ChevronDown, ChevronUp, CheckCircle2, XCircle,
   AlertCircle, CalendarRange, Pencil, FileDown, Table2, Mail,
-  Save, X, Loader2, Download,
+  Save, X, Loader2, Download, Info,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { estimateTax, type TaxBreakdown } from "@/lib/canadaTax";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -52,26 +53,27 @@ function weekRange(weekStart: string) {
   const end = addDays(start, 6);
   return `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`;
 }
-function fmtCAD(v: string | number | null) {
-  if (v == null) return null;
+function fmtCAD(v: string | number | null | undefined) {
+  if (v == null) return "—";
   return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 }
 
 const STATUS = {
   submitted: { label: "Pending Review", color: "#D97706", bg: "#FEF3C7", icon: AlertCircle },
-  approved: { label: "Approved", color: "#16A34A", bg: "#DCFCE7", icon: CheckCircle2 },
-  denied: { label: "Denied", color: "#DC2626", bg: "#FEE2E2", icon: XCircle },
+  approved:  { label: "Approved",       color: "#16A34A", bg: "#DCFCE7", icon: CheckCircle2 },
+  denied:    { label: "Denied",         color: "#DC2626", bg: "#FEE2E2", icon: XCircle },
 };
 
 // ── PDF export ────────────────────────────────────────────────────────────────
-function exportPDF(ts: Timesheet) {
+function exportPDF(ts: Timesheet, province?: string | null) {
   const doc = new jsPDF();
   const name = workerName(ts.user);
   const range = weekRange(ts.weekStart);
   const statusCfg = STATUS[ts.status as keyof typeof STATUS] ?? STATUS.submitted;
-  const totalPay = ts.hourlyRate
+  const grossPay = ts.hourlyRate
     ? parseFloat(ts.totalHours) * parseFloat(ts.hourlyRate)
     : null;
+  const tax = grossPay != null ? estimateTax(grossPay, province) : null;
 
   // Header banner
   doc.setFillColor(17, 17, 17);
@@ -86,7 +88,7 @@ function exportPDF(ts: Timesheet) {
   doc.text("Weekly Timesheet", 14, 28);
   doc.text(range, 14, 35);
 
-  // Status badge area
+  // Status badge
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(17, 17, 17);
@@ -106,14 +108,25 @@ function exportPDF(ts: Timesheet) {
 
   // Stats table
   const stats: [string, string][] = [
-    ["Week", range],
+    ["Week",        range],
     ["Total Hours", `${parseFloat(ts.totalHours).toFixed(1)} h`],
   ];
-  if (ts.hourlyRate) stats.push(["Hourly Rate", fmtCAD(ts.hourlyRate) ?? ""]);
-  if (totalPay != null) stats.push(["Total Pay", fmtCAD(totalPay) ?? ""]);
-  stats.push(["Status", statusCfg.label]);
+  if (ts.hourlyRate) stats.push(["Hourly Rate",  `${fmtCAD(ts.hourlyRate)}/hr`]);
+  if (grossPay != null) stats.push(["Gross Pay",  fmtCAD(grossPay)]);
+
+  if (tax) {
+    stats.push(["Province",        tax.provinceName]);
+    stats.push(["Federal Tax",    `- ${fmtCAD(tax.federalTax)}`]);
+    stats.push([`Provincial Tax`, `- ${fmtCAD(tax.provincialTax)}`]);
+    stats.push(["CPP",            `- ${fmtCAD(tax.cpp)}`]);
+    stats.push(["EI",             `- ${fmtCAD(tax.ei)}`]);
+    stats.push(["Total Deductions", `- ${fmtCAD(tax.totalDeductions)}`]);
+    stats.push(["Est. Net Pay",    fmtCAD(tax.netWeekly)]);
+  }
+
+  stats.push(["Status",    statusCfg.label]);
   stats.push(["Submitted", format(new Date(ts.submittedAt), "MMM d, yyyy 'at' h:mm a")]);
-  if (ts.reviewer) stats.push(["Reviewed By", workerName(ts.reviewer)]);
+  if (ts.reviewer) stats.push(["Reviewed By",  workerName(ts.reviewer)]);
   if (ts.reviewedAt) stats.push(["Reviewed On", format(new Date(ts.reviewedAt), "MMM d, yyyy")]);
 
   autoTable(doc, {
@@ -123,34 +136,53 @@ function exportPDF(ts: Timesheet) {
     styles: { fontSize: 10, cellPadding: 4 },
     headStyles: { fillColor: [17, 17, 17], textColor: [201, 168, 76], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [250, 250, 250] },
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
+    columnStyles: { 0: { fontStyle: "bold", cellWidth: 60 } },
+    didParseCell: (data) => {
+      // Highlight net pay row
+      if (data.row.raw && (data.row.raw as string[])[0] === "Est. Net Pay") {
+        data.cell.styles.textColor = [201, 168, 76];
+        data.cell.styles.fontStyle = "bold";
+      }
+      if (data.row.raw && (data.row.raw as string[])[0] === "Gross Pay") {
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
   });
 
   const afterStats = (doc as any).lastAutoTable.finalY + 10;
+
+  if (tax) {
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(130, 130, 130);
+    doc.text("* Tax estimates use 2024 federal + provincial rates. Actual deductions may vary.", 14, afterStats);
+  }
+
+  let nextY = afterStats + (tax ? 8 : 0);
 
   if (ts.description) {
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(17, 17, 17);
-    doc.text("Work Description", 14, afterStats);
+    doc.text("Work Description", 14, nextY + 4);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(60, 60, 60);
     const lines = doc.splitTextToSize(ts.description, 182);
-    doc.text(lines, 14, afterStats + 7);
+    doc.text(lines, 14, nextY + 11);
+    nextY += lines.length * 5 + 18;
   }
 
   if (ts.notes) {
-    const notesY = afterStats + (ts.description ? doc.splitTextToSize(ts.description, 182).length * 5 + 18 : 0);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(17, 17, 17);
-    doc.text(ts.status === "denied" ? "Denial Reason" : "Notes", 14, notesY);
+    doc.text(ts.status === "denied" ? "Denial Reason" : "Notes", 14, nextY + 4);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(60, 60, 60);
     const noteLines = doc.splitTextToSize(ts.notes, 182);
-    doc.text(noteLines, 14, notesY + 7);
+    doc.text(noteLines, 14, nextY + 11);
   }
 
   // Footer
@@ -163,38 +195,53 @@ function exportPDF(ts: Timesheet) {
 }
 
 // ── Excel export ──────────────────────────────────────────────────────────────
-function exportExcel(ts: Timesheet) {
+function exportExcel(ts: Timesheet, province?: string | null) {
   const name = workerName(ts.user);
-  const totalPay = ts.hourlyRate
-    ? (parseFloat(ts.totalHours) * parseFloat(ts.hourlyRate)).toFixed(2)
+  const grossPay = ts.hourlyRate
+    ? parseFloat(ts.totalHours) * parseFloat(ts.hourlyRate)
     : null;
+  const tax = grossPay != null ? estimateTax(grossPay, province) : null;
 
-  const rows = [
+  const rows: (string | number)[][] = [
     ["SiteSnap — Weekly Timesheet"],
     [],
     ["Worker", name],
-    ["Role", ts.user?.role ?? ""],
-    ["Email", ts.user?.email ?? ""],
+    ["Role",   ts.user?.role ?? ""],
+    ["Email",  ts.user?.email ?? ""],
     [],
-    ["Week", weekRange(ts.weekStart)],
-    ["Week Start", ts.weekStart],
-    ["Status", STATUS[ts.status as keyof typeof STATUS]?.label ?? ts.status],
+    ["Week",        weekRange(ts.weekStart)],
+    ["Week Start",  ts.weekStart],
+    ["Status",      STATUS[ts.status as keyof typeof STATUS]?.label ?? ts.status],
     ["Total Hours", parseFloat(ts.totalHours).toFixed(1)],
     ...(ts.hourlyRate ? [["Hourly Rate (CAD)", parseFloat(ts.hourlyRate).toFixed(2)]] : []),
-    ...(totalPay ? [["Total Pay (CAD)", totalPay]] : []),
+    ...(grossPay != null ? [["Gross Pay (CAD)", grossPay.toFixed(2)]] : []),
     [],
-    ["Submitted", format(new Date(ts.submittedAt), "yyyy-MM-dd HH:mm")],
-    ...(ts.reviewer ? [["Reviewed By", workerName(ts.reviewer)]] : []),
-    ...(ts.reviewedAt ? [["Reviewed On", format(new Date(ts.reviewedAt), "yyyy-MM-dd")]] : []),
-    [],
-    ["Description", ts.description ?? ""],
-    ["Notes", ts.notes ?? ""],
   ];
 
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws["!cols"] = [{ wch: 20 }, { wch: 40 }];
+  if (tax) {
+    rows.push(["── Tax Estimates (2024 Rates) ──", ""]);
+    rows.push(["Province",               tax.provinceName]);
+    rows.push(["Federal Income Tax",     (-tax.federalTax).toFixed(2)]);
+    rows.push(["Provincial Income Tax",  (-tax.provincialTax).toFixed(2)]);
+    rows.push(["CPP Contribution",       (-tax.cpp).toFixed(2)]);
+    rows.push(["EI Premium",             (-tax.ei).toFixed(2)]);
+    rows.push(["Total Deductions (CAD)", (-tax.totalDeductions).toFixed(2)]);
+    rows.push(["Est. Net Pay (CAD)",     tax.netWeekly.toFixed(2)]);
+    rows.push(["Effective Tax Rate",     `${(tax.effectiveRate * 100).toFixed(1)}%`]);
+    rows.push([]);
+    rows.push(["* Tax figures are estimates only. Actual deductions may vary.", ""]);
+    rows.push([]);
+  }
 
-  // Style header
+  rows.push(["Submitted",   format(new Date(ts.submittedAt), "yyyy-MM-dd HH:mm")]);
+  if (ts.reviewer)  rows.push(["Reviewed By",  workerName(ts.reviewer)]);
+  if (ts.reviewedAt) rows.push(["Reviewed On", format(new Date(ts.reviewedAt), "yyyy-MM-dd")]);
+  rows.push([]);
+  rows.push(["Description", ts.description ?? ""]);
+  rows.push(["Notes",       ts.notes ?? ""]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws["!cols"] = [{ wch: 28 }, { wch: 40 }];
   if (ws["A1"]) ws["A1"].s = { font: { bold: true, sz: 14 } };
 
   const wb = XLSX.utils.book_new();
@@ -203,11 +250,21 @@ function exportExcel(ts: Timesheet) {
 }
 
 // ── Export ALL timesheets to Excel ────────────────────────────────────────────
-function exportAllExcel(timesheets: Timesheet[]) {
-  const header = ["Worker", "Role", "Email", "Week", "Status", "Total Hours", "Hourly Rate (CAD)", "Total Pay (CAD)", "Description", "Submitted", "Notes"];
+function exportAllExcel(timesheets: Timesheet[], province?: string | null) {
+  const header = [
+    "Worker", "Role", "Email", "Week", "Status",
+    "Total Hours", "Hourly Rate (CAD)", "Gross Pay (CAD)",
+    "Fed. Tax (CAD)", "Prov. Tax (CAD)", "CPP (CAD)", "EI (CAD)",
+    "Total Deductions (CAD)", "Est. Net Pay (CAD)", "Effective Tax Rate",
+    "Province", "Description", "Submitted", "Notes",
+  ];
+
   const rows = timesheets.map((ts) => {
     const name = workerName(ts.user);
-    const totalPay = ts.hourlyRate ? parseFloat(ts.totalHours) * parseFloat(ts.hourlyRate) : null;
+    const grossPay = ts.hourlyRate
+      ? parseFloat(ts.totalHours) * parseFloat(ts.hourlyRate)
+      : null;
+    const tax = grossPay != null ? estimateTax(grossPay, province) : null;
     return [
       name,
       ts.user?.role ?? "",
@@ -216,7 +273,15 @@ function exportAllExcel(timesheets: Timesheet[]) {
       STATUS[ts.status as keyof typeof STATUS]?.label ?? ts.status,
       parseFloat(ts.totalHours).toFixed(1),
       ts.hourlyRate ? parseFloat(ts.hourlyRate).toFixed(2) : "",
-      totalPay != null ? totalPay.toFixed(2) : "",
+      grossPay != null ? grossPay.toFixed(2) : "",
+      tax ? (-tax.federalTax).toFixed(2) : "",
+      tax ? (-tax.provincialTax).toFixed(2) : "",
+      tax ? (-tax.cpp).toFixed(2) : "",
+      tax ? (-tax.ei).toFixed(2) : "",
+      tax ? (-tax.totalDeductions).toFixed(2) : "",
+      tax ? tax.netWeekly.toFixed(2) : "",
+      tax ? `${(tax.effectiveRate * 100).toFixed(1)}%` : "",
+      tax ? tax.provinceName : province ?? "",
       ts.description ?? "",
       format(new Date(ts.submittedAt), "yyyy-MM-dd HH:mm"),
       ts.notes ?? "",
@@ -224,28 +289,84 @@ function exportAllExcel(timesheets: Timesheet[]) {
   });
 
   const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
-  ws["!cols"] = header.map((_, i) => ({ wch: i === 8 || i === 10 ? 36 : 18 }));
+  ws["!cols"] = header.map((_, i) => ({
+    wch: i === 16 || i === 18 ? 36 : i === 15 ? 24 : 16,
+  }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Timesheets");
   XLSX.writeFile(wb, `timesheets_export_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+}
+
+// ── Tax breakdown card ────────────────────────────────────────────────────────
+function TaxBreakdownPanel({ tax }: { tax: TaxBreakdown }) {
+  return (
+    <div className="rounded-lg border bg-background p-3 space-y-2">
+      <div className="flex items-center gap-1.5 mb-1">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+          Pay Breakdown — {tax.provinceName}
+        </p>
+        <span title="Estimated using 2024 federal + provincial income tax rates, CPP, and EI. Actual deductions may vary." className="cursor-help">
+          <Info className="h-3 w-3 text-muted-foreground/60" />
+        </span>
+      </div>
+
+      {/* Summary row */}
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">Gross Pay</span>
+        <span className="font-semibold">{fmtCAD(tax.grossWeekly)}</span>
+      </div>
+
+      {/* Deduction lines */}
+      <div className="space-y-1 border-t pt-1.5">
+        {[
+          { label: "Federal income tax", value: tax.federalTax },
+          { label: "Provincial income tax", value: tax.provincialTax },
+          { label: "CPP contribution", value: tax.cpp },
+          { label: "EI premium", value: tax.ei },
+        ].map(({ label, value }) => (
+          <div key={label} className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="text-red-600 font-medium">- {fmtCAD(value)}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Net pay */}
+      <div className="flex items-center justify-between border-t pt-1.5">
+        <span className="text-xs font-semibold">Est. Net Pay</span>
+        <div className="text-right">
+          <span className="text-sm font-bold" style={{ color: GOLD }}>{fmtCAD(tax.netWeekly)}</span>
+          <span className="text-[10px] text-muted-foreground ml-1.5">
+            ({(tax.effectiveRate * 100).toFixed(1)}% deducted)
+          </span>
+        </div>
+      </div>
+
+      <p className="text-[10px] text-muted-foreground italic">
+        Estimate based on annualised income · 2024 rates
+      </p>
+    </div>
+  );
 }
 
 // ── TimesheetRow ──────────────────────────────────────────────────────────────
 function TimesheetRow({
   ts,
   isPrivileged,
+  province,
 }: {
   ts: Timesheet;
   isPrivileged: boolean;
+  province?: string | null;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [denying, setDenying] = useState(false);
+  const [editing,  setEditing]  = useState(false);
+  const [denying,  setDenying]  = useState(false);
   const [denyNotes, setDenyNotes] = useState("");
   const [emailing, setEmailing] = useState(false);
-  const [emailTo, setEmailTo] = useState("");
+  const [emailTo,  setEmailTo]  = useState("");
 
   const [draft, setDraft] = useState({
     totalHours: "",
@@ -254,11 +375,13 @@ function TimesheetRow({
     notes: "",
   });
 
-  const statusCfg = STATUS[ts.status as keyof typeof STATUS] ?? STATUS.submitted;
+  const statusCfg  = STATUS[ts.status as keyof typeof STATUS] ?? STATUS.submitted;
   const StatusIcon = statusCfg.icon;
-  const totalPay = ts.hourlyRate
+
+  const grossPay = ts.hourlyRate
     ? parseFloat(ts.totalHours) * parseFloat(ts.hourlyRate)
     : null;
+  const tax = grossPay != null ? estimateTax(grossPay, province) : null;
   const reviewerName = ts.reviewer ? workerName(ts.reviewer) : null;
 
   const approveTs = useApproveTimesheet({
@@ -318,10 +441,10 @@ function TimesheetRow({
 
   function handleStartEdit() {
     setDraft({
-      totalHours: parseFloat(ts.totalHours).toString(),
-      hourlyRate: ts.hourlyRate ? parseFloat(ts.hourlyRate).toString() : "",
+      totalHours:  parseFloat(ts.totalHours).toString(),
+      hourlyRate:  ts.hourlyRate ? parseFloat(ts.hourlyRate).toString() : "",
       description: ts.description ?? "",
-      notes: ts.notes ?? "",
+      notes:       ts.notes ?? "",
     });
     setEditing(true);
     setExpanded(true);
@@ -335,17 +458,16 @@ function TimesheetRow({
     }
     const body: Record<string, unknown> = { totalHours: h };
     const r = parseFloat(draft.hourlyRate);
-    body.hourlyRate = draft.hourlyRate ? (isNaN(r) ? null : r) : null;
-    body.description = draft.description || null;
+    body.hourlyRate   = draft.hourlyRate ? (isNaN(r) ? null : r) : null;
+    body.description  = draft.description || null;
     if (isPrivileged) body.notes = draft.notes || null;
     editMutation.mutate(body);
   }
 
   return (
     <div className="border-b last:border-b-0">
-      {/* Row header — always visible */}
+      {/* ── Row header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-        {/* Expand toggle */}
         <button
           onClick={() => { setExpanded((v) => !v); setEditing(false); setDenying(false); setEmailing(false); }}
           className="flex-1 flex items-center gap-3 text-left min-w-0"
@@ -375,20 +497,25 @@ function TimesheetRow({
               <span className="text-xs font-semibold" style={{ color: GOLD }}>
                 {parseFloat(ts.totalHours).toFixed(1)}h
               </span>
-              {totalPay != null && (
-                <span className="text-xs font-semibold text-muted-foreground">
-                  {fmtCAD(totalPay)}
+              {grossPay != null && (
+                <span className="text-xs text-muted-foreground">
+                  gross {fmtCAD(grossPay)}
+                </span>
+              )}
+              {tax && (
+                <span className="text-xs font-semibold" style={{ color: GOLD }}>
+                  → net {fmtCAD(tax.netWeekly)}
                 </span>
               )}
             </div>
           </div>
 
           {expanded
-            ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+            ? <ChevronUp   className="h-4 w-4 text-muted-foreground shrink-0" />
             : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
         </button>
 
-        {/* Quick action buttons (always visible) */}
+        {/* Quick actions */}
         <div className="flex items-center gap-1 shrink-0">
           {isPrivileged && ts.status === "submitted" && (
             <>
@@ -399,8 +526,7 @@ function TimesheetRow({
                 disabled={approveTs.isPending}
                 onClick={() => approveTs.mutate({ timesheetId: ts.id, data: {} })}
               >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Approve
+                <CheckCircle2 className="h-3.5 w-3.5" /> Approve
               </Button>
               <Button
                 size="sm"
@@ -408,25 +534,25 @@ function TimesheetRow({
                 className="h-7 text-xs gap-1 border-red-300 text-red-700 hover:bg-red-50"
                 onClick={() => { setDenying(true); setExpanded(true); setEditing(false); }}
               >
-                <XCircle className="h-3.5 w-3.5" />
-                Deny
+                <XCircle className="h-3.5 w-3.5" /> Deny
               </Button>
             </>
           )}
         </div>
       </div>
 
-      {/* Expanded panel */}
+      {/* ── Expanded panel ──────────────────────────────────────────────────── */}
       {expanded && (
         <div className="bg-muted/20 border-t px-4 pb-4 pt-3 space-y-4">
-          {/* Detail grid */}
+
+          {/* Summary stats */}
           {!editing && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: "Total Hours", value: `${parseFloat(ts.totalHours).toFixed(1)} h` },
-                { label: "Hourly Rate", value: ts.hourlyRate ? `${fmtCAD(ts.hourlyRate)}/hr` : "—" },
-                { label: "Total Pay", value: totalPay != null ? fmtCAD(totalPay) : "—" },
-                { label: "Submitted", value: format(new Date(ts.submittedAt), "MMM d, yyyy") },
+                { label: "Total Hours",  value: `${parseFloat(ts.totalHours).toFixed(1)} h` },
+                { label: "Hourly Rate",  value: ts.hourlyRate ? `${fmtCAD(ts.hourlyRate)}/hr` : "—" },
+                { label: "Gross Pay",    value: grossPay != null ? fmtCAD(grossPay) : "—" },
+                { label: "Submitted",    value: format(new Date(ts.submittedAt), "MMM d, yyyy") },
               ].map(({ label, value }) => (
                 <div key={label} className="rounded-lg border bg-background p-3">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">{label}</p>
@@ -436,6 +562,20 @@ function TimesheetRow({
             </div>
           )}
 
+          {/* Tax breakdown */}
+          {!editing && tax && <TaxBreakdownPanel tax={tax} />}
+
+          {/* Province missing warning */}
+          {!editing && grossPay != null && !province && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 flex items-start gap-2">
+              <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800">
+                Set your company's province in Settings to see estimated tax deductions and net pay.
+              </p>
+            </div>
+          )}
+
+          {/* Description */}
           {!editing && ts.description && (
             <div className="rounded-lg border bg-background p-3">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Work Description</p>
@@ -443,6 +583,7 @@ function TimesheetRow({
             </div>
           )}
 
+          {/* Notes */}
           {!editing && ts.notes && (
             <div className="rounded-lg border bg-background p-3">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">
@@ -542,7 +683,9 @@ function TimesheetRow({
                   onClick={handleSaveEdit}
                   style={{ background: GOLD, color: BLACK }}
                 >
-                  {editMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Save className="h-3.5 w-3.5 mr-1.5" />Save Changes</>}
+                  {editMutation.isPending
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <><Save className="h-3.5 w-3.5 mr-1.5" />Save Changes</>}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
                   <X className="h-3.5 w-3.5 mr-1" /> Cancel
@@ -583,36 +726,16 @@ function TimesheetRow({
           {/* ── Action bar ── */}
           {!editing && !denying && (
             <div className="flex flex-wrap gap-2 pt-1">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs gap-1.5"
-                onClick={handleStartEdit}
-              >
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={handleStartEdit}>
                 <Pencil className="h-3 w-3" /> Edit
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs gap-1.5"
-                onClick={() => exportPDF(ts)}
-              >
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => exportPDF(ts, province)}>
                 <FileDown className="h-3 w-3" /> Save PDF
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs gap-1.5"
-                onClick={() => exportExcel(ts)}
-              >
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => exportExcel(ts, province)}>
                 <Table2 className="h-3 w-3" /> Save Excel
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs gap-1.5"
-                onClick={() => { setEmailing((v) => !v); setEmailTo(""); }}
-              >
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => { setEmailing((v) => !v); setEmailTo(""); }}>
                 <Mail className="h-3 w-3" /> Email
               </Button>
             </div>
@@ -630,6 +753,7 @@ type Props = {
   members: any[];
   isPrivileged: boolean;
   me: any;
+  province?: string | null;
   tsStatusFilter: "all" | "submitted" | "approved" | "denied";
   setTsStatusFilter: (v: "all" | "submitted" | "approved" | "denied") => void;
   tsWorkerFilter: string;
@@ -641,6 +765,7 @@ export default function TimesheetSection({
   isLoading,
   members,
   isPrivileged,
+  province,
   tsStatusFilter,
   setTsStatusFilter,
   tsWorkerFilter,
@@ -701,7 +826,7 @@ export default function TimesheetSection({
               size="sm"
               variant="outline"
               className="h-8 text-xs gap-1.5"
-              onClick={() => exportAllExcel(timesheets)}
+              onClick={() => exportAllExcel(timesheets, province)}
               title="Export all visible timesheets to Excel"
             >
               <Download className="h-3.5 w-3.5" />
@@ -736,6 +861,7 @@ export default function TimesheetSection({
                   key={ts.id}
                   ts={ts as Timesheet}
                   isPrivileged={isPrivileged}
+                  province={province}
                 />
               ))}
             </div>

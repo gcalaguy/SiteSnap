@@ -618,6 +618,7 @@ export default function HoursPage() {
         members={members ?? []}
         isPrivileged={isPrivileged}
         me={me}
+        province={(me as any)?.company?.province ?? null}
         tsStatusFilter={tsStatusFilter}
         setTsStatusFilter={setTsStatusFilter}
         tsWorkerFilter={tsWorkerFilter}
