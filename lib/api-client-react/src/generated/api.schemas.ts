@@ -713,6 +713,47 @@ export interface Invoice {
   updatedAt: string;
 }
 
+export type ContactType = (typeof ContactType)[keyof typeof ContactType];
+
+export const ContactType = {
+  client: "client",
+  worker: "worker",
+  subcontractor: "subcontractor",
+  supplier: "supplier",
+} as const;
+
+export interface Contact {
+  id: number;
+  companyId: number;
+  name: string;
+  company?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  type: ContactType;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateContactBodyType =
+  (typeof CreateContactBodyType)[keyof typeof CreateContactBodyType];
+
+export const CreateContactBodyType = {
+  client: "client",
+  worker: "worker",
+  subcontractor: "subcontractor",
+  supplier: "supplier",
+} as const;
+
+export interface CreateContactBody {
+  name: string;
+  company?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  type?: CreateContactBodyType;
+  notes?: string | null;
+}
+
 export interface CreateInvoiceBody {
   title: string;
   clientName: string;
@@ -734,6 +775,21 @@ export interface UpdateInvoiceBody {
   notes?: string | null;
   dueDate?: string | null;
 }
+
+export type ListContactsParams = {
+  search?: string;
+  type?: ListContactsType;
+};
+
+export type ListContactsType =
+  (typeof ListContactsType)[keyof typeof ListContactsType];
+
+export const ListContactsType = {
+  client: "client",
+  worker: "worker",
+  subcontractor: "subcontractor",
+  supplier: "supplier",
+} as const;
 
 export type RejectQuoteBody = {
   reason?: string;

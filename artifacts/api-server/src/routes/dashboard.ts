@@ -14,6 +14,7 @@ import {
   invoicesTable,
   formSubmissionsTable,
   timesheetsTable,
+  contactsTable,
 } from "@workspace/db";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
@@ -121,6 +122,11 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
     }
   }
 
+  const contactRows = await db
+    .select({ id: contactsTable.id })
+    .from(contactsTable)
+    .where(eq(contactsTable.companyId, companyId));
+
   res.json({
     totalProjects,
     activeProjects,
@@ -133,6 +139,7 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
     totalBudget,
     totalBudgetAllProjects: totalBudget,
     teamMemberCount: members.length,
+    totalContacts: contactRows.length,
   });
 });
 

@@ -235,6 +235,38 @@ export const insertRFISchema = createInsertSchema(rfisTable).omit({
 export type InsertRFI = z.infer<typeof insertRFISchema>;
 export type RFI = typeof rfisTable.$inferSelect;
 
+// ── Contacts (CRM) ────────────────────────────────────────────────────────────
+
+export const contactTypeEnum = pgEnum("contact_type", [
+  "client",
+  "worker",
+  "subcontractor",
+  "supplier",
+]);
+
+export const contactsTable = pgTable("contacts", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id),
+  name: text("name").notNull(),
+  company: text("company"),
+  phone: text("phone"),
+  email: text("email"),
+  type: contactTypeEnum("type").notNull().default("client"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertContactSchema = createInsertSchema(contactsTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertContact = z.infer<typeof insertContactSchema>;
+export type Contact = typeof contactsTable.$inferSelect;
+
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
 export const taskStatusEnum = pgEnum("task_status", [

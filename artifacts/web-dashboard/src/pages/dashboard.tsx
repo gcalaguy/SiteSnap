@@ -1,6 +1,6 @@
 import { useGetDashboardSummary, useGetRecentActivity } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, FileText, MessageSquareWarning, Users, Activity, ChevronRight } from "lucide-react";
+import { Building2, FileText, MessageSquareWarning, Users, Activity, ChevronRight, BookUser } from "lucide-react";
 import { format } from "date-fns";
 import { WeatherCard } from "@/components/WeatherCard";
 import { Link } from "wouter";
@@ -23,7 +23,7 @@ export default function Dashboard() {
         <p className="text-muted-foreground">Overview of your company's projects and activities.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Link href="/projects" className="block group">
           <Card className="cursor-pointer transition-all duration-150 hover:shadow-xl" style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -84,6 +84,22 @@ export default function Dashboard() {
               <div className="text-3xl font-bold text-white">{summary?.teamMemberCount || 0}</div>
               <div className="flex items-center justify-between mt-1">
                 <p className="text-xs text-zinc-500">Active in workspace</p>
+                <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD }} />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/contacts" className="block group">
+          <Card className="cursor-pointer transition-all duration-150 hover:shadow-xl" style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Total Contacts</CardTitle>
+              <BookUser className="h-4 w-4" style={{ color: GOLD }} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white">{(summary as any)?.totalContacts ?? 0}</div>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-zinc-500">Clients, workers &amp; suppliers</p>
                 <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD }} />
               </div>
             </CardContent>

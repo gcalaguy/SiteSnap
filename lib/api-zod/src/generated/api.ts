@@ -8,6 +8,96 @@
 import * as zod from "zod";
 
 /**
+ * @summary List all contacts for the company
+ */
+export const ListContactsQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  type: zod.enum(["client", "worker", "subcontractor", "supplier"]).optional(),
+});
+
+export const ListContactsResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  name: zod.string(),
+  company: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListContactsResponse = zod.array(ListContactsResponseItem);
+
+/**
+ * @summary Create a new contact
+ */
+export const CreateContactBody = zod.object({
+  name: zod.string(),
+  company: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  type: zod.enum(["client", "worker", "subcontractor", "supplier"]).optional(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a single contact
+ */
+export const GetContactParams = zod.object({
+  contactId: zod.coerce.number(),
+});
+
+export const GetContactResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  name: zod.string(),
+  company: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a contact
+ */
+export const UpdateContactParams = zod.object({
+  contactId: zod.coerce.number(),
+});
+
+export const UpdateContactBody = zod.object({
+  name: zod.string(),
+  company: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  type: zod.enum(["client", "worker", "subcontractor", "supplier"]).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateContactResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  name: zod.string(),
+  company: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a contact
+ */
+export const DeleteContactParams = zod.object({
+  contactId: zod.coerce.number(),
+});
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({

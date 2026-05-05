@@ -41,6 +41,16 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - **Navigation**: Crown icon link appears in sidebar only for super_admin users
 - **Security**: All `/admin/*` routes protected by `requireAuth + requireSuperAdmin`; tenants cannot access cross-tenant data
 
+### ✅ Phase 1 (CRM) — CONTACTS MODULE (Complete)
+- **New DB table**: `contacts` (id, companyId, name, company, phone, email, type enum, notes, createdAt, updatedAt)
+- **New enum**: `contact_type` = client | worker | subcontractor | supplier
+- **API routes**: full CRUD at `/api/contacts` and `/api/contacts/:contactId` with search + type filter query params
+- **OpenAPI + codegen**: `listContacts`, `createContact`, `getContact`, `updateContact`, `deleteContact` hooks generated
+- **Dashboard**: "Total Contacts" stat card added (5-col grid); `totalContacts` included in `/dashboard/summary` response
+- **Sidebar**: Contacts nav item added (BookUser icon) between Projects and Quotes
+- **Web page** (`/contacts`): type-filter stat cards, search bar, card grid with create/edit/delete dialogs, empty state
+- **Seed data**: 6 sample contacts seeded (2 clients, 2 workers, 1 subcontractor, 1 supplier)
+
 ### ✅ Phase 1 — CORE PLATFORM (Complete)
 - Multi-tenancy: companies as DB entities, users belong to one company
 - Authentication: Clerk (email/password + OAuth)

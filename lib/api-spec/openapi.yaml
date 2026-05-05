@@ -42,8 +42,110 @@ tags:
     description: Quote creation, AI filling, and approval workflow
   - name: invoices
     description: Invoice management and payment tracking
+  - name: contacts
+    description: CRM contact management
 
 paths:
+  # ── Contacts ────────────────────────────────────────────────────────────────
+  /contacts:
+    get:
+      operationId: listContacts
+      tags: [contacts]
+      summary: List all contacts for the company
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [client, worker, subcontractor, supplier]
+      responses:
+        "200":
+          description: List of contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contact"
+    post:
+      operationId: createContact
+      tags: [contacts]
+      summary: Create a new contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContactBody"
+      responses:
+        "201":
+          description: Created contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+
+  /contacts/{contactId}:
+    get:
+      operationId: getContact
+      tags: [contacts]
+      summary: Get a single contact
+      parameters:
+        - in: path
+          name: contactId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "404":
+          description: Not found
+    put:
+      operationId: updateContact
+      tags: [contacts]
+      summary: Update a contact
+      parameters:
+        - in: path
+          name: contactId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContactBody"
+      responses:
+        "200":
+          description: Updated contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+    delete:
+      operationId: deleteContact
+      tags: [contacts]
+      summary: Delete a contact
+      parameters:
+        - in: path
+          name: contactId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /healthz:
     get:
       operationId: healthCheck
@@ -2949,6 +3051,60 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    Contact:
+      type: object
+      required: [id, companyId, name, type, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        name:
+          type: string
+        company:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [client, worker, subcontractor, supplier]
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateContactBody:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        company:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [client, worker, subcontractor, supplier]
+        notes:
+          type: string
+          nullable: true
 
     CreateInvoiceBody:
       type: object
