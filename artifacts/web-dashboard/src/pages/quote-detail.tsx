@@ -50,6 +50,8 @@ import {
 import * as XLSX from "xlsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 async function loadTemplateDataUrl(objectPath: string | null | undefined): Promise<string | undefined> {
   if (!objectPath) return undefined;
@@ -67,6 +69,181 @@ async function loadTemplateDataUrl(objectPath: string | null | undefined): Promi
   } catch {
     return undefined;
   }
+}
+
+const QUOTE_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  pending_approval: "Submitted",
+  approved: "Approved",
+  rejected: "Needs Revision",
+  converted: "Converted to Invoice",
+};
+
+function buildQuotePdfDoc(
+  quote: { quoteNumber: string; title: string; clientName: string; clientEmail?: string | null; status: string; createdAt: string; validUntil?: string | null; notes?: string | null; taxRate: string },
+  lineItems: { description: string; quantity: number; unit: string; unitPrice: number; total: number }[],
+  companyName: string,
+  templateDataUrl?: string,
+  logoDataUrl?: string,
+): jsPDF {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+  const PRIMARY: [number, number, number] = [212, 175, 55];
+  const DARK: [number, number, number] = [10, 10, 10];
+  const GRAY: [number, number, number] = [100, 100, 100];
+  const WHITE: [number, number, number] = [255, 255, 255];
+  const LIGHT_TEXT: [number, number, number] = [180, 180, 180];
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 18;
+  const fmtC = (v: number) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(v);
+  const taxRate = parseFloat(quote.taxRate ?? "0.13");
+  const subtotal = lineItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
+  const total = subtotal + taxAmount;
+  const statusLabel = QUOTE_STATUS_LABELS[quote.status] ?? quote.status;
+
+  let y: number;
+
+  if (templateDataUrl) {
+    // Custom template banner + dark strip for doc metadata
+    const TEMPLATE_H = 50;
+    const META_H = 13;
+    doc.addImage(templateDataUrl, 0, 0, pageW, TEMPLATE_H);
+    doc.setFillColor(...DARK);
+    doc.rect(0, TEMPLATE_H, pageW, META_H, "F");
+    // "QUOTE" label in gold
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...PRIMARY);
+    doc.text("QUOTE", margin, TEMPLATE_H + 8.5);
+    // Quote number in white
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(...WHITE);
+    doc.text(quote.quoteNumber, margin + 18, TEMPLATE_H + 8.5);
+    // Status on right in light grey
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...LIGHT_TEXT);
+    doc.text(`STATUS: ${statusLabel.toUpperCase()}`, pageW - margin, TEMPLATE_H + 8.5, { align: "right" });
+    y = TEMPLATE_H + META_H + 8;
+  } else {
+    // Default branded header
+    doc.setFillColor(...PRIMARY);
+    doc.rect(0, 0, pageW, 28, "F");
+    if (logoDataUrl) {
+      doc.addImage(logoDataUrl, margin, 3, 52, 22);
+    } else {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(...WHITE);
+      doc.text(companyName, margin, 13);
+    }
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(40, 30, 10);
+    doc.text("QUOTE", pageW - margin, 10, { align: "right" });
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...WHITE);
+    doc.text(quote.quoteNumber, pageW - margin, 19, { align: "right" });
+    y = 38;
+  }
+
+  // Title
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(...DARK);
+  doc.text(quote.title, margin, y);
+  y += 10;
+
+  // Client info
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...GRAY);
+  doc.text(`Client: ${quote.clientName}`, margin, y);
+  if (quote.clientEmail) {
+    doc.text(quote.clientEmail, margin, y + 5);
+    y += 5;
+  }
+  y += 8;
+
+  // Valid until
+  if (quote.validUntil) {
+    doc.setFontSize(8);
+    doc.setTextColor(...GRAY);
+    doc.text(`Valid until: ${format(new Date(quote.validUntil), "MMM d, yyyy")}`, margin, y);
+    y += 7;
+  }
+
+  // Line items table
+  autoTable(doc, {
+    startY: y,
+    margin: { left: margin, right: margin },
+    head: [["Description", "Qty", "Unit", "Unit Price", "Total"]],
+    body: lineItems.map((i) => [i.description, String(i.quantity), i.unit, fmtC(i.unitPrice), fmtC(i.total)]),
+    headStyles: { fillColor: DARK, textColor: [255, 255, 255] as [number, number, number], fontSize: 8, fontStyle: "bold", cellPadding: 4 },
+    bodyStyles: { fontSize: 9, cellPadding: 3.5, textColor: DARK },
+    alternateRowStyles: { fillColor: [245, 245, 245] as [number, number, number] },
+    columnStyles: {
+      0: { cellWidth: "auto" },
+      1: { halign: "right", cellWidth: 16 },
+      2: { halign: "right", cellWidth: 18 },
+      3: { halign: "right", cellWidth: 30 },
+      4: { halign: "right", cellWidth: 30 },
+    },
+    styles: { overflow: "linebreak" },
+  });
+
+  y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+  const tx = pageW - margin;
+
+  // Totals
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...GRAY);
+  doc.text("Subtotal", tx - 40, y, { align: "right" });
+  doc.setTextColor(...DARK);
+  doc.text(fmtC(subtotal), tx, y, { align: "right" });
+  y += 6;
+
+  doc.setTextColor(...GRAY);
+  doc.text(`HST (${(taxRate * 100).toFixed(0)}%)`, tx - 40, y, { align: "right" });
+  doc.setTextColor(...DARK);
+  doc.text(fmtC(taxAmount), tx, y, { align: "right" });
+  y += 4;
+
+  doc.setFillColor(...PRIMARY);
+  doc.roundedRect(tx - 64, y, 65, 10, 1.5, 1.5, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...WHITE);
+  doc.text("TOTAL", tx - 41, y + 6.5, { align: "right" });
+  doc.text(fmtC(total), tx - 1, y + 6.5, { align: "right" });
+
+  // Notes
+  if (quote.notes) {
+    const ny = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 30;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...GRAY);
+    doc.text("Notes:", margin, ny);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...DARK);
+    const noteLines = doc.splitTextToSize(quote.notes, pageW - margin * 2);
+    doc.text(noteLines, margin, ny + 5);
+  }
+
+  // Footer strip
+  doc.setFillColor(...DARK);
+  doc.rect(0, pageH - 12, pageW, 12, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...LIGHT_TEXT);
+  doc.text(`Generated by Site Snap · ${quote.quoteNumber}`, margin, pageH - 4.5);
+  doc.text(format(new Date(), "MMM d, yyyy"), pageW - margin, pageH - 4.5, { align: "right" });
+
+  return doc;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -355,72 +532,30 @@ export default function QuoteDetail() {
           {/* Download PDF */}
           <Button variant="outline" onClick={async () => {
             if (!quote) return;
-            const items = effectiveItems;
-            const exportTitle = effectiveTitle || quote.title;
-            const fmtC = (v: number) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(v);
+            const companyName = (me as any)?.company?.name ?? "Site Snap";
             const quoteTemplatePath = (me as any)?.company?.quoteTemplatePath ?? undefined;
-            const templateDataUrl = await loadTemplateDataUrl(quoteTemplatePath);
-            import("jspdf").then(({ default: jsPDF }) =>
-              import("jspdf-autotable").then(({ default: autoTable }) => {
-                const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
-                const PRIMARY: [number, number, number] = [212, 175, 55];
-                const DARK: [number, number, number] = [10, 10, 10];
-                const GRAY: [number, number, number] = [100, 100, 100];
-                const pageW = doc.internal.pageSize.getWidth();
-                const margin = 18;
-                let y: number;
-                if (templateDataUrl) {
-                  const TEMPLATE_H = 38;
-                  doc.addImage(templateDataUrl, 0, 0, pageW, TEMPLATE_H);
-                  doc.setFillColor(248, 248, 248);
-                  doc.rect(0, TEMPLATE_H, pageW, 13, "F");
-                  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...GRAY);
-                  doc.text("QUOTE", margin, TEMPLATE_H + 8.5);
-                  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...DARK);
-                  doc.text(quote.quoteNumber, margin + 22, TEMPLATE_H + 8.5);
-                  y = TEMPLATE_H + 19;
-                } else {
-                  doc.setFillColor(...PRIMARY); doc.rect(0, 0, pageW, 28, "F");
-                  doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(255, 255, 255);
-                  doc.text("Site Snap", margin, 13);
-                  doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(40, 30, 10);
-                  doc.text("QUOTE", pageW - margin, 10, { align: "right" });
-                  doc.setFontSize(14); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 255, 255);
-                  doc.text(quote.quoteNumber, pageW - margin, 19, { align: "right" });
-                  y = 38;
-                }
-                doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(...DARK);
-                doc.text(exportTitle, margin, y); y += 10;
-                doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(...GRAY);
-                doc.text(`Client: ${quote.clientName}`, margin, y); y += 6;
-                autoTable(doc, {
-                  startY: y, margin: { left: margin, right: margin },
-                  head: [["Description", "Qty", "Unit", "Unit Price", "Total"]],
-                  body: items.map((i) => [i.description, i.quantity, i.unit, fmtC(i.unitPrice), fmtC(i.total)]),
-                  headStyles: { fillColor: DARK, textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold", cellPadding: 4 },
-                  bodyStyles: { fontSize: 9, cellPadding: 3.5, textColor: DARK },
-                  alternateRowStyles: { fillColor: [245, 245, 245] as [number, number, number] },
-                  columnStyles: { 0: { cellWidth: "auto" }, 1: { halign: "right", cellWidth: 16 }, 2: { halign: "right", cellWidth: 18 }, 3: { halign: "right", cellWidth: 30 }, 4: { halign: "right", cellWidth: 30 } },
-                });
-                y = (doc as any).lastAutoTable.finalY + 6;
-                const tx = pageW - margin;
-                doc.setFontSize(9); doc.setTextColor(...GRAY);
-                doc.text("Subtotal", tx - 40, y, { align: "right" }); doc.setTextColor(...DARK); doc.text(fmtC(subtotal), tx, y, { align: "right" }); y += 6;
-                doc.setTextColor(...GRAY); doc.text(`HST (${(taxRate * 100).toFixed(0)}%)`, tx - 40, y, { align: "right" }); doc.setTextColor(...DARK); doc.text(fmtC(taxAmount), tx, y, { align: "right" }); y += 4;
-                doc.setFillColor(...PRIMARY); doc.roundedRect(tx - 64, y, 65, 10, 1.5, 1.5, "F");
-                doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(255, 255, 255);
-                doc.text("TOTAL", tx - 41, y + 6.5, { align: "right" }); doc.text(fmtC(total), tx - 1, y + 6.5, { align: "right" });
-                if (effectiveNotes) {
-                  const ny = (doc as any).lastAutoTable.finalY + 30;
-                  doc.setFontSize(8); doc.setTextColor(...GRAY); doc.setFont("helvetica", "italic");
-                  doc.text("Notes:", margin, ny);
-                  doc.setFont("helvetica", "normal"); doc.setTextColor(...DARK);
-                  const lines = doc.splitTextToSize(effectiveNotes, pageW - margin * 2);
-                  doc.text(lines, margin, ny + 5);
-                }
-                doc.save(`${quote.quoteNumber}.pdf`);
-              })
-            );
+            const logoPath = (me as any)?.company?.logoPath ?? undefined;
+            const [templateDataUrl, logoDataUrl] = await Promise.all([
+              loadTemplateDataUrl(quoteTemplatePath),
+              loadTemplateDataUrl(logoPath),
+            ]);
+            buildQuotePdfDoc(
+              {
+                quoteNumber: quote.quoteNumber,
+                title: effectiveTitle || quote.title,
+                clientName: quote.clientName,
+                clientEmail: quote.clientEmail,
+                status: quote.status,
+                createdAt: quote.createdAt,
+                validUntil: quote.validUntil,
+                notes: effectiveNotes || undefined,
+                taxRate: quote.taxRate,
+              },
+              effectiveItems,
+              companyName,
+              templateDataUrl,
+              logoDataUrl,
+            ).save(`${quote.quoteNumber}.pdf`);
             toast({ title: "PDF downloaded" });
           }}>
             <Download className="h-4 w-4 mr-2" />

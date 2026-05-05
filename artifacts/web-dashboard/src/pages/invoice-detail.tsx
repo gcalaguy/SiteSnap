@@ -104,45 +104,59 @@ function calcTotals(items: LineItem[], taxRate = 0.13) {
 }
 
 // Shared PDF builder
-function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: string, templateDataUrl?: string): jsPDF {
+function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: string, templateDataUrl?: string, logoDataUrl?: string): jsPDF {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
 
-  const PRIMARY = [212, 175, 55] as [number, number, number];
-  const DARK = [10, 10, 10] as [number, number, number];
-  const GRAY = [100, 100, 100] as [number, number, number];
-  const LIGHT_GRAY = [245, 245, 245] as [number, number, number];
+  const PRIMARY: [number, number, number] = [212, 175, 55];
+  const DARK: [number, number, number] = [10, 10, 10];
+  const GRAY: [number, number, number] = [100, 100, 100];
+  const LIGHT_GRAY: [number, number, number] = [245, 245, 245];
+  const WHITE: [number, number, number] = [255, 255, 255];
+  const LIGHT_TEXT: [number, number, number] = [180, 180, 180];
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 18;
+  const statusLabel = STATUS_LABELS[invoice.status] ?? invoice.status;
 
   let y: number;
 
   if (templateDataUrl) {
-    const TEMPLATE_H = 38;
+    // Custom template: full-width banner, then a dark strip for the doc metadata
+    const TEMPLATE_H = 50;
+    const META_H = 13;
     doc.addImage(templateDataUrl, 0, 0, pageW, TEMPLATE_H);
-    doc.setFillColor(248, 248, 248);
-    doc.rect(0, TEMPLATE_H, pageW, 13, "F");
+    // Dark strip below the template image — always readable regardless of template colours
+    doc.setFillColor(...DARK);
+    doc.rect(0, TEMPLATE_H, pageW, META_H, "F");
+    // "INVOICE" label in gold
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.setTextColor(...GRAY);
+    doc.setTextColor(...PRIMARY);
     doc.text("INVOICE", margin, TEMPLATE_H + 8.5);
+    // Invoice number in white
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.setTextColor(...DARK);
+    doc.setTextColor(...WHITE);
     doc.text(invoice.invoiceNumber, margin + 22, TEMPLATE_H + 8.5);
-    const statusLabelT = STATUS_LABELS[invoice.status] ?? invoice.status;
+    // Status on the right in light grey
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(...GRAY);
-    doc.text(`Status: ${statusLabelT.toUpperCase()}`, pageW - margin, TEMPLATE_H + 8.5, { align: "right" });
-    y = TEMPLATE_H + 19;
+    doc.setFontSize(7.5);
+    doc.setTextColor(...LIGHT_TEXT);
+    doc.text(`STATUS: ${statusLabel.toUpperCase()}`, pageW - margin, TEMPLATE_H + 8.5, { align: "right" });
+    y = TEMPLATE_H + META_H + 8;
   } else {
+    // Default branded header
     doc.setFillColor(...PRIMARY);
     doc.rect(0, 0, pageW, 28, "F");
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.setTextColor(255, 255, 255);
-    doc.text(companyName, margin, 13);
+    if (logoDataUrl) {
+      // Company logo on the left of the gold header
+      doc.addImage(logoDataUrl, margin, 3, 52, 22);
+    } else {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(...WHITE);
+      doc.text(companyName, margin, 13);
+    }
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
@@ -151,13 +165,12 @@ function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: strin
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(...WHITE);
     doc.text(invoice.invoiceNumber, pageW - margin, 19, { align: "right" });
 
-    const statusLabel = STATUS_LABELS[invoice.status] ?? invoice.status;
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(...WHITE);
     doc.text(`Status: ${statusLabel.toUpperCase()}`, pageW - margin, 26, { align: "right" });
 
     y = 38;
@@ -291,14 +304,20 @@ function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: strin
   return doc;
 }
 
-async function downloadInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName: string, templatePath?: string) {
-  const templateDataUrl = await loadTemplateDataUrl(templatePath);
-  buildPdfDoc(invoice, lineItems, companyName, templateDataUrl).save(`${invoice.invoiceNumber}.pdf`);
+async function downloadInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName: string, templatePath?: string, logoPath?: string) {
+  const [templateDataUrl, logoDataUrl] = await Promise.all([
+    loadTemplateDataUrl(templatePath),
+    loadTemplateDataUrl(logoPath),
+  ]);
+  buildPdfDoc(invoice, lineItems, companyName, templateDataUrl, logoDataUrl).save(`${invoice.invoiceNumber}.pdf`);
 }
 
-async function buildPdfBase64(invoice: Invoice, lineItems: LineItem[], companyName: string, templatePath?: string): Promise<string> {
-  const templateDataUrl = await loadTemplateDataUrl(templatePath);
-  const dataUri = buildPdfDoc(invoice, lineItems, companyName, templateDataUrl).output("datauristring");
+async function buildPdfBase64(invoice: Invoice, lineItems: LineItem[], companyName: string, templatePath?: string, logoPath?: string): Promise<string> {
+  const [templateDataUrl, logoDataUrl] = await Promise.all([
+    loadTemplateDataUrl(templatePath),
+    loadTemplateDataUrl(logoPath),
+  ]);
+  const dataUri = buildPdfDoc(invoice, lineItems, companyName, templateDataUrl, logoDataUrl).output("datauristring");
   return dataUri.split(",")[1] ?? dataUri;
 }
 
@@ -425,9 +444,13 @@ export default function InvoiceDetail() {
     return (me as any)?.company?.invoiceTemplatePath ?? undefined;
   }
 
+  function getLogoPath(): string | undefined {
+    return (me as any)?.company?.logoPath ?? undefined;
+  }
+
   async function handleDownloadPDF() {
     if (!invoice) return;
-    await downloadInvoicePDF(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath());
+    await downloadInvoicePDF(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath(), getLogoPath());
     toast({ title: "PDF downloaded" });
   }
 
@@ -489,7 +512,7 @@ export default function InvoiceDetail() {
       toast({ title: "No client email on this invoice", variant: "destructive" });
       return;
     }
-    const pdfBase64 = await buildPdfBase64(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath());
+    const pdfBase64 = await buildPdfBase64(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath(), getLogoPath());
     sendEmail.mutate(
       { invoiceId, data: { pdfBase64 } },
       {
