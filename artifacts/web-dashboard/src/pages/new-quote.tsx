@@ -121,7 +121,7 @@ export default function NewQuote() {
             <div className="space-y-3">
               {/* Default gold header preview */}
               <div className="rounded-lg overflow-hidden border border-border shadow-sm">
-                <div className="bg-[#d4af37] flex items-center justify-between px-4 py-3" style={{ minHeight: 52 }}>
+                <div className="bg-black flex items-center justify-between px-4 py-3" style={{ minHeight: 52 }}>
                   {/* Logo or company name */}
                   {logoPreviewUrl ? (
                     <img
@@ -137,14 +137,14 @@ export default function NewQuote() {
                   )}
                   {/* Quote number placeholder */}
                   <div className="text-right shrink-0 ml-4">
-                    <p className="text-[10px] font-semibold text-[rgba(40,30,10,0.7)] uppercase tracking-wider">Quote</p>
+                    <p className="text-[10px] font-semibold text-white/50 uppercase tracking-wider">Quote</p>
                     <p className="text-sm font-bold text-white leading-tight">QUO-XXXX</p>
                   </div>
                 </div>
-                <div className="bg-[#0a0a0a] flex items-center px-4 py-2 gap-6">
-                  <span className="text-[11px] font-bold tracking-wide text-[#d4af37]">QUOTE</span>
-                  <span className="text-[12px] text-white font-medium">QUO-XXXX</span>
-                  <span className="ml-auto text-[10px] font-bold tracking-wide text-[#b4b4b4]">STATUS: DRAFT</span>
+                <div className="bg-[#1a1a1a] flex items-center px-4 py-2 gap-6">
+                  <span className="text-[11px] font-bold tracking-wide text-white">QUOTE</span>
+                  <span className="text-[12px] text-white/80 font-medium">QUO-XXXX</span>
+                  <span className="ml-auto text-[10px] font-bold tracking-wide text-white/50">STATUS: DRAFT</span>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
