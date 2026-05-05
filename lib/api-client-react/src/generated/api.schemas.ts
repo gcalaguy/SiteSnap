@@ -713,6 +713,30 @@ export interface Invoice {
   updatedAt: string;
 }
 
+export type LeadWithContactSource =
+  (typeof LeadWithContactSource)[keyof typeof LeadWithContactSource];
+
+export const LeadWithContactSource = {
+  referral: "referral",
+  website: "website",
+  ads: "ads",
+  social_media: "social_media",
+  cold_call: "cold_call",
+  other: "other",
+} as const;
+
+export type LeadWithContactStage =
+  (typeof LeadWithContactStage)[keyof typeof LeadWithContactStage];
+
+export const LeadWithContactStage = {
+  new_lead: "new_lead",
+  contacted: "contacted",
+  estimate_scheduled: "estimate_scheduled",
+  proposal_sent: "proposal_sent",
+  won: "won",
+  lost: "lost",
+} as const;
+
 export type ContactType = (typeof ContactType)[keyof typeof ContactType];
 
 export const ContactType = {
@@ -733,6 +757,134 @@ export interface Contact {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LeadWithContact {
+  id: number;
+  companyId: number;
+  contactId: number;
+  title: string;
+  source: LeadWithContactSource;
+  estimatedValue?: string | null;
+  stage: LeadWithContactStage;
+  notes?: string | null;
+  convertedProjectId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  contact?: Contact | null;
+}
+
+export type CreateLeadBodySource =
+  (typeof CreateLeadBodySource)[keyof typeof CreateLeadBodySource];
+
+export const CreateLeadBodySource = {
+  referral: "referral",
+  website: "website",
+  ads: "ads",
+  social_media: "social_media",
+  cold_call: "cold_call",
+  other: "other",
+} as const;
+
+export type CreateLeadBodyStage =
+  (typeof CreateLeadBodyStage)[keyof typeof CreateLeadBodyStage];
+
+export const CreateLeadBodyStage = {
+  new_lead: "new_lead",
+  contacted: "contacted",
+  estimate_scheduled: "estimate_scheduled",
+  proposal_sent: "proposal_sent",
+  won: "won",
+  lost: "lost",
+} as const;
+
+export interface CreateLeadBody {
+  contactId: number;
+  title: string;
+  source?: CreateLeadBodySource;
+  estimatedValue?: number | null;
+  stage?: CreateLeadBodyStage;
+  notes?: string | null;
+}
+
+export type UpdateLeadBodySource =
+  (typeof UpdateLeadBodySource)[keyof typeof UpdateLeadBodySource];
+
+export const UpdateLeadBodySource = {
+  referral: "referral",
+  website: "website",
+  ads: "ads",
+  social_media: "social_media",
+  cold_call: "cold_call",
+  other: "other",
+} as const;
+
+export type UpdateLeadBodyStage =
+  (typeof UpdateLeadBodyStage)[keyof typeof UpdateLeadBodyStage];
+
+export const UpdateLeadBodyStage = {
+  new_lead: "new_lead",
+  contacted: "contacted",
+  estimate_scheduled: "estimate_scheduled",
+  proposal_sent: "proposal_sent",
+  won: "won",
+  lost: "lost",
+} as const;
+
+export interface UpdateLeadBody {
+  contactId?: number;
+  title?: string;
+  source?: UpdateLeadBodySource;
+  estimatedValue?: number | null;
+  stage?: UpdateLeadBodyStage;
+  notes?: string | null;
+}
+
+export interface ConvertLeadBody {
+  address: string;
+  city: string;
+  province: string;
+}
+
+export type LeadActivityType =
+  (typeof LeadActivityType)[keyof typeof LeadActivityType];
+
+export const LeadActivityType = {
+  call: "call",
+  email: "email",
+  meeting: "meeting",
+  note: "note",
+} as const;
+
+export type LeadActivityUser = {
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+} | null;
+
+export interface LeadActivity {
+  id: number;
+  leadId: number;
+  userId: number;
+  type: LeadActivityType;
+  notes: string;
+  createdAt: string;
+  user?: LeadActivityUser;
+}
+
+export type CreateActivityBodyType =
+  (typeof CreateActivityBodyType)[keyof typeof CreateActivityBodyType];
+
+export const CreateActivityBodyType = {
+  call: "call",
+  email: "email",
+  meeting: "meeting",
+  note: "note",
+} as const;
+
+export interface CreateActivityBody {
+  type: CreateActivityBodyType;
+  notes: string;
 }
 
 export type CreateContactBodyType =
@@ -775,6 +927,11 @@ export interface UpdateInvoiceBody {
   notes?: string | null;
   dueDate?: string | null;
 }
+
+export type ConvertLead201 = {
+  project?: Project;
+  leadId?: number;
+};
 
 export type ListContactsParams = {
   search?: string;

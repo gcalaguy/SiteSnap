@@ -44,8 +44,176 @@ tags:
     description: Invoice management and payment tracking
   - name: contacts
     description: CRM contact management
+  - name: leads
+    description: Lead management and pipeline tracking
+  - name: activities
+    description: Lead activity logging
 
 paths:
+  # ── Leads ───────────────────────────────────────────────────────────────────
+  /leads:
+    get:
+      operationId: listLeads
+      tags: [leads]
+      summary: List all leads for the company
+      responses:
+        "200":
+          description: List of leads with contact info
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeadWithContact"
+    post:
+      operationId: createLead
+      tags: [leads]
+      summary: Create a new lead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeadBody"
+      responses:
+        "201":
+          description: Created lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadWithContact"
+
+  /leads/{leadId}:
+    get:
+      operationId: getLead
+      tags: [leads]
+      summary: Get a single lead
+      parameters:
+        - in: path
+          name: leadId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lead with contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadWithContact"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateLead
+      tags: [leads]
+      summary: Update a lead (including stage)
+      parameters:
+        - in: path
+          name: leadId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeadBody"
+      responses:
+        "200":
+          description: Updated lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadWithContact"
+    delete:
+      operationId: deleteLead
+      tags: [leads]
+      summary: Delete a lead
+      parameters:
+        - in: path
+          name: leadId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /leads/{leadId}/convert:
+    post:
+      operationId: convertLead
+      tags: [leads]
+      summary: Convert a won lead into a project
+      parameters:
+        - in: path
+          name: leadId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConvertLeadBody"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    $ref: "#/components/schemas/Project"
+                  leadId:
+                    type: integer
+
+  /leads/{leadId}/activities:
+    get:
+      operationId: listLeadActivities
+      tags: [activities]
+      summary: List activities for a lead
+      parameters:
+        - in: path
+          name: leadId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeadActivity"
+    post:
+      operationId: createLeadActivity
+      tags: [activities]
+      summary: Log an activity for a lead
+      parameters:
+        - in: path
+          name: leadId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityBody"
+      responses:
+        "201":
+          description: Created activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadActivity"
+
   # ── Contacts ────────────────────────────────────────────────────────────────
   /contacts:
     get:
@@ -3051,6 +3219,135 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    LeadWithContact:
+      type: object
+      required: [id, companyId, contactId, title, source, stage, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        contactId:
+          type: integer
+        title:
+          type: string
+        source:
+          type: string
+          enum: [referral, website, ads, social_media, cold_call, other]
+        estimatedValue:
+          type: string
+          nullable: true
+        stage:
+          type: string
+          enum: [new_lead, contacted, estimate_scheduled, proposal_sent, won, lost]
+        notes:
+          type: string
+          nullable: true
+        convertedProjectId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        contact:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Contact"
+
+    CreateLeadBody:
+      type: object
+      required: [contactId, title]
+      properties:
+        contactId:
+          type: integer
+        title:
+          type: string
+        source:
+          type: string
+          enum: [referral, website, ads, social_media, cold_call, other]
+        estimatedValue:
+          type: number
+          nullable: true
+        stage:
+          type: string
+          enum: [new_lead, contacted, estimate_scheduled, proposal_sent, won, lost]
+        notes:
+          type: string
+          nullable: true
+
+    UpdateLeadBody:
+      type: object
+      properties:
+        contactId:
+          type: integer
+        title:
+          type: string
+        source:
+          type: string
+          enum: [referral, website, ads, social_media, cold_call, other]
+        estimatedValue:
+          type: number
+          nullable: true
+        stage:
+          type: string
+          enum: [new_lead, contacted, estimate_scheduled, proposal_sent, won, lost]
+        notes:
+          type: string
+          nullable: true
+
+    ConvertLeadBody:
+      type: object
+      required: [address, city, province]
+      properties:
+        address:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+
+    LeadActivity:
+      type: object
+      required: [id, leadId, userId, type, notes, createdAt]
+      properties:
+        id:
+          type: integer
+        leadId:
+          type: integer
+        userId:
+          type: integer
+        type:
+          type: string
+          enum: [call, email, meeting, note]
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        user:
+          nullable: true
+          type: object
+          properties:
+            id:
+              type: integer
+            firstName:
+              type: string
+            lastName:
+              type: string
+
+    CreateActivityBody:
+      type: object
+      required: [type, notes]
+      properties:
+        type:
+          type: string
+          enum: [call, email, meeting, note]
+        notes:
+          type: string
 
     Contact:
       type: object

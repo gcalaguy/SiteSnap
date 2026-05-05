@@ -8,6 +8,251 @@
 import * as zod from "zod";
 
 /**
+ * @summary List all leads for the company
+ */
+export const ListLeadsResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  contactId: zod.number(),
+  title: zod.string(),
+  source: zod.enum([
+    "referral",
+    "website",
+    "ads",
+    "social_media",
+    "cold_call",
+    "other",
+  ]),
+  estimatedValue: zod.string().nullish(),
+  stage: zod.enum([
+    "new_lead",
+    "contacted",
+    "estimate_scheduled",
+    "proposal_sent",
+    "won",
+    "lost",
+  ]),
+  notes: zod.string().nullish(),
+  convertedProjectId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  contact: zod
+    .object({
+      id: zod.number(),
+      companyId: zod.number(),
+      name: zod.string(),
+      company: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      email: zod.string().nullish(),
+      type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .nullish(),
+});
+export const ListLeadsResponse = zod.array(ListLeadsResponseItem);
+
+/**
+ * @summary Create a new lead
+ */
+export const CreateLeadBody = zod.object({
+  contactId: zod.number(),
+  title: zod.string(),
+  source: zod
+    .enum(["referral", "website", "ads", "social_media", "cold_call", "other"])
+    .optional(),
+  estimatedValue: zod.number().nullish(),
+  stage: zod
+    .enum([
+      "new_lead",
+      "contacted",
+      "estimate_scheduled",
+      "proposal_sent",
+      "won",
+      "lost",
+    ])
+    .optional(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a single lead
+ */
+export const GetLeadParams = zod.object({
+  leadId: zod.coerce.number(),
+});
+
+export const GetLeadResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  contactId: zod.number(),
+  title: zod.string(),
+  source: zod.enum([
+    "referral",
+    "website",
+    "ads",
+    "social_media",
+    "cold_call",
+    "other",
+  ]),
+  estimatedValue: zod.string().nullish(),
+  stage: zod.enum([
+    "new_lead",
+    "contacted",
+    "estimate_scheduled",
+    "proposal_sent",
+    "won",
+    "lost",
+  ]),
+  notes: zod.string().nullish(),
+  convertedProjectId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  contact: zod
+    .object({
+      id: zod.number(),
+      companyId: zod.number(),
+      name: zod.string(),
+      company: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      email: zod.string().nullish(),
+      type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Update a lead (including stage)
+ */
+export const UpdateLeadParams = zod.object({
+  leadId: zod.coerce.number(),
+});
+
+export const UpdateLeadBody = zod.object({
+  contactId: zod.number().optional(),
+  title: zod.string().optional(),
+  source: zod
+    .enum(["referral", "website", "ads", "social_media", "cold_call", "other"])
+    .optional(),
+  estimatedValue: zod.number().nullish(),
+  stage: zod
+    .enum([
+      "new_lead",
+      "contacted",
+      "estimate_scheduled",
+      "proposal_sent",
+      "won",
+      "lost",
+    ])
+    .optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateLeadResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  contactId: zod.number(),
+  title: zod.string(),
+  source: zod.enum([
+    "referral",
+    "website",
+    "ads",
+    "social_media",
+    "cold_call",
+    "other",
+  ]),
+  estimatedValue: zod.string().nullish(),
+  stage: zod.enum([
+    "new_lead",
+    "contacted",
+    "estimate_scheduled",
+    "proposal_sent",
+    "won",
+    "lost",
+  ]),
+  notes: zod.string().nullish(),
+  convertedProjectId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  contact: zod
+    .object({
+      id: zod.number(),
+      companyId: zod.number(),
+      name: zod.string(),
+      company: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      email: zod.string().nullish(),
+      type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Delete a lead
+ */
+export const DeleteLeadParams = zod.object({
+  leadId: zod.coerce.number(),
+});
+
+/**
+ * @summary Convert a won lead into a project
+ */
+export const ConvertLeadParams = zod.object({
+  leadId: zod.coerce.number(),
+});
+
+export const ConvertLeadBody = zod.object({
+  address: zod.string(),
+  city: zod.string(),
+  province: zod.string(),
+});
+
+/**
+ * @summary List activities for a lead
+ */
+export const ListLeadActivitiesParams = zod.object({
+  leadId: zod.coerce.number(),
+});
+
+export const ListLeadActivitiesResponseItem = zod.object({
+  id: zod.number(),
+  leadId: zod.number(),
+  userId: zod.number(),
+  type: zod.enum(["call", "email", "meeting", "note"]),
+  notes: zod.string(),
+  createdAt: zod.coerce.date(),
+  user: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+    })
+    .nullish(),
+});
+export const ListLeadActivitiesResponse = zod.array(
+  ListLeadActivitiesResponseItem,
+);
+
+/**
+ * @summary Log an activity for a lead
+ */
+export const CreateLeadActivityParams = zod.object({
+  leadId: zod.coerce.number(),
+});
+
+export const CreateLeadActivityBody = zod.object({
+  type: zod.enum(["call", "email", "meeting", "note"]),
+  notes: zod.string(),
+});
+
+/**
  * @summary List all contacts for the company
  */
 export const ListContactsQueryParams = zod.object({

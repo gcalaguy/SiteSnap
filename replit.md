@@ -41,6 +41,17 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - **Navigation**: Crown icon link appears in sidebar only for super_admin users
 - **Security**: All `/admin/*` routes protected by `requireAuth + requireSuperAdmin`; tenants cannot access cross-tenant data
 
+### ✅ Phase 2 (CRM) — LEAD MANAGEMENT SYSTEM (Complete)
+- **New DB tables**: `leads` + `lead_activities`; enums `lead_stage`, `lead_source`, `activity_type`
+- **Leads**: contactId FK, title, source (referral/website/ads/social_media/cold_call/other), estimatedValue, stage, notes, convertedProjectId (nullable FK → projects)
+- **API routes**: CRUD at `/api/leads`, PATCH stage moves, POST `/api/leads/:id/convert` (creates project), GET/POST `/api/leads/:id/activities`
+- **OpenAPI + codegen**: listLeads, createLead, getLead, updateLead, deleteLead, convertLead, listLeadActivities, createLeadActivity hooks
+- **Sidebar**: "Leads" nav item (TrendingUp icon) between Contacts and Quotes
+- **Web page** (`/leads`): Kanban pipeline board with 6 stages (New Lead → Contacted → Estimate Scheduled → Proposal Sent → Won → Lost), drag-and-drop cards between stages, summary pills (Total Leads, Pipeline Value, Won Value, Win Rate)
+- **Lead cards**: title, contact name/company, estimated value in gold, source badge, "Converted" badge if project exists
+- **Lead detail sheet**: stage selector buttons, contact info with email/phone links, estimated value + source meta, editable notes, "Convert to Project" button (Won stage only), activity log with log-new-activity form (call/email/meeting/note picker + textarea)
+- **Convert flow**: dialog collects address/city/province → creates planning project from lead data, invalidates both leads + projects queries
+
 ### ✅ Phase 1 (CRM) — CONTACTS MODULE (Complete)
 - **New DB table**: `contacts` (id, companyId, name, company, phone, email, type enum, notes, createdAt, updatedAt)
 - **New enum**: `contact_type` = client | worker | subcontractor | supplier

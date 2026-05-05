@@ -32,6 +32,7 @@ import safetyRouter from "./safety";
 import tradehubRouter from "./tradehub";
 import calculatorsRouter from "./calculators";
 import contactsRouter from "./contacts";
+import leadsRouter from "./leads";
 
 const router: IRouter = Router();
 
@@ -68,5 +69,6 @@ router.use(safetyRouter);
 router.use(tradehubRouter);
 router.use(calculatorsRouter);
 router.use(contactsRouter);
+router.use(leadsRouter);
 
 export default router;

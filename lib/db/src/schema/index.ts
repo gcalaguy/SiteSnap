@@ -267,6 +267,80 @@ export const insertContactSchema = createInsertSchema(contactsTable).omit({
 export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contactsTable.$inferSelect;
 
+// ── Leads ─────────────────────────────────────────────────────────────────────
+
+export const leadStageEnum = pgEnum("lead_stage", [
+  "new_lead",
+  "contacted",
+  "estimate_scheduled",
+  "proposal_sent",
+  "won",
+  "lost",
+]);
+
+export const leadSourceEnum = pgEnum("lead_source", [
+  "referral",
+  "website",
+  "ads",
+  "social_media",
+  "cold_call",
+  "other",
+]);
+
+export const activityTypeEnum = pgEnum("activity_type", [
+  "call",
+  "email",
+  "meeting",
+  "note",
+]);
+
+export const leadsTable = pgTable("leads", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id),
+  contactId: integer("contact_id")
+    .notNull()
+    .references(() => contactsTable.id),
+  title: text("title").notNull(),
+  source: leadSourceEnum("source").notNull().default("other"),
+  estimatedValue: numeric("estimated_value", { precision: 12, scale: 2 }),
+  stage: leadStageEnum("stage").notNull().default("new_lead"),
+  notes: text("notes"),
+  convertedProjectId: integer("converted_project_id").references(
+    () => projectsTable.id,
+  ),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertLeadSchema = createInsertSchema(leadsTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type Lead = typeof leadsTable.$inferSelect;
+
+export const leadActivitiesTable = pgTable("lead_activities", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id")
+    .notNull()
+    .references(() => leadsTable.id),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id),
+  type: activityTypeEnum("type").notNull(),
+  notes: text("notes").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertLeadActivitySchema = createInsertSchema(
+  leadActivitiesTable,
+).omit({ id: true, createdAt: true });
+export type InsertLeadActivity = z.infer<typeof insertLeadActivitySchema>;
+export type LeadActivity = typeof leadActivitiesTable.$inferSelect;
+
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
 export const taskStatusEnum = pgEnum("task_status", [
