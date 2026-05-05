@@ -9,6 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, FileText, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   pending_approval: "Pending",
@@ -61,9 +64,16 @@ export default function Quotes() {
       </div>
 
       <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as QuoteStatus | "all")}>
-        <TabsList className="flex gap-1 flex-wrap h-auto">
+        <TabsList
+          className="flex gap-1 flex-wrap h-auto"
+          style={{ background: BLACK }}
+        >
           {TABS.map((t) => (
-            <TabsTrigger key={t.value} value={t.value} className="text-sm">
+            <TabsTrigger
+              key={t.value}
+              value={t.value}
+              className="text-sm text-zinc-400 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-[#111111] data-[state=active]:font-semibold"
+            >
               {t.label}
             </TabsTrigger>
           ))}
