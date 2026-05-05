@@ -34,6 +34,12 @@ export default function NewQuote() {
     ? quoteTemplatePath.replace(/^\/objects\//, "/api/storage/objects/")
     : undefined;
 
+  const logoPath: string | undefined = (me as any)?.company?.logoPath ?? undefined;
+  const logoPreviewUrl = logoPath
+    ? logoPath.replace(/^\/objects\//, "/api/storage/objects/")
+    : undefined;
+  const companyName: string = (me as any)?.company?.name ?? "Your Company";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !clientName.trim()) {
@@ -112,23 +118,45 @@ export default function NewQuote() {
               </p>
             </div>
           ) : (
-            <div className="flex items-center justify-between rounded-lg border border-dashed border-border p-4">
-              <div>
-                <p className="text-sm font-medium">No template uploaded</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Your PDF will use the default gold header with your company logo.
-                </p>
+            <div className="space-y-3">
+              {/* Default gold header preview */}
+              <div className="rounded-lg overflow-hidden border border-border shadow-sm">
+                <div className="bg-[#d4af37] flex items-center justify-between px-4 py-3" style={{ minHeight: 52 }}>
+                  {/* Logo or company name */}
+                  {logoPreviewUrl ? (
+                    <img
+                      src={logoPreviewUrl}
+                      alt="Company logo"
+                      className="object-contain"
+                      style={{ maxHeight: 40, maxWidth: 140 }}
+                    />
+                  ) : (
+                    <span className="text-white font-bold text-base tracking-wide truncate max-w-[55%]">
+                      {companyName}
+                    </span>
+                  )}
+                  {/* Quote number placeholder */}
+                  <div className="text-right shrink-0 ml-4">
+                    <p className="text-[10px] font-semibold text-[rgba(40,30,10,0.7)] uppercase tracking-wider">Quote</p>
+                    <p className="text-sm font-bold text-white leading-tight">QUO-XXXX</p>
+                  </div>
+                </div>
+                <div className="bg-[#0a0a0a] flex items-center px-4 py-2 gap-6">
+                  <span className="text-[11px] font-bold tracking-wide text-[#d4af37]">QUOTE</span>
+                  <span className="text-[12px] text-white font-medium">QUO-XXXX</span>
+                  <span className="ml-auto text-[10px] font-bold tracking-wide text-[#b4b4b4]">STATUS: DRAFT</span>
+                </div>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setLocation("/settings")}
-                className="shrink-0 ml-4"
-              >
-                <Settings className="h-3.5 w-3.5 mr-1.5" />
-                Upload Template
-              </Button>
+              <p className="text-xs text-muted-foreground">
+                Default header using your company logo.{" "}
+                <button
+                  type="button"
+                  onClick={() => setLocation("/settings")}
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  Upload a custom template in Settings
+                </button>
+              </p>
             </div>
           )}
         </CardContent>
