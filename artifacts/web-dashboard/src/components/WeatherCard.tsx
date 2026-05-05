@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sun, Cloud, CloudRain, CloudDrizzle, CloudSnow, Zap, Wind, MapPin, Droplets } from "lucide-react";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 interface WeatherData {
   temperature: number;
   weatherCode: number;
@@ -11,20 +14,22 @@ interface WeatherData {
   region: string;
 }
 
-function getWeatherInfo(code: number): { icon: React.ReactNode; label: string; color: string } {
-  if (code === 0) return { icon: <Sun className="h-8 w-8" />, label: "Clear Sky", color: "#F59E0B" };
-  if (code === 1) return { icon: <Sun className="h-8 w-8" />, label: "Mostly Clear", color: "#F59E0B" };
-  if (code === 2) return { icon: <Cloud className="h-8 w-8" />, label: "Partly Cloudy", color: "#6B7280" };
-  if (code === 3) return { icon: <Cloud className="h-8 w-8" />, label: "Overcast", color: "#6B7280" };
-  if (code === 45 || code === 48) return { icon: <Wind className="h-8 w-8" />, label: "Foggy", color: "#9CA3AF" };
-  if (code >= 51 && code <= 55) return { icon: <CloudDrizzle className="h-8 w-8" />, label: "Drizzle", color: "#60A5FA" };
-  if (code >= 61 && code <= 65) return { icon: <CloudRain className="h-8 w-8" />, label: "Rain", color: "#3B82F6" };
-  if (code >= 71 && code <= 75) return { icon: <CloudSnow className="h-8 w-8" />, label: "Snow", color: "#93C5FD" };
-  if (code >= 80 && code <= 82) return { icon: <CloudRain className="h-8 w-8" />, label: "Showers", color: "#3B82F6" };
-  if (code === 85 || code === 86) return { icon: <CloudSnow className="h-8 w-8" />, label: "Snow Showers", color: "#93C5FD" };
-  if (code >= 95) return { icon: <Zap className="h-8 w-8" />, label: "Thunderstorm", color: "#8B5CF6" };
-  return { icon: <Cloud className="h-8 w-8" />, label: "Cloudy", color: "#6B7280" };
+function getWeatherInfo(code: number): { icon: React.ReactNode; label: string } {
+  if (code === 0) return { icon: <Sun className="h-8 w-8" style={{ color: GOLD }} />, label: "Clear Sky" };
+  if (code === 1) return { icon: <Sun className="h-8 w-8" style={{ color: GOLD }} />, label: "Mostly Clear" };
+  if (code === 2) return { icon: <Cloud className="h-8 w-8" style={{ color: GOLD }} />, label: "Partly Cloudy" };
+  if (code === 3) return { icon: <Cloud className="h-8 w-8" style={{ color: GOLD }} />, label: "Overcast" };
+  if (code === 45 || code === 48) return { icon: <Wind className="h-8 w-8" style={{ color: GOLD }} />, label: "Foggy" };
+  if (code >= 51 && code <= 55) return { icon: <CloudDrizzle className="h-8 w-8" style={{ color: GOLD }} />, label: "Drizzle" };
+  if (code >= 61 && code <= 65) return { icon: <CloudRain className="h-8 w-8" style={{ color: GOLD }} />, label: "Rain" };
+  if (code >= 71 && code <= 75) return { icon: <CloudSnow className="h-8 w-8" style={{ color: GOLD }} />, label: "Snow" };
+  if (code >= 80 && code <= 82) return { icon: <CloudRain className="h-8 w-8" style={{ color: GOLD }} />, label: "Showers" };
+  if (code === 85 || code === 86) return { icon: <CloudSnow className="h-8 w-8" style={{ color: GOLD }} />, label: "Snow Showers" };
+  if (code >= 95) return { icon: <Zap className="h-8 w-8" style={{ color: GOLD }} />, label: "Thunderstorm" };
+  return { icon: <Cloud className="h-8 w-8" style={{ color: GOLD }} />, label: "Cloudy" };
 }
+
+const cardStyle = { background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" };
 
 export function WeatherCard() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -89,15 +94,15 @@ export function WeatherCard() {
 
   if (denied) {
     return (
-      <Card>
+      <Card style={cardStyle}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Cloud className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold" style={{ color: GOLD }}>
+            <Cloud className="h-4 w-4" style={{ color: GOLD }} />
             Job Site Weather
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-zinc-500">
             Enable location access in your browser to see current weather at your job site.
           </p>
         </CardContent>
@@ -107,16 +112,16 @@ export function WeatherCard() {
 
   if (loading) {
     return (
-      <Card>
+      <Card style={cardStyle}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Cloud className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold" style={{ color: GOLD }}>
+            <Cloud className="h-4 w-4" style={{ color: GOLD }} />
             Job Site Weather
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
-            <div className="h-4 w-4 rounded-full bg-muted" />
+          <div className="flex items-center gap-2 text-sm text-zinc-500 animate-pulse">
+            <div className="h-4 w-4 rounded-full bg-zinc-700" />
             Getting your location…
           </div>
         </CardContent>
@@ -126,42 +131,42 @@ export function WeatherCard() {
 
   if (!weather) return null;
 
-  const { icon, label, color } = getWeatherInfo(weather.weatherCode);
+  const { icon, label } = getWeatherInfo(weather.weatherCode);
 
   return (
-    <Card>
+    <Card style={cardStyle}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Cloud className="h-4 w-4 text-primary" />
+        <CardTitle className="text-sm font-semibold flex items-center gap-2" style={{ color: GOLD }}>
+          <Cloud className="h-4 w-4" style={{ color: GOLD }} />
           Job Site Weather
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-4">
-          <div className="flex flex-col items-center gap-1 min-w-[70px]" style={{ color }}>
+          <div className="flex flex-col items-center gap-1 min-w-[70px]">
             {icon}
-            <span className="text-2xl font-bold" style={{ color: "inherit" }}>
+            <span className="text-2xl font-bold text-white">
               {weather.temperature}°C
             </span>
           </div>
 
-          <div className="h-12 w-px bg-border" />
+          <div className="h-12 w-px" style={{ background: "#2a2a2a" }} />
 
           <div className="flex flex-col gap-1 flex-1 min-w-0">
-            <div className="flex items-center gap-1 text-foreground">
-              <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="text-sm font-semibold truncate">
+            <div className="flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5 shrink-0" style={{ color: GOLD }} />
+              <span className="text-sm font-semibold truncate" style={{ color: GOLD }}>
                 {weather.city}{weather.region ? `, ${weather.region}` : ""}
               </span>
             </div>
-            <span className="text-xs text-muted-foreground">{label}</span>
+            <span className="text-xs text-zinc-500">{label}</span>
             <div className="flex items-center gap-3 mt-1">
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Wind className="h-3 w-3" />
+              <div className="flex items-center gap-1 text-zinc-500">
+                <Wind className="h-3 w-3" style={{ color: GOLD }} />
                 <span className="text-xs">{weather.windspeed} km/h</span>
               </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Droplets className="h-3 w-3" />
+              <div className="flex items-center gap-1 text-zinc-500">
+                <Droplets className="h-3 w-3" style={{ color: GOLD }} />
                 <span className="text-xs">{weather.humidity}%</span>
               </div>
             </div>
