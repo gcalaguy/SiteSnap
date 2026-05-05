@@ -24,6 +24,7 @@ import Quotes from "@/pages/quotes";
 import NewQuote from "@/pages/new-quote";
 import QuoteDetail from "@/pages/quote-detail";
 import Invoices from "@/pages/invoices";
+import NewInvoice from "@/pages/new-invoice";
 import InvoiceDetail from "@/pages/invoice-detail";
 import AdminPage from "@/pages/admin";
 import SuperAdminPage from "@/pages/super-admin";
@@ -242,6 +243,7 @@ function AuthApp() {
           <Route path="/quotes/new" component={NewQuote} />
           <Route path="/quotes/:id" component={QuoteDetail} />
           <Route path="/quotes" component={Quotes} />
+          <Route path="/invoices/new" component={NewInvoice} />
           <Route path="/invoices/:id" component={InvoiceDetail} />
           <Route path="/invoices" component={Invoices} />
           <Route path="/admin" component={AdminPage} />

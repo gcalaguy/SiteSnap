@@ -1514,6 +1514,23 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Invoice"
+    post:
+      operationId: createInvoice
+      tags: [invoices]
+      summary: Create a standalone invoice directly
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceBody"
+      responses:
+        "201":
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
 
   /invoices/{invoiceId}:
     get:
@@ -2932,6 +2949,29 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    CreateInvoiceBody:
+      type: object
+      required: [title, clientName]
+      properties:
+        title:
+          type: string
+        clientName:
+          type: string
+        clientEmail:
+          type: string
+          nullable: true
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteLineItem"
+        notes:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          format: date
+          nullable: true
 
     UpdateInvoiceBody:
       type: object

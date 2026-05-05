@@ -5,6 +5,8 @@ import {
   useUpdateQuote,
   useDeleteQuote,
   useSubmitQuoteForApproval,
+  useApproveQuote,
+  useRejectQuote,
   useConvertQuoteToInvoice,
   useGenerateQuoteAI,
   useGetMe,
@@ -370,6 +372,8 @@ export default function QuoteDetail() {
   const realProjectId = quote?.projectId ?? 0;
   const updateQuote = useUpdateQuote();
   const submitQuote = useSubmitQuoteForApproval();
+  const approveQuote = useApproveQuote();
+  const rejectQuote = useRejectQuote();
   const convertQuote = useConvertQuoteToInvoice();
   const generateAI = useGenerateQuoteAI();
 
@@ -428,6 +432,28 @@ export default function QuoteDetail() {
       setLocation("/quotes");
     } catch {
       toast({ title: "Failed to delete quote", variant: "destructive" });
+    }
+  }
+
+  async function handleApprove() {
+    try {
+      await approveQuote.mutateAsync({ projectId: realProjectId, quoteId });
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/0/quotes/${quoteId}`] });
+      queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
+      toast({ title: "Quote approved" });
+    } catch {
+      toast({ title: "Failed to approve quote", variant: "destructive" });
+    }
+  }
+
+  async function handleReject() {
+    try {
+      await rejectQuote.mutateAsync({ projectId: realProjectId, quoteId, data: {} });
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/0/quotes/${quoteId}`] });
+      queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
+      toast({ title: "Quote sent back for revision" });
+    } catch {
+      toast({ title: "Failed to reject quote", variant: "destructive" });
     }
   }
 
@@ -726,8 +752,51 @@ export default function QuoteDetail() {
             </AlertDialog>
           )}
 
-          {/* Submitted: waiting for review */}
-          {quote.status === "pending_approval" && (
+          {/* Submitted: owners/foremen can approve or reject */}
+          {quote.status === "pending_approval" && me?.role !== "worker" && (
+            <>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button className="gap-2" style={{ background: "#16a34a", color: "#fff" }} disabled={approveQuote.isPending}>
+                    <CheckCircle className="h-4 w-4" />
+                    {approveQuote.isPending ? "Approving…" : "Approve"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Approve this quote?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      The quote will be marked as approved and ready to convert to an invoice.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleApprove}>Approve</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="gap-2 border-red-200 text-red-600 hover:bg-red-50" disabled={rejectQuote.isPending}>
+                    {rejectQuote.isPending ? "Sending back…" : "Request Revision"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Request revision?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      The quote will be sent back to the submitter to make changes.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleReject}>Send Back</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          )}
+          {quote.status === "pending_approval" && me?.role === "worker" && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-sm font-medium">
               <Send className="h-4 w-4" />
               Awaiting review

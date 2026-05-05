@@ -713,6 +713,15 @@ export interface Invoice {
   updatedAt: string;
 }
 
+export interface CreateInvoiceBody {
+  title: string;
+  clientName: string;
+  clientEmail?: string | null;
+  lineItems?: QuoteLineItem[];
+  notes?: string | null;
+  dueDate?: string | null;
+}
+
 export interface UpdateInvoiceBody {
   title?: string;
   clientName?: string;

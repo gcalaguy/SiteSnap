@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Receipt, ChevronRight, TrendingDown, TrendingUp } from "lucide-react";
+import { Receipt, ChevronRight, TrendingDown, TrendingUp, Plus } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 
 const GOLD = "#C9A84C";
@@ -63,6 +63,12 @@ export default function Invoices() {
           <h1 className="text-2xl font-bold text-foreground">Invoices</h1>
           <p className="text-sm text-muted-foreground mt-1">Track payments and invoice status</p>
         </div>
+        <Button asChild style={{ background: GOLD, color: BLACK }}>
+          <Link href="/invoices/new">
+            <Plus className="h-4 w-4 mr-2" />
+            New Invoice
+          </Link>
+        </Button>
       </div>
 
       {/* Summary cards */}
@@ -102,9 +108,15 @@ export default function Invoices() {
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Receipt className="h-12 w-12 text-muted-foreground/40 mb-4" />
             <p className="text-lg font-medium text-foreground">No invoices yet</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Invoices are created automatically when you convert an approved quote.
+            <p className="text-sm text-muted-foreground mt-1 mb-4">
+              Create an invoice directly or convert an approved quote.
             </p>
+            <Button asChild style={{ background: GOLD, color: BLACK }}>
+              <Link href="/invoices/new">
+                <Plus className="h-4 w-4 mr-2" />
+                New Invoice
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       ) : (

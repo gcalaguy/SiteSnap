@@ -1971,6 +1971,28 @@ export const ListAllInvoicesResponseItem = zod.object({
 export const ListAllInvoicesResponse = zod.array(ListAllInvoicesResponseItem);
 
 /**
+ * @summary Create a standalone invoice directly
+ */
+export const CreateInvoiceBody = zod.object({
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  lineItems: zod
+    .array(
+      zod.object({
+        description: zod.string(),
+        quantity: zod.number(),
+        unit: zod.string(),
+        unitPrice: zod.number(),
+        total: zod.number(),
+      }),
+    )
+    .optional(),
+  notes: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+});
+
+/**
  * @summary Get an invoice by ID
  */
 export const GetInvoiceParams = zod.object({
