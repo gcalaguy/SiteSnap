@@ -557,6 +557,9 @@ export interface Quote {
   title: string;
   clientName: string;
   clientEmail?: string | null;
+  clientCompanyName?: string | null;
+  clientAddress?: string | null;
+  clientPhone?: string | null;
   status: QuoteStatus;
   voiceInput?: string | null;
   lineItems: QuoteLineItem[];
@@ -578,6 +581,9 @@ export interface CreateQuoteBody {
   title: string;
   clientName: string;
   clientEmail?: string | null;
+  clientCompanyName?: string | null;
+  clientAddress?: string | null;
+  clientPhone?: string | null;
   voiceInput?: string | null;
   lineItems?: QuoteLineItem[];
   subtotal?: number;
@@ -592,6 +598,9 @@ export interface UpdateQuoteBody {
   title?: string;
   clientName?: string;
   clientEmail?: string | null;
+  clientCompanyName?: string | null;
+  clientAddress?: string | null;
+  clientPhone?: string | null;
   voiceInput?: string | null;
   lineItems?: QuoteLineItem[];
   subtotal?: number;

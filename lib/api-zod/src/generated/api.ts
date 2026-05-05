@@ -1240,6 +1240,9 @@ export const ListQuotesResponseItem = zod.object({
   title: zod.string(),
   clientName: zod.string(),
   clientEmail: zod.string().nullish(),
+  clientCompanyName: zod.string().nullish(),
+  clientAddress: zod.string().nullish(),
+  clientPhone: zod.string().nullish(),
   status: zod.enum([
     "draft",
     "pending_approval",
@@ -1283,6 +1286,9 @@ export const CreateQuoteBody = zod.object({
   title: zod.string(),
   clientName: zod.string(),
   clientEmail: zod.string().nullish(),
+  clientCompanyName: zod.string().nullish(),
+  clientAddress: zod.string().nullish(),
+  clientPhone: zod.string().nullish(),
   voiceInput: zod.string().nullish(),
   lineItems: zod
     .array(
@@ -1319,6 +1325,9 @@ export const GetQuoteResponse = zod.object({
   title: zod.string(),
   clientName: zod.string(),
   clientEmail: zod.string().nullish(),
+  clientCompanyName: zod.string().nullish(),
+  clientAddress: zod.string().nullish(),
+  clientPhone: zod.string().nullish(),
   status: zod.enum([
     "draft",
     "pending_approval",
@@ -1362,6 +1371,9 @@ export const UpdateQuoteBody = zod.object({
   title: zod.string().optional(),
   clientName: zod.string().optional(),
   clientEmail: zod.string().nullish(),
+  clientCompanyName: zod.string().nullish(),
+  clientAddress: zod.string().nullish(),
+  clientPhone: zod.string().nullish(),
   voiceInput: zod.string().nullish(),
   lineItems: zod
     .array(
@@ -1390,6 +1402,9 @@ export const UpdateQuoteResponse = zod.object({
   title: zod.string(),
   clientName: zod.string(),
   clientEmail: zod.string().nullish(),
+  clientCompanyName: zod.string().nullish(),
+  clientAddress: zod.string().nullish(),
+  clientPhone: zod.string().nullish(),
   status: zod.enum([
     "draft",
     "pending_approval",
@@ -1445,6 +1460,9 @@ export const SubmitQuoteForApprovalResponse = zod.object({
   title: zod.string(),
   clientName: zod.string(),
   clientEmail: zod.string().nullish(),
+  clientCompanyName: zod.string().nullish(),
+  clientAddress: zod.string().nullish(),
+  clientPhone: zod.string().nullish(),
   status: zod.enum([
     "draft",
     "pending_approval",
@@ -1492,6 +1510,9 @@ export const UnsubmitQuoteResponse = zod.object({
   title: zod.string(),
   clientName: zod.string(),
   clientEmail: zod.string().nullish(),
+  clientCompanyName: zod.string().nullish(),
+  clientAddress: zod.string().nullish(),
+  clientPhone: zod.string().nullish(),
   status: zod.enum([
     "draft",
     "pending_approval",
@@ -1539,6 +1560,9 @@ export const ApproveQuoteResponse = zod.object({
   title: zod.string(),
   clientName: zod.string(),
   clientEmail: zod.string().nullish(),
+  clientCompanyName: zod.string().nullish(),
+  clientAddress: zod.string().nullish(),
+  clientPhone: zod.string().nullish(),
   status: zod.enum([
     "draft",
     "pending_approval",
@@ -1590,6 +1614,9 @@ export const RejectQuoteResponse = zod.object({
   title: zod.string(),
   clientName: zod.string(),
   clientEmail: zod.string().nullish(),
+  clientCompanyName: zod.string().nullish(),
+  clientAddress: zod.string().nullish(),
+  clientPhone: zod.string().nullish(),
   status: zod.enum([
     "draft",
     "pending_approval",
@@ -1868,6 +1895,9 @@ export const ListAllQuotesResponseItem = zod.object({
   title: zod.string(),
   clientName: zod.string(),
   clientEmail: zod.string().nullish(),
+  clientCompanyName: zod.string().nullish(),
+  clientAddress: zod.string().nullish(),
+  clientPhone: zod.string().nullish(),
   status: zod.enum([
     "draft",
     "pending_approval",

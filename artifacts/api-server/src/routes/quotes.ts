@@ -142,7 +142,7 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
   const parsed = CreateQuoteBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
 
-  const { title, clientName, clientEmail, voiceInput, lineItems = [], notes, validUntil } = parsed.data;
+  const { title, clientName, clientEmail, clientCompanyName, clientAddress, clientPhone, voiceInput, lineItems = [], notes, validUntil } = parsed.data;
   const quoteNumber = await getNextQuoteNumber(req.companyId!);
   const taxRate = 0.13;
   const { subtotal, taxAmount, total } = calcTotals(lineItems as { quantity: number; unitPrice: number }[], taxRate);
@@ -154,6 +154,9 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     title,
     clientName,
     clientEmail: clientEmail ?? null,
+    clientCompanyName: clientCompanyName ?? null,
+    clientAddress: clientAddress ?? null,
+    clientPhone: clientPhone ?? null,
     voiceInput: voiceInput ?? null,
     lineItems: (lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]),
     subtotal,
@@ -211,11 +214,14 @@ router.put("/:quoteId", requireAuth, requireCompany, async (req, res) => {
   const parsed = UpdateQuoteBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
 
-  const { title, clientName, clientEmail, voiceInput, lineItems, notes, validUntil } = parsed.data;
+  const { title, clientName, clientEmail, clientCompanyName, clientAddress, clientPhone, voiceInput, lineItems, notes, validUntil } = parsed.data;
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (title !== undefined) updates.title = title;
   if (clientName !== undefined) updates.clientName = clientName;
   if (clientEmail !== undefined) updates.clientEmail = clientEmail ?? null;
+  if (clientCompanyName !== undefined) updates.clientCompanyName = clientCompanyName ?? null;
+  if (clientAddress !== undefined) updates.clientAddress = clientAddress ?? null;
+  if (clientPhone !== undefined) updates.clientPhone = clientPhone ?? null;
   if (voiceInput !== undefined) updates.voiceInput = voiceInput ?? null;
   if (notes !== undefined) updates.notes = notes ?? null;
   if (validUntil !== undefined) updates.validUntil = validUntil ?? null;

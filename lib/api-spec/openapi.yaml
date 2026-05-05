@@ -2602,6 +2602,15 @@ components:
         clientEmail:
           type: string
           nullable: true
+        clientCompanyName:
+          type: string
+          nullable: true
+        clientAddress:
+          type: string
+          nullable: true
+        clientPhone:
+          type: string
+          nullable: true
         status:
           type: string
           enum: [draft, pending_approval, approved, rejected, converted]
@@ -2658,6 +2667,15 @@ components:
         clientEmail:
           type: string
           nullable: true
+        clientCompanyName:
+          type: string
+          nullable: true
+        clientAddress:
+          type: string
+          nullable: true
+        clientPhone:
+          type: string
+          nullable: true
         voiceInput:
           type: string
           nullable: true
@@ -2689,6 +2707,15 @@ components:
         clientName:
           type: string
         clientEmail:
+          type: string
+          nullable: true
+        clientCompanyName:
+          type: string
+          nullable: true
+        clientAddress:
+          type: string
+          nullable: true
+        clientPhone:
           type: string
           nullable: true
         voiceInput:

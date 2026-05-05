@@ -86,11 +86,13 @@ const QUOTE_STATUS_LABELS: Record<string, string> = {
 };
 
 function buildQuotePdfDoc(
-  quote: { quoteNumber: string; title: string; clientName: string; clientEmail?: string | null; status: string; createdAt: string; validUntil?: string | null; notes?: string | null; taxRate: string },
+  quote: { quoteNumber: string; title: string; clientName: string; clientEmail?: string | null; clientCompanyName?: string | null; clientAddress?: string | null; clientPhone?: string | null; status: string; createdAt: string; validUntil?: string | null; notes?: string | null; taxRate: string },
   lineItems: { description: string; quantity: number; unit: string; unitPrice: number; total: number }[],
   companyName: string,
   templateDataUrl?: string,
   logoDataUrl?: string,
+  companyAddress?: string,
+  companyPhone?: string,
 ): jsPDF {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
   const PRIMARY: [number, number, number] = [212, 175, 55];
@@ -163,16 +165,66 @@ function buildQuotePdfDoc(
   doc.text(quote.title, margin, y);
   y += 10;
 
-  // Client info
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
+  // FROM / TO two-column section
+  const colMid = pageW / 2;
+  const sectionStartY = y;
+
+  // FROM — company info (left column)
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "bold");
   doc.setTextColor(...GRAY);
-  doc.text(`Client: ${quote.clientName}`, margin, y);
-  if (quote.clientEmail) {
-    doc.text(quote.clientEmail, margin, y + 5);
-    y += 5;
+  doc.text("FROM", margin, y);
+  y += 5;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...DARK);
+  doc.text(companyName, margin, y);
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...GRAY);
+  if (companyAddress) {
+    doc.text(companyAddress, margin, y);
+    y += 4.5;
   }
-  y += 8;
+  if (companyPhone) {
+    doc.text(companyPhone, margin, y);
+    y += 4.5;
+  }
+
+  // TO — client info (right column)
+  let ty = sectionStartY;
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...GRAY);
+  doc.text("TO", colMid, ty);
+  ty += 5;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...DARK);
+  doc.text(quote.clientName, colMid, ty);
+  ty += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...GRAY);
+  if (quote.clientCompanyName) {
+    doc.text(quote.clientCompanyName, colMid, ty);
+    ty += 4.5;
+  }
+  if (quote.clientAddress) {
+    doc.text(quote.clientAddress, colMid, ty, { maxWidth: colMid - margin - 4 });
+    ty += 4.5;
+  }
+  if (quote.clientPhone) {
+    doc.text(quote.clientPhone, colMid, ty);
+    ty += 4.5;
+  }
+  if (quote.clientEmail) {
+    doc.text(quote.clientEmail, colMid, ty);
+    ty += 4.5;
+  }
+
+  y = Math.max(y, ty) + 6;
 
   // Valid until
   if (quote.validUntil) {
@@ -330,6 +382,11 @@ export default function QuoteDetail() {
   const [aiLoading, setAiLoading] = useState(false);
   const [title, setTitle] = useState<string | null>(null);
   const [notes, setNotes] = useState<string | null>(null);
+  const [clientName, setClientName] = useState<string | null>(null);
+  const [clientCompanyName, setClientCompanyName] = useState<string | null>(null);
+  const [clientAddress, setClientAddress] = useState<string | null>(null);
+  const [clientPhone, setClientPhone] = useState<string | null>(null);
+  const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -345,6 +402,11 @@ export default function QuoteDetail() {
   const effectiveItems: LineItem[] = lineItems ?? ((quote?.lineItems ?? []) as LineItem[]);
   const effectiveTitle = title ?? quote?.title ?? "";
   const effectiveNotes = notes ?? quote?.notes ?? "";
+  const effectiveClientName = clientName ?? quote?.clientName ?? "";
+  const effectiveClientCompanyName = clientCompanyName ?? (quote as any)?.clientCompanyName ?? "";
+  const effectiveClientAddress = clientAddress ?? (quote as any)?.clientAddress ?? "";
+  const effectiveClientPhone = clientPhone ?? (quote as any)?.clientPhone ?? "";
+  const effectiveClientEmail = clientEmail ?? quote?.clientEmail ?? "";
   const taxRate = parseFloat(quote?.taxRate ?? "0.13");
   const { subtotal, taxAmount, total } = calcTotals(effectiveItems, taxRate);
 
@@ -444,6 +506,11 @@ export default function QuoteDetail() {
         data: {
           title: effectiveTitle || undefined,
           notes: effectiveNotes || undefined,
+          clientName: effectiveClientName || undefined,
+          clientEmail: effectiveClientEmail || undefined,
+          clientCompanyName: effectiveClientCompanyName || undefined,
+          clientAddress: effectiveClientAddress || undefined,
+          clientPhone: effectiveClientPhone || undefined,
           lineItems: effectiveItems,
           subtotal: sub,
           taxRate,
@@ -454,6 +521,11 @@ export default function QuoteDetail() {
       setLineItems(null);
       setTitle(null);
       setNotes(null);
+      setClientName(null);
+      setClientCompanyName(null);
+      setClientAddress(null);
+      setClientPhone(null);
+      setClientEmail(null);
       toast({ title: "Quote saved" });
       invalidate();
     } catch {
@@ -545,12 +617,17 @@ export default function QuoteDetail() {
               loadTemplateDataUrl(quoteTemplatePath),
               loadTemplateDataUrl(logoPath),
             ]);
+            const companyAddress = (me as any)?.company?.address ?? undefined;
+            const companyPhone = (me as any)?.company?.phone ?? undefined;
             buildQuotePdfDoc(
               {
                 quoteNumber: quote.quoteNumber,
                 title: effectiveTitle || quote.title,
-                clientName: quote.clientName,
-                clientEmail: quote.clientEmail,
+                clientName: effectiveClientName || quote.clientName,
+                clientEmail: effectiveClientEmail || quote.clientEmail,
+                clientCompanyName: effectiveClientCompanyName || (quote as any)?.clientCompanyName,
+                clientAddress: effectiveClientAddress || (quote as any)?.clientAddress,
+                clientPhone: effectiveClientPhone || (quote as any)?.clientPhone,
                 status: quote.status,
                 createdAt: quote.createdAt,
                 validUntil: quote.validUntil,
@@ -561,6 +638,8 @@ export default function QuoteDetail() {
               companyName,
               templateDataUrl,
               logoDataUrl,
+              companyAddress,
+              companyPhone,
             ).save(`${quote.quoteNumber}.pdf`);
             toast({ title: "PDF downloaded" });
           }}>
@@ -758,15 +837,75 @@ export default function QuoteDetail() {
               <p className="text-sm text-foreground">{effectiveTitle}</p>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs text-muted-foreground">Quote Number</Label>
-              <p className="text-sm font-mono">{quote.quoteNumber}</p>
+          <div>
+            <Label className="text-xs text-muted-foreground">Quote Number</Label>
+            <p className="text-sm font-mono">{quote.quoteNumber}</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Contact Name</Label>
+              {isEditable ? (
+                <Input
+                  value={effectiveClientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="Primary contact"
+                />
+              ) : (
+                <p className="text-sm">{effectiveClientName}</p>
+              )}
             </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Client</Label>
-              <p className="text-sm">{quote.clientName}</p>
+            <div className="space-y-2">
+              <Label>Client Company Name</Label>
+              {isEditable ? (
+                <Input
+                  value={effectiveClientCompanyName}
+                  onChange={(e) => setClientCompanyName(e.target.value)}
+                  placeholder="Company or organization"
+                />
+              ) : (
+                <p className="text-sm">{effectiveClientCompanyName || <span className="text-muted-foreground">—</span>}</p>
+              )}
             </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Client Email</Label>
+              {isEditable ? (
+                <Input
+                  type="email"
+                  value={effectiveClientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  placeholder="client@example.com"
+                />
+              ) : (
+                <p className="text-sm">{effectiveClientEmail || <span className="text-muted-foreground">—</span>}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Client Phone</Label>
+              {isEditable ? (
+                <Input
+                  type="tel"
+                  value={effectiveClientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  placeholder="(555) 000-0000"
+                />
+              ) : (
+                <p className="text-sm">{effectiveClientPhone || <span className="text-muted-foreground">—</span>}</p>
+              )}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Client Address</Label>
+            {isEditable ? (
+              <Input
+                value={effectiveClientAddress}
+                onChange={(e) => setClientAddress(e.target.value)}
+                placeholder="123 Main St, City, Province, Postal Code"
+              />
+            ) : (
+              <p className="text-sm">{effectiveClientAddress || <span className="text-muted-foreground">—</span>}</p>
+            )}
           </div>
         </CardContent>
       </Card>

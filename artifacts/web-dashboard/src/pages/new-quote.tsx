@@ -23,6 +23,9 @@ export default function NewQuote() {
   const [title, setTitle] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [clientCompanyName, setClientCompanyName] = useState("");
+  const [clientAddress, setClientAddress] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [validUntil, setValidUntil] = useState("");
 
@@ -44,6 +47,9 @@ export default function NewQuote() {
           title: title.trim(),
           clientName: clientName.trim(),
           clientEmail: clientEmail.trim() || undefined,
+          clientCompanyName: clientCompanyName.trim() || undefined,
+          clientAddress: clientAddress.trim() || undefined,
+          clientPhone: clientPhone.trim() || undefined,
           notes: notes.trim() || undefined,
           validUntil: validUntil || undefined,
         },
@@ -144,16 +150,28 @@ export default function NewQuote() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="clientName">Client Name *</Label>
+                <Label htmlFor="clientName">Contact Name *</Label>
                 <Input
                   id="clientName"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Client or company name"
+                  placeholder="Primary contact name"
                   className="mt-1"
                   required
                 />
               </div>
+              <div>
+                <Label htmlFor="clientCompanyName">Client Company Name</Label>
+                <Input
+                  id="clientCompanyName"
+                  value={clientCompanyName}
+                  onChange={(e) => setClientCompanyName(e.target.value)}
+                  placeholder="Company or organization"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="clientEmail">Client Email</Label>
                 <Input
@@ -165,6 +183,27 @@ export default function NewQuote() {
                   className="mt-1"
                 />
               </div>
+              <div>
+                <Label htmlFor="clientPhone">Client Phone</Label>
+                <Input
+                  id="clientPhone"
+                  type="tel"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  placeholder="(555) 000-0000"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="clientAddress">Client Address</Label>
+              <Input
+                id="clientAddress"
+                value={clientAddress}
+                onChange={(e) => setClientAddress(e.target.value)}
+                placeholder="123 Main St, City, Province, Postal Code"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label htmlFor="validUntil">Valid Until</Label>
