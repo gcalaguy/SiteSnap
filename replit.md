@@ -41,6 +41,21 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 - **Navigation**: Crown icon link appears in sidebar only for super_admin users
 - **Security**: All `/admin/*` routes protected by `requireAuth + requireSuperAdmin`; tenants cannot access cross-tenant data
 
+### ✅ Phase 3 — PROPOSALS & ESTIMATE BUILDER (Complete)
+- **New DB tables**: `builder_estimates`, `builder_estimate_items`, `estimate_templates`, `estimate_template_items`, `proposals`
+- **Builder Estimates**: companyId, projectId (nullable FK), title, notes
+- **Builder Estimate Items**: estimateId FK, name, description, quantity (numeric 10,3), unitCost (numeric 12,2), margin % (numeric 5,2), sortOrder
+- **Estimate Templates**: companyId, name, description — reusable line item sets
+- **Proposals**: companyId, builderEstimateId FK, title, clientName, clientEmail, notes, status (draft/sent/approved/rejected), approvedAt, approvedByName
+- **API routes** (`/api/builder-estimates`, `/api/estimate-templates`, `/api/proposals`): full CRUD, `/builder-estimates/:id/items`, `/builder-estimates/:id/convert`, `/proposals/:id/approve`
+- **OpenAPI + codegen**: listBuilderEstimates, createBuilderEstimate, getBuilderEstimate, updateBuilderEstimate, deleteBuilderEstimate, createBuilderEstimateItem, updateBuilderEstimateItem, deleteBuilderEstimateItem, convertEstimateToProposal, listEstimateTemplates, createEstimateTemplate, getEstimateTemplateItems, deleteEstimateTemplate, listProposals, getProposal, updateProposal, approveProposal, deleteProposal hooks generated
+- **Sidebar**: "Proposals" nav item (FileSignature icon) — owners/foremans only, between Estimates and Team
+- **Web page** (`/proposals`): two-tab layout — Estimate Builder + Proposals
+  - **Estimate Builder tab**: left list of estimates, right inline table editor — click-to-edit cells for name/qty/unitCost/margin%, auto-calculated totalCost + revenue, dark totals footer showing cost/profit/revenue + margin%, "Load Template" / "Save as Template" / "Convert to Proposal" actions
+  - **Proposals tab**: left list of proposals with status badges, right detail card showing client info, status buttons (draft/sent/approved/rejected), approval e-signature simulation (type full name), cover note, line items table with revenue totals
+- **Templates**: save current estimate line items as named template, load template into any estimate, delete templates
+- **Note**: This is the *manual* estimate builder — separate from the AI estimator at `/estimates` which uses GPT-4o for AI-generated estimates
+
 ### ✅ Phase 2 (CRM) — LEAD MANAGEMENT SYSTEM (Complete)
 - **New DB tables**: `leads` + `lead_activities`; enums `lead_stage`, `lead_source`, `activity_type`
 - **Leads**: contactId FK, title, source (referral/website/ads/social_media/cold_call/other), estimatedValue, stage, notes, convertedProjectId (nullable FK → projects)

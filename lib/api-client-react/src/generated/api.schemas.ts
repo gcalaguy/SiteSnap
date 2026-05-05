@@ -713,6 +713,128 @@ export interface Invoice {
   updatedAt: string;
 }
 
+export interface BuilderEstimate {
+  id: number;
+  companyId: number;
+  projectId?: number | null;
+  title: string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BuilderEstimateItem {
+  id: number;
+  estimateId: number;
+  name: string;
+  description?: string | null;
+  quantity: string;
+  unitCost: string;
+  margin: string;
+  sortOrder: number;
+}
+
+export type BuilderEstimateWithItems = BuilderEstimate & {
+  items?: BuilderEstimateItem[];
+};
+
+export interface EstimateItemBody {
+  name: string;
+  description?: string | null;
+  quantity?: number;
+  unitCost?: number;
+  margin?: number;
+  sortOrder?: number;
+}
+
+export interface CreateBuilderEstimateBody {
+  title: string;
+  projectId?: number | null;
+  notes?: string | null;
+  items?: EstimateItemBody[];
+}
+
+export interface UpdateBuilderEstimateBody {
+  title?: string;
+  projectId?: number | null;
+  notes?: string | null;
+}
+
+export interface EstimateTemplate {
+  id: number;
+  companyId: number;
+  name: string;
+  description?: string | null;
+  createdAt: string;
+}
+
+export type EstimateTemplateWithItems = EstimateTemplate & {
+  items?: BuilderEstimateItem[];
+};
+
+export interface CreateEstimateTemplateBody {
+  name: string;
+  description?: string | null;
+  items: EstimateItemBody[];
+}
+
+export type ProposalRecordStatus =
+  (typeof ProposalRecordStatus)[keyof typeof ProposalRecordStatus];
+
+export const ProposalRecordStatus = {
+  draft: "draft",
+  sent: "sent",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface ProposalRecord {
+  id: number;
+  companyId: number;
+  builderEstimateId: number;
+  title: string;
+  clientName?: string | null;
+  clientEmail?: string | null;
+  notes?: string | null;
+  status: ProposalRecordStatus;
+  approvedAt?: string | null;
+  approvedByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ProposalWithEstimate = ProposalRecord & {
+  estimate?: BuilderEstimateWithItems | null;
+};
+
+export interface ConvertEstimateBody {
+  clientName?: string | null;
+  clientEmail?: string | null;
+  notes?: string | null;
+}
+
+export type UpdateProposalBodyStatus =
+  (typeof UpdateProposalBodyStatus)[keyof typeof UpdateProposalBodyStatus];
+
+export const UpdateProposalBodyStatus = {
+  draft: "draft",
+  sent: "sent",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface UpdateProposalBody {
+  title?: string;
+  clientName?: string | null;
+  clientEmail?: string | null;
+  notes?: string | null;
+  status?: UpdateProposalBodyStatus;
+}
+
+export interface ApproveProposalBody {
+  approvedByName: string;
+}
+
 export type LeadWithContactSource =
   (typeof LeadWithContactSource)[keyof typeof LeadWithContactSource];
 

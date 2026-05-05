@@ -825,6 +825,80 @@ export const estimatesTable = pgTable("estimates", {
 
 export type Estimate = typeof estimatesTable.$inferSelect;
 
+// ── Estimate Builder + Proposals ──────────────────────────────────────────────
+
+export const builderEstimatesTable = pgTable("builder_estimates", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id),
+  projectId: integer("project_id").references(() => projectsTable.id),
+  title: text("title").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type BuilderEstimate = typeof builderEstimatesTable.$inferSelect;
+
+export const builderEstimateItemsTable = pgTable("builder_estimate_items", {
+  id: serial("id").primaryKey(),
+  estimateId: integer("estimate_id")
+    .notNull()
+    .references(() => builderEstimatesTable.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  quantity: numeric("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
+  unitCost: numeric("unit_cost", { precision: 12, scale: 2 }).notNull().default("0"),
+  margin: numeric("margin", { precision: 5, scale: 2 }).notNull().default("0"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+export type BuilderEstimateItem = typeof builderEstimateItemsTable.$inferSelect;
+
+export const estimateTemplatesTable = pgTable("estimate_templates", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type EstimateTemplate = typeof estimateTemplatesTable.$inferSelect;
+
+export const estimateTemplateItemsTable = pgTable("estimate_template_items", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id")
+    .notNull()
+    .references(() => estimateTemplatesTable.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  quantity: numeric("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
+  unitCost: numeric("unit_cost", { precision: 12, scale: 2 }).notNull().default("0"),
+  margin: numeric("margin", { precision: 5, scale: 2 }).notNull().default("0"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+export type EstimateTemplateItem = typeof estimateTemplateItemsTable.$inferSelect;
+
+export const proposalsTable = pgTable("proposals", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id),
+  builderEstimateId: integer("builder_estimate_id")
+    .notNull()
+    .references(() => builderEstimatesTable.id),
+  title: text("title").notNull(),
+  clientName: text("client_name"),
+  clientEmail: text("client_email"),
+  notes: text("notes"),
+  status: text("status").notNull().default("draft"), // draft | sent | approved | rejected
+  approvedAt: timestamp("approved_at"),
+  approvedByName: text("approved_by_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type Proposal = typeof proposalsTable.$inferSelect;
+
 // ── TradeHub (Cross-Tenant Social + Job Board) ────────────────────────────────
 
 export const tradehubProfilesTable = pgTable("tradehub_profiles", {

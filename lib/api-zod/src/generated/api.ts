@@ -8,6 +8,404 @@
 import * as zod from "zod";
 
 /**
+ * @summary List all manual estimates
+ */
+export const ListBuilderEstimatesResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  title: zod.string(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListBuilderEstimatesResponse = zod.array(
+  ListBuilderEstimatesResponseItem,
+);
+
+/**
+ * @summary Create a new estimate
+ */
+export const CreateBuilderEstimateBody = zod.object({
+  title: zod.string(),
+  projectId: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  items: zod
+    .array(
+      zod.object({
+        name: zod.string(),
+        description: zod.string().nullish(),
+        quantity: zod.number().optional(),
+        unitCost: zod.number().optional(),
+        margin: zod.number().optional(),
+        sortOrder: zod.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get estimate with items
+ */
+export const GetBuilderEstimateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetBuilderEstimateResponse = zod
+  .object({
+    id: zod.number(),
+    companyId: zod.number(),
+    projectId: zod.number().nullish(),
+    title: zod.string(),
+    notes: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      items: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            estimateId: zod.number(),
+            name: zod.string(),
+            description: zod.string().nullish(),
+            quantity: zod.string(),
+            unitCost: zod.string(),
+            margin: zod.string(),
+            sortOrder: zod.number(),
+          }),
+        )
+        .optional(),
+    }),
+  );
+
+/**
+ * @summary Update estimate metadata
+ */
+export const UpdateBuilderEstimateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateBuilderEstimateBody = zod.object({
+  title: zod.string().optional(),
+  projectId: zod.number().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateBuilderEstimateResponse = zod
+  .object({
+    id: zod.number(),
+    companyId: zod.number(),
+    projectId: zod.number().nullish(),
+    title: zod.string(),
+    notes: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      items: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            estimateId: zod.number(),
+            name: zod.string(),
+            description: zod.string().nullish(),
+            quantity: zod.string(),
+            unitCost: zod.string(),
+            margin: zod.string(),
+            sortOrder: zod.number(),
+          }),
+        )
+        .optional(),
+    }),
+  );
+
+/**
+ * @summary Delete estimate
+ */
+export const DeleteBuilderEstimateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Add a line item to an estimate
+ */
+export const CreateBuilderEstimateItemParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateBuilderEstimateItemBody = zod.object({
+  name: zod.string(),
+  description: zod.string().nullish(),
+  quantity: zod.number().optional(),
+  unitCost: zod.number().optional(),
+  margin: zod.number().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+/**
+ * @summary Update a line item
+ */
+export const UpdateBuilderEstimateItemParams = zod.object({
+  id: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const UpdateBuilderEstimateItemBody = zod.object({
+  name: zod.string(),
+  description: zod.string().nullish(),
+  quantity: zod.number().optional(),
+  unitCost: zod.number().optional(),
+  margin: zod.number().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateBuilderEstimateItemResponse = zod.object({
+  id: zod.number(),
+  estimateId: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  quantity: zod.string(),
+  unitCost: zod.string(),
+  margin: zod.string(),
+  sortOrder: zod.number(),
+});
+
+/**
+ * @summary Delete a line item
+ */
+export const DeleteBuilderEstimateItemParams = zod.object({
+  id: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+/**
+ * @summary Convert estimate into a proposal
+ */
+export const ConvertEstimateToProposalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ConvertEstimateToProposalBody = zod.object({
+  clientName: zod.string().nullish(),
+  clientEmail: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary List saved estimate templates
+ */
+export const ListEstimateTemplatesResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListEstimateTemplatesResponse = zod.array(
+  ListEstimateTemplatesResponseItem,
+);
+
+/**
+ * @summary Save a new estimate template
+ */
+export const CreateEstimateTemplateBody = zod.object({
+  name: zod.string(),
+  description: zod.string().nullish(),
+  items: zod.array(
+    zod.object({
+      name: zod.string(),
+      description: zod.string().nullish(),
+      quantity: zod.number().optional(),
+      unitCost: zod.number().optional(),
+      margin: zod.number().optional(),
+      sortOrder: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get template with items
+ */
+export const GetEstimateTemplateItemsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetEstimateTemplateItemsResponse = zod
+  .object({
+    id: zod.number(),
+    companyId: zod.number(),
+    name: zod.string(),
+    description: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      items: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            estimateId: zod.number(),
+            name: zod.string(),
+            description: zod.string().nullish(),
+            quantity: zod.string(),
+            unitCost: zod.string(),
+            margin: zod.string(),
+            sortOrder: zod.number(),
+          }),
+        )
+        .optional(),
+    }),
+  );
+
+/**
+ * @summary Delete a template
+ */
+export const DeleteEstimateTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List all proposals
+ */
+export const ListProposalsResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  builderEstimateId: zod.number(),
+  title: zod.string(),
+  clientName: zod.string().nullish(),
+  clientEmail: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "approved", "rejected"]),
+  approvedAt: zod.coerce.date().nullish(),
+  approvedByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListProposalsResponse = zod.array(ListProposalsResponseItem);
+
+/**
+ * @summary Get proposal with estimate
+ */
+export const GetProposalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetProposalResponse = zod
+  .object({
+    id: zod.number(),
+    companyId: zod.number(),
+    builderEstimateId: zod.number(),
+    title: zod.string(),
+    clientName: zod.string().nullish(),
+    clientEmail: zod.string().nullish(),
+    notes: zod.string().nullish(),
+    status: zod.enum(["draft", "sent", "approved", "rejected"]),
+    approvedAt: zod.coerce.date().nullish(),
+    approvedByName: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      estimate: zod
+        .object({
+          id: zod.number(),
+          companyId: zod.number(),
+          projectId: zod.number().nullish(),
+          title: zod.string(),
+          notes: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+          updatedAt: zod.coerce.date(),
+        })
+        .and(
+          zod.object({
+            items: zod
+              .array(
+                zod.object({
+                  id: zod.number(),
+                  estimateId: zod.number(),
+                  name: zod.string(),
+                  description: zod.string().nullish(),
+                  quantity: zod.string(),
+                  unitCost: zod.string(),
+                  margin: zod.string(),
+                  sortOrder: zod.number(),
+                }),
+              )
+              .optional(),
+          }),
+        )
+        .nullish(),
+    }),
+  );
+
+/**
+ * @summary Update proposal status or metadata
+ */
+export const UpdateProposalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateProposalBody = zod.object({
+  title: zod.string().optional(),
+  clientName: zod.string().nullish(),
+  clientEmail: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "approved", "rejected"]).optional(),
+});
+
+export const UpdateProposalResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  builderEstimateId: zod.number(),
+  title: zod.string(),
+  clientName: zod.string().nullish(),
+  clientEmail: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "approved", "rejected"]),
+  approvedAt: zod.coerce.date().nullish(),
+  approvedByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a proposal
+ */
+export const DeleteProposalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Approve a proposal (simulate e-signature)
+ */
+export const ApproveProposalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ApproveProposalBody = zod.object({
+  approvedByName: zod.string(),
+});
+
+export const ApproveProposalResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  builderEstimateId: zod.number(),
+  title: zod.string(),
+  clientName: zod.string().nullish(),
+  clientEmail: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "approved", "rejected"]),
+  approvedAt: zod.coerce.date().nullish(),
+  approvedByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary List all leads for the company
  */
 export const ListLeadsResponseItem = zod.object({

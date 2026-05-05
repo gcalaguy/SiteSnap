@@ -44,12 +44,363 @@ tags:
     description: Invoice management and payment tracking
   - name: contacts
     description: CRM contact management
+  - name: proposals
+    description: Estimate builder, templates, and proposal management
   - name: leads
     description: Lead management and pipeline tracking
   - name: activities
     description: Lead activity logging
 
 paths:
+  # ── Builder Estimates ────────────────────────────────────────────────────────
+  /builder-estimates:
+    get:
+      operationId: listBuilderEstimates
+      tags: [proposals]
+      summary: List all manual estimates
+      responses:
+        "200":
+          description: List of estimates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BuilderEstimate"
+    post:
+      operationId: createBuilderEstimate
+      tags: [proposals]
+      summary: Create a new estimate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBuilderEstimateBody"
+      responses:
+        "201":
+          description: Created estimate with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderEstimateWithItems"
+
+  /builder-estimates/{id}:
+    get:
+      operationId: getBuilderEstimate
+      tags: [proposals]
+      summary: Get estimate with items
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Estimate with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderEstimateWithItems"
+    patch:
+      operationId: updateBuilderEstimate
+      tags: [proposals]
+      summary: Update estimate metadata
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBuilderEstimateBody"
+      responses:
+        "200":
+          description: Updated estimate with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderEstimateWithItems"
+    delete:
+      operationId: deleteBuilderEstimate
+      tags: [proposals]
+      summary: Delete estimate
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /builder-estimates/{id}/items:
+    post:
+      operationId: createBuilderEstimateItem
+      tags: [proposals]
+      summary: Add a line item to an estimate
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EstimateItemBody"
+      responses:
+        "201":
+          description: Created item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderEstimateItem"
+
+  /builder-estimates/{id}/items/{itemId}:
+    patch:
+      operationId: updateBuilderEstimateItem
+      tags: [proposals]
+      summary: Update a line item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EstimateItemBody"
+      responses:
+        "200":
+          description: Updated item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuilderEstimateItem"
+    delete:
+      operationId: deleteBuilderEstimateItem
+      tags: [proposals]
+      summary: Delete a line item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /builder-estimates/{id}/convert:
+    post:
+      operationId: convertEstimateToProposal
+      tags: [proposals]
+      summary: Convert estimate into a proposal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConvertEstimateBody"
+      responses:
+        "201":
+          description: Created proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalRecord"
+
+  # ── Estimate Templates ────────────────────────────────────────────────────────
+  /estimate-templates:
+    get:
+      operationId: listEstimateTemplates
+      tags: [proposals]
+      summary: List saved estimate templates
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EstimateTemplate"
+    post:
+      operationId: createEstimateTemplate
+      tags: [proposals]
+      summary: Save a new estimate template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEstimateTemplateBody"
+      responses:
+        "201":
+          description: Created template with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EstimateTemplateWithItems"
+
+  /estimate-templates/{id}/items:
+    get:
+      operationId: getEstimateTemplateItems
+      tags: [proposals]
+      summary: Get template with items
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Template with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EstimateTemplateWithItems"
+
+  /estimate-templates/{id}:
+    delete:
+      operationId: deleteEstimateTemplate
+      tags: [proposals]
+      summary: Delete a template
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Proposals ────────────────────────────────────────────────────────────────
+  /proposals:
+    get:
+      operationId: listProposals
+      tags: [proposals]
+      summary: List all proposals
+      responses:
+        "200":
+          description: Proposals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProposalRecord"
+
+  /proposals/{id}:
+    get:
+      operationId: getProposal
+      tags: [proposals]
+      summary: Get proposal with estimate
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Proposal with estimate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalWithEstimate"
+    patch:
+      operationId: updateProposal
+      tags: [proposals]
+      summary: Update proposal status or metadata
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProposalBody"
+      responses:
+        "200":
+          description: Updated proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalRecord"
+    delete:
+      operationId: deleteProposal
+      tags: [proposals]
+      summary: Delete a proposal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /proposals/{id}/approve:
+    post:
+      operationId: approveProposal
+      tags: [proposals]
+      summary: Approve a proposal (simulate e-signature)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveProposalBody"
+      responses:
+        "200":
+          description: Approved proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalRecord"
+
   # ── Leads ───────────────────────────────────────────────────────────────────
   /leads:
     get:
@@ -3219,6 +3570,235 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    BuilderEstimate:
+      type: object
+      required: [id, companyId, title, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: integer
+          nullable: true
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BuilderEstimateItem:
+      type: object
+      required: [id, estimateId, name, quantity, unitCost, margin, sortOrder]
+      properties:
+        id:
+          type: integer
+        estimateId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        quantity:
+          type: string
+        unitCost:
+          type: string
+        margin:
+          type: string
+        sortOrder:
+          type: integer
+
+    BuilderEstimateWithItems:
+      allOf:
+        - $ref: "#/components/schemas/BuilderEstimate"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/BuilderEstimateItem"
+
+    CreateBuilderEstimateBody:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        projectId:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EstimateItemBody"
+
+    UpdateBuilderEstimateBody:
+      type: object
+      properties:
+        title:
+          type: string
+        projectId:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    EstimateItemBody:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        quantity:
+          type: number
+        unitCost:
+          type: number
+        margin:
+          type: number
+        sortOrder:
+          type: integer
+
+    EstimateTemplate:
+      type: object
+      required: [id, companyId, name, createdAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    EstimateTemplateWithItems:
+      allOf:
+        - $ref: "#/components/schemas/EstimateTemplate"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/BuilderEstimateItem"
+
+    CreateEstimateTemplateBody:
+      type: object
+      required: [name, items]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EstimateItemBody"
+
+    ProposalRecord:
+      type: object
+      required: [id, companyId, builderEstimateId, title, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        builderEstimateId:
+          type: integer
+        title:
+          type: string
+        clientName:
+          type: string
+          nullable: true
+        clientEmail:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [draft, sent, approved, rejected]
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        approvedByName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProposalWithEstimate:
+      allOf:
+        - $ref: "#/components/schemas/ProposalRecord"
+        - type: object
+          properties:
+            estimate:
+              nullable: true
+              allOf:
+                - $ref: "#/components/schemas/BuilderEstimateWithItems"
+
+    ConvertEstimateBody:
+      type: object
+      properties:
+        clientName:
+          type: string
+          nullable: true
+        clientEmail:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    UpdateProposalBody:
+      type: object
+      properties:
+        title:
+          type: string
+        clientName:
+          type: string
+          nullable: true
+        clientEmail:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [draft, sent, approved, rejected]
+
+    ApproveProposalBody:
+      type: object
+      required: [approvedByName]
+      properties:
+        approvedByName:
+          type: string
 
     LeadWithContact:
       type: object

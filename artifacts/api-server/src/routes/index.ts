@@ -33,6 +33,7 @@ import tradehubRouter from "./tradehub";
 import calculatorsRouter from "./calculators";
 import contactsRouter from "./contacts";
 import leadsRouter from "./leads";
+import proposalsRouter from "./proposals";
 
 const router: IRouter = Router();
 
@@ -70,5 +71,6 @@ router.use(tradehubRouter);
 router.use(calculatorsRouter);
 router.use(contactsRouter);
 router.use(leadsRouter);
+router.use(proposalsRouter);
 
 export default router;
