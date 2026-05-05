@@ -53,6 +53,7 @@ import ProposalsPage from "@/pages/proposals";
 import FinancialsPage from "@/pages/financials";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -237,6 +238,7 @@ function AuthApp() {
   return (
     <AuthGuard>
       <AppLayout>
+        <ErrorBoundary>
         <Switch>
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/projects" component={Projects} />
@@ -277,6 +279,7 @@ function AuthApp() {
           <Route path="/safety" component={SafetyPage} />
           <Route component={NotFound} />
         </Switch>
+        </ErrorBoundary>
       </AppLayout>
     </AuthGuard>
   );

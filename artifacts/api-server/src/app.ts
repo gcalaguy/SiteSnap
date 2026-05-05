@@ -1,5 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
@@ -8,12 +10,52 @@ import {
   clerkProxyMiddleware,
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
+import { errorHandler } from "./middlewares/errorHandler";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./lib/webhookHandlers";
 
 const app: Express = express();
 
+// ── Security headers ─────────────────────────────────────────────────────────
+// helmet sets X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security,
+// Content-Security-Policy, etc.  Disabled for local dev if needed via env flag.
+app.use(
+  helmet({
+    // Allow Clerk-embedded iframes in the same origin
+    frameguard: { action: "sameorigin" },
+    // Allow inline scripts needed by Vite HMR + Clerk in dev
+    contentSecurityPolicy:
+      process.env.NODE_ENV === "production"
+        ? undefined
+        : false,
+  }),
+);
+
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Global: 200 req / 15 min per IP.  Tighter limits on write-heavy & AI routes.
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many requests — please slow down", code: "RATE_LIMITED" },
+  skip: (req) =>
+    req.path === "/api/healthz" || req.path.startsWith("/api/stripe/webhook"),
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 15,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "AI rate limit exceeded — wait a moment", code: "RATE_LIMITED" },
+});
+
+app.use(globalLimiter);
+app.use("/api/ai", aiLimiter);
+
+// ── Request logging ────────────────────────────────────────────────────────────
 app.use(
   pinoHttp({
     logger,
@@ -45,7 +87,8 @@ app.post(
   async (req, res) => {
     const signature = req.headers["stripe-signature"];
     if (!signature) {
-      return res.status(400).json({ error: "Missing stripe-signature" });
+      res.status(400).json({ error: "Missing stripe-signature" });
+      return;
     }
     const sig = Array.isArray(signature) ? signature[0] : signature;
     try {
@@ -77,5 +120,9 @@ app.use(
 );
 
 app.use("/api", router);
+
+// ── Global error handler — must be last ─────────────────────────────────────
+// Catches any error thrown or passed to next() from routes/middlewares above.
+app.use(errorHandler);
 
 export default app;

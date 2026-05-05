@@ -2,7 +2,7 @@
 
 ## Overview
 
-BuildCore is a Construction AI Assistant MVP for small Canadian construction companies and contractors. It provides multi-tenant project management, team collaboration, and AI-powered tools for daily reports, cost analysis, and RFI generation.
+Site Snap is a Construction AI Assistant for small Canadian construction companies and contractors. It provides multi-tenant project management, team collaboration, and AI-powered tools for daily reports, cost analysis, RFI generation, safety forms, file management, and automated notifications.
 
 ## Stack
 
@@ -22,7 +22,191 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 
 - **web-dashboard** — Main web app for owners and foremen (`/`)
 - **api-server** — Shared Express 5 backend (`/api`)
+- **mobile** — Expo SDK 54 React Native app (`/mobile`)
 - **mockup-sandbox** — Canvas design sandbox (`/__mockup`)
+
+## Architecture — Clean Code Conventions
+
+### API Server (`artifacts/api-server/src/`)
+
+#### Error Handling Pattern
+All async route handlers **must** use `asyncHandler` from `lib/asyncHandler.ts`. This eliminates repetitive try/catch blocks and ensures all thrown errors flow to the global error handler.
+
+```ts
+import { asyncHandler } from "../lib/asyncHandler";
+import { NotFoundError, ValidationError } from "../lib/errors";
+
+router.get("/foo/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) throw new BadRequestError("id must be a number");
+  const row = await db.select()...;
+  if (!row) throw new NotFoundError("Foo not found");
+  res.json(row);
+}));
+```
+
+#### Error Class Hierarchy (`lib/errors.ts`)
+| Class | HTTP | Code |
+|---|---|---|
+| `BadRequestError` | 400 | BAD_REQUEST |
+| `UnauthorizedError` | 401 | UNAUTHORIZED |
+| `ForbiddenError` | 403 | FORBIDDEN |
+| `NotFoundError` | 404 | NOT_FOUND |
+| `ConflictError` | 409 | CONFLICT |
+| `ValidationError` | 422 | VALIDATION_ERROR |
+| `RateLimitError` | 429 | RATE_LIMITED |
+
+All produce: `{ error: string, code: string, details?: unknown }`
+
+#### Security Middleware (`app.ts`)
+- **helmet** — sets X-Frame-Options, HSTS, Content-Type sniff, Referrer-Policy, etc.
+- **express-rate-limit** — global: 200 req/15min per IP; AI routes: 15 req/min per IP
+- **Global error handler** (`middlewares/errorHandler.ts`) — must stay as the last `app.use()` call
+
+#### Folder Structure
+```
+src/
+  app.ts                  # Express app, security + route mount
+  index.ts                # Server start, Stripe init, cron start
+  cron.ts                 # Scheduled jobs (digest, reminders, idle leads)
+  routes/
+    index.ts              # Central router mount
+    projects.ts           # ← reference implementation (asyncHandler pattern)
+    dashboard.ts
+    ...
+  lib/
+    errors.ts             # Typed AppError subclasses
+    asyncHandler.ts       # Async route wrapper
+    auth.ts               # requireAuth, requireCompany, requireOwnerOrForeman
+    logger.ts             # Pino singleton
+    notify.ts             # DB notification helper
+    mailer.ts             # Resend email helper
+    featureGate.ts        # requireFeature middleware
+    ...
+  middlewares/
+    errorHandler.ts       # Global Express error handler (last in app.ts)
+    clerkProxyMiddleware.ts
+```
+
+### Web Dashboard (`artifacts/web-dashboard/src/`)
+
+#### Frontend Error Handling
+- **`ErrorBoundary`** (`components/ErrorBoundary.tsx`) — wraps all authenticated routes; catches render-time JS crashes with a friendly retry UI
+- **`useApiError`** hook (`hooks/useApiError.ts`) — use in React Query `onError` callbacks to show toast notifications for API failures
+- **`parseApiError`** — extract human-readable message from any thrown API error shape
+
+```ts
+import { useApiError } from "@/hooks/useApiError";
+
+const handleError = useApiError();
+const mutation = useSomeMutation({
+  mutation: { onError: (err) => handleError(err, "Failed to save project") }
+});
+```
+
+#### Folder Structure
+```
+src/
+  App.tsx             # Router, Clerk, ErrorBoundary, QueryClient
+  lib/
+    queryClient.ts    # React Query singleton
+  hooks/
+    useApiError.ts    # API error → toast
+    use-toast.ts      # shadcn toast
+    use-mobile.tsx    # breakpoint helper
+    useVoiceRecorder.ts
+  components/
+    ErrorBoundary.tsx # Class-based React error boundary
+    layout.tsx        # AppLayout with sidebar + notifications
+    auth-guard.tsx    # Clerk auth redirect
+    ui/               # shadcn/ui primitives
+    ...
+  pages/              # One file per route
+```
+
+---
+
+## Deployment Guide
+
+### Replit Deploy (Recommended for MVP)
+Click **Deploy** in the Replit toolbar. Replit:
+- Builds the Vite frontend (static assets served from the reverse proxy)
+- Runs the Express API server on a managed container
+- Provisions a production PostgreSQL database (separate from dev)
+- Handles TLS, health checks, and auto-restarts
+
+**Required production env vars to set before deploying:**
+```
+CLERK_PUBLISHABLE_KEY      # Production key from Clerk dashboard
+CLERK_SECRET_KEY           # Production secret from Clerk dashboard
+DATABASE_URL               # Auto-provided by Replit Deployments
+SESSION_SECRET             # Random 32+ char string
+RESEND_API_KEY             # From resend.com (already in dev secrets)
+STRIPE_SECRET_KEY          # From Stripe (if billing is active)
+STRIPE_WEBHOOK_SECRET      # From Stripe webhook endpoint setup
+```
+
+**After first deploy — migrate the production database:**
+```bash
+# From the Replit shell, pointing at the prod DB:
+DATABASE_URL=<prod_url> pnpm --filter @workspace/db run migrate
+```
+
+### Self-Hosted (VPS / AWS / Railway)
+The API server is a plain Node.js ESM bundle (`dist/index.mjs`). Deploy it to any host that can run Node 24:
+1. `pnpm --filter @workspace/api-server run build` → produces `dist/`
+2. Copy `dist/` to your server and run `node dist/index.mjs`
+3. Serve the built Vite frontend (`dist/` from `web-dashboard`) via nginx or a CDN
+
+### Mobile (Expo / EAS)
+- **Development:** `pnpm --filter @workspace/mobile run dev` + Expo Go
+- **Production:** `pnpm exec eas build --platform all` → submits to App Store + Play Store via Expo EAS Build
+
+---
+
+## Scaling Guide
+
+### Short-term (0–500 companies)
+The current single-server Express app + Replit Deployment is fully adequate. No changes needed.
+
+### Medium-term (500–5,000 companies)
+| Concern | Solution |
+|---|---|
+| DB connection limits | Add `pg-pool` max to 20; or swap to **PgBouncer** in transaction mode |
+| API response time | Add **Redis** (Upstash free tier) for caching dashboard aggregates |
+| File uploads | Already using **GCS presigned URLs** — client uploads direct, zero server load |
+| AI endpoints | Already rate-limited at 15 req/min; add a dedicated worker queue (BullMQ + Redis) for long jobs |
+| Cron reliability | Move from `node-cron` in-process to **Replit Cron** (trigger `/api/internal/cron/...`) so it survives redeploys |
+
+### Long-term (5,000+ companies)
+| Concern | Solution |
+|---|---|
+| Horizontal scaling | Containerize API with Docker; run on ECS Fargate or Railway with N replicas |
+| Session state | Currently stateless (Clerk JWTs) — no changes needed for multi-replica |
+| Database | Promote to **Neon** (serverless Postgres) or **RDS Aurora Serverless** with read replicas |
+| Search | Add **Meilisearch** for full-text project/contact/document search |
+| Real-time | Add **Socket.IO** or **Supabase Realtime** for live site notifications to field workers |
+
+---
+
+## Third-Party Integrations
+
+| Integration | Status | Notes |
+|---|---|---|
+| **Clerk** | ✅ Active | Auth, multi-tenant, Replit-managed |
+| **Stripe** | ✅ Active | Billing, invoices, subscriptions synced via `stripe-replit-sync` |
+| **Resend** | ✅ Active | Transactional email (digest, reminders) |
+| **Google Cloud Storage** | ✅ Active | File attachments via presigned URLs |
+| **OpenAI / GPT-4o** | ✅ Active | AI chat, voice transcription, smart summaries |
+| **QuickBooks** | 🔜 Planned | OAuth 2.0; needs `QB_CLIENT_ID` + `QB_CLIENT_SECRET` secrets; sync invoices + expenses |
+| **Twilio SMS** | 🔜 Optional | `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN`; trigger from `notify.ts` for urgent site alerts |
+| **Mapbox / Google Maps** | 🔜 Optional | Geocode site addresses on project creation; show project map view |
+
+### Adding QuickBooks (next integration)
+1. Set `QB_CLIENT_ID` + `QB_CLIENT_SECRET` in Replit Secrets
+2. Create `artifacts/api-server/src/routes/quickbooks.ts` — OAuth dance (`/api/quickbooks/connect`, `/api/quickbooks/callback`)
+3. Store `access_token` + `refresh_token` per company in a `quickbooks_tokens` table
+4. Map Site Snap invoices → QB invoices on create/update via `lib/quickbooksClient.ts`
 
 ## Phase Status
 

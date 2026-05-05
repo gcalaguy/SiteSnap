@@ -10,53 +10,68 @@ import {
   workerSchedulesTable,
   usersTable,
 } from "@workspace/db";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { CreateProjectBody, UpdateProjectBody } from "@workspace/api-zod";
+import { asyncHandler } from "../lib/asyncHandler";
+import {
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../lib/errors";
 
 const router = Router();
 
 // GET /projects
-router.get("/projects", requireAuth, requireCompany, async (req, res) => {
-  if (req.userRole === "worker") {
-    const userId = req.userId!;
-    const companyId = req.companyId!;
+router.get(
+  "/projects",
+  requireAuth,
+  requireCompany,
+  asyncHandler(async (req, res) => {
+    if (req.userRole === "worker") {
+      const userId = req.userId!;
+      const companyId = req.companyId!;
 
-    // Collect project IDs from both project_members and worker_schedules
-    const memberRows = await db
-      .select({ projectId: projectMembersTable.projectId })
-      .from(projectMembersTable)
-      .where(and(eq(projectMembersTable.userId, userId), eq(projectMembersTable.companyId, companyId)));
+      const [memberRows, scheduleRows] = await Promise.all([
+        db
+          .select({ projectId: projectMembersTable.projectId })
+          .from(projectMembersTable)
+          .where(and(eq(projectMembersTable.userId, userId), eq(projectMembersTable.companyId, companyId))),
+        db
+          .select({ projectId: workerSchedulesTable.projectId })
+          .from(workerSchedulesTable)
+          .where(and(eq(workerSchedulesTable.userId, userId), eq(workerSchedulesTable.companyId, companyId))),
+      ]);
 
-    const scheduleRows = await db
-      .select({ projectId: workerSchedulesTable.projectId })
-      .from(workerSchedulesTable)
-      .where(and(eq(workerSchedulesTable.userId, userId), eq(workerSchedulesTable.companyId, companyId)));
+      const projectIdSet = new Set([
+        ...memberRows.map((r) => r.projectId),
+        ...scheduleRows.map((r) => r.projectId),
+      ]);
 
-    const projectIdSet = new Set([
-      ...memberRows.map((r) => r.projectId),
-      ...scheduleRows.map((r) => r.projectId),
-    ]);
+      if (projectIdSet.size === 0) {
+        res.json([]);
+        return;
+      }
 
-    if (projectIdSet.size === 0) {
-      res.json([]);
+      const projects = await db
+        .select()
+        .from(projectsTable)
+        .where(and(eq(projectsTable.companyId, companyId), inArray(projectsTable.id, [...projectIdSet])));
+
+      res.json(projects);
       return;
     }
 
     const projects = await db
       .select()
       .from(projectsTable)
-      .where(and(eq(projectsTable.companyId, companyId), inArray(projectsTable.id, [...projectIdSet])));
+      .where(eq(projectsTable.companyId, req.companyId!));
 
     res.json(projects);
-  } else {
-    const projects = await db
-      .select()
-      .from(projectsTable)
-      .where(eq(projectsTable.companyId, req.companyId!));
-    res.json(projects);
-  }
-});
+  }),
+);
 
 // POST /projects
 router.post(
@@ -64,11 +79,10 @@ router.post(
   requireAuth,
   requireCompany,
   requireOwnerOrForeman,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const parsed = CreateProjectBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid body", details: parsed.error });
-      return;
+      throw new ValidationError("Invalid project data", parsed.error.issues);
     }
 
     const [project] = await db
@@ -85,6 +99,7 @@ router.post(
       { title: "Inspections", description: "Schedule and pass all required building inspections.", priority: "medium" as const },
       { title: "Final Cleanup & Handover", description: "Site cleanup, punch list, and client walkthrough.", priority: "low" as const },
     ];
+
     if (project) {
       await db.insert(tasksTable).values(
         defaultTasks.map((t) => ({
@@ -98,7 +113,7 @@ router.post(
     }
 
     res.status(201).json(project);
-  },
+  }),
 );
 
 // GET /projects/:projectId
@@ -106,59 +121,39 @@ router.get(
   "/projects/:projectId",
   requireAuth,
   requireCompany,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
     const [project] = await db
       .select()
       .from(projectsTable)
-      .where(
-        and(
-          eq(projectsTable.id, projectId),
-          eq(projectsTable.companyId, req.companyId!),
-        ),
-      )
+      .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
       .limit(1);
 
-    if (!project) {
-      res.status(404).json({ error: "Project not found" });
-      return;
-    }
+    if (!project) throw new NotFoundError("Project not found");
 
-    // Workers may only access projects they are assigned to (via project_members or worker_schedules)
+    // Workers may only access projects they are assigned to
     if (req.userRole === "worker") {
       const [membership] = await db
         .select()
         .from(projectMembersTable)
-        .where(
-          and(
-            eq(projectMembersTable.projectId, projectId),
-            eq(projectMembersTable.userId, req.userId!),
-          ),
-        )
+        .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.userId, req.userId!)))
         .limit(1);
 
       if (!membership) {
         const [schedule] = await db
           .select()
           .from(workerSchedulesTable)
-          .where(
-            and(
-              eq(workerSchedulesTable.projectId, projectId),
-              eq(workerSchedulesTable.userId, req.userId!),
-            ),
-          )
+          .where(and(eq(workerSchedulesTable.projectId, projectId), eq(workerSchedulesTable.userId, req.userId!)))
           .limit(1);
 
-        if (!schedule) {
-          res.status(403).json({ error: "Access denied" });
-          return;
-        }
+        if (!schedule) throw new ForbiddenError("You are not assigned to this project");
       }
     }
 
     res.json(project);
-  },
+  }),
 );
 
 // PUT /projects/:projectId
@@ -167,31 +162,25 @@ router.put(
   requireAuth,
   requireCompany,
   requireOwnerOrForeman,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
+
     const parsed = UpdateProjectBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid body" });
-      return;
+      throw new ValidationError("Invalid project data", parsed.error.issues);
     }
 
     const [project] = await db
       .update(projectsTable)
       .set(parsed.data)
-      .where(
-        and(
-          eq(projectsTable.id, projectId),
-          eq(projectsTable.companyId, req.companyId!),
-        ),
-      )
+      .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
       .returning();
 
-    if (!project) {
-      res.status(404).json({ error: "Project not found" });
-      return;
-    }
+    if (!project) throw new NotFoundError("Project not found");
+
     res.json(project);
-  },
+  }),
 );
 
 // DELETE /projects/:projectId
@@ -200,45 +189,34 @@ router.delete(
   requireAuth,
   requireCompany,
   requireOwnerOrForeman,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
     await db
       .delete(projectsTable)
-      .where(
-        and(
-          eq(projectsTable.id, projectId),
-          eq(projectsTable.companyId, req.companyId!),
-        ),
-      );
+      .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)));
 
     res.status(204).send();
-  },
+  }),
 );
 
-// GET /projects/:projectId/summary — dashboard summary for a single project
+// GET /projects/:projectId/summary
 router.get(
   "/projects/:projectId/summary",
   requireAuth,
   requireCompany,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
     const [project] = await db
       .select()
       .from(projectsTable)
-      .where(
-        and(
-          eq(projectsTable.id, projectId),
-          eq(projectsTable.companyId, req.companyId!),
-        ),
-      )
+      .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
       .limit(1);
 
-    if (!project) {
-      res.status(404).json({ error: "Project not found" });
-      return;
-    }
+    if (!project) throw new NotFoundError("Project not found");
 
     const [reports, rfis, analyses, tasks] = await Promise.all([
       db.select().from(dailyReportsTable).where(eq(dailyReportsTable.projectId, projectId)),
@@ -247,20 +225,11 @@ router.get(
       db.select().from(tasksTable).where(eq(tasksTable.projectId, projectId)),
     ]);
 
-    const totalSpent = analyses.reduce(
-      (sum, a) => sum + parseFloat(a.totalCost),
-      0,
-    );
+    const totalSpent = analyses.reduce((sum, a) => sum + parseFloat(a.totalCost), 0);
     const budget = project.budget ? parseFloat(project.budget) : null;
     const openRFIs = rfis.filter((r) => r.status === "open" || r.status === "in_review").length;
     const closedRFIs = rfis.filter((r) => r.status === "answered" || r.status === "closed").length;
-    const lastReport = reports.sort((a, b) =>
-      b.reportDate.localeCompare(a.reportDate),
-    )[0];
-
-    const todoCount = tasks.filter((t) => t.status === "todo").length;
-    const inProgressCount = tasks.filter((t) => t.status === "in_progress").length;
-    const doneCount = tasks.filter((t) => t.status === "done").length;
+    const lastReport = reports.sort((a, b) => b.reportDate.localeCompare(a.reportDate))[0];
 
     res.json({
       projectId: project.id,
@@ -274,20 +243,21 @@ router.get(
       closedRFICount: closedRFIs,
       lastReportDate: lastReport?.reportDate ?? null,
       taskTotal: tasks.length,
-      taskTodoCount: todoCount,
-      taskInProgressCount: inProgressCount,
-      taskDoneCount: doneCount,
+      taskTodoCount: tasks.filter((t) => t.status === "todo").length,
+      taskInProgressCount: tasks.filter((t) => t.status === "in_progress").length,
+      taskDoneCount: tasks.filter((t) => t.status === "done").length,
     });
-  },
+  }),
 );
 
-// GET /projects/:projectId/members — list workers assigned to a project
+// GET /projects/:projectId/members
 router.get(
   "/projects/:projectId/members",
   requireAuth,
   requireCompany,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
     const rows = await db
       .select({
@@ -300,63 +270,40 @@ router.get(
       })
       .from(projectMembersTable)
       .innerJoin(usersTable, eq(usersTable.id, projectMembersTable.userId))
-      .where(
-        and(
-          eq(projectMembersTable.projectId, projectId),
-          eq(projectMembersTable.companyId, req.companyId!),
-        ),
-      );
+      .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.companyId, req.companyId!)));
 
     res.json(rows);
-  },
+  }),
 );
 
-// POST /projects/:projectId/members — assign a worker to a project
+// POST /projects/:projectId/members
 router.post(
   "/projects/:projectId/members",
   requireAuth,
   requireCompany,
   requireOwnerOrForeman,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId);
-    const { userId } = req.body;
+    if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
-    if (!userId) {
-      res.status(400).json({ error: "userId is required" });
-      return;
-    }
+    const { userId } = req.body as { userId?: number };
+    if (!userId) throw new BadRequestError("userId is required");
 
-    const [project] = await db
-      .select()
-      .from(projectsTable)
-      .where(
-        and(
-          eq(projectsTable.id, projectId),
-          eq(projectsTable.companyId, req.companyId!),
-        ),
-      )
-      .limit(1);
+    const [[project], [user]] = await Promise.all([
+      db
+        .select()
+        .from(projectsTable)
+        .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
+        .limit(1),
+      db
+        .select()
+        .from(usersTable)
+        .where(and(eq(usersTable.id, userId), eq(usersTable.companyId, req.companyId!)))
+        .limit(1),
+    ]);
 
-    if (!project) {
-      res.status(404).json({ error: "Project not found" });
-      return;
-    }
-
-    const [user] = await db
-      .select()
-      .from(usersTable)
-      .where(
-        and(
-          eq(usersTable.id, userId),
-          eq(usersTable.companyId, req.companyId!),
-        ),
-      )
-      .limit(1);
-
-    if (!user) {
-      res.status(404).json({ error: "User not found in this company" });
-      return;
-    }
+    if (!project) throw new NotFoundError("Project not found");
+    if (!user) throw new NotFoundError("User not found in this company");
 
     try {
       const [member] = await db
@@ -366,23 +313,23 @@ router.post(
       res.status(201).json(member);
     } catch (e: any) {
       if (e.code === "23505") {
-        res.status(409).json({ error: "User is already assigned to this project" });
-      } else {
-        throw e;
+        throw new ConflictError("User is already assigned to this project");
       }
+      throw e;
     }
-  },
+  }),
 );
 
-// DELETE /projects/:projectId/members/:userId — remove a worker from a project
+// DELETE /projects/:projectId/members/:memberId
 router.delete(
   "/projects/:projectId/members/:memberId",
   requireAuth,
   requireCompany,
   requireOwnerOrForeman,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId);
     const memberId = parseInt(req.params.memberId);
+    if (isNaN(projectId) || isNaN(memberId)) throw new BadRequestError("Invalid IDs");
 
     await db
       .delete(projectMembersTable)
@@ -395,7 +342,7 @@ router.delete(
       );
 
     res.status(204).send();
-  },
+  }),
 );
 
 export default router;
