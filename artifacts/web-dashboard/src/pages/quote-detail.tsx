@@ -95,7 +95,7 @@ function buildQuotePdfDoc(
   companyPhone?: string,
 ): jsPDF {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
-  const PRIMARY: [number, number, number] = [212, 175, 55];
+  const PRIMARY: [number, number, number] = [10, 10, 10];
   const DARK: [number, number, number] = [10, 10, 10];
   const GRAY: [number, number, number] = [100, 100, 100];
   const WHITE: [number, number, number] = [255, 255, 255];
@@ -119,10 +119,10 @@ function buildQuotePdfDoc(
     doc.addImage(templateDataUrl, imgFmt(templateDataUrl), 0, 0, pageW, TEMPLATE_H);
     doc.setFillColor(...DARK);
     doc.rect(0, TEMPLATE_H, pageW, META_H, "F");
-    // "QUOTE" label in gold
+    // "QUOTE" label in white
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.setTextColor(...PRIMARY);
+    doc.setTextColor(...WHITE);
     doc.text("QUOTE", margin, TEMPLATE_H + 8.5);
     // Quote number in white
     doc.setFont("helvetica", "normal");
@@ -149,7 +149,7 @@ function buildQuotePdfDoc(
     }
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(40, 30, 10);
+    doc.setTextColor(...LIGHT_TEXT);
     doc.text("QUOTE", pageW - margin, 10, { align: "right" });
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
