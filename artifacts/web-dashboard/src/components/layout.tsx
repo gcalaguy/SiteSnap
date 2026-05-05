@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Lock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 
@@ -126,23 +127,32 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const safetyBadge = counts?.submittedForms ?? 0;
   const hoursBadge = counts?.pendingTimesheets ?? 0;
 
+  const { data: featuresData } = useQuery<{ features: string[] }>({
+    queryKey: ["me-features"],
+    queryFn: () => customFetch<{ features: string[] }>("/api/users/me/features"),
+    enabled: !!user?.companyId,
+    staleTime: 60_000,
+  });
+  const planFeatures = featuresData?.features ?? null;
+  const has = (key: string) => isSuperAdmin || planFeatures === null || planFeatures.includes(key);
+
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0 },
     { name: "Projects", href: "/projects", icon: Building2, badge: 0 },
     { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge },
     { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge },
-    ...(isOwnerOrForeman ? [{ name: "Proposals", href: "/proposals", icon: FileSignature, badge: 0 }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Estimates", href: "/estimates", icon: Calculator, badge: 0 }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Smart Estimator", href: "/smart-estimator", icon: Sparkles, badge: 0 }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0 }] : []),
-    { name: "Contacts", href: "/contacts", icon: BookUser, badge: 0 },
-    { name: "Leads", href: "/leads", icon: TrendingUp, badge: 0 },
-    ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0 }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0 }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0 }] : []),
-    { name: "Safety", href: "/safety", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0 },
-    ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0 }] : []),
-    { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0 },
+    ...(isOwnerOrForeman ? [{ name: "Proposals", href: "/proposals", icon: FileSignature, badge: 0, featureKey: "Proposals" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Estimates", href: "/estimates", icon: Calculator, badge: 0, featureKey: "AI_ESTIMATING" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Smart Estimator", href: "/smart-estimator", icon: Sparkles, badge: 0, featureKey: "Smart_Estimator" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0, featureKey: "Financials" }] : []),
+    { name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "Contacts" },
+    { name: "Leads", href: "/leads", icon: TrendingUp, badge: 0, featureKey: "Contacts" },
+    ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, featureKey: "Calculator" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0, featureKey: "SCHEDULING" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING" }] : []),
+    { name: "Safety", href: "/safety", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "Safety" },
+    ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TradeHub" }] : []),
+    { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT" },
     ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0 }] : []),
     ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0 }] : []),
   ];
@@ -239,6 +249,25 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 px-3 overflow-y-auto space-y-0.5 relative z-10">
           {navigation.map((item) => {
             const isActive = location.startsWith(item.href);
+            const locked = !!(item as any).featureKey && !has((item as any).featureKey);
+
+            if (locked) {
+              return (
+                <div
+                  key={item.name}
+                  title="Upgrade your plan to access this feature"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg relative select-none"
+                  style={{ opacity: 0.4, cursor: "not-allowed" }}
+                >
+                  <item.icon size={17} style={{ color: "#555", flexShrink: 0 }} />
+                  <span className="flex-1 text-sm font-medium truncate" style={{ color: "#666" }}>
+                    {item.name}
+                  </span>
+                  <Lock size={11} style={{ color: "#555", flexShrink: 0 }} />
+                </div>
+              );
+            }
+
             return (
               <Link key={item.name} href={item.href}>
                 <div

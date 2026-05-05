@@ -2,9 +2,12 @@ import { Router } from "express";
 import { eq, and, ilike, or } from "drizzle-orm";
 import { db, contactsTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requireFeature } from "../lib/featureGate";
+
 import { z } from "zod";
 
 const router = Router();
+router.use(requireFeature("Contacts"));
 
 const CreateContactBody = z.object({
   name: z.string().min(1),

@@ -2,8 +2,9 @@ import { Router } from "express";
 import { db, usersTable, companiesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { requireAuth } from "../lib/auth";
+import { requireAuth, requireCompany } from "../lib/auth";
 import { SyncUserBody } from "@workspace/api-zod";
+import { getCompanyFeatureKeys } from "../lib/featureGate";
 
 const router = Router();
 
@@ -88,6 +89,12 @@ router.post("/users/accept-terms", requireAuth, async (req, res) => {
   }
 
   res.json({ ...updated, company });
+});
+
+// GET /users/me/features — list feature keys the company's active plan includes
+router.get("/users/me/features", requireAuth, requireCompany, async (req, res) => {
+  const features = await getCompanyFeatureKeys(req.companyId!);
+  res.json({ features });
 });
 
 // POST /users/push-token — store Expo push token for the current user

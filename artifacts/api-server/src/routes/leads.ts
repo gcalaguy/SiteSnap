@@ -9,9 +9,12 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requireFeature } from "../lib/featureGate";
+
 import { z } from "zod";
 
 const router = Router();
+router.use(requireFeature("Contacts"));
 
 const CreateLeadBody = z.object({
   contactId: z.coerce.number().int().positive(),

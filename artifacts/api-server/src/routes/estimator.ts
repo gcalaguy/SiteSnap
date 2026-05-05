@@ -12,11 +12,14 @@ import {
   type EstimatorAddon,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireFeature } from "../lib/featureGate";
+
 import { asyncHandler } from "../lib/asyncHandler";
 import { BadRequestError, NotFoundError } from "../lib/errors";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router = Router();
+router.use(requireFeature("Smart_Estimator"));
 
 // ── Seed pricing data (runs once, idempotent) ─────────────────────────────────
 

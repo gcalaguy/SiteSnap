@@ -12,9 +12,12 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requireFeature } from "../lib/featureGate";
+
 import { z } from "zod";
 
 const router = Router();
+router.use(requireFeature("Financials"));
 
 // ── Financial Summary ─────────────────────────────────────────────────────────
 
