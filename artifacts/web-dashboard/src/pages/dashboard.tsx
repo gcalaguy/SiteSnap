@@ -188,60 +188,68 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Insight Cards Row 2 — Revenue Pipeline / Overdue Invoices / Active Leads */}
+      {/* Insight Cards Row 2 — Revenue Pipeline / Overdue Invoices / This Month's Spend */}
       <div className="grid gap-4 md:grid-cols-3">
         <Link href="/leads" className="block group">
-          <Card className="cursor-pointer transition-all border-emerald-200/60 hover:shadow-md">
+          <Card className="cursor-pointer transition-all duration-150 hover:shadow-xl" style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Revenue Pipeline</CardTitle>
-              <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Revenue Pipeline</CardTitle>
+              <TrendingUp className="h-4 w-4" style={{ color: GOLD }} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-800">{fmt(pipeline)}</div>
+              <div className="text-3xl font-bold text-white">{fmt(pipeline)}</div>
               <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-muted-foreground">{activeLeads} active lead{activeLeads !== 1 ? "s" : ""}</p>
-                <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600" />
+                <p className="text-xs text-zinc-500">{activeLeads} active lead{activeLeads !== 1 ? "s" : ""}</p>
+                <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD }} />
               </div>
             </CardContent>
           </Card>
         </Link>
 
         <Link href="/invoices" className="block group">
-          <Card className={`cursor-pointer transition-all hover:shadow-md ${overdueInvoices > 0 ? "border-red-200/80 bg-red-50/30" : "border-border"}`}>
+          <Card
+            className="cursor-pointer transition-all duration-150 hover:shadow-xl"
+            style={{
+              background: overdueInvoices > 0 ? "#2a0a0a" : BLACK,
+              border: overdueInvoices > 0 ? "1px solid #7f1d1d44" : "none",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+            }}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className={`text-xs font-semibold uppercase tracking-wider ${overdueInvoices > 0 ? "text-red-700" : "text-muted-foreground"}`}>
+              <CardTitle
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: overdueInvoices > 0 ? "#f87171" : GOLD }}
+              >
                 Overdue Invoices
               </CardTitle>
               {overdueInvoices > 0
-                ? <AlertTriangle className="h-4 w-4 text-red-500" />
-                : <DollarSign className="h-4 w-4 text-muted-foreground" />
+                ? <AlertTriangle className="h-4 w-4 text-red-400" />
+                : <DollarSign className="h-4 w-4" style={{ color: GOLD }} />
               }
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${overdueInvoices > 0 ? "text-red-700" : "text-foreground"}`}>
+              <div className="text-3xl font-bold" style={{ color: overdueInvoices > 0 ? "#f87171" : "#fff" }}>
                 {overdueInvoices > 0 ? fmt(overdueAmount) : "All clear"}
               </div>
               <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-zinc-500">
                   {overdueInvoices > 0 ? `${overdueInvoices} invoice${overdueInvoices !== 1 ? "s" : ""} past due` : "No overdue invoices"}
                 </p>
-                <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: overdueInvoices > 0 ? "#f87171" : GOLD }} />
               </div>
             </CardContent>
           </Card>
         </Link>
 
-        <Card>
+        <Card className="cursor-pointer transition-all duration-150 hover:shadow-xl" style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">This Month's Spend</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>This Month's Spend</CardTitle>
+            <DollarSign className="h-4 w-4" style={{ color: GOLD }} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{fmt(summary?.totalSpentThisMonth ?? 0)}</div>
+            <div className="text-3xl font-bold text-white">{fmt(summary?.totalSpentThisMonth ?? 0)}</div>
             <div className="mt-1">
-              <p className="text-xs text-muted-foreground">
-                Budget: {fmt(summary?.totalBudgetAllProjects ?? 0)}
-              </p>
+              <p className="text-xs text-zinc-500">Budget: {fmt(summary?.totalBudgetAllProjects ?? 0)}</p>
             </div>
           </CardContent>
         </Card>
@@ -249,24 +257,24 @@ export default function Dashboard() {
 
       {/* Bottom Row — Activity / Notifications + Weather */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+        <Card className="col-span-4" style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle className="text-sm font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-8">
+            <div className="space-y-6">
               {activity?.length === 0 ? (
-                <div className="text-center text-sm text-muted-foreground py-4">No recent activity.</div>
+                <div className="text-center text-sm text-zinc-500 py-4">No recent activity.</div>
               ) : (
                 activity?.map((item) => (
                   <div key={item.id} className="flex items-center">
-                    <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full shrink-0" style={{ background: BLACK }}>
+                    <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full shrink-0" style={{ background: `${GOLD}18`, border: `1px solid ${GOLD}33` }}>
                       <Activity className="h-4 w-4" style={{ color: GOLD }} />
                     </div>
-                    <div className="ml-4 space-y-1">
-                      <p className="text-sm font-medium leading-none">{item.description}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.userName} • {item.projectName && <span className="font-semibold text-foreground">{item.projectName} • </span>}
+                    <div className="ml-4 space-y-0.5">
+                      <p className="text-sm font-medium leading-none text-white">{item.description}</p>
+                      <p className="text-xs text-zinc-500">
+                        {item.userName} • {item.projectName && <span className="font-semibold text-zinc-400">{item.projectName} • </span>}
                         {format(new Date(item.createdAt), "MMM d, h:mm a")}
                       </p>
                     </div>
@@ -281,11 +289,11 @@ export default function Dashboard() {
           <WeatherCard />
 
           {/* Notifications Panel */}
-          <Card>
+          <Card style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CardTitle className="text-sm">Notifications</CardTitle>
+                  <CardTitle className="text-sm font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Notifications</CardTitle>
                   {unreadCount > 0 && (
                     <Badge
                       className="h-5 min-w-5 text-[10px] font-bold px-1.5"
@@ -299,7 +307,8 @@ export default function Dashboard() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-xs h-7 px-2 text-muted-foreground"
+                    className="text-xs h-7 px-2"
+                    style={{ color: GOLD }}
                     onClick={handleMarkAll}
                   >
                     Mark all read
@@ -310,36 +319,37 @@ export default function Dashboard() {
             <CardContent className="px-3 pb-3">
               {!notifications || notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-6 text-center">
-                  <Bell className="h-8 w-8 text-muted-foreground/30 mb-2" />
-                  <p className="text-xs text-muted-foreground">No notifications</p>
+                  <Bell className="h-8 w-8 mb-2" style={{ color: `${GOLD}40` }} />
+                  <p className="text-xs text-zinc-600">No notifications</p>
                 </div>
               ) : (
                 <div className="space-y-1 max-h-64 overflow-y-auto">
                   {notifications.slice(0, 8).map((n) => (
                     <div
                       key={n.id}
-                      className={`flex items-start gap-2.5 rounded-lg px-2 py-2 transition-colors ${n.isRead ? "opacity-60" : "bg-amber-50/60"}`}
+                      className={`flex items-start gap-2.5 rounded-lg px-2 py-2 transition-colors ${n.isRead ? "opacity-50" : ""}`}
+                      style={!n.isRead ? { background: `${GOLD}10`, border: `1px solid ${GOLD}22` } : {}}
                     >
                       <div
                         className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0"
-                        style={{ background: n.isRead ? "#f3f4f6" : `${GOLD}22` }}
+                        style={{ background: n.isRead ? "#1f1f1f" : `${GOLD}22` }}
                       >
-                        <Bell className="h-3 w-3" style={{ color: n.isRead ? "#9ca3af" : GOLD }} />
+                        <Bell className="h-3 w-3" style={{ color: n.isRead ? "#555" : GOLD }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold leading-tight">{n.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{n.body}</p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                        <p className="text-xs font-semibold leading-tight text-white">{n.title}</p>
+                        <p className="text-xs text-zinc-500 mt-0.5 leading-tight">{n.body}</p>
+                        <p className="text-[10px] text-zinc-600 mt-0.5">
                           {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                         </p>
                       </div>
                       {!n.isRead && (
                         <button
-                          className="flex-shrink-0 mt-0.5 h-5 w-5 rounded flex items-center justify-center hover:bg-gray-100 transition-colors"
+                          className="flex-shrink-0 mt-0.5 h-5 w-5 rounded flex items-center justify-center hover:bg-white/10 transition-colors"
                           onClick={() => handleMarkOne(n.id)}
                           title="Mark as read"
                         >
-                          <Check className="h-3 w-3 text-muted-foreground" />
+                          <Check className="h-3 w-3 text-zinc-500" />
                         </button>
                       )}
                     </div>

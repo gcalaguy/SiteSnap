@@ -492,7 +492,7 @@ router.get("/dashboard/smart-summary", requireAuth, requireCompany, async (req, 
     .where(
       and(
         eq(projectsTable.companyId, companyId),
-        sql`${tasksTable.status} NOT IN ('done', 'cancelled')`,
+        ne(tasksTable.status, "done"),
         isNotNull(tasksTable.dueDate),
         lt(tasksTable.dueDate, today),
       ),
