@@ -431,7 +431,16 @@ export default function QuoteDetail() {
       const result = await generateAI.mutateAsync({
         data: { voiceInput: voiceText, projectName: undefined, clientName: quote?.clientName ?? undefined },
       });
-      if (result.lineItems) setLineItems(result.lineItems as LineItem[]);
+      if (result.lineItems) {
+        const normalized: LineItem[] = (result.lineItems as Record<string, unknown>[]).map((item) => ({
+          description: String(item.description ?? ""),
+          quantity: Number(item.quantity ?? 1),
+          unit: String(item.unit ?? item.unit_type ?? item.uom ?? "ea"),
+          unitPrice: Number(item.unitPrice ?? item.unit_price ?? item.unitCost ?? item.unit_cost ?? 0),
+          total: Number(item.total ?? 0),
+        }));
+        setLineItems(normalized);
+      }
       if (result.title && !title) setTitle(result.title);
       if (result.notes) setNotes(result.notes);
       toast({ title: "AI quote generated", description: "Review and adjust the line items below." });
