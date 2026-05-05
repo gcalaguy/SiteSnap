@@ -27,6 +27,9 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 interface Submission {
   id: number;
   templateName: string;
@@ -108,35 +111,24 @@ export default function SafetyPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-foreground">{counts.total}</div>
-            <div className="text-xs text-muted-foreground mt-1">Total Forms</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-muted-foreground">{counts.draft}</div>
-            <div className="text-xs text-muted-foreground mt-1">Drafts</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <div className="text-2xl font-bold text-orange-600">{counts.submitted}</div>
-              {counts.submitted > 0 && isOwnerOrForeman && (
-                <AlertTriangle className="h-4 w-4 text-orange-500" />
-              )}
+        {[
+          { label: "Total Forms",     value: counts.total,     icon: FileText },
+          { label: "Drafts",          value: counts.draft,     icon: Clock },
+          { label: "Awaiting Review", value: counts.submitted, icon: AlertTriangle },
+          { label: "Reviewed",        value: counts.reviewed,  icon: CheckCircle2 },
+        ].map(({ label, value, icon: Icon }) => (
+          <div
+            key={label}
+            className="rounded-xl p-4"
+            style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+              <Icon size={15} style={{ color: GOLD }} />
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Awaiting Review</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-green-600">{counts.reviewed}</div>
-            <div className="text-xs text-muted-foreground mt-1">Reviewed</div>
-          </CardContent>
-        </Card>
+            <p className="text-2xl font-bold text-white">{value}</p>
+          </div>
+        ))}
       </div>
 
       {/* Filters */}
