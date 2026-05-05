@@ -22,10 +22,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line,
 } from "recharts";
+
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
 
 type TimeEntry = {
   id: number;
@@ -487,41 +491,19 @@ export default function HoursPage() {
         <>
           {/* Summary cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="pt-6 flex items-center gap-4">
-                <div className="rounded-full bg-primary/10 p-3">
-                  <Clock className="h-5 w-5 text-primary" />
+            {[
+              { label: "Total Hours",   value: `${totalHours.toFixed(1)}h`,                                              icon: Clock      },
+              { label: "Workers Active", value: String(uniqueWorkers),                                                   icon: Users      },
+              { label: "Avg / Worker",  value: `${uniqueWorkers > 0 ? (totalHours / uniqueWorkers).toFixed(1) : "0"}h`, icon: TrendingUp },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+                  <Icon size={15} style={{ color: GOLD }} />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Hours</p>
-                  <p className="text-2xl font-bold">{totalHours.toFixed(1)}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 flex items-center gap-4">
-                <div className="rounded-full bg-blue-500/10 p-3">
-                  <Users className="h-5 w-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Workers Active</p>
-                  <p className="text-2xl font-bold">{uniqueWorkers}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 flex items-center gap-4">
-                <div className="rounded-full bg-green-500/10 p-3">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Avg / Worker</p>
-                  <p className="text-2xl font-bold">
-                    {uniqueWorkers > 0 ? (totalHours / uniqueWorkers).toFixed(1) : "0"}h
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                <p className="text-2xl font-bold text-white">{value}</p>
+              </div>
+            ))}
           </div>
 
           {/* Charts */}
