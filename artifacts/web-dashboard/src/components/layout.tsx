@@ -26,8 +26,11 @@ import {
   BarChart3,
   Check,
   Sparkles,
+  Menu,
+  X,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +39,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +77,7 @@ function NavBadge({ count, gold = false }: { count: number; gold?: boolean }) {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { data: user } = useGetMe();
   const { signOut } = useClerk();
 
@@ -460,7 +465,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Mobile header */}
-        <header className="flex md:hidden h-14 items-center gap-3 px-4 flex-shrink-0"
+        <header className="flex md:hidden h-14 items-center justify-between gap-3 px-4 flex-shrink-0"
           style={{ background: BLACK, borderBottom: `1px solid ${GOLD_BORDER}` }}>
           <div className="flex items-center gap-2">
             <div
@@ -473,7 +478,151 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               Site<span style={{ color: GOLD }}>Snap</span>
             </span>
           </div>
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="flex items-center justify-center rounded-lg p-2 transition-colors"
+            style={{ background: `${GOLD}18`, border: `1px solid ${GOLD}33` }}
+            aria-label="Open navigation"
+          >
+            <Menu size={18} style={{ color: GOLD }} />
+          </button>
         </header>
+
+        {/* Mobile navigation drawer */}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent
+            side="left"
+            className="p-0 border-0"
+            style={{ width: 280, background: BLACK }}
+          >
+            {/* Drawer header */}
+            <div
+              className="flex items-center justify-between px-5 py-5"
+              style={{ borderBottom: `1px solid ${GOLD_BORDER}` }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex items-center justify-center rounded-lg"
+                  style={{ width: 34, height: 34, background: `linear-gradient(135deg, ${GOLD}33 0%, ${GOLD}11 100%)`, border: `1px solid ${GOLD}55` }}
+                >
+                  <Hammer size={16} style={{ color: GOLD }} />
+                </div>
+                <span className="font-bold tracking-tight text-base" style={{ color: "#FFF" }}>
+                  Site<span style={{ color: GOLD }}>Snap</span>
+                </span>
+              </div>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center justify-center rounded-lg p-1.5 transition-colors"
+                style={{ background: `${GOLD}12` }}
+              >
+                <X size={16} style={{ color: GOLD }} />
+              </button>
+            </div>
+
+            {/* Company label */}
+            <div className="px-4 py-3" style={{ borderBottom: `1px solid ${GOLD_BORDER}` }}>
+              <div
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                style={{ background: SURFACE, border: `1px solid ${GOLD}22` }}
+              >
+                <div
+                  className="rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  style={{ width: 32, height: 32, background: `${GOLD}22`, border: `1px solid ${GOLD}44`, color: GOLD }}
+                >
+                  {companyInitials || "?"}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold truncate" style={{ color: "#FFF" }}>{companyName}</p>
+                  <p className="text-xs capitalize" style={{ color: "#666" }}>{user?.role ?? "Member"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Nav items */}
+            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
+              {navigation.map((item) => {
+                const isActive = location === `${basePath}${item.href}` || location === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all"
+                    style={{
+                      background: isActive ? `${GOLD}18` : "transparent",
+                      border: isActive ? `1px solid ${GOLD}33` : "1px solid transparent",
+                    }}
+                  >
+                    <item.icon size={17} style={{ color: isActive ? GOLD : "#555" }} />
+                    <span className="flex-1 text-sm font-medium truncate" style={{ color: isActive ? "#FFF" : "#888" }}>
+                      {item.name}
+                    </span>
+                    {item.badge > 0 && (
+                      <span
+                        className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+                        style={{ background: GOLD, color: BLACK }}
+                      >
+                        {item.badge > 99 ? "99+" : item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+
+              {adminNavigation.length > 0 && (
+                <>
+                  <div style={{ height: 1, background: GOLD_BORDER, margin: "8px 4px" }} />
+                  {adminNavigation.map((item) => {
+                    const isActive = location === `${basePath}${item.href}` || location === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all"
+                        style={{
+                          background: isActive ? `${GOLD}18` : "transparent",
+                          border: isActive ? `1px solid ${GOLD}33` : "1px solid transparent",
+                        }}
+                      >
+                        <item.icon size={17} style={{ color: isActive ? GOLD : "#555" }} />
+                        <span className="text-sm font-medium" style={{ color: isActive ? "#FFF" : "#888" }}>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+
+            {/* User + sign out */}
+            <div className="p-3" style={{ borderTop: `1px solid ${GOLD_BORDER}` }}>
+              <div
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 mb-2"
+                style={{ background: SURFACE, border: `1px solid ${GOLD}22` }}
+              >
+                <div
+                  className="rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  style={{ width: 34, height: 34, background: `linear-gradient(135deg, ${GOLD}44, ${GOLD}22)`, border: `1.5px solid ${GOLD}66`, color: GOLD }}
+                >
+                  {initials || "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate" style={{ color: "#FFF" }}>{firstName} {lastName}</p>
+                  <p className="text-xs truncate" style={{ color: GOLD, opacity: 0.7 }}>{user?.email ?? ""}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setMobileOpen(false); signOut({ redirectUrl: basePath || "/" }); }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-red-950/30"
+                style={{ color: "#ef4444" }}
+              >
+                <LogOut size={16} />
+                <span className="text-sm font-medium">Log out</span>
+              </button>
+            </div>
+          </SheetContent>
+        </Sheet>
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="mx-auto max-w-6xl">
             {children}

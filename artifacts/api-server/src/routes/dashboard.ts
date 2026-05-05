@@ -16,7 +16,7 @@ import {
   contactsTable,
   leadsTable,
 } from "@workspace/db";
-import { eq, and, gte, sql, inArray, lt, ne } from "drizzle-orm";
+import { eq, and, gte, sql, inArray, lt, ne, isNotNull } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 
 const router = Router();
@@ -136,7 +136,7 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
       and(
         eq(invoicesTable.companyId, companyId),
         sql`${invoicesTable.status} IN ('sent', 'overdue')`,
-        sql`${invoicesTable.due_date} IS NOT NULL`,
+        isNotNull(invoicesTable.dueDate),
         lt(invoicesTable.dueDate, today),
       ),
     );
@@ -453,7 +453,7 @@ router.get("/dashboard/smart-summary", requireAuth, requireCompany, async (req, 
       and(
         eq(invoicesTable.companyId, companyId),
         sql`${invoicesTable.status} IN ('sent', 'overdue')`,
-        sql`${invoicesTable.due_date} IS NOT NULL`,
+        isNotNull(invoicesTable.dueDate),
         lt(invoicesTable.dueDate, today),
       ),
     );
@@ -493,7 +493,7 @@ router.get("/dashboard/smart-summary", requireAuth, requireCompany, async (req, 
       and(
         eq(projectsTable.companyId, companyId),
         sql`${tasksTable.status} NOT IN ('done', 'cancelled')`,
-        sql`${tasksTable.due_date} IS NOT NULL`,
+        isNotNull(tasksTable.dueDate),
         lt(tasksTable.dueDate, today),
       ),
     );
