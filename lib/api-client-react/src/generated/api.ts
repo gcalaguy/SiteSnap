@@ -49,6 +49,8 @@ import type {
   CreateCostAnalysisBody,
   CreateDailyReportBody,
   CreateEstimateTemplateBody,
+  CreateFormBody,
+  CreateFormSubmissionBody,
   CreateInvitationBody,
   CreateInvoiceBody,
   CreateInvoiceFromProposal201,
@@ -65,7 +67,11 @@ import type {
   EstimateItemBody,
   EstimateTemplate,
   EstimateTemplateWithItems,
+  FileAttachmentRecord,
   FinancialSummary,
+  FormSubmissionRecord,
+  FormTemplateRecord,
+  GetFormSubmission200,
   HealthStatus,
   Invitation,
   Invoice,
@@ -76,6 +82,8 @@ import type {
   ListAllQuotesParams,
   ListChangeOrdersParams,
   ListContactsParams,
+  ListFilesParams,
+  ListFormSubmissionsParams,
   ListTimesheetsParams,
   PaymentRecord,
   Project,
@@ -90,6 +98,7 @@ import type {
   QuoteAIGenerateResponse,
   RecordPaymentBody,
   RegisterDocumentBody,
+  RegisterFileBody,
   RejectQuoteBody,
   Rfi,
   SendInvoiceEmail200,
@@ -101,6 +110,7 @@ import type {
   Timesheet,
   UpdateBuilderEstimateBody,
   UpdateChangeOrderBody,
+  UpdateFormSubmissionStatusBody,
   UpdateInvitationBody,
   UpdateInvoiceBody,
   UpdateLeadBody,
@@ -124,6 +134,1039 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+/**
+ * @summary List all active form templates
+ */
+export const getListFormsUrl = () => {
+  return `/api/forms`;
+};
+
+export const listForms = async (
+  options?: RequestInit,
+): Promise<FormTemplateRecord[]> => {
+  return customFetch<FormTemplateRecord[]>(getListFormsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListFormsQueryKey = () => {
+  return [`/api/forms`] as const;
+};
+
+export const getListFormsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listForms>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listForms>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListFormsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listForms>>> = ({
+    signal,
+  }) => listForms({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listForms>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListFormsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listForms>>
+>;
+export type ListFormsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all active form templates
+ */
+
+export function useListForms<
+  TData = Awaited<ReturnType<typeof listForms>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listForms>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFormsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a form template
+ */
+export const getCreateFormUrl = () => {
+  return `/api/forms`;
+};
+
+export const createForm = async (
+  createFormBody: CreateFormBody,
+  options?: RequestInit,
+): Promise<FormTemplateRecord> => {
+  return customFetch<FormTemplateRecord>(getCreateFormUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createFormBody),
+  });
+};
+
+export const getCreateFormMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createForm>>,
+    TError,
+    { data: BodyType<CreateFormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createForm>>,
+  TError,
+  { data: BodyType<CreateFormBody> },
+  TContext
+> => {
+  const mutationKey = ["createForm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createForm>>,
+    { data: BodyType<CreateFormBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createForm(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateFormMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createForm>>
+>;
+export type CreateFormMutationBody = BodyType<CreateFormBody>;
+export type CreateFormMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a form template
+ */
+export const useCreateForm = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createForm>>,
+    TError,
+    { data: BodyType<CreateFormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createForm>>,
+  TError,
+  { data: BodyType<CreateFormBody> },
+  TContext
+> => {
+  return useMutation(getCreateFormMutationOptions(options));
+};
+
+/**
+ * @summary Get a form template
+ */
+export const getGetFormUrl = (id: number) => {
+  return `/api/forms/${id}`;
+};
+
+export const getForm = async (
+  id: number,
+  options?: RequestInit,
+): Promise<FormTemplateRecord> => {
+  return customFetch<FormTemplateRecord>(getGetFormUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFormQueryKey = (id: number) => {
+  return [`/api/forms/${id}`] as const;
+};
+
+export const getGetFormQueryOptions = <
+  TData = Awaited<ReturnType<typeof getForm>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getForm>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetFormQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getForm>>> = ({
+    signal,
+  }) => getForm(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getForm>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetFormQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getForm>>
+>;
+export type GetFormQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a form template
+ */
+
+export function useGetForm<
+  TData = Awaited<ReturnType<typeof getForm>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getForm>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFormQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a form template
+ */
+export const getUpdateFormUrl = (id: number) => {
+  return `/api/forms/${id}`;
+};
+
+export const updateForm = async (
+  id: number,
+  createFormBody: CreateFormBody,
+  options?: RequestInit,
+): Promise<FormTemplateRecord> => {
+  return customFetch<FormTemplateRecord>(getUpdateFormUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createFormBody),
+  });
+};
+
+export const getUpdateFormMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateForm>>,
+    TError,
+    { id: number; data: BodyType<CreateFormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateForm>>,
+  TError,
+  { id: number; data: BodyType<CreateFormBody> },
+  TContext
+> => {
+  const mutationKey = ["updateForm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateForm>>,
+    { id: number; data: BodyType<CreateFormBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateForm(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateFormMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateForm>>
+>;
+export type UpdateFormMutationBody = BodyType<CreateFormBody>;
+export type UpdateFormMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a form template
+ */
+export const useUpdateForm = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateForm>>,
+    TError,
+    { id: number; data: BodyType<CreateFormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateForm>>,
+  TError,
+  { id: number; data: BodyType<CreateFormBody> },
+  TContext
+> => {
+  return useMutation(getUpdateFormMutationOptions(options));
+};
+
+/**
+ * @summary Deactivate a form template
+ */
+export const getDeleteFormUrl = (id: number) => {
+  return `/api/forms/${id}`;
+};
+
+export const deleteForm = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteFormUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteFormMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteForm>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteForm>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteForm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteForm>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteForm(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteFormMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteForm>>
+>;
+
+export type DeleteFormMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Deactivate a form template
+ */
+export const useDeleteForm = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteForm>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteForm>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteFormMutationOptions(options));
+};
+
+/**
+ * @summary List form submissions
+ */
+export const getListFormSubmissionsUrl = (
+  params?: ListFormSubmissionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/form-submissions?${stringifiedParams}`
+    : `/api/form-submissions`;
+};
+
+export const listFormSubmissions = async (
+  params?: ListFormSubmissionsParams,
+  options?: RequestInit,
+): Promise<FormSubmissionRecord[]> => {
+  return customFetch<FormSubmissionRecord[]>(
+    getListFormSubmissionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListFormSubmissionsQueryKey = (
+  params?: ListFormSubmissionsParams,
+) => {
+  return [`/api/form-submissions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListFormSubmissionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listFormSubmissions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListFormSubmissionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listFormSubmissions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListFormSubmissionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listFormSubmissions>>
+  > = ({ signal }) =>
+    listFormSubmissions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listFormSubmissions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListFormSubmissionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listFormSubmissions>>
+>;
+export type ListFormSubmissionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List form submissions
+ */
+
+export function useListFormSubmissions<
+  TData = Awaited<ReturnType<typeof listFormSubmissions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListFormSubmissionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listFormSubmissions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFormSubmissionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a form submission
+ */
+export const getCreateFormSubmissionUrl = () => {
+  return `/api/form-submissions`;
+};
+
+export const createFormSubmission = async (
+  createFormSubmissionBody: CreateFormSubmissionBody,
+  options?: RequestInit,
+): Promise<FormSubmissionRecord> => {
+  return customFetch<FormSubmissionRecord>(getCreateFormSubmissionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createFormSubmissionBody),
+  });
+};
+
+export const getCreateFormSubmissionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFormSubmission>>,
+    TError,
+    { data: BodyType<CreateFormSubmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createFormSubmission>>,
+  TError,
+  { data: BodyType<CreateFormSubmissionBody> },
+  TContext
+> => {
+  const mutationKey = ["createFormSubmission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createFormSubmission>>,
+    { data: BodyType<CreateFormSubmissionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createFormSubmission(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateFormSubmissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createFormSubmission>>
+>;
+export type CreateFormSubmissionMutationBody =
+  BodyType<CreateFormSubmissionBody>;
+export type CreateFormSubmissionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a form submission
+ */
+export const useCreateFormSubmission = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFormSubmission>>,
+    TError,
+    { data: BodyType<CreateFormSubmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createFormSubmission>>,
+  TError,
+  { data: BodyType<CreateFormSubmissionBody> },
+  TContext
+> => {
+  return useMutation(getCreateFormSubmissionMutationOptions(options));
+};
+
+/**
+ * @summary Get a form submission
+ */
+export const getGetFormSubmissionUrl = (id: number) => {
+  return `/api/form-submissions/${id}`;
+};
+
+export const getFormSubmission = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GetFormSubmission200> => {
+  return customFetch<GetFormSubmission200>(getGetFormSubmissionUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFormSubmissionQueryKey = (id: number) => {
+  return [`/api/form-submissions/${id}`] as const;
+};
+
+export const getGetFormSubmissionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFormSubmission>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFormSubmission>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetFormSubmissionQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFormSubmission>>
+  > = ({ signal }) => getFormSubmission(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFormSubmission>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFormSubmissionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFormSubmission>>
+>;
+export type GetFormSubmissionQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a form submission
+ */
+
+export function useGetFormSubmission<
+  TData = Awaited<ReturnType<typeof getFormSubmission>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFormSubmission>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFormSubmissionQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Review or approve a form submission
+ */
+export const getUpdateFormSubmissionStatusUrl = (id: number) => {
+  return `/api/form-submissions/${id}/status`;
+};
+
+export const updateFormSubmissionStatus = async (
+  id: number,
+  updateFormSubmissionStatusBody: UpdateFormSubmissionStatusBody,
+  options?: RequestInit,
+): Promise<FormSubmissionRecord> => {
+  return customFetch<FormSubmissionRecord>(
+    getUpdateFormSubmissionStatusUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateFormSubmissionStatusBody),
+    },
+  );
+};
+
+export const getUpdateFormSubmissionStatusMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateFormSubmissionStatus>>,
+    TError,
+    { id: number; data: BodyType<UpdateFormSubmissionStatusBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateFormSubmissionStatus>>,
+  TError,
+  { id: number; data: BodyType<UpdateFormSubmissionStatusBody> },
+  TContext
+> => {
+  const mutationKey = ["updateFormSubmissionStatus"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateFormSubmissionStatus>>,
+    { id: number; data: BodyType<UpdateFormSubmissionStatusBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateFormSubmissionStatus(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateFormSubmissionStatusMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateFormSubmissionStatus>>
+>;
+export type UpdateFormSubmissionStatusMutationBody =
+  BodyType<UpdateFormSubmissionStatusBody>;
+export type UpdateFormSubmissionStatusMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Review or approve a form submission
+ */
+export const useUpdateFormSubmissionStatus = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateFormSubmissionStatus>>,
+    TError,
+    { id: number; data: BodyType<UpdateFormSubmissionStatusBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateFormSubmissionStatus>>,
+  TError,
+  { id: number; data: BodyType<UpdateFormSubmissionStatusBody> },
+  TContext
+> => {
+  return useMutation(getUpdateFormSubmissionStatusMutationOptions(options));
+};
+
+/**
+ * @summary List file attachments for an entity
+ */
+export const getListFilesUrl = (params?: ListFilesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/files?${stringifiedParams}`
+    : `/api/files`;
+};
+
+export const listFiles = async (
+  params?: ListFilesParams,
+  options?: RequestInit,
+): Promise<FileAttachmentRecord[]> => {
+  return customFetch<FileAttachmentRecord[]>(getListFilesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListFilesQueryKey = (params?: ListFilesParams) => {
+  return [`/api/files`, ...(params ? [params] : [])] as const;
+};
+
+export const getListFilesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listFiles>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListFilesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listFiles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListFilesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listFiles>>> = ({
+    signal,
+  }) => listFiles(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listFiles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListFilesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listFiles>>
+>;
+export type ListFilesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List file attachments for an entity
+ */
+
+export function useListFiles<
+  TData = Awaited<ReturnType<typeof listFiles>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListFilesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listFiles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFilesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register a file after presigned upload
+ */
+export const getRegisterFileUrl = () => {
+  return `/api/files`;
+};
+
+export const registerFile = async (
+  registerFileBody: RegisterFileBody,
+  options?: RequestInit,
+): Promise<FileAttachmentRecord> => {
+  return customFetch<FileAttachmentRecord>(getRegisterFileUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(registerFileBody),
+  });
+};
+
+export const getRegisterFileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerFile>>,
+    TError,
+    { data: BodyType<RegisterFileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerFile>>,
+  TError,
+  { data: BodyType<RegisterFileBody> },
+  TContext
+> => {
+  const mutationKey = ["registerFile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerFile>>,
+    { data: BodyType<RegisterFileBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerFile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterFileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerFile>>
+>;
+export type RegisterFileMutationBody = BodyType<RegisterFileBody>;
+export type RegisterFileMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register a file after presigned upload
+ */
+export const useRegisterFile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerFile>>,
+    TError,
+    { data: BodyType<RegisterFileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerFile>>,
+  TError,
+  { data: BodyType<RegisterFileBody> },
+  TContext
+> => {
+  return useMutation(getRegisterFileMutationOptions(options));
+};
+
+/**
+ * @summary Delete a file attachment record
+ */
+export const getDeleteFileUrl = (id: number) => {
+  return `/api/files/${id}`;
+};
+
+export const deleteFile = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteFileUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteFileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteFile>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteFile>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteFile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteFile>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteFile(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteFileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteFile>>
+>;
+
+export type DeleteFileMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a file attachment record
+ */
+export const useDeleteFile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteFile>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteFile>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteFileMutationOptions(options));
+};
 
 /**
  * @summary Financial overview stats

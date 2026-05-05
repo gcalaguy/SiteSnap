@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   Clock,
   Eye,
+  ClipboardList,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +27,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -42,31 +46,59 @@ interface Submission {
   updatedAt: string;
 }
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ElementType }> = {
-  draft: { label: "Draft", variant: "outline", icon: Clock },
-  submitted: { label: "Submitted", variant: "default", icon: FileText },
-  reviewed: { label: "Reviewed", variant: "secondary", icon: Eye },
-  approved: { label: "Approved", variant: "default", icon: CheckCircle2 },
+interface FormTemplate {
+  id: number;
+  name: string;
+  category: string;
+  schema: { fields: Array<{ id: string; label: string; type: string; required: boolean }> };
+  isActive: boolean;
+  createdAt: string;
+}
+
+const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
+  draft:     { label: "Draft",     icon: Clock,        color: "#6B7280", bg: "#F3F4F6" },
+  submitted: { label: "Submitted", icon: FileText,     color: "#2563EB", bg: "#DBEAFE" },
+  reviewed:  { label: "Reviewed",  icon: Eye,          color: "#7C3AED", bg: "#EDE9FE" },
+  approved:  { label: "Approved",  icon: CheckCircle2, color: "#16A34A", bg: "#DCFCE7" },
 };
 
-const categoryColor: Record<string, string> = {
-  injury: "bg-red-950/40 text-red-400 border-red-900/60",
-  safety: "bg-blue-950/40 text-blue-400 border-blue-900/60",
-  hazard: "bg-orange-950/40 text-orange-400 border-orange-900/60",
-  toolbox: "bg-green-950/40 text-green-400 border-green-900/60",
+const categoryConfig: Record<string, { label: string; color: string; bg: string }> = {
+  injury:  { label: "Injury",   color: "#DC2626", bg: "#FEE2E2" },
+  safety:  { label: "Safety",   color: "#2563EB", bg: "#DBEAFE" },
+  hazard:  { label: "Hazard",   color: "#D97706", bg: "#FEF3C7" },
+  toolbox: { label: "Toolbox",  color: "#16A34A", bg: "#DCFCE7" },
 };
+
+function CategoryBadge({ category }: { category: string }) {
+  const cfg = categoryConfig[category];
+  if (!cfg) return null;
+  return (
+    <span
+      className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+      style={{ background: cfg.bg, color: cfg.color }}
+    >
+      {cfg.label}
+    </span>
+  );
+}
 
 export default function SafetyPage() {
   const { data: me } = useGetMe();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [tab, setTab] = useState("submissions");
 
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
-  const { data: submissions = [], isLoading } = useQuery<Submission[]>({
+  const { data: submissions = [], isLoading: loadingSubmissions } = useQuery<Submission[]>({
     queryKey: ["safety-submissions", statusFilter],
     queryFn: () =>
       customFetch(`/api/safety/submissions${statusFilter !== "all" ? `?status=${statusFilter}` : ""}`),
+  });
+
+  const { data: templates = [], isLoading: loadingTemplates } = useQuery<FormTemplate[]>({
+    queryKey: ["safety-templates"],
+    queryFn: () => customFetch("/api/safety/templates"),
   });
 
   const filtered = submissions.filter((s) => {
@@ -81,9 +113,9 @@ export default function SafetyPage() {
 
   const counts = {
     total: submissions.length,
-    draft: submissions.filter((s) => s.status === "draft").length,
     submitted: submissions.filter((s) => s.status === "submitted").length,
     reviewed: submissions.filter((s) => s.status === "reviewed" || s.status === "approved").length,
+    pending: submissions.filter((s) => s.status === "submitted").length,
   };
 
   return (
@@ -97,12 +129,12 @@ export default function SafetyPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Safety & Incidents</h1>
             <p className="text-sm text-muted-foreground">
-              Manage safety forms, incident reports, and hazard assessments
+              Forms, incident reports, and hazard assessments
             </p>
           </div>
         </div>
         <Link href="/safety/submit">
-          <Button className="gap-2">
+          <Button style={{ background: GOLD, color: BLACK }} className="gap-2 font-semibold">
             <Plus className="h-4 w-4" />
             New Form
           </Button>
@@ -112,15 +144,15 @@ export default function SafetyPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Forms",     value: counts.total,     icon: FileText },
-          { label: "Drafts",          value: counts.draft,     icon: Clock },
-          { label: "Awaiting Review", value: counts.submitted, icon: AlertTriangle },
-          { label: "Reviewed",        value: counts.reviewed,  icon: CheckCircle2 },
+          { label: "Total Forms",      value: counts.total,    icon: FileText },
+          { label: "Templates",        value: templates.length, icon: ClipboardList },
+          { label: "Awaiting Review",  value: counts.submitted, icon: AlertTriangle },
+          { label: "Reviewed",         value: counts.reviewed,  icon: CheckCircle2 },
         ].map(({ label, value, icon: Icon }) => (
           <div
             key={label}
             className="rounded-xl p-4"
-            style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}
+            style={{ background: BLACK }}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
@@ -131,117 +163,213 @@ export default function SafetyPage() {
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by form type, worker..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="submitted">Submitted</SelectItem>
-            <SelectItem value="reviewed">Reviewed</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Submissions List */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 rounded-lg bg-muted/40 animate-pulse" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
-            <ShieldAlert className="h-12 w-12 text-muted-foreground/40" />
-            <div className="text-center">
-              <p className="font-medium text-foreground">No safety forms yet</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {search || statusFilter !== "all"
-                  ? "Try adjusting your filters."
-                  : "Start by submitting a safety form."}
-              </p>
-            </div>
-            {!search && statusFilter === "all" && (
-              <Link href="/safety/submit">
-                <Button variant="outline" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  New Form
-                </Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((s) => {
-            const sc = statusConfig[s.status] ?? statusConfig.draft;
-            const StatusIcon = sc.icon;
-            return (
-              <Link key={s.id} href={`/safety/submissions/${s.id}`}>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow hover:border-primary/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-foreground">
-                            {s.templateName ?? "Safety Form"}
-                          </span>
-                          {s.templateCategory && (
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                                categoryColor[s.templateCategory] ?? "bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              {s.templateCategory}
-                            </span>
-                          )}
-                        </div>
-                        {isOwnerOrForeman && s.workerName && (
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            Submitted by: {s.workerName}
-                          </p>
-                        )}
-                        {s.aiSummary && (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2 italic">
-                            "{s.aiSummary.slice(0, 120)}…"
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(s.createdAt), "MMM d, yyyy 'at' h:mm a")}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Badge
-                          variant={sc.variant}
-                          className={`gap-1.5 ${s.status === "approved" ? "bg-green-600 hover:bg-green-600" : ""}`}
-                        >
-                          <StatusIcon className="h-3 w-3" />
-                          {sc.label}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
+      {/* Alert banner for pending submissions */}
+      {counts.pending > 0 && isOwnerOrForeman && (
+        <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: "#FEF3C7", border: "1px solid #FDE68A" }}>
+          <AlertTriangle size={18} className="text-amber-600 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-900">
+              {counts.pending} form{counts.pending > 1 ? "s" : ""} awaiting your review
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-amber-300 text-amber-800 hover:bg-amber-50"
+            onClick={() => { setTab("submissions"); setStatusFilter("submitted"); }}
+          >
+            Review <ArrowRight size={12} className="ml-1" />
+          </Button>
         </div>
       )}
+
+      {/* Tabs */}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="forms">Available Forms</TabsTrigger>
+          <TabsTrigger value="submissions">
+            Submissions
+            {counts.submitted > 0 && (
+              <span className="ml-1.5 text-xs bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5 font-bold">
+                {counts.submitted}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── Forms Tab ── */}
+        <TabsContent value="forms" className="mt-4 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Select a form type to fill and submit. All forms generate an AI summary upon submission.
+          </p>
+          {loadingTemplates ? (
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+            </div>
+          ) : templates.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <ClipboardList className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">No form templates available</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+              {templates.map((t) => {
+                const cat = categoryConfig[t.category];
+                return (
+                  <Link key={t.id} href={`/safety/submit?template=${t.id}`}>
+                    <div
+                      className="rounded-xl p-5 border cursor-pointer hover:shadow-md hover:border-primary/40 transition-all group flex flex-col gap-3"
+                      style={{ background: "#fff", borderColor: "#E5E5E5" }}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div
+                          className="rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{
+                            width: 36,
+                            height: 36,
+                            background: cat?.bg ?? "#F3F4F6",
+                          }}
+                        >
+                          <ShieldAlert size={17} style={{ color: cat?.color ?? "#6B7280" }} />
+                        </div>
+                        <CategoryBadge category={t.category} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm group-hover:text-primary transition-colors">
+                          {t.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {(t.schema?.fields ?? []).length} fields
+                        </p>
+                      </div>
+                      <div className="mt-auto">
+                        <span
+                          className="text-xs font-semibold flex items-center gap-1"
+                          style={{ color: GOLD }}
+                        >
+                          Fill Form <ArrowRight size={11} />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {isOwnerOrForeman && (
+            <div className="pt-2">
+              <p className="text-xs text-muted-foreground">
+                Need a custom form? Contact your administrator to add new form templates.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Submissions Tab ── */}
+        <TabsContent value="submissions" className="mt-4 space-y-4">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by form type, worker..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="submitted">Submitted</SelectItem>
+                <SelectItem value="reviewed">Reviewed</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {loadingSubmissions ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+            </div>
+          ) : filtered.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+                <ShieldAlert className="h-12 w-12 text-muted-foreground/40" />
+                <div className="text-center">
+                  <p className="font-medium text-foreground">No submissions yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {search || statusFilter !== "all"
+                      ? "Try adjusting your filters."
+                      : "Submit a safety form using the Forms tab."}
+                  </p>
+                </div>
+                {!search && statusFilter === "all" && (
+                  <Button variant="outline" onClick={() => setTab("forms")} className="gap-2">
+                    <ClipboardList className="h-4 w-4" />
+                    View Available Forms
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((s) => {
+                const sc = statusConfig[s.status] ?? statusConfig.draft;
+                const StatusIcon = sc.icon;
+                return (
+                  <Link key={s.id} href={`/safety/submissions/${s.id}`}>
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow hover:border-primary/30">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-foreground">
+                                {s.templateName ?? "Safety Form"}
+                              </span>
+                              <CategoryBadge category={s.templateCategory} />
+                            </div>
+                            {isOwnerOrForeman && s.workerName && (
+                              <p className="text-sm text-muted-foreground mt-0.5">
+                                Submitted by: {s.workerName}
+                              </p>
+                            )}
+                            {s.aiSummary && (
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2 italic">
+                                "{s.aiSummary.slice(0, 120)}…"
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {format(new Date(s.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span
+                              className="text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"
+                              style={{ background: sc.bg, color: sc.color }}
+                            >
+                              <StatusIcon className="h-3 w-3" />
+                              {sc.label}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -777,6 +777,7 @@ export const formSubmissionsTable = pgTable("form_submissions", {
   userId: integer("user_id").notNull().references(() => usersTable.id),
   companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id"),
+  contactId: integer("contact_id").references(() => contactsTable.id),
   data: json("data").notNull(),
   status: text("status").notNull().default("draft"), // draft | submitted | reviewed | approved
   aiSummary: text("ai_summary"),
@@ -1029,6 +1030,26 @@ export const tradehubConversationParticipantsTable = pgTable(
   },
   (t) => [primaryKey({ columns: [t.conversationId, t.userId] })],
 );
+
+// ── File Attachments ──────────────────────────────────────────────────────────
+
+export const fileAttachmentsTable = pgTable("file_attachments", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id),
+  uploadedByUserId: integer("uploaded_by_user_id")
+    .notNull()
+    .references(() => usersTable.id),
+  entityType: text("entity_type").notNull(), // project | contact | task | form_submission
+  entityId: integer("entity_id").notNull(),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size"),
+  mimeType: text("mime_type"),
+  objectPath: text("object_path").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type FileAttachment = typeof fileAttachmentsTable.$inferSelect;
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 

@@ -47,7 +47,9 @@ import {
   Loader2,
   User,
   ChevronRight,
+  Paperclip,
 } from "lucide-react";
+import FileAttachmentsPanel from "@/components/FileAttachments";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -95,6 +97,7 @@ export default function Contacts() {
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState<ContactForm>(EMPTY_FORM);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [filesContact, setFilesContact] = useState<{ id: number; name: string } | null>(null);
 
   const { data: contacts = [], isLoading } = useListContacts({
     search: search || undefined,
@@ -351,7 +354,7 @@ export default function Contacts() {
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-2 mt-auto pt-1 border-t border-muted/40">
+                <div className="flex gap-1.5 mt-auto pt-1 border-t border-muted/40">
                   <Button
                     size="sm"
                     variant="ghost"
@@ -363,10 +366,18 @@ export default function Contacts() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    className="flex-1 text-xs h-7"
+                    onClick={() => setFilesContact({ id: c.id, name: c.name })}
+                  >
+                    <Paperclip size={12} className="mr-1" /> Files
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
                     className="text-xs h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => setDeleteId(c.id)}
                   >
-                    <Trash2 size={12} className="mr-1" /> Delete
+                    <Trash2 size={12} />
                   </Button>
                 </div>
               </div>
@@ -461,6 +472,23 @@ export default function Contacts() {
               {editId ? "Save Changes" : "Create Contact"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Files Dialog */}
+      <Dialog open={filesContact !== null} onOpenChange={(o) => { if (!o) setFilesContact(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Paperclip className="h-4 w-4" />
+              Files — {filesContact?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {filesContact && (
+            <div className="py-2">
+              <FileAttachmentsPanel entityType="contact" entityId={filesContact.id} />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

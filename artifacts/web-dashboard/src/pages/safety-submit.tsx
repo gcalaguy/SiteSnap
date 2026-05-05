@@ -1,14 +1,13 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, useListContacts, useListProjects } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Send, Loader2, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Save, Send, Loader2, ShieldAlert, User, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -19,6 +18,9 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
 
 interface FormField {
   id: string;
@@ -151,16 +153,33 @@ function FormFieldRenderer({
 
 export default function SafetySubmitPage() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const searchParams = new URLSearchParams(search);
+  const templateParam = searchParams.get("template");
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
+    templateParam ? parseInt(templateParam) : null
+  );
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
 
   const { data: templates = [], isLoading: loadingTemplates } = useQuery<FormTemplate[]>({
     queryKey: ["safety-templates"],
     queryFn: () => customFetch("/api/safety/templates"),
   });
+
+  const { data: projects = [] } = useListProjects();
+  const { data: contacts = [] } = useListContacts();
+
+  useEffect(() => {
+    if (templateParam && !isNaN(parseInt(templateParam))) {
+      setSelectedTemplateId(parseInt(templateParam));
+    }
+  }, [templateParam]);
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
 
@@ -172,6 +191,8 @@ export default function SafetySubmitPage() {
           templateId: selectedTemplateId,
           data: formData,
           status: payload.status,
+          projectId: selectedProjectId,
+          contactId: selectedContactId,
         }),
       }),
     onSuccess: (data: any, vars) => {
@@ -280,12 +301,72 @@ export default function SafetySubmitPage() {
               onClick={() => {
                 setSelectedTemplateId(null);
                 setFormData({});
+                setSelectedProjectId(null);
+                setSelectedContactId(null);
               }}
             >
               Change Form
             </Button>
           </div>
 
+          {/* Context selectors */}
+          <Card>
+            <CardContent className="pt-5 pb-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                Link to Project & Contact (optional)
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-sm">
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    Project
+                  </Label>
+                  <Select
+                    value={selectedProjectId ? String(selectedProjectId) : "none"}
+                    onValueChange={(v) => setSelectedProjectId(v === "none" ? null : parseInt(v))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select project…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {(projects as any[]).map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-sm">
+                    <User className="h-3.5 w-3.5" />
+                    Contact / Person Involved
+                  </Label>
+                  <Select
+                    value={selectedContactId ? String(selectedContactId) : "none"}
+                    onValueChange={(v) => setSelectedContactId(v === "none" ? null : parseInt(v))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select contact…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {(contacts as any[]).map((c) => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.name ?? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim()}
+                          {c.company ? ` — ${c.company}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Form fields */}
           <Card>
             <CardContent className="pt-6 space-y-6">
               {(selectedTemplate?.schema?.fields ?? []).map((field) => (
@@ -323,7 +404,8 @@ export default function SafetySubmitPage() {
             <Button
               onClick={() => saveMutation.mutate({ status: "submitted" })}
               disabled={saveMutation.isPending || !validateRequired()}
-              className="gap-2"
+              style={{ background: GOLD, color: BLACK }}
+              className="font-semibold gap-2"
             >
               {saveMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

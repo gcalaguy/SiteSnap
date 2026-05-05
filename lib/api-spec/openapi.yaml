@@ -44,6 +44,10 @@ tags:
     description: Invoice management and payment tracking
   - name: contacts
     description: CRM contact management
+  - name: forms
+    description: Form templates and submissions for safety and incidents
+  - name: files
+    description: General file attachment management
   - name: financials
     description: Payments, change orders, and financial dashboard
   - name: proposals
@@ -54,6 +58,247 @@ tags:
     description: Lead activity logging
 
 paths:
+  # ── Forms ────────────────────────────────────────────────────────────────────
+  /forms:
+    get:
+      operationId: listForms
+      tags: [forms]
+      summary: List all active form templates
+      responses:
+        "200":
+          description: Form templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FormTemplateRecord"
+    post:
+      operationId: createForm
+      tags: [forms]
+      summary: Create a form template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFormBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormTemplateRecord"
+
+  /forms/{id}:
+    get:
+      operationId: getForm
+      tags: [forms]
+      summary: Get a form template
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormTemplateRecord"
+    put:
+      operationId: updateForm
+      tags: [forms]
+      summary: Update a form template
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFormBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormTemplateRecord"
+    delete:
+      operationId: deleteForm
+      tags: [forms]
+      summary: Deactivate a form template
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deactivated
+
+  /form-submissions:
+    get:
+      operationId: listFormSubmissions
+      tags: [forms]
+      summary: List form submissions
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: projectId
+          schema:
+            type: integer
+        - in: query
+          name: contactId
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Submissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FormSubmissionRecord"
+    post:
+      operationId: createFormSubmission
+      tags: [forms]
+      summary: Create a form submission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFormSubmissionBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormSubmissionRecord"
+
+  /form-submissions/{id}:
+    get:
+      operationId: getFormSubmission
+      tags: [forms]
+      summary: Get a form submission
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Submission detail
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /form-submissions/{id}/status:
+    patch:
+      operationId: updateFormSubmissionStatus
+      tags: [forms]
+      summary: Review or approve a form submission
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [reviewed, approved]
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormSubmissionRecord"
+
+  # ── Files ─────────────────────────────────────────────────────────────────────
+  /files:
+    get:
+      operationId: listFiles
+      tags: [files]
+      summary: List file attachments for an entity
+      parameters:
+        - in: query
+          name: entityType
+          schema:
+            type: string
+        - in: query
+          name: entityId
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FileAttachmentRecord"
+    post:
+      operationId: registerFile
+      tags: [files]
+      summary: Register a file after presigned upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterFileBody"
+      responses:
+        "201":
+          description: Created file record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileAttachmentRecord"
+
+  /files/{id}:
+    delete:
+      operationId: deleteFile
+      tags: [files]
+      summary: Delete a file attachment record
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ── Financials ───────────────────────────────────────────────────────────────
   /financials/summary:
     get:
@@ -3807,6 +4052,150 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    FormTemplateRecord:
+      type: object
+      required: [id, name, category, schema, isActive, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        schema:
+          type: object
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateFormBody:
+      type: object
+      required: [name, category, schema]
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [safety, injury, hazard, toolbox]
+        schema:
+          type: object
+
+    FormSubmissionRecord:
+      type: object
+      required: [id, templateId, userId, companyId, status, data, createdAt]
+      properties:
+        id:
+          type: integer
+        templateId:
+          type: integer
+        userId:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: integer
+          nullable: true
+        contactId:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [draft, submitted, reviewed, approved]
+        data:
+          type: object
+        aiSummary:
+          type: string
+          nullable: true
+        templateName:
+          type: string
+          nullable: true
+        templateCategory:
+          type: string
+          nullable: true
+        workerName:
+          type: string
+          nullable: true
+        contactName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateFormSubmissionBody:
+      type: object
+      required: [templateId, data]
+      properties:
+        templateId:
+          type: integer
+        data:
+          type: object
+        status:
+          type: string
+          enum: [draft, submitted]
+        projectId:
+          type: integer
+          nullable: true
+        contactId:
+          type: integer
+          nullable: true
+
+    FileAttachmentRecord:
+      type: object
+      required: [id, companyId, uploadedByUserId, entityType, entityId, fileName, objectPath, createdAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        uploadedByUserId:
+          type: integer
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        objectPath:
+          type: string
+        uploaderName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    RegisterFileBody:
+      type: object
+      required: [entityType, entityId, fileName, objectPath]
+      properties:
+        entityType:
+          type: string
+          enum: [project, contact, task, form_submission]
+        entityId:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        objectPath:
+          type: string
 
     FinancialSummary:
       type: object

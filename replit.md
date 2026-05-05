@@ -26,6 +26,22 @@ BuildCore is a Construction AI Assistant MVP for small Canadian construction com
 
 ## Phase Status
 
+### ✅ Phase 13 — SAFETY FORMS + GENERAL FILE ATTACHMENTS (Complete)
+- **DB migrations**: Added `contact_id` FK to `form_submissions`; new `file_attachments` table (companyId, uploadedByUserId, entityType, entityId, fileName, fileSize, mimeType, objectPath, createdAt); index on (entityType, entityId)
+- **Schema**: Updated `formSubmissionsTable` with `contactId`; added `fileAttachmentsTable` + `FileAttachment` type
+- **Forms API** (`/api/forms`): Full CRUD for form templates (GET, GET/:id, POST, PUT/:id, DELETE/:id with soft-deactivate)
+- **Form Submissions API** (`/api/form-submissions`): List with contact+project+status filters, POST with contactId/projectId, GET/:id (includes contact), PATCH/:id/status (review/approve)
+- **Files API** (`/api/files`): GET (entityType+entityId filter), POST (register after presigned upload), DELETE/:id; scoped by companyId
+- **OpenAPI**: Added `/forms`, `/form-submissions`, `/files` paths + all schemas; tags registered; codegen re-run
+- **Safety page rewrite** (`safety.tsx`): Two-tab layout — "Available Forms" tab shows 5 template cards (category badge, fill form CTA, color-coded by hazard type); "Submissions" tab has existing list with status filter; alert banner for pending review items (owner/foreman only)
+- **Safety submit update** (`safety-submit.tsx`): URL param `?template=ID` pre-selects form type; new "Link to Project & Contact" card with optional project + contact selectors; passes contactId + projectId through to API
+- **FileAttachments component** (`components/FileAttachments.tsx`): Reusable panel — presigned URL upload flow (request URL → PUT to GCS → register record), file list with icon by type, formatted size + date + uploader, download link, delete with confirmation dialog
+- **Project detail Files tab**: Added "Files" tab to the project detail page (after Documents), renders `<FileAttachments entityType="project" entityId={projectId} />`
+- **Contacts file attachments**: "Files" button added to each contact card; opens a dialog with `<FileAttachments entityType="contact" entityId={c.id} />` for per-contact file management
+- **Seeded form templates**: 5 templates already exist — Incident Report (injury), Near Miss Report (safety), Hazard Assessment (hazard), Daily Safety Log (safety), Toolbox Talk (toolbox)
+
+
+
 ### ✅ Phase 9 — MULTI-TENANT SAAS ADMIN SYSTEM (Complete)
 - **New DB tables**: `plans`, `features`, `plan_features`, `subscriptions` + `system_role` TEXT on users
 - **SUPER_ADMIN role**: `system_role = 'super_admin'` on users table; bypasses tenant isolation and feature gates

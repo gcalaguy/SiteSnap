@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import DocumentsTab from "@/components/DocumentsTab";
 import QuotesTab from "@/components/QuotesTab";
+import FileAttachmentsPanel from "@/components/FileAttachments";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -741,6 +742,9 @@ export default function ProjectDetail() {
             <TabsTrigger value="documents" className="px-4 whitespace-nowrap flex items-center gap-1.5">
               <FolderOpen className="h-3.5 w-3.5" />Documents
             </TabsTrigger>
+            <TabsTrigger value="files" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+              <Package className="h-3.5 w-3.5" />Files
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -1324,6 +1328,17 @@ export default function ProjectDetail() {
 
         <TabsContent value="documents" className="mt-6">
           <DocumentsTab projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="files" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Project Files</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FileAttachmentsPanel entityType="project" entityId={projectId} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

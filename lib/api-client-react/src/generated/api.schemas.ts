@@ -713,6 +713,116 @@ export interface Invoice {
   updatedAt: string;
 }
 
+export type FormTemplateRecordSchema = { [key: string]: unknown };
+
+export interface FormTemplateRecord {
+  id: number;
+  name: string;
+  category: string;
+  schema: FormTemplateRecordSchema;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type CreateFormBodyCategory =
+  (typeof CreateFormBodyCategory)[keyof typeof CreateFormBodyCategory];
+
+export const CreateFormBodyCategory = {
+  safety: "safety",
+  injury: "injury",
+  hazard: "hazard",
+  toolbox: "toolbox",
+} as const;
+
+export type CreateFormBodySchema = { [key: string]: unknown };
+
+export interface CreateFormBody {
+  name: string;
+  category: CreateFormBodyCategory;
+  schema: CreateFormBodySchema;
+}
+
+export type FormSubmissionRecordStatus =
+  (typeof FormSubmissionRecordStatus)[keyof typeof FormSubmissionRecordStatus];
+
+export const FormSubmissionRecordStatus = {
+  draft: "draft",
+  submitted: "submitted",
+  reviewed: "reviewed",
+  approved: "approved",
+} as const;
+
+export type FormSubmissionRecordData = { [key: string]: unknown };
+
+export interface FormSubmissionRecord {
+  id: number;
+  templateId: number;
+  userId: number;
+  companyId: number;
+  projectId?: number | null;
+  contactId?: number | null;
+  status: FormSubmissionRecordStatus;
+  data: FormSubmissionRecordData;
+  aiSummary?: string | null;
+  templateName?: string | null;
+  templateCategory?: string | null;
+  workerName?: string | null;
+  contactName?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type CreateFormSubmissionBodyData = { [key: string]: unknown };
+
+export type CreateFormSubmissionBodyStatus =
+  (typeof CreateFormSubmissionBodyStatus)[keyof typeof CreateFormSubmissionBodyStatus];
+
+export const CreateFormSubmissionBodyStatus = {
+  draft: "draft",
+  submitted: "submitted",
+} as const;
+
+export interface CreateFormSubmissionBody {
+  templateId: number;
+  data: CreateFormSubmissionBodyData;
+  status?: CreateFormSubmissionBodyStatus;
+  projectId?: number | null;
+  contactId?: number | null;
+}
+
+export interface FileAttachmentRecord {
+  id: number;
+  companyId: number;
+  uploadedByUserId: number;
+  entityType: string;
+  entityId: number;
+  fileName: string;
+  fileSize?: number | null;
+  mimeType?: string | null;
+  objectPath: string;
+  uploaderName?: string | null;
+  createdAt: string;
+}
+
+export type RegisterFileBodyEntityType =
+  (typeof RegisterFileBodyEntityType)[keyof typeof RegisterFileBodyEntityType];
+
+export const RegisterFileBodyEntityType = {
+  project: "project",
+  contact: "contact",
+  task: "task",
+  form_submission: "form_submission",
+} as const;
+
+export interface RegisterFileBody {
+  entityType: RegisterFileBodyEntityType;
+  entityId: number;
+  fileName: string;
+  fileSize?: number | null;
+  mimeType?: string | null;
+  objectPath: string;
+}
+
 export interface PaymentRecord {
   id: number;
   companyId: number;
@@ -1139,6 +1249,32 @@ export interface UpdateInvoiceBody {
   notes?: string | null;
   dueDate?: string | null;
 }
+
+export type ListFormSubmissionsParams = {
+  status?: string;
+  projectId?: number;
+  contactId?: number;
+};
+
+export type GetFormSubmission200 = { [key: string]: unknown };
+
+export type UpdateFormSubmissionStatusBodyStatus =
+  (typeof UpdateFormSubmissionStatusBodyStatus)[keyof typeof UpdateFormSubmissionStatusBodyStatus];
+
+export const UpdateFormSubmissionStatusBodyStatus = {
+  reviewed: "reviewed",
+  approved: "approved",
+} as const;
+
+export type UpdateFormSubmissionStatusBody = {
+  status: UpdateFormSubmissionStatusBodyStatus;
+  notes?: string;
+};
+
+export type ListFilesParams = {
+  entityType?: string;
+  entityId?: number;
+};
 
 export type CreateInvoiceFromProposal201 = { [key: string]: unknown };
 

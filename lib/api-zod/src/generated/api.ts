@@ -8,6 +8,195 @@
 import * as zod from "zod";
 
 /**
+ * @summary List all active form templates
+ */
+export const ListFormsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.string(),
+  schema: zod.object({}).passthrough(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListFormsResponse = zod.array(ListFormsResponseItem);
+
+/**
+ * @summary Create a form template
+ */
+export const CreateFormBody = zod.object({
+  name: zod.string(),
+  category: zod.enum(["safety", "injury", "hazard", "toolbox"]),
+  schema: zod.object({}).passthrough(),
+});
+
+/**
+ * @summary Get a form template
+ */
+export const GetFormParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetFormResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.string(),
+  schema: zod.object({}).passthrough(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a form template
+ */
+export const UpdateFormParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateFormBody = zod.object({
+  name: zod.string(),
+  category: zod.enum(["safety", "injury", "hazard", "toolbox"]),
+  schema: zod.object({}).passthrough(),
+});
+
+export const UpdateFormResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.string(),
+  schema: zod.object({}).passthrough(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Deactivate a form template
+ */
+export const DeleteFormParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List form submissions
+ */
+export const ListFormSubmissionsQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  projectId: zod.coerce.number().optional(),
+  contactId: zod.coerce.number().optional(),
+});
+
+export const ListFormSubmissionsResponseItem = zod.object({
+  id: zod.number(),
+  templateId: zod.number(),
+  userId: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  contactId: zod.number().nullish(),
+  status: zod.enum(["draft", "submitted", "reviewed", "approved"]),
+  data: zod.object({}).passthrough(),
+  aiSummary: zod.string().nullish(),
+  templateName: zod.string().nullish(),
+  templateCategory: zod.string().nullish(),
+  workerName: zod.string().nullish(),
+  contactName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date().optional(),
+});
+export const ListFormSubmissionsResponse = zod.array(
+  ListFormSubmissionsResponseItem,
+);
+
+/**
+ * @summary Create a form submission
+ */
+export const CreateFormSubmissionBody = zod.object({
+  templateId: zod.number(),
+  data: zod.object({}).passthrough(),
+  status: zod.enum(["draft", "submitted"]).optional(),
+  projectId: zod.number().nullish(),
+  contactId: zod.number().nullish(),
+});
+
+/**
+ * @summary Get a form submission
+ */
+export const GetFormSubmissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetFormSubmissionResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Review or approve a form submission
+ */
+export const UpdateFormSubmissionStatusParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateFormSubmissionStatusBody = zod.object({
+  status: zod.enum(["reviewed", "approved"]),
+  notes: zod.string().optional(),
+});
+
+export const UpdateFormSubmissionStatusResponse = zod.object({
+  id: zod.number(),
+  templateId: zod.number(),
+  userId: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  contactId: zod.number().nullish(),
+  status: zod.enum(["draft", "submitted", "reviewed", "approved"]),
+  data: zod.object({}).passthrough(),
+  aiSummary: zod.string().nullish(),
+  templateName: zod.string().nullish(),
+  templateCategory: zod.string().nullish(),
+  workerName: zod.string().nullish(),
+  contactName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+/**
+ * @summary List file attachments for an entity
+ */
+export const ListFilesQueryParams = zod.object({
+  entityType: zod.coerce.string().optional(),
+  entityId: zod.coerce.number().optional(),
+});
+
+export const ListFilesResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  uploadedByUserId: zod.number(),
+  entityType: zod.string(),
+  entityId: zod.number(),
+  fileName: zod.string(),
+  fileSize: zod.number().nullish(),
+  mimeType: zod.string().nullish(),
+  objectPath: zod.string(),
+  uploaderName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListFilesResponse = zod.array(ListFilesResponseItem);
+
+/**
+ * @summary Register a file after presigned upload
+ */
+export const RegisterFileBody = zod.object({
+  entityType: zod.enum(["project", "contact", "task", "form_submission"]),
+  entityId: zod.number(),
+  fileName: zod.string(),
+  fileSize: zod.number().nullish(),
+  mimeType: zod.string().nullish(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Delete a file attachment record
+ */
+export const DeleteFileParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Financial overview stats
  */
 export const GetFinancialSummaryResponse = zod.object({
