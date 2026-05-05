@@ -626,7 +626,7 @@ export default function ProjectDetailScreen() {
         <View style={styles.statsRow}>
           <StatPill label="Reports" value={String(summary.reportCount ?? 0)} icon="file-text" />
           {!isWorker && <StatPill label="RFIs" value={String(summary.openRFIs ?? 0)} icon="alert-circle" />}
-          <StatPill label="Spend" value={formatCurrency(summary.totalSpend)} icon="dollar-sign" />
+          {!isWorker && <StatPill label="Spend" value={formatCurrency(summary.totalSpend)} icon="dollar-sign" />}
         </View>
       )}
 
@@ -668,22 +668,26 @@ export default function ProjectDetailScreen() {
             <>
               <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Activity</Text>
               <View style={[styles.overviewGrid, { borderColor: colors.border }]}>
-                <View style={[styles.overviewCell, { borderRightColor: colors.border, borderBottomColor: colors.border }]}>
+                <View style={[styles.overviewCell, { borderRightColor: colors.border, borderBottomColor: isWorker ? undefined : colors.border }]}>
                   <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.taskCount ?? 0}</Text>
                   <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Tasks</Text>
                 </View>
-                <View style={[styles.overviewCell, { borderBottomColor: colors.border }]}>
+                <View style={[styles.overviewCell, { borderBottomColor: isWorker ? undefined : colors.border }]}>
                   <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.reportCount ?? 0}</Text>
                   <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Reports</Text>
                 </View>
-                <View style={[styles.overviewCell, { borderRightColor: colors.border }]}>
-                  <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.openRFIs ?? 0}</Text>
-                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Open RFIs</Text>
-                </View>
-                <View style={styles.overviewCell}>
-                  <Text style={[styles.overviewValue, { color: colors.primary }]}>{formatCurrency(summary.totalSpend)}</Text>
-                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Total Spend</Text>
-                </View>
+                {!isWorker && (
+                  <View style={[styles.overviewCell, { borderRightColor: colors.border }]}>
+                    <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.openRFIs ?? 0}</Text>
+                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Open RFIs</Text>
+                  </View>
+                )}
+                {!isWorker && (
+                  <View style={styles.overviewCell}>
+                    <Text style={[styles.overviewValue, { color: colors.primary }]}>{formatCurrency(summary.totalSpend)}</Text>
+                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Total Spend</Text>
+                  </View>
+                )}
               </View>
               <View style={{ height: 20 }} />
             </>
