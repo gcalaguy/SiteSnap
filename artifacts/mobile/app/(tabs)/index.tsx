@@ -232,6 +232,16 @@ const styles = StyleSheet.create({
 
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+
+  voiceEstimateCard: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    marginHorizontal: 16, marginBottom: 20, padding: 16,
+    borderRadius: 14, borderWidth: 1,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3,
+  },
+  voiceEstimateIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  voiceEstimateTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  voiceEstimateSub: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 16 },
 });
 
 // ── Screen ──────────────────────────────────────────────────────────────────
@@ -347,7 +357,7 @@ export default function DashboardScreen() {
         <Pressable
           style={({ pressed }) => [
             styles.financeCard,
-            { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1, marginHorizontal: 16, marginBottom: 20 },
+            { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1, marginHorizontal: 16, marginBottom: 12 },
           ]}
           onPress={() => router.push("/finance")}
         >
@@ -360,6 +370,31 @@ export default function DashboardScreen() {
             </View>
             <Feather name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
           </View>
+        </Pressable>
+      )}
+
+      {/* Voice Estimate — owners and foremen only */}
+      {!isWorker && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.voiceEstimateCard,
+            { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+          ]}
+          onPress={() => {
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push("/voice-estimate");
+          }}
+        >
+          <View style={[styles.voiceEstimateIcon, { backgroundColor: `${colors.primary}1A` }]}>
+            <Feather name="mic" size={20} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.voiceEstimateTitle, { color: colors.foreground }]}>Voice Estimator</Text>
+            <Text style={[styles.voiceEstimateSub, { color: colors.mutedForeground }]}>
+              Speak a project description — get an instant estimate & quote
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.primary} />
         </Pressable>
       )}
 

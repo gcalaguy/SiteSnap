@@ -480,6 +480,13 @@ export default function SmartEstimatorPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showCostModels, setShowCostModels] = useState(false);
 
+  // Send to Quotes
+  const [showToQuoteDialog, setShowToQuoteDialog] = useState(false);
+  const [quoteClientName, setQuoteClientName] = useState("");
+  const [quoteClientEmail, setQuoteClientEmail] = useState("");
+  const [quoteNotes, setQuoteNotes] = useState("");
+  const [createdQuoteNumber, setCreatedQuoteNumber] = useState<string | null>(null);
+
   // Data
   const { data: modelsData } = useQuery<{ models: CostModel[]; addons: AddonModel[] }>({
     queryKey: ["estimator-cost-models"],
@@ -544,6 +551,31 @@ export default function SmartEstimatorPage() {
       toast({ title: "Estimate saved", description: "You can now record the actual cost when the project is complete." });
     },
     onError: (err) => handleError(err, "Failed to save estimate"),
+  });
+
+  const toQuoteMutation = useMutation({
+    mutationFn: (body: {
+      title: string;
+      clientName: string;
+      clientEmail?: string;
+      notes?: string;
+      sourcePrompt?: string;
+      lineItems: { description: string; quantity: number; unit: string; unitPrice: number; total: number }[];
+    }) =>
+      customFetch<{ id: number; quoteNumber: string }>("/api/estimator/to-quote", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (data) => {
+      setCreatedQuoteNumber(data.quoteNumber);
+      setShowToQuoteDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["quotes"] });
+      toast({
+        title: "Quote created!",
+        description: `${data.quoteNumber} has been added to your Quotes section as a draft.`,
+      });
+    },
+    onError: (err) => handleError(err, "Failed to create quote"),
   });
 
   const recordActualMutation = useMutation({
@@ -1087,6 +1119,16 @@ export default function SmartEstimatorPage() {
               Save Estimate
             </Button>
 
+            <Button
+              variant="outline"
+              className="gap-2 border-primary/40 text-primary hover:bg-primary/5"
+              onClick={() => setShowToQuoteDialog(true)}
+              disabled={toQuoteMutation.isPending}
+            >
+              <FileText className="h-4 w-4" />
+              Send to Quotes
+            </Button>
+
             {savedEstimateId && (
               <Button
                 variant="outline"
@@ -1110,8 +1152,85 @@ export default function SmartEstimatorPage() {
               <span>Estimate saved! When the project is complete, click <strong>Record Actual Cost</strong> to improve future estimates.</span>
             </div>
           )}
+
+          {createdQuoteNumber && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-center gap-3 text-sm">
+              <Check className="h-4 w-4 text-primary flex-shrink-0" />
+              <span className="text-foreground">
+                Quote <strong>{createdQuoteNumber}</strong> created as a draft.{" "}
+                <a href="/quotes" className="underline text-primary font-medium">View in Quotes →</a>
+              </span>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Send to Quotes Dialog */}
+      <Dialog open={showToQuoteDialog} onOpenChange={setShowToQuoteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Estimate to Quotes</DialogTitle>
+            <DialogDescription>
+              This will create a draft quote in the Quotes section using the current line items and pricing.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Client Name *</Label>
+              <Input
+                value={quoteClientName}
+                onChange={(e) => setQuoteClientName(e.target.value)}
+                placeholder="e.g. John Smith or Acme Construction"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Client Email (optional)</Label>
+              <Input
+                type="email"
+                value={quoteClientEmail}
+                onChange={(e) => setQuoteClientEmail(e.target.value)}
+                placeholder="client@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Input
+                value={quoteNotes}
+                onChange={(e) => setQuoteNotes(e.target.value)}
+                placeholder="Any additional notes for this quote…"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowToQuoteDialog(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!estimateResult) return;
+                const title = `${PROJECT_TYPE_LABELS[params.project_type] ?? params.project_type} — ${params.square_feet} sqft`;
+                toQuoteMutation.mutate({
+                  title,
+                  clientName: quoteClientName.trim(),
+                  clientEmail: quoteClientEmail.trim() || undefined,
+                  notes: quoteNotes.trim() || undefined,
+                  sourcePrompt: freeText || undefined,
+                  lineItems: lineItems.map((li) => ({
+                    description: li.description,
+                    quantity: li.quantity,
+                    unit: li.unit,
+                    unitPrice: li.unitCost,
+                    total: li.total,
+                  })),
+                });
+              }}
+              disabled={toQuoteMutation.isPending || !quoteClientName.trim()}
+            >
+              {toQuoteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
+              Create Quote
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Save Dialog */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
