@@ -1,11 +1,12 @@
 import { useGetMe, customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X } from "lucide-react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -564,6 +565,142 @@ function CompanyLogoCard({ company }: { company: any }) {
   );
 }
 
+// ── Document Templates Card ────────────────────────────────────────────────────
+
+function DocumentTemplatesCard({ company }: { company: any }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [uploadingType, setUploadingType] = useState<"quote" | "invoice" | null>(null);
+  const quoteInputRef = useRef<HTMLInputElement>(null);
+  const invoiceInputRef = useRef<HTMLInputElement>(null);
+
+  function templateUrl(path: string | null | undefined) {
+    if (!path) return null;
+    return path.replace(/^\/objects\//, "/api/storage/objects/");
+  }
+
+  async function handleUpload(file: File, type: "quote" | "invoice") {
+    setUploadingType(type);
+    try {
+      const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
+        "/api/storage/uploads/request-url",
+        { method: "POST", body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }
+      );
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      await customFetch(`/api/companies/${company.id}/${type}-template`, {
+        method: "PATCH",
+        body: JSON.stringify({ templatePath: objectPath }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      toast({ title: `${type === "quote" ? "Quote" : "Invoice"} template uploaded`, description: "It will appear on all new PDFs." });
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setUploadingType(null);
+    }
+  }
+
+  async function handleRemove(type: "quote" | "invoice") {
+    try {
+      await customFetch(`/api/companies/${company.id}/${type}-template`, {
+        method: "PATCH",
+        body: JSON.stringify({ templatePath: "" }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      toast({ title: `${type === "quote" ? "Quote" : "Invoice"} template removed` });
+    } catch {
+      toast({ title: "Failed to remove template", variant: "destructive" });
+    }
+  }
+
+  const quoteTemplateUrl = templateUrl(company.quoteTemplatePath);
+  const invoiceTemplateUrl = templateUrl(company.invoiceTemplatePath);
+
+  function TemplateSection({
+    type,
+    currentUrl,
+    inputRef,
+  }: {
+    type: "quote" | "invoice";
+    currentUrl: string | null;
+    inputRef: React.RefObject<HTMLInputElement | null>;
+  }) {
+    const label = type === "quote" ? "Quote Template" : "Invoice Template";
+    const isUploading = uploadingType === type;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-foreground">{label}</p>
+            <p className="text-xs text-muted-foreground">Header image placed at the top of every {type} PDF</p>
+          </div>
+          {currentUrl && (
+            <button
+              onClick={() => handleRemove(type)}
+              className="p-1 rounded-full bg-background border border-border hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
+              title={`Remove ${type} template`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {currentUrl ? (
+          <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
+            <img src={currentUrl} alt={`${label} preview`} className="w-full max-h-28 object-cover object-top" />
+          </div>
+        ) : (
+          <div className="rounded-lg border-2 border-dashed border-border bg-muted/20 p-5 flex items-center justify-center h-20">
+            <div className="text-center">
+              <FileText className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1" />
+              <p className="text-xs text-muted-foreground">No template uploaded</p>
+            </div>
+          </div>
+        )}
+
+        <input
+          ref={inputRef}
+          type="file"
+          className="hidden"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f, type); e.target.value = ""; }}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          disabled={isUploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          {currentUrl ? "Replace Template" : "Upload Template"}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-primary" />
+          Document Templates
+        </CardTitle>
+        <CardDescription>
+          Upload a custom header image for your quotes and invoices. This image will appear at the top of every exported
+          PDF, replacing the default Site Snap header. Recommended: landscape PNG at 1400&times;280 px.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <TemplateSection type="quote" currentUrl={quoteTemplateUrl} inputRef={quoteInputRef} />
+        <Separator />
+        <TemplateSection type="invoice" currentUrl={invoiceTemplateUrl} inputRef={invoiceInputRef} />
+        <p className="text-xs text-muted-foreground">PNG, JPG, or WebP · max 20 MB</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Settings Page ──────────────────────────────────────────────────────────────
 
 export default function Settings() {
@@ -639,6 +776,7 @@ export default function Settings() {
       </Card>
 
       <CompanyLogoCard company={company} />
+      <DocumentTemplatesCard company={company} />
       <DigestCard />
       <QuickBooksCard />
     </div>

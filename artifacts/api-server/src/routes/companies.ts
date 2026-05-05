@@ -112,6 +112,44 @@ router.patch("/companies/:companyId/logo", requireAuth, requireCompany, async (r
   res.json(updated);
 });
 
+// PATCH /companies/:companyId/quote-template — set or clear quote template path
+router.patch("/companies/:companyId/quote-template", requireAuth, requireCompany, async (req, res) => {
+  const companyId = parseInt(req.params.companyId);
+  if (companyId !== req.companyId) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  const templatePath = typeof req.body?.templatePath === "string" ? req.body.templatePath || null : null;
+
+  const [updated] = await db
+    .update(companiesTable)
+    .set({ quoteTemplatePath: templatePath })
+    .where(eq(companiesTable.id, companyId))
+    .returning();
+
+  res.json(updated);
+});
+
+// PATCH /companies/:companyId/invoice-template — set or clear invoice template path
+router.patch("/companies/:companyId/invoice-template", requireAuth, requireCompany, async (req, res) => {
+  const companyId = parseInt(req.params.companyId);
+  if (companyId !== req.companyId) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  const templatePath = typeof req.body?.templatePath === "string" ? req.body.templatePath || null : null;
+
+  const [updated] = await db
+    .update(companiesTable)
+    .set({ invoiceTemplatePath: templatePath })
+    .where(eq(companiesTable.id, companyId))
+    .returning();
+
+  res.json(updated);
+});
+
 // GET /companies/:companyId/members
 router.get(
   "/companies/:companyId/members",

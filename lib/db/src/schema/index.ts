@@ -63,6 +63,8 @@ export const companiesTable = pgTable("companies", {
   referralCode: text("referral_code").unique(),
   referredByCode: text("referred_by_code"),
   logoPath: text("logo_path"),
+  quoteTemplatePath: text("quote_template_path"),
+  invoiceTemplatePath: text("invoice_template_path"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
