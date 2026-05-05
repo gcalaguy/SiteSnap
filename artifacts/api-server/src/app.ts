@@ -61,6 +61,7 @@ app.post(
 
 app.use(cors({ credentials: true, origin: true }));
 app.use("/api/ai/transcribe", express.json({ limit: "20mb" }));
+app.use("/api/invoices", express.json({ limit: "10mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
