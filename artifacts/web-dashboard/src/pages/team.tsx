@@ -34,6 +34,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function makeInviteLink(token: string) {
@@ -447,25 +450,27 @@ export default function Team() {
                 const displayName = getMemberDisplayName(member);
                 const initials = getMemberInitials(member);
                 return (
-                  <div key={member.id} className="flex items-center justify-between p-4 border rounded-md bg-muted/20">
+                  <div key={member.id} className="flex items-center justify-between p-4 rounded-xl"
+                    style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
                     <div className="flex items-center gap-4">
-                      <Avatar className="h-10 w-10 bg-primary/20 text-primary border border-primary/20">
-                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">{initials}</AvatarFallback>
+                      <Avatar className="h-10 w-10 shrink-0">
+                        <AvatarFallback className="font-bold text-sm" style={{ background: GOLD, color: BLACK }}>{initials}</AvatarFallback>
                       </Avatar>
                       <div>
                         {displayName ? (
                           <>
-                            <p className="font-medium">{displayName}</p>
-                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                            <p className="font-semibold text-white">{displayName}</p>
+                            <p className="text-sm" style={{ color: GOLD }}>{member.email}</p>
                           </>
                         ) : (
                           <>
-                            <p className="font-medium">{member.email}</p>
+                            <p className="font-semibold text-white">{member.email}</p>
                             {isOwner && member.id !== user?.id && (
                               <button
                                 type="button"
                                 onClick={() => openEditName(member)}
-                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-0.5"
+                                className="text-xs flex items-center gap-1 mt-0.5 hover:underline"
+                                style={{ color: GOLD }}
                               >
                                 <Pencil className="h-3 w-3" /> Add name
                               </button>
@@ -475,13 +480,14 @@ export default function Team() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <Badge variant={member.role === "owner" ? "default" : member.role === "foreman" ? "secondary" : "outline"}>
+                      <span className="text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md"
+                        style={{ background: GOLD, color: BLACK }}>
                         {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                      </Badge>
+                      </span>
                       {isOwner && member.id !== user?.id && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" style={{ color: GOLD }}><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
