@@ -41,6 +41,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 type Task = {
   id: number;
   projectId: number;
@@ -743,53 +746,41 @@ export default function ProjectDetail() {
 
         <TabsContent value="overview" className="space-y-4 mt-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
-                <DollarSign className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">${summary?.totalBudget?.toLocaleString() || "0"}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-                <DollarSign className="h-4 w-4 text-destructive" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">${summary?.totalSpent?.toLocaleString() || "0"}</div>
-                {summary?.budgetUtilizationPercent && (
-                  <p className="text-xs text-muted-foreground">{summary.budgetUtilizationPercent.toFixed(1)}% utilized</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {selectedMember ? `${selectedMember.firstName}'s Reports` : "Daily Reports"}
-                </CardTitle>
-                <FileText className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{filteredReports.length}</div>
-                {filteredReports.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Last: {format(new Date((filteredReports[0] as any).reportDate), "MMM d")}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Open RFIs</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-orange-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{summary?.openRFICount || 0}</div>
-                <p className="text-xs text-muted-foreground">{summary?.closedRFICount || 0} closed</p>
-              </CardContent>
-            </Card>
+            {[
+              {
+                label: "Total Budget",
+                icon: DollarSign,
+                value: `$${summary?.totalBudget?.toLocaleString() || "0"}`,
+                sub: null,
+              },
+              {
+                label: "Total Spent",
+                icon: DollarSign,
+                value: `$${summary?.totalSpent?.toLocaleString() || "0"}`,
+                sub: summary?.budgetUtilizationPercent ? `${summary.budgetUtilizationPercent.toFixed(1)}% utilized` : null,
+              },
+              {
+                label: selectedMember ? `${selectedMember.firstName}'s Reports` : "Daily Reports",
+                icon: FileText,
+                value: String(filteredReports.length),
+                sub: filteredReports.length > 0 ? `Last: ${format(new Date((filteredReports[0] as any).reportDate), "MMM d")}` : null,
+              },
+              {
+                label: "Open RFIs",
+                icon: AlertTriangle,
+                value: String(summary?.openRFICount || 0),
+                sub: `${summary?.closedRFICount || 0} closed`,
+              },
+            ].map(({ label, icon: Icon, value, sub }) => (
+              <div key={label} className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+                  <Icon size={15} style={{ color: GOLD }} />
+                </div>
+                <p className="text-2xl font-bold text-white">{value}</p>
+                {sub && <p className="text-xs mt-1" style={{ color: "#71717a" }}>{sub}</p>}
+              </div>
+            ))}
           </div>
 
           {/* Task Overview */}

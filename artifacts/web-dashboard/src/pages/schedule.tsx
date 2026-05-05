@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Member = { id: number; firstName: string; lastName: string; role: string; email: string };
 type GProject = { id: number; name: string; status: string; startDate: string | null; endDate: string | null };
@@ -370,45 +373,19 @@ export default function Schedule() {
 
         {/* ── Summary cards ── */}
         <div className="grid grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{scheduledWorkers}</p>
-                  <p className="text-xs text-muted-foreground">Workers scheduled</p>
-                </div>
+          {[
+            { label: "Workers Scheduled",  value: scheduledWorkers,         icon: Users       },
+            { label: "Active Projects",    value: activeProjects,           icon: Building2   },
+            { label: "Unscheduled Members",value: Math.max(0, unscheduled), icon: CalendarDays},
+          ].map(({ label, value, icon: Icon }) => (
+            <div key={label} className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+                <Icon size={15} style={{ color: GOLD }} />
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-100">
-                  <Building2 className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{activeProjects}</p>
-                  <p className="text-xs text-muted-foreground">Active projects</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-100">
-                  <CalendarDays className="h-5 w-5 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{Math.max(0, unscheduled)}</p>
-                  <p className="text-xs text-muted-foreground">Unscheduled members</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              <p className="text-2xl font-bold text-white">{value}</p>
+            </div>
+          ))}
         </div>
 
         {/* ── View toggle + nav controls ── */}

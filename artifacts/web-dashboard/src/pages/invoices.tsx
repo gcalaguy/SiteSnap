@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Receipt, ChevronRight } from "lucide-react";
+import { Receipt, ChevronRight, TrendingDown, TrendingUp } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
+
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -64,18 +67,18 @@ export default function Invoices() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4">
-        <Card className="border-blue-100 bg-blue-50/40">
-          <CardContent className="p-4">
-            <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">Outstanding</p>
-            <p className="text-2xl font-bold text-blue-700 mt-1">{fmtCAD(totalOutstanding)}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-green-100 bg-green-50/40">
-          <CardContent className="p-4">
-            <p className="text-xs text-green-600 font-medium uppercase tracking-wide">Collected</p>
-            <p className="text-2xl font-bold text-green-700 mt-1">{fmtCAD(totalPaid)}</p>
-          </CardContent>
-        </Card>
+        {[
+          { label: "Outstanding", value: fmtCAD(totalOutstanding), icon: TrendingDown },
+          { label: "Collected",   value: fmtCAD(totalPaid),        icon: TrendingUp  },
+        ].map(({ label, value, icon: Icon }) => (
+          <div key={label} className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+              <Icon size={15} style={{ color: GOLD }} />
+            </div>
+            <p className="text-2xl font-bold text-white">{value}</p>
+          </div>
+        ))}
       </div>
 
       <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as InvoiceStatus | "all")}>
