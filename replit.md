@@ -1,493 +1,107 @@
-# Site Snap — Construction AI Assistant
+# Site Snap
 
-## Overview
+Site Snap is a multi-tenant AI-powered project management and collaboration tool for Canadian construction companies.
 
-Site Snap is a Construction AI Assistant for small Canadian construction companies and contractors. It provides multi-tenant project management, team collaboration, and AI-powered tools for daily reports, cost analysis, RFI generation, safety forms, file management, and automated notifications.
+## Run & Operate
+
+To run the application:
+- **Run**: `pnpm run start` (starts both API and web dashboard in dev mode)
+- **Build All**: `pnpm run build`
+- **Typecheck All**: `pnpm run typecheck`
+- **Codegen API**: `pnpm --filter @workspace/api-spec run codegen`
+- **Push DB Schema (dev)**: `pnpm --filter @workspace/db run push`
+- **Migrate Production DB (after deploy)**: `DATABASE_URL=<prod_url> pnpm --filter @workspace/db run migrate`
+
+Required Environment Variables:
+- `CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `DATABASE_URL`
+- `SESSION_SECRET` (random 32+ char string)
+- `RESEND_API_KEY`
+- `STRIPE_SECRET_KEY` (if billing is active)
+- `STRIPE_WEBHOOK_SECRET` (if billing is active)
+- `QB_CLIENT_ID`, `QB_CLIENT_SECRET` (for QuickBooks integration)
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (for Twilio SMS)
 
 ## Stack
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
+- **Monorepo**: pnpm workspaces
+- **Node.js**: 24
+- **TypeScript**: 5.9
+- **API**: Express 5
 - **Database**: PostgreSQL + Drizzle ORM
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
+- **API Codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 - **Auth**: Clerk (Replit-managed, multi-tenant)
-- **Web frontend**: React + Vite (Tailwind CSS + shadcn/ui)
-
-## Artifacts
-
-- **web-dashboard** — Main web app for owners and foremen (`/`)
-- **api-server** — Shared Express 5 backend (`/api`)
-- **mobile** — Expo SDK 54 React Native app (`/mobile`)
-- **mockup-sandbox** — Canvas design sandbox (`/__mockup`)
-
-## Architecture — Clean Code Conventions
-
-### API Server (`artifacts/api-server/src/`)
-
-#### Error Handling Pattern
-All async route handlers **must** use `asyncHandler` from `lib/asyncHandler.ts`. This eliminates repetitive try/catch blocks and ensures all thrown errors flow to the global error handler.
-
-```ts
-import { asyncHandler } from "../lib/asyncHandler";
-import { NotFoundError, ValidationError } from "../lib/errors";
-
-router.get("/foo/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) throw new BadRequestError("id must be a number");
-  const row = await db.select()...;
-  if (!row) throw new NotFoundError("Foo not found");
-  res.json(row);
-}));
-```
-
-#### Error Class Hierarchy (`lib/errors.ts`)
-| Class | HTTP | Code |
-|---|---|---|
-| `BadRequestError` | 400 | BAD_REQUEST |
-| `UnauthorizedError` | 401 | UNAUTHORIZED |
-| `ForbiddenError` | 403 | FORBIDDEN |
-| `NotFoundError` | 404 | NOT_FOUND |
-| `ConflictError` | 409 | CONFLICT |
-| `ValidationError` | 422 | VALIDATION_ERROR |
-| `RateLimitError` | 429 | RATE_LIMITED |
-
-All produce: `{ error: string, code: string, details?: unknown }`
-
-#### Security Middleware (`app.ts`)
-- **helmet** — sets X-Frame-Options, HSTS, Content-Type sniff, Referrer-Policy, etc.
-- **express-rate-limit** — global: 200 req/15min per IP; AI routes: 15 req/min per IP
-- **Global error handler** (`middlewares/errorHandler.ts`) — must stay as the last `app.use()` call
-
-#### Folder Structure
-```
-src/
-  app.ts                  # Express app, security + route mount
-  index.ts                # Server start, Stripe init, cron start
-  cron.ts                 # Scheduled jobs (digest, reminders, idle leads)
-  routes/
-    index.ts              # Central router mount
-    projects.ts           # ← reference implementation (asyncHandler pattern)
-    dashboard.ts
-    ...
-  lib/
-    errors.ts             # Typed AppError subclasses
-    asyncHandler.ts       # Async route wrapper
-    auth.ts               # requireAuth, requireCompany, requireOwnerOrForeman
-    logger.ts             # Pino singleton
-    notify.ts             # DB notification helper
-    mailer.ts             # Resend email helper
-    featureGate.ts        # requireFeature middleware
-    ...
-  middlewares/
-    errorHandler.ts       # Global Express error handler (last in app.ts)
-    clerkProxyMiddleware.ts
-```
-
-### Web Dashboard (`artifacts/web-dashboard/src/`)
-
-#### Frontend Error Handling
-- **`ErrorBoundary`** (`components/ErrorBoundary.tsx`) — wraps all authenticated routes; catches render-time JS crashes with a friendly retry UI
-- **`useApiError`** hook (`hooks/useApiError.ts`) — use in React Query `onError` callbacks to show toast notifications for API failures
-- **`parseApiError`** — extract human-readable message from any thrown API error shape
-
-```ts
-import { useApiError } from "@/hooks/useApiError";
-
-const handleError = useApiError();
-const mutation = useSomeMutation({
-  mutation: { onError: (err) => handleError(err, "Failed to save project") }
-});
-```
-
-#### Folder Structure
-```
-src/
-  App.tsx             # Router, Clerk, ErrorBoundary, QueryClient
-  lib/
-    queryClient.ts    # React Query singleton
-  hooks/
-    useApiError.ts    # API error → toast
-    use-toast.ts      # shadcn toast
-    use-mobile.tsx    # breakpoint helper
-    useVoiceRecorder.ts
-  components/
-    ErrorBoundary.tsx # Class-based React error boundary
-    layout.tsx        # AppLayout with sidebar + notifications
-    auth-guard.tsx    # Clerk auth redirect
-    ui/               # shadcn/ui primitives
-    ...
-  pages/              # One file per route
-```
-
----
-
-## Deployment Guide
-
-### Replit Deploy (Recommended for MVP)
-Click **Deploy** in the Replit toolbar. Replit:
-- Builds the Vite frontend (static assets served from the reverse proxy)
-- Runs the Express API server on a managed container
-- Provisions a production PostgreSQL database (separate from dev)
-- Handles TLS, health checks, and auto-restarts
-
-**Required production env vars to set before deploying:**
-```
-CLERK_PUBLISHABLE_KEY      # Production key from Clerk dashboard
-CLERK_SECRET_KEY           # Production secret from Clerk dashboard
-DATABASE_URL               # Auto-provided by Replit Deployments
-SESSION_SECRET             # Random 32+ char string
-RESEND_API_KEY             # From resend.com (already in dev secrets)
-STRIPE_SECRET_KEY          # From Stripe (if billing is active)
-STRIPE_WEBHOOK_SECRET      # From Stripe webhook endpoint setup
-```
-
-**After first deploy — migrate the production database:**
-```bash
-# From the Replit shell, pointing at the prod DB:
-DATABASE_URL=<prod_url> pnpm --filter @workspace/db run migrate
-```
-
-### Self-Hosted (VPS / AWS / Railway)
-The API server is a plain Node.js ESM bundle (`dist/index.mjs`). Deploy it to any host that can run Node 24:
-1. `pnpm --filter @workspace/api-server run build` → produces `dist/`
-2. Copy `dist/` to your server and run `node dist/index.mjs`
-3. Serve the built Vite frontend (`dist/` from `web-dashboard`) via nginx or a CDN
-
-### Mobile (Expo / EAS)
-- **Development:** `pnpm --filter @workspace/mobile run dev` + Expo Go
-- **Production:** `pnpm exec eas build --platform all` → submits to App Store + Play Store via Expo EAS Build
-
----
-
-## Scaling Guide
-
-### Short-term (0–500 companies)
-The current single-server Express app + Replit Deployment is fully adequate. No changes needed.
-
-### Medium-term (500–5,000 companies)
-| Concern | Solution |
-|---|---|
-| DB connection limits | Add `pg-pool` max to 20; or swap to **PgBouncer** in transaction mode |
-| API response time | Add **Redis** (Upstash free tier) for caching dashboard aggregates |
-| File uploads | Already using **GCS presigned URLs** — client uploads direct, zero server load |
-| AI endpoints | Already rate-limited at 15 req/min; add a dedicated worker queue (BullMQ + Redis) for long jobs |
-| Cron reliability | Move from `node-cron` in-process to **Replit Cron** (trigger `/api/internal/cron/...`) so it survives redeploys |
-
-### Long-term (5,000+ companies)
-| Concern | Solution |
-|---|---|
-| Horizontal scaling | Containerize API with Docker; run on ECS Fargate or Railway with N replicas |
-| Session state | Currently stateless (Clerk JWTs) — no changes needed for multi-replica |
-| Database | Promote to **Neon** (serverless Postgres) or **RDS Aurora Serverless** with read replicas |
-| Search | Add **Meilisearch** for full-text project/contact/document search |
-| Real-time | Add **Socket.IO** or **Supabase Realtime** for live site notifications to field workers |
-
----
-
-## Third-Party Integrations
-
-| Integration | Status | Notes |
-|---|---|---|
-| **Clerk** | ✅ Active | Auth, multi-tenant, Replit-managed |
-| **Stripe** | ✅ Active | Billing, invoices, subscriptions synced via `stripe-replit-sync` |
-| **Resend** | ✅ Active | Transactional email (digest, reminders) |
-| **Google Cloud Storage** | ✅ Active | File attachments via presigned URLs |
-| **OpenAI / GPT-4o** | ✅ Active | AI chat, voice transcription, smart summaries |
-| **QuickBooks** | 🔜 Planned | OAuth 2.0; needs `QB_CLIENT_ID` + `QB_CLIENT_SECRET` secrets; sync invoices + expenses |
-| **Twilio SMS** | 🔜 Optional | `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN`; trigger from `notify.ts` for urgent site alerts |
-| **Mapbox / Google Maps** | 🔜 Optional | Geocode site addresses on project creation; show project map view |
-
-### Adding QuickBooks (next integration)
-1. Set `QB_CLIENT_ID` + `QB_CLIENT_SECRET` in Replit Secrets
-2. Create `artifacts/api-server/src/routes/quickbooks.ts` — OAuth dance (`/api/quickbooks/connect`, `/api/quickbooks/callback`)
-3. Store `access_token` + `refresh_token` per company in a `quickbooks_tokens` table
-4. Map Site Snap invoices → QB invoices on create/update via `lib/quickbooksClient.ts`
-
-## Phase Status
-
-### ✅ Phase 16 — HYBRID AI + RULE-BASED SMART ESTIMATOR (Complete)
-- **DB tables**: Added `estimator_cost_models` (48 rows: 12 project types × 4 finish levels, real CAD $/sqft rates), `estimator_addons` (18 addon items: flat + per_sqft), `estimator_actuals` (learning system — estimated vs actual cost per job)
-- **Backend** (`routes/estimator.ts`): 7 routes under `/api/estimator/`:
-  - `GET /cost-models` — list all DB-driven pricing models + addons (auto-seeds on first call)
-  - `POST /parse` — AI: free text → structured JSON `{project_type, square_feet, finish_level, addons[], confidence, notes}` using GPT-4o with `response_format: json_object`; AI cannot invent pricing
-  - `POST /calculate` — pure rule engine: looks up DB cost model by project_type + finish_level → line items + subtotal + overhead + contingency + margin; no AI pricing
-  - `GET /smart-estimates` — list saved smart estimates (sourceType="smart" in estimates table)
-  - `POST /smart-estimates` — save a smart estimate
-  - `POST /actuals` — record actual project cost + compute variance %; learning system
-  - `GET /actuals` — list variance records for accuracy insights
-- **Pricing data**: 48 cost models with realistic 2024 Ontario/BC CAD rates (residential new build basic $185/sqft → luxury $400/sqft; basement finish basic $55 → luxury $175; concrete flatwork $12–$40; etc.). 18 addons: HVAC $15k, plumbing rough $12k, spray foam $4.50/sqft, permit fees $2.5k, solar $18k, etc.
-- **Frontend** (`pages/smart-estimator.tsx`): Full 3-step page:
-  1. **Describe Project** — Free Text mode (AI parse) or Structured Form mode
-  2. **Review Inputs** — editable params (project type, sqft, finish level, addons, margin slider) with AI confidence badge
-  3. **Estimate** — editable line items table (click cells to adjust), cost breakdown panel, live margin slider, price-to-client total in brand gold, "pricing from DB" badge
-  - Save dialog → saves to estimates table with sourceType="smart"
-  - Record Actual dialog → records real cost → variance % → shown in learning insights panel
-  - Pricing DB panel — shows all 48 cost models with rates
-  - History panel — lists all saved smart estimates
-- **Routing**: `/smart-estimator` added to App.tsx + "Smart Estimator" with Sparkles icon added to sidebar (owner/foreman only)
-- **Bug fix**: Corrected `useApiError.ts` import path from `@/components/use-toast` → `@/hooks/use-toast`
-- **Lib rebuild**: Ran `pnpm run typecheck:libs` to emit new `@workspace/db` declarations for the 3 new table types
-
-### ✅ Phase 13 — SAFETY FORMS + GENERAL FILE ATTACHMENTS (Complete)
-- **DB migrations**: Added `contact_id` FK to `form_submissions`; new `file_attachments` table (companyId, uploadedByUserId, entityType, entityId, fileName, fileSize, mimeType, objectPath, createdAt); index on (entityType, entityId)
-- **Schema**: Updated `formSubmissionsTable` with `contactId`; added `fileAttachmentsTable` + `FileAttachment` type
-- **Forms API** (`/api/forms`): Full CRUD for form templates (GET, GET/:id, POST, PUT/:id, DELETE/:id with soft-deactivate)
-- **Form Submissions API** (`/api/form-submissions`): List with contact+project+status filters, POST with contactId/projectId, GET/:id (includes contact), PATCH/:id/status (review/approve)
-- **Files API** (`/api/files`): GET (entityType+entityId filter), POST (register after presigned upload), DELETE/:id; scoped by companyId
-- **OpenAPI**: Added `/forms`, `/form-submissions`, `/files` paths + all schemas; tags registered; codegen re-run
-- **Safety page rewrite** (`safety.tsx`): Two-tab layout — "Available Forms" tab shows 5 template cards (category badge, fill form CTA, color-coded by hazard type); "Submissions" tab has existing list with status filter; alert banner for pending review items (owner/foreman only)
-- **Safety submit update** (`safety-submit.tsx`): URL param `?template=ID` pre-selects form type; new "Link to Project & Contact" card with optional project + contact selectors; passes contactId + projectId through to API
-- **FileAttachments component** (`components/FileAttachments.tsx`): Reusable panel — presigned URL upload flow (request URL → PUT to GCS → register record), file list with icon by type, formatted size + date + uploader, download link, delete with confirmation dialog
-- **Project detail Files tab**: Added "Files" tab to the project detail page (after Documents), renders `<FileAttachments entityType="project" entityId={projectId} />`
-- **Contacts file attachments**: "Files" button added to each contact card; opens a dialog with `<FileAttachments entityType="contact" entityId={c.id} />` for per-contact file management
-- **Seeded form templates**: 5 templates already exist — Incident Report (injury), Near Miss Report (safety), Hazard Assessment (hazard), Daily Safety Log (safety), Toolbox Talk (toolbox)
-
-
-
-### ✅ Phase 9 — MULTI-TENANT SAAS ADMIN SYSTEM (Complete)
-- **New DB tables**: `plans`, `features`, `plan_features`, `subscriptions` + `system_role` TEXT on users
-- **SUPER_ADMIN role**: `system_role = 'super_admin'` on users table; bypasses tenant isolation and feature gates
-- **Plans CRUD** (`/admin/plans`): name, slug, monthly/yearly price, max seats, isActive
-- **Features CRUD** (`/admin/features`): name, key (e.g. AI_ESTIMATING), description, isEnabled global toggle
-- **Plan-Feature assignment** (`PUT /admin/plans/:id/features`): many-to-many via `plan_features` junction table
-- **Subscriptions** (`PATCH /admin/tenants/:id/subscription`): assign plan, status, billing cycle per tenant
-- **Tenant overview** (`GET /admin/tenants`): all companies with user counts, plan, and subscription status
-- **Feature gate middleware** (`lib/featureGate.ts`): `requireFeature("KEY")` checks tenant's plan includes feature; super_admin bypasses
-- **requireSuperAdmin middleware**: added to `lib/auth.ts`, checks `system_role = 'super_admin'`
-- **Seed data**: Starter/Pro/Enterprise plans, 6 features (Scheduling, AI Estimating, Client Portal, Reporting, QuickBooks, AI Chat) assigned to plans
-- **Super Admin web page** (`/super-admin`): 4-tab dashboard — Plans, Features, Plan Features (checkboxes), Tenants
-- **Navigation**: Crown icon link appears in sidebar only for super_admin users
-- **Security**: All `/admin/*` routes protected by `requireAuth + requireSuperAdmin`; tenants cannot access cross-tenant data
-
-### ✅ Phase 3 — PROPOSALS & ESTIMATE BUILDER (Complete)
-- **New DB tables**: `builder_estimates`, `builder_estimate_items`, `estimate_templates`, `estimate_template_items`, `proposals`
-- **Builder Estimates**: companyId, projectId (nullable FK), title, notes
-- **Builder Estimate Items**: estimateId FK, name, description, quantity (numeric 10,3), unitCost (numeric 12,2), margin % (numeric 5,2), sortOrder
-- **Estimate Templates**: companyId, name, description — reusable line item sets
-- **Proposals**: companyId, builderEstimateId FK, title, clientName, clientEmail, notes, status (draft/sent/approved/rejected), approvedAt, approvedByName
-- **API routes** (`/api/builder-estimates`, `/api/estimate-templates`, `/api/proposals`): full CRUD, `/builder-estimates/:id/items`, `/builder-estimates/:id/convert`, `/proposals/:id/approve`
-- **OpenAPI + codegen**: listBuilderEstimates, createBuilderEstimate, getBuilderEstimate, updateBuilderEstimate, deleteBuilderEstimate, createBuilderEstimateItem, updateBuilderEstimateItem, deleteBuilderEstimateItem, convertEstimateToProposal, listEstimateTemplates, createEstimateTemplate, getEstimateTemplateItems, deleteEstimateTemplate, listProposals, getProposal, updateProposal, approveProposal, deleteProposal hooks generated
-- **Sidebar**: "Proposals" nav item (FileSignature icon) — owners/foremans only, between Estimates and Team
-- **Web page** (`/proposals`): two-tab layout — Estimate Builder + Proposals
-  - **Estimate Builder tab**: left list of estimates, right inline table editor — click-to-edit cells for name/qty/unitCost/margin%, auto-calculated totalCost + revenue, dark totals footer showing cost/profit/revenue + margin%, "Load Template" / "Save as Template" / "Convert to Proposal" actions
-  - **Proposals tab**: left list of proposals with status badges, right detail card showing client info, status buttons (draft/sent/approved/rejected), approval e-signature simulation (type full name), cover note, line items table with revenue totals
-- **Templates**: save current estimate line items as named template, load template into any estimate, delete templates
-- **Note**: This is the *manual* estimate builder — separate from the AI estimator at `/estimates` which uses GPT-4o for AI-generated estimates
-
-### ✅ Phase 2 (CRM) — LEAD MANAGEMENT SYSTEM (Complete)
-- **New DB tables**: `leads` + `lead_activities`; enums `lead_stage`, `lead_source`, `activity_type`
-- **Leads**: contactId FK, title, source (referral/website/ads/social_media/cold_call/other), estimatedValue, stage, notes, convertedProjectId (nullable FK → projects)
-- **API routes**: CRUD at `/api/leads`, PATCH stage moves, POST `/api/leads/:id/convert` (creates project), GET/POST `/api/leads/:id/activities`
-- **OpenAPI + codegen**: listLeads, createLead, getLead, updateLead, deleteLead, convertLead, listLeadActivities, createLeadActivity hooks
-- **Sidebar**: "Leads" nav item (TrendingUp icon) between Contacts and Quotes
-- **Web page** (`/leads`): Kanban pipeline board with 6 stages (New Lead → Contacted → Estimate Scheduled → Proposal Sent → Won → Lost), drag-and-drop cards between stages, summary pills (Total Leads, Pipeline Value, Won Value, Win Rate)
-- **Lead cards**: title, contact name/company, estimated value in gold, source badge, "Converted" badge if project exists
-- **Lead detail sheet**: stage selector buttons, contact info with email/phone links, estimated value + source meta, editable notes, "Convert to Project" button (Won stage only), activity log with log-new-activity form (call/email/meeting/note picker + textarea)
-- **Convert flow**: dialog collects address/city/province → creates planning project from lead data, invalidates both leads + projects queries
-
-### ✅ Phase 1 (CRM) — CONTACTS MODULE (Complete)
-- **New DB table**: `contacts` (id, companyId, name, company, phone, email, type enum, notes, createdAt, updatedAt)
-- **New enum**: `contact_type` = client | worker | subcontractor | supplier
-- **API routes**: full CRUD at `/api/contacts` and `/api/contacts/:contactId` with search + type filter query params
-- **OpenAPI + codegen**: `listContacts`, `createContact`, `getContact`, `updateContact`, `deleteContact` hooks generated
-- **Dashboard**: "Total Contacts" stat card added (5-col grid); `totalContacts` included in `/dashboard/summary` response
-- **Sidebar**: Contacts nav item added (BookUser icon) between Projects and Quotes
-- **Web page** (`/contacts`): type-filter stat cards, search bar, card grid with create/edit/delete dialogs, empty state
-- **Seed data**: 6 sample contacts seeded (2 clients, 2 workers, 1 subcontractor, 1 supplier)
-
-### ✅ Phase 1 — CORE PLATFORM (Complete)
-- Multi-tenancy: companies as DB entities, users belong to one company
-- Authentication: Clerk (email/password + OAuth)
-- RBAC: Owner, Foreman, Worker roles
-- Onboarding: create company OR accept email invitation
-- Team management: invite members, change roles, remove members
-- Project management: full CRUD (planning/active/on_hold/completed/cancelled)
-- Daily Reports: create, view, AI-generated summaries (MOCKED)
-- Cost Analysis: create entries, AI analysis (MOCKED)
-- RFIs: create, respond, track status, AI draft generation (MOCKED)
-- Dashboard: company-wide stats + recent activity feed
-
-### ✅ Phase 2 — DATA & FEATURE LAYER (Complete)
-- Real OpenAI GPT calls replacing mocked AI agents (daily report, cost analysis, RFI)
-- Photo upload on daily reports (presigned URL flow via object storage)
-- Task management: kanban board per project (Todo / In Progress / Done), CRUD
-- DB tables: `tasks`, `daily_report_photos`, `conversations`, `messages`
-- New API routes: `GET/POST /projects/:id/tasks`, `PATCH/DELETE /projects/:id/tasks/:taskId`
-- New API routes: `GET/POST /projects/:id/daily-reports/:rid/photos`, `DELETE .../photos/:photoId`
-- New API routes: `POST /storage/uploads/request-url`, `GET /storage/public-objects/*`
-- Project detail now has 5 tabs: Overview, Tasks, Daily Reports, Cost Analysis, RFIs
-
-### ✅ Phase 3 — DATA & FEATURE LAYER (Complete)
-- **Cost bar chart**: Stacked BarChart (recharts) in Cost Analysis tab — Labour/Materials/Equipment/Other per period
-- **Document upload/storage**: `project_documents` table; presigned URL upload to object storage; `GET/POST /projects/:id/documents`, `DELETE /projects/:id/documents/:id`
-- **OCR + AI extraction**: `POST /projects/:id/documents/:id/extract` — GPT-4 vision reads receipts/photos → extracts vendor, amount, currency, date, line items, invoice #, project ref; images only (JPEG, PNG, WebP, GIF); other file types stored for manual download
-- **Documents tab**: New tab on web project detail — upload button, file list with status badges (pending/processing/ready/failed), expandable AI extraction panel with line-item table, download button
-- **Voice-to-text notes (web)**: Mic button on New Report page — MediaRecorder captures audio → `/api/ai/transcribe` (OpenAI STT) → transcribed text appended to raw notes field; recording pulse animation, error states
-- **Voice-to-text notes (mobile)**: Mic button on Log Report screen — `expo-av` records audio → base64 → `/api/ai/transcribe` → appended to notes field; uses `useVoiceRecorder` hook at `artifacts/mobile/hooks/useVoiceRecorder.ts`; requests microphone permission before first use; haptic feedback on successful transcription
-- **Photo capture (mobile)**: Photo strip on Log Report screen — up to 6 photos per report; action sheet offers Camera or Photo Library; `expo-image-picker` handles permissions; photos uploaded via presigned URL (GCS) after report creation; registered via `useAddReportPhoto`; submit button shows photo count and "Uploading…" progress; `expo-image-picker` plugin added to `app.json`
-- **Offline queue (mobile)**: Full offline-first report capture using AsyncStorage + NetInfo; `context/OfflineQueueContext.tsx` holds the queue, monitors connectivity, and auto-syncs pending reports when coming back online; Log screen shows contextual banners (offline warning, syncing progress, failed report alert with Retry/Discard); submit button switches label to "Save Offline" and turns amber when disconnected; Log tab shows a red badge dot with pending count; failed items (after 3 attempts) surface an Options alert with Retry or Discard; `@react-native-community/netinfo` added to mobile deps
-- **Daily digest email**: Automated morning digest at 7:00 AM ET via `node-cron` + Resend API; "Send Now" button in Settings page; HTML email with budget/RFI/task summary
-
-### ✅ Phase 4 — QUOTES & INVOICES (Complete)
-- **DB schema**: `quoteStatusEnum` (draft/pending_approval/approved/rejected/converted), `invoiceStatusEnum` (draft/sent/paid/overdue/cancelled), `quotesTable`, `invoicesTable` with `QuoteLineItem[]` JSON columns, HST tax (13% default), numeric totals. `invoicesTable` has `reminderSentAt timestamp` column.
-- **AI quote generation**: `POST /api/ai/quote/generate` — voice/text description → GPT generates structured line items with realistic Canadian pricing + HST; returns title, lineItems, subtotal, taxAmount, total, notes
-- **Quotes API**: Full CRUD at `GET/POST /projects/:projectId/quotes`, `GET/PUT/DELETE /projects/:projectId/quotes/:id`; status workflow: submit → approve/reject → convert-to-invoice; flat list at `GET /quotes?status=`
-- **Invoices API**: `GET/PUT /invoices`, `GET /invoices/:id`, `POST /invoices/:id/mark-sent`, `POST /invoices/:id/mark-paid`, `POST /invoices/:id/send-email`, `POST /invoices/:id/send-reminder`; created from quote conversion with one-click
-- **PDF generation (client-side)**: `jspdf` + `jspdf-autotable`; `buildPdfDoc()` is the shared builder; `downloadInvoicePDF()` saves; `buildPdfBase64()` returns base64 string for email attachment; both accept an optional `templateDataUrl` param that replaces the default header with the company's custom header image
-- **Send via Email**: `POST /invoices/:id/send-email` — accepts base64 PDF from browser, sends HTML email + PDF attachment via Resend; sandbox mode returns `{ ok: false, sandboxWarning }` instead of 500
-- **Payment reminders**: `POST /invoices/:id/send-reminder` — sends HTML reminder email (with overdue day count badge); marks `reminderSentAt`; auto-cron at 8:00 AM ET scans all sent/overdue invoices with past due date and `reminderSentAt` null or >7 days ago
-- **Quotes web page** (`/quotes`): List with status tabs (All/Draft/Pending/Approved/Rejected/Invoiced), quote number + client + total, link to detail
-- **Quote detail** (`/quotes/:id`): AI fill panel with voice input + text → generate line items; inline editable line item table; save, submit, approve, reject, convert to invoice buttons with confirmation dialogs; auto-calculates HST totals
-- **New Quote** (`/quotes/new`): Form for title, client name/email, valid until, notes — creates draft then opens editor
-- **Invoices web page** (`/invoices`): Outstanding + Collected summary cards, status tabs, list with due dates
-- **Invoice detail** (`/invoices/:id`): Full invoice view; Download PDF, Send via Email, Send Reminder, Mark Sent, Mark Paid buttons; shows sentAt/paidAt/reminderSentAt dates
-- **Nav**: Quotes + Invoices added to AppLayout sidebar (FileText + Receipt icons)
-
-### ✅ Phase 4 — MOBILE APP (Complete)
-- Expo mobile app (`artifacts/mobile`) for field crews using Expo Go (SDK 54)
-- 6 tabs: Home, Projects, Log (daily reports + AI assist), Ask AI (chat), Tasks, Profile
-- Clerk auth with AsyncStorage token cache (SecureStore shimmed for Expo Go compatibility)
-- Connected to real Express API with full auth
-- Metro shim: `artifacts/mobile/shims/expo-secure-store.ts` redirects expo-secure-store → AsyncStorage (required for Expo Go)
-- `@tanstack/react-query` is peerDependency only in `lib/api-client-react` (prevents duplicate QueryClient)
-
-### ✅ Phase 4 — AI CHAT ASSISTANT (Complete)
-- `POST /api/ai/assistant` — conversational AI chat for field crew
-- Sends company context (active projects, dashboard stats, recent activity) with every message
-- Mobile chat tab (`app/(tabs)/ask.tsx`): dark header, message bubbles, quick-start chips, typing indicator
-- Backend uses gpt-5.4 with BuildCore-specific system prompt for Canadian construction
-
-### ✅ Phase 5 — PUSH NOTIFICATIONS + BUDGET (Complete)
-- **Push notifications**: `pushToken` column on `users` table (nullable); `POST /api/users/push-token` stores device token
-- Mobile `_layout.tsx` `AuthSetup` registers for Expo push notifications on sign-in (requests permission, gets token, sends to API)
-- `artifacts/api-server/src/lib/push.ts` — fire-and-forget Expo push helper (never throws)
-- `artifacts/api-server/src/lib/notify.ts` — unified `notify()` helper: inserts DB record + sends push; never notifies self
-- Task creation and re-assignment call `notify()`; RFI creation calls `notify()` when `assignedToUserId` is set
-- Notifications show in foreground (alert + sound + badge) via `Notifications.setNotificationHandler`
-- `expo-notifications@^0.32.x` installed (SDK-54 compatible); plugin added to `app.json`
-- **Notification inbox** (`notifications` table): `GET /api/notifications`, `GET /api/notifications/unread-count`, `PATCH /api/notifications/read-all`, `PATCH /api/notifications/:id/read`
-- Mobile `app/notifications.tsx` screen: full list with unread indicator (orange dot), type icon (task/RFI), time-ago, "Mark all read" button, tap → project detail
-- Mobile home tab header now shows a bell icon with orange badge (unread count); taps open the notifications screen; count polls every 60s
-- **Budget on project cards**: `budget` field added to web Create Project dialog (optional CAD amount with `$` icon)
-- Project listing cards now show budget in orange with `$` icon when set; detail page already had it
-
-### ✅ Phase 7 — REFERRAL SYSTEM (Complete)
-- **DB**: `referral_code` (unique, 8-char hex auto-generated on company creation) + `referred_by_code` columns added to `companies` table via direct SQL migration
-- **`POST /companies`**: auto-generates `referralCode` via `crypto.randomBytes(4).toString("hex").toUpperCase()`; accepts optional `referredByCode` in request body
-- **`GET /api/referrals`**: returns `{ referralCode, referralLink, referralCount }` — link is `https://<domain>/onboarding?ref=<code>`; count is companies whose `referredByCode` matches
-- **`GET /api/referrals/validate/:code`**: public endpoint to verify a referral code + returns referring company name
-- **Web onboarding**: reads `?ref=` query param and passes `referredByCode` to company creation
-- **Web admin panel**: "Refer a Contractor" card with monospace link + copy button (2s "Copied!" flash) + referral count
-- **Mobile profile tab**: "Referrals" section with referral count + link preview + "Share with a Contractor" button (native Share sheet)
-
-### ✅ Phase 6 — ADMIN PANEL + STRIPE BILLING (Complete)
-- **Stripe integration**: `stripe` + `stripe-replit-sync` at workspace root; connected via Replit Stripe integration; `stripeClient.ts` in api-server + scripts dirs
-- **DB columns**: `stripeCustomerId` + `stripeSubscriptionId` added to `companiesTable` (billing per company/tenant)
-- **Stripe schema init**: `runMigrations()` at server startup with pre-flight creation of `stripe.invoice_status` type (avoids enum conflict with `public.invoice_status`); `stripe` and `stripe-replit-sync` externalized in esbuild so migration files resolve correctly
-- **Webhook**: registered BEFORE `express.json()` in app.ts at `/api/stripe/webhook`; managed webhook created via `findOrCreateManagedWebhook()`; backfill runs in background
-- **3 subscription plans** seeded via `scripts/src/seed-products.ts`:
-  - BuildCore Starter: $49 CAD/mo or $490/yr — up to 3 seats
-  - BuildCore Pro: $99 CAD/mo or $990/yr — up to 10 seats (most popular)
-  - BuildCore Business: $199 CAD/mo or $1990/yr — unlimited seats
-- **Billing API routes** (`artifacts/api-server/src/routes/billing.ts`):
-  - `GET /api/billing/plans` — products + prices from `stripe` schema (public)
-  - `GET /api/billing/subscription` — current company subscription
-  - `POST /api/billing/checkout` — create Stripe checkout session (owner only); creates Stripe customer on first use
-  - `POST /api/billing/portal` — create Stripe billing portal session (owner only)
-- **Admin panel** (`/admin`): owner-only; subscription status card, plan cards with monthly/annual toggle, team seats card, company details card; "Manage Billing" opens Stripe portal; "Get Started"/"Switch Plan" redirects to Stripe checkout
-- **Sidebar**: "Admin & Billing" link (ShieldCheck icon) visible only to owners under a separate "Admin" section
-
-### ✅ Sprint — VOICE INVOICES/QUOTES + EXPORT (Complete)
-- **AI invoice generation**: `POST /api/ai/invoice/generate` — voice/text description → GPT generates structured invoice line items with realistic Canadian pricing + HST; mirrors quote generate endpoint
-- **Mobile Finance hub** (`artifacts/mobile/app/finance.tsx`): tabbed Invoices / Quotes list with voice FAB, AI modal (uses `useVoiceRecorder` callback pattern), voice→AI→preview→create flow for both invoices and quotes
-- **Mobile invoice detail** (`artifacts/mobile/app/invoice/[id].tsx`): PDF export (expo-print HTML→PDF→expo-sharing), Excel export (xlsx), send email (PDF base64 → `/api/invoices/:id/send-email`), mark sent/paid, send reminder
-- **Mobile quote detail** (`artifacts/mobile/app/quote/[id].tsx`): PDF export, Excel export, submit/approve/reject/convert-to-invoice actions
-- **Finance card on mobile home**: Quick-access card on home screen navigates to `/finance`
-- **Web invoice detail Excel export**: Excel button added using `xlsx` (`XLSX.writeFile`), `FileSpreadsheet` icon; icon changed from non-existent `Sheet` → `FileSpreadsheet`
-- **Web quote detail PDF + Excel export**: jsPDF dynamic import for PDF (client-side), xlsx for Excel; `QuoteForExport` type defined for type-safe export function
-- **Installed packages**: `expo-print`, `expo-sharing`, `xlsx` (mobile); `xlsx` (web-dashboard)
-
-## Key Commands
-
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-
-## AI Agents (Phase 2 — REAL OpenAI)
-
-All three AI agents now make real OpenAI `gpt-5.4` calls via the Replit AI Integration proxy (`@workspace/integrations-openai-ai-server`). Responses are JSON-structured by the model.
-
-- `POST /api/ai/daily-report/generate` — structures raw site notes into a daily report
-- `POST /api/ai/cost-analysis/generate` — analyzes cost breakdown and produces recommendations
-- `POST /api/ai/rfi/generate` — formalizes RFI description and suggests clarifying questions
-- `POST /api/ai/assistant` — conversational chat assistant for field crew (context-aware)
-
-### ✅ Sprint — VOICE QUOTES ON PROJECT DETAIL (Complete)
-- **Web `QuotesTab` component** (`artifacts/web-dashboard/src/components/QuotesTab.tsx`): Embeds inside project detail "Quotes" tab; "New Voice Quote" button opens a 3-step dialog (describe job by voice/type → AI fills materials & pricing → create quote); quote list shows project-specific quotes with status badges; inline approval workflow action bar on each card — Draft→Submit, Pending→Approve/Reject, Approved→Convert to Invoice (one-click with confirmation), Converted→"Invoice created" badge; all cards link to full `/quotes/:id` editor
-- **Mobile `QuotesTab` component** (`artifacts/mobile/components/QuotesTab.tsx`): Same flow but mobile-native RN; voice FAB (orange circle mic button) opens modal; step 1 — type/record description; step 2 — AI preview table with line items + HST totals; step 3 — create quote; quote cards show inline action buttons (Submit / Approve / Reject / Convert to Invoice) with `Alert` confirmations; `useVoiceRecorder` hook for mic; haptic feedback
-- **Web project detail** (`project-detail.tsx`): Added "Quotes" tab as 8th tab (grid-cols-8); `<QuotesTab projectId={projectId} />` in TabsContent
-- **Mobile project detail** (`project/[id].tsx`): Added "Quotes" to TABS array; renders `<QuotesTab projectId={projectId} />` in the tab switcher
-- **Approval step**: All status transitions (draft→pending→approved→converted) are available inline on the card without navigating to the detail page; reject uses AlertDialog/Alert confirmation; convert sends user to the new invoice immediately
-
-### ✅ Sprint — AI DOCUMENT Q&A (RAG) (Complete)
-- **pgvector**: `CREATE EXTENSION IF NOT EXISTS vector` enabled; `document_chunks` table with `vector(1536)` embedding column and `ivfflat` cosine index
-- **PDF text extraction**: `pdf-parse` v2.x (`PDFParse` class API, `new PDFParse({ data: buffer }).getText()`) extracts full text from PDFs — replaces filename-only profiling
-- **Word text extraction**: `mammoth` extracts raw text from `.docx` / `.doc` files for analysis and embedding
-- **Chunking**: `chunkText()` splits text into ~900-char chunks with 150-char overlap, splitting by paragraphs then sentences
-- **Embeddings**: `text-embedding-3-small` (1536 dims, OpenAI) embedded in batches of 20; stored in `document_chunks` via `embedAndStoreChunks()` — auto-triggered after any document analysis
-- **Semantic search**: `semanticSearch()` embeds the query, runs `<=> vector_cosine_ops` pgvector search for top-8 chunks with similarity > 0.15
-- **`POST /api/projects/:id/documents/qa`**: RAG path — embed query → cosine search → GPT-4o with chunk context + multi-turn history; fallback to extractedText stuffing when no embeddings exist
-- **`POST /api/projects/:id/documents/:id/embed`**: manual re-embed endpoint for already-analyzed docs
-- **`GET /api/projects/:id/documents`**: now returns `chunkCount` per document (from `document_chunks` table)
-- **`POST /api/projects/:id/documents/search`**: tries semantic chunk search first; falls back to LLM keyword search
-- **Multi-turn chat**: both web and mobile QAPanel send last-10 messages as `history` to `/qa` for real conversation context
-- **RAG status badges**: web shows orange "RAG" badge on docs with embeddings; chat panel shows "Semantic RAG active" banner when embeddings are used
-- **Mobile Metro fix**: `config.resolver.blockList` in `metro.config.js` excludes `pdf-parse_tmp_*` directories that Metro was trying to watch (causing ENOENT crash)
-- **Construction starters**: both web + mobile Ask AI panels updated with construction-specific question prompts (invoices, vendors, scope, change orders, RFIs)
-
-## Database Schema
-
-Tables: `companies`, `users`, `invitations`, `projects`, `daily_reports`, `cost_analyses`, `rfis`, `tasks`, `daily_report_photos`, `conversations`, `messages`, `notifications`, `project_documents`, `document_chunks`, `quotes`, `invoices`
-`users` has `pushToken text` (nullable) for Expo push tokens.
-`notifications`: userId, type ("task"|"rfi"), title, body, referenceId, projectId, isRead (boolean, default false), createdAt.
-Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_status`, `task_status`, `task_priority`, `document_status`
-
-## Auth Architecture
-
-### Web Dashboard
-- `ClerkAuthTokenSetter` component in `App.tsx` registers Clerk's `getToken()` as the global auth token getter via `setAuthTokenGetter` (from `@workspace/api-client-react`)
-- Uses `useLayoutEffect` (not `useEffect`) so the token getter is set before React Query fires any requests
-- All API calls through `customFetch` automatically get `Authorization: Bearer <token>` headers
-
-### Mobile App
-- `AuthSetup` component in root `_layout.tsx` registers both the token getter (`setAuthTokenGetter`) and the sign-out function (`setSignOut` from `@/utils/auth`)
-- Tab screens MUST NOT import directly from `@clerk/clerk-expo` — doing so crashes Expo Go with `Cannot find native module 'ExpoCryptoAES'`
-- Use `customFetch` from `@workspace/api-client-react` for API calls (token is auto-attached)
-- Use `signOut()` from `@/utils/auth` for sign-out (wired through `_layout.tsx`)
-
-### ✅ Phase 12 — FINANCIAL TRACKING (Complete)
-- **New DB tables**: `payments`, `change_orders`; added `proposal_id` column to `invoices`
-- **Payments**: record partial payments against any invoice (amount, method: cash/cheque/e-transfer/credit_card/other, date, notes); auto-marks invoice as `paid` when total payments ≥ invoice total; delete a payment
-- **Change Orders**: extra scope/costs on a project with title, description, amount; approval flow (pending → approved/rejected by owner/foreman); full CRUD
-- **Invoice from Proposal**: `POST /invoices/from-proposal/:proposalId` generates a draft invoice from a proposal's estimate items, mapping revenue price per unit to line items
-- **Financial Summary API** (`GET /financials/summary`): outstanding, overdue, collected, total invoiced, total payments received, pending change order count, approved change orders value, recent 8 payments
-- **Routes file**: `artifacts/api-server/src/routes/financials.ts` — registered via `financialsRouter` in `routes/index.ts`
-- **Frontend page** (`/financials`): 3-tab layout — Overview (summary stat cards + revenue breakdown + recent payments + pending CO alert), Payments (table with delete, Record Payment dialog), Change Orders (list with inline approve/reject, Create Change Order dialog)
-- **Sidebar**: "Financials" nav item (BarChart3 icon) added between Invoices and AI Chat, visible to owners and foremans only
-- **OpenAPI**: All new endpoints in `lib/api-spec/openapi.yaml` with schemas; codegen run successfully
-
-## Notes
-
-- Orval codegen: `lib/api-zod` uses `mode: "single"` with an absolute `target` path (no `workspace:`) so orval does NOT regenerate `index.ts`. After codegen, `lib/api-zod/src/index.ts` must only contain `export * from "./generated/api";` — if it gains a second line, rewrite it. `lib/api-client-react` uses `mode: "split"` with `workspace:` and generates both `api.ts` + `api.schemas.ts` (both real files); its `index.ts` exports all four things correctly.
-- Cron jobs: 7:00 AM ET — daily digest email; 8:00 AM ET — overdue invoice reminders (resend every 7 days)
-- esbuild externals: `stripe` and `stripe-replit-sync` must be in the `external` array in `build.mjs` — they use `__dirname` to load migration files and cannot be bundled
-- Stripe migration conflict: `stripe-replit-sync`'s invoices migration checks `pg_type WHERE typname = 'invoice_status'` without schema filter; our public enum is found first so `stripe.invoice_status` is skipped. Fixed by pre-creating `stripe.invoice_status` via pool before `runMigrations()` in index.ts
-- Object storage uses presigned URL flow: client POSTs to `/api/storage/uploads/request-url`, then PUTs file directly to the returned GCS URL
-- Expo Go compatibility: `expo-secure-store` shimmed via `artifacts/mobile/metro.config.js` → `artifacts/mobile/shims/expo-secure-store.ts` (uses AsyncStorage). Required because Clerk v2 imports expo-secure-store internally. CRITICAL: Tab screens cannot import from `@clerk/clerk-expo` or the app crashes with `ExpoCryptoAES` — use `@/utils/auth` and `customFetch` instead. If Metro cache is stale, delete `/tmp/metro-cache` and restart the workflow.
-- `customFetch` is exported from `lib/api-client-react/src/index.ts` — use it directly for non-generated API calls (e.g., AI chat endpoint) as it automatically attaches the Bearer token
+- **Web Frontend**: React + Vite (Tailwind CSS + shadcn/ui)
+- **Mobile Frontend**: Expo SDK 54 React Native
+
+## Where things live
+
+- `artifacts/web-dashboard/` — Main web application
+- `artifacts/api-server/` — Shared Express backend
+  - `artifacts/api-server/src/lib/errors.ts` — API error class hierarchy
+  - `artifacts/api-server/src/middlewares/errorHandler.ts` — Global error handler
+  - `artifacts/api-server/src/routes/` — API endpoints
+- `artifacts/mobile/` — Expo React Native application
+  - `artifacts/mobile/shims/expo-secure-store.ts` — Expo Go compatibility shim
+- `lib/api-spec/openapi.yaml` — OpenAPI specification (source of truth for API contracts)
+- `lib/db/schema.ts` — Drizzle ORM database schema (source of truth for DB schema)
+- `lib/api-zod/` — Zod schemas generated from OpenAPI
+- `lib/api-client-react/` — React Query hooks and API client generated from OpenAPI
+- `scripts/src/seed-products.ts` — Stripe product seeding
+
+## Architecture decisions
+
+- **Async Error Handling**: All API route handlers use `asyncHandler` to centralize error management and reduce boilerplate.
+- **Unified API Error Structure**: Custom error classes (`BadRequestError`, `NotFoundError`, etc.) ensure consistent API error responses with `HTTP` status, `code`, and optional `details`.
+- **Pre-signed URL for File Uploads**: Client-side direct uploads to GCS using pre-signed URLs offload the API server from handling large file streams.
+- **Offline-First Mobile with Sync Queue**: Mobile app uses `AsyncStorage` and `NetInfo` to queue daily reports when offline, syncing automatically when connectivity is restored.
+- **Centralized Notification System**: A `notify()` helper consolidates DB record insertion and push notification sending, ensuring consistency and preventing self-notifications.
+- **AI RAG for Document Q&A**: Utilizes `pgvector` for semantic search on document chunks, providing contextual answers via GPT-4o, with fallbacks to keyword search.
+
+## Product
+
+- Multi-tenant project management for small Canadian construction companies.
+- Team collaboration tools (tasks, daily reports, RFIs).
+- AI-powered features:
+    - Daily report summaries
+    - Cost analysis and recommendations
+    - RFI draft generation
+    - Smart Estimator (hybrid AI + rule-based)
+    - Conversational AI assistant (context-aware)
+    - AI-generated quotes and invoices
+    - OCR + AI extraction from documents (receipts, invoices)
+    - Voice-to-text for notes, quotes, and invoices
+    - AI Document Q&A (RAG)
+- Financial tracking: quotes, invoices, payments, change orders.
+- CRM: lead management (Kanban board), contact management.
+- Safety forms with file attachments.
+- Push notifications for tasks and RFIs.
+- Admin panel for plan/feature management and Stripe billing integration.
+- Referral system for company growth.
+- Mobile application for field crews (iOS/Android).
+
+## User preferences
+
+- _Populate as you build_
+
+## Gotchas
+
+- **Orval Codegen for `lib/api-zod`**: After codegen, `lib/api-zod/src/index.ts` should *only* contain `export * from "./generated/api";`. If other exports appear, manually correct it.
+- **Stripe/`stripe-replit-sync` Bundling**: These libraries must be externalized in `esbuild` configuration as they rely on `__dirname` for loading migration files.
+- **Stripe Migration Conflict**: Ensure `stripe.invoice_status` enum is pre-created in the database before `stripe-replit-sync` migrations run to avoid conflicts with the public schema's `invoice_status`.
+- **Expo Go Compatibility**: Tab screens in the mobile app must *not* directly import from `@clerk/clerk-expo` due to `ExpoCryptoAES` native module issues. Use `@/utils/auth` and `customFetch` instead. Clear `/tmp/metro-cache` if Metro issues persist.
+- **`customFetch` Usage**: For non-generated API calls (e.g., AI chat), use the `customFetch` exported from `lib/api-client-react/src/index.ts` to ensure the Bearer token is automatically attached.
+
+## Pointers
+
+- **Clerk Documentation**: [https://clerk.com/docs](https://clerk.com/docs)
+- **Drizzle ORM Documentation**: [https://orm.drizzle.team/docs](https://orm.drizzle.team/docs)
+- **React Query Documentation**: [https://tanstack.com/query/latest/docs](https://tanstack.com/query/latest/docs)
+- **OpenAPI Specification**: [https://swagger.io/specification/](https://swagger.io/specification/)
+- **Expo Documentation**: [https://docs.expo.dev/](https://docs.expo.dev/)
+- **Stripe Documentation**: [https://stripe.com/docs](https://stripe.com/docs)
+- **Resend Documentation**: [https://resend.com/docs](https://resend.com/docs)
+- **pgvector Documentation**: [https://github.com/pgvector/pgvector](https://github.com/pgvector/pgvector)
