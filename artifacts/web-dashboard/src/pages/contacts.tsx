@@ -211,27 +211,29 @@ export default function Contacts() {
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
         {(["client", "worker", "subcontractor", "supplier"] as ContactType[]).map((t) => {
           const cfg = TYPE_CONFIG[t];
+          const active = typeFilter === t;
           return (
             <div
               key={t}
               className="rounded-xl p-4 flex items-center gap-3 cursor-pointer transition-all"
               style={{
-                background: typeFilter === t ? BLACK : "#fff",
-                border: typeFilter === t ? `1.5px solid ${GOLD}` : "1.5px solid #E5E5E5",
+                background: BLACK,
+                border: active ? `1.5px solid ${GOLD}` : "1.5px solid rgba(201,168,76,0.18)",
+                boxShadow: active ? `0 0 0 2px rgba(201,168,76,0.15), 0 4px 16px rgba(0,0,0,0.22)` : "0 4px 16px rgba(0,0,0,0.18)",
               }}
-              onClick={() => setTypeFilter(typeFilter === t ? "all" : t)}
+              onClick={() => setTypeFilter(active ? "all" : t)}
             >
               <div
                 className="rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ width: 36, height: 36, background: cfg.bg }}
+                style={{ width: 36, height: 36, background: "rgba(201,168,76,0.12)" }}
               >
-                <User size={16} style={{ color: cfg.color }} />
+                <User size={16} style={{ color: GOLD }} />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: typeFilter === t ? GOLD : "#888" }}>
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: GOLD }}>
                   {cfg.label}
                 </p>
-                <p className="text-2xl font-bold" style={{ color: typeFilter === t ? "#fff" : BLACK }}>
+                <p className="text-2xl font-bold text-white">
                   {typeCounts[t] ?? 0}
                 </p>
               </div>

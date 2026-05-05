@@ -781,17 +781,18 @@ export default function SmartEstimatorPage() {
 
       {/* Learning Insights */}
       {actuals.length > 0 && (
-        <Card className="border-amber-200/50 bg-amber-50/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-amber-600" />
-              Estimating Accuracy — Learning Data
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{ background: BLACK, border: "1px solid rgba(201,168,76,0.25)", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}
+        >
+          <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: "rgba(201,168,76,0.15)" }}>
+            <BookOpen className="h-4 w-4" style={{ color: GOLD }} />
+            <span className="text-sm font-semibold" style={{ color: GOLD }}>Estimating Accuracy — Learning Data</span>
+          </div>
+          <div className="p-4 space-y-2">
             {actuals.slice(0, 3).map((a, i) => <ActualCard key={i} actual={a} />)}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Step Progress */}

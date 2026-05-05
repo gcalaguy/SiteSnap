@@ -326,25 +326,25 @@ export default function Leads() {
       {/* Summary pills */}
       <div className="flex gap-3 flex-wrap flex-shrink-0">
         {[
-          { label: "Total Leads", value: String(allLeads.length), color: "#6366F1" },
+          { label: "Total Leads", value: String(allLeads.length), color: GOLD },
           { label: "Pipeline Value", value: fmt(totalValue), color: GOLD },
-          { label: "Won Value", value: fmt(wonValue), color: "#16A34A" },
+          { label: "Won Value", value: fmt(wonValue), color: "#4ade80" },
           {
             label: "Win Rate",
             value:
               allLeads.filter((l) => l.stage === "won" || l.stage === "lost").length > 0
                 ? `${Math.round((allLeads.filter((l) => l.stage === "won").length / allLeads.filter((l) => l.stage === "won" || l.stage === "lost").length) * 100)}%`
                 : "—",
-            color: "#0EA5E9",
+            color: "#38bdf8",
           },
         ].map((s) => (
           <div
             key={s.label}
-            className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm"
-            style={{ background: "#fff", border: "1px solid #E5E5E5" }}
+            className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
+            style={{ background: BLACK, border: "1px solid rgba(201,168,76,0.18)", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}
           >
-            <span className="text-muted-foreground font-medium">{s.label}</span>
-            <span className="font-bold" style={{ color: s.color }}>{s.value}</span>
+            <span className="font-semibold uppercase tracking-wide text-xs" style={{ color: "rgba(201,168,76,0.7)" }}>{s.label}</span>
+            <span className="font-bold text-base" style={{ color: s.color }}>{s.value}</span>
           </div>
         ))}
       </div>

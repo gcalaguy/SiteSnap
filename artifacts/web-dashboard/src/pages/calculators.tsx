@@ -14,6 +14,9 @@ import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { CALCULATORS, CATEGORIES, categoryMeta, type CalcDef } from "@/lib/calculators-data";
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function CalculatorsPage() {
   const [category, setCategory] = useState("All");
@@ -327,11 +330,12 @@ export default function CalculatorsPage() {
             <button
               key={cat}
               onClick={() => setCategory(cat)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              className="px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+              style={
                 category === cat
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
+                  ? { background: GOLD, color: BLACK }
+                  : { background: BLACK, color: "rgba(255,255,255,0.55)", border: "1px solid rgba(201,168,76,0.18)" }
+              }
             >
               {cat}
             </button>
@@ -353,19 +357,26 @@ function CalcCard({ calc, onOpen, isFav }: { calc: CalcDef; onOpen: (c: CalcDef)
   return (
     <button
       onClick={() => onOpen(calc)}
-      className="group relative text-left rounded-2xl border border-border bg-card hover:border-primary/30 hover:shadow-sm transition-all p-4 space-y-2"
+      className="group relative text-left rounded-2xl transition-all p-4 space-y-2"
+      style={{
+        background: BLACK,
+        border: "1px solid rgba(201,168,76,0.18)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.border = `1px solid ${GOLD}`; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.border = "1px solid rgba(201,168,76,0.18)"; }}
     >
       {isFav && (
         <Star className="absolute top-3 right-3 h-3.5 w-3.5 text-yellow-400" fill="currentColor" />
       )}
-      <div className={`w-9 h-9 rounded-xl ${meta.bg} ${meta.color} flex items-center justify-center`}>
-        <Icon className="h-4 w-4" />
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(201,168,76,0.12)" }}>
+        <Icon className="h-4 w-4" style={{ color: GOLD }} />
       </div>
       <div>
-        <p className="font-semibold text-sm text-foreground leading-tight">{calc.name}</p>
-        <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{calc.description}</p>
+        <p className="font-semibold text-sm text-white leading-tight">{calc.name}</p>
+        <p className="text-xs mt-0.5 leading-snug line-clamp-2" style={{ color: "rgba(255,255,255,0.45)" }}>{calc.description}</p>
       </div>
-      <Badge variant="outline" className={`text-xs ${meta.color} border-0 ${meta.bg} px-2 py-0.5`}>
+      <Badge variant="outline" className="text-xs border-0 px-2 py-0.5" style={{ background: "rgba(201,168,76,0.12)", color: GOLD }}>
         {calc.category}
       </Badge>
     </button>

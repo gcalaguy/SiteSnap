@@ -349,39 +349,40 @@ export default function HoursPage() {
       {selectedWorker && selectedMember ? (
         <div className="space-y-4">
           {/* Worker identity header */}
-          <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="pt-5 pb-5">
-              <div className="flex items-center gap-4 flex-wrap">
-                <Avatar className="h-14 w-14 bg-primary/15 border-2 border-primary/30">
-                  <AvatarFallback className="text-lg font-bold bg-transparent text-primary">
-                    {initials(selectedMember)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-xl font-bold">{displayName(selectedMember)}</h2>
-                  <p className="text-sm text-muted-foreground capitalize">
-                    {selectedMember.role} · {selectedMember.email}
-                  </p>
+          <div
+            className="rounded-xl p-5"
+            style={{ background: BLACK, border: `1px solid rgba(201,168,76,0.25)`, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}
+          >
+            <div className="flex items-center gap-4 flex-wrap">
+              <Avatar className="h-14 w-14 border-2" style={{ borderColor: GOLD }}>
+                <AvatarFallback className="text-lg font-bold" style={{ background: "rgba(201,168,76,0.12)", color: GOLD }}>
+                  {initials(selectedMember)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-bold text-white">{displayName(selectedMember)}</h2>
+                <p className="text-sm capitalize" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  {selectedMember.role} · {selectedMember.email}
+                </p>
+              </div>
+              <div className="flex gap-6 text-center">
+                <div>
+                  <p className="text-2xl font-bold" style={{ color: GOLD }}>{selectedWorker.hours.toFixed(1)}h</p>
+                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>{formatRangeLabel(range, from, to)}</p>
                 </div>
-                <div className="flex gap-6 text-center">
-                  <div>
-                    <p className="text-2xl font-bold text-primary">{selectedWorker.hours.toFixed(1)}h</p>
-                    <p className="text-xs text-muted-foreground">{formatRangeLabel(range, from, to)}</p>
-                  </div>
-                  <Separator orientation="vertical" className="h-10 self-center" />
-                  <div>
-                    <p className="text-2xl font-bold">{selectedWorker.entries.length}</p>
-                    <p className="text-xs text-muted-foreground">entries</p>
-                  </div>
-                  <Separator orientation="vertical" className="h-10 self-center" />
-                  <div>
-                    <p className="text-2xl font-bold">{workerProjectData.length}</p>
-                    <p className="text-xs text-muted-foreground">projects</p>
-                  </div>
+                <Separator orientation="vertical" className="h-10 self-center opacity-20" />
+                <div>
+                  <p className="text-2xl font-bold text-white">{selectedWorker.entries.length}</p>
+                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>entries</p>
+                </div>
+                <Separator orientation="vertical" className="h-10 self-center opacity-20" />
+                <div>
+                  <p className="text-2xl font-bold text-white">{workerProjectData.length}</p>
+                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>projects</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Charts */}
           {selectedWorker.entries.length > 0 && (
