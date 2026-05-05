@@ -233,7 +233,11 @@ router.patch(
 );
 
 // POST /timesheets/:timesheetId/email — send timesheet summary via Resend
-const EmailTimesheetBody = z.object({ to: z.string().email() });
+const EmailTimesheetBody = z.object({
+  to: z.string().email(),
+  pdfBase64: z.string().optional(),
+  filename: z.string().optional(),
+});
 
 router.post(
   "/timesheets/:timesheetId/email",
@@ -302,8 +306,13 @@ router.post(
 </div>
 </body></html>`;
 
+    const attachments =
+      parsed.data.pdfBase64
+        ? [{ filename: parsed.data.filename ?? `timesheet_${ts.weekStart}.pdf`, content: parsed.data.pdfBase64 }]
+        : undefined;
+
     try {
-      await sendEmail({ to: [parsed.data.to], subject: `Timesheet: ${workerName} — ${weekRange}`, html });
+      await sendEmail({ to: [parsed.data.to], subject: `Timesheet: ${workerName} — ${weekRange}`, html, attachments });
       res.json({ ok: true });
     } catch (err: any) {
       if (err instanceof ResendSandboxError) {
