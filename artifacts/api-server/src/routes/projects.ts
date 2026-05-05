@@ -76,6 +76,27 @@ router.post(
       .values({ ...parsed.data, companyId: req.companyId! })
       .returning();
 
+    // Auto-create default tasks for new projects
+    const defaultTasks = [
+      { title: "Site Assessment & Setup", description: "Initial site walkthrough, safety plan, and equipment staging.", priority: "high" as const },
+      { title: "Permits & Documentation", description: "Obtain all required permits and submit documentation.", priority: "high" as const },
+      { title: "Foundation & Ground Work", description: "Excavation, grading, and foundation preparation.", priority: "medium" as const },
+      { title: "Framing & Structure", description: "Structural framing, walls, and roofing.", priority: "medium" as const },
+      { title: "Inspections", description: "Schedule and pass all required building inspections.", priority: "medium" as const },
+      { title: "Final Cleanup & Handover", description: "Site cleanup, punch list, and client walkthrough.", priority: "low" as const },
+    ];
+    if (project) {
+      await db.insert(tasksTable).values(
+        defaultTasks.map((t) => ({
+          projectId: project.id,
+          title: t.title,
+          description: t.description,
+          status: "todo" as const,
+          priority: t.priority,
+        })),
+      );
+    }
+
     res.status(201).json(project);
   },
 );

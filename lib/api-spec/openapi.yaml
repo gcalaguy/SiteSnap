@@ -1863,6 +1863,85 @@ paths:
                 items:
                   $ref: "#/components/schemas/ActivityItem"
 
+  /dashboard/smart-summary:
+    get:
+      operationId: getDashboardSmartSummary
+      tags: [dashboard]
+      summary: Get rule-based AI insight summary for the dashboard
+      responses:
+        "200":
+          description: Smart summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmartSummary"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List recent notifications for the current user
+      responses:
+        "200":
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/unread-count:
+    get:
+      operationId: getNotificationsUnreadCount
+      tags: [notifications]
+      summary: Get unread notification count for the current user
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationUnreadCount"
+
+  /notifications/read-all:
+    patch:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
   # ── Tasks ────────────────────────────────────────────────────────────────────
   /projects/{projectId}/tasks:
     get:
@@ -3460,7 +3539,61 @@ components:
           type: number
         teamMemberCount:
           type: integer
+        totalContacts:
+          type: integer
+        overdueInvoices:
+          type: integer
+        overdueInvoiceAmount:
+          type: number
+        revenuePipeline:
+          type: number
+        activeLeads:
+          type: integer
+        pendingForms:
+          type: integer
       required: [totalProjects, activeProjects, completedProjects, reportsThisWeek, openRFIs, totalSpentThisMonth, totalBudgetAllProjects, teamMemberCount]
+
+    SmartSummary:
+      type: object
+      properties:
+        summary:
+          type: string
+        lines:
+          type: array
+          items:
+            type: string
+      required: [summary, lines]
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        type:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        referenceId:
+          type: integer
+        projectId:
+          type: integer
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, userId, type, title, body, referenceId, projectId, isRead, createdAt]
+
+    NotificationUnreadCount:
+      type: object
+      properties:
+        count:
+          type: integer
+      required: [count]
 
     ActivityItem:
       type: object

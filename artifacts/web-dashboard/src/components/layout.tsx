@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useGetMe, customFetch } from "@workspace/api-client-react";
+import { useGetMe, customFetch, useListNotifications, useGetNotificationsUnreadCount, useMarkAllNotificationsRead, useMarkNotificationRead } from "@workspace/api-client-react";
 import {
   LayoutDashboard,
   Building2,
@@ -23,6 +23,7 @@ import {
   TrendingUp,
   FileSignature,
   BarChart3,
+  Check,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import {
@@ -33,7 +34,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -75,6 +78,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isOwnerOrForeman = user?.role === "owner" || user?.role === "foreman";
   const isSuperAdmin = (user as any)?.systemRole === "super_admin";
 
+  const qc = useQueryClient();
+
   const { data: counts } = useQuery<ActionCounts>({
     queryKey: ["dashboard-action-counts"],
     queryFn: () => customFetch<ActionCounts>("/api/dashboard/action-counts"),
@@ -82,6 +87,32 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     enabled: !!user,
     staleTime: 30_000,
   });
+
+  const { data: notifications } = useListNotifications();
+  const { data: unreadData } = useGetNotificationsUnreadCount();
+  const markAll = useMarkAllNotificationsRead();
+  const markOne = useMarkNotificationRead();
+
+  const unreadCount = unreadData?.count ?? 0;
+
+  const handleMarkAll = () => {
+    markAll.mutate(undefined, {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/notifications"] });
+        qc.invalidateQueries({ queryKey: ["/notifications/unread-count"] });
+      },
+    });
+  };
+
+  const handleMarkOne = (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    markOne.mutate({ id }, {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/notifications"] });
+        qc.invalidateQueries({ queryKey: ["/notifications/unread-count"] });
+      },
+    });
+  };
 
   const quotesBadge = (counts?.pendingQuotes ?? 0) + (counts?.draftQuotes ?? 0);
   const invoicesBadge = counts?.draftInvoices ?? 0;
@@ -286,17 +317,90 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </nav>
 
-        {/* Bottom items */}
+        {/* Bottom items — Notification bell */}
         <div className="px-3 py-2 space-y-0.5 relative z-10 flex-shrink-0" style={{ borderTop: `1px solid ${GOLD_BORDER}` }}>
-          <div
-            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer"
-            style={{ background: "transparent" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = SURFACE2; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-          >
-            <Bell size={16} style={{ color: "#555" }} />
-            <span className="flex-1 text-sm" style={{ color: "#666" }}>Notifications</span>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div
+                className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer relative"
+                style={{ background: "transparent" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = SURFACE2; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <div className="relative">
+                  <Bell size={16} style={{ color: unreadCount > 0 ? GOLD : "#555" }} />
+                  {unreadCount > 0 && (
+                    <span
+                      className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold"
+                      style={{ background: GOLD, color: BLACK }}
+                    >
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </div>
+                <span className="flex-1 text-sm" style={{ color: unreadCount > 0 ? GOLD : "#666" }}>Notifications</span>
+                {unreadCount > 0 && (
+                  <span
+                    className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
+                    style={{ background: `${GOLD}22`, color: GOLD }}
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="right" align="end" className="w-80 p-0" style={{ marginLeft: 8 }}>
+              <div className="flex items-center justify-between px-4 py-3 border-b">
+                <p className="text-sm font-semibold">Notifications</p>
+                {unreadCount > 0 && (
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={handleMarkAll}
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {!notifications || notifications.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                    <Bell className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                    <p className="text-xs text-muted-foreground">You're all caught up!</p>
+                  </div>
+                ) : (
+                  notifications.slice(0, 10).map((n) => (
+                    <div
+                      key={n.id}
+                      className={`flex items-start gap-3 px-4 py-3 border-b last:border-0 transition-colors ${n.isRead ? "" : "bg-amber-50/40"}`}
+                    >
+                      <div
+                        className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full flex-shrink-0"
+                        style={{ background: n.isRead ? "#f3f4f6" : `${GOLD}22` }}
+                      >
+                        <Bell className="h-3.5 w-3.5" style={{ color: n.isRead ? "#9ca3af" : GOLD }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold leading-tight">{n.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.body}</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-1">
+                          {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                        </p>
+                      </div>
+                      {!n.isRead && (
+                        <button
+                          className="flex-shrink-0 mt-1 h-5 w-5 rounded flex items-center justify-center hover:bg-gray-100 transition-colors"
+                          onClick={(e) => handleMarkOne(e, n.id)}
+                          title="Mark as read"
+                        >
+                          <Check className="h-3 w-3 text-muted-foreground" />
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* User profile card */}

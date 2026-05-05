@@ -2167,6 +2167,12 @@ export const GetDashboardSummaryResponse = zod.object({
   totalSpentThisMonth: zod.number(),
   totalBudgetAllProjects: zod.number(),
   teamMemberCount: zod.number(),
+  totalContacts: zod.number().optional(),
+  overdueInvoices: zod.number().optional(),
+  overdueInvoiceAmount: zod.number().optional(),
+  revenuePipeline: zod.number().optional(),
+  activeLeads: zod.number().optional(),
+  pendingForms: zod.number().optional(),
 });
 
 /**
@@ -2190,6 +2196,57 @@ export const GetRecentActivityResponseItem = zod.object({
 export const GetRecentActivityResponse = zod.array(
   GetRecentActivityResponseItem,
 );
+
+/**
+ * @summary Get rule-based AI insight summary for the dashboard
+ */
+export const GetDashboardSmartSummaryResponse = zod.object({
+  summary: zod.string(),
+  lines: zod.array(zod.string()),
+});
+
+/**
+ * @summary List recent notifications for the current user
+ */
+export const ListNotificationsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  type: zod.string(),
+  title: zod.string(),
+  body: zod.string(),
+  referenceId: zod.number(),
+  projectId: zod.number(),
+  isRead: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListNotificationsResponse = zod.array(
+  ListNotificationsResponseItem,
+);
+
+/**
+ * @summary Get unread notification count for the current user
+ */
+export const GetNotificationsUnreadCountResponse = zod.object({
+  count: zod.number(),
+});
+
+/**
+ * @summary Mark all notifications as read
+ */
+export const MarkAllNotificationsReadResponse = zod.object({
+  ok: zod.boolean().optional(),
+});
+
+/**
+ * @summary Mark a notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkNotificationReadResponse = zod.object({
+  ok: zod.boolean().optional(),
+});
 
 /**
  * @summary List all tasks for a project

@@ -6,7 +6,6 @@ import {
   rfisTable,
   costAnalysesTable,
   usersTable,
-  invitationsTable,
   tasksTable,
   workerSchedulesTable,
   projectMembersTable,
@@ -15,8 +14,9 @@ import {
   formSubmissionsTable,
   timesheetsTable,
   contactsTable,
+  leadsTable,
 } from "@workspace/db";
-import { eq, and, gte, sql, inArray } from "drizzle-orm";
+import { eq, and, gte, sql, inArray, lt, ne } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 
 const router = Router();
@@ -127,6 +127,53 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
     .from(contactsTable)
     .where(eq(contactsTable.companyId, companyId));
 
+  // Overdue invoices: sent/overdue status + past due date
+  const today = new Date().toISOString().split("T")[0]!;
+  const overdueInvoiceRows = await db
+    .select()
+    .from(invoicesTable)
+    .where(
+      and(
+        eq(invoicesTable.companyId, companyId),
+        sql`${invoicesTable.status} IN ('sent', 'overdue')`,
+        sql`${invoicesTable.due_date} IS NOT NULL`,
+        lt(invoicesTable.dueDate, today),
+      ),
+    );
+  const overdueInvoices = overdueInvoiceRows.length;
+  const overdueInvoiceAmount = overdueInvoiceRows.reduce(
+    (s, inv) => s + parseFloat(inv.total ?? "0"),
+    0,
+  );
+
+  // Revenue pipeline: sum of estimatedValue from active leads
+  const activeLeadRows = await db
+    .select({ estimatedValue: leadsTable.estimatedValue, stage: leadsTable.stage })
+    .from(leadsTable)
+    .where(
+      and(
+        eq(leadsTable.companyId, companyId),
+        sql`${leadsTable.stage} NOT IN ('won', 'lost')`,
+      ),
+    );
+  const activeLeads = activeLeadRows.length;
+  const revenuePipeline = activeLeadRows.reduce(
+    (s, l) => s + parseFloat(l.estimatedValue ?? "0"),
+    0,
+  );
+
+  // Pending safety form review count
+  const [pendingFormsResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(formSubmissionsTable)
+    .where(
+      and(
+        eq(formSubmissionsTable.companyId, companyId),
+        sql`${formSubmissionsTable.status} = 'submitted'`,
+      ),
+    );
+  const pendingForms = pendingFormsResult?.count ?? 0;
+
   res.json({
     totalProjects,
     activeProjects,
@@ -140,6 +187,11 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
     totalBudgetAllProjects: totalBudget,
     teamMemberCount: members.length,
     totalContacts: contactRows.length,
+    overdueInvoices,
+    overdueInvoiceAmount,
+    revenuePipeline,
+    activeLeads,
+    pendingForms,
   });
 });
 
@@ -376,6 +428,105 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
 
   activity.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   res.json(activity.slice(0, 20));
+});
+
+// GET /dashboard/smart-summary — rule-based insight text
+router.get("/dashboard/smart-summary", requireAuth, requireCompany, async (req, res) => {
+  const companyId = req.companyId!;
+
+  const today = new Date().toISOString().split("T")[0]!;
+
+  // Active projects
+  const allProjects = await db
+    .select({ id: projectsTable.id, status: projectsTable.status })
+    .from(projectsTable)
+    .where(eq(projectsTable.companyId, companyId));
+  const activeCount = allProjects.filter(
+    (p) => p.status !== "completed" && p.status !== "cancelled",
+  ).length;
+
+  // Overdue invoices
+  const overdueRows = await db
+    .select({ total: invoicesTable.total })
+    .from(invoicesTable)
+    .where(
+      and(
+        eq(invoicesTable.companyId, companyId),
+        sql`${invoicesTable.status} IN ('sent', 'overdue')`,
+        sql`${invoicesTable.due_date} IS NOT NULL`,
+        lt(invoicesTable.dueDate, today),
+      ),
+    );
+  const overdueAmt = overdueRows.reduce((s, r) => s + parseFloat(r.total ?? "0"), 0);
+
+  // Idle leads (not updated in 7 days, not won/lost)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const idleLeadRows = await db
+    .select({ id: leadsTable.id })
+    .from(leadsTable)
+    .where(
+      and(
+        eq(leadsTable.companyId, companyId),
+        sql`${leadsTable.stage} NOT IN ('won', 'lost')`,
+        lt(leadsTable.updatedAt, sevenDaysAgo),
+      ),
+    );
+
+  // Pending form reviews
+  const [formsResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(formSubmissionsTable)
+    .where(
+      and(
+        eq(formSubmissionsTable.companyId, companyId),
+        sql`${formSubmissionsTable.status} = 'submitted'`,
+      ),
+    );
+  const pendingForms = formsResult?.count ?? 0;
+
+  // Overdue tasks
+  const taskRows = await db
+    .select({ id: tasksTable.id })
+    .from(tasksTable)
+    .innerJoin(projectsTable, eq(tasksTable.projectId, projectsTable.id))
+    .where(
+      and(
+        eq(projectsTable.companyId, companyId),
+        sql`${tasksTable.status} NOT IN ('done', 'cancelled')`,
+        sql`${tasksTable.due_date} IS NOT NULL`,
+        lt(tasksTable.dueDate, today),
+      ),
+    );
+
+  // Build insight sentences
+  const lines: string[] = [];
+
+  if (activeCount === 0) {
+    lines.push("No active projects at the moment — a great time to pursue new leads.");
+  } else {
+    lines.push(`You currently have ${activeCount} active project${activeCount !== 1 ? "s" : ""} in progress.`);
+  }
+
+  if (overdueRows.length > 0) {
+    const fmtAmt = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(overdueAmt);
+    lines.push(`${overdueRows.length} invoice${overdueRows.length !== 1 ? "s are" : " is"} overdue totalling ${fmtAmt} — consider following up with clients.`);
+  } else {
+    lines.push("All invoices are up to date.");
+  }
+
+  if (idleLeadRows.length > 0) {
+    lines.push(`${idleLeadRows.length} lead${idleLeadRows.length !== 1 ? "s have" : " has"} had no activity in over 7 days — worth a follow-up.`);
+  }
+
+  if (taskRows.length > 0) {
+    lines.push(`${taskRows.length} task${taskRows.length !== 1 ? "s are" : " is"} past due across your projects.`);
+  }
+
+  if (pendingForms > 0) {
+    lines.push(`${pendingForms} safety form${pendingForms !== 1 ? "s are" : " is"} pending review.`);
+  }
+
+  res.json({ summary: lines.join(" "), lines });
 });
 
 // GET /rfis — company-wide RFI list (worker-scoped to accessible projects)

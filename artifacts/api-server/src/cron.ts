@@ -1,10 +1,11 @@
 import cron from "node-cron";
-import { db, companiesTable } from "@workspace/db";
+import { db, companiesTable, leadsTable, usersTable, notificationsTable } from "@workspace/db";
 import { buildDigest } from "./lib/digest.js";
 import { buildDigestHtml } from "./lib/digestTemplate.js";
 import { sendEmail } from "./lib/mailer.js";
 import { sendOverdueReminders } from "./lib/invoiceReminders.js";
 import { logger } from "./lib/logger.js";
+import { eq, and, sql, lt } from "drizzle-orm";
 
 export async function sendDigestForAllCompanies(): Promise<{
   sent: number;
@@ -53,6 +54,87 @@ export async function sendDigestForAllCompanies(): Promise<{
   return { sent, skipped, errors };
 }
 
+async function sendIdleLeadNotifications(): Promise<{ notified: number; skipped: number }> {
+  const companies = await db
+    .select({ id: companiesTable.id })
+    .from(companiesTable);
+
+  let notified = 0;
+  let skipped = 0;
+
+  for (const company of companies) {
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      // Find idle leads (no update in 7+ days, still active)
+      const idleLeads = await db
+        .select()
+        .from(leadsTable)
+        .where(
+          and(
+            eq(leadsTable.companyId, company.id),
+            sql`${leadsTable.stage} NOT IN ('won', 'lost')`,
+            lt(leadsTable.updatedAt, sevenDaysAgo),
+          ),
+        );
+
+      if (idleLeads.length === 0) {
+        skipped++;
+        continue;
+      }
+
+      // Get owners and foremen to notify
+      const recipients = await db
+        .select()
+        .from(usersTable)
+        .where(
+          and(
+            eq(usersTable.companyId, company.id),
+            sql`${usersTable.role} IN ('owner', 'foreman')`,
+          ),
+        );
+
+      for (const user of recipients) {
+        for (const lead of idleLeads) {
+          // Check if we already notified this user about this lead in the last 7 days
+          const [existing] = await db
+            .select({ id: notificationsTable.id })
+            .from(notificationsTable)
+            .where(
+              and(
+                eq(notificationsTable.userId, user.id),
+                eq(notificationsTable.type, "idle_lead"),
+                eq(notificationsTable.referenceId, lead.id),
+                sql`${notificationsTable.created_at} > NOW() - INTERVAL '7 days'`,
+              ),
+            )
+            .limit(1);
+
+          if (existing) continue;
+
+          const daysIdle = Math.floor(
+            (Date.now() - lead.updatedAt.getTime()) / (24 * 60 * 60 * 1000),
+          );
+
+          await db.insert(notificationsTable).values({
+            userId: user.id,
+            type: "idle_lead",
+            title: "Lead needs follow-up",
+            body: `"${lead.title}" has had no activity for ${daysIdle} days.`,
+            referenceId: lead.id,
+            projectId: lead.convertedProjectId ?? 0,
+          });
+          notified++;
+        }
+      }
+    } catch (err) {
+      logger.error({ err, companyId: company.id }, "Error sending idle lead notifications");
+    }
+  }
+
+  return { notified, skipped };
+}
+
 export function startDailyCron(): void {
   // 7:00 AM Eastern every day — daily digest
   cron.schedule(
@@ -77,4 +159,16 @@ export function startDailyCron(): void {
     { timezone: "America/Toronto" },
   );
   logger.info("Overdue invoice reminder cron scheduled: 8:00 AM ET");
+
+  // 9:00 AM Eastern every day — idle lead notifications
+  cron.schedule(
+    "0 9 * * *",
+    async () => {
+      logger.info("Idle lead notification cron triggered");
+      const result = await sendIdleLeadNotifications();
+      logger.info(result, "Idle lead notification cron complete");
+    },
+    { timezone: "America/Toronto" },
+  );
+  logger.info("Idle lead notification cron scheduled: 9:00 AM ET");
 }

@@ -349,6 +349,33 @@ export interface DashboardSummary {
   totalSpentThisMonth: number;
   totalBudgetAllProjects: number;
   teamMemberCount: number;
+  totalContacts?: number;
+  overdueInvoices?: number;
+  overdueInvoiceAmount?: number;
+  revenuePipeline?: number;
+  activeLeads?: number;
+  pendingForms?: number;
+}
+
+export interface SmartSummary {
+  summary: string;
+  lines: string[];
+}
+
+export interface Notification {
+  id: number;
+  userId: number;
+  type: string;
+  title: string;
+  body: string;
+  referenceId: number;
+  projectId: number;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface NotificationUnreadCount {
+  count: number;
 }
 
 export type ActivityItemType =
@@ -1301,6 +1328,14 @@ export const ListContactsType = {
   subcontractor: "subcontractor",
   supplier: "supplier",
 } as const;
+
+export type MarkAllNotificationsRead200 = {
+  ok?: boolean;
+};
+
+export type MarkNotificationRead200 = {
+  ok?: boolean;
+};
 
 export type RejectQuoteBody = {
   reason?: string;
