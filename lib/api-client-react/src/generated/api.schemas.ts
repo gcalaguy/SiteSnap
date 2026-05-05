@@ -58,6 +58,9 @@ export interface Company {
   province: string;
   city: string;
   phone?: string | null;
+  logoPath?: string | null;
+  quoteTemplatePath?: string | null;
+  invoiceTemplatePath?: string | null;
   createdAt: string;
 }
 

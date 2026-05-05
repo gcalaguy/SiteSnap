@@ -42,6 +42,9 @@ export const GetMeResponse = zod
           province: zod.string(),
           city: zod.string(),
           phone: zod.string().nullish(),
+          logoPath: zod.string().nullish(),
+          quoteTemplatePath: zod.string().nullish(),
+          invoiceTemplatePath: zod.string().nullish(),
           createdAt: zod.coerce.date(),
         })
         .nullish(),
@@ -76,6 +79,9 @@ export const AcceptTermsResponse = zod
           province: zod.string(),
           city: zod.string(),
           phone: zod.string().nullish(),
+          logoPath: zod.string().nullish(),
+          quoteTemplatePath: zod.string().nullish(),
+          invoiceTemplatePath: zod.string().nullish(),
           createdAt: zod.coerce.date(),
         })
         .nullish(),
@@ -131,6 +137,9 @@ export const GetCompanyResponse = zod.object({
   province: zod.string(),
   city: zod.string(),
   phone: zod.string().nullish(),
+  logoPath: zod.string().nullish(),
+  quoteTemplatePath: zod.string().nullish(),
+  invoiceTemplatePath: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -166,6 +175,9 @@ export const ListCompanyMembersResponseItem = zod
           province: zod.string(),
           city: zod.string(),
           phone: zod.string().nullish(),
+          logoPath: zod.string().nullish(),
+          quoteTemplatePath: zod.string().nullish(),
+          invoiceTemplatePath: zod.string().nullish(),
           createdAt: zod.coerce.date(),
         })
         .nullish(),
@@ -220,6 +232,9 @@ export const UpdateMemberRoleResponse = zod
           province: zod.string(),
           city: zod.string(),
           phone: zod.string().nullish(),
+          logoPath: zod.string().nullish(),
+          quoteTemplatePath: zod.string().nullish(),
+          invoiceTemplatePath: zod.string().nullish(),
           createdAt: zod.coerce.date(),
         })
         .nullish(),
@@ -253,6 +268,9 @@ export const ListInvitationsResponseItem = zod.object({
       province: zod.string(),
       city: zod.string(),
       phone: zod.string().nullish(),
+      logoPath: zod.string().nullish(),
+      quoteTemplatePath: zod.string().nullish(),
+      invoiceTemplatePath: zod.string().nullish(),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -287,6 +305,9 @@ export const UpdateInvitationResponse = zod.object({
       province: zod.string(),
       city: zod.string(),
       phone: zod.string().nullish(),
+      logoPath: zod.string().nullish(),
+      quoteTemplatePath: zod.string().nullish(),
+      invoiceTemplatePath: zod.string().nullish(),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -322,6 +343,9 @@ export const GetInvitationResponse = zod.object({
       province: zod.string(),
       city: zod.string(),
       phone: zod.string().nullish(),
+      logoPath: zod.string().nullish(),
+      quoteTemplatePath: zod.string().nullish(),
+      invoiceTemplatePath: zod.string().nullish(),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -359,6 +383,9 @@ export const AcceptInvitationResponse = zod
           province: zod.string(),
           city: zod.string(),
           phone: zod.string().nullish(),
+          logoPath: zod.string().nullish(),
+          quoteTemplatePath: zod.string().nullish(),
+          invoiceTemplatePath: zod.string().nullish(),
           createdAt: zod.coerce.date(),
         })
         .nullish(),

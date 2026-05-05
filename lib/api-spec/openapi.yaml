@@ -1824,6 +1824,15 @@ components:
         phone:
           type: string
           nullable: true
+        logoPath:
+          type: string
+          nullable: true
+        quoteTemplatePath:
+          type: string
+          nullable: true
+        invoiceTemplatePath:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
