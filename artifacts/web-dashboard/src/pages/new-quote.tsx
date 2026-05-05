@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useCreateQuote } from "@workspace/api-client-react";
+import { useCreateQuote, useGetMe } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, FileImage, Loader2, Settings } from "lucide-react";
 
 export default function NewQuote() {
   const [, setLocation] = useLocation();
@@ -18,12 +18,18 @@ export default function NewQuote() {
 
   const { toast } = useToast();
   const createQuote = useCreateQuote();
+  const { data: me } = useGetMe();
 
   const [title, setTitle] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [validUntil, setValidUntil] = useState("");
+
+  const quoteTemplatePath: string | undefined = (me as any)?.company?.quoteTemplatePath ?? undefined;
+  const templatePreviewUrl = quoteTemplatePath
+    ? quoteTemplatePath.replace(/^\/objects\//, "/api/storage/objects/")
+    : undefined;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,6 +69,64 @@ export default function NewQuote() {
           Create a blank quote, then use AI fill to generate line items from a voice description.
         </p>
       </div>
+
+      {/* PDF Template Preview */}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-3 pt-4 px-5">
+          <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+            <FileImage className="h-4 w-4" />
+            PDF Template
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-4">
+          {templatePreviewUrl ? (
+            <div className="space-y-3">
+              <div className="rounded-lg overflow-hidden border border-border shadow-sm">
+                <img
+                  src={templatePreviewUrl}
+                  alt="Quote template header"
+                  className="w-full object-cover"
+                  style={{ maxHeight: 120, objectPosition: "top" }}
+                />
+                <div className="bg-[#0a0a0a] flex items-center px-4 py-2 gap-6">
+                  <span className="text-[11px] font-bold tracking-wide text-[#d4af37]">QUOTE</span>
+                  <span className="text-[12px] text-white font-medium">QUO-XXXX</span>
+                  <span className="ml-auto text-[10px] font-bold tracking-wide text-[#b4b4b4]">STATUS: DRAFT</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Your uploaded template will appear as the header on every quote PDF.{" "}
+                <button
+                  type="button"
+                  onClick={() => setLocation("/settings")}
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  Change in Settings
+                </button>
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border border-dashed border-border p-4">
+              <div>
+                <p className="text-sm font-medium">No template uploaded</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Your PDF will use the default gold header with your company logo.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setLocation("/settings")}
+                className="shrink-0 ml-4"
+              >
+                <Settings className="h-3.5 w-3.5 mr-1.5" />
+                Upload Template
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="pt-6">
