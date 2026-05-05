@@ -713,6 +713,96 @@ export interface Invoice {
   updatedAt: string;
 }
 
+export interface PaymentRecord {
+  id: number;
+  companyId: number;
+  invoiceId: number;
+  amount: string;
+  method: string;
+  paidAt: string;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface FinancialSummary {
+  outstanding?: string;
+  overdue?: string;
+  collected?: string;
+  totalInvoiced?: string;
+  totalPaymentsReceived?: string;
+  invoiceCount?: number;
+  pendingChangeOrders?: number;
+  approvedChangeOrdersValue?: string;
+  recentPayments?: PaymentRecord[];
+}
+
+export type RecordPaymentBodyMethod =
+  (typeof RecordPaymentBodyMethod)[keyof typeof RecordPaymentBodyMethod];
+
+export const RecordPaymentBodyMethod = {
+  cash: "cash",
+  cheque: "cheque",
+  "e-transfer": "e-transfer",
+  credit_card: "credit_card",
+  other: "other",
+} as const;
+
+export interface RecordPaymentBody {
+  amount: number;
+  method?: RecordPaymentBodyMethod;
+  paidAt?: string;
+  notes?: string | null;
+}
+
+export interface InvoicePaymentSummary {
+  invoiceId?: number;
+  invoiceTotal?: string;
+  totalPaid?: string;
+  balance?: string;
+  status?: string;
+  payments?: PaymentRecord[];
+}
+
+export type ChangeOrderRecordStatus =
+  (typeof ChangeOrderRecordStatus)[keyof typeof ChangeOrderRecordStatus];
+
+export const ChangeOrderRecordStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface ChangeOrderRecord {
+  id: number;
+  companyId: number;
+  projectId: number;
+  title: string;
+  description?: string | null;
+  amount: string;
+  status: ChangeOrderRecordStatus;
+  requestedByUserId: number;
+  approvedByUserId?: number | null;
+  approvedAt?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateChangeOrderBody {
+  projectId: number;
+  title: string;
+  description?: string | null;
+  amount: number;
+  notes?: string | null;
+}
+
+export interface UpdateChangeOrderBody {
+  title?: string;
+  description?: string | null;
+  amount?: number;
+  notes?: string | null;
+}
+
 export interface BuilderEstimate {
   id: number;
   companyId: number;
@@ -1049,6 +1139,12 @@ export interface UpdateInvoiceBody {
   notes?: string | null;
   dueDate?: string | null;
 }
+
+export type CreateInvoiceFromProposal201 = { [key: string]: unknown };
+
+export type ListChangeOrdersParams = {
+  projectId?: number;
+};
 
 export type ConvertLead201 = {
   project?: Project;

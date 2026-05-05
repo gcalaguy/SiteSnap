@@ -1030,6 +1030,50 @@ export const tradehubConversationParticipantsTable = pgTable(
   (t) => [primaryKey({ columns: [t.conversationId, t.userId] })],
 );
 
+// ── Payments ──────────────────────────────────────────────────────────────────
+
+export const paymentsTable = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id),
+  invoiceId: integer("invoice_id")
+    .notNull()
+    .references(() => invoicesTable.id),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  method: text("method").notNull().default("other"), // cash | cheque | e-transfer | credit_card | other
+  paidAt: timestamp("paid_at").defaultNow().notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type Payment = typeof paymentsTable.$inferSelect;
+
+// ── Change Orders ─────────────────────────────────────────────────────────────
+
+export const changeOrdersTable = pgTable("change_orders", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  requestedByUserId: integer("requested_by_user_id")
+    .notNull()
+    .references(() => usersTable.id),
+  approvedByUserId: integer("approved_by_user_id").references(() => usersTable.id),
+  approvedAt: timestamp("approved_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type ChangeOrder = typeof changeOrdersTable.$inferSelect;
+
+// ── Tradehub Messages ─────────────────────────────────────────────────────────
 export const tradehubMessagesTable = pgTable("tradehub_messages", {
   id: serial("id").primaryKey(),
   conversationId: integer("conversation_id").notNull().references(() => tradehubConversationsTable.id, { onDelete: "cascade" }),

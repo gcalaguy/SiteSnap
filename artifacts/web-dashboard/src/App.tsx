@@ -50,6 +50,7 @@ import WorkerPortalDetailPage from "@/pages/worker-portal-detail";
 import Contacts from "@/pages/contacts";
 import Leads from "@/pages/leads";
 import ProposalsPage from "@/pages/proposals";
+import FinancialsPage from "@/pages/financials";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 
@@ -242,6 +243,7 @@ function AuthApp() {
           <Route path="/contacts" component={Contacts} />
           <Route path="/leads" component={Leads} />
           <Route path="/proposals" component={ProposalsPage} />
+          <Route path="/financials" component={FinancialsPage} />
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/projects/:id/reports/new" component={NewReport} />
           <Route path="/projects/:id/cost/new" component={NewCost} />

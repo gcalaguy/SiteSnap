@@ -44,6 +44,8 @@ tags:
     description: Invoice management and payment tracking
   - name: contacts
     description: CRM contact management
+  - name: financials
+    description: Payments, change orders, and financial dashboard
   - name: proposals
     description: Estimate builder, templates, and proposal management
   - name: leads
@@ -52,6 +54,241 @@ tags:
     description: Lead activity logging
 
 paths:
+  # ── Financials ───────────────────────────────────────────────────────────────
+  /financials/summary:
+    get:
+      operationId: getFinancialSummary
+      tags: [financials]
+      summary: Financial overview stats
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialSummary"
+
+  /payments:
+    get:
+      operationId: listPayments
+      tags: [financials]
+      summary: List all payments for company
+      responses:
+        "200":
+          description: Payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaymentRecord"
+
+  /payments/{id}:
+    delete:
+      operationId: deletePayment
+      tags: [financials]
+      summary: Delete a payment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /invoices/{id}/payments:
+    get:
+      operationId: getInvoicePayments
+      tags: [financials]
+      summary: Get payments and balance for an invoice
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice payments with balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoicePaymentSummary"
+    post:
+      operationId: recordPayment
+      tags: [financials]
+      summary: Record a payment against an invoice
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordPaymentBody"
+      responses:
+        "201":
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentRecord"
+
+  /invoices/from-proposal/{proposalId}:
+    post:
+      operationId: createInvoiceFromProposal
+      tags: [financials]
+      summary: Generate an invoice from an approved proposal
+      parameters:
+        - in: path
+          name: proposalId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Created invoice
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /change-orders:
+    get:
+      operationId: listChangeOrders
+      tags: [financials]
+      summary: List change orders
+      parameters:
+        - in: query
+          name: projectId
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Change orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChangeOrderRecord"
+    post:
+      operationId: createChangeOrder
+      tags: [financials]
+      summary: Create a change order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChangeOrderBody"
+      responses:
+        "201":
+          description: Created change order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeOrderRecord"
+
+  /change-orders/{id}:
+    get:
+      operationId: getChangeOrder
+      tags: [financials]
+      summary: Get a change order
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Change order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeOrderRecord"
+    patch:
+      operationId: updateChangeOrder
+      tags: [financials]
+      summary: Update a change order
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChangeOrderBody"
+      responses:
+        "200":
+          description: Updated change order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeOrderRecord"
+    delete:
+      operationId: deleteChangeOrder
+      tags: [financials]
+      summary: Delete a change order
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /change-orders/{id}/approve:
+    post:
+      operationId: approveChangeOrder
+      tags: [financials]
+      summary: Approve a change order
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeOrderRecord"
+
+  /change-orders/{id}/reject:
+    post:
+      operationId: rejectChangeOrder
+      tags: [financials]
+      summary: Reject a change order
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeOrderRecord"
+
   # ── Builder Estimates ────────────────────────────────────────────────────────
   /builder-estimates:
     get:
@@ -3570,6 +3807,157 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    FinancialSummary:
+      type: object
+      properties:
+        outstanding:
+          type: string
+        overdue:
+          type: string
+        collected:
+          type: string
+        totalInvoiced:
+          type: string
+        totalPaymentsReceived:
+          type: string
+        invoiceCount:
+          type: integer
+        pendingChangeOrders:
+          type: integer
+        approvedChangeOrdersValue:
+          type: string
+        recentPayments:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentRecord"
+
+    PaymentRecord:
+      type: object
+      required: [id, companyId, invoiceId, amount, method, paidAt, createdAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        invoiceId:
+          type: integer
+        amount:
+          type: string
+        method:
+          type: string
+        paidAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    RecordPaymentBody:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: number
+        method:
+          type: string
+          enum: [cash, cheque, e-transfer, credit_card, other]
+        paidAt:
+          type: string
+        notes:
+          type: string
+          nullable: true
+
+    InvoicePaymentSummary:
+      type: object
+      properties:
+        invoiceId:
+          type: integer
+        invoiceTotal:
+          type: string
+        totalPaid:
+          type: string
+        balance:
+          type: string
+        status:
+          type: string
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentRecord"
+
+    ChangeOrderRecord:
+      type: object
+      required: [id, companyId, projectId, title, amount, status, requestedByUserId, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        amount:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        requestedByUserId:
+          type: integer
+        approvedByUserId:
+          type: integer
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateChangeOrderBody:
+      type: object
+      required: [projectId, title, amount]
+      properties:
+        projectId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        notes:
+          type: string
+          nullable: true
+
+    UpdateChangeOrderBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        notes:
+          type: string
+          nullable: true
 
     BuilderEstimate:
       type: object

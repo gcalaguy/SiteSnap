@@ -34,6 +34,7 @@ import calculatorsRouter from "./calculators";
 import contactsRouter from "./contacts";
 import leadsRouter from "./leads";
 import proposalsRouter from "./proposals";
+import financialsRouter from "./financials";
 
 const router: IRouter = Router();
 
@@ -72,5 +73,6 @@ router.use(calculatorsRouter);
 router.use(contactsRouter);
 router.use(leadsRouter);
 router.use(proposalsRouter);
+router.use(financialsRouter);
 
 export default router;

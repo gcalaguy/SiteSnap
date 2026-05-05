@@ -8,6 +8,249 @@
 import * as zod from "zod";
 
 /**
+ * @summary Financial overview stats
+ */
+export const GetFinancialSummaryResponse = zod.object({
+  outstanding: zod.string().optional(),
+  overdue: zod.string().optional(),
+  collected: zod.string().optional(),
+  totalInvoiced: zod.string().optional(),
+  totalPaymentsReceived: zod.string().optional(),
+  invoiceCount: zod.number().optional(),
+  pendingChangeOrders: zod.number().optional(),
+  approvedChangeOrdersValue: zod.string().optional(),
+  recentPayments: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        companyId: zod.number(),
+        invoiceId: zod.number(),
+        amount: zod.string(),
+        method: zod.string(),
+        paidAt: zod.coerce.date(),
+        notes: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary List all payments for company
+ */
+export const ListPaymentsResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  invoiceId: zod.number(),
+  amount: zod.string(),
+  method: zod.string(),
+  paidAt: zod.coerce.date(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListPaymentsResponse = zod.array(ListPaymentsResponseItem);
+
+/**
+ * @summary Delete a payment
+ */
+export const DeletePaymentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get payments and balance for an invoice
+ */
+export const GetInvoicePaymentsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetInvoicePaymentsResponse = zod.object({
+  invoiceId: zod.number().optional(),
+  invoiceTotal: zod.string().optional(),
+  totalPaid: zod.string().optional(),
+  balance: zod.string().optional(),
+  status: zod.string().optional(),
+  payments: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        companyId: zod.number(),
+        invoiceId: zod.number(),
+        amount: zod.string(),
+        method: zod.string(),
+        paidAt: zod.coerce.date(),
+        notes: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Record a payment against an invoice
+ */
+export const RecordPaymentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RecordPaymentBody = zod.object({
+  amount: zod.number(),
+  method: zod
+    .enum(["cash", "cheque", "e-transfer", "credit_card", "other"])
+    .optional(),
+  paidAt: zod.string().optional(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Generate an invoice from an approved proposal
+ */
+export const CreateInvoiceFromProposalParams = zod.object({
+  proposalId: zod.coerce.number(),
+});
+
+/**
+ * @summary List change orders
+ */
+export const ListChangeOrdersQueryParams = zod.object({
+  projectId: zod.coerce.number().optional(),
+});
+
+export const ListChangeOrdersResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  amount: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  requestedByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListChangeOrdersResponse = zod.array(ListChangeOrdersResponseItem);
+
+/**
+ * @summary Create a change order
+ */
+export const CreateChangeOrderBody = zod.object({
+  projectId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  amount: zod.number(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a change order
+ */
+export const GetChangeOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetChangeOrderResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  amount: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  requestedByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a change order
+ */
+export const UpdateChangeOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateChangeOrderBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().nullish(),
+  amount: zod.number().optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateChangeOrderResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  amount: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  requestedByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a change order
+ */
+export const DeleteChangeOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Approve a change order
+ */
+export const ApproveChangeOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ApproveChangeOrderResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  amount: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  requestedByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Reject a change order
+ */
+export const RejectChangeOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RejectChangeOrderResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  amount: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  requestedByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary List all manual estimates
  */
 export const ListBuilderEstimatesResponseItem = zod.object({

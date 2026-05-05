@@ -22,6 +22,7 @@ import {
   BookUser,
   TrendingUp,
   FileSignature,
+  BarChart3,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import {
@@ -94,6 +95,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Leads", href: "/leads", icon: TrendingUp, badge: 0 },
     { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge },
     { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge },
+    ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0 }] : []),
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0 },
     { name: "Safety", href: "/safety", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0 },
     ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0 }] : []),

@@ -248,6 +248,17 @@ Enums: `user_role`, `project_status`, `rfi_status`, `rfi_priority`, `invitation_
 - Use `customFetch` from `@workspace/api-client-react` for API calls (token is auto-attached)
 - Use `signOut()` from `@/utils/auth` for sign-out (wired through `_layout.tsx`)
 
+### ✅ Phase 12 — FINANCIAL TRACKING (Complete)
+- **New DB tables**: `payments`, `change_orders`; added `proposal_id` column to `invoices`
+- **Payments**: record partial payments against any invoice (amount, method: cash/cheque/e-transfer/credit_card/other, date, notes); auto-marks invoice as `paid` when total payments ≥ invoice total; delete a payment
+- **Change Orders**: extra scope/costs on a project with title, description, amount; approval flow (pending → approved/rejected by owner/foreman); full CRUD
+- **Invoice from Proposal**: `POST /invoices/from-proposal/:proposalId` generates a draft invoice from a proposal's estimate items, mapping revenue price per unit to line items
+- **Financial Summary API** (`GET /financials/summary`): outstanding, overdue, collected, total invoiced, total payments received, pending change order count, approved change orders value, recent 8 payments
+- **Routes file**: `artifacts/api-server/src/routes/financials.ts` — registered via `financialsRouter` in `routes/index.ts`
+- **Frontend page** (`/financials`): 3-tab layout — Overview (summary stat cards + revenue breakdown + recent payments + pending CO alert), Payments (table with delete, Record Payment dialog), Change Orders (list with inline approve/reject, Create Change Order dialog)
+- **Sidebar**: "Financials" nav item (BarChart3 icon) added between Invoices and AI Chat, visible to owners and foremans only
+- **OpenAPI**: All new endpoints in `lib/api-spec/openapi.yaml` with schemas; codegen run successfully
+
 ## Notes
 
 - Orval codegen: `lib/api-zod` uses `mode: "single"` with an absolute `target` path (no `workspace:`) so orval does NOT regenerate `index.ts`. After codegen, `lib/api-zod/src/index.ts` must only contain `export * from "./generated/api";` — if it gains a second line, rewrite it. `lib/api-client-react` uses `mode: "split"` with `workspace:` and generates both `api.ts` + `api.schemas.ts` (both real files); its `index.ts` exports all four things correctly.
