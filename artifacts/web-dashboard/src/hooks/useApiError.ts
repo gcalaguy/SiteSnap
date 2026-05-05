@@ -1,4 +1,4 @@
-import { useToast } from "@/components/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useCallback } from "react";
 
 interface ApiErrorBody {

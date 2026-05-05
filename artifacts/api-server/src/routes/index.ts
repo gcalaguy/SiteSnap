@@ -37,6 +37,7 @@ import proposalsRouter from "./proposals";
 import financialsRouter from "./financials";
 import formsRouter from "./forms";
 import filesRouter from "./files";
+import estimatorRouter from "./estimator";
 
 const router: IRouter = Router();
 
@@ -78,5 +79,6 @@ router.use(proposalsRouter);
 router.use(financialsRouter);
 router.use(formsRouter);
 router.use(filesRouter);
+router.use(estimatorRouter);
 
 export default router;

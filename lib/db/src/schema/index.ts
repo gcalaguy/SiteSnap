@@ -1103,3 +1103,49 @@ export const tradehubMessagesTable = pgTable("tradehub_messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type TradehubMessage = typeof tradehubMessagesTable.$inferSelect;
+
+// ── AI Smart Estimator — Cost Models ─────────────────────────────────────────
+
+export const estimatorCostModelsTable = pgTable("estimator_cost_models", {
+  id: serial("id").primaryKey(),
+  projectType: text("project_type").notNull(),
+  finishLevel: text("finish_level").notNull(), // basic | standard | premium | luxury
+  name: text("name").notNull(),
+  baseCostPerSqft: numeric("base_cost_per_sqft", { precision: 10, scale: 2 }).notNull(),
+  laborCostPerSqft: numeric("labor_cost_per_sqft", { precision: 10, scale: 2 }).notNull(),
+  materialCostPerSqft: numeric("material_cost_per_sqft", { precision: 10, scale: 2 }).notNull(),
+  overheadPct: numeric("overhead_pct", { precision: 5, scale: 2 }).notNull().default("10"),
+  contingencyPct: numeric("contingency_pct", { precision: 5, scale: 2 }).notNull().default("10"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type EstimatorCostModel = typeof estimatorCostModelsTable.$inferSelect;
+
+export const estimatorAddonsTable = pgTable("estimator_addons", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  addonKey: text("addon_key").notNull().unique(),
+  description: text("description"),
+  costType: text("cost_type").notNull().default("flat"), // flat | per_sqft
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  applicableTypes: text("applicable_types"), // null = all, comma-sep project types
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type EstimatorAddon = typeof estimatorAddonsTable.$inferSelect;
+
+export const estimatorActualsTable = pgTable("estimator_actuals", {
+  id: serial("id").primaryKey(),
+  estimateId: integer("estimate_id")
+    .notNull()
+    .references(() => estimatesTable.id, { onDelete: "cascade" }),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id),
+  estimatedCost: numeric("estimated_cost", { precision: 12, scale: 2 }).notNull(),
+  actualCost: numeric("actual_cost", { precision: 12, scale: 2 }).notNull(),
+  variancePct: numeric("variance_pct", { precision: 8, scale: 2 }),
+  notes: text("notes"),
+  recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+});
+export type EstimatorActual = typeof estimatorActualsTable.$inferSelect;

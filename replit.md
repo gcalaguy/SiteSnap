@@ -210,6 +210,29 @@ The current single-server Express app + Replit Deployment is fully adequate. No 
 
 ## Phase Status
 
+### ✅ Phase 16 — HYBRID AI + RULE-BASED SMART ESTIMATOR (Complete)
+- **DB tables**: Added `estimator_cost_models` (48 rows: 12 project types × 4 finish levels, real CAD $/sqft rates), `estimator_addons` (18 addon items: flat + per_sqft), `estimator_actuals` (learning system — estimated vs actual cost per job)
+- **Backend** (`routes/estimator.ts`): 7 routes under `/api/estimator/`:
+  - `GET /cost-models` — list all DB-driven pricing models + addons (auto-seeds on first call)
+  - `POST /parse` — AI: free text → structured JSON `{project_type, square_feet, finish_level, addons[], confidence, notes}` using GPT-4o with `response_format: json_object`; AI cannot invent pricing
+  - `POST /calculate` — pure rule engine: looks up DB cost model by project_type + finish_level → line items + subtotal + overhead + contingency + margin; no AI pricing
+  - `GET /smart-estimates` — list saved smart estimates (sourceType="smart" in estimates table)
+  - `POST /smart-estimates` — save a smart estimate
+  - `POST /actuals` — record actual project cost + compute variance %; learning system
+  - `GET /actuals` — list variance records for accuracy insights
+- **Pricing data**: 48 cost models with realistic 2024 Ontario/BC CAD rates (residential new build basic $185/sqft → luxury $400/sqft; basement finish basic $55 → luxury $175; concrete flatwork $12–$40; etc.). 18 addons: HVAC $15k, plumbing rough $12k, spray foam $4.50/sqft, permit fees $2.5k, solar $18k, etc.
+- **Frontend** (`pages/smart-estimator.tsx`): Full 3-step page:
+  1. **Describe Project** — Free Text mode (AI parse) or Structured Form mode
+  2. **Review Inputs** — editable params (project type, sqft, finish level, addons, margin slider) with AI confidence badge
+  3. **Estimate** — editable line items table (click cells to adjust), cost breakdown panel, live margin slider, price-to-client total in brand gold, "pricing from DB" badge
+  - Save dialog → saves to estimates table with sourceType="smart"
+  - Record Actual dialog → records real cost → variance % → shown in learning insights panel
+  - Pricing DB panel — shows all 48 cost models with rates
+  - History panel — lists all saved smart estimates
+- **Routing**: `/smart-estimator` added to App.tsx + "Smart Estimator" with Sparkles icon added to sidebar (owner/foreman only)
+- **Bug fix**: Corrected `useApiError.ts` import path from `@/components/use-toast` → `@/hooks/use-toast`
+- **Lib rebuild**: Ran `pnpm run typecheck:libs` to emit new `@workspace/db` declarations for the 3 new table types
+
 ### ✅ Phase 13 — SAFETY FORMS + GENERAL FILE ATTACHMENTS (Complete)
 - **DB migrations**: Added `contact_id` FK to `form_submissions`; new `file_attachments` table (companyId, uploadedByUserId, entityType, entityId, fileName, fileSize, mimeType, objectPath, createdAt); index on (entityType, entityId)
 - **Schema**: Updated `formSubmissionsTable` with `contactId`; added `fileAttachmentsTable` + `FileAttachment` type
