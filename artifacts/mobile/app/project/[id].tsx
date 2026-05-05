@@ -5,6 +5,7 @@ import {
   useListRFIs,
   useListTasks,
   useUpdateTask,
+  useGetMe,
   customFetch,
 } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -565,6 +566,11 @@ export default function ProjectDetailScreen() {
 
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
 
+  const { data: me } = useGetMe();
+  const isWorker = me?.role === "worker";
+
+  const visibleTabs = TABS.filter(t => isWorker ? (t !== "RFIs" && t !== "Quotes") : true);
+
   const { data: project, isLoading } = useGetProject(projectId);
   const { data: summary } = useGetProjectSummary(projectId);
   const { data: reports, refetch: refetchReports } = useListDailyReports(projectId);
@@ -619,7 +625,7 @@ export default function ProjectDetailScreen() {
       {summary && (
         <View style={styles.statsRow}>
           <StatPill label="Reports" value={String(summary.reportCount ?? 0)} icon="file-text" />
-          <StatPill label="RFIs" value={String(summary.openRFIs ?? 0)} icon="alert-circle" />
+          {!isWorker && <StatPill label="RFIs" value={String(summary.openRFIs ?? 0)} icon="alert-circle" />}
           <StatPill label="Spend" value={formatCurrency(summary.totalSpend)} icon="dollar-sign" />
         </View>
       )}
@@ -631,7 +637,7 @@ export default function ProjectDetailScreen() {
         style={styles.tabRow}
         contentContainerStyle={styles.tabRowContent}
       >
-        {TABS.map(tab => {
+        {visibleTabs.map(tab => {
           const active = activeTab === tab;
           return (
             <Pressable
