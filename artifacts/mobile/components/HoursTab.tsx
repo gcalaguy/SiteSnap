@@ -197,10 +197,10 @@ export function HoursTab({ projectId }: { projectId: number }) {
   }, [me?.id, isPrivileged]);
 
   // Date picker handlers
-  const onDateChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
+  const onDateChange = useCallback((_event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === "android") {
       setShowDatePicker(false);
-      if (event.type === "set" && date) setSelectedDate(date);
+      if (_event.type === "set" && date) setSelectedDate(date);
     } else {
       if (date) setTempDate(date);
     }
