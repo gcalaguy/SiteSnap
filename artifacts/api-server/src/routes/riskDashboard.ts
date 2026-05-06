@@ -97,6 +97,25 @@ router.get(
       if (row.riskLevel) healthMap[row.riskLevel] = row.count;
     }
 
+    // 7-day daily risk score trend
+    const trend = await db
+      .select({
+        day: sql<string>`DATE(${inspectionsTable.createdAt})::text`,
+        avgScore: sql<number>`round(avg(${inspectionsTable.riskScore})::numeric, 1)`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(inspectionsTable)
+      .where(
+        and(
+          eq(inspectionsTable.companyId, companyId),
+          eq(inspectionsTable.status, "submitted"),
+          sql`${inspectionsTable.createdAt} >= NOW() - INTERVAL '7 days'`,
+          sql`${inspectionsTable.riskScore} IS NOT NULL`,
+        ),
+      )
+      .groupBy(sql`DATE(${inspectionsTable.createdAt})`)
+      .orderBy(sql`DATE(${inspectionsTable.createdAt})`);
+
     res.json({
       topRisk,
       alerts: {
@@ -112,6 +131,7 @@ router.get(
         low: healthMap["Low"] ?? 0,
         avgRiskScore: avgResult?.avg ?? null,
       },
+      trend,
     });
   }),
 );
