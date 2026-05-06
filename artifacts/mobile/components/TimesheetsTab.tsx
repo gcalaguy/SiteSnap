@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,15 +12,25 @@ import {
   Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useGetMe, useListTimesheets, useSubmitTimesheet } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { customFetch, useGetMe, useListTimesheets, useSubmitTimesheet } from "@workspace/api-client-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+
+// ── types ─────────────────────────────────────────────────────────────────────
+
+type TimeEntry = {
+  id: number;
+  date: string;
+  hours: string;
+  description?: string | null;
+  user: { firstName?: string | null; lastName?: string | null } | null;
+};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function getMondayOfWeek(date: Date): Date {
   const d = new Date(date);
-  const day = d.getDay(); // 0 = Sun
+  const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
@@ -47,6 +57,23 @@ function fmtCAD(v: number | string) {
   }).format(Number(v));
 }
 
+function formatDate(iso: string) {
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-CA", {
+    weekday: "short", month: "short", day: "numeric",
+  });
+}
+
+function getWeekEntries(entries: TimeEntry[], mondayISO: string): TimeEntry[] {
+  const monday = new Date(mondayISO + "T00:00:00");
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return entries.filter((e) => {
+    const d = new Date(e.date + "T00:00:00");
+    return d >= monday && d <= sunday;
+  });
+}
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   submitted: { label: "Pending Review", color: "#D97706", bg: "#FEF3C7", icon: "clock" },
   approved:  { label: "Approved",       color: "#16A34A", bg: "#DCFCE7", icon: "check-circle" },
@@ -60,19 +87,34 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
   const qc = useQueryClient();
   const { data: me } = useGetMe();
 
-  // Week navigation state — default to current week's Monday
   const [selectedMonday, setSelectedMonday] = useState<Date>(() => getMondayOfWeek(new Date()));
   const weekISO = toISO(selectedMonday);
 
-  // Form state
   const [showForm, setShowForm] = useState(false);
   const [totalHours, setTotalHours] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
   const [description, setDescription] = useState("");
   const [hoursError, setHoursError] = useState("");
 
-  // Fetch worker's own timesheets (API scopes to current user automatically)
+  // Fetch all timesheets (worker sees own, privileged sees all)
   const { data: timesheets = [], isLoading } = useListTimesheets({});
+
+  // Fetch time entries for this project so we can pre-fill hours
+  const { data: timeEntries = [] } = useQuery<TimeEntry[]>({
+    queryKey: ["time-entries", "project", projectId],
+    queryFn: () => customFetch(`/api/projects/${projectId}/time-entries`),
+  });
+
+  // Entries that belong to the currently selected week
+  const weekEntries = getWeekEntries(timeEntries, weekISO);
+  const weekTotal = weekEntries.reduce((s, e) => s + parseFloat(e.hours), 0);
+
+  // Auto-fill total hours from logged entries whenever the week changes or form opens
+  useEffect(() => {
+    if (showForm && weekTotal > 0) {
+      setTotalHours(weekTotal.toFixed(1));
+    }
+  }, [showForm, weekISO, weekTotal]);
 
   const submitMutation = useSubmitTimesheet({
     mutation: {
@@ -104,7 +146,6 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
       return;
     }
     const rate = hourlyRate ? parseFloat(hourlyRate) : undefined;
-
     submitMutation.mutate({
       data: {
         weekStart: weekISO,
@@ -116,7 +157,6 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
     });
   }, [totalHours, hourlyRate, description, weekISO, projectId]);
 
-  // Find existing timesheet for selected week
   const existingForWeek = timesheets.find((t) => t.weekStart === weekISO);
 
   return (
@@ -185,10 +225,38 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
               </View>
             )}
 
+            {/* Logged entries for this week pulled from Hours tab */}
+            {weekEntries.length > 0 && (
+              <View style={[s.entriesBlock, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}20` }]}>
+                <View style={s.entriesBlockHeader}>
+                  <Feather name="clock" size={13} color={colors.primary} />
+                  <Text style={[s.entriesBlockTitle, { color: colors.primary }]}>
+                    Hours logged this week ({weekTotal.toFixed(1)}h from {weekEntries.length} {weekEntries.length === 1 ? "entry" : "entries"})
+                  </Text>
+                </View>
+                {weekEntries.map((e) => (
+                  <View key={e.id} style={s.entryRow}>
+                    <Text style={[s.entryDate, { color: colors.foreground }]}>{formatDate(e.date)}</Text>
+                    <Text style={[s.entryHours, { color: colors.primary }]}>{parseFloat(e.hours).toFixed(1)}h</Text>
+                    {!!e.description && (
+                      <Text style={[s.entryDesc, { color: colors.mutedForeground }]} numberOfLines={1}>
+                        — {e.description}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Total hours */}
             <Text style={[s.formLabel, { color: colors.foreground, marginTop: 14 }]}>
               Total Hours This Week <Text style={{ color: "#EF4444" }}>*</Text>
             </Text>
+            {weekEntries.length > 0 && (
+              <Text style={[s.autoFillNote, { color: colors.mutedForeground }]}>
+                Auto-filled from your Hours entries — adjust if needed.
+              </Text>
+            )}
             <TextInput
               style={[
                 s.input,
@@ -283,12 +351,12 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
         ) : (
           timesheets.map((ts) => {
             const cfg = STATUS_CONFIG[ts.status] ?? STATUS_CONFIG.submitted;
-            const wkEnd = new Date(ts.weekStart + "T00:00:00");
-            wkEnd.setDate(wkEnd.getDate() + 6);
             const totalAmt =
               ts.hourlyRate && ts.totalHours
                 ? parseFloat(ts.totalHours) * parseFloat(ts.hourlyRate)
                 : null;
+            // Cross-reference with logged time entries for this week
+            const entriesForCard = getWeekEntries(timeEntries, ts.weekStart);
             return (
               <View
                 key={ts.id}
@@ -342,6 +410,24 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                   )}
                 </View>
 
+                {/* Linked Hours entries for this week */}
+                {entriesForCard.length > 0 && (
+                  <View style={[s.linkedEntries, { borderColor: colors.border }]}>
+                    <View style={s.linkedHeader}>
+                      <Feather name="list" size={11} color={colors.mutedForeground} />
+                      <Text style={[s.linkedTitle, { color: colors.mutedForeground }]}>
+                        {entriesForCard.length} logged {entriesForCard.length === 1 ? "entry" : "entries"} this week
+                      </Text>
+                    </View>
+                    {entriesForCard.map((e) => (
+                      <View key={e.id} style={s.linkedRow}>
+                        <Text style={[s.linkedDate, { color: colors.foreground }]}>{formatDate(e.date)}</Text>
+                        <Text style={[s.linkedHours, { color: colors.primary }]}>{parseFloat(e.hours).toFixed(1)}h</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
                 {/* Description */}
                 {ts.description && (
                   <Text style={[s.cardDesc, { color: colors.mutedForeground }]} numberOfLines={3}>
@@ -349,7 +435,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                   </Text>
                 )}
 
-                {/* Reviewer notes (approval/denial reason) */}
+                {/* Reviewer notes */}
                 {ts.notes && (
                   <View style={[s.notesRow, { backgroundColor: ts.status === "denied" ? "#FEE2E220" : `${colors.primary}08`, borderColor: ts.status === "denied" ? "#FCA5A5" : `${colors.primary}25` }]}>
                     <Feather name={ts.status === "denied" ? "alert-circle" : "message-circle"} size={12} color={ts.status === "denied" ? "#DC2626" : colors.primary} />
@@ -386,6 +472,17 @@ const s = StyleSheet.create({
   weekText: { flex: 1, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" },
   alreadyBadge: { flexDirection: "row", alignItems: "flex-start", gap: 6, borderRadius: 8, borderWidth: 1, padding: 10, marginTop: 8 },
   alreadyText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
+
+  // Logged entries block inside form
+  entriesBlock: { borderRadius: 10, borderWidth: 1, padding: 12, marginTop: 12 },
+  entriesBlockHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
+  entriesBlockTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", flex: 1 },
+  entryRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 3 },
+  entryDate: { fontSize: 12, fontFamily: "Inter_500Medium", minWidth: 90 },
+  entryHours: { fontSize: 12, fontFamily: "Inter_700Bold", minWidth: 36 },
+  entryDesc: { fontSize: 11, fontFamily: "Inter_400Regular", flex: 1 },
+  autoFillNote: { fontSize: 11, fontFamily: "Inter_400Regular", marginBottom: 6, fontStyle: "italic" },
+
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, fontFamily: "Inter_400Regular" },
   multiline: { minHeight: 90, textAlignVertical: "top", paddingTop: 10 },
   error: { color: "#EF4444", fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 4 },
@@ -412,6 +509,15 @@ const s = StyleSheet.create({
   statItem: { flex: 1, alignItems: "center", gap: 3, paddingVertical: 10, paddingHorizontal: 4 },
   statValue: { fontSize: 14, fontFamily: "Inter_700Bold" },
   statLabel: { fontSize: 10, fontFamily: "Inter_400Regular" },
+
+  // Linked entries on card
+  linkedEntries: { borderTopWidth: 1, paddingTop: 10, marginBottom: 10 },
+  linkedHeader: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
+  linkedTitle: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  linkedRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 2 },
+  linkedDate: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  linkedHours: { fontSize: 12, fontFamily: "Inter_700Bold" },
+
   cardDesc: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18, marginBottom: 8 },
   notesRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, borderRadius: 8, borderWidth: 1, padding: 10, marginTop: 4 },
   notesText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
