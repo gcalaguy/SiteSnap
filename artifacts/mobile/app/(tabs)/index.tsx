@@ -373,6 +373,29 @@ export default function DashboardScreen() {
         </Pressable>
       )}
 
+      {/* Site Vision AI — all roles */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.voiceEstimateCard,
+          { backgroundColor: "#111111", borderColor: "#C9A84C44", opacity: pressed ? 0.85 : 1 },
+        ]}
+        onPress={() => {
+          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push("/site-vision");
+        }}
+      >
+        <View style={[styles.voiceEstimateIcon, { backgroundColor: "#C9A84C22" }]}>
+          <Feather name="camera" size={20} color="#C9A84C" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.voiceEstimateTitle, { color: "#FFFFFF" }]}>Site Vision AI</Text>
+          <Text style={[styles.voiceEstimateSub, { color: "rgba(255,255,255,0.55)" }]}>
+            Take or upload site photos — AI summarizes progress, safety & materials
+          </Text>
+        </View>
+        <Feather name="chevron-right" size={18} color="#C9A84C" />
+      </Pressable>
+
       {/* Voice Estimate — owners and foremen only */}
       {!isWorker && (
         <Pressable
