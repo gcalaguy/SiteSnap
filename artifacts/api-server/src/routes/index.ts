@@ -40,6 +40,7 @@ import filesRouter from "./files";
 import estimatorRouter from "./estimator";
 import photoSummaryRouter from "./photoSummary";
 import inspectionsRouter from "./inspections";
+import riskDashboardRouter from "./riskDashboard";
 
 const router: IRouter = Router();
 
@@ -84,5 +85,6 @@ router.use(filesRouter);
 router.use(estimatorRouter);
 router.use(photoSummaryRouter);
 router.use(inspectionsRouter);
+router.use(riskDashboardRouter);
 
 export default router;

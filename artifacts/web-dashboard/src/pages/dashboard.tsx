@@ -6,6 +6,8 @@ import {
   useGetNotificationsUnreadCount,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
+  useGetMe,
+  customFetch,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,14 +26,278 @@ import {
   Sparkles,
   Bell,
   Check,
+  ShieldAlert,
+  Flame,
+  CircleDot,
+  ArrowRight,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { WeatherCard } from "@/components/WeatherCard";
 import { Link } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
+
+// ── Risk config ────────────────────────────────────────────────────────────────
+
+const RISK_CFG = {
+  Critical: { color: "#dc2626", bg: "#1a0000", border: "#7f1d1d60", badge: "#fee2e2", badgeText: "#991b1b", label: "Critical", barColor: "#dc2626" },
+  High:     { color: "#ea580c", bg: "#1a0900", border: "#7c2d1260", badge: "#ffedd5", badgeText: "#9a3412", label: "High",     barColor: "#ea580c" },
+  Medium:   { color: "#ca8a04", bg: "#1a1200", border: "#78350f60", badge: "#fef9c3", badgeText: "#854d0e", label: "Medium",   barColor: "#ca8a04" },
+  Low:      { color: "#16a34a", bg: "#001a09", border: "#14532d60", badge: "#dcfce7", badgeText: "#166534", label: "Low",      barColor: "#16a34a" },
+} as const;
+
+type RiskLevel = keyof typeof RISK_CFG;
+
+type RiskDashboardData = {
+  topRisk: {
+    inspection: {
+      id: number;
+      inspectionType: string;
+      date: string;
+      riskLevel: RiskLevel | null;
+      riskScore: string | null;
+      aiSummary: string | null;
+      score: number | null;
+    };
+    project: { id: number; name: string } | null;
+    inspector: { id: number; firstName: string; lastName: string } | null;
+  }[];
+  alerts: { critical: number; high: number; medium: number; total: number };
+  health: { critical: number; high: number; medium: number; low: number; avgRiskScore: number | null };
+};
+
+// ── Risk Hero Section ─────────────────────────────────────────────────────────
+
+function RiskHeroSection() {
+  const { data, isLoading } = useQuery<RiskDashboardData>({
+    queryKey: ["risk-dashboard"],
+    queryFn: () => customFetch("/api/risk-dashboard"),
+    refetchInterval: 60_000,
+  });
+
+  if (isLoading) return null;
+  if (!data || data.topRisk.length === 0) return null;
+
+  const { topRisk, alerts, health } = data;
+  const totalInspected = health.critical + health.high + health.medium + health.low;
+  const safeCount = health.low;
+  const atRiskCount = health.critical + health.high + health.medium;
+  const avgScore = health.avgRiskScore;
+
+  const hasCritical = topRisk.some(r => r.inspection.riskLevel === "Critical");
+  const headerColor = hasCritical ? "#dc2626" : "#ea580c";
+  const headerBg = hasCritical ? "linear-gradient(135deg, #1a0000 0%, #0d0d0d 100%)" : "linear-gradient(135deg, #1a0900 0%, #0d0d0d 100%)";
+
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ background: headerBg, border: `1px solid ${hasCritical ? "#7f1d1d60" : "#7c2d1260"}`, boxShadow: `0 4px 32px ${headerColor}18` }}>
+      {/* Header strip */}
+      <div className="flex items-center justify-between px-5 py-3" style={{ background: `${headerColor}12`, borderBottom: `1px solid ${headerColor}25` }}>
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full" style={{ background: `${headerColor}22`, border: `1px solid ${headerColor}44` }}>
+            <Flame className="h-3.5 w-3.5" style={{ color: headerColor }} />
+          </div>
+          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: headerColor }}>
+            At Risk Right Now
+          </span>
+          {alerts.total > 0 && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: `${headerColor}22`, color: headerColor }}>
+              {alerts.total} unread alert{alerts.total !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-4 text-xs text-zinc-500">
+          {totalInspected > 0 && (
+            <>
+              <span><span className="font-semibold text-zinc-300">{atRiskCount}</span> at risk</span>
+              <span><span className="font-semibold text-green-400">{safeCount}</span> clear</span>
+              {avgScore != null && <span>Avg score <span className="font-semibold" style={{ color: avgScore >= 7 ? "#dc2626" : avgScore >= 5 ? "#ea580c" : "#ca8a04" }}>{avgScore}/10</span></span>}
+            </>
+          )}
+          <Link href="/inspections">
+            <button className="flex items-center gap-1 text-xs font-semibold hover:opacity-80 transition-opacity" style={{ color: GOLD }}>
+              View all <ArrowRight className="h-3 w-3" />
+            </button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Risk items grid */}
+      <div className="grid gap-px" style={{ gridTemplateColumns: `repeat(${Math.min(topRisk.length, 3)}, 1fr)`, background: "#1a1a1a" }}>
+        {topRisk.slice(0, 3).map((row, i) => {
+          const insp = row.inspection;
+          const lvl = (insp.riskLevel ?? "High") as RiskLevel;
+          const cfg = RISK_CFG[lvl] ?? RISK_CFG.High;
+          const score = insp.riskScore ? parseFloat(insp.riskScore) : null;
+          const barPct = score != null ? (score / 10) * 100 : 0;
+
+          return (
+            <Link href="/inspections" key={insp.id}>
+              <div
+                className="flex flex-col gap-2.5 p-4 cursor-pointer transition-all hover:brightness-110 h-full"
+                style={{ background: cfg.bg }}
+              >
+                {/* Risk badge + score */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" style={{ color: cfg.color }} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: cfg.color }}>
+                      {cfg.label} Risk
+                    </span>
+                  </div>
+                  {score != null && (
+                    <span className="text-xs font-bold tabular-nums" style={{ color: cfg.color }}>
+                      {score.toFixed(1)}<span className="text-[10px] font-normal text-zinc-600">/10</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Title */}
+                <div>
+                  <p className="text-sm font-semibold text-white leading-tight capitalize">
+                    {insp.inspectionType} Inspection
+                  </p>
+                  {row.project && (
+                    <p className="text-xs text-zinc-400 mt-0.5">{row.project.name}</p>
+                  )}
+                  {!row.project && row.inspector && (
+                    <p className="text-xs text-zinc-400 mt-0.5">{row.inspector.firstName} {row.inspector.lastName}</p>
+                  )}
+                </div>
+
+                {/* Risk score bar */}
+                {score != null && (
+                  <div className="h-1 rounded-full overflow-hidden" style={{ background: `${cfg.color}22` }}>
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${barPct}%`, background: cfg.color }}
+                    />
+                  </div>
+                )}
+
+                {/* AI summary preview */}
+                {insp.aiSummary && (
+                  <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: "#9ca3af" }}>
+                    {insp.aiSummary}
+                  </p>
+                )}
+
+                {/* Date + inspection score */}
+                <div className="flex items-center justify-between mt-auto pt-1">
+                  <span className="text-[10px] text-zinc-600">{insp.date}</span>
+                  {insp.score != null && (
+                    <span className="text-[10px] text-zinc-500">
+                      Pass rate: <span className={`font-semibold ${insp.score >= 80 ? "text-green-500" : insp.score >= 60 ? "text-yellow-500" : "text-red-500"}`}>{insp.score}%</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Extra items (4th, 5th) as compact row */}
+      {topRisk.length > 3 && (
+        <div className="flex border-t border-white/5">
+          {topRisk.slice(3, 5).map((row) => {
+            const insp = row.inspection;
+            const lvl = (insp.riskLevel ?? "Medium") as RiskLevel;
+            const cfg = RISK_CFG[lvl] ?? RISK_CFG.Medium;
+            const score = insp.riskScore ? parseFloat(insp.riskScore) : null;
+
+            return (
+              <Link href="/inspections" key={insp.id} className="flex-1">
+                <div
+                  className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:brightness-110 transition-all"
+                  style={{ background: cfg.bg, borderRight: "1px solid #ffffff08" }}
+                >
+                  <CircleDot className="h-3.5 w-3.5 flex-shrink-0" style={{ color: cfg.color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-white capitalize truncate">{insp.inspectionType} Inspection</p>
+                    {row.project && <p className="text-[10px] text-zinc-500 truncate">{row.project.name}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-[10px] font-bold" style={{ color: cfg.color }}>{cfg.label}</span>
+                    {score != null && <span className="text-[10px] text-zinc-500">{score.toFixed(1)}/10</span>}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Alert severity chips (bottom) */}
+      {alerts.total > 0 && (
+        <div className="flex items-center gap-3 px-5 py-2.5 border-t border-white/5" style={{ background: "#0d0d0d" }}>
+          <span className="text-[10px] uppercase tracking-widest text-zinc-600 font-semibold">Unread Alerts</span>
+          {alerts.critical > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: "#fee2e2", color: "#991b1b" }}>
+              <span className="h-1.5 w-1.5 rounded-full bg-red-600 inline-block" /> {alerts.critical} critical
+            </span>
+          )}
+          {alerts.high > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: "#ffedd5", color: "#9a3412" }}>
+              <span className="h-1.5 w-1.5 rounded-full bg-orange-500 inline-block" /> {alerts.high} high
+            </span>
+          )}
+          {alerts.medium > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: "#fef9c3", color: "#854d0e" }}>
+              <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 inline-block" /> {alerts.medium} medium
+            </span>
+          )}
+          <Link href="/inspections" className="ml-auto">
+            <span className="text-[10px] font-semibold hover:opacity-80 transition-opacity" style={{ color: GOLD }}>
+              Manage alerts →
+            </span>
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Health bar (30-day) ───────────────────────────────────────────────────────
+
+function RiskHealthBar({ health }: { health: RiskDashboardData["health"] }) {
+  const total = health.critical + health.high + health.medium + health.low;
+  if (total === 0) return null;
+
+  const segments = [
+    { key: "critical", count: health.critical, color: "#dc2626", label: "Critical" },
+    { key: "high",     count: health.high,     color: "#ea580c", label: "High" },
+    { key: "medium",   count: health.medium,   color: "#ca8a04", label: "Medium" },
+    { key: "low",      count: health.low,       color: "#16a34a", label: "Low" },
+  ];
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] uppercase tracking-widest font-semibold text-zinc-500">30-Day Risk Distribution</span>
+        <span className="text-[10px] text-zinc-600">{total} inspections</span>
+      </div>
+      <div className="flex h-2 rounded-full overflow-hidden gap-px">
+        {segments.filter(s => s.count > 0).map(s => (
+          <div
+            key={s.key}
+            style={{ width: `${(s.count / total) * 100}%`, background: s.color }}
+            title={`${s.label}: ${s.count}`}
+          />
+        ))}
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        {segments.filter(s => s.count > 0).map(s => (
+          <div key={s.key} className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full inline-block" style={{ background: s.color }} />
+            <span className="text-[10px] text-zinc-500">{s.label} <span className="text-zinc-400 font-medium">{s.count}</span></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function fmt(n: number, opts?: Intl.NumberFormatOptions) {
   return new Intl.NumberFormat("en-CA", {
@@ -43,14 +309,21 @@ function fmt(n: number, opts?: Intl.NumberFormatOptions) {
 }
 
 export default function Dashboard() {
+  const { data: me } = useGetMe();
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
   const { data: activity, isLoading: isLoadingActivity } = useGetRecentActivity();
   const { data: smartSummary } = useGetDashboardSmartSummary();
   const { data: notifications } = useListNotifications();
   const { data: unread } = useGetNotificationsUnreadCount();
+  const { data: riskData } = useQuery<RiskDashboardData>({
+    queryKey: ["risk-dashboard"],
+    queryFn: () => customFetch("/api/risk-dashboard"),
+    refetchInterval: 60_000,
+  });
   const markAll = useMarkAllNotificationsRead();
   const markOne = useMarkNotificationRead();
   const qc = useQueryClient();
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
   const handleMarkAll = () => {
     markAll.mutate(undefined, {
@@ -86,6 +359,9 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Overview of your company's projects and activities.</p>
       </div>
+
+      {/* Risk Hero — only for owners/foremen when there are high/critical inspections */}
+      {isOwnerOrForeman && <RiskHeroSection />}
 
       {/* Smart Summary Banner */}
       {smartSummary?.summary && (
@@ -261,6 +537,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-sm font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Recent Activity</CardTitle>
           </CardHeader>
+
           <CardContent>
             <div className="space-y-6">
               {activity?.length === 0 ? (
