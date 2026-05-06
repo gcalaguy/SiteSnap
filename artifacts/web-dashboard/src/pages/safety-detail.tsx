@@ -120,30 +120,47 @@ const SECTION_STYLE: Record<string, { border: string; bg: string; titleColor: st
   "Recommended Actions":  { border: "#16a34a", bg: "#f0fdf4", titleColor: "#15803d", icon: ShieldAlert },
   "Follow-Up Required":   { border: "#ca8a04", bg: "#fefce8", titleColor: "#a16207", icon: Clock },
   // Hazard assessment sections
-  "Hazard Summary":         { border: "#3b82f6", bg: "#eff6ff", titleColor: "#1d4ed8", icon: ShieldAlert },
-  "Risk Evaluation":        { border: "#f97316", bg: "#fff7ed", titleColor: "#c2410c", icon: AlertTriangle },
-  "Affected Area / Workers":{ border: "#8b5cf6", bg: "#f5f3ff", titleColor: "#6d28d9", icon: User },
-  "Recommended Controls":   { border: "#16a34a", bg: "#f0fdf4", titleColor: "#15803d", icon: CheckCircle2 },
-  "Priority Level":         { border: "#ca8a04", bg: "#fefce8", titleColor: "#a16207", icon: Zap },
-  "Compliance Notes":       { border: "#64748b", bg: "#f8fafc", titleColor: "#334155", icon: FileText },
+  "Hazard Summary":           { border: "#3b82f6", bg: "#eff6ff", titleColor: "#1d4ed8", icon: ShieldAlert },
+  "Risk Evaluation":          { border: "#f97316", bg: "#fff7ed", titleColor: "#c2410c", icon: AlertTriangle },
+  "Affected Area / Workers":  { border: "#8b5cf6", bg: "#f5f3ff", titleColor: "#6d28d9", icon: User },
+  "Recommended Controls":     { border: "#16a34a", bg: "#f0fdf4", titleColor: "#15803d", icon: CheckCircle2 },
+  "Priority Level":           { border: "#ca8a04", bg: "#fefce8", titleColor: "#a16207", icon: Zap },
+  "Compliance Notes":         { border: "#64748b", bg: "#f8fafc", titleColor: "#334155", icon: FileText },
+  // Injury report sections
+  "Injury Summary":           { border: "#3b82f6", bg: "#eff6ff", titleColor: "#1d4ed8", icon: FileText },
+  "Injured Worker Details":   { border: "#8b5cf6", bg: "#f5f3ff", titleColor: "#6d28d9", icon: User },
+  "Injury Details":           { border: "#f97316", bg: "#fff7ed", titleColor: "#c2410c", icon: AlertTriangle },
+  "Incident Description":     { border: "#64748b", bg: "#f8fafc", titleColor: "#334155", icon: Eye },
+  "Immediate Response":       { border: "#16a34a", bg: "#f0fdf4", titleColor: "#15803d", icon: CheckCircle2 },
+  "Work Impact":              { border: "#ca8a04", bg: "#fefce8", titleColor: "#a16207", icon: Clock },
+  "Recommended Next Steps":   { border: "#0891b2", bg: "#ecfeff", titleColor: "#0e7490", icon: ShieldAlert },
+  "Compliance Note":          { border: "#dc2626", bg: "#fff1f2", titleColor: "#991b1b", icon: AlertTriangle },
 };
 
-const CHIP_SECTIONS = new Set(["Severity Assessment", "Risk Evaluation", "Priority Level"]);
+const CHIP_SECTIONS = new Set(["Severity Assessment", "Risk Evaluation", "Priority Level", "Injury Details"]);
 
 function getStatusChip(sectionTitle: string, bullets: string[]) {
   if (!CHIP_SECTIONS.has(sectionTitle)) return null;
 
   const allText = bullets.join(" ").toLowerCase();
-  const isRisk = sectionTitle === "Risk Evaluation";
-  const isPriority = sectionTitle === "Priority Level";
 
-  if (isPriority) {
+  if (sectionTitle === "Priority Level") {
     if (allText.includes("urgent")) return { label: "Urgent",  bg: "#fee2e2", color: "#991b1b" };
     if (allText.includes("medium")) return { label: "Medium",  bg: "#ffedd5", color: "#9a3412" };
     if (allText.includes("low"))    return { label: "Low",     bg: "#dcfce7", color: "#166534" };
     return null;
   }
 
+  if (sectionTitle === "Injury Details") {
+    const severityLine = bullets.find((b) => b.toLowerCase().startsWith("severity"));
+    const src = (severityLine ?? allText).toLowerCase();
+    if (src.includes("severe"))   return { label: "Severe",   bg: "#fee2e2", color: "#991b1b" };
+    if (src.includes("moderate")) return { label: "Moderate", bg: "#ffedd5", color: "#9a3412" };
+    if (src.includes("minor"))    return { label: "Minor",    bg: "#dcfce7", color: "#166534" };
+    return null;
+  }
+
+  const isRisk = sectionTitle === "Risk Evaluation";
   const matchLine = bullets.find((b) =>
     b.toLowerCase().startsWith("classify as") ||
     b.toLowerCase().startsWith("risk level")
@@ -159,7 +176,7 @@ function getStatusChip(sectionTitle: string, bullets: string[]) {
 
 const PANEL_META: Record<string, { title: string; subtitle: string }> = {
   hazard:  { title: "AI Hazard Risk Assessment",  subtitle: "Structured risk analysis by AI Safety Expert" },
-  injury:  { title: "AI Incident Summary",        subtitle: "Structured analysis by AI Safety Officer" },
+  injury:  { title: "AI Workplace Injury Summary", subtitle: "Internal report · does not replace WSIB filing" },
   safety:  { title: "AI Safety Report Summary",   subtitle: "Structured analysis by AI Safety Officer" },
   toolbox: { title: "AI Toolbox Talk Summary",    subtitle: "Structured summary by AI Safety Officer" },
 };

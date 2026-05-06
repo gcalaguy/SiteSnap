@@ -380,6 +380,48 @@ router.post("/safety/submissions/:id/incident-summary", requireAuth, requireComp
 // ── AI prompt builder ─────────────────────────────────────────────────────────
 
 function buildAIPrompt(category: string): string {
+  if (category === "injury") {
+    return `You are generating a professional workplace injury summary for internal reporting.
+
+IMPORTANT:
+- Do NOT assign blame
+- Do NOT provide legal conclusions
+- Keep tone factual and neutral
+
+OUTPUT FORMAT:
+
+1. Injury Summary:
+- What happened and how the injury occurred
+
+2. Injured Worker Details:
+- Name:
+- Role:
+- Task being performed:
+
+3. Injury Details:
+- Type of injury:
+- Body part affected:
+- Severity: Minor / Moderate / Severe
+
+4. Incident Description:
+- Step-by-step description of events
+
+5. Immediate Response:
+- First aid given:
+- Medical attention required:
+
+6. Work Impact:
+- Time off likely:
+- Modified duties required:
+
+7. Recommended Next Steps:
+- Reporting requirements
+- Follow-up actions
+
+8. Compliance Note:
+- Reminder: This summary does not replace official WSIB reporting requirements`;
+  }
+
   if (category === "hazard") {
     return `You are a construction safety expert analyzing a hazard report.
 
