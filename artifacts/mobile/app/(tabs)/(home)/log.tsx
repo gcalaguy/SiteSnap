@@ -39,6 +39,7 @@ interface PhotoItem extends QueuePhoto {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 20 },
+  backBtn: { marginBottom: 8, alignSelf: "flex-start" },
   title: { fontSize: 28, fontFamily: "Inter_700Bold" },
   subtitle: { fontSize: 14, fontFamily: "Inter_400Regular", marginTop: 4 },
   section: { paddingHorizontal: 20, marginBottom: 20 },
@@ -436,6 +437,13 @@ export default function LogScreen() {
     >
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>Log Report</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
           {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })}

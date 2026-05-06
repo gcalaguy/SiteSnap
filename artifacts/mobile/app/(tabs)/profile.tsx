@@ -264,7 +264,7 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>My Tasks</Text>
-              <TouchableOpacity onPress={() => router.push("/(tabs)/tasks")}>
+              <TouchableOpacity onPress={() => router.push("/tasks")}>
                 <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "600" }}>See all</Text>
               </TouchableOpacity>
             </View>
@@ -294,7 +294,7 @@ export default function ProfileScreen() {
                   <TouchableOpacity
                     key={task.id}
                     style={[styles.taskCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => router.push("/(tabs)/tasks")}
+                    onPress={() => router.push("/tasks")}
                     activeOpacity={0.75}
                   >
                     <View style={[styles.taskDot, { backgroundColor: sc }]} />

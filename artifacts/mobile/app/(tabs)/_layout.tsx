@@ -13,7 +13,7 @@ import { useOfflineQueue } from "@/context/OfflineQueueContext";
 function NativeTabLayout() {
   return (
     <NativeTabs>
-      <NativeTabs.Trigger name="index">
+      <NativeTabs.Trigger name="(home)">
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>Home</Label>
       </NativeTabs.Trigger>
@@ -83,7 +83,7 @@ function ClassicTabLayout() {
     >
       {/* ── Visible tabs ── */}
       <Tabs.Screen
-        name="index"
+        name="(home)"
         options={{
           title: "Home",
           tabBarIcon: ({ color }) =>
@@ -127,11 +127,6 @@ function ClassicTabLayout() {
         }}
       />
 
-      {/* ── Hidden from tab bar — accessible as push screens ── */}
-      <Tabs.Screen name="projects" options={{ href: null }} />
-      <Tabs.Screen name="log" options={{ href: null }} />
-      <Tabs.Screen name="ask" options={{ href: null }} />
-      <Tabs.Screen name="tasks" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -101,6 +101,7 @@ function ProjectCard({ project }: { project: any }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   headerArea: { paddingHorizontal: 20, paddingBottom: 16 },
+  backBtn: { marginBottom: 8, alignSelf: "flex-start" },
   screenTitle: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 14 },
   searchBox: {
     flexDirection: "row",
@@ -176,6 +177,13 @@ export default function ProjectsScreen() {
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
       ListHeaderComponent={
         <View style={[styles.headerArea, { paddingTop: topInsets + 16 }]}>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="arrow-left" size={22} color={colors.foreground} />
+          </Pressable>
           <Text style={[styles.screenTitle, { color: colors.foreground }]}>Projects</Text>
           {/* Search */}
           <View style={[styles.searchBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>

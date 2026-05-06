@@ -142,16 +142,16 @@ function AiBriefingCard({ colors }: { colors: any }) {
 // ── Quick Actions ────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS_WORKER = [
-  { label: "My Projects", icon: "folder", path: "/(tabs)/projects", color: "#8b5cf6" },
-  { label: "My Tasks", icon: "check-square", path: "/(tabs)/tasks", color: "#10b981" },
+  { label: "My Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
+  { label: "My Tasks", icon: "check-square", path: "/tasks", color: "#10b981" },
   { label: "Calculators", icon: "percent", path: "/calculators", color: "#f59e0b" },
-  { label: "Ask AI", icon: "message-circle", path: "/(tabs)/ask", color: "#ec4899" },
+  { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
 ];
 
 const QUICK_ACTIONS_OWNER = [
-  { label: "Projects", icon: "folder", path: "/(tabs)/projects", color: "#8b5cf6" },
+  { label: "Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
   { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
-  { label: "Ask AI", icon: "message-circle", path: "/(tabs)/ask", color: "#ec4899" },
+  { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
 ];
 
 function QuickActionsGrid({ isWorker, colors, router }: { isWorker: boolean; colors: any; router: any }) {
@@ -528,14 +528,14 @@ export default function DashboardScreen() {
             ? `${allProjects.length === 1 ? "1 project" : `${allProjects.length} projects`} assigned`
             : `${activeProjects.length} total · ${completedProjects.length} completed`}
           icon="folder"
-          onPress={() => router.push("/(tabs)/projects" as any)}
+          onPress={() => router.push("/projects")}
         />
         <SummaryCard
           title="Reports This Week"
           value={summaryLoading ? "—" : String(summary?.reportsThisWeek ?? 0)}
           subtitle="Daily reports submitted"
           icon="file-text"
-          onPress={() => router.push("/(tabs)/log" as any)}
+          onPress={() => router.push("/log")}
         />
         {!isWorker && (
           <SummaryCard
@@ -621,7 +621,7 @@ export default function DashboardScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{isWorker ? "My Projects" : "Active Projects"}</Text>
-          <Pressable onPress={() => router.push("/(tabs)/projects" as any)}>
+          <Pressable onPress={() => router.push("/projects")}>
             <Text style={[styles.seeAll, { color: colors.primary }]}>See all</Text>
           </Pressable>
         </View>

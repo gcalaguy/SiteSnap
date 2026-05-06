@@ -1,5 +1,6 @@
 import { useListProjects, useListTasks, useUpdateTask, useGetMe, customFetch } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -238,6 +239,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 15, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 10 },
   emptySubText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6 },
   loader: { paddingVertical: 40 },
+  backBtn: { marginBottom: 8, alignSelf: "flex-start" },
   noProjectBanner: { marginHorizontal: 20, marginTop: 40, alignItems: "center" },
   noProjectText: { fontSize: 15, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 12 },
   noProjectSub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6 },
@@ -247,6 +249,7 @@ const styles = StyleSheet.create({
 function WorkerTasksScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const qc = useQueryClient();
 
   const { data: projects } = useListProjects();
@@ -284,6 +287,9 @@ function WorkerTasksScreen() {
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
     >
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>My Tasks</Text>
           {allTasks.length > 0 && (
@@ -319,6 +325,7 @@ function WorkerTasksScreen() {
 function OwnerTasksScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { data: me } = useGetMe();
   const { data: projects, isLoading: projectsLoading } = useListProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
@@ -361,6 +368,9 @@ function OwnerTasksScreen() {
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
     >
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>Tasks</Text>
         </View>
