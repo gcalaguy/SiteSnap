@@ -183,7 +183,7 @@ router.post(
   requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
-    const { title, type, projectId, startTime, endTime, location, notes, assignees, allowConflict } = req.body;
+    const { title, type, projectId, startTime, endTime, location, notes, assignees, allowConflict, recipientUserIds } = req.body;
 
     if (!title || !startTime || !endTime) {
       res.status(400).json({ error: "title, startTime, endTime are required" });
@@ -242,9 +242,10 @@ router.post(
 
     res.status(201).json({ ...event, assignees: eventAssignees });
 
-    // ── Fire-and-forget: email all company members ────────────────────────
+    // ── Fire-and-forget: email selected (or all) company members ─────────
+    const specificIds: number[] = Array.isArray(recipientUserIds) ? recipientUserIds.map(Number).filter(Boolean) : [];
     Promise.all([
-      db.select({ email: usersTable.email, firstName: usersTable.firstName })
+      db.select({ id: usersTable.id, email: usersTable.email, firstName: usersTable.firstName })
         .from(usersTable)
         .where(eq(usersTable.companyId, req.companyId!)),
       db.select({ name: companiesTable.name })
@@ -256,7 +257,10 @@ router.post(
         .where(eq(usersTable.id, req.userId!))
         .limit(1),
     ]).then(([members, [company], [creator]]) => {
-      const emails = members.map((m) => m.email).filter(Boolean) as string[];
+      const targetMembers = specificIds.length > 0
+        ? members.filter((m) => specificIds.includes(m.id))
+        : members;
+      const emails = targetMembers.map((m) => m.email).filter(Boolean) as string[];
       if (emails.length === 0) return;
 
       const companyName = company?.name ?? "your company";

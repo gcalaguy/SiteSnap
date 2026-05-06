@@ -123,6 +123,7 @@ export default function Schedule() {
   const [evtLocation, setEvtLocation] = useState("");
   const [evtNotes, setEvtNotes] = useState("");
   const [evtConflicts, setEvtConflicts] = useState<any[]>([]);
+  const [evtRecipientIds, setEvtRecipientIds] = useState<number[]>([]);
 
   // Equipment view state
   const [showEquipmentDialog, setShowEquipmentDialog] = useState(false);
@@ -236,6 +237,13 @@ export default function Schedule() {
     enabled: view === "equipment",
   });
 
+  const companyId = (me as any)?.companyId as number | undefined;
+  const membersQuery = useQuery<Member[]>({
+    queryKey: ["company-members", companyId],
+    queryFn: () => customFetch(`/api/companies/${companyId}/members`),
+    enabled: !!companyId && showEventDialog,
+  });
+
   const eventsFrom = format(eventsWeek, "yyyy-MM-dd");
   const eventsTo = format(addDays(eventsWeek, 6), "yyyy-MM-dd");
   const eventsQuery = useQuery<ScheduleEvent[]>({
@@ -325,7 +333,13 @@ export default function Schedule() {
   function openEventDialog() {
     setEvtTitle(""); setEvtType("meeting"); setEvtProjectId(""); setEvtConflicts([]);
     setEvtDate(format(new Date(), "yyyy-MM-dd")); setEvtStartTime("09:00"); setEvtEndTime("10:00");
-    setEvtLocation(""); setEvtNotes(""); setShowEventDialog(true);
+    setEvtLocation(""); setEvtNotes(""); setEvtRecipientIds([]); setShowEventDialog(true);
+  }
+
+  function toggleRecipient(id: number) {
+    setEvtRecipientIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
   }
 
   // ── Drag state (Gantt) ────────────────────────────────────────────────────
@@ -1211,6 +1225,50 @@ export default function Schedule() {
                 <label className="text-sm font-medium block mb-1">Notes (optional)</label>
                 <Textarea placeholder="Additional details…" value={evtNotes} onChange={e => setEvtNotes(e.target.value)} className="min-h-[60px]" />
               </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Notify</label>
+                  <button
+                    type="button"
+                    onClick={() => setEvtRecipientIds([])}
+                    className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${evtRecipientIds.length === 0 ? "border-transparent font-semibold text-[#111111]" : "border-border text-muted-foreground hover:text-foreground"}`}
+                    style={evtRecipientIds.length === 0 ? { background: GOLD } : {}}
+                  >
+                    All members
+                  </button>
+                </div>
+                {membersQuery.isLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs py-1">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Loading team…
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {(membersQuery.data ?? []).map(m => {
+                      const selected = evtRecipientIds.includes(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => toggleRecipient(m.id)}
+                          className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${selected ? "border-transparent font-medium text-[#111111]" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`}
+                          style={selected ? { background: GOLD } : {}}
+                        >
+                          <span className="h-4 w-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                            style={{ background: selected ? "rgba(0,0,0,0.25)" : "#e5e7eb", color: selected ? "#fff" : "#374151" }}>
+                            {m.firstName?.[0]}{m.lastName?.[0]}
+                          </span>
+                          {m.firstName} {m.lastName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {evtRecipientIds.length === 0
+                    ? "An email will be sent to everyone on your team."
+                    : `Email will go to ${evtRecipientIds.length} selected member${evtRecipientIds.length !== 1 ? "s" : ""}.`}
+                </p>
+              </div>
               {evtConflicts.length > 0 && (
                 <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex gap-2">
                   <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
@@ -1237,6 +1295,7 @@ export default function Schedule() {
                     endTime: `${evtDate}T${evtEndTime}:00`,
                     location: evtLocation || undefined,
                     notes: evtNotes || undefined,
+                    recipientUserIds: evtRecipientIds.length > 0 ? evtRecipientIds : undefined,
                   });
                 }}
                 disabled={!evtTitle || !evtDate || !evtStartTime || !evtEndTime || createEventMut.isPending}
