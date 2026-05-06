@@ -30,13 +30,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 type QuoteStatus = "draft" | "pending_approval" | "approved" | "rejected" | "converted";
 
-const TABS: { label: string; value: QuoteStatus | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "Draft", value: "draft" },
-  { label: "Pending", value: "pending_approval" },
-  { label: "Approved", value: "approved" },
-  { label: "Rejected", value: "rejected" },
-  { label: "Invoiced", value: "converted" },
+const TABS: { label: string; value: QuoteStatus | "all"; pill?: string }[] = [
+  { label: "All",      value: "all" },
+  { label: "Draft",    value: "draft",            pill: "bg-orange-500 text-white" },
+  { label: "Pending",  value: "pending_approval", pill: "bg-yellow-400 text-yellow-900" },
+  { label: "Approved", value: "approved",          pill: "bg-blue-500 text-white" },
+  { label: "Rejected", value: "rejected",          pill: "bg-red-500 text-white" },
+  { label: "Invoiced", value: "converted",         pill: "bg-green-500 text-white" },
 ];
 
 export default function Quotes() {
@@ -80,6 +80,7 @@ export default function Quotes() {
         >
           {TABS.map((t) => {
             const count = t.value === "all" ? totalCount : (counts[t.value] ?? 0);
+            const pillBase = t.pill ?? "bg-white/15 text-zinc-300";
             return (
               <TabsTrigger
                 key={t.value}
@@ -88,7 +89,7 @@ export default function Quotes() {
               >
                 {t.label}
                 {count > 0 && (
-                  <span className="inline-flex items-center justify-center rounded-full px-1.5 py-px text-[10px] font-bold leading-none min-w-[18px] bg-white/15 text-zinc-300 group-data-[state=active]:bg-[#111111]/25 group-data-[state=active]:text-[#111111]">
+                  <span className={`inline-flex items-center justify-center rounded-full px-1.5 py-px text-[10px] font-bold leading-none min-w-[18px] ${pillBase}`}>
                     {count}
                   </span>
                 )}
