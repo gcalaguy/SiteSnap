@@ -1,18 +1,17 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { customFetch, useGetMe } from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
-  Globe, Plus, ThumbsUp, MessageSquare, Briefcase, Image as ImageIcon,
-  Hammer, Search, Bell, User, ChevronRight, X, Send, Loader2,
-  Sparkles, Wrench, Users, MessageCircle
+  Globe, Plus, ThumbsUp, MessageSquare, Briefcase,
+  Search, Bell, User, ChevronRight, X, Send, Loader2,
+  Sparkles, MessageCircle, MapPin, BadgeCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -20,7 +19,6 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Card, CardContent } from "@/components/ui/card";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -28,10 +26,10 @@ const BLACK = "#111111";
 const TRADES = ["Electrician","Plumber","HVAC","General Contractor","Carpenter","Welder","Roofer","Painter","Mason","Ironworker","Concrete","Landscaping","Other"];
 const PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
 
-const typeConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  discussion: { label: "Discussion", color: "bg-blue-100 text-blue-700", icon: MessageSquare },
-  job:        { label: "Job",        color: "bg-green-100 text-green-700", icon: Briefcase },
-  showcase:   { label: "Showcase",   color: "bg-purple-100 text-purple-700", icon: Sparkles },
+const typeConfig: Record<string, { label: string; accent: string; icon: React.ElementType }> = {
+  discussion: { label: "Discussion", accent: "#3b82f6", icon: MessageSquare },
+  job:        { label: "Job",        accent: GOLD,      icon: Briefcase },
+  showcase:   { label: "Showcase",   accent: "#a855f7", icon: Sparkles },
 };
 
 interface Post {
@@ -45,109 +43,149 @@ interface Post {
   media: Array<{ id: number; url: string }>;
 }
 
+function Avatar({ profile, author, size = 10 }: { profile: Post["profile"]; author: Post["author"]; size?: number }) {
+  const initials = profile?.displayName
+    ? profile.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+    : author ? `${author.firstName[0]}${author.lastName[0]}` : "??";
+  const sz = `w-${size} h-${size}`;
+  if (profile?.avatarUrl) {
+    return <img src={profile.avatarUrl} className={`${sz} rounded-full object-cover flex-shrink-0`} alt="" />;
+  }
+  return (
+    <div className={`${sz} rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0`}
+      style={{ background: GOLD, color: BLACK }}>
+      {initials}
+    </div>
+  );
+}
+
 function PostCard({ post, onReact }: { post: Post; onReact: (id: number) => void }) {
   const tc = typeConfig[post.type] ?? typeConfig.discussion;
   const Icon = tc.icon;
-  const initials = post.profile?.displayName
-    ? post.profile.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
-    : (post.author ? `${post.author.firstName[0]}${post.author.lastName[0]}` : "??");
+  const displayName = post.profile?.displayName ?? `${post.author?.firstName} ${post.author?.lastName}`;
 
   return (
-    <Card className="hover:shadow-md transition-shadow border-border/60">
-      <CardContent className="p-4">
+    <div className="bg-card border border-border/60 rounded-xl overflow-hidden hover:border-border hover:shadow-md transition-all group"
+      style={{ borderLeft: `3px solid ${tc.accent}` }}>
+      <div className="p-5">
         {/* Author row */}
-        <div className="flex items-start gap-3 mb-3">
+        <div className="flex items-center justify-between mb-3">
           <Link href={`/tradehub/profile/${post.userId}`}>
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0 cursor-pointer hover:opacity-80">
-              {post.profile?.avatarUrl
-                ? <img src={post.profile.avatarUrl} className="w-10 h-10 rounded-full object-cover" alt="" />
-                : initials}
+            <div className="flex items-center gap-2.5 cursor-pointer">
+              <Avatar profile={post.profile} author={post.author} size={9} />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold text-foreground hover:underline leading-tight">
+                    {displayName}
+                  </span>
+                  {post.profile?.isVerified && (
+                    <BadgeCheck className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "#3b82f6" }} />
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {post.profile?.trade && (
+                    <span className="text-xs text-muted-foreground">{post.profile.trade}</span>
+                  )}
+                  {post.province && (
+                    <>
+                      <span className="text-muted-foreground/40 text-xs">·</span>
+                      <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                        <MapPin className="h-2.5 w-2.5" />{post.province}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link href={`/tradehub/profile/${post.userId}`}>
-                <span className="font-semibold text-sm text-foreground hover:underline cursor-pointer">
-                  {post.profile?.displayName ?? `${post.author?.firstName} ${post.author?.lastName}`}
-                </span>
-              </Link>
-              {post.profile?.isVerified && (
-                <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">✓ Verified</span>
-              )}
-              {post.profile?.trade && (
-                <span className="text-xs text-muted-foreground">{post.profile.trade}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-1 ${tc.color}`}>
-                <Icon className="h-2.5 w-2.5" />{tc.label}
-              </span>
-              {post.province && <span className="text-xs text-muted-foreground">{post.province}</span>}
-              {post.trade && <span className="text-xs text-muted-foreground">· {post.trade}</span>}
-              <span className="text-xs text-muted-foreground ml-auto">{format(new Date(post.createdAt), "MMM d")}</span>
-            </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+              style={{ background: `${tc.accent}18`, color: tc.accent }}>
+              <Icon className="h-3 w-3" />{tc.label}
+            </span>
+            <span className="text-xs text-muted-foreground">{format(new Date(post.createdAt), "MMM d")}</span>
           </div>
         </div>
 
         {/* Content */}
         <Link href={`/tradehub/posts/${post.id}`}>
-          <div className="cursor-pointer group">
-            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors mb-1">{post.title}</h3>
-            <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">{post.content}</p>
+          <div className="cursor-pointer mb-3">
+            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors mb-1 leading-snug">
+              {post.title}
+            </h3>
+            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{post.content}</p>
           </div>
         </Link>
 
-        {/* Job metadata */}
+        {/* Job metadata pills */}
         {post.type === "job" && (post.budget || post.jobType) && (
-          <div className="mt-2 flex gap-2 flex-wrap">
-            {post.jobType && <Badge variant="outline" className="text-xs">{post.jobType}</Badge>}
-            {post.budget && <Badge variant="outline" className="text-xs text-green-700 border-green-200 bg-green-50">{post.budget}</Badge>}
+          <div className="flex gap-2 flex-wrap mb-3">
+            {post.jobType && (
+              <span className="text-xs border border-border rounded-full px-2.5 py-0.5 text-muted-foreground">
+                {post.jobType}
+              </span>
+            )}
+            {post.budget && (
+              <span className="text-xs rounded-full px-2.5 py-0.5 font-semibold"
+                style={{ background: `${GOLD}20`, color: GOLD }}>
+                {post.budget}
+              </span>
+            )}
           </div>
         )}
 
         {/* Media */}
         {post.media.length > 0 && (
-          <div className={`mt-3 grid gap-1.5 ${post.media.length === 1 ? "" : "grid-cols-2"}`}>
+          <div className={`mb-3 grid gap-1.5 rounded-lg overflow-hidden ${post.media.length === 1 ? "" : "grid-cols-2"}`}>
             {post.media.slice(0, 4).map((m) => (
-              <img key={m.id} src={m.url} className="rounded-lg object-cover w-full aspect-video" alt="" />
+              <img key={m.id} src={m.url} className="object-cover w-full aspect-video" alt="" />
             ))}
           </div>
         )}
 
         {/* Actions */}
-        <div className="mt-3 pt-3 border-t border-border/40 flex items-center gap-4">
+        <div className="flex items-center gap-1 pt-3 border-t border-border/40">
           <button
             onClick={() => onReact(post.id)}
-            className={`flex items-center gap-1.5 text-sm transition-colors ${post.hasReacted ? "text-primary font-medium" : "text-muted-foreground hover:text-primary"}`}
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${
+              post.hasReacted
+                ? "font-semibold"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+            style={post.hasReacted ? { color: GOLD, background: `${GOLD}15` } : undefined}
           >
-            <ThumbsUp className={`h-4 w-4 ${post.hasReacted ? "fill-primary" : ""}`} />
-            {post.reactionCount > 0 && post.reactionCount}
+            <ThumbsUp className={`h-3.5 w-3.5 ${post.hasReacted ? "fill-current" : ""}`} />
+            {post.reactionCount > 0 ? post.reactionCount : "Like"}
           </button>
           <Link href={`/tradehub/posts/${post.id}`}>
-            <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <MessageSquare className="h-4 w-4" />
-              {post.commentCount > 0 && post.commentCount}
+            <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+              <MessageSquare className="h-3.5 w-3.5" />
+              {post.commentCount > 0 ? post.commentCount : "Comment"}
             </button>
           </Link>
           {post.type === "job" && (
-            <Link href={`/tradehub/posts/${post.id}`}>
-              <button className="ml-auto text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-full font-medium hover:bg-primary/90 transition-colors">
-                {post.userId !== undefined && post.applicationCount > 0
-                  ? `${post.applicationCount} Applied`
-                  : "Apply Now"}
+            <Link href={`/tradehub/posts/${post.id}`} className="ml-auto">
+              <button
+                className="text-xs px-4 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90"
+                style={
+                  post.applicationCount > 0
+                    ? { background: `${GOLD}20`, color: GOLD }
+                    : { background: BLACK, color: GOLD }
+                }
+              >
+                {post.applicationCount > 0 ? `${post.applicationCount} Applied` : "Apply Now"}
               </button>
             </Link>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: me } = useGetMe();
   const [type, setType] = useState("discussion");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -181,9 +219,13 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
             {(["discussion", "job", "showcase"] as const).map((t) => {
               const cfg = typeConfig[t];
               const Ic = cfg.icon;
+              const isActive = type === t;
               return (
                 <button key={t} onClick={() => setType(t)}
-                  className={`flex flex-col items-center gap-1 py-3 rounded-xl border-2 text-xs font-medium transition-all ${type === t ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 text-xs font-medium transition-all"
+                  style={isActive
+                    ? { borderColor: cfg.accent, background: `${cfg.accent}12`, color: cfg.accent }
+                    : { borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
                   <Ic className="h-4 w-4" />{cfg.label}
                 </button>
               );
@@ -191,11 +233,15 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
           </div>
           <div>
             <Label>Title *</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={type === "job" ? "e.g. Looking for Electrician — Toronto" : "e.g. Tips for concrete work in winter"} className="mt-1" />
+            <Input value={title} onChange={(e) => setTitle(e.target.value)}
+              placeholder={type === "job" ? "e.g. Looking for Electrician — Toronto" : "e.g. Tips for concrete work in winter"}
+              className="mt-1" />
           </div>
           <div>
             <Label>Details *</Label>
-            <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={4} placeholder={type === "job" ? "Describe the job, requirements, timeline…" : "Share your experience, question, or project…"} className="mt-1" />
+            <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={4}
+              placeholder={type === "job" ? "Describe the job, requirements, timeline…" : "Share your experience, question, or project…"}
+              className="mt-1" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -236,7 +282,9 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => createMutation.mutate()} disabled={!title.trim() || !content.trim() || createMutation.isPending} className="gap-2">
+          <Button onClick={() => createMutation.mutate()}
+            disabled={!title.trim() || !content.trim() || createMutation.isPending}
+            className="gap-2" style={{ background: BLACK, color: GOLD }}>
             {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Publish
           </Button>
@@ -246,15 +294,21 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
   );
 }
 
+const TYPE_TABS = [
+  { value: "all",        label: "All" },
+  { value: "job",        label: "Jobs" },
+  { value: "discussion", label: "Discussions" },
+  { value: "showcase",   label: "Showcases" },
+];
+
 export default function TradehubFeedPage() {
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: me } = useGetMe();
   const [showCreate, setShowCreate] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [tradeFilter, setTradeFilter] = useState("all");
   const [provinceFilter, setProvinceFilter] = useState("all");
+  const [search, setSearch] = useState("");
 
   const params = new URLSearchParams();
   if (typeFilter !== "all") params.set("type", typeFilter);
@@ -286,44 +340,54 @@ export default function TradehubFeedPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-feed"] }),
   });
 
-  const posts: Post[] = data?.pages.flatMap((p: any) => p.posts) ?? [];
+  const allPosts: Post[] = data?.pages.flatMap((p: any) => p.posts) ?? [];
+  const posts = search.trim()
+    ? allPosts.filter(p =>
+        p.title.toLowerCase().includes(search.toLowerCase()) ||
+        p.content.toLowerCase().includes(search.toLowerCase()))
+    : allPosts;
+
+  const hasFilters = tradeFilter !== "all" || provinceFilter !== "all";
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
+      {/* Page header */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#0A0A0A] rounded-xl">
-            <Globe className="h-5 w-5 text-white" />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: BLACK }}>
+            <Globe className="h-5 w-5" style={{ color: GOLD }} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">TradeHub</h1>
+            <h1 className="text-2xl font-bold leading-tight">TradeHub</h1>
             <p className="text-sm text-muted-foreground">Canada's construction trade network</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/tradehub/notifications">
-            <Button variant="outline" size="icon" className="relative">
+            <Button variant="outline" size="icon" className="relative h-9 w-9">
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground rounded-full text-[10px] flex items-center justify-center font-bold">{unreadCount}</span>
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-bold"
+                  style={{ background: GOLD, color: BLACK }}>{unreadCount}</span>
               )}
             </Button>
           </Link>
           <Link href="/tradehub/profile/me">
-            <Button variant="outline" size="icon"><User className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" className="h-9 w-9"><User className="h-4 w-4" /></Button>
           </Link>
-          <Button onClick={() => setShowCreate(true)} className="gap-2">
+          <Button className="gap-2 h-9 font-semibold" style={{ background: BLACK, color: GOLD }}
+            onClick={() => setShowCreate(true)}>
             <Plus className="h-4 w-4" />Post
           </Button>
         </div>
       </div>
 
       <div className="grid lg:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <div className="lg:col-span-1 space-y-4">
+        {/* ── Sidebar ── */}
+        <aside className="lg:col-span-1 space-y-3">
           {/* Profile card */}
-          <div className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+          <div className="rounded-xl p-4" style={{ background: BLACK }}>
             {myProfile ? (
               <Link href="/tradehub/profile/me">
                 <div className="flex items-center gap-3 cursor-pointer group">
@@ -332,58 +396,51 @@ export default function TradehubFeedPage() {
                     {myProfile.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate text-white">{myProfile.displayName}</p>
-                    <p className="text-xs truncate" style={{ color: GOLD }}>{myProfile.trade ?? "No trade set"}</p>
+                    <p className="font-semibold text-sm truncate text-white leading-tight">{myProfile.displayName}</p>
+                    <p className="text-xs truncate mt-0.5" style={{ color: GOLD }}>{myProfile.trade ?? "No trade set"}</p>
                   </div>
-                  <ChevronRight className="h-4 w-4" style={{ color: GOLD }} />
+                  <ChevronRight className="h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: GOLD }} />
                 </div>
               </Link>
             ) : (
               <div>
-                <p className="text-sm font-medium mb-2 text-white">Complete your profile</p>
-                <p className="text-xs mb-3" style={{ color: GOLD }}>Set up your TradeHub profile to connect with contractors.</p>
+                <p className="text-sm font-semibold mb-1 text-white">Complete your profile</p>
+                <p className="text-xs mb-3 leading-relaxed" style={{ color: "#a1a1aa" }}>
+                  Set up your TradeHub profile to connect with Canadian contractors.
+                </p>
                 <Link href="/tradehub/profile/me">
-                  <Button size="sm" className="w-full" style={{ background: GOLD, color: BLACK }}>Set Up Profile</Button>
+                  <Button size="sm" className="w-full font-semibold" style={{ background: GOLD, color: BLACK }}>
+                    Set Up Profile
+                  </Button>
                 </Link>
               </div>
             )}
           </div>
 
-          {/* Nav */}
-          <div className="rounded-xl p-2 space-y-1" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+          {/* Nav links */}
+          <div className="rounded-xl py-2" style={{ background: BLACK }}>
             {[
-              { href: "/tradehub", label: "Feed", icon: Globe },
-              { href: "/tradehub/jobs", label: "Job Board", icon: Briefcase },
-              { href: "/tradehub/messages", label: "Messages", icon: MessageCircle },
-              { href: "/tradehub/profile/me", label: "My Profile", icon: User },
+              { href: "/tradehub",          label: "Feed",       icon: Globe },
+              { href: "/tradehub/jobs",      label: "Job Board",  icon: Briefcase },
+              { href: "/tradehub/messages",  label: "Messages",   icon: MessageCircle },
+              { href: "/tradehub/profile/me",label: "My Profile", icon: User },
             ].map(({ href, label, icon: Icon }) => (
               <Link key={href} href={href}>
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                  style={{ color: "#d4d4d4" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = GOLD; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#d4d4d4"; }}>
-                  <Icon className="h-4 w-4" style={{ color: GOLD }} />{label}
+                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors rounded-lg mx-auto"
+                  style={{ color: "#a1a1aa", width: "calc(100% - 8px)", marginLeft: 4 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = GOLD; (e.currentTarget as HTMLButtonElement).style.background = "rgba(201,168,76,0.08)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#a1a1aa"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
+                  <Icon className="h-4 w-4 flex-shrink-0" style={{ color: GOLD }} />{label}
                 </button>
               </Link>
             ))}
           </div>
 
-          {/* Filters */}
-          <div className="rounded-xl p-4 space-y-3" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Filter Feed</p>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="text-sm border-0" style={{ background: "#1f1f1f", color: "white" }}>
-                <SelectValue placeholder="All types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="discussion">Discussions</SelectItem>
-                <SelectItem value="job">Jobs</SelectItem>
-                <SelectItem value="showcase">Showcases</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Sidebar filters */}
+          <div className="rounded-xl p-4 space-y-3" style={{ background: BLACK }}>
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Refine</p>
             <Select value={tradeFilter} onValueChange={setTradeFilter}>
-              <SelectTrigger className="text-sm border-0" style={{ background: "#1f1f1f", color: "white" }}>
+              <SelectTrigger className="text-sm border-0 h-9" style={{ background: "#1f1f1f", color: "white" }}>
                 <SelectValue placeholder="All trades" />
               </SelectTrigger>
               <SelectContent>
@@ -392,7 +449,7 @@ export default function TradehubFeedPage() {
               </SelectContent>
             </Select>
             <Select value={provinceFilter} onValueChange={setProvinceFilter}>
-              <SelectTrigger className="text-sm border-0" style={{ background: "#1f1f1f", color: "white" }}>
+              <SelectTrigger className="text-sm border-0 h-9" style={{ background: "#1f1f1f", color: "white" }}>
                 <SelectValue placeholder="All provinces" />
               </SelectTrigger>
               <SelectContent>
@@ -400,33 +457,72 @@ export default function TradehubFeedPage() {
                 {PROVINCES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
               </SelectContent>
             </Select>
-            {(typeFilter !== "all" || tradeFilter !== "all" || provinceFilter !== "all") && (
-              <button className="w-full text-xs py-1.5 rounded-lg transition-colors"
+            {hasFilters && (
+              <button
+                className="w-full text-xs py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors"
                 style={{ color: GOLD, background: "#1f1f1f" }}
-                onClick={() => { setTypeFilter("all"); setTradeFilter("all"); setProvinceFilter("all"); }}>
-                <X className="h-3 w-3 mr-1 inline" />Clear Filters
+                onClick={() => { setTradeFilter("all"); setProvinceFilter("all"); }}>
+                <X className="h-3 w-3" />Clear Filters
               </button>
             )}
           </div>
-        </div>
+        </aside>
 
-        {/* Feed */}
+        {/* ── Feed column ── */}
         <div className="lg:col-span-3 space-y-4">
+          {/* Search + type pill tabs */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search posts…"
+                className="pl-9 h-10"
+              />
+              {search && (
+                <button className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setSearch("")}>
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-1 rounded-lg p-1" style={{ background: BLACK }}>
+              {TYPE_TABS.map((tab) => {
+                const isActive = typeFilter === tab.value;
+                return (
+                  <button key={tab.value}
+                    onClick={() => setTypeFilter(tab.value)}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${isActive ? "font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
+                    style={isActive ? { background: GOLD, color: BLACK } : undefined}>
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Posts */}
           {isLoading ? (
-            [1,2,3].map((i) => <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />)
+            [1,2,3].map((i) => (
+              <div key={i} className="h-44 rounded-xl bg-muted animate-pulse" />
+            ))
           ) : posts.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-20 gap-4">
-                <Globe className="h-12 w-12 text-muted-foreground/30" />
-                <div className="text-center">
-                  <p className="font-semibold text-foreground">No posts yet</p>
-                  <p className="text-sm text-muted-foreground mt-1">Be the first to post something on TradeHub.</p>
-                </div>
-                <Button onClick={() => setShowCreate(true)} className="gap-2">
+            <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-xl border border-border/60 bg-card">
+              <Globe className="h-12 w-12 text-muted-foreground/20" />
+              <div className="text-center">
+                <p className="font-semibold">No posts found</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {search ? "Try a different search term." : "Be the first to post something on TradeHub."}
+                </p>
+              </div>
+              {!search && (
+                <Button className="gap-2" style={{ background: BLACK, color: GOLD }}
+                  onClick={() => setShowCreate(true)}>
                   <Plus className="h-4 w-4" />Create First Post
                 </Button>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           ) : (
             <>
               {posts.map((post) => (
@@ -434,7 +530,7 @@ export default function TradehubFeedPage() {
               ))}
               {hasNextPage && (
                 <Button variant="outline" className="w-full" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
-                  {isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   Load More
                 </Button>
               )}
