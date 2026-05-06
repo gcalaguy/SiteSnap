@@ -315,6 +315,102 @@ router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, async
   }
 });
 
+// ── POST /safety/submissions/:id/incident-summary — on-demand AI incident report ──
+
+router.post("/safety/submissions/:id/incident-summary", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    const [row] = await db
+      .select()
+      .from(formSubmissionsTable)
+      .where(and(eq(formSubmissionsTable.id, id), eq(formSubmissionsTable.companyId, req.companyId!)))
+      .limit(1);
+
+    if (!row) { res.status(404).json({ error: "Submission not found" }); return; }
+
+    const [template] = await db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, row.templateId));
+    const [worker] = await db.select().from(usersTable).where(eq(usersTable.id, row.userId));
+    const data = row.data as Record<string, any>;
+    const fields = (template?.schema?.fields ?? []) as Array<{ id: string; label: string }>;
+
+    const formData = [
+      `Form Type: ${template?.name ?? "Safety Form"}`,
+      `Category: ${template?.category ?? "Not specified"}`,
+      `Submitted By: ${worker ? `${worker.firstName} ${worker.lastName}` : "Not specified"}`,
+      `Submission Date: ${new Date(row.createdAt).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}`,
+      `Status: ${row.status}`,
+      ``,
+      `Form Fields:`,
+      ...Object.entries(data).map(([key, val]) => {
+        const field = fields.find((f) => f.id === key);
+        const label = field?.label ?? key;
+        const value = Array.isArray(val) ? val.join(", ") : String(val ?? "");
+        return `${label}: ${value || "Not specified"}`;
+      }),
+    ].join("\n");
+
+    const systemPrompt = `You are a construction safety officer generating a professional incident summary.
+
+Analyze the following incident report data and produce a structured summary.
+
+INSTRUCTIONS:
+- Be factual and neutral (do NOT assign blame)
+- Keep language clear and professional
+- Do NOT invent details
+- If information is missing, say "Not specified"
+
+OUTPUT FORMAT:
+
+1. Incident Overview:
+- Brief summary of what happened (2–3 sentences)
+
+2. Key Details:
+- Date & Time:
+- Location:
+- Persons Involved:
+- Type of Incident:
+
+3. Severity Assessment:
+- Classify as: Low / Medium / High
+- Explain why
+
+4. Root Cause (if identifiable):
+- Immediate cause
+- Contributing factors
+
+5. Recommended Actions:
+- Immediate actions required
+- Preventative measures
+
+6. Follow-Up Required:
+- Yes / No
+- If yes, explain`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      max_completion_tokens: 600,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `DATA:\n${formData}` },
+      ],
+    });
+
+    const summary = completion.choices[0]?.message?.content ?? "Unable to generate summary.";
+
+    await db
+      .update(formSubmissionsTable)
+      .set({ aiSummary: summary, updatedAt: new Date() })
+      .where(eq(formSubmissionsTable.id, id));
+
+    logger.info({ submissionId: id }, "Incident summary generated");
+    res.json({ summary });
+  } catch (err: any) {
+    req.log.error({ err }, "safety/submissions/:id/incident-summary error");
+    res.status(500).json({ error: "Failed to generate incident summary" });
+  }
+});
+
 // ── AI Summary helper ─────────────────────────────────────────────────────────
 
 async function generateAISummary(submissionId: number, template: any, data: Record<string, any>) {
