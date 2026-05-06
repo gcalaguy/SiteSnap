@@ -142,18 +142,13 @@ function AiBriefingCard({ colors }: { colors: any }) {
 // ── Quick Actions ────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS_WORKER = [
-  { label: "Log Report", icon: "file-text", path: "/(tabs)/log", color: "#3b82f6" },
-  { label: "Inspections", icon: "shield", path: "/(tabs)/inspect", color: "#10b981" },
-  { label: "Safety Form", icon: "alert-triangle", path: "/(tabs)/safety", color: "#D4AF37" },
-  { label: "My Tasks", icon: "check-square", path: "/(tabs)/tasks", color: "#8b5cf6" },
+  { label: "My Projects", icon: "folder", path: "/(tabs)/projects", color: "#8b5cf6" },
+  { label: "My Tasks", icon: "check-square", path: "/(tabs)/tasks", color: "#10b981" },
   { label: "Calculators", icon: "percent", path: "/calculators", color: "#f59e0b" },
   { label: "Ask AI", icon: "message-circle", path: "/(tabs)/ask", color: "#ec4899" },
 ];
 
 const QUICK_ACTIONS_OWNER = [
-  { label: "Log Report", icon: "file-text", path: "/(tabs)/log", color: "#3b82f6" },
-  { label: "Inspections", icon: "shield", path: "/(tabs)/inspect", color: "#10b981" },
-  { label: "Safety", icon: "alert-triangle", path: "/(tabs)/safety", color: "#D4AF37" },
   { label: "Projects", icon: "folder", path: "/(tabs)/projects", color: "#8b5cf6" },
   { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
   { label: "Ask AI", icon: "message-circle", path: "/(tabs)/ask", color: "#ec4899" },
@@ -541,13 +536,6 @@ export default function DashboardScreen() {
           subtitle="Daily reports submitted"
           icon="file-text"
           onPress={() => router.push("/(tabs)/log" as any)}
-        />
-        <SummaryCard
-          title="Open RFIs"
-          value={summaryLoading ? "—" : String(summary?.pendingRFIs ?? 0)}
-          subtitle="Awaiting response"
-          icon="alert-circle"
-          onPress={() => router.push("/(tabs)/projects" as any)}
         />
         {!isWorker && (
           <SummaryCard
