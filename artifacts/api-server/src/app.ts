@@ -17,6 +17,9 @@ import { WebhookHandlers } from "./lib/webhookHandlers";
 
 const app: Express = express();
 
+// Trust the Replit reverse proxy so express-rate-limit can read the real client IP
+app.set("trust proxy", 1);
+
 // ── Security headers ─────────────────────────────────────────────────────────
 // helmet sets X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security,
 // Content-Security-Policy, etc.  Disabled for local dev if needed via env flag.

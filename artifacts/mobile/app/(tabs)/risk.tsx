@@ -17,7 +17,7 @@ import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Polyline, Line, Circle as SvgCircle } from "react-native-svg";
 
-// ── Types matching the actual API response ────────────────────────────────────
+// ── Types matching the ACTUAL API responses ───────────────────────────────────
 
 type RiskDashboard = {
   topRisk: Array<{
@@ -48,15 +48,21 @@ type RiskDashboard = {
   trend: Array<{ day: string; avgScore: number; count: number }>;
 };
 
-type InspectionAlert = {
-  id: number;
-  type: string;
-  message: string;
-  severity: string;
-  isRead: boolean;
-  createdAt: string;
-  projectName?: string | null;
-  inspectionType?: string | null;
+// GET /api/inspection-alerts returns nested objects:
+type AlertItem = {
+  alert: {
+    id: number;
+    type: string;
+    message: string;
+    severity: string;
+    isRead: boolean;
+    createdAt: string;
+    companyId: number;
+    projectId: number | null;
+    inspectionId: number;
+  };
+  project: { id: number; name: string } | null;
+  inspection: { id: number; inspectionType: string; date: string } | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -85,10 +91,10 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-// ── Trend Sparkline (uses day/avgScore from API) ──────────────────────────────
+// ── Trend Sparkline ───────────────────────────────────────────────────────────
 
 function TrendChart({ data, colors }: { data: RiskDashboard["trend"]; colors: any }) {
-  if (!data || data.length < 2) return null;
+  if (!Array.isArray(data) || data.length < 2) return null;
 
   const W = 300;
   const H = 72;
@@ -196,39 +202,45 @@ function InspectionRow({ item, colors }: { item: RiskDashboard["topRisk"][number
   );
 }
 
-// ── Alert Row ─────────────────────────────────────────────────────────────────
+// ── Alert Row (uses nested AlertItem shape) ───────────────────────────────────
 
-function AlertRow({ alert, canAct, onMarkRead, colors }: {
-  alert: InspectionAlert;
+function AlertRow({ item, canAct, onMarkRead, colors }: {
+  item: AlertItem;
   canAct: boolean;
   onMarkRead: () => void;
   colors: any;
 }) {
-  const sevColor = SEV_COLORS[alert.severity] ?? "#6b7280";
+  const a = item.alert;
+  const sevColor = SEV_COLORS[a.severity] ?? "#6b7280";
 
   return (
     <View style={[styles.alertRow, {
-      backgroundColor: alert.isRead ? colors.card : `${sevColor}08`,
+      backgroundColor: a.isRead ? colors.card : `${sevColor}08`,
       borderColor: colors.border,
     }]}>
-      <View style={[styles.alertDot, { backgroundColor: alert.isRead ? colors.muted : sevColor }]} />
+      <View style={[styles.alertDot, { backgroundColor: a.isRead ? colors.muted : sevColor }]} />
       <View style={{ flex: 1 }}>
         <Text style={[
           styles.alertMsg,
-          { color: alert.isRead ? colors.mutedForeground : colors.foreground, fontFamily: alert.isRead ? "Inter_400Regular" : "Inter_500Medium" },
+          { color: a.isRead ? colors.mutedForeground : colors.foreground, fontFamily: a.isRead ? "Inter_400Regular" : "Inter_500Medium" },
         ]} numberOfLines={2}>
-          {alert.message}
+          {a.message}
         </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
-          {alert.projectName ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+          {item.project?.name ? (
             <Text style={[styles.alertMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
-              {alert.projectName}
+              {item.project.name}
             </Text>
           ) : null}
-          <Text style={[styles.alertMeta, { color: colors.mutedForeground }]}>{timeAgo(alert.createdAt)}</Text>
+          {item.inspection?.inspectionType ? (
+            <Text style={[styles.alertMeta, { color: colors.mutedForeground }]}>
+              · {item.inspection.inspectionType.replace(/_/g, " ")}
+            </Text>
+          ) : null}
+          <Text style={[styles.alertMeta, { color: colors.mutedForeground }]}>{timeAgo(a.createdAt)}</Text>
         </View>
       </View>
-      {canAct && !alert.isRead ? (
+      {canAct && !a.isRead ? (
         <Pressable onPress={onMarkRead} style={[styles.readBtn, { borderColor: colors.border }]} hitSlop={8}>
           <Feather name="check" size={14} color={colors.primary} />
         </Pressable>
@@ -249,40 +261,42 @@ export default function RiskScreen() {
 
   const [showAllAlerts, setShowAllAlerts] = useState(false);
 
-  const { data, isLoading, refetch } = useQuery<RiskDashboard>({
+  const { data: dashData, isLoading, refetch } = useQuery<RiskDashboard>({
     queryKey: ["risk-dashboard-mobile"],
     queryFn: () => customFetch("/api/risk-dashboard"),
     staleTime: 60_000,
     refetchInterval: 3 * 60_000,
   });
 
-  // Separate query for the actual alerts list
-  const { data: alertsList = [], isLoading: alertsLoading, refetch: refetchAlerts } = useQuery<InspectionAlert[]>({
+  // Separate query for the actual alerts list (nested shape)
+  const { data: alertsRaw, isLoading: alertsLoading, refetch: refetchAlerts } = useQuery<AlertItem[]>({
     queryKey: ["inspection-alerts-mobile"],
-    queryFn: () => customFetch<InspectionAlert[]>("/api/inspection-alerts"),
+    queryFn: () => customFetch("/api/inspection-alerts"),
     staleTime: 60_000,
   });
 
+  // Mark-read uses PATCH (not POST)
   const markRead = useMutation({
     mutationFn: (id: number) =>
-      customFetch(`/api/inspection-alerts/${id}/read`, { method: "POST" }),
+      customFetch(`/api/inspection-alerts/${id}/read`, { method: "PATCH" }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["inspection-alerts-mobile"] });
-      qc.invalidateQueries({ queryKey: ["risk-dashboard-mobile"] });
+      void qc.invalidateQueries({ queryKey: ["inspection-alerts-mobile"] });
+      void qc.invalidateQueries({ queryKey: ["risk-dashboard-mobile"] });
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
   });
 
   const handleRefresh = () => { refetch(); refetchAlerts(); };
 
-  const health = data?.health;
-  const trend = data?.trend ?? [];
-  const topRisk = data?.topRisk ?? [];
-  const alertCounts = data?.alerts ?? { critical: 0, high: 0, medium: 0, total: 0 };
+  // Safely coerce all data (never rely on default param values with React Compiler)
+  const health = dashData?.health;
+  const trend = Array.isArray(dashData?.trend) ? dashData!.trend : [];
+  const topRisk = Array.isArray(dashData?.topRisk) ? dashData!.topRisk : [];
+  const alertCounts = dashData?.alerts ?? { critical: 0, high: 0, medium: 0, total: 0 };
+  const alertsList: AlertItem[] = Array.isArray(alertsRaw) ? alertsRaw : [];
 
-  const unreadAlerts = Array.isArray(alertsList) ? alertsList.filter((a) => !a.isRead) : [];
-  const allAlerts = Array.isArray(alertsList) ? alertsList : [];
-  const displayedAlerts = showAllAlerts ? allAlerts : allAlerts.slice(0, 5);
+  const unreadAlerts = alertsList.filter((item) => !item.alert.isRead);
+  const displayedAlerts = showAllAlerts ? alertsList : alertsList.slice(0, 5);
 
   return (
     <ScrollView
@@ -434,29 +448,29 @@ export default function RiskScreen() {
 
             {alertsLoading ? (
               <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
-            ) : allAlerts.length === 0 ? (
+            ) : alertsList.length === 0 ? (
               <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Feather name="bell-off" size={24} color={colors.mutedForeground} />
                 <Text style={[styles.emptyDesc, { color: colors.mutedForeground }]}>No alerts at this time</Text>
               </View>
             ) : (
               <>
-                {displayedAlerts.map((alert) => (
+                {displayedAlerts.map((item) => (
                   <AlertRow
-                    key={alert.id}
-                    alert={alert}
+                    key={String(item.alert.id)}
+                    item={item}
                     canAct={isOwnerOrForeman}
-                    onMarkRead={() => markRead.mutate(alert.id)}
+                    onMarkRead={() => markRead.mutate(item.alert.id)}
                     colors={colors}
                   />
                 ))}
-                {allAlerts.length > 5 ? (
+                {alertsList.length > 5 ? (
                   <Pressable
                     onPress={() => setShowAllAlerts((v) => !v)}
                     style={[styles.showMoreBtn, { borderColor: colors.border }]}
                   >
                     <Text style={{ fontSize: 13, color: colors.primary, fontFamily: "Inter_600SemiBold" }}>
-                      {showAllAlerts ? "Show less" : `Show all ${allAlerts.length} alerts`}
+                      {showAllAlerts ? "Show less" : `Show all ${alertsList.length} alerts`}
                     </Text>
                     <Feather name={showAllAlerts ? "chevron-up" : "chevron-down"} size={14} color={colors.primary} />
                   </Pressable>

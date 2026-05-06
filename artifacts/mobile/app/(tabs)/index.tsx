@@ -460,10 +460,7 @@ export default function DashboardScreen() {
 
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["notifications", "unread"],
-    queryFn: async () => {
-      const res = await customFetch("/api/notifications/unread-count");
-      return (res as any).json ? (res as any).json() : res;
-    },
+    queryFn: () => customFetch<{ count: number }>("/api/notifications/unread-count"),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });

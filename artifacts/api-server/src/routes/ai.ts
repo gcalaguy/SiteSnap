@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { openai, speechToText, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
 
@@ -598,7 +599,7 @@ router.post(
           .leftJoin(projectsTable, eq(projectsTable.id, dailyReportsTable.projectId))
           .where(
             and(
-              eq(dailyReportsTable.companyId, companyId),
+              eq(projectsTable.companyId, companyId),
               sql`${dailyReportsTable.reportDate}::date >= NOW() - INTERVAL '2 days'`,
             ),
           )
