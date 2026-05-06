@@ -30,11 +30,14 @@ import {
   Flame,
   CircleDot,
   ArrowRight,
+  Loader2,
+  RefreshCw,
+  ClipboardList,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { WeatherCard } from "@/components/WeatherCard";
 import { Link } from "wouter";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -401,6 +404,176 @@ function RiskHealthBar({ health }: { health: RiskDashboardData["health"] }) {
   );
 }
 
+// ── Foreman Briefing Card ─────────────────────────────────────────────────────
+
+type BriefingLine =
+  | { type: "section"; emoji: string; title: string }
+  | { type: "bullet"; text: string }
+  | { type: "text"; text: string };
+
+function parseBriefing(text: string): BriefingLine[] {
+  const lines: BriefingLine[] = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    // Section headers like "1. 🚨 Critical Alerts"
+    const sectionMatch = line.match(/^\d+\.\s*([\u{1F000}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}⚠✅📅📉👷🛠🚨📋]+)\s*(.+)/u);
+    if (sectionMatch) {
+      lines.push({ type: "section", emoji: sectionMatch[1], title: sectionMatch[2] });
+      continue;
+    }
+    // Bullets
+    if (line.startsWith("- ") || line.startsWith("• ")) {
+      lines.push({ type: "bullet", text: line.slice(2) });
+      continue;
+    }
+    lines.push({ type: "text", text: line });
+  }
+  return lines;
+}
+
+const SEV_SECTION_COLOR: Record<string, string> = {
+  "🚨": "#dc2626",
+  "⚠️": "#ea580c",
+  "⚠": "#ea580c",
+  "🛠️": GOLD,
+  "🛠": GOLD,
+  "📅": "#60a5fa",
+  "📉": "#f97316",
+  "👷": "#a78bfa",
+  "✅": "#22c55e",
+};
+
+function ForemanBriefingCard() {
+  const qc = useQueryClient();
+  const today = format(new Date(), "EEEE, MMMM d");
+
+  const generate = useMutation({
+    mutationKey: ["foreman-briefing"],
+    mutationFn: (): Promise<{ briefing: string; generatedAt: string }> =>
+      customFetch("/api/ai/foreman-briefing", { method: "POST" }),
+    onSuccess: (data) => {
+      qc.setQueryData(["foreman-briefing-cache"], data);
+    },
+  });
+
+  const cached = qc.getQueryData<{ briefing: string; generatedAt: string }>(["foreman-briefing-cache"]);
+  const data = generate.data ?? cached;
+  const lines = data ? parseBriefing(data.briefing) : [];
+
+  let currentSectionColor = GOLD;
+
+  return (
+    <Card
+      className="overflow-hidden"
+      style={{ background: BLACK, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.22)" }}
+    >
+      <CardHeader className="pb-3" style={{ borderBottom: `1px solid ${GOLD}18` }}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0"
+              style={{ background: `${GOLD}18`, border: `1px solid ${GOLD}40` }}
+            >
+              <ClipboardList className="h-4 w-4" style={{ color: GOLD }} />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-semibold" style={{ color: GOLD }}>
+                Daily Foreman Briefing
+              </CardTitle>
+              <p className="text-[11px] text-zinc-500 mt-0.5">{today}</p>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1.5 text-xs border"
+            style={{ borderColor: `${GOLD}35`, color: GOLD }}
+            onClick={() => generate.mutate()}
+            disabled={generate.isPending}
+          >
+            {generate.isPending ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Generating…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-3.5 w-3.5" />
+                {data ? "Refresh" : "Generate Briefing"}
+              </>
+            )}
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent className="pt-4 pb-4">
+        {!data && !generate.isPending && (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-3"
+              style={{ background: `${GOLD}10`, border: `1px solid ${GOLD}25` }}>
+              <ClipboardList className="h-6 w-6" style={{ color: `${GOLD}80` }} />
+            </div>
+            <p className="text-sm font-medium text-zinc-300 mb-1">Your AI briefing is ready to generate</p>
+            <p className="text-xs text-zinc-600 max-w-xs">
+              Get a concise, actionable summary of critical alerts, high-risk areas, and priority tasks for today.
+            </p>
+          </div>
+        )}
+
+        {generate.isPending && (
+          <div className="flex flex-col items-center justify-center py-10 gap-3">
+            <Loader2 className="h-6 w-6 animate-spin" style={{ color: GOLD }} />
+            <p className="text-sm text-zinc-500">Analyzing site data…</p>
+          </div>
+        )}
+
+        {generate.isError && (
+          <div className="text-center py-6">
+            <p className="text-sm text-red-400">Failed to generate briefing. Please try again.</p>
+          </div>
+        )}
+
+        {data && !generate.isPending && (
+          <div className="space-y-1">
+            {lines.map((line, i) => {
+              if (line.type === "section") {
+                currentSectionColor = SEV_SECTION_COLOR[line.emoji] ?? GOLD;
+                return (
+                  <div key={i} className="flex items-center gap-2 pt-3 pb-0.5 first:pt-0">
+                    <span className="text-base leading-none">{line.emoji}</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: currentSectionColor }}>
+                      {line.title}
+                    </span>
+                  </div>
+                );
+              }
+              if (line.type === "bullet") {
+                return (
+                  <div key={i} className="flex items-start gap-2 pl-6">
+                    <span className="mt-1.5 h-1 w-1 rounded-full flex-shrink-0" style={{ background: currentSectionColor }} />
+                    <p className="text-sm text-zinc-300 leading-relaxed">{line.text}</p>
+                  </div>
+                );
+              }
+              return (
+                <p key={i} className="text-sm text-zinc-400 pl-6 leading-relaxed">{line.text}</p>
+              );
+            })}
+
+            {data.generatedAt && (
+              <p className="text-[10px] text-zinc-600 pt-3 border-t border-white/5 mt-3">
+                Generated {formatDistanceToNow(new Date(data.generatedAt), { addSuffix: true })} · AI-generated · verify with your site data
+              </p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function fmt(n: number, opts?: Intl.NumberFormatOptions) {
   return new Intl.NumberFormat("en-CA", {
     style: "currency",
@@ -461,6 +634,9 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Overview of your company's projects and activities.</p>
       </div>
+
+      {/* Daily Foreman Briefing — owners and foremen only */}
+      {isOwnerOrForeman && <ForemanBriefingCard />}
 
       {/* Risk Hero — only for owners/foremen when there are high/critical inspections */}
       {isOwnerOrForeman && <RiskHeroSection />}
