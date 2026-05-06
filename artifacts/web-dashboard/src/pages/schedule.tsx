@@ -393,16 +393,18 @@ export default function Schedule() {
           <CardContent className="py-3 px-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               {/* View toggle */}
-              <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+              <div className="flex items-center gap-1 rounded-lg p-1" style={{ background: "#111111" }}>
                 <button
                   onClick={() => setView("gantt")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === "gantt" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === "gantt" ? "text-[#111111] font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
+                  style={view === "gantt" ? { background: "#C9A84C" } : {}}
                 >
                   <GanttChartSquare className="h-4 w-4" /> Gantt
                 </button>
                 <button
                   onClick={() => setView("team")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === "team" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === "team" ? "text-[#111111] font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
+                  style={view === "team" ? { background: "#C9A84C" } : {}}
                 >
                   <LayoutGrid className="h-4 w-4" /> Team Grid
                 </button>
@@ -412,12 +414,13 @@ export default function Schedule() {
               <div className="flex items-center gap-2">
                 {/* Zoom (Gantt only) */}
                 {view === "gantt" && (
-                  <div className="flex items-center gap-1 bg-muted rounded-lg p-1 mr-2">
+                  <div className="flex items-center gap-1 rounded-lg p-1 mr-2" style={{ background: "#111111" }}>
                     {(["2w", "1m", "3m"] as ZoomLevel[]).map(z => (
                       <button
                         key={z}
                         onClick={() => { setZoom(z); ganttToday(); }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${zoom === z ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${zoom === z ? "text-[#111111] font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
+                        style={zoom === z ? { background: "#C9A84C" } : {}}
                       >
                         {z === "2w" ? "2 Wks" : z === "1m" ? "1 Mo" : "3 Mo"}
                       </button>
