@@ -17,47 +17,49 @@ import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Polyline, Line, Circle as SvgCircle } from "react-native-svg";
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// ── Types matching the actual API response ────────────────────────────────────
 
-type RiskStats = {
-  avgRiskScore: number;
-  criticalCount: number;
-  highCount: number;
-  totalInspections: number;
-  activeAlerts: number;
+type RiskDashboard = {
+  topRisk: Array<{
+    inspection: {
+      id: number;
+      inspectionType: string;
+      date: string;
+      riskLevel: string | null;
+      riskScore: string | null;
+      status: string;
+    };
+    project: { id: number; name: string } | null;
+    inspector: { id: number; firstName: string | null; lastName: string | null } | null;
+  }>;
+  alerts: {
+    critical: number;
+    high: number;
+    medium: number;
+    total: number;
+  };
+  health: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    avgRiskScore: number | null;
+  };
+  trend: Array<{ day: string; avgScore: number; count: number }>;
 };
 
-type TrendPoint = { date: string; score: number };
-
-type TopInspection = {
-  id: number;
-  inspectionType: string;
-  date: string;
-  riskLevel: string | null;
-  riskScore: string | null;
-  score: number | null;
-  projectName: string | null;
-};
-
-type Alert = {
+type InspectionAlert = {
   id: number;
   type: string;
   message: string;
   severity: string;
   isRead: boolean;
   createdAt: string;
-  projectName: string | null;
-  inspectionType: string | null;
+  projectName?: string | null;
+  inspectionType?: string | null;
 };
 
-type RiskDashboard = {
-  stats: RiskStats;
-  trend: TrendPoint[];
-  topRiskInspections: TopInspection[];
-  alerts: Alert[];
-};
-
-// ── Colour maps ────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const RISK_COLORS: Record<string, string> = {
   Low: "#16a34a",
@@ -83,9 +85,9 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-// ── Mini trend sparkline ───────────────────────────────────────────────────────
+// ── Trend Sparkline (uses day/avgScore from API) ──────────────────────────────
 
-function TrendChart({ data, colors }: { data: TrendPoint[]; colors: any }) {
+function TrendChart({ data, colors }: { data: RiskDashboard["trend"]; colors: any }) {
   if (!data || data.length < 2) return null;
 
   const W = 300;
@@ -94,7 +96,7 @@ function TrendChart({ data, colors }: { data: TrendPoint[]; colors: any }) {
   const innerW = W - PAD * 2;
   const innerH = H - PAD * 2;
 
-  const scores = data.map((d) => d.score);
+  const scores = data.map((d) => d.avgScore);
   const minScore = Math.max(0, Math.min(...scores) - 5);
   const maxScore = Math.min(100, Math.max(...scores) + 5);
   const range = maxScore - minScore || 10;
@@ -102,11 +104,11 @@ function TrendChart({ data, colors }: { data: TrendPoint[]; colors: any }) {
   const toX = (i: number) => PAD + (i / (data.length - 1)) * innerW;
   const toY = (s: number) => PAD + innerH - ((s - minScore) / range) * innerH;
 
-  const pts = data.map((d, i) => `${toX(i)},${toY(d.score)}`).join(" ");
+  const pts = data.map((d, i) => `${toX(i)},${toY(d.avgScore)}`).join(" ");
   const lastPt = data[data.length - 1];
   const lastX = toX(data.length - 1);
-  const lastY = toY(lastPt.score);
-  const trend = data.length >= 2 ? lastPt.score - data[0].score : 0;
+  const lastY = toY(lastPt.avgScore);
+  const trend = data.length >= 2 ? lastPt.avgScore - data[0].avgScore : 0;
   const trendColor = trend <= 0 ? "#16a34a" : "#dc2626";
 
   return (
@@ -116,12 +118,13 @@ function TrendChart({ data, colors }: { data: TrendPoint[]; colors: any }) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           <Feather name={trend <= 0 ? "trending-down" : "trending-up"} size={14} color={trendColor} />
           <Text style={{ fontSize: 12, color: trendColor, fontFamily: "Inter_600SemiBold" }}>
-            {trend > 0 ? "+" : ""}{trend.toFixed(0)} pts
+            {trend > 0 ? "+" : ""}{trend.toFixed(1)} pts
           </Text>
         </View>
       </View>
 
       <Svg width={W} height={H} style={{ alignSelf: "center" }}>
+        <Line x1={PAD} y1={toY(50)} x2={W - PAD} y2={toY(50)} stroke={colors.border} strokeWidth={1} strokeDasharray="4,4" />
         <Polyline
           points={pts}
           fill="none"
@@ -130,13 +133,12 @@ function TrendChart({ data, colors }: { data: TrendPoint[]; colors: any }) {
           strokeLinejoin="round"
           strokeLinecap="round"
         />
-        <Line x1={PAD} y1={toY(50)} x2={W - PAD} y2={toY(50)} stroke={colors.border} strokeWidth={1} strokeDasharray="4,4" />
         <SvgCircle cx={lastX} cy={lastY} r={4} fill={colors.primary} />
       </Svg>
 
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
-        <Text style={{ fontSize: 10, color: colors.mutedForeground }}>{data[0]?.date?.slice(5) ?? ""}</Text>
-        <Text style={{ fontSize: 10, color: colors.mutedForeground }}>{lastPt.date?.slice(5) ?? ""}</Text>
+        <Text style={{ fontSize: 10, color: colors.mutedForeground }}>{data[0]?.day?.slice(5) ?? ""}</Text>
+        <Text style={{ fontSize: 10, color: colors.mutedForeground }}>{lastPt.day?.slice(5) ?? ""}</Text>
       </View>
     </View>
   );
@@ -160,16 +162,21 @@ function StatCard({ label, value, icon, color, colors }: {
 
 // ── Top Inspection Row ────────────────────────────────────────────────────────
 
-function InspectionRow({ insp, colors }: { insp: TopInspection; colors: any }) {
+function InspectionRow({ item, colors }: { item: RiskDashboard["topRisk"][number]; colors: any }) {
+  const insp = item.inspection;
+  const project = item.project;
   const riskColor = RISK_COLORS[insp.riskLevel ?? ""] ?? "#6b7280";
+
   return (
     <View style={[styles.inspRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={{ flex: 1 }}>
         <Text style={[styles.inspType, { color: colors.foreground }]}>
-          {insp.inspectionType.charAt(0).toUpperCase() + insp.inspectionType.slice(1)}
+          {(insp.inspectionType ?? "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
         </Text>
-        {insp.projectName ? (
-          <Text style={[styles.inspMeta, { color: colors.mutedForeground }]} numberOfLines={1}>{insp.projectName}</Text>
+        {project?.name ? (
+          <Text style={[styles.inspMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {project.name}
+          </Text>
         ) : null}
         <Text style={[styles.inspDate, { color: colors.mutedForeground }]}>{insp.date}</Text>
       </View>
@@ -179,8 +186,10 @@ function InspectionRow({ insp, colors }: { insp: TopInspection; colors: any }) {
             <Text style={[styles.riskBadgeText, { color: riskColor }]}>{insp.riskLevel}</Text>
           </View>
         ) : null}
-        {insp.score != null ? (
-          <Text style={{ fontSize: 11, color: colors.mutedForeground }}>{insp.score}/100</Text>
+        {insp.riskScore != null ? (
+          <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+            {parseFloat(insp.riskScore as any).toFixed(0)}/100
+          </Text>
         ) : null}
       </View>
     </View>
@@ -190,7 +199,7 @@ function InspectionRow({ insp, colors }: { insp: TopInspection; colors: any }) {
 // ── Alert Row ─────────────────────────────────────────────────────────────────
 
 function AlertRow({ alert, canAct, onMarkRead, colors }: {
-  alert: Alert;
+  alert: InspectionAlert;
   canAct: boolean;
   onMarkRead: () => void;
   colors: any;
@@ -198,15 +207,23 @@ function AlertRow({ alert, canAct, onMarkRead, colors }: {
   const sevColor = SEV_COLORS[alert.severity] ?? "#6b7280";
 
   return (
-    <View style={[styles.alertRow, { backgroundColor: alert.isRead ? colors.card : `${sevColor}08`, borderColor: colors.border }]}>
+    <View style={[styles.alertRow, {
+      backgroundColor: alert.isRead ? colors.card : `${sevColor}08`,
+      borderColor: colors.border,
+    }]}>
       <View style={[styles.alertDot, { backgroundColor: alert.isRead ? colors.muted : sevColor }]} />
       <View style={{ flex: 1 }}>
-        <Text style={[styles.alertMsg, { color: alert.isRead ? colors.mutedForeground : colors.foreground, fontFamily: alert.isRead ? "Inter_400Regular" : "Inter_500Medium" }]} numberOfLines={2}>
+        <Text style={[
+          styles.alertMsg,
+          { color: alert.isRead ? colors.mutedForeground : colors.foreground, fontFamily: alert.isRead ? "Inter_400Regular" : "Inter_500Medium" },
+        ]} numberOfLines={2}>
           {alert.message}
         </Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
           {alert.projectName ? (
-            <Text style={[styles.alertMeta, { color: colors.mutedForeground }]} numberOfLines={1}>{alert.projectName}</Text>
+            <Text style={[styles.alertMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {alert.projectName}
+            </Text>
           ) : null}
           <Text style={[styles.alertMeta, { color: colors.mutedForeground }]}>{timeAgo(alert.createdAt)}</Text>
         </View>
@@ -239,27 +256,39 @@ export default function RiskScreen() {
     refetchInterval: 3 * 60_000,
   });
 
+  // Separate query for the actual alerts list
+  const { data: alertsList = [], isLoading: alertsLoading, refetch: refetchAlerts } = useQuery<InspectionAlert[]>({
+    queryKey: ["inspection-alerts-mobile"],
+    queryFn: () => customFetch<InspectionAlert[]>("/api/inspection-alerts"),
+    staleTime: 60_000,
+  });
+
   const markRead = useMutation({
     mutationFn: (id: number) =>
       customFetch(`/api/inspection-alerts/${id}/read`, { method: "POST" }),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inspection-alerts-mobile"] });
       qc.invalidateQueries({ queryKey: ["risk-dashboard-mobile"] });
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
   });
 
-  const stats = data?.stats;
+  const handleRefresh = () => { refetch(); refetchAlerts(); };
+
+  const health = data?.health;
   const trend = data?.trend ?? [];
-  const topRisk = data?.topRiskInspections ?? [];
-  const alerts = data?.alerts ?? [];
-  const unreadAlerts = alerts.filter((a) => !a.isRead);
-  const displayedAlerts = showAllAlerts ? alerts : alerts.slice(0, 5);
+  const topRisk = data?.topRisk ?? [];
+  const alertCounts = data?.alerts ?? { critical: 0, high: 0, medium: 0, total: 0 };
+
+  const unreadAlerts = Array.isArray(alertsList) ? alertsList.filter((a) => !a.isRead) : [];
+  const allAlerts = Array.isArray(alertsList) ? alertsList : [];
+  const displayedAlerts = showAllAlerts ? allAlerts : allAlerts.slice(0, 5);
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={isLoading || alertsLoading} onRefresh={handleRefresh} tintColor={colors.primary} />}
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90 }}
     >
       {/* Header */}
@@ -268,9 +297,11 @@ export default function RiskScreen() {
           <Text style={[styles.headerSub, { color: "rgba(255,255,255,0.55)" }]}>Site Snap</Text>
           <Text style={[styles.headerTitle, { color: "#FFFFFF" }]}>Risk Dashboard</Text>
         </View>
-        {unreadAlerts.length > 0 ? (
-          <View style={[styles.alertBadge, { backgroundColor: "#DC2626" }]}>
-            <Text style={styles.alertBadgeText}>{unreadAlerts.length} alert{unreadAlerts.length !== 1 ? "s" : ""}</Text>
+        {alertCounts.total > 0 ? (
+          <View style={[styles.alertBadge, { backgroundColor: alertCounts.critical > 0 ? "#DC2626" : "#EA580C" }]}>
+            <Text style={styles.alertBadgeText}>
+              {alertCounts.total} alert{alertCounts.total !== 1 ? "s" : ""}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -279,76 +310,109 @@ export default function RiskScreen() {
         <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
       ) : (
         <>
-          {/* ── Stat Cards ── */}
+          {/* ── Stat cards ── */}
           <View style={styles.statsGrid}>
             <StatCard
               label="Avg Risk Score"
-              value={stats?.avgRiskScore != null ? `${stats.avgRiskScore.toFixed(1)}/10` : "—"}
+              value={health?.avgRiskScore != null ? `${Number(health.avgRiskScore).toFixed(1)}/100` : "—"}
               icon="activity"
               color="#dc2626"
               colors={colors}
             />
             <StatCard
-              label="Critical Items"
-              value={stats?.criticalCount ?? "—"}
+              label="Critical"
+              value={health?.critical ?? 0}
               icon="alert-triangle"
+              color="#dc2626"
+              colors={colors}
+            />
+            <StatCard
+              label="High Risk"
+              value={health?.high ?? 0}
+              icon="alert-circle"
               color="#ea580c"
               colors={colors}
             />
             <StatCard
-              label="Active Alerts"
-              value={stats?.activeAlerts ?? unreadAlerts.length}
+              label="Unread Alerts"
+              value={unreadAlerts.length}
               icon="bell"
               color="#ca8a04"
               colors={colors}
             />
-            <StatCard
-              label="Inspections"
-              value={stats?.totalInspections ?? topRisk.length}
-              icon="shield"
-              color={colors.primary}
-              colors={colors}
-            />
           </View>
 
-          {/* ── Trend Chart ── */}
+          {/* Alert severity summary strip */}
+          {alertCounts.total > 0 && (
+            <View style={[styles.severityStrip, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {alertCounts.critical > 0 ? (
+                <View style={styles.severityItem}>
+                  <View style={[styles.severityDot, { backgroundColor: "#dc2626" }]} />
+                  <Text style={{ fontSize: 12, color: "#dc2626", fontFamily: "Inter_600SemiBold" }}>
+                    {alertCounts.critical} Critical
+                  </Text>
+                </View>
+              ) : null}
+              {alertCounts.high > 0 ? (
+                <View style={styles.severityItem}>
+                  <View style={[styles.severityDot, { backgroundColor: "#ea580c" }]} />
+                  <Text style={{ fontSize: 12, color: "#ea580c", fontFamily: "Inter_600SemiBold" }}>
+                    {alertCounts.high} High
+                  </Text>
+                </View>
+              ) : null}
+              {alertCounts.medium > 0 ? (
+                <View style={styles.severityItem}>
+                  <View style={[styles.severityDot, { backgroundColor: "#ca8a04" }]} />
+                  <Text style={{ fontSize: 12, color: "#ca8a04", fontFamily: "Inter_600SemiBold" }}>
+                    {alertCounts.medium} Medium
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+
+          {/* ── Trend chart ── */}
           {trend.length >= 2 ? (
             <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
               <TrendChart data={trend} colors={colors} />
             </View>
           ) : null}
 
-          {/* ── Top Risk Inspections ── */}
-          {topRisk.length > 0 ? (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Top Risk Items</Text>
-                <View style={[styles.sevBadge, { backgroundColor: "#fee2e2" }]}>
+          {/* ── Top risk inspections ── */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Top Risk Items</Text>
+              {topRisk.length > 0 ? (
+                <View style={[styles.countBadge, { backgroundColor: "#fee2e2" }]}>
                   <Text style={{ fontSize: 11, color: "#dc2626", fontFamily: "Inter_700Bold" }}>
-                    {topRisk.filter((i) => i.riskLevel === "Critical" || i.riskLevel === "High").length} Critical/High
+                    {topRisk.filter((i) => i.inspection.riskLevel === "Critical" || i.inspection.riskLevel === "High").length} High+
                   </Text>
                 </View>
-              </View>
-              {topRisk.slice(0, 8).map((insp) => (
-                <InspectionRow key={insp.id} insp={insp} colors={colors} />
-              ))}
+              ) : null}
             </View>
-          ) : (
-            <View style={styles.section}>
+
+            {topRisk.length === 0 ? (
               <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Feather name="check-circle" size={28} color="#16a34a" />
                 <Text style={[styles.emptyText, { color: colors.foreground }]}>No high-risk items</Text>
-                <Text style={[styles.emptyDesc, { color: colors.mutedForeground }]}>All recent inspections are within acceptable limits.</Text>
+                <Text style={[styles.emptyDesc, { color: colors.mutedForeground }]}>
+                  All recent inspections are within acceptable limits.
+                </Text>
               </View>
-            </View>
-          )}
+            ) : (
+              topRisk.map((item) => (
+                <InspectionRow key={item.inspection.id} item={item} colors={colors} />
+              ))
+            )}
+          </View>
 
-          {/* ── Alerts Feed ── */}
+          {/* ── Alerts feed ── */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Alerts</Text>
               {unreadAlerts.length > 0 ? (
-                <View style={[styles.sevBadge, { backgroundColor: `${colors.primary}20` }]}>
+                <View style={[styles.countBadge, { backgroundColor: `${colors.primary}20` }]}>
                   <Text style={{ fontSize: 11, color: colors.primary, fontFamily: "Inter_700Bold" }}>
                     {unreadAlerts.length} unread
                   </Text>
@@ -362,13 +426,15 @@ export default function RiskScreen() {
             {!isOwnerOrForeman ? (
               <View style={[styles.readonlyBanner, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}30` }]}>
                 <Feather name="eye" size={14} color={colors.primary} />
-                <Text style={{ fontSize: 12, color: colors.primary, fontFamily: "Inter_500Medium" }}>
+                <Text style={{ fontSize: 12, color: colors.primary, fontFamily: "Inter_500Medium", flex: 1 }}>
                   View only — contact your foreman to action alerts
                 </Text>
               </View>
             ) : null}
 
-            {alerts.length === 0 ? (
+            {alertsLoading ? (
+              <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
+            ) : allAlerts.length === 0 ? (
               <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Feather name="bell-off" size={24} color={colors.mutedForeground} />
                 <Text style={[styles.emptyDesc, { color: colors.mutedForeground }]}>No alerts at this time</Text>
@@ -384,13 +450,13 @@ export default function RiskScreen() {
                     colors={colors}
                   />
                 ))}
-                {alerts.length > 5 ? (
+                {allAlerts.length > 5 ? (
                   <Pressable
                     onPress={() => setShowAllAlerts((v) => !v)}
                     style={[styles.showMoreBtn, { borderColor: colors.border }]}
                   >
                     <Text style={{ fontSize: 13, color: colors.primary, fontFamily: "Inter_600SemiBold" }}>
-                      {showAllAlerts ? "Show less" : `Show all ${alerts.length} alerts`}
+                      {showAllAlerts ? "Show less" : `Show all ${allAlerts.length} alerts`}
                     </Text>
                     <Feather name={showAllAlerts ? "chevron-up" : "chevron-down"} size={14} color={colors.primary} />
                   </Pressable>
@@ -430,7 +496,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 8,
     marginTop: 16,
-    marginBottom: 4,
+    marginBottom: 12,
   },
   statCard: {
     width: "47%",
@@ -448,11 +514,23 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 24, fontFamily: "Inter_700Bold" },
   statLabel: { fontSize: 12, fontFamily: "Inter_400Regular" },
 
+  severityStrip: {
+    flexDirection: "row",
+    gap: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  severityItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+  severityDot: { width: 8, height: 8, borderRadius: 4 },
+
   chartCard: {
     borderRadius: 14,
     borderWidth: 1,
     padding: 16,
-    marginTop: 16,
+    marginTop: 4,
     overflow: "hidden",
   },
 
@@ -464,7 +542,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  sevBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  countBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
 
   inspRow: {
     flexDirection: "row",
@@ -474,7 +552,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
   },
-  inspType: { fontSize: 14, fontFamily: "Inter_600SemiBold", textTransform: "capitalize" },
+  inspType: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   inspMeta: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
   inspDate: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   riskBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, borderWidth: 1 },
