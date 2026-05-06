@@ -1,0 +1,241 @@
+Build an AI-powered Construction Inspection, Risk Scoring, and Alerts System for a multi-tenant SaaS app.
+
+---
+
+1. DATA MODELS (PostgreSQL)
+
+---
+
+Create the following tables:
+
+Inspection:
+
+* id (uuid)
+* tenant_id
+* project_id
+* inspector_id
+* inspection_type
+* date
+* score (integer)
+* status (draft, submitted)
+* ai_summary (text)
+* risk_level (Low, Medium, High, Critical)
+* risk_score (float)
+* created_at
+
+InspectionItem:
+
+* id
+* inspection_id
+* item_name
+* status (pass, fail)
+* severity (low, medium, high)
+* comment
+* photo_url
+
+Alert:
+
+* id
+* tenant_id
+* project_id
+* inspection_id
+* type (risk, failure, pattern)
+* message
+* severity (low, medium, high, critical)
+* is_read (boolean)
+* created_at
+
+Notification:
+
+* id
+* user_id
+* type (email, in_app)
+* message
+* status (pending, sent)
+* created_at
+
+---
+
+2. AI PROMPTS (STORE IN CODEBASE)
+
+---
+
+Create prompt templates:
+
+INSPECTION SUMMARY PROMPT:
+
+* Summarize inspection into:
+
+  * Overall summary
+  * Key issues
+  * Positive observations
+  * Recommended actions
+  * Score interpretation
+
+RISK SCORING PROMPT:
+
+* Return JSON:
+  {
+  "overall_risk_level": "Low | Medium | High | Critical",
+  "risk_score": 0-10,
+  "primary_risk_factors": [],
+  "reasoning": "...",
+  "recommended_priority": "Low | Medium | High | Urgent"
+  }
+
+FAILED ITEM ANALYSIS PROMPT:
+
+* Analyze failed items only
+* Output causes, impact, and fixes
+
+---
+
+3. BACKEND LOGIC (Node.js / Express)
+
+---
+
+Create endpoint:
+
+POST /inspections/submit
+
+Flow:
+
+1. Save inspection + items
+2. Run AI Summary
+3. Run Risk Scoring
+4. Run Failure Analysis
+5. Save results to DB
+
+---
+
+4. ALERT ENGINE (CRITICAL FEATURE)
+
+---
+
+After risk scoring:
+
+IF risk_score >= 7:
+
+* Create Alert:
+  type = "risk"
+  severity = "high" or "critical"
+  message = "High-risk inspection detected"
+
+IF any item severity = high AND status = fail:
+
+* Create Alert:
+  type = "failure"
+  message = "Critical inspection failure"
+
+IF 3+ failed items:
+
+* Create Alert:
+  type = "pattern"
+  message = "Multiple failures detected"
+
+---
+
+5. NOTIFICATION SYSTEM
+
+---
+
+When alert is created:
+
+1. Create in-app notification
+2. Send email to:
+
+   * Foreman
+   * Tenant Admin
+
+Email content:
+
+* Project name
+* Risk level
+* Link to inspection
+
+---
+
+6. FEATURE ACCESS CONTROL
+
+---
+
+Only allow inspections if tenant has feature:
+"INSPECTIONS"
+
+Protect routes with middleware:
+
+* checkFeature("INSPECTIONS")
+
+---
+
+7. DASHBOARD UI (React)
+
+---
+
+Inspection Dashboard:
+
+* List inspections
+* Show:
+
+  * Score
+  * Risk level (color-coded)
+  * Alerts
+
+Risk Indicators:
+
+* Green = Low
+* Yellow = Medium
+* Orange = High
+* Red = Critical
+
+Alerts Panel:
+
+* List alerts
+* Filter by severity
+* Mark as read
+
+---
+
+8. WORKER / FOREMAN FLOW
+
+---
+
+Worker:
+
+* Complete inspection checklist
+* Submit
+
+System:
+
+* Runs AI
+* Generates risk
+
+Foreman:
+
+* Sees:
+
+  * AI summary
+  * Risk score
+  * Alerts
+
+---
+
+9. OPTIONAL (ADVANCED)
+
+---
+
+Add:
+
+* Real-time notifications (WebSockets)
+* Push notifications
+* Weekly risk report email
+
+---
+
+GOAL:
+A complete AI-powered inspection system that:
+
+* Summarizes inspections
+* Scores risk
+* Detects issues
+* Alerts users automatically

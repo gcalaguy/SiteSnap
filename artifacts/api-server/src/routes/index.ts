@@ -39,6 +39,7 @@ import formsRouter from "./forms";
 import filesRouter from "./files";
 import estimatorRouter from "./estimator";
 import photoSummaryRouter from "./photoSummary";
+import inspectionsRouter from "./inspections";
 
 const router: IRouter = Router();
 
@@ -82,5 +83,6 @@ router.use(formsRouter);
 router.use(filesRouter);
 router.use(estimatorRouter);
 router.use(photoSummaryRouter);
+router.use(inspectionsRouter);
 
 export default router;

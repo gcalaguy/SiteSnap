@@ -1149,3 +1149,47 @@ export const estimatorActualsTable = pgTable("estimator_actuals", {
   recordedAt: timestamp("recorded_at").defaultNow().notNull(),
 });
 export type EstimatorActual = typeof estimatorActualsTable.$inferSelect;
+
+// ── AI Inspections ─────────────────────────────────────────────────────────────
+
+export const inspectionsTable = pgTable("inspections", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  projectId: integer("project_id").references(() => projectsTable.id),
+  inspectorId: integer("inspector_id").notNull().references(() => usersTable.id),
+  inspectionType: text("inspection_type").notNull().default("general"), // general | safety | quality | progress | electrical | structural | fire | environmental
+  date: date("date").notNull(),
+  score: integer("score"), // 0-100
+  status: text("status").notNull().default("draft"), // draft | submitted
+  aiSummary: text("ai_summary"),
+  riskLevel: text("risk_level"), // Low | Medium | High | Critical
+  riskScore: numeric("risk_score", { precision: 4, scale: 1 }), // 0-10
+  failedItemAnalysis: text("failed_item_analysis"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type Inspection = typeof inspectionsTable.$inferSelect;
+
+export const inspectionItemsTable = pgTable("inspection_items", {
+  id: serial("id").primaryKey(),
+  inspectionId: integer("inspection_id").notNull().references(() => inspectionsTable.id, { onDelete: "cascade" }),
+  itemName: text("item_name").notNull(),
+  status: text("status").notNull().default("pass"), // pass | fail | na
+  severity: text("severity").notNull().default("low"), // low | medium | high
+  comment: text("comment"),
+  photoUrl: text("photo_url"),
+});
+export type InspectionItem = typeof inspectionItemsTable.$inferSelect;
+
+export const inspectionAlertsTable = pgTable("inspection_alerts", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  projectId: integer("project_id").references(() => projectsTable.id),
+  inspectionId: integer("inspection_id").notNull().references(() => inspectionsTable.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // risk | failure | pattern
+  message: text("message").notNull(),
+  severity: text("severity").notNull(), // low | medium | high | critical
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type InspectionAlert = typeof inspectionAlertsTable.$inferSelect;

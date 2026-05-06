@@ -33,6 +33,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "checkmark.square", selected: "checkmark.square.fill" }} />
         <Label>Tasks</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="inspect">
+        <Icon sf={{ default: "checkmark.shield", selected: "checkmark.shield.fill" }} />
+        <Label>Inspect</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>Profile</Label>
@@ -148,6 +152,18 @@ function ClassicTabLayout() {
               <SymbolView name="checkmark.square" tintColor={color} size={24} />
             ) : (
               <Feather name="check-square" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="inspect"
+        options={{
+          title: "Inspect",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="checkmark.shield" tintColor={color} size={24} />
+            ) : (
+              <Feather name="shield" size={22} color={color} />
             ),
         }}
       />

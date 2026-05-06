@@ -42,6 +42,7 @@ import TradehubMessagesPage from "@/pages/tradehub-messages";
 import CalculatorsPage from "@/pages/calculators";
 import RFIsPage from "@/pages/rfis";
 import ReportsPage from "@/pages/reports";
+import InspectionsPage from "@/pages/inspections";
 import SafetyPage from "@/pages/safety";
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
@@ -276,6 +277,7 @@ function AuthApp() {
           <Route path="/tradehub/posts/:id" component={TradehubPostPage} />
           <Route path="/tradehub/profile/:userId" component={TradehubProfilePage} />
           <Route path="/tradehub" component={TradehubFeedPage} />
+          <Route path="/inspections" component={InspectionsPage} />
           <Route path="/safety/submit" component={SafetySubmitPage} />
           <Route path="/safety/submissions/:id" component={SafetyDetailPage} />
           <Route path="/safety" component={SafetyPage} />
