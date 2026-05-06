@@ -11,7 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Modal,
 } from "react-native";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Feather } from "@expo/vector-icons";
 import { customFetch, useGetMe, useListQuotes } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -35,13 +37,25 @@ function displayName(user: { firstName?: string | null; lastName?: string | null
   return name || "Worker";
 }
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+function todayDate() {
+  return new Date();
+}
+
+function isoFromDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function dateFromISO(iso: string): Date {
+  return new Date(iso + "T00:00:00");
 }
 
 function formatDate(iso: string) {
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric", weekday: "short" });
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-CA", {
+    month: "short", day: "numeric", year: "numeric", weekday: "short",
+  });
 }
 
 function fmtCAD(v: number | string) {
@@ -76,11 +90,17 @@ export function HoursTab({ projectId }: { projectId: number }) {
 
   const isPrivileged = me?.role === "owner" || me?.role === "foreman";
 
-  const [date, setDate] = useState(todayISO());
+  // Form state
+  const [showForm, setShowForm] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+
+  // Date picker state
+  const [selectedDate, setSelectedDate] = useState<Date>(todayDate());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(todayDate()); // iOS temp pick
+
   const [hours, setHours] = useState("");
   const [description, setDescription] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [dateError, setDateError] = useState("");
   const [hoursError, setHoursError] = useState("");
 
   const QUERY_KEY = ["time-entries", "project", projectId];
@@ -90,11 +110,37 @@ export function HoursTab({ projectId }: { projectId: number }) {
     queryFn: () => customFetch(`/api/projects/${projectId}/time-entries`),
   });
 
-  // Submitted quotes for this project
   const { data: allQuotes = [] } = useListQuotes(projectId);
   const submittedQuotes = allQuotes.filter(
     (q) => q.status === "pending_approval" || q.status === "approved" || q.status === "rejected"
   );
+
+  const resetForm = useCallback(() => {
+    setSelectedDate(todayDate());
+    setHours("");
+    setDescription("");
+    setHoursError("");
+    setEditingEntry(null);
+    setShowForm(false);
+  }, []);
+
+  const openNew = useCallback(() => {
+    setEditingEntry(null);
+    setSelectedDate(todayDate());
+    setHours("");
+    setDescription("");
+    setHoursError("");
+    setShowForm(true);
+  }, []);
+
+  const openEdit = useCallback((entry: TimeEntry) => {
+    setEditingEntry(entry);
+    setSelectedDate(dateFromISO(entry.date));
+    setHours(parseFloat(entry.hours).toString());
+    setDescription(entry.description ?? "");
+    setHoursError("");
+    setShowForm(true);
+  }, []);
 
   const logHours = useMutation({
     mutationFn: (body: { date: string; hours: number; description?: string }) =>
@@ -102,14 +148,18 @@ export function HoursTab({ projectId }: { projectId: number }) {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: QUERY_KEY });
-      setHours("");
-      setDescription("");
-      setDate(todayISO());
-      setShowForm(false);
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: QUERY_KEY }); resetForm(); },
     onError: () => Alert.alert("Error", "Failed to log hours. Please try again."),
+  });
+
+  const editHours = useMutation({
+    mutationFn: ({ entryId, body }: { entryId: number; body: { date?: string; hours?: number; description?: string | null } }) =>
+      customFetch(`/api/projects/${projectId}/time-entries/${entryId}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: QUERY_KEY }); resetForm(); },
+    onError: () => Alert.alert("Error", "Failed to update entry. Please try again."),
   });
 
   const deleteEntry = useMutation({
@@ -120,23 +170,22 @@ export function HoursTab({ projectId }: { projectId: number }) {
   });
 
   const handleSubmit = useCallback(() => {
-    let valid = true;
-    setDateError("");
     setHoursError("");
-
-    if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      setDateError("Use format YYYY-MM-DD");
-      valid = false;
-    }
     const h = parseFloat(hours);
     if (!hours || isNaN(h) || h <= 0 || h > 24) {
       setHoursError("Enter hours between 0.5 and 24");
-      valid = false;
+      return;
     }
-    if (!valid) return;
-
-    logHours.mutate({ date, hours: h, description: description.trim() || undefined });
-  }, [date, hours, description]);
+    const dateISO = isoFromDate(selectedDate);
+    if (editingEntry) {
+      editHours.mutate({
+        entryId: editingEntry.id,
+        body: { date: dateISO, hours: h, description: description.trim() || null },
+      });
+    } else {
+      logHours.mutate({ date: dateISO, hours: h, description: description.trim() || undefined });
+    }
+  }, [hours, selectedDate, description, editingEntry]);
 
   const handleDelete = useCallback((entry: TimeEntry) => {
     const isOwn = entry.userId === me?.id;
@@ -146,6 +195,23 @@ export function HoursTab({ projectId }: { projectId: number }) {
       { text: "Delete", style: "destructive", onPress: () => deleteEntry.mutate(entry.id) },
     ]);
   }, [me?.id, isPrivileged]);
+
+  // Date picker handlers
+  const onDateChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+      if (event.type === "set" && date) setSelectedDate(date);
+    } else {
+      if (date) setTempDate(date);
+    }
+  }, []);
+
+  const confirmIOSDate = useCallback(() => {
+    setSelectedDate(tempDate);
+    setShowDatePicker(false);
+  }, [tempDate]);
+
+  const isPending = logHours.isPending || editHours.isPending;
 
   const myEntries = entries.filter(e => e.userId === me?.id);
   const otherEntries = entries.filter(e => e.userId !== me?.id);
@@ -159,7 +225,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
         contentContainerStyle={s.container}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Submitted Quotes section ─────────────────────────── */}
+        {/* ── Submitted Quotes ──────────────────────────────────── */}
         {submittedQuotes.length > 0 && (
           <View style={s.quotesSection}>
             <View style={s.quotesSectionHeader}>
@@ -196,7 +262,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
           </View>
         )}
 
-        {/* ── Hours section ─────────────────────────────────────── */}
+        {/* ── Hours header ──────────────────────────────────────── */}
         <View style={s.headerRow}>
           <View>
             <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>
@@ -213,30 +279,88 @@ export function HoursTab({ projectId }: { projectId: number }) {
               </Text>
             )}
           </View>
-          <Pressable
-            style={[s.logBtn, { backgroundColor: colors.primary }]}
-            onPress={() => setShowForm(v => !v)}
-          >
-            <Feather name={showForm ? "x" : "plus"} size={16} color="#fff" />
-            <Text style={s.logBtnText}>{showForm ? "Cancel" : "Log Hours"}</Text>
-          </Pressable>
+          {showForm ? (
+            <Pressable style={[s.logBtn, { backgroundColor: colors.muted }]} onPress={resetForm}>
+              <Feather name="x" size={16} color={colors.foreground} />
+              <Text style={[s.logBtnText, { color: colors.foreground }]}>Cancel</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={[s.logBtn, { backgroundColor: colors.primary }]} onPress={openNew}>
+              <Feather name="plus" size={16} color="#fff" />
+              <Text style={s.logBtnText}>Log Hours</Text>
+            </Pressable>
+          )}
         </View>
 
-        {/* Log hours form */}
+        {/* ── Log / Edit form ───────────────────────────────────── */}
         {showForm && (
           <View style={[s.form, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[s.formLabel, { color: colors.foreground }]}>Date</Text>
-            <TextInput
-              style={[s.input, { backgroundColor: colors.background, borderColor: dateError ? "#EF4444" : colors.border, color: colors.foreground }]}
-              value={date}
-              onChangeText={t => { setDate(t); setDateError(""); }}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="numbers-and-punctuation"
-            />
-            {!!dateError && <Text style={s.error}>{dateError}</Text>}
+            <Text style={[s.formTitle, { color: colors.foreground }]}>
+              {editingEntry ? "Edit Time Entry" : "Log Hours"}
+            </Text>
 
-            <Text style={[s.formLabel, { color: colors.foreground, marginTop: 12 }]}>Hours Worked</Text>
+            {/* Date picker field */}
+            <Text style={[s.formLabel, { color: colors.foreground }]}>
+              Date <Text style={{ color: "#EF4444" }}>*</Text>
+            </Text>
+            <Pressable
+              style={[s.dateField, { backgroundColor: colors.background, borderColor: colors.border }]}
+              onPress={() => { setTempDate(selectedDate); setShowDatePicker(true); }}
+            >
+              <Feather name="calendar" size={15} color={colors.primary} />
+              <Text style={[s.dateFieldText, { color: colors.foreground }]}>
+                {formatDate(isoFromDate(selectedDate))}
+              </Text>
+              <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+            </Pressable>
+
+            {/* Android date picker (shows as dialog) */}
+            {showDatePicker && Platform.OS === "android" && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="default"
+                onChange={onDateChange}
+                maximumDate={new Date()}
+              />
+            )}
+
+            {/* iOS date picker in modal */}
+            {Platform.OS === "ios" && (
+              <Modal
+                visible={showDatePicker}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowDatePicker(false)}
+              >
+                <View style={s.modalOverlay}>
+                  <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
+                    <View style={s.modalHeader}>
+                      <Pressable onPress={() => setShowDatePicker(false)} hitSlop={8}>
+                        <Text style={[s.modalCancel, { color: colors.mutedForeground }]}>Cancel</Text>
+                      </Pressable>
+                      <Text style={[s.modalTitle, { color: colors.foreground }]}>Select Date</Text>
+                      <Pressable onPress={confirmIOSDate} hitSlop={8}>
+                        <Text style={[s.modalDone, { color: colors.primary }]}>Done</Text>
+                      </Pressable>
+                    </View>
+                    <DateTimePicker
+                      value={tempDate}
+                      mode="date"
+                      display="spinner"
+                      onChange={onDateChange}
+                      maximumDate={new Date()}
+                      style={{ width: "100%" }}
+                    />
+                  </View>
+                </View>
+              </Modal>
+            )}
+
+            {/* Hours */}
+            <Text style={[s.formLabel, { color: colors.foreground, marginTop: 14 }]}>
+              Hours Worked <Text style={{ color: "#EF4444" }}>*</Text>
+            </Text>
             <TextInput
               style={[s.input, { backgroundColor: colors.background, borderColor: hoursError ? "#EF4444" : colors.border, color: colors.foreground }]}
               value={hours}
@@ -247,7 +371,10 @@ export function HoursTab({ projectId }: { projectId: number }) {
             />
             {!!hoursError && <Text style={s.error}>{hoursError}</Text>}
 
-            <Text style={[s.formLabel, { color: colors.foreground, marginTop: 12 }]}>Description (optional)</Text>
+            {/* Description */}
+            <Text style={[s.formLabel, { color: colors.foreground, marginTop: 14 }]}>
+              Description <Text style={[s.optional, { color: colors.mutedForeground }]}>optional</Text>
+            </Text>
             <TextInput
               style={[s.input, s.multiline, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
               value={description}
@@ -259,19 +386,19 @@ export function HoursTab({ projectId }: { projectId: number }) {
             />
 
             <Pressable
-              style={[s.submitBtn, { backgroundColor: colors.primary, opacity: logHours.isPending ? 0.7 : 1 }]}
+              style={[s.submitBtn, { backgroundColor: colors.primary, opacity: isPending ? 0.7 : 1 }]}
               onPress={handleSubmit}
-              disabled={logHours.isPending}
+              disabled={isPending}
             >
-              {logHours.isPending
+              {isPending
                 ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={s.submitBtnText}>Save Entry</Text>
+                : <Text style={s.submitBtnText}>{editingEntry ? "Save Changes" : "Save Entry"}</Text>
               }
             </Pressable>
           </View>
         )}
 
-        {/* Entries list */}
+        {/* ── Entries list ──────────────────────────────────────── */}
         {isLoading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
         ) : (
@@ -294,7 +421,9 @@ export function HoursTab({ projectId }: { projectId: number }) {
                     key={entry.id}
                     entry={entry}
                     showUser={false}
+                    canEdit={true}
                     canDelete={true}
+                    onEdit={() => openEdit(entry)}
                     onDelete={() => handleDelete(entry)}
                     colors={colors}
                   />
@@ -310,7 +439,9 @@ export function HoursTab({ projectId }: { projectId: number }) {
                     key={entry.id}
                     entry={entry}
                     showUser={true}
+                    canEdit={true}
                     canDelete={true}
+                    onEdit={() => openEdit(entry)}
                     onDelete={() => handleDelete(entry)}
                     colors={colors}
                   />
@@ -332,15 +463,13 @@ export function HoursTab({ projectId }: { projectId: number }) {
 }
 
 function EntryRow({
-  entry,
-  showUser,
-  canDelete,
-  onDelete,
-  colors,
+  entry, showUser, canEdit, canDelete, onEdit, onDelete, colors,
 }: {
   entry: TimeEntry;
   showUser: boolean;
+  canEdit: boolean;
   canDelete: boolean;
+  onEdit: () => void;
   onDelete: () => void;
   colors: any;
 }) {
@@ -365,18 +494,26 @@ function EntryRow({
           <Text style={[s.entryDesc, { color: colors.mutedForeground }]} numberOfLines={2}>{entry.description}</Text>
         )}
       </View>
-      {canDelete && (
-        <Pressable onPress={onDelete} style={s.deleteBtn} hitSlop={8}>
-          <Feather name="trash-2" size={15} color={colors.mutedForeground} />
-        </Pressable>
-      )}
+      <View style={s.entryActions}>
+        {canEdit && (
+          <Pressable onPress={onEdit} style={s.actionBtn} hitSlop={8}>
+            <Feather name="edit-2" size={14} color={colors.primary} />
+          </Pressable>
+        )}
+        {canDelete && (
+          <Pressable onPress={onDelete} style={s.actionBtn} hitSlop={8}>
+            <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   container: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 4 },
-  // Submitted quotes section
+
+  // Quotes
   quotesSection: { marginBottom: 24 },
   quotesSectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
   quotesSectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8 },
@@ -387,19 +524,36 @@ const s = StyleSheet.create({
   quoteAmount: { fontSize: 13, fontFamily: "Inter_700Bold" },
   quoteBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   quoteBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
-  // Hours section
+
+  // Header
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
   sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8 },
   totalLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginTop: 2 },
   logBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   logBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+
+  // Form
   form: { borderRadius: 12, borderWidth: 1, padding: 16, marginBottom: 20 },
+  formTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 14 },
   formLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
+  optional: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  dateField: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12 },
+  dateFieldText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, fontFamily: "Inter_400Regular" },
   multiline: { minHeight: 70, textAlignVertical: "top", paddingTop: 10 },
   error: { color: "#EF4444", fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 4 },
   submitBtn: { marginTop: 16, borderRadius: 10, paddingVertical: 13, alignItems: "center", justifyContent: "center" },
   submitBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
+
+  // Date picker modal (iOS)
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+  modalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32 },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14 },
+  modalTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  modalCancel: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  modalDone: { fontSize: 14, fontFamily: "Inter_700Bold" },
+
+  // Entry cards
   groupLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 },
   entryCard: { flexDirection: "row", alignItems: "flex-start", gap: 12, borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 10 },
   hoursCircle: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 1 },
@@ -409,7 +563,10 @@ const s = StyleSheet.create({
   entryDesc: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 3, lineHeight: 17 },
   userChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   userChipText: { fontSize: 11, fontFamily: "Inter_500Medium" },
-  deleteBtn: { padding: 4 },
+  entryActions: { flexDirection: "row", gap: 6, alignItems: "center" },
+  actionBtn: { padding: 5 },
+
+  // Empty
   empty: { alignItems: "center", paddingVertical: 48, gap: 8 },
   emptyText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   emptySubText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },

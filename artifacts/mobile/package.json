@@ -57,6 +57,7 @@
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.31",
+    "@react-native-community/datetimepicker": "^9.1.0",
     "@react-native-community/netinfo": "^12.0.1",
     "date-fns": "^3.6.0",
     "expo-audio": "^1.1.1",

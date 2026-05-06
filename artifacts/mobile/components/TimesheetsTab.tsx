@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { customFetch, useGetMe, useListTimesheets, useSubmitTimesheet } from "@workspace/api-client-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -24,6 +24,18 @@ type TimeEntry = {
   hours: string;
   description?: string | null;
   user: { firstName?: string | null; lastName?: string | null } | null;
+};
+
+type Timesheet = {
+  id: number;
+  weekStart: string;
+  totalHours: string;
+  hourlyRate?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  status: string;
+  submittedAt: string;
+  projectId?: number | null;
 };
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -50,17 +62,14 @@ function weekLabel(mondayISO: string): string {
   return `${fmt(monday)} – ${fmt(sunday)}, ${sunday.getFullYear()}`;
 }
 
-function fmtCAD(v: number | string) {
-  return new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: "CAD",
-  }).format(Number(v));
-}
-
 function formatDate(iso: string) {
   return new Date(iso + "T00:00:00").toLocaleDateString("en-CA", {
     weekday: "short", month: "short", day: "numeric",
   });
+}
+
+function fmtCAD(v: number | string) {
+  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 }
 
 function getWeekEntries(entries: TimeEntry[], mondayISO: string): TimeEntry[] {
@@ -91,43 +100,81 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
   const weekISO = toISO(selectedMonday);
 
   const [showForm, setShowForm] = useState(false);
+  const [editingTimesheet, setEditingTimesheet] = useState<Timesheet | null>(null);
+
   const [totalHours, setTotalHours] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
   const [description, setDescription] = useState("");
   const [hoursError, setHoursError] = useState("");
 
-  // Fetch all timesheets (worker sees own, privileged sees all)
   const { data: timesheets = [], isLoading } = useListTimesheets({});
 
-  // Fetch time entries for this project so we can pre-fill hours
   const { data: timeEntries = [] } = useQuery<TimeEntry[]>({
     queryKey: ["time-entries", "project", projectId],
     queryFn: () => customFetch(`/api/projects/${projectId}/time-entries`),
   });
 
-  // Entries that belong to the currently selected week
   const weekEntries = getWeekEntries(timeEntries, weekISO);
   const weekTotal = weekEntries.reduce((s, e) => s + parseFloat(e.hours), 0);
 
-  // Auto-fill total hours from logged entries whenever the week changes or form opens
+  // Auto-fill when form opens for a new submission
   useEffect(() => {
-    if (showForm && weekTotal > 0) {
+    if (showForm && !editingTimesheet && weekTotal > 0) {
       setTotalHours(weekTotal.toFixed(1));
     }
-  }, [showForm, weekISO, weekTotal]);
+  }, [showForm, weekISO, weekTotal, editingTimesheet]);
+
+  const resetForm = useCallback(() => {
+    setTotalHours("");
+    setHourlyRate("");
+    setDescription("");
+    setHoursError("");
+    setEditingTimesheet(null);
+    setShowForm(false);
+  }, []);
+
+  const openNew = useCallback(() => {
+    setEditingTimesheet(null);
+    setTotalHours("");
+    setHourlyRate("");
+    setDescription("");
+    setHoursError("");
+    setShowForm(true);
+  }, []);
+
+  const openEdit = useCallback((ts: Timesheet) => {
+    setEditingTimesheet(ts);
+    setSelectedMonday(getMondayOfWeek(new Date(ts.weekStart + "T00:00:00")));
+    setTotalHours(parseFloat(ts.totalHours).toString());
+    setHourlyRate(ts.hourlyRate ? parseFloat(ts.hourlyRate).toString() : "");
+    setDescription(ts.description ?? "");
+    setHoursError("");
+    setShowForm(true);
+  }, []);
 
   const submitMutation = useSubmitTimesheet({
     mutation: {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
-        setTotalHours("");
-        setHourlyRate("");
-        setDescription("");
-        setShowForm(false);
+        resetForm();
         Alert.alert("Submitted!", "Your timesheet has been sent for review.");
       },
       onError: () => Alert.alert("Error", "Failed to submit timesheet. Please try again."),
     },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: { totalHours?: number; hourlyRate?: number | null; description?: string | null } }) =>
+      customFetch(`/api/timesheets/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+      resetForm();
+      Alert.alert("Updated!", "Your timesheet has been updated.");
+    },
+    onError: () => Alert.alert("Error", "Failed to update timesheet. Please try again."),
   });
 
   const navigateWeek = useCallback((dir: -1 | 1) => {
@@ -146,18 +193,32 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
       return;
     }
     const rate = hourlyRate ? parseFloat(hourlyRate) : undefined;
-    submitMutation.mutate({
-      data: {
-        weekStart: weekISO,
-        totalHours: h,
-        hourlyRate: rate && !isNaN(rate) ? rate : undefined,
-        description: description.trim() || undefined,
-        projectId,
-      },
-    });
-  }, [totalHours, hourlyRate, description, weekISO, projectId]);
+    const rateValue = rate && !isNaN(rate) ? rate : undefined;
+
+    if (editingTimesheet) {
+      editMutation.mutate({
+        id: editingTimesheet.id,
+        body: {
+          totalHours: h,
+          hourlyRate: rateValue ?? null,
+          description: description.trim() || null,
+        },
+      });
+    } else {
+      submitMutation.mutate({
+        data: {
+          weekStart: weekISO,
+          totalHours: h,
+          hourlyRate: rateValue,
+          description: description.trim() || undefined,
+          projectId,
+        },
+      });
+    }
+  }, [totalHours, hourlyRate, description, weekISO, projectId, editingTimesheet]);
 
   const existingForWeek = timesheets.find((t) => t.weekStart === weekISO);
+  const isPending = submitMutation.isPending || editMutation.isPending;
 
   return (
     <KeyboardAvoidingView
@@ -179,44 +240,61 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
               Submit your hours for review
             </Text>
           </View>
-          <Pressable
-            style={[s.newBtn, { backgroundColor: colors.primary }]}
-            onPress={() => setShowForm((v) => !v)}
-          >
-            <Feather name={showForm ? "x" : "plus"} size={16} color="#fff" />
-            <Text style={s.newBtnText}>{showForm ? "Cancel" : "New Submission"}</Text>
-          </Pressable>
+          {showForm ? (
+            <Pressable style={[s.newBtn, { backgroundColor: colors.muted }]} onPress={resetForm}>
+              <Feather name="x" size={16} color={colors.foreground} />
+              <Text style={[s.newBtnText, { color: colors.foreground }]}>Cancel</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={[s.newBtn, { backgroundColor: colors.primary }]} onPress={openNew}>
+              <Feather name="plus" size={16} color="#fff" />
+              <Text style={s.newBtnText}>New Submission</Text>
+            </Pressable>
+          )}
         </View>
 
-        {/* ── Submission form ────────────────────────────────────── */}
+        {/* ── Submission / Edit form ────────────────────────────── */}
         {showForm && (
           <View style={[s.form, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {/* Week picker */}
-            <Text style={[s.formLabel, { color: colors.foreground }]}>Week</Text>
+            <Text style={[s.formTitle, { color: colors.foreground }]}>
+              {editingTimesheet ? "Edit Timesheet" : "Submit Timesheet"}
+            </Text>
+
+            {/* Week picker — disabled when editing (week is fixed) */}
+            <Text style={[s.formLabel, { color: colors.foreground }]}>
+              Week <Text style={{ color: "#EF4444" }}>*</Text>
+            </Text>
             <View style={s.weekPicker}>
-              <Pressable
-                onPress={() => navigateWeek(-1)}
-                style={[s.weekArrow, { backgroundColor: colors.muted }]}
-                hitSlop={8}
-              >
-                <Feather name="chevron-left" size={18} color={colors.foreground} />
-              </Pressable>
-              <Text style={[s.weekText, { color: colors.foreground }]}>{weekLabel(weekISO)}</Text>
-              <Pressable
-                onPress={() => navigateWeek(1)}
-                style={[s.weekArrow, { backgroundColor: colors.muted }]}
-                hitSlop={8}
-                disabled={weekISO >= toISO(getMondayOfWeek(new Date()))}
-              >
-                <Feather
-                  name="chevron-right"
-                  size={18}
-                  color={weekISO >= toISO(getMondayOfWeek(new Date())) ? colors.mutedForeground : colors.foreground}
-                />
-              </Pressable>
+              {!editingTimesheet && (
+                <Pressable
+                  onPress={() => navigateWeek(-1)}
+                  style={[s.weekArrow, { backgroundColor: colors.muted }]}
+                  hitSlop={8}
+                >
+                  <Feather name="chevron-left" size={18} color={colors.foreground} />
+                </Pressable>
+              )}
+              <View style={[s.weekDisplay, { backgroundColor: editingTimesheet ? colors.muted : "transparent", borderRadius: 8 }]}>
+                <Feather name="calendar" size={14} color={colors.primary} />
+                <Text style={[s.weekText, { color: colors.foreground }]}>{weekLabel(weekISO)}</Text>
+              </View>
+              {!editingTimesheet && (
+                <Pressable
+                  onPress={() => navigateWeek(1)}
+                  style={[s.weekArrow, { backgroundColor: colors.muted }]}
+                  hitSlop={8}
+                  disabled={weekISO >= toISO(getMondayOfWeek(new Date()))}
+                >
+                  <Feather
+                    name="chevron-right"
+                    size={18}
+                    color={weekISO >= toISO(getMondayOfWeek(new Date())) ? colors.mutedForeground : colors.foreground}
+                  />
+                </Pressable>
+              )}
             </View>
 
-            {existingForWeek && (
+            {!editingTimesheet && existingForWeek && (
               <View style={[s.alreadyBadge, { backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}40` }]}>
                 <Feather name="info" size={12} color={colors.primary} />
                 <Text style={[s.alreadyText, { color: colors.primary }]}>
@@ -225,13 +303,13 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
               </View>
             )}
 
-            {/* Logged entries for this week pulled from Hours tab */}
-            {weekEntries.length > 0 && (
+            {/* Hours logged this week from Hours tab */}
+            {!editingTimesheet && weekEntries.length > 0 && (
               <View style={[s.entriesBlock, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}20` }]}>
                 <View style={s.entriesBlockHeader}>
                   <Feather name="clock" size={13} color={colors.primary} />
                   <Text style={[s.entriesBlockTitle, { color: colors.primary }]}>
-                    Hours logged this week ({weekTotal.toFixed(1)}h from {weekEntries.length} {weekEntries.length === 1 ? "entry" : "entries"})
+                    Hours logged this week — {weekTotal.toFixed(1)}h from {weekEntries.length} {weekEntries.length === 1 ? "entry" : "entries"}
                   </Text>
                 </View>
                 {weekEntries.map((e) => (
@@ -252,7 +330,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
             <Text style={[s.formLabel, { color: colors.foreground, marginTop: 14 }]}>
               Total Hours This Week <Text style={{ color: "#EF4444" }}>*</Text>
             </Text>
-            {weekEntries.length > 0 && (
+            {!editingTimesheet && weekEntries.length > 0 && (
               <Text style={[s.autoFillNote, { color: colors.mutedForeground }]}>
                 Auto-filled from your Hours entries — adjust if needed.
               </Text>
@@ -260,11 +338,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
             <TextInput
               style={[
                 s.input,
-                {
-                  backgroundColor: colors.background,
-                  borderColor: hoursError ? "#EF4444" : colors.border,
-                  color: colors.foreground,
-                },
+                { backgroundColor: colors.background, borderColor: hoursError ? "#EF4444" : colors.border, color: colors.foreground },
               ]}
               value={totalHours}
               onChangeText={(t) => { setTotalHours(t); setHoursError(""); }}
@@ -279,10 +353,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
               Hourly Rate (CAD/hr) <Text style={[s.optional, { color: colors.mutedForeground }]}>optional</Text>
             </Text>
             <TextInput
-              style={[
-                s.input,
-                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
-              ]}
+              style={[s.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
               value={hourlyRate}
               onChangeText={setHourlyRate}
               placeholder="e.g. 35.00"
@@ -295,11 +366,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
               Description of Work <Text style={[s.optional, { color: colors.mutedForeground }]}>optional</Text>
             </Text>
             <TextInput
-              style={[
-                s.input,
-                s.multiline,
-                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
-              ]}
+              style={[s.input, s.multiline, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
               value={description}
               onChangeText={setDescription}
               placeholder="What did you work on this week?"
@@ -319,16 +386,16 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
             )}
 
             <Pressable
-              style={[s.submitBtn, { backgroundColor: colors.primary, opacity: submitMutation.isPending ? 0.7 : 1 }]}
+              style={[s.submitBtn, { backgroundColor: colors.primary, opacity: isPending ? 0.7 : 1 }]}
               onPress={handleSubmit}
-              disabled={submitMutation.isPending}
+              disabled={isPending}
             >
-              {submitMutation.isPending ? (
+              {isPending ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <Feather name="send" size={15} color="#fff" />
-                  <Text style={s.submitBtnText}>Submit Timesheet</Text>
+                  <Feather name={editingTimesheet ? "save" : "send"} size={15} color="#fff" />
+                  <Text style={s.submitBtnText}>{editingTimesheet ? "Save Changes" : "Submit Timesheet"}</Text>
                 </>
               )}
             </Pressable>
@@ -349,20 +416,19 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
             </Text>
           </View>
         ) : (
-          timesheets.map((ts) => {
+          (timesheets as unknown as Timesheet[]).map((ts) => {
             const cfg = STATUS_CONFIG[ts.status] ?? STATUS_CONFIG.submitted;
             const totalAmt =
               ts.hourlyRate && ts.totalHours
                 ? parseFloat(ts.totalHours) * parseFloat(ts.hourlyRate)
                 : null;
-            // Cross-reference with logged time entries for this week
             const entriesForCard = getWeekEntries(timeEntries, ts.weekStart);
             return (
               <View
                 key={ts.id}
                 style={[s.card, { backgroundColor: colors.card, borderColor: colors.border }]}
               >
-                {/* Top row: week + status */}
+                {/* Top row: week + status + edit */}
                 <View style={s.cardTop}>
                   <View style={[s.calIcon, { backgroundColor: `${colors.primary}15` }]}>
                     <Feather name="calendar" size={16} color={colors.primary} />
@@ -375,9 +441,22 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                       Submitted {new Date(ts.submittedAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
                     </Text>
                   </View>
-                  <View style={[s.statusBadge, { backgroundColor: cfg.bg }]}>
-                    <Feather name={cfg.icon as any} size={11} color={cfg.color} />
-                    <Text style={[s.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+                  <View style={{ alignItems: "flex-end", gap: 6 }}>
+                    <View style={[s.statusBadge, { backgroundColor: cfg.bg }]}>
+                      <Feather name={cfg.icon as any} size={11} color={cfg.color} />
+                      <Text style={[s.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+                    </View>
+                    {/* Edit button — only on submitted (not approved) */}
+                    {ts.status === "submitted" && (
+                      <Pressable
+                        style={[s.editCardBtn, { borderColor: colors.border }]}
+                        onPress={() => openEdit(ts)}
+                        hitSlop={6}
+                      >
+                        <Feather name="edit-2" size={12} color={colors.primary} />
+                        <Text style={[s.editCardBtnText, { color: colors.primary }]}>Edit</Text>
+                      </Pressable>
+                    )}
                   </View>
                 </View>
 
@@ -428,14 +507,12 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                   </View>
                 )}
 
-                {/* Description */}
                 {ts.description && (
                   <Text style={[s.cardDesc, { color: colors.mutedForeground }]} numberOfLines={3}>
                     {ts.description}
                   </Text>
                 )}
 
-                {/* Reviewer notes */}
                 {ts.notes && (
                   <View style={[s.notesRow, { backgroundColor: ts.status === "denied" ? "#FEE2E220" : `${colors.primary}08`, borderColor: ts.status === "denied" ? "#FCA5A5" : `${colors.primary}25` }]}>
                     <Feather name={ts.status === "denied" ? "alert-circle" : "message-circle"} size={12} color={ts.status === "denied" ? "#DC2626" : colors.primary} />
@@ -465,15 +542,18 @@ const s = StyleSheet.create({
 
   // Form
   form: { borderRadius: 14, borderWidth: 1, padding: 16, marginBottom: 28 },
+  formTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 14 },
   formLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
   optional: { fontSize: 11, fontFamily: "Inter_400Regular" },
+
   weekPicker: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
   weekArrow: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  weekText: { flex: 1, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" },
+  weekDisplay: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6 },
+  weekText: { flex: 1, fontSize: 13, fontFamily: "Inter_600SemiBold" },
+
   alreadyBadge: { flexDirection: "row", alignItems: "flex-start", gap: 6, borderRadius: 8, borderWidth: 1, padding: 10, marginTop: 8 },
   alreadyText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
 
-  // Logged entries block inside form
   entriesBlock: { borderRadius: 10, borderWidth: 1, padding: 12, marginTop: 12 },
   entriesBlockHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
   entriesBlockTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", flex: 1 },
@@ -491,13 +571,11 @@ const s = StyleSheet.create({
   submitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, borderRadius: 10, paddingVertical: 13 },
   submitBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
 
-  // History
   histLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12 },
   empty: { alignItems: "center", paddingVertical: 48, gap: 10 },
   emptyTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   emptySub: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", maxWidth: 260 },
 
-  // Card
   card: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 12 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 12 },
   calIcon: { width: 36, height: 36, borderRadius: 9, alignItems: "center", justifyContent: "center" },
@@ -505,12 +583,13 @@ const s = StyleSheet.create({
   cardSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   statusBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
   statusText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  editCardBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
+  editCardBtnText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   statsRow: { flexDirection: "row", gap: 0, marginBottom: 10, borderRadius: 10, overflow: "hidden" },
   statItem: { flex: 1, alignItems: "center", gap: 3, paddingVertical: 10, paddingHorizontal: 4 },
   statValue: { fontSize: 14, fontFamily: "Inter_700Bold" },
   statLabel: { fontSize: 10, fontFamily: "Inter_400Regular" },
 
-  // Linked entries on card
   linkedEntries: { borderTopWidth: 1, paddingTop: 10, marginBottom: 10 },
   linkedHeader: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
   linkedTitle: { fontSize: 11, fontFamily: "Inter_500Medium" },

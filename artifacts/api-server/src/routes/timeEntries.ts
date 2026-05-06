@@ -79,6 +79,49 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
   res.status(201).json({ ...entry, user });
 });
 
+// PATCH /projects/:projectId/time-entries/:entryId — edit own entry (owner/foreman can edit any)
+const EditTimeEntryBody = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD").optional(),
+  hours: z.number().positive().max(24).optional(),
+  description: z.string().max(500).nullable().optional(),
+});
+
+router.patch("/:entryId", requireAuth, requireCompany, async (req, res) => {
+  const projectId = parseInt(req.params.projectId);
+  const entryId = parseInt(req.params.entryId);
+  if (isNaN(projectId) || isNaN(entryId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+
+  const [existing] = await db
+    .select()
+    .from(timeEntriesTable)
+    .where(and(eq(timeEntriesTable.id, entryId), eq(timeEntriesTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!existing) { res.status(404).json({ error: "Entry not found" }); return; }
+  if (!isPrivileged && existing.userId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
+
+  const parsed = EditTimeEntryBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
+
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (parsed.data.date !== undefined) updates.date = parsed.data.date;
+  if (parsed.data.hours !== undefined) updates.hours = parsed.data.hours.toFixed(2);
+  if (parsed.data.description !== undefined) updates.description = parsed.data.description;
+
+  const [updated] = await db
+    .update(timeEntriesTable)
+    .set(updates)
+    .where(eq(timeEntriesTable.id, entryId))
+    .returning();
+
+  const [user] = await db
+    .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email, role: usersTable.role })
+    .from(usersTable).where(eq(usersTable.id, updated.userId)).limit(1);
+
+  res.json({ ...updated, user });
+});
+
 // DELETE /projects/:projectId/time-entries/:entryId — delete own entry (owner/foreman can delete any)
 router.delete("/:entryId", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId);
