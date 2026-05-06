@@ -6,10 +6,13 @@ import {
   scheduleEventAssigneesTable,
   usersTable,
   projectsTable,
+  companiesTable,
 } from "@workspace/db";
 import { eq, and, or, lt, gt, ne, inArray, gte, lte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import { sendEmail, ResendSandboxError } from "../lib/mailer";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -238,6 +241,85 @@ router.post(
       .where(eq(scheduleEventAssigneesTable.eventId, event.id));
 
     res.status(201).json({ ...event, assignees: eventAssignees });
+
+    // ── Fire-and-forget: email all company members ────────────────────────
+    Promise.all([
+      db.select({ email: usersTable.email, firstName: usersTable.firstName })
+        .from(usersTable)
+        .where(eq(usersTable.companyId, req.companyId!)),
+      db.select({ name: companiesTable.name })
+        .from(companiesTable)
+        .where(eq(companiesTable.id, req.companyId!))
+        .limit(1),
+      db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+        .from(usersTable)
+        .where(eq(usersTable.id, req.userId!))
+        .limit(1),
+    ]).then(([members, [company], [creator]]) => {
+      const emails = members.map((m) => m.email).filter(Boolean) as string[];
+      if (emails.length === 0) return;
+
+      const companyName = company?.name ?? "your company";
+      const creatorName = creator ? `${creator.firstName} ${creator.lastName}`.trim() : "A team member";
+      const typeLabel: Record<string, string> = {
+        meeting: "Meeting",
+        equipment_booking: "Equipment Booking",
+        site_visit: "Site Visit",
+        inspection: "Inspection",
+        other: "Event",
+      };
+      const label = typeLabel[event.type as string] ?? "Event";
+
+      const fmt = (d: Date) =>
+        new Intl.DateTimeFormat("en-CA", {
+          weekday: "long", year: "numeric", month: "long", day: "numeric",
+          hour: "numeric", minute: "2-digit", timeZoneName: "short",
+        }).format(d);
+
+      const locationRow = event.location
+        ? `<tr><td style="padding:6px 0;color:#64748b;font-size:14px;width:100px;">Location</td><td style="padding:6px 0;color:#172034;font-size:14px;">${event.location}</td></tr>`
+        : "";
+      const notesRow = event.notes
+        ? `<tr><td style="padding:6px 0;color:#64748b;font-size:14px;vertical-align:top;width:100px;">Notes</td><td style="padding:6px 0;color:#172034;font-size:14px;">${event.notes}</td></tr>`
+        : "";
+
+      return sendEmail({
+        to: emails,
+        subject: `📅 New ${label}: ${event.title} — ${companyName}`,
+        html: `
+<div style="font-family:sans-serif;max-width:540px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
+  <div style="text-align:center;margin-bottom:28px;">
+    <span style="font-size:36px;">📅</span>
+    <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">${label} Scheduled</h1>
+    <p style="color:#64748b;margin:0;">Added by <strong>${creatorName}</strong> on <strong>${companyName}</strong></p>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;margin-bottom:20px;">
+    <h2 style="margin:0 0 16px;font-size:18px;color:#172034;">${event.title}</h2>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr>
+        <td style="padding:6px 0;color:#64748b;font-size:14px;width:100px;">Starts</td>
+        <td style="padding:6px 0;color:#172034;font-size:14px;">${fmt(event.startTime)}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#64748b;font-size:14px;">Ends</td>
+        <td style="padding:6px 0;color:#172034;font-size:14px;">${fmt(event.endTime)}</td>
+      </tr>
+      ${locationRow}
+      ${notesRow}
+    </table>
+  </div>
+  <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">
+    View this event in the <strong>Schedule → Events</strong> tab of Site Snap.
+  </p>
+</div>`,
+      });
+    }).catch((err: unknown) => {
+      if (err instanceof ResendSandboxError) {
+        logger.warn({ allowedEmail: err.allowedEmail }, "Event invite email skipped — Resend sandbox mode");
+      } else {
+        logger.error({ err }, "Failed to send event invite emails");
+      }
+    });
   }),
 );
 
