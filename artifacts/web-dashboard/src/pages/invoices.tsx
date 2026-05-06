@@ -98,14 +98,21 @@ export default function Invoices() {
       </div>
 
       <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as InvoiceStatus | "all")}>
-        <TabsList className="flex gap-1 flex-wrap h-auto">
+        <TabsList
+          className="flex gap-1 flex-wrap h-auto"
+          style={{ background: BLACK }}
+        >
           {TABS.map((t) => {
             const count = t.value === "all" ? totalCount : (counts[t.value] ?? 0);
             return (
-              <TabsTrigger key={t.value} value={t.value} className="group text-sm gap-1.5">
+              <TabsTrigger
+                key={t.value}
+                value={t.value}
+                className="group text-sm text-zinc-400 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-[#111111] data-[state=active]:font-semibold gap-1.5"
+              >
                 {t.label}
                 {count > 0 && (
-                  <span className="inline-flex items-center justify-center rounded-full px-1.5 py-px text-[10px] font-bold leading-none min-w-[18px] bg-muted-foreground/15 text-muted-foreground group-data-[state=active]:bg-foreground/15 group-data-[state=active]:text-foreground">
+                  <span className="inline-flex items-center justify-center rounded-full px-1.5 py-px text-[10px] font-bold leading-none min-w-[18px] bg-white/15 text-zinc-300 group-data-[state=active]:bg-[#111111]/25 group-data-[state=active]:text-[#111111]">
                     {count}
                   </span>
                 )}
