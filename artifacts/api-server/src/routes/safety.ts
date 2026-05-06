@@ -350,7 +350,72 @@ router.post("/safety/submissions/:id/incident-summary", requireAuth, requireComp
       }),
     ].join("\n");
 
-    const systemPrompt = `You are a construction safety officer generating a professional incident summary.
+    const category = template?.category ?? "safety";
+    const systemPrompt = buildAIPrompt(category);
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      max_completion_tokens: 600,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `DATA:\n${formData}` },
+      ],
+    });
+
+    const summary = completion.choices[0]?.message?.content ?? "Unable to generate summary.";
+
+    await db
+      .update(formSubmissionsTable)
+      .set({ aiSummary: summary, updatedAt: new Date() })
+      .where(eq(formSubmissionsTable.id, id));
+
+    logger.info({ submissionId: id, category }, "AI safety summary generated");
+    res.json({ summary, category });
+  } catch (err: any) {
+    req.log.error({ err }, "safety/submissions/:id/incident-summary error");
+    res.status(500).json({ error: "Failed to generate incident summary" });
+  }
+});
+
+// ── AI prompt builder ─────────────────────────────────────────────────────────
+
+function buildAIPrompt(category: string): string {
+  if (category === "hazard") {
+    return `You are a construction safety expert analyzing a hazard report.
+
+Review the hazard data and generate a structured risk assessment.
+
+INSTRUCTIONS:
+- Focus on risk prevention
+- Be concise and practical
+- Do NOT exaggerate risk
+- Do NOT assume missing details
+
+OUTPUT FORMAT:
+
+1. Hazard Summary:
+- What hazard was identified
+
+2. Risk Evaluation:
+- Risk Level: Low / Medium / High
+- Likelihood:
+- Potential impact:
+
+3. Affected Area / Workers:
+- Who or what is at risk
+
+4. Recommended Controls:
+- Immediate controls (short-term)
+- Long-term corrective actions
+
+5. Priority Level:
+- Low / Medium / Urgent
+
+6. Compliance Notes:
+- Any safety standard concerns (if applicable)`;
+  }
+
+  return `You are a construction safety officer generating a professional incident summary.
 
 Analyze the following incident report data and produce a structured summary.
 
@@ -386,30 +451,7 @@ OUTPUT FORMAT:
 6. Follow-Up Required:
 - Yes / No
 - If yes, explain`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      max_completion_tokens: 600,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `DATA:\n${formData}` },
-      ],
-    });
-
-    const summary = completion.choices[0]?.message?.content ?? "Unable to generate summary.";
-
-    await db
-      .update(formSubmissionsTable)
-      .set({ aiSummary: summary, updatedAt: new Date() })
-      .where(eq(formSubmissionsTable.id, id));
-
-    logger.info({ submissionId: id }, "Incident summary generated");
-    res.json({ summary });
-  } catch (err: any) {
-    req.log.error({ err }, "safety/submissions/:id/incident-summary error");
-    res.status(500).json({ error: "Failed to generate incident summary" });
-  }
-});
+}
 
 // ── AI Summary helper ─────────────────────────────────────────────────────────
 

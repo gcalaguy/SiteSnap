@@ -112,36 +112,76 @@ function parseIncidentSummary(text: string): SummarySection[] {
 }
 
 const SECTION_STYLE: Record<string, { border: string; bg: string; titleColor: string; icon: React.ElementType }> = {
+  // Incident / injury / safety sections
   "Incident Overview":    { border: "#3b82f6", bg: "#eff6ff", titleColor: "#1d4ed8", icon: FileText },
-  "Key Details":         { border: "#8b5cf6", bg: "#f5f3ff", titleColor: "#6d28d9", icon: Eye },
-  "Severity Assessment": { border: "#f97316", bg: "#fff7ed", titleColor: "#c2410c", icon: AlertTriangle },
-  "Root Cause":          { border: "#ef4444", bg: "#fef2f2", titleColor: "#b91c1c", icon: Zap },
-  "Recommended Actions": { border: "#16a34a", bg: "#f0fdf4", titleColor: "#15803d", icon: ShieldAlert },
-  "Follow-Up Required":  { border: "#ca8a04", bg: "#fefce8", titleColor: "#a16207", icon: Clock },
+  "Key Details":          { border: "#8b5cf6", bg: "#f5f3ff", titleColor: "#6d28d9", icon: Eye },
+  "Severity Assessment":  { border: "#f97316", bg: "#fff7ed", titleColor: "#c2410c", icon: AlertTriangle },
+  "Root Cause":           { border: "#ef4444", bg: "#fef2f2", titleColor: "#b91c1c", icon: Zap },
+  "Recommended Actions":  { border: "#16a34a", bg: "#f0fdf4", titleColor: "#15803d", icon: ShieldAlert },
+  "Follow-Up Required":   { border: "#ca8a04", bg: "#fefce8", titleColor: "#a16207", icon: Clock },
+  // Hazard assessment sections
+  "Hazard Summary":         { border: "#3b82f6", bg: "#eff6ff", titleColor: "#1d4ed8", icon: ShieldAlert },
+  "Risk Evaluation":        { border: "#f97316", bg: "#fff7ed", titleColor: "#c2410c", icon: AlertTriangle },
+  "Affected Area / Workers":{ border: "#8b5cf6", bg: "#f5f3ff", titleColor: "#6d28d9", icon: User },
+  "Recommended Controls":   { border: "#16a34a", bg: "#f0fdf4", titleColor: "#15803d", icon: CheckCircle2 },
+  "Priority Level":         { border: "#ca8a04", bg: "#fefce8", titleColor: "#a16207", icon: Zap },
+  "Compliance Notes":       { border: "#64748b", bg: "#f8fafc", titleColor: "#334155", icon: FileText },
 };
 
-function getSeverityChip(bullets: string[]) {
-  const classifyLine = bullets.find((b) => b.toLowerCase().startsWith("classify as"));
-  if (!classifyLine) return null;
-  const lower = classifyLine.toLowerCase();
-  if (lower.includes("high"))   return { label: "High",   bg: "#fee2e2", color: "#991b1b" };
-  if (lower.includes("medium")) return { label: "Medium", bg: "#ffedd5", color: "#9a3412" };
-  if (lower.includes("low"))    return { label: "Low",    bg: "#dcfce7", color: "#166534" };
+const CHIP_SECTIONS = new Set(["Severity Assessment", "Risk Evaluation", "Priority Level"]);
+
+function getStatusChip(sectionTitle: string, bullets: string[]) {
+  if (!CHIP_SECTIONS.has(sectionTitle)) return null;
+
+  const allText = bullets.join(" ").toLowerCase();
+  const isRisk = sectionTitle === "Risk Evaluation";
+  const isPriority = sectionTitle === "Priority Level";
+
+  if (isPriority) {
+    if (allText.includes("urgent")) return { label: "Urgent",  bg: "#fee2e2", color: "#991b1b" };
+    if (allText.includes("medium")) return { label: "Medium",  bg: "#ffedd5", color: "#9a3412" };
+    if (allText.includes("low"))    return { label: "Low",     bg: "#dcfce7", color: "#166534" };
+    return null;
+  }
+
+  const matchLine = bullets.find((b) =>
+    b.toLowerCase().startsWith("classify as") ||
+    b.toLowerCase().startsWith("risk level")
+  );
+  const source = matchLine ?? allText;
+  const label = isRisk ? "Risk" : "Severity";
+
+  if (source.includes("high"))   return { label: `High ${label}`,   bg: "#fee2e2", color: "#991b1b" };
+  if (source.includes("medium")) return { label: `Medium ${label}`, bg: "#ffedd5", color: "#9a3412" };
+  if (source.includes("low"))    return { label: `Low ${label}`,    bg: "#dcfce7", color: "#166534" };
   return null;
 }
 
+const PANEL_META: Record<string, { title: string; subtitle: string }> = {
+  hazard:  { title: "AI Hazard Risk Assessment",  subtitle: "Structured risk analysis by AI Safety Expert" },
+  injury:  { title: "AI Incident Summary",        subtitle: "Structured analysis by AI Safety Officer" },
+  safety:  { title: "AI Safety Report Summary",   subtitle: "Structured analysis by AI Safety Officer" },
+  toolbox: { title: "AI Toolbox Talk Summary",    subtitle: "Structured summary by AI Safety Officer" },
+};
+
 function IncidentSummaryPanel({
   summary,
+  category,
   isGenerating,
   canGenerate,
   onGenerate,
 }: {
   summary: string | null;
+  category: string;
   isGenerating: boolean;
   canGenerate: boolean;
   onGenerate: () => void;
 }) {
   const sections = summary ? parseIncidentSummary(summary) : [];
+  const meta = PANEL_META[category] ?? PANEL_META.safety;
+  const emptyHint = category === "hazard"
+    ? "Generate a structured hazard risk assessment with risk level, affected workers, and recommended controls."
+    : "Generate a structured incident summary with severity assessment, root cause analysis, and recommended actions.";
 
   return (
     <Card className="overflow-hidden border-0 shadow-md">
@@ -152,8 +192,8 @@ function IncidentSummaryPanel({
               <Bot className="h-4 w-4 text-white" />
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold text-white">AI Incident Summary</CardTitle>
-              <p className="text-[11px] text-slate-400 mt-0.5">Structured analysis by AI Safety Officer</p>
+              <CardTitle className="text-sm font-semibold text-white">{meta.title}</CardTitle>
+              <p className="text-[11px] text-slate-400 mt-0.5">{meta.subtitle}</p>
             </div>
           </div>
           {canGenerate && (
@@ -178,18 +218,16 @@ function IncidentSummaryPanel({
         {isGenerating && (
           <div className="flex flex-col items-center justify-center py-10 gap-3 bg-slate-50">
             <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-            <p className="text-sm text-slate-500">Analyzing incident data…</p>
+            <p className="text-sm text-slate-500">Analyzing {category === "hazard" ? "hazard" : "incident"} data…</p>
           </div>
         )}
 
         {!isGenerating && !summary && (
           <div className="flex flex-col items-center py-8 text-center bg-slate-50 px-6">
             <Bot className="h-8 w-8 text-slate-300 mb-2" />
-            <p className="text-sm font-medium text-slate-600 mb-1">No incident summary yet</p>
+            <p className="text-sm font-medium text-slate-600 mb-1">No AI analysis yet</p>
             <p className="text-xs text-slate-400 max-w-xs">
-              {canGenerate
-                ? "Generate a structured incident summary with severity assessment, root cause analysis, and recommended actions."
-                : "AI summary will be available once the form is submitted."}
+              {canGenerate ? emptyHint : "AI analysis will be available once the form is submitted."}
             </p>
           </div>
         )}
@@ -201,7 +239,7 @@ function IncidentSummaryPanel({
                 border: "#6b7280", bg: "#f9fafb", titleColor: "#374151", icon: FileText,
               };
               const Icon = style.icon;
-              const severityChip = section.title === "Severity Assessment" ? getSeverityChip(section.bullets) : null;
+              const chip = getStatusChip(section.title, section.bullets);
 
               return (
                 <div key={i} className="px-5 py-4" style={{ borderLeft: `3px solid ${style.border}`, background: style.bg }}>
@@ -210,12 +248,12 @@ function IncidentSummaryPanel({
                     <h4 className="text-[11px] font-bold uppercase tracking-wider" style={{ color: style.titleColor }}>
                       {section.title}
                     </h4>
-                    {severityChip && (
+                    {chip && (
                       <span
                         className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded"
-                        style={{ background: severityChip.bg, color: severityChip.color }}
+                        style={{ background: chip.bg, color: chip.color }}
                       >
-                        {severityChip.label} Severity
+                        {chip.label}
                       </span>
                     )}
                   </div>
@@ -508,6 +546,7 @@ export default function SafetyDetailPage() {
           {/* AI Incident Summary */}
           <IncidentSummaryPanel
             summary={submission.aiSummary}
+            category={submission.template?.category ?? "safety"}
             isGenerating={incidentSummaryMutation.isPending}
             canGenerate={isOwnerOrForeman}
             onGenerate={() => incidentSummaryMutation.mutate()}
