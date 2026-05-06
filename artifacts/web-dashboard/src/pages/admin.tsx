@@ -29,6 +29,7 @@ import {
   Zap,
   Star,
   Crown,
+  ChevronDown,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
@@ -121,6 +122,14 @@ export default function AdminPage() {
   });
 
   const [copied, setCopied] = useState(false);
+  const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
+  function togglePlanFeatures(id: string) {
+    setExpandedPlans((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   function copyReferralLink(link: string) {
     navigator.clipboard.writeText(link).then(() => {
@@ -426,15 +435,24 @@ export default function AdminPage() {
                     <CardDescription className="text-xs mt-1">{plan.description}</CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col flex-1">
-                    <ul className="space-y-2 flex-1">
-                      {features.map((f) => (
-                        <li key={f} className="flex items-start gap-2 text-sm">
-                          <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
-                          <span>{f.trim()}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <Separator className="my-4" />
+                    <button
+                      onClick={() => togglePlanFeatures(plan.id)}
+                      className="flex items-center justify-between w-full text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+                    >
+                      <span>{expandedPlans.has(plan.id) ? "Hide features" : `View ${features.length} features`}</span>
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${expandedPlans.has(plan.id) ? "rotate-180" : ""}`} />
+                    </button>
+                    {expandedPlans.has(plan.id) && (
+                      <ul className="space-y-1.5 mb-3 border-t pt-3">
+                        {features.map((f) => (
+                          <li key={f} className="flex items-start gap-2 text-sm">
+                            <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                            <span>{f.trim()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <Separator className="my-3" />
                     {isCurrentPlan && subscription?.status === "active" ? (
                       <Button variant="secondary" className="w-full" disabled>Current Plan</Button>
                     ) : price ? (
