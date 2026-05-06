@@ -407,25 +407,35 @@ export default function Proposals() {
       </div>
 
       {/* Summary pills */}
-      <div className="flex gap-3 flex-wrap flex-shrink-0">
+      <div className="flex gap-2 flex-wrap flex-shrink-0">
         {[
-          { label: "Estimates", value: String(estimates.length), color: GOLD },
-          { label: "Proposals", value: String(proposalStats.total), color: "#6366F1" },
-          { label: "Approved", value: String(proposalStats.approved), color: "#16A34A" },
-          { label: "Awaiting", value: String(proposalStats.pending), color: "#0EA5E9" },
+          { label: "Estimates", value: String(estimates.length) },
+          { label: "Proposals", value: String(proposalStats.total) },
+          { label: "Approved",  value: String(proposalStats.approved) },
+          { label: "Awaiting",  value: String(proposalStats.pending) },
         ].map((s) => (
-          <div key={s.label} className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm" style={{ background: "#fff", border: "1px solid #E5E5E5" }}>
-            <span className="text-muted-foreground font-medium">{s.label}</span>
-            <span className="font-bold" style={{ color: s.color }}>{s.value}</span>
+          <div key={s.label} className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm" style={{ background: BLACK }}>
+            <span className="text-zinc-400 font-medium">{s.label}</span>
+            <span className="font-bold text-white">{s.value}</span>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="flex-shrink-0 w-fit">
-          <TabsTrigger value="estimates">Estimate Builder</TabsTrigger>
-          <TabsTrigger value="proposals">Proposals</TabsTrigger>
+        <TabsList className="flex-shrink-0 w-fit" style={{ background: BLACK }}>
+          <TabsTrigger
+            value="estimates"
+            className="text-zinc-400 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-[#111111] data-[state=active]:font-semibold"
+          >
+            Estimate Builder
+          </TabsTrigger>
+          <TabsTrigger
+            value="proposals"
+            className="text-zinc-400 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-[#111111] data-[state=active]:font-semibold"
+          >
+            Proposals
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Estimates tab ── */}
