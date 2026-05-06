@@ -41,20 +41,30 @@ const TABS: { label: string; value: InvoiceStatus | "all" }[] = [
 
 export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "all">("all");
+
+  // Filtered list for display
   const { data: invoices, isLoading } = useListAllInvoices(
     statusFilter !== "all" ? { status: statusFilter } : {},
   );
 
+  // Always fetch all invoices for counts + summary cards
+  const { data: allInvoices } = useListAllInvoices({});
+  const counts = (allInvoices ?? []).reduce<Record<string, number>>((acc, i) => {
+    acc[i.status] = (acc[i.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const totalCount = allInvoices?.length ?? 0;
+
   const fmtCAD = (v: string | number) =>
     new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 
-  const totalOutstanding = invoices
-    ?.filter((i) => i.status === "sent" || i.status === "overdue")
-    .reduce((s, i) => s + Number(i.total), 0) ?? 0;
+  const totalOutstanding = (allInvoices ?? [])
+    .filter((i) => i.status === "sent" || i.status === "overdue")
+    .reduce((s, i) => s + Number(i.total), 0);
 
-  const totalPaid = invoices
-    ?.filter((i) => i.status === "paid")
-    .reduce((s, i) => s + Number(i.total), 0) ?? 0;
+  const totalPaid = (allInvoices ?? [])
+    .filter((i) => i.status === "paid")
+    .reduce((s, i) => s + Number(i.total), 0);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -89,11 +99,19 @@ export default function Invoices() {
 
       <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as InvoiceStatus | "all")}>
         <TabsList className="flex gap-1 flex-wrap h-auto">
-          {TABS.map((t) => (
-            <TabsTrigger key={t.value} value={t.value} className="text-sm">
-              {t.label}
-            </TabsTrigger>
-          ))}
+          {TABS.map((t) => {
+            const count = t.value === "all" ? totalCount : (counts[t.value] ?? 0);
+            return (
+              <TabsTrigger key={t.value} value={t.value} className="group text-sm gap-1.5">
+                {t.label}
+                {count > 0 && (
+                  <span className="inline-flex items-center justify-center rounded-full px-1.5 py-px text-[10px] font-bold leading-none min-w-[18px] bg-muted-foreground/15 text-muted-foreground group-data-[state=active]:bg-foreground/15 group-data-[state=active]:text-foreground">
+                    {count}
+                  </span>
+                )}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
       </Tabs>
 
