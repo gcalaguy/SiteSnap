@@ -142,7 +142,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge },
     { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge },
     ...(isOwnerOrForeman ? [{ name: "Proposals", href: "/proposals", icon: FileSignature, badge: 0, featureKey: "Proposals" }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Estimates", href: "/estimates", icon: Calculator, badge: 0, featureKey: "AI_ESTIMATING" }] : []),
+    { name: "Estimates", href: "/estimates", icon: Calculator, badge: 0 },
     ...(isOwnerOrForeman ? [{ name: "Smart Estimator", href: "/smart-estimator", icon: Sparkles, badge: 0, featureKey: "Smart_Estimator" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0, featureKey: "Financials" }] : []),
     { name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "Contacts" },

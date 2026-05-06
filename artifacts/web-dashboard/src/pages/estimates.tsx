@@ -816,12 +816,9 @@ export default function EstimatesPage() {
     }
   }
 
-  const canAccess = me?.role === "owner" || me?.role === "foreman";
-
   const { data: estimates = [], isLoading } = useQuery<Estimate[]>({
     queryKey: ["estimates"],
     queryFn: () => customFetch("/api/estimates"),
-    enabled: canAccess,
   });
 
   const deleteEstimate = useMutation({
@@ -921,16 +918,6 @@ export default function EstimatesPage() {
     } finally {
       setIsSendingEmail(false);
     }
-  }
-
-  if (!canAccess) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <AlertCircle className="h-12 w-12 text-muted-foreground/40" />
-        <h2 className="text-lg font-semibold">Access Restricted</h2>
-        <p className="text-muted-foreground text-sm">The AI Estimating Engine is available to foremen and owners only.</p>
-      </div>
-    );
   }
 
   return (
