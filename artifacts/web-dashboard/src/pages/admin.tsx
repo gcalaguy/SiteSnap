@@ -26,6 +26,9 @@ import {
   Gift,
   Copy,
   Check,
+  Zap,
+  Star,
+  Crown,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
@@ -36,6 +39,21 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+interface Price {
+  id: string;
+  unitAmount: number;
+  currency: string;
+  recurring: { interval: string } | null;
+}
+
+interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  metadata: { plan?: string; maxSeats?: string; features?: string };
+  prices: Price[];
+}
+
 interface Subscription {
   id: string;
   status: string;
@@ -44,6 +62,17 @@ interface Subscription {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+function formatCAD(cents: number) {
+  return `$${(cents / 100).toFixed(0)} CAD`;
+}
+
+function planIcon(planSlug: string | undefined) {
+  if (planSlug === "starter") return <Zap className="h-6 w-6 text-blue-500" />;
+  if (planSlug === "pro")     return <Star className="h-6 w-6 text-primary" />;
+  if (planSlug === "business") return <Crown className="h-6 w-6 text-yellow-500" />;
+  return <CreditCard className="h-6 w-6 text-muted-foreground" />;
+}
 
 function statusBadge(status: string) {
   const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -63,9 +92,27 @@ export default function AdminPage() {
   const { data: me } = useGetMe();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
   // Check for billing redirect params
   const params = new URLSearchParams(window.location.search);
   const billingResult = params.get("billing");
+
+  // Fetch Stripe plans
+  const { data: plansData, isLoading: plansLoading } = useQuery({
+    queryKey: ["billing-plans"],
+    queryFn: () => customFetch<{ plans: Plan[]; publishableKey: string }>(`${basePath}/api/billing/plans`),
+  });
+
+  // Checkout mutation
+  const checkoutMutation = useMutation({
+    mutationFn: ({ priceId }: { priceId: string }) =>
+      customFetch<{ url: string }>(`${basePath}/api/billing/checkout`, {
+        method: "POST",
+        body: JSON.stringify({ priceId }),
+      }),
+    onSuccess: (data) => { window.location.href = data.url; },
+    onError: (err: any) => { toast({ title: "Checkout failed", description: err.message, variant: "destructive" }); },
+  });
 
   // Fetch subscription + company info
   const { data: subData, isLoading: subLoading } = useQuery({
@@ -118,7 +165,7 @@ export default function AdminPage() {
 
   const subscription: Subscription | null = subData?.subscription ?? null;
   const company = subData?.company;
-  // Determine current plan metadata
+  const plans: Plan[] = plansData?.plans ?? [];
   const activeProductId = subscription?.items?.data?.[0]?.price?.product;
 
   return (
@@ -318,6 +365,97 @@ export default function AdminPage() {
           ))}
         </CardContent>
       </Card>
+
+      {/* Choose a Plan */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <h2 className="text-lg font-semibold">Choose a Plan</h2>
+          <div className="ml-auto flex items-center gap-1 rounded-lg p-1" style={{ background: BLACK }}>
+            {(["month", "year"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setBillingInterval(v)}
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${billingInterval === v ? "font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
+                style={billingInterval === v ? { background: GOLD, color: BLACK } : undefined}
+              >
+                {v === "month" ? "Monthly" : (
+                  <span className="flex items-center gap-1.5">
+                    Annual
+                    <span className="rounded-full bg-green-700 text-white px-1.5 py-0.5 text-[10px] font-semibold">Save 17%</span>
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {plansLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[0, 1, 2].map((i) => <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {plans.map((plan) => {
+              const price = plan.prices.find((p) => p.recurring?.interval === billingInterval);
+              const isCurrentPlan = plan.id === activeProductId;
+              const isPro = plan.metadata.plan === "pro";
+              const features = plan.metadata.features?.split(",") ?? [];
+              return (
+                <Card
+                  key={plan.id}
+                  className={`relative flex flex-col transition-shadow ${
+                    isPro ? "border-primary shadow-md ring-1 ring-primary/30" : "border-border"
+                  } ${isCurrentPlan ? "bg-primary/[0.03]" : ""}`}
+                >
+                  {isPro && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground shadow">
+                        Most Popular
+                      </span>
+                    </div>
+                  )}
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      {planIcon(plan.metadata.plan)}
+                      <CardTitle className="text-base">{plan.name.replace("Site Snap ", "")}</CardTitle>
+                    </div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-3xl font-bold">{price ? formatCAD(price.unitAmount) : "—"}</span>
+                      <span className="text-muted-foreground text-sm mb-1">/{billingInterval === "month" ? "mo" : "yr"}</span>
+                    </div>
+                    <CardDescription className="text-xs mt-1">{plan.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col flex-1">
+                    <ul className="space-y-2 flex-1">
+                      {features.map((f) => (
+                        <li key={f} className="flex items-start gap-2 text-sm">
+                          <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                          <span>{f.trim()}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Separator className="my-4" />
+                    {isCurrentPlan && subscription?.status === "active" ? (
+                      <Button variant="secondary" className="w-full" disabled>Current Plan</Button>
+                    ) : price ? (
+                      <Button
+                        className={`w-full ${isPro ? "bg-primary hover:bg-primary/90" : ""}`}
+                        variant={isPro ? "default" : "outline"}
+                        onClick={() => checkoutMutation.mutate({ priceId: price.id })}
+                        disabled={checkoutMutation.isPending}
+                      >
+                        {checkoutMutation.isPending ? "Redirecting…" : subscription ? "Switch Plan" : "Get Started"}
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="w-full" disabled>Unavailable</Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
