@@ -55,6 +55,15 @@ interface Plan {
   prices: Price[];
 }
 
+interface DbPlan {
+  id: number; name: string; slug: string;
+  featureIds: number[];
+}
+
+interface DbFeature {
+  id: number; name: string; key: string; isEnabled: boolean;
+}
+
 interface Subscription {
   id: string;
   status: string;
@@ -102,6 +111,16 @@ export default function AdminPage() {
   const { data: plansData, isLoading: plansLoading } = useQuery({
     queryKey: ["billing-plans"],
     queryFn: () => customFetch<{ plans: Plan[]; publishableKey: string }>(`${basePath}/api/billing/plans`),
+  });
+
+  // Fetch DB plan-feature assignments
+  const { data: dbPlans = [] } = useQuery<DbPlan[]>({
+    queryKey: ["admin-plans"],
+    queryFn: () => customFetch<DbPlan[]>(`${basePath}/api/admin/plans`),
+  });
+  const { data: dbFeatures = [] } = useQuery<DbFeature[]>({
+    queryKey: ["admin-features"],
+    queryFn: () => customFetch<DbFeature[]>(`${basePath}/api/admin/features`),
   });
 
   // Checkout mutation
@@ -408,7 +427,13 @@ export default function AdminPage() {
               const price = plan.prices.find((p) => p.recurring?.interval === billingInterval);
               const isCurrentPlan = plan.id === activeProductId;
               const isPro = plan.metadata.plan === "pro";
-              const features = plan.metadata.features?.split(",") ?? [];
+              const dbPlan = dbPlans.find((p) => p.slug === plan.metadata.plan);
+              const features = dbPlan
+                ? dbPlan.featureIds
+                    .map((id) => dbFeatures.find((f) => f.id === id))
+                    .filter((f): f is DbFeature => !!f)
+                    .map((f) => f.name)
+                : (plan.metadata.features?.split(",").map((s) => s.trim()) ?? []);
               return (
                 <Card
                   key={plan.id}

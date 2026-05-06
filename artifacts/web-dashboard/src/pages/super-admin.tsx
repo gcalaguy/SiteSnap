@@ -601,6 +601,15 @@ function StripePlansTab() {
     onError: (err: any) => toast({ title: "Checkout failed", description: err.message, variant: "destructive" }),
   });
 
+  const { data: dbPlans = [] } = useQuery<Plan[]>({
+    queryKey: ["admin-plans"],
+    queryFn: () => customFetch<Plan[]>("/api/admin/plans"),
+  });
+  const { data: dbFeatures = [] } = useQuery<Feature[]>({
+    queryKey: ["admin-features"],
+    queryFn: () => customFetch<Feature[]>("/api/admin/features"),
+  });
+
   const plans: StripePlanObj[] = plansData?.plans ?? [];
   const subscription = subData?.subscription ?? null;
   const activeProductId = subscription?.items?.data?.[0]?.price?.product;
@@ -653,7 +662,13 @@ function StripePlansTab() {
             const price = plan.prices.find((p) => p.recurring?.interval === interval);
             const isCurrentPlan = plan.id === activeProductId;
             const isPro = plan.metadata.plan === "pro";
-            const features = plan.metadata.features?.split(",") ?? [];
+            const dbPlan = dbPlans.find((p) => p.slug === plan.metadata.plan);
+            const features = dbPlan
+              ? dbPlan.featureIds
+                  .map((id) => dbFeatures.find((f) => f.id === id))
+                  .filter((f): f is Feature => !!f)
+                  .map((f) => f.name)
+              : (plan.metadata.features?.split(",").map((s) => s.trim()) ?? []);
             return (
               <Card
                 key={plan.id}
