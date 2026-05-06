@@ -41,9 +41,19 @@ const TABS: { label: string; value: QuoteStatus | "all" }[] = [
 
 export default function Quotes() {
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | "all">("all");
+
+  // Fetch filtered list for display
   const { data: quotes, isLoading } = useListAllQuotes(
     statusFilter !== "all" ? { status: statusFilter } : {},
   );
+
+  // Always fetch all quotes to compute per-bucket counts
+  const { data: allQuotes } = useListAllQuotes({});
+  const counts = (allQuotes ?? []).reduce<Record<string, number>>((acc, q) => {
+    acc[q.status] = (acc[q.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const totalCount = allQuotes?.length ?? 0;
 
   const fmtCAD = (v: string | number) =>
     new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
@@ -68,15 +78,23 @@ export default function Quotes() {
           className="flex gap-1 flex-wrap h-auto"
           style={{ background: BLACK }}
         >
-          {TABS.map((t) => (
-            <TabsTrigger
-              key={t.value}
-              value={t.value}
-              className="text-sm text-zinc-400 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-[#111111] data-[state=active]:font-semibold"
-            >
-              {t.label}
-            </TabsTrigger>
-          ))}
+          {TABS.map((t) => {
+            const count = t.value === "all" ? totalCount : (counts[t.value] ?? 0);
+            return (
+              <TabsTrigger
+                key={t.value}
+                value={t.value}
+                className="group text-sm text-zinc-400 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-[#111111] data-[state=active]:font-semibold gap-1.5"
+              >
+                {t.label}
+                {count > 0 && (
+                  <span className="inline-flex items-center justify-center rounded-full px-1.5 py-px text-[10px] font-bold leading-none min-w-[18px] bg-white/15 text-zinc-300 group-data-[state=active]:bg-[#111111]/25 group-data-[state=active]:text-[#111111]">
+                    {count}
+                  </span>
+                )}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
       </Tabs>
 
