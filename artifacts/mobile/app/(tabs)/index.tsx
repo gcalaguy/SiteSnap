@@ -2,9 +2,9 @@ import {
   useGetDashboardSummary, useGetRecentActivity, useListProjects,
   useGetMe, useListCompanyMembers, customFetch,
 } from "@workspace/api-client-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import {
   ActivityIndicator,
@@ -22,7 +22,171 @@ import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
-// ── Tappable summary card ───────────────────────────────────────────────────
+// ── AI Briefing ──────────────────────────────────────────────────────────────
+
+type BriefingLine = { icon: string; color: string; text: string };
+
+function parseBriefing(raw: string): BriefingLine[] {
+  const lines = raw.split(/\n/).map((l) => l.trim()).filter(Boolean);
+  const out: BriefingLine[] = [];
+  for (const line of lines) {
+    if (line.startsWith("📋") || line.toLowerCase().includes("priorit")) {
+      out.push({ icon: "list", color: "#3b82f6", text: line.replace(/^📋\s*/, "") });
+    } else if (line.startsWith("⚠️") || line.toLowerCase().includes("alert") || line.toLowerCase().includes("risk")) {
+      out.push({ icon: "alert-triangle", color: "#f59e0b", text: line.replace(/^⚠️\s*/, "") });
+    } else if (line.startsWith("✅") || line.toLowerCase().includes("complet") || line.toLowerCase().includes("done")) {
+      out.push({ icon: "check-circle", color: "#10b981", text: line.replace(/^✅\s*/, "") });
+    } else if (line.startsWith("💰") || line.toLowerCase().includes("budget") || line.toLowerCase().includes("cost")) {
+      out.push({ icon: "dollar-sign", color: "#D4AF37", text: line.replace(/^💰\s*/, "") });
+    } else if (line.startsWith("🌤") || line.startsWith("☀") || line.startsWith("🌧")) {
+      out.push({ icon: "cloud", color: "#6366f1", text: line });
+    } else if (line.startsWith("-") || line.startsWith("•")) {
+      out.push({ icon: "chevron-right", color: "#6b7280", text: line.replace(/^[-•]\s*/, "") });
+    } else if (line.endsWith(":") || line.match(/^[A-Z\s]+:$/)) {
+      out.push({ icon: "bookmark", color: "#D4AF37", text: line });
+    } else {
+      out.push({ icon: "chevron-right", color: "#6b7280", text: line });
+    }
+  }
+  return out.slice(0, 12);
+}
+
+function AiBriefingCard({ colors }: { colors: any }) {
+  const [expanded, setExpanded] = useState(false);
+  const [lines, setLines] = useState<BriefingLine[]>([]);
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: () =>
+      customFetch<{ briefing: string } | string>("/api/ai/foreman-briefing", {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    onSuccess: (data) => {
+      const raw = typeof data === "string"
+        ? data
+        : (data as any)?.briefing ?? (data as any)?.summary ?? JSON.stringify(data);
+      setLines(parseBriefing(raw));
+      setExpanded(true);
+    },
+  });
+
+  useEffect(() => {
+    mutate();
+  }, []);
+
+  const displayLines = expanded ? lines : lines.slice(0, 3);
+
+  return (
+    <View style={[styles.briefingCard, { backgroundColor: colors.sidebar, borderColor: "#C9A84C30" }]}>
+      <View style={styles.briefingHeader}>
+        <View style={[styles.briefingIconWrap, { backgroundColor: "#C9A84C22" }]}>
+          <Feather name="cpu" size={16} color="#C9A84C" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.briefingTitle, { color: "#FFFFFF" }]}>AI Daily Briefing</Text>
+          <Text style={[styles.briefingMeta, { color: "rgba(255,255,255,0.45)" }]}>
+            {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => mutate()}
+          style={[styles.refreshBtn, { borderColor: "#C9A84C40" }]}
+          disabled={isPending}
+          hitSlop={8}
+        >
+          <Feather name="refresh-cw" size={13} color="#C9A84C" />
+        </TouchableOpacity>
+      </View>
+
+      {isPending ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <ActivityIndicator size="small" color="#C9A84C" />
+          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontFamily: "Inter_400Regular" }}>
+            Generating briefing…
+          </Text>
+        </View>
+      ) : lines.length === 0 ? (
+        <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 10, fontFamily: "Inter_400Regular" }}>
+          Tap refresh to generate your daily briefing.
+        </Text>
+      ) : (
+        <>
+          <View style={{ marginTop: 10, gap: 6 }}>
+            {displayLines.map((l, i) => (
+              <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+                <Feather name={l.icon as any} size={13} color={l.color} style={{ marginTop: 2 }} />
+                <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", flex: 1, lineHeight: 18, fontFamily: "Inter_400Regular" }}>
+                  {l.text}
+                </Text>
+              </View>
+            ))}
+          </View>
+          {lines.length > 3 ? (
+            <TouchableOpacity
+              onPress={() => setExpanded((v) => !v)}
+              style={styles.expandBtn}
+              hitSlop={6}
+            >
+              <Text style={{ fontSize: 12, color: "#C9A84C", fontFamily: "Inter_600SemiBold" }}>
+                {expanded ? "Show less" : `Show ${lines.length - 3} more`}
+              </Text>
+              <Feather name={expanded ? "chevron-up" : "chevron-down"} size={12} color="#C9A84C" />
+            </TouchableOpacity>
+          ) : null}
+        </>
+      )}
+    </View>
+  );
+}
+
+// ── Quick Actions ────────────────────────────────────────────────────────────
+
+const QUICK_ACTIONS_WORKER = [
+  { label: "Log Report", icon: "file-text", path: "/(tabs)/log", color: "#3b82f6" },
+  { label: "Inspections", icon: "shield", path: "/(tabs)/inspect", color: "#10b981" },
+  { label: "Safety Form", icon: "alert-triangle", path: "/(tabs)/safety", color: "#D4AF37" },
+  { label: "My Tasks", icon: "check-square", path: "/(tabs)/tasks", color: "#8b5cf6" },
+  { label: "Calculators", icon: "percent", path: "/calculators", color: "#f59e0b" },
+  { label: "Ask AI", icon: "message-circle", path: "/(tabs)/ask", color: "#ec4899" },
+];
+
+const QUICK_ACTIONS_OWNER = [
+  { label: "Log Report", icon: "file-text", path: "/(tabs)/log", color: "#3b82f6" },
+  { label: "Inspections", icon: "shield", path: "/(tabs)/inspect", color: "#10b981" },
+  { label: "Safety", icon: "alert-triangle", path: "/(tabs)/safety", color: "#D4AF37" },
+  { label: "Projects", icon: "folder", path: "/(tabs)/projects", color: "#8b5cf6" },
+  { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
+  { label: "Ask AI", icon: "message-circle", path: "/(tabs)/ask", color: "#ec4899" },
+];
+
+function QuickActionsGrid({ isWorker, colors, router }: { isWorker: boolean; colors: any; router: any }) {
+  const actions = isWorker ? QUICK_ACTIONS_WORKER : QUICK_ACTIONS_OWNER;
+  return (
+    <View style={styles.quickGrid}>
+      {actions.map((action) => (
+        <TouchableOpacity
+          key={action.label}
+          style={[styles.quickAction, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => {
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push(action.path as any);
+          }}
+          activeOpacity={0.75}
+        >
+          <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}18` }]}>
+            <Feather name={action.icon as any} size={20} color={action.color} />
+          </View>
+          <Text style={[styles.quickActionLabel, { color: colors.foreground }]} numberOfLines={1}>
+            {action.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+// ── Summary card ─────────────────────────────────────────────────────────────
+
 function SummaryCard({
   title, value, subtitle, icon, onPress,
 }: {
@@ -47,18 +211,13 @@ function SummaryCard({
       accessibilityRole="button"
       accessibilityLabel={`${title}: ${value}. ${subtitle}`}
     >
-      {/* Top row: label + icon */}
       <View style={styles.summaryCardTop}>
         <Text style={[styles.summaryCardTitle, { color: colors.mutedForeground }]}>{title}</Text>
         <View style={[styles.summaryCardIconBg, { backgroundColor: `${colors.primary}1A` }]}>
           <Feather name={icon as any} size={16} color={colors.primary} />
         </View>
       </View>
-
-      {/* Value */}
       <Text style={[styles.summaryCardValue, { color: colors.foreground }]}>{value}</Text>
-
-      {/* Bottom row: subtitle + chevron */}
       <View style={styles.summaryCardBottom}>
         <Text style={[styles.summaryCardSubtitle, { color: colors.mutedForeground }]}>{subtitle}</Text>
         <Feather name="chevron-right" size={14} color={colors.primary} />
@@ -67,7 +226,8 @@ function SummaryCard({
   );
 }
 
-// ── Project card ────────────────────────────────────────────────────────────
+// ── Project card ─────────────────────────────────────────────────────────────
+
 function ProjectCard({ project }: { project: any }) {
   const colors = useColors();
   const router = useRouter();
@@ -99,7 +259,8 @@ function ProjectCard({ project }: { project: any }) {
   );
 }
 
-// ── Activity helpers ────────────────────────────────────────────────────────
+// ── Activity ─────────────────────────────────────────────────────────────────
+
 const ACTIVITY_ICONS: Record<string, string> = {
   daily_report: "file-text",
   rfi_created: "alert-circle",
@@ -144,9 +305,7 @@ function ActivityRow({ item }: { item: any }) {
         <Text style={[styles.activityDesc, { color: colors.foreground }]} numberOfLines={2}>{item.description}</Text>
         <View style={styles.activityFooter}>
           {!!item.projectName && (
-            <Text style={[styles.activityMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
-              {item.projectName}
-            </Text>
+            <Text style={[styles.activityMeta, { color: colors.mutedForeground }]} numberOfLines={1}>{item.projectName}</Text>
           )}
           {!!item.createdAt && (
             <Text style={[styles.activityTime, { color: colors.mutedForeground }]}>
@@ -159,7 +318,8 @@ function ActivityRow({ item }: { item: any }) {
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────────────────────
+// ── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
@@ -175,19 +335,58 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: "#FFFFFF", fontSize: 11, fontFamily: "Inter_700Bold" },
 
+  // AI Briefing
+  briefingCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: "#C9A84C",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  briefingHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  briefingIconWrap: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  briefingTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  briefingMeta: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
+  refreshBtn: { width: 30, height: 30, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  expandBtn: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8, alignSelf: "flex-start" },
+
+  // Quick actions
+  quickGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 20,
+  },
+  quickAction: {
+    width: "30%",
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+    minWidth: "30%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  quickActionIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  quickActionLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textAlign: "center" },
+
   // Summary cards
   summaryGrid: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
   summaryCard: {
-    borderRadius: 14,
-    padding: 18,
-    borderWidth: 1,
-    gap: 4,
-    // subtle shadow
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: 14, padding: 18, borderWidth: 1, gap: 4,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   summaryCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   summaryCardTitle: { fontSize: 13, fontFamily: "Inter_500Medium" },
@@ -235,7 +434,7 @@ const styles = StyleSheet.create({
 
   voiceEstimateCard: {
     flexDirection: "row", alignItems: "center", gap: 14,
-    marginHorizontal: 16, marginBottom: 20, padding: 16,
+    marginHorizontal: 16, marginBottom: 12, padding: 16,
     borderRadius: 14, borderWidth: 1,
     shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3,
   },
@@ -244,7 +443,8 @@ const styles = StyleSheet.create({
   voiceEstimateSub: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 16 },
 });
 
-// ── Screen ──────────────────────────────────────────────────────────────────
+// ── Screen ────────────────────────────────────────────────────────────────────
+
 export default function DashboardScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -262,7 +462,7 @@ export default function DashboardScreen() {
     queryKey: ["notifications", "unread"],
     queryFn: async () => {
       const res = await customFetch("/api/notifications/unread-count");
-      return res.json();
+      return (res as any).json ? (res as any).json() : res;
     },
     staleTime: 30_000,
     refetchInterval: 60_000,
@@ -274,10 +474,10 @@ export default function DashboardScreen() {
 
   const firstName = me?.firstName ?? "there";
   const isWorker = me?.role === "worker";
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const allProjects = projects ?? [];
-  const activeProjects = allProjects.filter(p => p.status === "active" || p.status === "planning");
-  const completedProjects = allProjects.filter(p => p.status === "completed");
-  // Workers: show all their projects (active + on_hold); owners: show active only
+  const activeProjects = allProjects.filter((p) => p.status === "active" || p.status === "planning");
+  const completedProjects = allProjects.filter((p) => p.status === "completed");
   const topProjects = isWorker ? allProjects.slice(0, 4) : activeProjects.slice(0, 4);
   const memberCount = (members as any[])?.length ?? 0;
 
@@ -318,28 +518,39 @@ export default function DashboardScreen() {
         <WeatherWidget />
       </View>
 
-      {/* ── Summary cards (tappable) ── */}
+      {/* AI Daily Briefing — owners & foremen only */}
+      {isOwnerOrForeman && <AiBriefingCard colors={colors} />}
+
+      {/* Quick Actions */}
+      <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 12 }]}>Quick Actions</Text>
+      </View>
+      <QuickActionsGrid isWorker={isWorker} colors={colors} router={router} />
+
+      {/* Summary cards */}
       <View style={styles.summaryGrid}>
         <SummaryCard
           title={isWorker ? "My Projects" : "Active Projects"}
           value={summaryLoading ? "—" : isWorker ? String(allProjects.length) : String(summary?.activeProjects ?? 0)}
-          subtitle={isWorker ? `${allProjects.length === 1 ? "1 project" : `${allProjects.length} projects`} assigned` : `${activeProjects.length} total · ${completedProjects.length} completed`}
+          subtitle={isWorker
+            ? `${allProjects.length === 1 ? "1 project" : `${allProjects.length} projects`} assigned`
+            : `${activeProjects.length} total · ${completedProjects.length} completed`}
           icon="folder"
-          onPress={() => router.navigate("/(tabs)/projects")}
+          onPress={() => router.push("/(tabs)/projects" as any)}
         />
         <SummaryCard
           title="Reports This Week"
           value={summaryLoading ? "—" : String(summary?.reportsThisWeek ?? 0)}
           subtitle="Daily reports submitted"
           icon="file-text"
-          onPress={() => router.navigate("/(tabs)/log")}
+          onPress={() => router.push("/(tabs)/log" as any)}
         />
         <SummaryCard
           title="Open RFIs"
           value={summaryLoading ? "—" : String(summary?.pendingRFIs ?? 0)}
           subtitle="Awaiting response"
           icon="alert-circle"
-          onPress={() => router.navigate("/(tabs)/projects")}
+          onPress={() => router.push("/(tabs)/projects" as any)}
         />
         {!isWorker && (
           <SummaryCard
@@ -396,7 +607,7 @@ export default function DashboardScreen() {
         <Feather name="chevron-right" size={18} color="#C9A84C" />
       </Pressable>
 
-      {/* Voice Estimate — owners and foremen only */}
+      {/* Voice Estimator — owners and foremen only */}
       {!isWorker && (
         <Pressable
           style={({ pressed }) => [
@@ -421,20 +632,22 @@ export default function DashboardScreen() {
         </Pressable>
       )}
 
-      {/* Projects list */}
+      {/* Active Projects list */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{isWorker ? "My Projects" : "Active Projects"}</Text>
-          <Pressable onPress={() => router.push("/(tabs)/projects")}>
+          <Pressable onPress={() => router.push("/(tabs)/projects" as any)}>
             <Text style={[styles.seeAll, { color: colors.primary }]}>See all</Text>
           </Pressable>
         </View>
         {projectsLoading ? (
           <ActivityIndicator color={colors.primary} />
         ) : topProjects.length === 0 ? (
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{isWorker ? "No projects assigned to you" : "No active projects"}</Text>
+          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+            {isWorker ? "No projects assigned to you" : "No active projects"}
+          </Text>
         ) : (
-          topProjects.map(p => <ProjectCard key={p.id} project={p} />)
+          topProjects.map((p) => <ProjectCard key={p.id} project={p} />)
         )}
       </View>
 
@@ -446,7 +659,7 @@ export default function DashboardScreen() {
         ) : (activity ?? []).length === 0 ? (
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No recent activity</Text>
         ) : (
-          (activity ?? []).slice(0, 8).map(item => <ActivityRow key={item.id} item={item} />)
+          (activity ?? []).slice(0, 8).map((item) => <ActivityRow key={item.id} item={item} />)
         )}
       </View>
     </ScrollView>

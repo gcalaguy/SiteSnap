@@ -17,25 +17,17 @@ function NativeTabLayout() {
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>Home</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="projects">
-        <Icon sf={{ default: "folder", selected: "folder.fill" }} />
-        <Label>Projects</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="log">
-        <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
-        <Label>Log</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="ask">
-        <Icon sf={{ default: "bubble.left.and.bubble.right", selected: "bubble.left.and.bubble.right.fill" }} />
-        <Label>Ask AI</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="tasks">
-        <Icon sf={{ default: "checkmark.square", selected: "checkmark.square.fill" }} />
-        <Label>Tasks</Label>
+      <NativeTabs.Trigger name="risk">
+        <Icon sf={{ default: "exclamationmark.triangle", selected: "exclamationmark.triangle.fill" }} />
+        <Label>Risk</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="inspect">
         <Icon sf={{ default: "checkmark.shield", selected: "checkmark.shield.fill" }} />
-        <Label>Inspect</Label>
+        <Label>Inspections</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="safety">
+        <Icon sf={{ default: "cross.case", selected: "cross.case.fill" }} />
+        <Label>Safety</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
@@ -85,86 +77,45 @@ function ClassicTabLayout() {
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]}
-            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
           ) : null,
       }}
     >
+      {/* ── Visible tabs ── */}
       <Tabs.Screen
         name="index"
         options={{
           title: "Home",
           tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="house" tintColor={color} size={24} />
-            ) : (
-              <Feather name="home" size={22} color={color} />
-            ),
+            isIOS ? <SymbolView name="house" tintColor={color} size={24} /> : <Feather name="home" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="projects"
+        name="risk"
         options={{
-          title: "Projects",
+          title: "Risk",
           tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="folder" tintColor={color} size={24} />
-            ) : (
-              <Feather name="folder" size={22} color={color} />
-            ),
+            isIOS ? <SymbolView name="exclamationmark.triangle" tintColor={color} size={24} /> : <Feather name="alert-triangle" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="log"
+        name="inspect"
         options={{
-          title: "Log",
+          title: "Inspections",
           tabBarIcon: ({ color, focused }) => (
             <View style={{ position: "relative" }}>
-              {isIOS ? (
-                <SymbolView name="plus.circle" tintColor={color} size={24} />
-              ) : (
-                <Feather name="plus-circle" size={22} color={color} />
-              )}
+              {isIOS ? <SymbolView name="checkmark.shield" tintColor={color} size={24} /> : <Feather name="shield" size={22} color={color} />}
               <PendingBadge count={pendingCount} />
             </View>
           ),
         }}
       />
       <Tabs.Screen
-        name="ask"
+        name="safety"
         options={{
-          title: "Ask AI",
+          title: "Safety",
           tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="bubble.left.and.bubble.right" tintColor={color} size={24} />
-            ) : (
-              <Feather name="message-circle" size={22} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          title: "Tasks",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="checkmark.square" tintColor={color} size={24} />
-            ) : (
-              <Feather name="check-square" size={22} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="inspect"
-        options={{
-          title: "Inspect",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="checkmark.shield" tintColor={color} size={24} />
-            ) : (
-              <Feather name="shield" size={22} color={color} />
-            ),
+            isIOS ? <SymbolView name="cross.case" tintColor={color} size={24} /> : <Feather name="alert-circle" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -172,13 +123,15 @@ function ClassicTabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="person" tintColor={color} size={24} />
-            ) : (
-              <Feather name="user" size={22} color={color} />
-            ),
+            isIOS ? <SymbolView name="person" tintColor={color} size={24} /> : <Feather name="user" size={22} color={color} />,
         }}
       />
+
+      {/* ── Hidden from tab bar — accessible as push screens ── */}
+      <Tabs.Screen name="projects" options={{ href: null }} />
+      <Tabs.Screen name="log" options={{ href: null }} />
+      <Tabs.Screen name="ask" options={{ href: null }} />
+      <Tabs.Screen name="tasks" options={{ href: null }} />
     </Tabs>
   );
 }
