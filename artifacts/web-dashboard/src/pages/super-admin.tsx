@@ -27,7 +27,8 @@ import {
 import {
   ShieldCheck, Plus, Pencil, Trash2, Loader2, Check,
   Building2, Users, Zap, ToggleLeft, ToggleRight, Crown,
-  RefreshCw, DatabaseZap,
+  RefreshCw, DatabaseZap, Star, CheckCircle2, CreditCard,
+  AlertCircle, ExternalLink,
 } from "lucide-react";
 
 const GOLD = "#C9A84C";
@@ -552,6 +553,158 @@ function TenantsTab({ plans, isLoading }: { plans: Plan[]; isLoading: boolean })
   );
 }
 
+// ── Stripe Plans Tab ─────────────────────────────────────────────────────────────
+
+interface StripePriceObj {
+  id: string; unitAmount: number; currency: string;
+  recurring: { interval: string } | null;
+}
+interface StripePlanObj {
+  id: string; name: string; description: string;
+  metadata: { plan?: string; maxSeats?: string; features?: string };
+  prices: StripePriceObj[];
+}
+
+function stripeIcon(slug: string | undefined) {
+  if (slug === "starter") return <Zap className="h-6 w-6 text-blue-500" />;
+  if (slug === "pro")     return <Star className="h-6 w-6 text-yellow-500" />;
+  if (slug === "business") return <Crown className="h-6 w-6 text-yellow-500" />;
+  return <CreditCard className="h-6 w-6 text-muted-foreground" />;
+}
+
+function formatCAD(cents: number) {
+  return `$${(cents / 100).toFixed(0)} CAD`;
+}
+
+function StripePlansTab() {
+  const { toast } = useToast();
+  const [interval, setInterval] = useState<"month" | "year">("month");
+
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const { data: plansData, isLoading: plansLoading } = useQuery({
+    queryKey: ["billing-plans"],
+    queryFn: () => customFetch<{ plans: StripePlanObj[]; publishableKey: string }>(`${basePath}/api/billing/plans`),
+  });
+
+  const { data: subData } = useQuery({
+    queryKey: ["billing-subscription"],
+    queryFn: () => customFetch<{ subscription: any | null }>(`${basePath}/api/billing/subscription`),
+  });
+
+  const checkoutMut = useMutation({
+    mutationFn: ({ priceId }: { priceId: string }) =>
+      customFetch<{ url: string }>(`${basePath}/api/billing/checkout`, {
+        method: "POST", body: JSON.stringify({ priceId }),
+      }),
+    onSuccess: (data) => { window.location.href = data.url; },
+    onError: (err: any) => toast({ title: "Checkout failed", description: err.message, variant: "destructive" }),
+  });
+
+  const plans: StripePlanObj[] = plansData?.plans ?? [];
+  const subscription = subData?.subscription ?? null;
+  const activeProductId = subscription?.items?.data?.[0]?.price?.product;
+
+  return (
+    <div className="space-y-6">
+      {/* Interval toggle */}
+      <div className="flex items-center gap-4">
+        <h2 className="text-lg font-semibold">Choose a Plan</h2>
+        <div className="ml-auto flex items-center gap-1 rounded-lg p-1" style={{ background: BLACK }}>
+          {(["month", "year"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setInterval(v)}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${interval === v ? "font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
+              style={interval === v ? { background: GOLD, color: BLACK } : undefined}
+            >
+              {v === "month" ? "Monthly" : (
+                <span className="flex items-center gap-1.5">
+                  Annual
+                  <span className="rounded-full bg-green-700 text-white px-1.5 py-0.5 text-[10px] font-semibold">Save 17%</span>
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Plan cards */}
+      {plansLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[0, 1, 2].map((i) => <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />)}
+        </div>
+      ) : plans.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-xl border border-dashed">
+          <AlertCircle className="h-10 w-10 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">No Stripe plans found. Make sure products are created in Stripe and the API is configured.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {plans.map((plan) => {
+            const price = plan.prices.find((p) => p.recurring?.interval === interval);
+            const isCurrentPlan = plan.id === activeProductId;
+            const isPro = plan.metadata.plan === "pro";
+            const features = plan.metadata.features?.split(",") ?? [];
+            return (
+              <Card
+                key={plan.id}
+                className={`relative flex flex-col transition-shadow ${
+                  isPro ? "border-primary shadow-md ring-1 ring-primary/30" : "border-border"
+                } ${isCurrentPlan ? "bg-primary/[0.03]" : ""}`}
+              >
+                {isPro && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground shadow">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    {stripeIcon(plan.metadata.plan)}
+                    <CardTitle className="text-base">{plan.name.replace("Site Snap ", "")}</CardTitle>
+                  </div>
+                  <div className="flex items-end gap-1">
+                    <span className="text-3xl font-bold">{price ? formatCAD(price.unitAmount) : "—"}</span>
+                    <span className="text-muted-foreground text-sm mb-1">/{interval === "month" ? "mo" : "yr"}</span>
+                  </div>
+                  <CardDescription className="text-xs mt-1">{plan.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col flex-1">
+                  <ul className="space-y-2 flex-1">
+                    {features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                        <span>{f.trim()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Separator className="my-4" />
+                  {isCurrentPlan && subscription?.status === "active" ? (
+                    <Button variant="secondary" className="w-full" disabled>Current Plan</Button>
+                  ) : price ? (
+                    <Button
+                      className={`w-full ${isPro ? "bg-primary hover:bg-primary/90" : ""}`}
+                      variant={isPro ? "default" : "outline"}
+                      onClick={() => checkoutMut.mutate({ priceId: price.id })}
+                      disabled={checkoutMut.isPending}
+                    >
+                      {checkoutMut.isPending ? "Redirecting…" : subscription ? "Switch Plan" : "Get Started"}
+                    </Button>
+                  ) : (
+                    <Button variant="outline" className="w-full" disabled>Unavailable</Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ───────────────────────────────────────────────────────────────────
 
 export default function SuperAdminPage() {
@@ -658,12 +811,13 @@ export default function SuperAdminPage() {
 
       {/* Main tabs */}
       <Tabs defaultValue="plans">
-        <TabsList className="grid w-full grid-cols-4" style={{ background: BLACK }}>
+        <TabsList className="grid w-full grid-cols-5" style={{ background: BLACK }}>
           {[
             { value: "plans",         label: "Plans",         Icon: Crown       },
             { value: "features",      label: "Features",      Icon: Zap         },
             { value: "plan-features", label: "Plan Features", Icon: DatabaseZap },
             { value: "tenants",       label: "Tenants",       Icon: Building2   },
+            { value: "stripe-plans",  label: "Stripe Plans",  Icon: CreditCard  },
           ].map(({ value, label, Icon }) => (
             <TabsTrigger
               key={value}
@@ -686,6 +840,9 @@ export default function SuperAdminPage() {
         </TabsContent>
         <TabsContent value="tenants" className="mt-4">
           <TenantsTab plans={plans} isLoading={plansLoading} />
+        </TabsContent>
+        <TabsContent value="stripe-plans" className="mt-4">
+          <StripePlansTab />
         </TabsContent>
       </Tabs>
     </div>
