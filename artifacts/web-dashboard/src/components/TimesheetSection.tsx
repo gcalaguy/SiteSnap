@@ -819,24 +819,28 @@ export default function TimesheetSection({
           </select>
 
           {/* Status pills */}
-          <div className="flex items-center gap-1.5">
-            {(["all", "submitted", "approved", "denied"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setTsStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  tsStatusFilter === s
-                    ? "text-white border-transparent"
-                    : "bg-background text-muted-foreground border-border hover:border-primary/40"
-                }`}
-                style={tsStatusFilter === s ? { background: GOLD, borderColor: GOLD } : undefined}
-              >
-                {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-                <span className="ml-1 opacity-70">
-                  ({s === "all" ? timesheets.length : timesheets.filter((t) => t.status === s).length})
-                </span>
-              </button>
-            ))}
+          <div className="flex items-center gap-1 rounded-lg p-1" style={{ background: BLACK }}>
+            {(["all", "submitted", "approved", "denied"] as const).map((s) => {
+              const count = s === "all" ? timesheets.length : timesheets.filter((t) => t.status === s).length;
+              const isActive = tsStatusFilter === s;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setTsStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    isActive ? "font-semibold" : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                  style={isActive ? { background: GOLD, color: BLACK } : undefined}
+                >
+                  {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                  <span className={`inline-flex items-center justify-center rounded-full px-1.5 py-px text-[10px] font-bold leading-none min-w-[18px] ${
+                    isActive ? "bg-[#111111]/25 text-[#111111]" : "bg-white/15 text-zinc-300"
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Export all */}
