@@ -30,13 +30,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";
 
-const TABS: { label: string; value: InvoiceStatus | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "Draft", value: "draft" },
-  { label: "Sent", value: "sent" },
-  { label: "Paid", value: "paid" },
-  { label: "Overdue", value: "overdue" },
-  { label: "Cancelled", value: "cancelled" },
+const TABS: { label: string; value: InvoiceStatus | "all"; pill?: string }[] = [
+  { label: "All",       value: "all" },
+  { label: "Draft",     value: "draft",      pill: "bg-orange-500 text-white" },
+  { label: "Sent",      value: "sent",       pill: "bg-blue-500 text-white" },
+  { label: "Paid",      value: "paid",       pill: "bg-green-500 text-white" },
+  { label: "Overdue",   value: "overdue",    pill: "bg-red-500 text-white" },
+  { label: "Cancelled", value: "cancelled",  pill: "bg-yellow-400 text-yellow-900" },
 ];
 
 export default function Invoices() {
@@ -104,6 +104,7 @@ export default function Invoices() {
         >
           {TABS.map((t) => {
             const count = t.value === "all" ? totalCount : (counts[t.value] ?? 0);
+            const pillBase = t.pill ?? "bg-white/15 text-zinc-300";
             return (
               <TabsTrigger
                 key={t.value}
@@ -112,7 +113,7 @@ export default function Invoices() {
               >
                 {t.label}
                 {count > 0 && (
-                  <span className="inline-flex items-center justify-center rounded-full px-1.5 py-px text-[10px] font-bold leading-none min-w-[18px] bg-white/15 text-zinc-300 group-data-[state=active]:bg-[#111111]/25 group-data-[state=active]:text-[#111111]">
+                  <span className={`inline-flex items-center justify-center rounded-full px-1.5 py-px text-[10px] font-bold leading-none min-w-[18px] ${pillBase}`}>
                     {count}
                   </span>
                 )}
