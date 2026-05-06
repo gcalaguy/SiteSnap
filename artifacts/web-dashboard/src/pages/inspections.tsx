@@ -397,7 +397,7 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
   const { data: projects = [] } = useListProjects();
 
-  const [projectId, setProjectId] = useState<string>("");
+  const [projectId, setProjectId] = useState<string>("none");
   const [inspectionType, setInspectionType] = useState("safety");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [submitNow, setSubmitNow] = useState(true);
@@ -456,7 +456,7 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
                 <SelectValue placeholder="No project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No project</SelectItem>
+                <SelectItem value="none">No project</SelectItem>
                 {(projects as any[]).map((p: any) => (
                   <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                 ))}
@@ -539,7 +539,7 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
           <Button
             onClick={() =>
               create.mutate({
-                projectId: projectId ? parseInt(projectId) : null,
+                projectId: projectId && projectId !== "none" ? parseInt(projectId) : null,
                 inspectionType,
                 date,
                 items: validItems,
