@@ -20,12 +20,12 @@ const PLANS = [
     ],
   },
   {
-    name: 'Site Snap Business',
+    name: 'Site Snap Enterprise',
     description: 'Unlimited team members. Full feature access.',
     metadata: { plan: 'business', maxSeats: 'unlimited', features: 'Everything in Pro,Unlimited Seats,Priority Support' },
     prices: [
-      { amount: 19900, interval: 'month' as const, nickname: 'Business Monthly' },
-      { amount: 199000, interval: 'year' as const, nickname: 'Business Annual (save 17%)' },
+      { amount: 19900, interval: 'month' as const, nickname: 'Enterprise Monthly' },
+      { amount: 199000, interval: 'year' as const, nickname: 'Enterprise Annual (save 17%)' },
     ],
   },
 ];

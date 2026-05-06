@@ -451,7 +451,9 @@ export default function AdminPage() {
                   <CardHeader className="pb-4">
                     <div className="flex items-center gap-3 mb-2">
                       {planIcon(plan.metadata.plan)}
-                      <CardTitle className="text-base">{plan.name.replace("Site Snap ", "")}</CardTitle>
+                      <CardTitle className="text-base">
+                        {plan.metadata.plan === "business" ? "Enterprise" : plan.name.replace("Site Snap ", "")}
+                      </CardTitle>
                     </div>
                     <div className="flex items-end gap-1">
                       <span className="text-3xl font-bold">{price ? formatCAD(price.unitAmount) : "—"}</span>
