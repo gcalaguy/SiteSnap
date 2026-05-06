@@ -150,6 +150,7 @@ const ALL_STATUSES = ["all", "active", "on_hold", "completed"];
 export default function ProjectsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { data: projects, isLoading, refetch } = useListProjects();
   const { data: me } = useGetMe();
   const isWorker = me?.role === "worker";
