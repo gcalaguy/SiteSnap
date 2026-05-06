@@ -147,10 +147,74 @@ const styles = StyleSheet.create({
 
 const ALL_STATUSES = ["all", "active", "on_hold", "completed"];
 
-export default function ProjectsScreen() {
+type HeaderProps = {
+  search: string;
+  onSearch: (v: string) => void;
+  statusFilter: string;
+  onStatus: (v: string) => void;
+  isLoading: boolean;
+  filteredCount: number;
+};
+
+function ProjectsHeader({ search, onSearch, statusFilter, onStatus, isLoading, filteredCount }: HeaderProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const topInsets = Platform.OS === "web" ? 67 : insets.top;
+
+  return (
+    <View style={[styles.headerArea, { paddingTop: topInsets + 16 }]}>
+      <Pressable
+        onPress={() => router.back()}
+        style={styles.backBtn}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Feather name="arrow-left" size={22} color={colors.foreground} />
+      </Pressable>
+      <Text style={[styles.screenTitle, { color: colors.foreground }]}>Projects</Text>
+      <View style={[styles.searchBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+        <Feather name="search" size={16} color={colors.mutedForeground} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.foreground }]}
+          placeholder="Search projects..."
+          placeholderTextColor={colors.mutedForeground}
+          value={search}
+          onChangeText={onSearch}
+        />
+        {!!search && (
+          <Pressable onPress={() => onSearch("")}>
+            <Feather name="x" size={16} color={colors.mutedForeground} />
+          </Pressable>
+        )}
+      </View>
+      <View style={styles.filterRow}>
+        {ALL_STATUSES.map(s => {
+          const active = statusFilter === s;
+          return (
+            <Pressable
+              key={s}
+              style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border }]}
+              onPress={() => onStatus(s)}
+            >
+              <Text style={[styles.filterText, { color: active ? "#FFFFFF" : colors.mutedForeground }]}>
+                {s === "all" ? "All" : STATUS_LABELS[s]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {!isLoading && (
+        <Text style={[styles.count, { color: colors.mutedForeground, paddingHorizontal: 0, paddingTop: 10 }]}>
+          {filteredCount} project{filteredCount !== 1 ? "s" : ""}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+export default function ProjectsScreen() {
+  const colors = useColors();
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const { data: projects, isLoading, refetch } = useListProjects();
   const { data: me } = useGetMe();
   const isWorker = me?.role === "worker";
@@ -166,8 +230,6 @@ export default function ProjectsScreen() {
     return matchSearch && matchStatus;
   });
 
-  const topInsets = Platform.OS === "web" ? 67 : insets.top;
-
   return (
     <FlatList
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -175,56 +237,16 @@ export default function ProjectsScreen() {
       keyExtractor={item => String(item.id)}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
-      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
+      contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : bottomInset + 90, flexGrow: 1 }}
       ListHeaderComponent={
-        <View style={[styles.headerArea, { paddingTop: topInsets + 16 }]}>
-          <Pressable
-            onPress={() => router.back()}
-            style={styles.backBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name="arrow-left" size={22} color={colors.foreground} />
-          </Pressable>
-          <Text style={[styles.screenTitle, { color: colors.foreground }]}>Projects</Text>
-          {/* Search */}
-          <View style={[styles.searchBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-            <Feather name="search" size={16} color={colors.mutedForeground} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.foreground }]}
-              placeholder="Search projects..."
-              placeholderTextColor={colors.mutedForeground}
-              value={search}
-              onChangeText={setSearch}
-            />
-            {!!search && (
-              <Pressable onPress={() => setSearch("")}>
-                <Feather name="x" size={16} color={colors.mutedForeground} />
-              </Pressable>
-            )}
-          </View>
-          {/* Status filter */}
-          <View style={styles.filterRow}>
-            {ALL_STATUSES.map(s => {
-              const active = statusFilter === s;
-              return (
-                <Pressable
-                  key={s}
-                  style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border }]}
-                  onPress={() => setStatusFilter(s)}
-                >
-                  <Text style={[styles.filterText, { color: active ? "#FFFFFF" : colors.mutedForeground }]}>
-                    {s === "all" ? "All" : STATUS_LABELS[s]}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          {!isLoading && (
-            <Text style={[styles.count, { color: colors.mutedForeground, paddingHorizontal: 0, paddingTop: 10 }]}>
-              {filtered.length} project{filtered.length !== 1 ? "s" : ""}
-            </Text>
-          )}
-        </View>
+        <ProjectsHeader
+          search={search}
+          onSearch={setSearch}
+          statusFilter={statusFilter}
+          onStatus={setStatusFilter}
+          isLoading={isLoading}
+          filteredCount={filtered.length}
+        />
       }
       renderItem={({ item }) => <ProjectCard project={item} />}
       ListEmptyComponent={

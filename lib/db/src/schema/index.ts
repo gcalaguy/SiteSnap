@@ -1150,6 +1150,69 @@ export const estimatorActualsTable = pgTable("estimator_actuals", {
 });
 export type EstimatorActual = typeof estimatorActualsTable.$inferSelect;
 
+// ── Equipment ─────────────────────────────────────────────────────────────────
+
+export const equipmentTable = pgTable("equipment", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("other"), // excavator | lift | crane | truck | tools | other
+  status: text("status").notNull().default("available"), // available | in_use | maintenance | retired
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertEquipmentSchema = createInsertSchema(equipmentTable).omit({ id: true, createdAt: true });
+export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
+export type Equipment = typeof equipmentTable.$inferSelect;
+
+// ── Schedule Events (meetings, equipment bookings, site visits) ───────────────
+
+export const scheduleEventsTable = pgTable("schedule_events", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  projectId: integer("project_id").references(() => projectsTable.id, { onDelete: "set null" }),
+  type: text("type").notNull().default("meeting"), // meeting | equipment_booking | site_visit | inspection | other
+  title: text("title").notNull(),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  location: text("location"),
+  notes: text("notes"),
+  status: text("status").notNull().default("scheduled"), // scheduled | in_progress | completed | cancelled
+  createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertScheduleEventSchema = createInsertSchema(scheduleEventsTable).omit({ id: true, createdAt: true });
+export type InsertScheduleEvent = z.infer<typeof insertScheduleEventSchema>;
+export type ScheduleEvent = typeof scheduleEventsTable.$inferSelect;
+
+// ── Schedule Event Assignees (users or equipment linked to events) ─────────────
+
+export const scheduleEventAssigneesTable = pgTable("schedule_event_assignees", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => scheduleEventsTable.id, { onDelete: "cascade" }),
+  resourceType: text("resource_type").notNull(), // user | equipment
+  resourceId: integer("resource_id").notNull(),
+});
+
+export type ScheduleEventAssignee = typeof scheduleEventAssigneesTable.$inferSelect;
+
+// ── Task Dependencies ──────────────────────────────────────────────────────────
+
+export const taskDependenciesTable = pgTable(
+  "task_dependencies",
+  {
+    id: serial("id").primaryKey(),
+    taskId: integer("task_id").notNull().references(() => tasksTable.id, { onDelete: "cascade" }),
+    dependsOnTaskId: integer("depends_on_task_id").notNull().references(() => tasksTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.taskId, t.dependsOnTaskId)],
+);
+
+export type TaskDependency = typeof taskDependenciesTable.$inferSelect;
+
 // ── AI Inspections ─────────────────────────────────────────────────────────────
 
 export const inspectionsTable = pgTable("inspections", {

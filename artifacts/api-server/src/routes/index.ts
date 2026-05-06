@@ -41,6 +41,7 @@ import estimatorRouter from "./estimator";
 import photoSummaryRouter from "./photoSummary";
 import inspectionsRouter from "./inspections";
 import riskDashboardRouter from "./riskDashboard";
+import scheduleEventsRouter from "./scheduleEvents";
 
 const router: IRouter = Router();
 
@@ -86,5 +87,6 @@ router.use(estimatorRouter);
 router.use(photoSummaryRouter);
 router.use(inspectionsRouter);
 router.use(riskDashboardRouter);
+router.use(scheduleEventsRouter);
 
 export default router;

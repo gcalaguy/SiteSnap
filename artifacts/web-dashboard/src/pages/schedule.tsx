@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   ChevronLeft, ChevronRight, CalendarDays, Plus, Loader2,
   Users, Building2, GanttChartSquare, LayoutGrid, X,
+  Wrench, Clock, Trash2, Edit2, MapPin, AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -38,8 +39,15 @@ type WeekData = {
   weekStart: string; weekEnd: string;
   assignments: GAssignment[]; members: Member[]; projects: GProject[];
 };
-type ViewMode = "gantt" | "team";
+type ViewMode = "gantt" | "team" | "events" | "equipment";
 type ZoomLevel = "2w" | "1m" | "3m";
+type ScheduleEvent = {
+  id: number; companyId: number; projectId: number | null; type: string; title: string;
+  startTime: string; endTime: string; location: string | null; notes: string | null;
+  status: string; projectName: string | null; createdByFirstName: string | null; createdByLastName: string | null;
+  assignees: Array<{ id: number; eventId: number; resourceType: string; resourceId: number }>;
+};
+type Equipment = { id: number; companyId: number; name: string; type: string; status: string; notes: string | null; createdAt: string };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const USER_COLORS = [
@@ -95,13 +103,34 @@ export default function Schedule() {
   const [ganttNav, setGanttNav] = useState<Date>(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [teamWeek, setTeamWeek] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
 
-  // Dialog state
+  // Crew assignment dialog state
   const [showDialog, setShowDialog] = useState(false);
   const [dlgUserId, setDlgUserId] = useState("");
   const [dlgProjectId, setDlgProjectId] = useState("");
   const [dlgStart, setDlgStart] = useState("");
   const [dlgEnd, setDlgEnd] = useState("");
   const [dlgNotes, setDlgNotes] = useState("");
+
+  // Events view state
+  const [eventsWeek, setEventsWeek] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [showEventDialog, setShowEventDialog] = useState(false);
+  const [evtTitle, setEvtTitle] = useState("");
+  const [evtType, setEvtType] = useState("meeting");
+  const [evtProjectId, setEvtProjectId] = useState("");
+  const [evtDate, setEvtDate] = useState("");
+  const [evtStartTime, setEvtStartTime] = useState("09:00");
+  const [evtEndTime, setEvtEndTime] = useState("10:00");
+  const [evtLocation, setEvtLocation] = useState("");
+  const [evtNotes, setEvtNotes] = useState("");
+  const [evtConflicts, setEvtConflicts] = useState<any[]>([]);
+
+  // Equipment view state
+  const [showEquipmentDialog, setShowEquipmentDialog] = useState(false);
+  const [editEquipId, setEditEquipId] = useState<number | null>(null);
+  const [eqName, setEqName] = useState("");
+  const [eqType, setEqType] = useState("other");
+  const [eqStatus, setEqStatus] = useState("available");
+  const [eqNotes, setEqNotes] = useState("");
 
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
@@ -201,6 +230,20 @@ export default function Schedule() {
     enabled: isOwnerOrForeman && view === "team",
   });
 
+  const equipmentQuery = useQuery<Equipment[]>({
+    queryKey: ["equipment"],
+    queryFn: () => customFetch("/api/equipment"),
+    enabled: view === "equipment",
+  });
+
+  const eventsFrom = format(eventsWeek, "yyyy-MM-dd");
+  const eventsTo = format(addDays(eventsWeek, 6), "yyyy-MM-dd");
+  const eventsQuery = useQuery<ScheduleEvent[]>({
+    queryKey: ["schedule-events", eventsFrom],
+    queryFn: () => customFetch(`/api/schedule/events?from=${eventsFrom}T00:00:00&to=${eventsTo}T23:59:59`),
+    enabled: isOwnerOrForeman && view === "events",
+  });
+
   // ── Mutations ────────────────────────────────────────────────────────────
   const createMut = useMutation({
     mutationFn: (body: object) => customFetch("/api/schedule", { method: "POST", body: JSON.stringify(body) }),
@@ -232,6 +275,58 @@ export default function Schedule() {
     },
     onError: (err: any) => toast({ title: err?.message ?? "Failed to update", variant: "destructive" }),
   });
+
+  // ── Equipment mutations ───────────────────────────────────────────────────
+  const createEquipMut = useMutation({
+    mutationFn: (body: object) => customFetch("/api/equipment", { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["equipment"] }); setShowEquipmentDialog(false); toast({ title: "Equipment added" }); },
+    onError: (err: any) => toast({ title: err?.message ?? "Failed", variant: "destructive" }),
+  });
+  const updateEquipMut = useMutation({
+    mutationFn: ({ id, ...body }: { id: number } & object) => customFetch(`/api/equipment/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["equipment"] }); setShowEquipmentDialog(false); toast({ title: "Equipment updated" }); },
+    onError: (err: any) => toast({ title: err?.message ?? "Failed", variant: "destructive" }),
+  });
+  const deleteEquipMut = useMutation({
+    mutationFn: (id: number) => customFetch(`/api/equipment/${id}`, { method: "DELETE" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["equipment"] }); toast({ title: "Equipment removed" }); },
+    onError: (err: any) => toast({ title: err?.message ?? "Failed", variant: "destructive" }),
+  });
+
+  // ── Schedule event mutations ──────────────────────────────────────────────
+  const createEventMut = useMutation({
+    mutationFn: (body: object) => customFetch("/api/schedule/events", { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["schedule-events"] }); setShowEventDialog(false); toast({ title: "Event created" }); },
+    onError: async (err: any) => {
+      if (err?.status === 409) {
+        const data = await err.json?.() ?? {};
+        setEvtConflicts(data.conflicts ?? []);
+        toast({ title: "Conflict detected — review below", variant: "destructive" });
+      } else {
+        toast({ title: err?.message ?? "Failed", variant: "destructive" });
+      }
+    },
+  });
+  const deleteEventMut = useMutation({
+    mutationFn: (id: number) => customFetch(`/api/schedule/events/${id}`, { method: "DELETE" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["schedule-events"] }); toast({ title: "Event removed" }); },
+    onError: (err: any) => toast({ title: err?.message ?? "Failed", variant: "destructive" }),
+  });
+
+  function openEquipDialog(eq?: Equipment) {
+    if (eq) {
+      setEditEquipId(eq.id); setEqName(eq.name); setEqType(eq.type); setEqStatus(eq.status); setEqNotes(eq.notes ?? "");
+    } else {
+      setEditEquipId(null); setEqName(""); setEqType("other"); setEqStatus("available"); setEqNotes("");
+    }
+    setShowEquipmentDialog(true);
+  }
+
+  function openEventDialog() {
+    setEvtTitle(""); setEvtType("meeting"); setEvtProjectId(""); setEvtConflicts([]);
+    setEvtDate(format(new Date(), "yyyy-MM-dd")); setEvtStartTime("09:00"); setEvtEndTime("10:00");
+    setEvtLocation(""); setEvtNotes(""); setShowEventDialog(true);
+  }
 
   // ── Drag state (Gantt) ────────────────────────────────────────────────────
   type DragInfo = { id: number; kind: "move" | "resize"; startClientX: number; origStartMs: number; origEndMs: number };
@@ -363,12 +458,27 @@ export default function Schedule() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
             <p className="text-muted-foreground mt-0.5">
-              {view === "gantt" ? "Project timelines and worker assignments at a glance." : "Weekly worker availability across all projects."}
+              {view === "gantt" ? "Project timelines and worker assignments at a glance."
+                : view === "team" ? "Weekly worker availability across all projects."
+                : view === "events" ? "Meetings, site visits, and equipment bookings."
+                : "Manage your company equipment fleet."}
             </p>
           </div>
-          <Button onClick={() => openDialog()} className="shrink-0">
-            <Plus className="mr-2 h-4 w-4" /> Assign Worker
-          </Button>
+          {view === "events" && isOwnerOrForeman && (
+            <Button onClick={openEventDialog} className="shrink-0">
+              <Plus className="mr-2 h-4 w-4" /> New Event
+            </Button>
+          )}
+          {view === "equipment" && isOwnerOrForeman && (
+            <Button onClick={() => openEquipDialog()} className="shrink-0">
+              <Plus className="mr-2 h-4 w-4" /> Add Equipment
+            </Button>
+          )}
+          {(view === "gantt" || view === "team") && (
+            <Button onClick={() => openDialog()} className="shrink-0">
+              <Plus className="mr-2 h-4 w-4" /> Assign Worker
+            </Button>
+          )}
         </div>
 
         {/* ── Summary cards ── */}
@@ -394,60 +504,76 @@ export default function Schedule() {
             <div className="flex items-center justify-between gap-4 flex-wrap">
               {/* View toggle */}
               <div className="flex items-center gap-1 rounded-lg p-1" style={{ background: "#111111" }}>
-                <button
-                  onClick={() => setView("gantt")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === "gantt" ? "text-[#111111] font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
-                  style={view === "gantt" ? { background: "#C9A84C" } : {}}
-                >
-                  <GanttChartSquare className="h-4 w-4" /> Gantt
-                </button>
-                <button
-                  onClick={() => setView("team")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === "team" ? "text-[#111111] font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
-                  style={view === "team" ? { background: "#C9A84C" } : {}}
-                >
-                  <LayoutGrid className="h-4 w-4" /> Team Grid
-                </button>
+                {([
+                  { id: "gantt",     label: "Gantt",     Icon: GanttChartSquare },
+                  { id: "team",      label: "Team Grid", Icon: LayoutGrid },
+                  { id: "events",    label: "Events",    Icon: Clock },
+                  { id: "equipment", label: "Equipment", Icon: Wrench },
+                ] as const).map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => setView(id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === id ? "text-[#111111] font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
+                    style={view === id ? { background: "#C9A84C" } : {}}
+                  >
+                    <Icon className="h-4 w-4" /> {label}
+                  </button>
+                ))}
               </div>
 
-              {/* Navigation */}
-              <div className="flex items-center gap-2">
-                {/* Zoom (Gantt only) */}
-                {view === "gantt" && (
-                  <div className="flex items-center gap-1 rounded-lg p-1 mr-2" style={{ background: "#111111" }}>
-                    {(["2w", "1m", "3m"] as ZoomLevel[]).map(z => (
-                      <button
-                        key={z}
-                        onClick={() => { setZoom(z); ganttToday(); }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${zoom === z ? "text-[#111111] font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
-                        style={zoom === z ? { background: "#C9A84C" } : {}}
-                      >
-                        {z === "2w" ? "2 Wks" : z === "1m" ? "1 Mo" : "3 Mo"}
-                      </button>
-                    ))}
+              {/* Navigation (only for time-based views) */}
+              {(view === "gantt" || view === "team" || view === "events") && (
+                <div className="flex items-center gap-2">
+                  {view === "gantt" && (
+                    <div className="flex items-center gap-1 rounded-lg p-1 mr-2" style={{ background: "#111111" }}>
+                      {(["2w", "1m", "3m"] as ZoomLevel[]).map(z => (
+                        <button
+                          key={z}
+                          onClick={() => { setZoom(z); ganttToday(); }}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${zoom === z ? "text-[#111111] font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
+                          style={zoom === z ? { background: "#C9A84C" } : {}}
+                        >
+                          {z === "2w" ? "2 Wks" : z === "1m" ? "1 Mo" : "3 Mo"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={
+                    view === "gantt" ? ganttPrev
+                    : view === "events" ? () => setEventsWeek(w => addDays(w, -7))
+                    : () => setTeamWeek(w => addDays(w, -7))
+                  }>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  <div className="text-sm font-semibold min-w-[180px] text-center">
+                    {view === "gantt"
+                      ? `${format(ganttRange.start, "MMM d")} – ${format(ganttRange.end, "MMM d, yyyy")}`
+                      : view === "events"
+                        ? `${format(eventsWeek, "MMM d")} – ${format(addDays(eventsWeek, 6), "MMM d, yyyy")}`
+                        : teamQuery.data
+                          ? `${format(parseISO(teamQuery.data.weekStart), "MMM d")} – ${format(parseISO(teamQuery.data.weekEnd), "MMM d, yyyy")}`
+                          : "Loading…"}
                   </div>
-                )}
 
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={view === "gantt" ? ganttPrev : () => setTeamWeek(w => addDays(w, -7))}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={
+                    view === "gantt" ? ganttNext
+                    : view === "events" ? () => setEventsWeek(w => addDays(w, 7))
+                    : () => setTeamWeek(w => addDays(w, 7))
+                  }>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
 
-                <div className="text-sm font-semibold min-w-[180px] text-center">
-                  {view === "gantt"
-                    ? `${format(ganttRange.start, "MMM d")} – ${format(ganttRange.end, "MMM d, yyyy")}`
-                    : teamQuery.data
-                      ? `${format(parseISO(teamQuery.data.weekStart), "MMM d")} – ${format(parseISO(teamQuery.data.weekEnd), "MMM d, yyyy")}`
-                      : "Loading…"}
+                  <Button variant="ghost" size="sm" className="text-xs h-8 px-3" onClick={
+                    view === "gantt" ? ganttToday
+                    : view === "events" ? () => setEventsWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))
+                    : () => setTeamWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))
+                  }>
+                    Today
+                  </Button>
                 </div>
-
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={view === "gantt" ? ganttNext : () => setTeamWeek(w => addDays(w, 7))}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-
-                <Button variant="ghost" size="sm" className="text-xs h-8 px-3" onClick={view === "gantt" ? ganttToday : () => setTeamWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
-                  Today
-                </Button>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -903,6 +1029,284 @@ export default function Schedule() {
               >
                 {createMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Assign
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── EVENTS VIEW ── */}
+        {view === "events" && (
+          <div className="space-y-3">
+            {eventsQuery.isLoading ? (
+              <div className="flex items-center justify-center h-48 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading events…
+              </div>
+            ) : !eventsQuery.data || eventsQuery.data.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                  <Clock className="h-10 w-10 mb-3 opacity-40" />
+                  <p className="font-medium">No events this week.</p>
+                  <p className="text-sm mt-1">Use "New Event" to schedule a meeting, site visit, or equipment booking.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {eventsQuery.data.map(evt => {
+                  const typeConfig: Record<string, { color: string; label: string }> = {
+                    meeting: { color: "#3B82F6", label: "Meeting" },
+                    equipment_booking: { color: "#F59E0B", label: "Equipment" },
+                    site_visit: { color: "#10B981", label: "Site Visit" },
+                    inspection: { color: "#8B5CF6", label: "Inspection" },
+                    other: { color: "#6B7280", label: "Other" },
+                  };
+                  const tc = typeConfig[evt.type] ?? typeConfig.other;
+                  const start = new Date(evt.startTime);
+                  const end = new Date(evt.endTime);
+                  return (
+                    <Card key={evt.id} className="overflow-hidden">
+                      <div className="flex">
+                        <div className="w-1 shrink-0" style={{ backgroundColor: tc.color }} />
+                        <CardContent className="py-3 px-4 flex-1">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: tc.color }}>
+                                  {tc.label}
+                                </span>
+                                {evt.projectName && (
+                                  <span className="text-xs text-muted-foreground truncate">{evt.projectName}</span>
+                                )}
+                              </div>
+                              <p className="font-semibold text-sm">{evt.title}</p>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {format(start, "EEE MMM d, h:mm a")} – {format(end, "h:mm a")}
+                                </span>
+                                {evt.location && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" /> {evt.location}
+                                  </span>
+                                )}
+                              </div>
+                              {evt.notes && <p className="text-xs text-muted-foreground mt-1 italic">{evt.notes}</p>}
+                            </div>
+                            {isOwnerOrForeman && (
+                              <button
+                                onClick={() => deleteEventMut.mutate(evt.id)}
+                                className="text-muted-foreground hover:text-destructive transition-colors shrink-0 p-1"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── EQUIPMENT VIEW ── */}
+        {view === "equipment" && (
+          <div>
+            {equipmentQuery.isLoading ? (
+              <div className="flex items-center justify-center h-48 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading equipment…
+              </div>
+            ) : !equipmentQuery.data || equipmentQuery.data.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                  <Wrench className="h-10 w-10 mb-3 opacity-40" />
+                  <p className="font-medium">No equipment added yet.</p>
+                  <p className="text-sm mt-1">Add equipment to track availability and bookings.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <div className="divide-y">
+                  {equipmentQuery.data.map(eq => {
+                    const statusColor: Record<string, string> = {
+                      available: "bg-green-100 text-green-700 border-green-200",
+                      in_use: "bg-amber-100 text-amber-700 border-amber-200",
+                      maintenance: "bg-red-100 text-red-700 border-red-200",
+                      retired: "bg-gray-100 text-gray-500 border-gray-200",
+                    };
+                    const sc = statusColor[eq.status] ?? statusColor.available;
+                    return (
+                      <div key={eq.id} className="flex items-center gap-4 px-4 py-3">
+                        <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: BLACK }}>
+                          <Wrench className="h-4 w-4" style={{ color: GOLD }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm">{eq.name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{eq.type.replace(/_/g, " ")}</p>
+                        </div>
+                        <Badge variant="outline" className={`text-xs shrink-0 ${sc}`}>
+                          {eq.status.replace(/_/g, " ")}
+                        </Badge>
+                        {isOwnerOrForeman && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button onClick={() => openEquipDialog(eq)} className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => deleteEquipMut.mutate(eq.id)} className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-destructive">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* ── NEW EVENT DIALOG ── */}
+        <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>New Event</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div>
+                <label className="text-sm font-medium block mb-1">Title *</label>
+                <Input placeholder="e.g. Site Safety Meeting" value={evtTitle} onChange={e => setEvtTitle(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Type</label>
+                <Select value={evtType} onValueChange={setEvtType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["meeting", "equipment_booking", "site_visit", "inspection", "other"].map(t => (
+                      <SelectItem key={t} value={t}>{t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Date *</label>
+                <Input type="date" value={evtDate} onChange={e => setEvtDate(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium block mb-1">Start Time *</label>
+                  <Input type="time" value={evtStartTime} onChange={e => setEvtStartTime(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium block mb-1">End Time *</label>
+                  <Input type="time" value={evtEndTime} onChange={e => setEvtEndTime(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Location (optional)</label>
+                <Input placeholder="e.g. Site office, 123 Main St" value={evtLocation} onChange={e => setEvtLocation(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Notes (optional)</label>
+                <Textarea placeholder="Additional details…" value={evtNotes} onChange={e => setEvtNotes(e.target.value)} className="min-h-[60px]" />
+              </div>
+              {evtConflicts.length > 0 && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                  <div className="text-sm text-destructive">
+                    <p className="font-medium mb-1">Scheduling conflict detected</p>
+                    {evtConflicts.map((c, i) => (
+                      <p key={i} className="text-xs">{c.conflicts?.[0]?.title ?? "Conflict"} overlaps this time</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEventDialog(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (!evtTitle || !evtDate || !evtStartTime || !evtEndTime) return;
+                  setEvtConflicts([]);
+                  createEventMut.mutate({
+                    title: evtTitle,
+                    type: evtType,
+                    projectId: evtProjectId ? Number(evtProjectId) : undefined,
+                    startTime: `${evtDate}T${evtStartTime}:00`,
+                    endTime: `${evtDate}T${evtEndTime}:00`,
+                    location: evtLocation || undefined,
+                    notes: evtNotes || undefined,
+                  });
+                }}
+                disabled={!evtTitle || !evtDate || !evtStartTime || !evtEndTime || createEventMut.isPending}
+              >
+                {createEventMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Event
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── EQUIPMENT DIALOG ── */}
+        <Dialog open={showEquipmentDialog} onOpenChange={setShowEquipmentDialog}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{editEquipId ? "Edit Equipment" : "Add Equipment"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div>
+                <label className="text-sm font-medium block mb-1">Name *</label>
+                <Input placeholder="e.g. Excavator #2" value={eqName} onChange={e => setEqName(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Type</label>
+                <Select value={eqType} onValueChange={setEqType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["excavator", "lift", "crane", "truck", "tools", "other"].map(t => (
+                      <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Status</label>
+                <Select value={eqStatus} onValueChange={setEqStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[
+                      { value: "available", label: "Available" },
+                      { value: "in_use", label: "In Use" },
+                      { value: "maintenance", label: "Maintenance" },
+                      { value: "retired", label: "Retired" },
+                    ].map(s => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Notes (optional)</label>
+                <Textarea placeholder="e.g. Due for service in June" value={eqNotes} onChange={e => setEqNotes(e.target.value)} className="min-h-[60px]" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEquipmentDialog(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (!eqName) return;
+                  const body = { name: eqName, type: eqType, status: eqStatus, notes: eqNotes || undefined };
+                  if (editEquipId) {
+                    updateEquipMut.mutate({ id: editEquipId, ...body });
+                  } else {
+                    createEquipMut.mutate(body);
+                  }
+                }}
+                disabled={!eqName || createEquipMut.isPending || updateEquipMut.isPending}
+              >
+                {(createEquipMut.isPending || updateEquipMut.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editEquipId ? "Save Changes" : "Add Equipment"}
               </Button>
             </DialogFooter>
           </DialogContent>
