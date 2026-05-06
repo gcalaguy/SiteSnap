@@ -125,6 +125,7 @@ export default function Schedule() {
   const [evtConflicts, setEvtConflicts] = useState<any[]>([]);
   const [evtRecipientEmails, setEvtRecipientEmails] = useState<string[]>([]);
   const [evtEmailInput, setEvtEmailInput] = useState("");
+  const [editEvtId, setEditEvtId] = useState<number | null>(null);
 
   // Equipment view state
   const [showEquipmentDialog, setShowEquipmentDialog] = useState(false);
@@ -310,6 +311,24 @@ export default function Schedule() {
       }
     },
   });
+  const updateEventMut = useMutation({
+    mutationFn: ({ id, ...body }: { id: number } & object) =>
+      customFetch(`/api/schedule/events/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["schedule-events"] });
+      setShowEventDialog(false);
+      toast({ title: "Event updated" });
+    },
+    onError: async (err: any) => {
+      if (err?.status === 409) {
+        const data = await err.json?.() ?? {};
+        setEvtConflicts(data.conflicts ?? []);
+        toast({ title: "Conflict detected — review below", variant: "destructive" });
+      } else {
+        toast({ title: err?.message ?? "Failed", variant: "destructive" });
+      }
+    },
+  });
   const deleteEventMut = useMutation({
     mutationFn: (id: number) => customFetch(`/api/schedule/events/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["schedule-events"] }); toast({ title: "Event removed" }); },
@@ -326,9 +345,26 @@ export default function Schedule() {
   }
 
   function openEventDialog() {
+    setEditEvtId(null);
     setEvtTitle(""); setEvtType("meeting"); setEvtProjectId(""); setEvtConflicts([]);
     setEvtDate(format(new Date(), "yyyy-MM-dd")); setEvtStartTime("09:00"); setEvtEndTime("10:00");
     setEvtLocation(""); setEvtNotes(""); setEvtRecipientEmails([]); setEvtEmailInput("");
+    setShowEventDialog(true);
+  }
+
+  function openEditEventDialog(evt: ScheduleEvent) {
+    setEditEvtId(evt.id);
+    setEvtTitle(evt.title);
+    setEvtType(evt.type);
+    setEvtProjectId(evt.projectId ? String(evt.projectId) : "");
+    setEvtConflicts([]);
+    setEvtDate(format(parseISO(evt.startTime), "yyyy-MM-dd"));
+    setEvtStartTime(format(parseISO(evt.startTime), "HH:mm"));
+    setEvtEndTime(format(parseISO(evt.endTime), "HH:mm"));
+    setEvtLocation(evt.location ?? "");
+    setEvtNotes(evt.notes ?? "");
+    setEvtRecipientEmails([]);
+    setEvtEmailInput("");
     setShowEventDialog(true);
   }
 
@@ -1128,12 +1164,22 @@ export default function Schedule() {
                               {evt.notes && <p className="text-xs text-muted-foreground mt-1 italic">{evt.notes}</p>}
                             </div>
                             {isOwnerOrForeman && (
-                              <button
-                                onClick={() => deleteEventMut.mutate(evt.id)}
-                                className="text-muted-foreground hover:text-destructive transition-colors shrink-0 p-1"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  onClick={() => openEditEventDialog(evt)}
+                                  className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                                  title="Edit event"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => deleteEventMut.mutate(evt.id)}
+                                  className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                                  title="Delete event"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
                             )}
                           </div>
                         </CardContent>
@@ -1207,7 +1253,7 @@ export default function Schedule() {
         <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>New Event</DialogTitle>
+              <DialogTitle>{editEvtId ? "Edit Event" : "New Event"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div>
@@ -1309,7 +1355,7 @@ export default function Schedule() {
                 onClick={() => {
                   if (!evtTitle || !evtDate || !evtStartTime || !evtEndTime) return;
                   setEvtConflicts([]);
-                  createEventMut.mutate({
+                  const payload = {
                     title: evtTitle,
                     type: evtType,
                     projectId: evtProjectId ? Number(evtProjectId) : undefined,
@@ -1317,13 +1363,20 @@ export default function Schedule() {
                     endTime: `${evtDate}T${evtEndTime}:00`,
                     location: evtLocation || undefined,
                     notes: evtNotes || undefined,
-                    recipientEmails: evtRecipientEmails.length > 0 ? evtRecipientEmails : undefined,
-                  });
+                  };
+                  if (editEvtId) {
+                    updateEventMut.mutate({ id: editEvtId, ...payload });
+                  } else {
+                    createEventMut.mutate({
+                      ...payload,
+                      recipientEmails: evtRecipientEmails.length > 0 ? evtRecipientEmails : undefined,
+                    });
+                  }
                 }}
-                disabled={!evtTitle || !evtDate || !evtStartTime || !evtEndTime || createEventMut.isPending}
+                disabled={!evtTitle || !evtDate || !evtStartTime || !evtEndTime || createEventMut.isPending || updateEventMut.isPending}
               >
-                {createEventMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Event
+                {(createEventMut.isPending || updateEventMut.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editEvtId ? "Save Changes" : "Create Event"}
               </Button>
             </DialogFooter>
           </DialogContent>
