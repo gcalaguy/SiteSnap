@@ -123,7 +123,8 @@ export default function Schedule() {
   const [evtLocation, setEvtLocation] = useState("");
   const [evtNotes, setEvtNotes] = useState("");
   const [evtConflicts, setEvtConflicts] = useState<any[]>([]);
-  const [evtRecipientIds, setEvtRecipientIds] = useState<number[]>([]);
+  const [evtRecipientEmails, setEvtRecipientEmails] = useState<string[]>([]);
+  const [evtEmailInput, setEvtEmailInput] = useState("");
 
   // Equipment view state
   const [showEquipmentDialog, setShowEquipmentDialog] = useState(false);
@@ -237,12 +238,6 @@ export default function Schedule() {
     enabled: view === "equipment",
   });
 
-  const companyId = (me as any)?.companyId as number | undefined;
-  const membersQuery = useQuery<Member[]>({
-    queryKey: ["company-members", companyId],
-    queryFn: () => customFetch(`/api/companies/${companyId}/members`),
-    enabled: !!companyId && showEventDialog,
-  });
 
   const eventsFrom = format(eventsWeek, "yyyy-MM-dd");
   const eventsTo = format(addDays(eventsWeek, 6), "yyyy-MM-dd");
@@ -333,13 +328,40 @@ export default function Schedule() {
   function openEventDialog() {
     setEvtTitle(""); setEvtType("meeting"); setEvtProjectId(""); setEvtConflicts([]);
     setEvtDate(format(new Date(), "yyyy-MM-dd")); setEvtStartTime("09:00"); setEvtEndTime("10:00");
-    setEvtLocation(""); setEvtNotes(""); setEvtRecipientIds([]); setShowEventDialog(true);
+    setEvtLocation(""); setEvtNotes(""); setEvtRecipientEmails([]); setEvtEmailInput("");
+    setShowEventDialog(true);
   }
 
-  function toggleRecipient(id: number) {
-    setEvtRecipientIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
+  function addEvtEmail(raw: string) {
+    const email = raw.trim().toLowerCase();
+    if (!email || !email.includes("@")) return;
+    setEvtRecipientEmails(prev => prev.includes(email) ? prev : [...prev, email]);
+    setEvtEmailInput("");
+  }
+
+  function handleEvtEmailKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
+      e.preventDefault();
+      addEvtEmail(evtEmailInput);
+    } else if (e.key === "Backspace" && !evtEmailInput) {
+      setEvtRecipientEmails(prev => prev.slice(0, -1));
+    }
+  }
+
+  async function pickContacts() {
+    if (!("contacts" in navigator && "ContactsManager" in window)) {
+      toast({ title: "Contact picker not supported in this browser", variant: "destructive" });
+      return;
+    }
+    try {
+      const picked = await (navigator as any).contacts.select(["email"], { multiple: true });
+      const newEmails: string[] = picked.flatMap((c: any) => (c.email ?? []) as string[])
+        .map((e: string) => e.trim().toLowerCase())
+        .filter(Boolean);
+      setEvtRecipientEmails(prev => [...new Set([...prev, ...newEmails])]);
+    } catch {
+      // user cancelled — do nothing
+    }
   }
 
   // ── Drag state (Gantt) ────────────────────────────────────────────────────
@@ -1227,46 +1249,46 @@ export default function Schedule() {
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium">Notify</label>
+                  <label className="text-sm font-medium">Recipients</label>
                   <button
                     type="button"
-                    onClick={() => setEvtRecipientIds([])}
-                    className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${evtRecipientIds.length === 0 ? "border-transparent font-semibold text-[#111111]" : "border-border text-muted-foreground hover:text-foreground"}`}
-                    style={evtRecipientIds.length === 0 ? { background: GOLD } : {}}
+                    onClick={pickContacts}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2 py-1 transition-colors"
                   >
-                    All members
+                    <Users className="h-3 w-3" /> Pick from contacts
                   </button>
                 </div>
-                {membersQuery.isLoading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground text-xs py-1">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Loading team…
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {(membersQuery.data ?? []).map(m => {
-                      const selected = evtRecipientIds.includes(m.id);
-                      return (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => toggleRecipient(m.id)}
-                          className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${selected ? "border-transparent font-medium text-[#111111]" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`}
-                          style={selected ? { background: GOLD } : {}}
-                        >
-                          <span className="h-4 w-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                            style={{ background: selected ? "rgba(0,0,0,0.25)" : "#e5e7eb", color: selected ? "#fff" : "#374151" }}>
-                            {m.firstName?.[0]}{m.lastName?.[0]}
-                          </span>
-                          {m.firstName} {m.lastName}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Email chip input */}
+                <div
+                  className="min-h-[40px] flex flex-wrap gap-1.5 items-center p-2 rounded-md border border-input bg-background cursor-text focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0"
+                  onClick={e => (e.currentTarget.querySelector("input") as HTMLInputElement)?.focus()}
+                >
+                  {evtRecipientEmails.map(email => (
+                    <span key={email} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium text-[#111111]" style={{ background: GOLD }}>
+                      {email}
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setEvtRecipientEmails(prev => prev.filter(x => x !== email)); }}
+                        className="hover:opacity-70 transition-opacity ml-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="email"
+                    placeholder={evtRecipientEmails.length === 0 ? "Type email and press Enter or comma…" : ""}
+                    value={evtEmailInput}
+                    onChange={e => setEvtEmailInput(e.target.value)}
+                    onKeyDown={handleEvtEmailKeyDown}
+                    onBlur={() => addEvtEmail(evtEmailInput)}
+                    className="flex-1 min-w-[160px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground mt-1.5">
-                  {evtRecipientIds.length === 0
-                    ? "An email will be sent to everyone on your team."
-                    : `Email will go to ${evtRecipientIds.length} selected member${evtRecipientIds.length !== 1 ? "s" : ""}.`}
+                  {evtRecipientEmails.length === 0
+                    ? "Add at least one recipient to send an email invite."
+                    : `Invite will be sent to ${evtRecipientEmails.length} recipient${evtRecipientEmails.length !== 1 ? "s" : ""}.`}
                 </p>
               </div>
               {evtConflicts.length > 0 && (
@@ -1295,7 +1317,7 @@ export default function Schedule() {
                     endTime: `${evtDate}T${evtEndTime}:00`,
                     location: evtLocation || undefined,
                     notes: evtNotes || undefined,
-                    recipientUserIds: evtRecipientIds.length > 0 ? evtRecipientIds : undefined,
+                    recipientEmails: evtRecipientEmails.length > 0 ? evtRecipientEmails : undefined,
                   });
                 }}
                 disabled={!evtTitle || !evtDate || !evtStartTime || !evtEndTime || createEventMut.isPending}
