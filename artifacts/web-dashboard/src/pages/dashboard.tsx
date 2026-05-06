@@ -259,6 +259,108 @@ function RiskHeroSection() {
   );
 }
 
+// ── Risk Overview Cards ───────────────────────────────────────────────────────
+
+type RiskCard = {
+  label: string;
+  value: string | number;
+  sub: string;
+  iconName: "shield" | "triangle" | "flame" | "dot";
+  accent: string;
+  isAlert: boolean;
+};
+
+function RiskCardIcon({ name, color }: { name: RiskCard["iconName"]; color: string }) {
+  if (name === "shield") return <ShieldAlert className="h-4 w-4" style={{ color }} />;
+  if (name === "triangle") return <AlertTriangle className="h-4 w-4" style={{ color }} />;
+  if (name === "flame") return <Flame className="h-4 w-4" style={{ color }} />;
+  return <CircleDot className="h-4 w-4" style={{ color }} />;
+}
+
+function RiskOverviewCards({ data }: { data: RiskDashboardData }) {
+  const { health, alerts } = data;
+  const total = health.critical + health.high + health.medium + health.low;
+  const highRiskJobs = health.high + health.critical;
+  const avgScore = health.avgRiskScore;
+
+  const scoreColor =
+    avgScore == null ? "#6b7280"
+    : avgScore >= 8 ? "#dc2626"
+    : avgScore >= 6 ? "#ea580c"
+    : avgScore >= 4 ? "#ca8a04"
+    : "#16a34a";
+
+  const cards: RiskCard[] = [
+    {
+      label: "Total Inspections",
+      value: total,
+      sub: "last 30 days",
+      iconName: "shield",
+      accent: GOLD,
+      isAlert: false,
+    },
+    {
+      label: "High Risk Jobs",
+      value: highRiskJobs,
+      sub: highRiskJobs === 0 ? "All clear" : `${health.critical} critical · ${health.high} high`,
+      iconName: "triangle",
+      accent: highRiskJobs > 0 ? "#ea580c" : GOLD,
+      isAlert: highRiskJobs > 0,
+    },
+    {
+      label: "Critical Alerts",
+      value: alerts.critical,
+      sub: alerts.critical === 0 ? "No critical alerts" : "Requires immediate action",
+      iconName: "flame",
+      accent: alerts.critical > 0 ? "#dc2626" : GOLD,
+      isAlert: alerts.critical > 0,
+    },
+    {
+      label: "Avg Risk Score",
+      value: avgScore != null ? `${avgScore}/10` : "—",
+      sub: avgScore == null ? "No scored inspections" : avgScore >= 7 ? "Action recommended" : avgScore >= 4 ? "Monitor closely" : "Looking good",
+      iconName: "dot",
+      accent: scoreColor,
+      isAlert: false,
+    },
+  ];
+
+  return (
+    <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      {cards.map((card) => (
+        <Link href="/inspections" key={card.label} className="block group">
+          <Card
+            className="cursor-pointer transition-all duration-150 hover:shadow-xl"
+            style={{
+              background: card.isAlert ? `${card.accent}0a` : BLACK,
+              border: card.isAlert ? `1px solid ${card.accent}30` : "none",
+              boxShadow: card.isAlert
+                ? `0 4px 16px ${card.accent}18`
+                : "0 4px 16px rgba(0,0,0,0.18)",
+            }}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: card.accent }}>
+                {card.label}
+              </CardTitle>
+              <RiskCardIcon name={card.iconName} color={card.accent} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold" style={{ color: card.isAlert ? card.accent : "#fff" }}>
+                {card.value}
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-zinc-500">{card.sub}</p>
+                <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: card.accent }} />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 // ── Health bar (30-day) ───────────────────────────────────────────────────────
 
 function RiskHealthBar({ health }: { health: RiskDashboardData["health"] }) {
@@ -362,6 +464,11 @@ export default function Dashboard() {
 
       {/* Risk Hero — only for owners/foremen when there are high/critical inspections */}
       {isOwnerOrForeman && <RiskHeroSection />}
+
+      {/* Risk Overview Cards — always visible to owners/foremen if any inspections exist */}
+      {isOwnerOrForeman && riskData && (riskData.health.critical + riskData.health.high + riskData.health.medium + riskData.health.low) > 0 && (
+        <RiskOverviewCards data={riskData} />
+      )}
 
       {/* Smart Summary Banner */}
       {smartSummary?.summary && (
