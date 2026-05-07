@@ -106,6 +106,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
   const [hourlyRate, setHourlyRate] = useState("");
   const [description, setDescription] = useState("");
   const [hoursError, setHoursError] = useState("");
+  const [userEditedHours, setUserEditedHours] = useState(false);
 
   const { data: timesheets = [], isLoading } = useListTimesheets({});
 
@@ -117,18 +118,19 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
   const weekEntries = getWeekEntries(timeEntries, weekISO);
   const weekTotal = weekEntries.reduce((s, e) => s + parseFloat(e.hours), 0);
 
-  // Auto-fill when form opens for a new submission
+  // Auto-fill when form opens or week total arrives — only if user hasn't typed yet
   useEffect(() => {
-    if (showForm && !editingTimesheet && weekTotal > 0) {
+    if (showForm && !editingTimesheet && weekTotal > 0 && !userEditedHours) {
       setTotalHours(weekTotal.toFixed(1));
     }
-  }, [showForm, weekISO, weekTotal, editingTimesheet]);
+  }, [showForm, weekISO, weekTotal, editingTimesheet, userEditedHours]);
 
   const resetForm = useCallback(() => {
     setTotalHours("");
     setHourlyRate("");
     setDescription("");
     setHoursError("");
+    setUserEditedHours(false);
     setEditingTimesheet(null);
     setShowForm(false);
   }, []);
@@ -139,6 +141,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
     setHourlyRate("");
     setDescription("");
     setHoursError("");
+    setUserEditedHours(false);
     setShowForm(true);
   }, []);
 
@@ -149,6 +152,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
     setHourlyRate(ts.hourlyRate ? parseFloat(ts.hourlyRate).toString() : "");
     setDescription(ts.description ?? "");
     setHoursError("");
+    setUserEditedHours(true);
     setShowForm(true);
   }, []);
 
@@ -341,7 +345,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                 { backgroundColor: colors.background, borderColor: hoursError ? "#EF4444" : colors.border, color: colors.foreground },
               ]}
               value={totalHours}
-              onChangeText={(t) => { setTotalHours(t); setHoursError(""); }}
+              onChangeText={(t) => { setTotalHours(t); setHoursError(""); setUserEditedHours(true); }}
               placeholder="e.g. 40"
               placeholderTextColor={colors.mutedForeground}
               keyboardType="decimal-pad"

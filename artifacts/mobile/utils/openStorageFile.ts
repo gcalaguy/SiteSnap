@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { Alert } from "react-native";
 import { getAuthToken } from "@/utils/auth";
@@ -37,7 +37,7 @@ export async function openStorageFile(
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const safeFilename = (filename ?? "file").replace(/[^a-zA-Z0-9._-]/g, "_");
   const localUri = `${FileSystem.cacheDirectory}${Date.now()}_${safeFilename}`;
 
   try {
@@ -54,8 +54,8 @@ export async function openStorageFile(
       return;
     }
 
-    const mimeType = fileType || mimeFromFilename(filename);
-    await Sharing.shareAsync(result.uri, { mimeType, dialogTitle: filename });
+    const mimeType = fileType || mimeFromFilename(safeFilename);
+    await Sharing.shareAsync(result.uri, { mimeType, dialogTitle: safeFilename });
   } catch {
     Alert.alert("Error", "Could not download the file. Please try again.");
   }
