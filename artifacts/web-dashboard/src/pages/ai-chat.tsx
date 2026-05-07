@@ -40,11 +40,14 @@ type ChatMessage = {
 };
 
 const QUICK_CHIPS = [
+  "What open tasks do I have?",
+  "Show me recent daily reports",
+  "What RFIs are open?",
+  "Who is on my team?",
+  "What invoices are pending?",
   "What are my active projects?",
   "Give me safety tips for concrete work",
-  "How do I write a good daily report?",
   "What does NBC say about fall protection?",
-  "Help me estimate a 20×30 ft concrete slab",
 ];
 
 function TypingDots() {
