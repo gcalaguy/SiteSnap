@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   ChevronLeft, ChevronRight, CalendarDays, Plus, Loader2,
   Users, Building2, GanttChartSquare, LayoutGrid, X,
-  Wrench, Clock, Trash2, Edit2, MapPin, AlertTriangle,
+  Wrench, Clock, Trash2, Edit2, MapPin, AlertTriangle, Video, ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -44,6 +44,7 @@ type ZoomLevel = "2w" | "1m" | "3m";
 type ScheduleEvent = {
   id: number; companyId: number; projectId: number | null; type: string; title: string;
   startTime: string; endTime: string; location: string | null; notes: string | null;
+  meetingPlatform: string | null; meetingLink: string | null;
   status: string; projectName: string | null; createdByFirstName: string | null; createdByLastName: string | null;
   assignees: Array<{ id: number; eventId: number; resourceType: string; resourceId: number }>;
 };
@@ -122,6 +123,8 @@ export default function Schedule() {
   const [evtEndTime, setEvtEndTime] = useState("10:00");
   const [evtLocation, setEvtLocation] = useState("");
   const [evtNotes, setEvtNotes] = useState("");
+  const [evtMeetingPlatform, setEvtMeetingPlatform] = useState("");
+  const [evtMeetingLink, setEvtMeetingLink] = useState("");
   const [evtConflicts, setEvtConflicts] = useState<any[]>([]);
   const [evtRecipientEmails, setEvtRecipientEmails] = useState<string[]>([]);
   const [evtEmailInput, setEvtEmailInput] = useState("");
@@ -348,7 +351,8 @@ export default function Schedule() {
     setEditEvtId(null);
     setEvtTitle(""); setEvtType("meeting"); setEvtProjectId(""); setEvtConflicts([]);
     setEvtDate(format(new Date(), "yyyy-MM-dd")); setEvtStartTime("09:00"); setEvtEndTime("10:00");
-    setEvtLocation(""); setEvtNotes(""); setEvtRecipientEmails([]); setEvtEmailInput("");
+    setEvtLocation(""); setEvtNotes(""); setEvtMeetingPlatform(""); setEvtMeetingLink("");
+    setEvtRecipientEmails([]); setEvtEmailInput("");
     setShowEventDialog(true);
   }
 
@@ -363,6 +367,8 @@ export default function Schedule() {
     setEvtEndTime(format(parseISO(evt.endTime), "HH:mm"));
     setEvtLocation(evt.location ?? "");
     setEvtNotes(evt.notes ?? "");
+    setEvtMeetingPlatform(evt.meetingPlatform ?? "");
+    setEvtMeetingLink(evt.meetingLink ?? "");
     setEvtRecipientEmails([]);
     setEvtEmailInput("");
     setShowEventDialog(true);
@@ -1306,6 +1312,40 @@ export default function Schedule() {
                 <label className="text-sm font-medium block mb-1">Notes (optional)</label>
                 <Textarea placeholder="Additional details…" value={evtNotes} onChange={e => setEvtNotes(e.target.value)} className="min-h-[60px]" />
               </div>
+              {evtType === "meeting" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium block">Online Meeting (optional)</label>
+                  <Select value={evtMeetingPlatform || "none"} onValueChange={v => { setEvtMeetingPlatform(v === "none" ? "" : v); setEvtMeetingLink(""); }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="No online meeting" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No online meeting</SelectItem>
+                      <SelectItem value="google_meet">
+                        <span className="flex items-center gap-2"><Video className="h-3.5 w-3.5 text-green-600" />Google Meet</span>
+                      </SelectItem>
+                      <SelectItem value="zoom">
+                        <span className="flex items-center gap-2"><Video className="h-3.5 w-3.5 text-blue-600" />Zoom</span>
+                      </SelectItem>
+                      <SelectItem value="teams">
+                        <span className="flex items-center gap-2"><Video className="h-3.5 w-3.5 text-purple-600" />Microsoft Teams</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {evtMeetingPlatform && (
+                    <div>
+                      <Input
+                        placeholder="Paste meeting link (or leave blank to auto-generate)"
+                        value={evtMeetingLink}
+                        onChange={e => setEvtMeetingLink(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Leave blank to auto-generate when OAuth is configured for this platform.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium">Recipients</label>
@@ -1376,6 +1416,8 @@ export default function Schedule() {
                     endTime: `${evtDate}T${evtEndTime}:00`,
                     location: evtLocation || undefined,
                     notes: evtNotes || undefined,
+                    meetingPlatform: evtMeetingPlatform || undefined,
+                    meetingLink: evtMeetingLink || undefined,
                   };
                   if (editEvtId) {
                     updateEventMut.mutate({ id: editEvtId, ...payload });

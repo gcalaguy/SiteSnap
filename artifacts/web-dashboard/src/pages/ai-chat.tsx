@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { FeatureGuard } from "@/components/FeatureGuard";
 import { useQuery } from "@tanstack/react-query";
 import {
   useGetDashboardSummary,
@@ -56,7 +57,7 @@ function TypingDots() {
   );
 }
 
-export default function AIChat() {
+function AIChatInner() {
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -458,5 +459,13 @@ export default function AIChat() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AIChat() {
+  return (
+    <FeatureGuard feature="AI_CHAT">
+      <AIChatInner />
+    </FeatureGuard>
   );
 }

@@ -13,6 +13,7 @@ import {
   Bell, Check, Eye, TrendingUp, BarChart3, Loader2,
 } from "lucide-react";
 import { format, parseISO, subDays } from "date-fns";
+import { FeatureGuard } from "@/components/FeatureGuard";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -493,7 +494,7 @@ function AlertsPanel() {
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
-export default function RiskDashboardPage() {
+function RiskDashboardInner() {
   const { data, isLoading } = useQuery<RiskDashData>({
     queryKey: ["risk-dashboard"],
     queryFn: () => customFetch("/api/risk-dashboard"),
@@ -636,5 +637,13 @@ export default function RiskDashboardPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function RiskDashboardPage() {
+  return (
+    <FeatureGuard feature="RISK_DASHBOARD">
+      <RiskDashboardInner />
+    </FeatureGuard>
   );
 }

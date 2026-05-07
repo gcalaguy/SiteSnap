@@ -65,6 +65,8 @@ export const companiesTable = pgTable("companies", {
   logoPath: text("logo_path"),
   quoteTemplatePath: text("quote_template_path"),
   invoiceTemplatePath: text("invoice_template_path"),
+  activeFeatures: text("active_features").array(),
+  meetingConfig: jsonb("meeting_config"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1178,6 +1180,8 @@ export const scheduleEventsTable = pgTable("schedule_events", {
   endTime: timestamp("end_time").notNull(),
   location: text("location"),
   notes: text("notes"),
+  meetingPlatform: text("meeting_platform"), // google_meet | zoom | teams
+  meetingLink: text("meeting_link"),
   status: text("status").notNull().default("scheduled"), // scheduled | in_progress | completed | cancelled
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),

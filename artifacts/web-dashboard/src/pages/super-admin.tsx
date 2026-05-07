@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGetMe, customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +28,7 @@ import {
   ShieldCheck, Plus, Pencil, Trash2, Loader2, Check,
   Building2, Users, Zap, ToggleLeft, ToggleRight, Crown,
   RefreshCw, DatabaseZap, Star, CheckCircle2, CreditCard,
-  AlertCircle, ExternalLink, ChevronDown,
+  AlertCircle, ExternalLink, ChevronDown, Sliders, RotateCcw,
 } from "lucide-react";
 
 const GOLD = "#C9A84C";
@@ -51,11 +51,37 @@ interface Feature {
 interface Tenant {
   id: number; name: string; city: string; province: string;
   userCount: number;
+  activeFeatures: string[] | null;
   subscription: {
     id: number; planId: number; status: string; billingCycle: string;
   } | null;
   plan: Plan | null;
 }
+
+// ── All 19 Feature Keys ─────────────────────────────────────────────────────────
+const ALL_FEATURES = [
+  { key: "SCHEDULING",      name: "Scheduling",             desc: "Worker & project scheduling" },
+  { key: "AI_ESTIMATING",   name: "AI Estimating",          desc: "AI-powered cost estimating" },
+  { key: "CLIENT_PORTAL",   name: "Client Portal",          desc: "Shared client project portal" },
+  { key: "REPORTING",       name: "Reporting",              desc: "Advanced reports & analytics" },
+  { key: "QUICKBOOKS",      name: "QuickBooks Integration", desc: "Sync with QuickBooks" },
+  { key: "AI_CHAT",         name: "AI Chat",                desc: "Conversational AI assistant" },
+  { key: "SITE_VISION_AI",  name: "Site Vision AI",         desc: "AI photo analysis & OCR" },
+  { key: "TRADEHUB",        name: "TradeHub",               desc: "Marketplace for trade pros" },
+  { key: "FINANCIALS",      name: "Financials",             desc: "Financial tracking & management" },
+  { key: "RISK_DASHBOARD",  name: "Risk Dashboard",         desc: "AI risk scoring & alerts" },
+  { key: "SAFETY_FORMS",    name: "Safety Forms",           desc: "Digital safety & incident reporting" },
+  { key: "DAILY_REPORTS",   name: "Daily Reports",          desc: "Field daily report submission" },
+  { key: "RFIS",            name: "RFIs",                   desc: "Request for Information tracking" },
+  { key: "TEAM_MANAGEMENT", name: "Team Management",        desc: "Crew & role management" },
+  { key: "INVOICES",        name: "Invoices",               desc: "Invoice creation & tracking" },
+  { key: "QUOTES",          name: "Quotes & Proposals",     desc: "Quote generation & approval" },
+  { key: "CRM_LEADS",       name: "CRM & Leads",            desc: "Lead management & CRM" },
+  { key: "SMART_ESTIMATOR", name: "Smart Estimator",        desc: "Hybrid AI + rule-based estimating" },
+  { key: "INSPECTIONS",     name: "Inspections",            desc: "Site inspection management" },
+];
+const MINIMAL_FEATURES = ["SCHEDULING", "DAILY_REPORTS", "TEAM_MANAGEMENT", "SAFETY_FORMS", "RFIS"];
+const MAXIMUM_FEATURES = ALL_FEATURES.map((f) => f.key);
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
@@ -576,6 +602,232 @@ function formatCAD(cents: number) {
   return `$${(cents / 100).toFixed(0)} CAD`;
 }
 
+// ── Feature Management Tab ───────────────────────────────────────────────────────
+function FeatureMgmtTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [selectedTenantId, setSelectedTenantId] = useState<string>("");
+  const [checkedFeatures, setCheckedFeatures] = useState<Set<string>>(new Set());
+
+  const { data: tenants = [], isLoading: tenantsLoading } = useQuery<Tenant[]>({
+    queryKey: ["admin-tenants"],
+    queryFn: () => api<Tenant[]>(`${basePath}/api/admin/tenants`),
+  });
+
+  const { data: tenantFeatures, isLoading: featuresLoading } = useQuery<{ activeFeatures: string[] }>({
+    queryKey: ["admin-tenant-features", selectedTenantId],
+    queryFn: () => api<{ activeFeatures: string[] }>(`${basePath}/api/admin/tenants/${selectedTenantId}/features`),
+    enabled: !!selectedTenantId,
+  });
+
+  // Sync checkedFeatures when tenantFeatures loads or tenant changes
+  useEffect(() => {
+    if (!tenantFeatures) return;
+    const active = tenantFeatures.activeFeatures ?? [];
+    setCheckedFeatures(new Set(active));
+  }, [tenantFeatures]);
+
+  const saveMut = useMutation({
+    mutationFn: (features: string[]) =>
+      api<{ ok: boolean }>(`${basePath}/api/admin/tenants/${selectedTenantId}/features`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activeFeatures: features }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-tenant-features", selectedTenantId] });
+      qc.invalidateQueries({ queryKey: ["admin-tenants"] });
+      toast({ title: "Custom package saved" });
+    },
+    onError: (err: any) => toast({ title: "Failed to save", description: err?.message, variant: "destructive" }),
+  });
+
+  const resetMut = useMutation({
+    mutationFn: () =>
+      api<{ ok: boolean }>(`${basePath}/api/admin/tenants/${selectedTenantId}/features`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activeFeatures: null }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-tenant-features", selectedTenantId] });
+      setCheckedFeatures(new Set());
+      toast({ title: "Reset to plan defaults" });
+    },
+    onError: (err: any) => toast({ title: "Failed to reset", description: err?.message, variant: "destructive" }),
+  });
+
+  function toggle(key: string) {
+    setCheckedFeatures((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  const isCustom = (tenantFeatures?.activeFeatures?.length ?? 0) > 0;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sliders className="h-5 w-5" style={{ color: GOLD }} />
+            Per-Tenant Feature Override
+          </CardTitle>
+          <CardDescription>
+            Build a custom feature package for any tenant. When set, this overrides the plan's feature set entirely.
+            Clear it to revert to plan defaults.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Tenant selector */}
+          <div className="max-w-sm">
+            <Label className="mb-2 block">Select Tenant</Label>
+            <Select value={selectedTenantId} onValueChange={(v) => { setSelectedTenantId(v); setCheckedFeatures(new Set()); }}>
+              <SelectTrigger>
+                <SelectValue placeholder={tenantsLoading ? "Loading…" : "Choose a tenant…"} />
+              </SelectTrigger>
+              <SelectContent>
+                {tenants.map((t) => (
+                  <SelectItem key={t.id} value={String(t.id)}>
+                    <span className="font-medium">{t.name}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{t.city}, {t.province}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedTenantId && (
+            <>
+              {/* Status banner */}
+              <div className={`rounded-lg px-4 py-2.5 flex items-center gap-2 text-sm font-medium ${isCustom ? "bg-amber-50 border border-amber-200 text-amber-800" : "bg-muted border border-border text-muted-foreground"}`}>
+                {isCustom
+                  ? <><Sliders className="h-4 w-4" /> Custom package active — {tenantFeatures?.activeFeatures?.length ?? 0} of {ALL_FEATURES.length} features enabled</>
+                  : <><CheckCircle2 className="h-4 w-4" /> Using plan defaults (no custom override)</> }
+              </div>
+
+              {/* Preset buttons */}
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-sm text-muted-foreground mr-1">Presets:</span>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => setCheckedFeatures(new Set(MINIMAL_FEATURES))}
+                >
+                  Minimal ({MINIMAL_FEATURES.length} features)
+                </Button>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => setCheckedFeatures(new Set(MAXIMUM_FEATURES))}
+                >
+                  Maximum (all {ALL_FEATURES.length} features)
+                </Button>
+                <Button
+                  variant="ghost" size="sm"
+                  onClick={() => setCheckedFeatures(new Set())}
+                >
+                  Clear All
+                </Button>
+              </div>
+
+              {/* Feature checkbox grid */}
+              {featuresLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[...Array(9)].map((_, i) => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {ALL_FEATURES.map(({ key, name, desc }) => {
+                    const checked = checkedFeatures.has(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => toggle(key)}
+                        className={`text-left rounded-lg border p-3 transition-all cursor-pointer ${
+                          checked
+                            ? "border-[#C9A84C] bg-amber-50/60 ring-1 ring-[#C9A84C]/40"
+                            : "border-border bg-card hover:border-[#C9A84C]/40"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <div className={`mt-0.5 flex h-4 w-4 shrink-0 rounded border items-center justify-center transition-colors ${
+                            checked ? "border-[#C9A84C] bg-[#C9A84C]" : "border-muted-foreground/50 bg-background"
+                          }`}>
+                            {checked && <Check className="h-3 w-3 text-black" strokeWidth={3} />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold leading-tight">{name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Selected count */}
+              <p className="text-sm text-muted-foreground">
+                {checkedFeatures.size} of {ALL_FEATURES.length} features selected
+              </p>
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={() => saveMut.mutate(Array.from(checkedFeatures))}
+                  disabled={saveMut.isPending || checkedFeatures.size === 0}
+                  style={{ background: GOLD, color: BLACK }}
+                  className="font-semibold"
+                >
+                  {saveMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Save as Custom Package
+                </Button>
+                {isCustom && (
+                  <Button
+                    variant="outline"
+                    onClick={() => resetMut.mutate()}
+                    disabled={resetMut.isPending}
+                    className="text-destructive border-destructive/30 hover:bg-destructive/5"
+                  >
+                    {resetMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+                    Reset to Plan Defaults
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+
+          {!selectedTenantId && !tenantsLoading && (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 rounded-xl border border-dashed">
+              <Sliders className="h-8 w-8 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">Select a tenant to manage their feature package</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Reference card */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">All Available Features ({ALL_FEATURES.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-1">
+            {ALL_FEATURES.map(({ key, name }) => (
+              <div key={key} className="flex items-center gap-1.5 py-0.5">
+                <Zap className="h-3 w-3 shrink-0" style={{ color: GOLD }} />
+                <span className="text-xs">{name}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function StripePlansTab() {
   const { toast } = useToast();
   const [interval, setInterval] = useState<"month" | "year">("month");
@@ -845,12 +1097,13 @@ export default function SuperAdminPage() {
 
       {/* Main tabs */}
       <Tabs defaultValue="plans">
-        <TabsList className="grid w-full grid-cols-5" style={{ background: BLACK }}>
+        <TabsList className="grid w-full grid-cols-6" style={{ background: BLACK }}>
           {[
             { value: "plans",         label: "Plans",         Icon: Crown       },
             { value: "features",      label: "Features",      Icon: Zap         },
             { value: "plan-features", label: "Plan Features", Icon: DatabaseZap },
             { value: "tenants",       label: "Tenants",       Icon: Building2   },
+            { value: "feature-mgmt",  label: "Feature Mgmt",  Icon: Sliders     },
             { value: "stripe-plans",  label: "Stripe Plans",  Icon: CreditCard  },
           ].map(({ value, label, Icon }) => (
             <TabsTrigger
@@ -874,6 +1127,9 @@ export default function SuperAdminPage() {
         </TabsContent>
         <TabsContent value="tenants" className="mt-4">
           <TenantsTab plans={plans} isLoading={plansLoading} />
+        </TabsContent>
+        <TabsContent value="feature-mgmt" className="mt-4">
+          <FeatureMgmtTab />
         </TabsContent>
         <TabsContent value="stripe-plans" className="mt-4">
           <StripePlansTab />

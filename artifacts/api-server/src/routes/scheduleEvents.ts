@@ -13,6 +13,7 @@ import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth"
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
+import { getMeetingLink, type MeetingPlatform } from "../lib/meetingService";
 
 const router = Router();
 
@@ -144,6 +145,8 @@ router.get(
         endTime: scheduleEventsTable.endTime,
         location: scheduleEventsTable.location,
         notes: scheduleEventsTable.notes,
+        meetingPlatform: scheduleEventsTable.meetingPlatform,
+        meetingLink: scheduleEventsTable.meetingLink,
         status: scheduleEventsTable.status,
         createdByUserId: scheduleEventsTable.createdByUserId,
         createdAt: scheduleEventsTable.createdAt,
@@ -183,7 +186,7 @@ router.post(
   requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
-    const { title, type, projectId, startTime, endTime, location, notes, assignees, allowConflict, recipientEmails } = req.body;
+    const { title, type, projectId, startTime, endTime, location, notes, assignees, allowConflict, recipientEmails, meetingPlatform, meetingLink: providedMeetingLink } = req.body;
 
     if (!title || !startTime || !endTime) {
       res.status(400).json({ error: "title, startTime, endTime are required" });
@@ -209,6 +212,32 @@ router.post(
       }
     }
 
+    // ── Resolve meeting link ────────────────────────────────────────────
+    let resolvedMeetingLink: string | null = providedMeetingLink ?? null;
+    const resolvedPlatform: string | null = meetingPlatform ?? null;
+
+    if (resolvedPlatform && !resolvedMeetingLink) {
+      try {
+        const [companyRow] = await db
+          .select({ meetingConfig: companiesTable.meetingConfig })
+          .from(companiesTable)
+          .where(eq(companiesTable.id, req.companyId!))
+          .limit(1);
+
+        const meeting = await getMeetingLink({
+          platform: resolvedPlatform as MeetingPlatform,
+          companyId: req.companyId!,
+          title,
+          startTime: start,
+          endTime: end,
+          meetingConfig: companyRow?.meetingConfig as Record<string, unknown> | null,
+        });
+        resolvedMeetingLink = meeting.link;
+      } catch (err) {
+        logger.warn({ err }, "Meeting link generation failed; proceeding without link");
+      }
+    }
+
     const [event] = await db
       .insert(scheduleEventsTable)
       .values({
@@ -220,6 +249,8 @@ router.post(
         endTime: end,
         location: location ?? null,
         notes: notes ?? null,
+        meetingPlatform: resolvedPlatform,
+        meetingLink: resolvedMeetingLink,
         status: "scheduled",
         createdByUserId: req.userId!,
       })
@@ -277,10 +308,26 @@ router.post(
         }).format(d);
 
       const locationRow = event.location
-        ? `<tr><td style="padding:6px 0;color:#64748b;font-size:14px;width:100px;">Location</td><td style="padding:6px 0;color:#172034;font-size:14px;">${event.location}</td></tr>`
+        ? `<tr><td style="padding:6px 0;color:#64748b;font-size:14px;width:120px;">Location</td><td style="padding:6px 0;color:#172034;font-size:14px;">${event.location}</td></tr>`
         : "";
       const notesRow = event.notes
-        ? `<tr><td style="padding:6px 0;color:#64748b;font-size:14px;vertical-align:top;width:100px;">Notes</td><td style="padding:6px 0;color:#172034;font-size:14px;">${event.notes}</td></tr>`
+        ? `<tr><td style="padding:6px 0;color:#64748b;font-size:14px;vertical-align:top;width:120px;">Notes</td><td style="padding:6px 0;color:#172034;font-size:14px;">${event.notes}</td></tr>`
+        : "";
+
+      const platformLabels: Record<string, string> = {
+        google_meet: "Google Meet",
+        zoom: "Zoom",
+        teams: "Microsoft Teams",
+      };
+      const meetingRow = resolvedMeetingLink
+        ? `<tr>
+            <td style="padding:6px 0;color:#64748b;font-size:14px;width:120px;">${platformLabels[resolvedPlatform ?? ""] ?? "Meeting"}</td>
+            <td style="padding:6px 0;font-size:14px;">
+              <a href="${resolvedMeetingLink}" style="color:#C9A84C;font-weight:600;text-decoration:none;">
+                Join Meeting →
+              </a>
+            </td>
+           </tr>`
         : "";
 
       return sendEmail({
@@ -297,7 +344,7 @@ router.post(
     <h2 style="margin:0 0 16px;font-size:18px;color:#172034;">${event.title}</h2>
     <table style="width:100%;border-collapse:collapse;">
       <tr>
-        <td style="padding:6px 0;color:#64748b;font-size:14px;width:100px;">Starts</td>
+        <td style="padding:6px 0;color:#64748b;font-size:14px;width:120px;">Starts</td>
         <td style="padding:6px 0;color:#172034;font-size:14px;">${fmt(event.startTime)}</td>
       </tr>
       <tr>
@@ -306,8 +353,17 @@ router.post(
       </tr>
       ${locationRow}
       ${notesRow}
+      ${meetingRow}
     </table>
   </div>
+  ${resolvedMeetingLink ? `
+  <div style="text-align:center;margin-bottom:20px;">
+    <a href="${resolvedMeetingLink}"
+       style="display:inline-block;background:#C9A84C;color:#111;font-weight:700;font-size:15px;
+              padding:12px 28px;border-radius:8px;text-decoration:none;">
+      Join Meeting
+    </a>
+  </div>` : ""}
   <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">
     View this event in the <strong>Schedule → Events</strong> tab of Site Snap.
   </p>
@@ -360,6 +416,8 @@ router.patch(
       }
     }
 
+    const { meetingPlatform, meetingLink } = req.body;
+
     const [updated] = await db
       .update(scheduleEventsTable)
       .set({
@@ -371,6 +429,8 @@ router.patch(
         ...(location !== undefined && { location }),
         ...(notes !== undefined && { notes }),
         ...(status !== undefined && { status }),
+        ...(meetingPlatform !== undefined && { meetingPlatform: meetingPlatform ?? null }),
+        ...(meetingLink !== undefined && { meetingLink: meetingLink ?? null }),
       })
       .where(and(eq(scheduleEventsTable.id, id), eq(scheduleEventsTable.companyId, req.companyId!)))
       .returning();

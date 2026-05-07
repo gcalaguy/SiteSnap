@@ -268,4 +268,23 @@ router.patch(
   },
 );
 
+// GET /companies/:companyId/features
+// Returns the effective feature keys for a tenant (custom package or plan-based)
+router.get(
+  "/companies/:companyId/features",
+  requireAuth,
+  requireCompany,
+  async (req, res) => {
+    const companyId = parseInt(req.params.companyId);
+    if (companyId !== req.companyId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    const { getCompanyFeatureKeys } = await import("../lib/featureGate");
+    const features = await getCompanyFeatureKeys(companyId);
+    res.json({ features });
+  },
+);
+
 export default router;

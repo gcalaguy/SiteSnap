@@ -105,7 +105,6 @@ router.put("/admin/plans/:id/features", ...guard, async (req, res) => {
     res.status(400).json({ error: "featureIds must be an array" });
     return;
   }
-  // Replace all
   await db.delete(planFeaturesTable).where(eq(planFeaturesTable.planId, planId));
   if (featureIds.length > 0) {
     await db.insert(planFeaturesTable).values(featureIds.map((fid) => ({ planId, featureId: fid })));
@@ -121,7 +120,6 @@ router.get("/admin/tenants", ...guard, async (req, res) => {
   const subs = await db.select().from(subscriptionsTable);
   const plans = await db.select().from(plansTable);
 
-  // Count users per company
   const userCounts = await db
     .select({ companyId: usersTable.companyId, count: sql<number>`count(*)` })
     .from(usersTable)
@@ -171,6 +169,46 @@ router.patch("/admin/tenants/:id/subscription", ...guard, async (req, res) => {
   }
 });
 
+// ── Per-Tenant Feature Override ────────────────────────────────────────────────
+
+// GET /admin/tenants/:id/features
+// Returns the tenant's current activeFeatures (custom package) or empty array if using plan defaults
+router.get("/admin/tenants/:id/features", ...guard, async (req, res) => {
+  const companyId = Number(req.params.id);
+  const [company] = await db
+    .select({ activeFeatures: companiesTable.activeFeatures })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, companyId))
+    .limit(1);
+  if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
+  res.json({ activeFeatures: company.activeFeatures ?? [] });
+});
+
+// PATCH /admin/tenants/:id/features
+// Set or clear custom feature override for a tenant
+router.patch("/admin/tenants/:id/features", ...guard, async (req, res) => {
+  const companyId = Number(req.params.id);
+  const { activeFeatures } = req.body as { activeFeatures: string[] | null };
+
+  if (activeFeatures !== null && !Array.isArray(activeFeatures)) {
+    res.status(400).json({ error: "activeFeatures must be an array of strings or null" });
+    return;
+  }
+  if (Array.isArray(activeFeatures) && activeFeatures.some((f) => typeof f !== "string")) {
+    res.status(400).json({ error: "All activeFeatures entries must be strings" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(companiesTable)
+    .set({ activeFeatures: activeFeatures ?? null })
+    .where(eq(companiesTable.id, companyId))
+    .returning({ id: companiesTable.id, activeFeatures: companiesTable.activeFeatures });
+
+  if (!updated) { res.status(404).json({ error: "Tenant not found" }); return; }
+  res.json({ ok: true, companyId, activeFeatures: updated.activeFeatures ?? [] });
+});
+
 // ── Promote/demote super admin ─────────────────────────────────────────────────
 
 // PATCH /admin/users/:id/system-role
@@ -189,7 +227,6 @@ router.patch("/admin/users/:id/system-role", ...guard, async (req, res) => {
 // ── Seed Data ──────────────────────────────────────────────────────────────────
 
 router.post("/admin/seed", ...guard, async (req, res) => {
-  // Seed plans
   const existingPlans = await db.select().from(plansTable);
   if (existingPlans.length === 0) {
     await db.insert(plansTable).values([
@@ -199,20 +236,31 @@ router.post("/admin/seed", ...guard, async (req, res) => {
     ]);
   }
 
-  // Seed features
   const existingFeatures = await db.select().from(featuresTable);
   if (existingFeatures.length === 0) {
     await db.insert(featuresTable).values([
-      { name: "Scheduling", key: "SCHEDULING", description: "Worker and project scheduling tools" },
-      { name: "AI Estimating", key: "AI_ESTIMATING", description: "AI-powered cost estimating" },
-      { name: "Client Portal", key: "CLIENT_PORTAL", description: "Shared client portal for project visibility" },
-      { name: "Reporting", key: "REPORTING", description: "Advanced reports and analytics" },
-      { name: "QuickBooks Integration", key: "QUICKBOOKS", description: "Sync invoices and costs with QuickBooks" },
-      { name: "AI Chat", key: "AI_CHAT", description: "AI assistant for construction queries" },
+      { name: "Scheduling",              key: "SCHEDULING",      description: "Worker and project scheduling tools" },
+      { name: "AI Estimating",           key: "AI_ESTIMATING",   description: "AI-powered cost estimating" },
+      { name: "Client Portal",           key: "CLIENT_PORTAL",   description: "Shared client portal for project visibility" },
+      { name: "Reporting",               key: "REPORTING",       description: "Advanced reports and analytics" },
+      { name: "QuickBooks Integration",  key: "QUICKBOOKS",      description: "Sync invoices and costs with QuickBooks" },
+      { name: "AI Chat",                 key: "AI_CHAT",         description: "AI assistant for construction queries" },
+      { name: "Site Vision AI",          key: "SITE_VISION_AI",  description: "AI-powered photo analysis and OCR" },
+      { name: "TradeHub",                key: "TRADEHUB",        description: "Marketplace for trade professionals" },
+      { name: "Financials",              key: "FINANCIALS",      description: "Full financial tracking and management" },
+      { name: "Risk Dashboard",          key: "RISK_DASHBOARD",  description: "AI risk scoring and inspection alerts" },
+      { name: "Safety Forms",            key: "SAFETY_FORMS",    description: "Digital safety and incident reporting" },
+      { name: "Daily Reports",           key: "DAILY_REPORTS",   description: "Field daily report submission" },
+      { name: "RFIs",                    key: "RFIS",            description: "Request for Information tracking" },
+      { name: "Team Management",         key: "TEAM_MANAGEMENT", description: "Crew and role management" },
+      { name: "Invoices",                key: "INVOICES",        description: "Invoice creation and tracking" },
+      { name: "Quotes & Proposals",      key: "QUOTES",          description: "Quote generation and approval" },
+      { name: "CRM & Leads",             key: "CRM_LEADS",       description: "Lead management and CRM" },
+      { name: "Smart Estimator",         key: "SMART_ESTIMATOR", description: "Hybrid AI + rule-based estimating" },
+      { name: "Inspections",             key: "INSPECTIONS",     description: "Site inspection management" },
     ]);
   }
 
-  // Assign features to plans
   const plans = await db.select().from(plansTable);
   const features = await db.select().from(featuresTable);
   const pf = await db.select().from(planFeaturesTable);
@@ -222,28 +270,33 @@ router.post("/admin/seed", ...guard, async (req, res) => {
     const pro = plans.find((p) => p.slug === "pro")!;
     const enterprise = plans.find((p) => p.slug === "enterprise")!;
 
-    const scheduling = features.find((f) => f.key === "SCHEDULING")!;
-    const aiEst = features.find((f) => f.key === "AI_ESTIMATING")!;
-    const portal = features.find((f) => f.key === "CLIENT_PORTAL")!;
-    const reporting = features.find((f) => f.key === "REPORTING")!;
-    const qb = features.find((f) => f.key === "QUICKBOOKS")!;
-    const aiChat = features.find((f) => f.key === "AI_CHAT")!;
+    const get = (key: string) => features.find((f) => f.key === key);
 
-    if (starter && scheduling && aiChat) {
-      await db.insert(planFeaturesTable).values([
-        { planId: starter.id, featureId: scheduling.id },
-        { planId: starter.id, featureId: aiChat.id },
-      ]).onConflictDoNothing();
+    // Starter: core essentials
+    const starterFeatures = ["SCHEDULING", "DAILY_REPORTS", "TEAM_MANAGEMENT", "SAFETY_FORMS", "RFIS", "AI_CHAT"];
+    if (starter) {
+      const vals = starterFeatures.map((k) => get(k)).filter(Boolean);
+      if (vals.length > 0) {
+        await db.insert(planFeaturesTable).values(
+          vals.map((f) => ({ planId: starter.id, featureId: f!.id }))
+        ).onConflictDoNothing();
+      }
     }
-    if (pro && scheduling && aiEst && portal && reporting && aiChat) {
-      await db.insert(planFeaturesTable).values([
-        { planId: pro.id, featureId: scheduling.id },
-        { planId: pro.id, featureId: aiEst.id },
-        { planId: pro.id, featureId: portal.id },
-        { planId: pro.id, featureId: reporting.id },
-        { planId: pro.id, featureId: aiChat.id },
-      ]).onConflictDoNothing();
+
+    // Pro: everything except Inspections, Risk Dashboard
+    const proKeys = ["SCHEDULING", "AI_ESTIMATING", "CLIENT_PORTAL", "REPORTING", "QUICKBOOKS", "AI_CHAT",
+      "SITE_VISION_AI", "TRADEHUB", "FINANCIALS", "SAFETY_FORMS", "DAILY_REPORTS", "RFIS",
+      "TEAM_MANAGEMENT", "INVOICES", "QUOTES", "CRM_LEADS", "SMART_ESTIMATOR"];
+    if (pro) {
+      const vals = proKeys.map((k) => get(k)).filter(Boolean);
+      if (vals.length > 0) {
+        await db.insert(planFeaturesTable).values(
+          vals.map((f) => ({ planId: pro.id, featureId: f!.id }))
+        ).onConflictDoNothing();
+      }
     }
+
+    // Enterprise: all features
     if (enterprise) {
       await db.insert(planFeaturesTable).values(
         features.map((f) => ({ planId: enterprise.id, featureId: f.id }))

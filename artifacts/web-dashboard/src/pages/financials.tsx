@@ -143,7 +143,9 @@ async function apiFetch(path: string, opts?: RequestInit) {
 }
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
-export default function Financials() {
+import { FeatureGuard } from "@/components/FeatureGuard";
+
+function FinancialsInner() {
   const { toast } = useToast();
   const [tab, setTab] = useState<"overview" | "payments" | "change-orders">("overview");
 
@@ -703,5 +705,13 @@ export default function Financials() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function Financials() {
+  return (
+    <FeatureGuard feature="FINANCIALS">
+      <FinancialsInner />
+    </FeatureGuard>
   );
 }
