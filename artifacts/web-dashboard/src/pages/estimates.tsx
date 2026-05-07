@@ -29,7 +29,7 @@ type EquipmentLine = { item: string; days: number; dayRate: number; total: numbe
 
 type EstimateResult = {
   title?: string;
-  summary?: string;
+  summary?: string | SmartSummary;
   materials?: MaterialLine[];
   labor?: LaborLine[];
   equipment?: EquipmentLine[];
@@ -40,6 +40,23 @@ type EstimateResult = {
   totalHigh?: number;
   assumptions?: string[];
   notes?: string;
+  // Smart Estimator format
+  lineItems?: SmartLineItem[];
+  costModelUsed?: unknown;
+};
+
+type SmartSummary = {
+  laborTotal: number; materialsTotal: number; addonsTotal: number;
+  overhead: number; overheadPct: number; subtotal: number;
+  contingency: number; contingencyPct: number;
+  totalLow: number; totalHigh: number;
+  priceToClient: number; suggestedMarginPct: number; suggestedMarginAmount: number;
+};
+
+type SmartLineItem = {
+  id: string; label: string; category: "labour" | "materials" | "addon" | "overhead";
+  total: number; quantity?: number; unit?: string; unitCost?: number;
+  hours?: number; rate?: number; overheadPct?: number;
 };
 
 type Estimate = {
@@ -67,21 +84,30 @@ function sumLines(lines: { total: number }[] | undefined) {
 // ── Estimate Result Display ────────────────────────────────────────────────────
 
 function EstimateReport({ estimate }: { estimate: Estimate }) {
-  const r = estimate.result ?? {};
-  const materialsTotal = sumLines(r.materials);
-  const laborTotal = sumLines(r.labor);
-  const equipmentTotal = sumLines(r.equipment);
-  const subtotal = r.subtotal ?? (materialsTotal + laborTotal + equipmentTotal);
-  const contingency = r.contingency ?? Math.round(subtotal * ((r.contingencyPct ?? 10) / 100));
-  const totalLow = r.totalLow ?? subtotal;
-  const totalHigh = r.totalHigh ?? (subtotal + contingency);
+  const r = estimate.result ?? {} as EstimateResult;
+
+  // Detect Smart Estimator format: result.summary is a pricing object, not a string
+  const isSmartEst = r.summary !== null && typeof r.summary === "object" && "priceToClient" in (r.summary as object);
+  const smart = isSmartEst ? r.summary as SmartSummary : null;
+  const smartLines = isSmartEst ? (r.lineItems ?? []) : [];
+  const summaryText = !isSmartEst && typeof r.summary === "string" ? r.summary : null;
+
+  const materialsTotal = smart ? smart.materialsTotal : sumLines(r.materials);
+  const laborTotal     = smart ? smart.laborTotal     : sumLines(r.labor);
+  const equipmentTotal = smart ? 0                    : sumLines(r.equipment);
+  const addonsTotal    = smart ? smart.addonsTotal    : 0;
+  const overhead       = smart ? smart.overhead       : 0;
+  const subtotal       = smart ? smart.subtotal       : (r.subtotal ?? (materialsTotal + laborTotal + equipmentTotal));
+  const contingency    = smart ? smart.contingency    : (r.contingency ?? Math.round(subtotal * ((r.contingencyPct ?? 10) / 100)));
+  const totalLow       = smart ? smart.totalLow       : (r.totalLow ?? subtotal);
+  const totalHigh      = smart ? smart.priceToClient  : (r.totalHigh ?? (subtotal + contingency));
 
   return (
     <div className="space-y-5">
-      {/* Summary banner */}
-      {r.summary && (
+      {/* Summary banner — only for AI estimator text summaries */}
+      {summaryText && (
         <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
-          <p className="text-sm text-muted-foreground leading-relaxed">{r.summary}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{summaryText}</p>
         </div>
       )}
 
@@ -101,8 +127,20 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
             <p className="text-lg font-bold text-foreground">{fmt(equipmentTotal)}</p>
           </div>
         )}
+        {addonsTotal > 0 && (
+          <div className="rounded-lg bg-muted/30 border border-border p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Add-ons</p>
+            <p className="text-lg font-bold text-foreground">{fmt(addonsTotal)}</p>
+          </div>
+        )}
+        {overhead > 0 && (
+          <div className="rounded-lg bg-muted/30 border border-border p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Overhead ({smart?.overheadPct ?? 0}%)</p>
+            <p className="text-lg font-bold text-foreground">{fmt(overhead)}</p>
+          </div>
+        )}
         <div className="rounded-lg bg-primary/10 border border-primary/30 p-3 text-center col-span-2 sm:col-span-1">
-          <p className="text-xs text-primary font-medium mb-1">Contingency ({r.contingencyPct ?? 10}%)</p>
+          <p className="text-xs text-primary font-medium mb-1">Contingency ({smart?.contingencyPct ?? r.contingencyPct ?? 10}%)</p>
           <p className="text-lg font-bold text-primary">{fmt(contingency)}</p>
         </div>
       </div>
@@ -110,9 +148,14 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
       {/* Total range */}
       <div className="rounded-xl bg-[#0A0A0A] text-white p-5 flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-xs text-muted-foreground/70 uppercase tracking-wider mb-1">Estimated Total Range (CAD)</p>
+          <p className="text-xs text-muted-foreground/70 uppercase tracking-wider mb-1">
+            {smart ? "Price to Client (CAD)" : "Estimated Total Range (CAD)"}
+          </p>
           <p className="text-3xl font-black text-[#D4AF37]">{fmt(totalLow)}</p>
-          <p className="text-sm text-muted-foreground/70 mt-0.5">to {fmt(totalHigh)}</p>
+          {!smart && <p className="text-sm text-muted-foreground/70 mt-0.5">to {fmt(totalHigh)}</p>}
+          {smart && smart.suggestedMarginPct > 0 && (
+            <p className="text-xs text-muted-foreground/70 mt-0.5">incl. {smart.suggestedMarginPct}% margin</p>
+          )}
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground/70">Subtotal</p>
@@ -120,6 +163,35 @@ function EstimateReport({ estimate }: { estimate: Estimate }) {
           <p className="text-xs text-muted-foreground mt-1">excl. HST/GST</p>
         </div>
       </div>
+
+      {/* Smart Estimator line items table */}
+      {smartLines.length > 0 && (
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
+            <TrendingUp className="h-4 w-4 text-primary" /> Line Items
+          </h3>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 border-b border-border">
+                <tr>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Item</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Category</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {smartLines.map((li, i) => (
+                  <tr key={li.id ?? i} className="hover:bg-muted/20">
+                    <td className="px-3 py-2.5 font-medium">{li.label}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground capitalize">{li.category}</td>
+                    <td className="px-3 py-2.5 text-right font-semibold">{fmt(li.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Materials table */}
       {(r.materials ?? []).length > 0 && (
@@ -281,7 +353,7 @@ function EstimateEditor({
   const r = estimate.result ?? {};
 
   const [title, setTitle] = useState(estimate.title);
-  const [summary, setSummary] = useState(r.summary ?? "");
+  const [summary, setSummary] = useState(typeof r.summary === "string" ? r.summary : "");
   const [materials, setMaterials] = useState<MaterialLine[]>(r.materials ?? []);
   const [labor, setLabor] = useState<LaborLine[]>(r.labor ?? []);
   const [equipment, setEquipment] = useState<EquipmentLine[]>(r.equipment ?? []);
