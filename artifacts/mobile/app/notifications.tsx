@@ -94,10 +94,7 @@ export default function NotificationsScreen() {
     refetch,
   } = useQuery<AppNotification[]>({
     queryKey: ["notifications"],
-    queryFn: async () => {
-      const res = await customFetch("/api/notifications");
-      return res.json();
-    },
+    queryFn: () => customFetch<AppNotification[]>("/api/notifications"),
   });
 
   const markAllRead = useMutation({
