@@ -146,12 +146,16 @@ const QUICK_ACTIONS_WORKER = [
   { label: "My Tasks", icon: "check-square", path: "/tasks", color: "#10b981" },
   { label: "Calculators", icon: "percent", path: "/calculators", color: "#f59e0b" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
+  { label: "Site Vision", icon: "camera", path: "/site-vision", color: "#C9A84C" },
+  { label: "Risk", icon: "alert-triangle", path: "/(tabs)/risk", color: "#EF4444" },
 ];
 
 const QUICK_ACTIONS_OWNER = [
   { label: "Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
   { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
+  { label: "Site Vision", icon: "camera", path: "/site-vision", color: "#C9A84C" },
+  { label: "Risk", icon: "alert-triangle", path: "/(tabs)/risk", color: "#EF4444" },
 ];
 
 function QuickActionsGrid({ isWorker, colors, router }: { isWorker: boolean; colors: any; router: any }) {
@@ -568,29 +572,6 @@ export default function DashboardScreen() {
           </View>
         </Pressable>
       )}
-
-      {/* Site Vision AI — all roles */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.voiceEstimateCard,
-          { backgroundColor: "#111111", borderColor: "#C9A84C44", opacity: pressed ? 0.85 : 1 },
-        ]}
-        onPress={() => {
-          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push("/site-vision");
-        }}
-      >
-        <View style={[styles.voiceEstimateIcon, { backgroundColor: "#C9A84C22" }]}>
-          <Feather name="camera" size={20} color="#C9A84C" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.voiceEstimateTitle, { color: "#FFFFFF" }]}>Site Vision AI</Text>
-          <Text style={[styles.voiceEstimateSub, { color: "rgba(255,255,255,0.55)" }]}>
-            Take or upload site photos — AI summarizes progress, safety & materials
-          </Text>
-        </View>
-        <Feather name="chevron-right" size={18} color="#C9A84C" />
-      </Pressable>
 
       {/* Voice Estimator — owners and foremen only */}
       {!isWorker && (
