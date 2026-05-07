@@ -18,7 +18,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { customFetch, useListAllInvoices, useListAllQuotes } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 type TabKey = "invoices" | "quotes";
@@ -113,6 +113,15 @@ export default function FinanceScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
+
+  const { data: me } = useGetMe();
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+
+  React.useEffect(() => {
+    if (me && !isOwnerOrForeman) {
+      router.replace("/(tabs)/(home)");
+    }
+  }, [me, isOwnerOrForeman]);
 
   const [tab, setTab] = useState<TabKey>("invoices");
   const [showVoiceModal, setShowVoiceModal] = useState(false);

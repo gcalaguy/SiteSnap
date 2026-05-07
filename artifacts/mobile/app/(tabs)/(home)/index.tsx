@@ -549,7 +549,7 @@ export default function DashboardScreen() {
       </View>
 
       {/* Finance Quick Access — owners and foremen only */}
-      {!isWorker && (
+      {isOwnerOrForeman && (
         <Pressable
           style={({ pressed }) => [
             styles.financeCard,
