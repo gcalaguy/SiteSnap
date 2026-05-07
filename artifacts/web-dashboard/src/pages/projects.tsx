@@ -56,7 +56,7 @@ const projectSchema = z.object({
   description: z.string().optional(),
 });
 
-type Filter = "All" | "Active" | "Complete";
+type Filter = "All" | "Active" | "OnHold" | "Complete";
 
 export default function Projects() {
   const { data: projects, isLoading } = useListProjects();
@@ -102,19 +102,20 @@ export default function Projects() {
   const onHoldCount    = allProjects.filter(p => p.status === "on_hold").length;
   const totalBudget    = allProjects.reduce((sum, p) => sum + (p.budget ? parseFloat(String(p.budget)) : 0), 0);
 
-  const statCards = [
-    { label: "Total Budget", value: totalBudget > 0 ? `$${(totalBudget / 1_000_000).toFixed(1)}M` : "—", icon: DollarSign, sub: `${allProjects.length} projects` },
-    { label: "Active",        value: String(activeCount),    icon: TrendingUp,  sub: "in progress" },
-    { label: "On Hold",       value: String(onHoldCount),    icon: Clock,       sub: "paused" },
-    { label: "Completed",     value: String(completedCount), icon: CheckCircle2, sub: "finished" },
+  const statCards: { label: string; value: string; icon: React.ElementType; sub: string; filterKey: Filter }[] = [
+    { label: "Total Budget", value: totalBudget > 0 ? `$${(totalBudget / 1_000_000).toFixed(1)}M` : "—", icon: DollarSign, sub: `${allProjects.length} projects`, filterKey: "All" },
+    { label: "Active",        value: String(activeCount),    icon: TrendingUp,  sub: "in progress", filterKey: "Active" },
+    { label: "On Hold",       value: String(onHoldCount),    icon: Clock,       sub: "paused",      filterKey: "OnHold" },
+    { label: "Completed",     value: String(completedCount), icon: CheckCircle2, sub: "finished",   filterKey: "Complete" },
   ];
 
   let filtered = allProjects.filter(p => {
     const q = search.toLowerCase();
     const matchSearch = !q || p.name.toLowerCase().includes(q) || p.city.toLowerCase().includes(q) || p.address.toLowerCase().includes(q);
     const matchFilter =
-      filter === "All" ? true :
-      filter === "Active" ? (p.status === "active" || p.status === "planning") :
+      filter === "All"      ? true :
+      filter === "Active"   ? (p.status === "active" || p.status === "planning") :
+      filter === "OnHold"   ? p.status === "on_hold" :
       p.status === "completed";
     return matchSearch && matchFilter;
   });
@@ -224,20 +225,31 @@ export default function Projects() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {statCards.map(({ label, value, icon: Icon, sub }) => (
-          <div
-            key={label}
-            className="rounded-xl p-4"
-            style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
-              <Icon size={15} style={{ color: GOLD }} />
-            </div>
-            <p className="text-2xl font-bold mb-1 text-white">{isLoading ? "—" : value}</p>
-            <p className="text-xs" style={{ color: "#71717a" }}>{sub}</p>
-          </div>
-        ))}
+        {statCards.map(({ label, value, icon: Icon, sub, filterKey }) => {
+          const isActive = filter === filterKey;
+          return (
+            <button
+              key={label}
+              onClick={() => setFilter(isActive ? "All" : filterKey)}
+              className="rounded-xl p-4 text-left transition-all duration-150"
+              style={{
+                background: BLACK,
+                boxShadow: isActive
+                  ? `0 0 0 2px ${GOLD}, 0 4px 20px rgba(212,175,55,0.25)`
+                  : "0 4px 16px rgba(0,0,0,0.18)",
+                outline: "none",
+                cursor: "pointer",
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+                <Icon size={15} style={{ color: GOLD }} />
+              </div>
+              <p className="text-2xl font-bold mb-1 text-white">{isLoading ? "—" : value}</p>
+              <p className="text-xs" style={{ color: "#71717a" }}>{sub}</p>
+            </button>
+          );
+        })}
       </div>
 
       {/* Table container */}
@@ -260,7 +272,7 @@ export default function Projects() {
             <span className="text-xs" style={{ color: MUTED }}>{filtered.length} projects</span>
             <div style={{ width: 1, height: 16, background: BORDER }} />
             <div className="flex items-center gap-1">
-              {(["All", "Active", "Complete"] as Filter[]).map(f => (
+              {(["All", "Active", "OnHold", "Complete"] as Filter[]).map(f => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
@@ -271,7 +283,7 @@ export default function Projects() {
                     border: filter === f ? `1px solid ${GOLD}33` : "1px solid transparent",
                   }}
                 >
-                  {f}
+                  {f === "OnHold" ? "On Hold" : f}
                 </button>
               ))}
             </div>
