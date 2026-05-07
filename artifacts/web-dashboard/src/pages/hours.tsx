@@ -476,17 +476,45 @@ export default function HoursPage() {
           {/* Summary cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { label: "Total Hours",   value: `${totalHours.toFixed(1)}h`,                                              icon: Clock      },
-              { label: "Workers Active", value: String(uniqueWorkers),                                                   icon: Users      },
-              { label: "Avg / Worker",  value: `${uniqueWorkers > 0 ? (totalHours / uniqueWorkers).toFixed(1) : "0"}h`, icon: TrendingUp },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+              {
+                label: "Total Hours",
+                value: `${totalHours.toFixed(1)}h`,
+                icon: Clock,
+                isActive: filterUser === "all" && filterProject === "all",
+                onClick: () => { setFilterUser("all"); setFilterProject("all"); },
+              },
+              {
+                label: "Workers Active",
+                value: String(uniqueWorkers),
+                icon: Users,
+                isActive: filterUser === "all",
+                onClick: () => setFilterUser("all"),
+              },
+              {
+                label: "Avg / Worker",
+                value: `${uniqueWorkers > 0 ? (totalHours / uniqueWorkers).toFixed(1) : "0"}h`,
+                icon: TrendingUp,
+                isActive: filterProject === "all",
+                onClick: () => setFilterProject("all"),
+              },
+            ].map(({ label, value, icon: Icon, isActive, onClick }) => (
+              <button
+                key={label}
+                onClick={onClick}
+                className="rounded-xl p-4 text-left w-full transition-all hover:opacity-90 active:scale-[0.98]"
+                style={{
+                  background: BLACK,
+                  border: `1px solid ${isActive ? GOLD : "transparent"}`,
+                  boxShadow: isActive ? `0 0 0 1px ${GOLD}44, 0 4px 16px rgba(0,0,0,0.28)` : "0 4px 16px rgba(0,0,0,0.18)",
+                  cursor: "pointer",
+                }}
+              >
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
                   <Icon size={15} style={{ color: GOLD }} />
                 </div>
                 <p className="text-2xl font-bold text-white">{value}</p>
-              </div>
+              </button>
             ))}
           </div>
 
