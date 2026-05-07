@@ -46,6 +46,7 @@ import RiskDashboardPage from "@/pages/risk-dashboard";
 import SafetyPage from "@/pages/safety";
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
+import SafetyCompliancePage from "@/pages/safety-compliance";
 import WorkerPortalPage from "@/pages/worker-portal";
 import WorkerPortalSubmitPage from "@/pages/worker-portal-submit";
 import WorkerPortalDetailPage from "@/pages/worker-portal-detail";
@@ -280,10 +281,15 @@ function AuthApp() {
           <Route path="/tradehub/profile/:userId" component={TradehubProfilePage} />
           <Route path="/tradehub" component={TradehubFeedPage} />
           <Route path="/risk-dashboard" component={RiskDashboardPage} />
-          <Route path="/inspections" component={InspectionsPage} />
+          <Route path="/safety-compliance" component={SafetyCompliancePage} />
+          <Route path="/inspections">
+            <Redirect to="/safety-compliance" />
+          </Route>
           <Route path="/safety/submit" component={SafetySubmitPage} />
           <Route path="/safety/submissions/:id" component={SafetyDetailPage} />
-          <Route path="/safety" component={SafetyPage} />
+          <Route path="/safety">
+            <Redirect to="/safety-compliance" />
+          </Route>
           <Route component={NotFound} />
         </Switch>
         </ErrorBoundary>

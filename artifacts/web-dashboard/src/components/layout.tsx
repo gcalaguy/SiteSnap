@@ -138,6 +138,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0 },
+    ...(isOwnerOrForeman ? [{ name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "INSPECTIONS" }] : []),
     { name: "Projects", href: "/projects", icon: Building2, badge: 0 },
     { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge },
     { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge },
@@ -149,9 +150,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, featureKey: "Calculator" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0, featureKey: "SCHEDULING" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING" }] : []),
-    { name: "Inspections", href: "/inspections", icon: ShieldAlert, badge: 0, featureKey: "INSPECTIONS" },
-    ...(isOwnerOrForeman ? [{ name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "INSPECTIONS" }] : []),
-    { name: "Safety", href: "/safety", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "Safety" },
+    { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "Safety" },
     ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TradeHub" }] : []),
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT" },
     ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0 }] : []),
