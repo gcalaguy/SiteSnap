@@ -629,10 +629,10 @@ export default function Dashboard() {
   const unreadCount = unread?.count ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of your company's projects and activities.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Overview of your company's projects and activities.</p>
       </div>
 
       {/* Daily Foreman Briefing — owners and foremen only */}
@@ -663,7 +663,7 @@ export default function Dashboard() {
       )}
 
       {/* Stat Cards Row 1 — Projects / Reports / RFIs / Team / Contacts */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Link href="/projects" className="block group">
           <Card className="cursor-pointer transition-all duration-150 hover:shadow-xl" style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -748,7 +748,7 @@ export default function Dashboard() {
       </div>
 
       {/* Insight Cards Row 2 — Revenue Pipeline / Overdue Invoices / This Month's Spend */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         <Link href="/leads" className="block group">
           <Card className="cursor-pointer transition-all duration-150 hover:shadow-xl" style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -815,14 +815,14 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom Row — Activity / Notifications + Weather */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4" style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
           <CardHeader>
             <CardTitle className="text-sm font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Recent Activity</CardTitle>
           </CardHeader>
 
           <CardContent>
-            <div className="space-y-6">
+            <div className="space-y-3">
               {activity?.length === 0 ? (
                 <div className="text-center text-sm text-zinc-500 py-4">No recent activity.</div>
               ) : (
@@ -845,7 +845,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <div className="col-span-3 flex flex-col gap-4">
+        <div className="col-span-3 flex flex-col gap-3">
           <WeatherCard />
 
           {/* Notifications Panel */}
