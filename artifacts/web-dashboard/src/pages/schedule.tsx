@@ -556,18 +556,31 @@ export default function Schedule() {
         {/* ── Summary cards ── */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: "Workers Scheduled",  value: scheduledWorkers,         icon: Users       },
-            { label: "Active Projects",    value: activeProjects,           icon: Building2   },
-            { label: "Unscheduled Members",value: Math.max(0, unscheduled), icon: CalendarDays},
-          ].map(({ label, value, icon: Icon }) => (
-            <div key={label} className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
-                <Icon size={15} style={{ color: GOLD }} />
-              </div>
-              <p className="text-2xl font-bold text-white">{value}</p>
-            </div>
-          ))}
+            { label: "Workers Scheduled",   value: scheduledWorkers,         icon: Users,       targetView: "team"  as ViewMode },
+            { label: "Active Projects",     value: activeProjects,           icon: Building2,   targetView: "gantt" as ViewMode },
+            { label: "Unscheduled Members", value: Math.max(0, unscheduled), icon: CalendarDays, targetView: "team" as ViewMode },
+          ].map(({ label, value, icon: Icon, targetView }) => {
+            const isActive = view === targetView;
+            return (
+              <button
+                key={label}
+                onClick={() => setView(targetView)}
+                className="rounded-xl p-4 text-left w-full transition-all hover:opacity-90 active:scale-[0.98]"
+                style={{
+                  background: BLACK,
+                  boxShadow: isActive ? `0 0 0 1px ${GOLD}66, 0 4px 16px rgba(0,0,0,0.28)` : "0 4px 16px rgba(0,0,0,0.18)",
+                  border: `1px solid ${isActive ? GOLD : "transparent"}`,
+                  cursor: "pointer",
+                }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+                  <Icon size={15} style={{ color: GOLD }} />
+                </div>
+                <p className="text-2xl font-bold text-white">{value}</p>
+              </button>
+            );
+          })}
         </div>
 
         {/* ── View toggle + nav controls ── */}
