@@ -32,7 +32,6 @@ import Schedule from "@/pages/schedule";
 import ClientPortal from "@/pages/client-portal";
 import Hours from "@/pages/hours";
 import Estimates from "@/pages/estimates";
-import SmartEstimator from "@/pages/smart-estimator";
 import TradehubFeedPage from "@/pages/tradehub-feed";
 import TradehubPostPage from "@/pages/tradehub-post";
 import TradehubJobsPage from "@/pages/tradehub-jobs";
@@ -267,7 +266,9 @@ function AuthApp() {
           <Route path="/schedule" component={Schedule} />
           <Route path="/hours" component={Hours} />
           <Route path="/estimates" component={Estimates} />
-          <Route path="/smart-estimator" component={SmartEstimator} />
+          <Route path="/smart-estimator">
+            <Redirect to="/estimates" />
+          </Route>
           <Route path="/calculators" component={CalculatorsPage} />
           <Route path="/rfis" component={RFIsPage} />
           <Route path="/reports" component={ReportsPage} />

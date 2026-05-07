@@ -19,8 +19,9 @@ import {
   Sparkles, Upload, FileText, Trash2, Clock, ChevronDown, ChevronUp,
   AlertCircle, Loader2, X, HardHat, Hammer, Package, Wrench,
   TrendingUp, ArrowRight, FilePlus, RotateCcw, Info, Mic, MicOff,
-  Download, Printer, Mail, FileDown, Pencil, Save, Plus, Building2,
+  Download, Printer, Mail, FileDown, Pencil, Save, Plus, Building2, Calculator,
 } from "lucide-react";
+import SmartEstimatorTab from "@/pages/smart-estimator";
 import { format } from "date-fns";
 
 type MaterialLine = { item: string; quantity: number; unit: string; unitCost: number; total: number };
@@ -848,6 +849,7 @@ export default function EstimatesPage() {
     setScope((prev) => (prev ? `${prev.trimEnd()} ${transcript}` : transcript));
   });
 
+  const [tab, setTab] = useState<"ai" | "smart" | "history">("ai");
   const [mode, setMode] = useState<"text" | "file">("text");
   const [scope, setScope] = useState("");
   const [hint, setHint] = useState("");
@@ -998,21 +1000,48 @@ export default function EstimatesPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            AI Estimating Engine
+            <Calculator className="h-6 w-6 text-primary" />
+            Estimating
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Upload plans or describe your scope — get instant materials, labour, and cost breakdowns
+            AI-powered cost estimation — describe scope, upload plans, or use the Smart Estimator
           </p>
         </div>
-        {activeEstimate && (
+        {tab === "ai" && activeEstimate && (
           <Button variant="outline" size="sm" className="gap-2" onClick={() => setActiveEstimate(null)}>
             <FilePlus className="h-4 w-4" /> New Estimate
           </Button>
         )}
       </div>
 
-      {activeEstimate ? (
+      {/* Tab bar */}
+      <div className="flex rounded-lg border border-border overflow-hidden">
+        {([
+          { key: "ai" as const, label: "AI Estimator", icon: Sparkles },
+          { key: "smart" as const, label: "Smart Estimator", icon: Calculator },
+          { key: "history" as const, label: "Past Estimates", icon: Clock },
+        ]).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            className={`flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-2 transition-colors border-r last:border-r-0 border-border ${
+              tab === key
+                ? "bg-primary text-white"
+                : "bg-transparent text-muted-foreground hover:bg-muted/60"
+            }`}
+            onClick={() => { setTab(key); if (key !== "ai") setActiveEstimate(null); }}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+            {key === "history" && estimates.length > 0 && (
+              <span className={`text-xs rounded-full px-1.5 py-0.5 leading-none ${tab === "history" ? "bg-white/20" : "bg-muted"}`}>
+                {estimates.length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {tab === "ai" && (activeEstimate ? (
         /* ── Active Estimate View ── */
         <div className="space-y-4">
           {/* Title row */}
@@ -1401,10 +1430,12 @@ export default function EstimatesPage() {
             </Card>
           </div>
         </div>
-      )}
+      ))}
 
-      {/* ── History ── */}
-      {estimates.length > 0 && (
+      {tab === "smart" && <SmartEstimatorTab />}
+
+      {/* ── Past Estimates tab ── */}
+      {tab === "history" && (
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -1419,6 +1450,8 @@ export default function EstimatesPage() {
                 <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
                 Loading…
               </div>
+            ) : estimates.length === 0 ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">No saved estimates yet.</div>
             ) : (
               <div className="divide-y divide-border/50">
                 {estimates.map((e) => (
@@ -1426,7 +1459,7 @@ export default function EstimatesPage() {
                     key={e.id}
                     estimate={e}
                     onDelete={(id) => deleteEstimate.mutate(id)}
-                    onView={setActiveEstimate}
+                    onView={(est) => { setActiveEstimate(est); setTab("ai"); }}
                   />
                 ))}
               </div>
