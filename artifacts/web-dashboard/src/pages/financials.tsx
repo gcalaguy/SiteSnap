@@ -348,20 +348,33 @@ export default function Financials() {
         {summaryLoading ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
         ) : ([
-          { label: "Outstanding", value: summary?.outstanding, icon: TrendingDown, color: "#F59E0B", note: `${summary?.invoiceCount ?? 0} invoices` },
-          { label: "Overdue",     value: summary?.overdue,     icon: AlertCircle,  color: "#EF4444", note: "needs attention" },
-          { label: "Collected",   value: summary?.collected,   icon: TrendingUp,   color: "#22C55E", note: "fully paid invoices" },
-          { label: "Pending COs", value: summary?.pendingChangeOrders !== undefined ? String(summary.pendingChangeOrders) : "0", icon: ClipboardList, color: GOLD, note: `+${cad(summary?.approvedChangeOrdersValue)} approved`, isCnt: true },
-        ].map(({ label, value, icon: Icon, color, note, isCnt }) => (
-          <div key={label} className="rounded-xl p-4 space-y-1" style={{ background: BLACK, border: `1px solid #222` }}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>{label}</span>
-              <Icon size={14} style={{ color }} />
-            </div>
-            <p className="text-2xl font-bold text-white">{isCnt ? value : cad(value)}</p>
-            <p className="text-xs" style={{ color: "#666" }}>{note}</p>
-          </div>
-        )))}
+          { label: "Outstanding", value: summary?.outstanding, icon: TrendingDown, color: "#F59E0B", note: `${summary?.invoiceCount ?? 0} invoices`,   targetTab: "payments"      as const },
+          { label: "Overdue",     value: summary?.overdue,     icon: AlertCircle,  color: "#EF4444", note: "needs attention",                           targetTab: "payments"      as const },
+          { label: "Collected",   value: summary?.collected,   icon: TrendingUp,   color: "#22C55E", note: "fully paid invoices",                       targetTab: "payments"      as const },
+          { label: "Pending COs", value: summary?.pendingChangeOrders !== undefined ? String(summary.pendingChangeOrders) : "0", icon: ClipboardList, color: GOLD, note: `+${cad(summary?.approvedChangeOrdersValue)} approved`, isCnt: true, targetTab: "change-orders" as const },
+        ].map(({ label, value, icon: Icon, color, note, isCnt, targetTab }) => {
+          const isActive = tab === targetTab;
+          return (
+            <button
+              key={label}
+              onClick={() => setTab(targetTab)}
+              className="rounded-xl p-4 space-y-1 text-left w-full transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{
+                background: BLACK,
+                border: `1px solid ${isActive ? color : "#222"}`,
+                boxShadow: isActive ? `0 0 0 1px ${color}33, 0 4px 16px ${color}22` : undefined,
+                cursor: "pointer",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>{label}</span>
+                <Icon size={14} style={{ color }} />
+              </div>
+              <p className="text-2xl font-bold text-white">{isCnt ? value : cad(value)}</p>
+              <p className="text-xs" style={{ color: "#666" }}>{note}</p>
+            </button>
+          );
+        }))}
       </div>
 
       {/* Tabs */}
