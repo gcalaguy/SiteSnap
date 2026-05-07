@@ -182,6 +182,7 @@ export default function Leads() {
   // UI state
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<LeadWithContact | null>(null);
+  const [stageGroupFilter, setStageGroupFilter] = useState<"pipeline" | "won" | "closed" | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [convertOpen, setConvertOpen] = useState(false);
   const [convertAddress, setConvertAddress] = useState("");
@@ -325,28 +326,46 @@ export default function Leads() {
 
       {/* Summary pills */}
       <div className="flex gap-3 flex-wrap flex-shrink-0">
-        {[
-          { label: "Total Leads", value: String(allLeads.length), color: GOLD },
-          { label: "Pipeline Value", value: fmt(totalValue), color: GOLD },
-          { label: "Won Value", value: fmt(wonValue), color: "#4ade80" },
+        {([
+          { label: "Total Leads",    value: String(allLeads.length), color: GOLD,      filter: null          as "pipeline" | "won" | "closed" | null },
+          { label: "Pipeline Value", value: fmt(totalValue),          color: GOLD,      filter: "pipeline"    as const },
+          { label: "Won Value",      value: fmt(wonValue),            color: "#4ade80", filter: "won"         as const },
           {
             label: "Win Rate",
-            value:
-              allLeads.filter((l) => l.stage === "won" || l.stage === "lost").length > 0
-                ? `${Math.round((allLeads.filter((l) => l.stage === "won").length / allLeads.filter((l) => l.stage === "won" || l.stage === "lost").length) * 100)}%`
-                : "—",
+            value: allLeads.filter((l) => l.stage === "won" || l.stage === "lost").length > 0
+              ? `${Math.round((allLeads.filter((l) => l.stage === "won").length / allLeads.filter((l) => l.stage === "won" || l.stage === "lost").length) * 100)}%`
+              : "—",
             color: "#38bdf8",
+            filter: "closed" as const,
           },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
-            style={{ background: BLACK, border: "1px solid rgba(201,168,76,0.18)", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}
+        ] as const).map((s) => {
+          const isActive = stageGroupFilter === s.filter && s.filter !== null;
+          return (
+            <button
+              key={s.label}
+              onClick={() => setStageGroupFilter(stageGroupFilter === s.filter ? null : s.filter)}
+              className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm transition-all hover:opacity-90 active:scale-95"
+              style={{
+                background: BLACK,
+                border: isActive ? `1px solid ${s.color}` : "1px solid rgba(201,168,76,0.18)",
+                boxShadow: isActive ? `0 0 0 1px ${s.color}33, 0 4px 16px ${s.color}22` : "0 4px 16px rgba(0,0,0,0.18)",
+                cursor: "pointer",
+              }}
+            >
+              <span className="font-semibold uppercase tracking-wide text-xs" style={{ color: "rgba(201,168,76,0.7)" }}>{s.label}</span>
+              <span className="font-bold text-base" style={{ color: s.color }}>{s.value}</span>
+            </button>
+          );
+        })}
+        {stageGroupFilter !== null && (
+          <button
+            onClick={() => setStageGroupFilter(null)}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-3 text-xs text-zinc-400 hover:text-white transition-colors"
+            style={{ background: "#1a1a1a", border: "1px solid #333" }}
           >
-            <span className="font-semibold uppercase tracking-wide text-xs" style={{ color: "rgba(201,168,76,0.7)" }}>{s.label}</span>
-            <span className="font-bold text-base" style={{ color: s.color }}>{s.value}</span>
-          </div>
-        ))}
+            Clear filter
+          </button>
+        )}
       </div>
 
       {/* Kanban board */}
@@ -359,7 +378,13 @@ export default function Leads() {
           className="flex gap-3 overflow-x-auto pb-4 flex-1"
           style={{ minHeight: 0 }}
         >
-          {STAGES.map((stage) => {
+          {STAGES.filter((stage) => {
+            if (!stageGroupFilter) return true;
+            if (stageGroupFilter === "pipeline") return !["won", "lost"].includes(stage.key);
+            if (stageGroupFilter === "won")       return stage.key === "won";
+            if (stageGroupFilter === "closed")    return stage.key === "won" || stage.key === "lost";
+            return true;
+          }).map((stage) => {
             const stageLeads = allLeads.filter((l) => l.stage === stage.key);
             const stageValue = stageLeads.reduce(
               (s, l) => s + (l.estimatedValue ? parseFloat(l.estimatedValue) : 0),
