@@ -152,6 +152,7 @@ async function apiFetch(path: string, opts?: RequestInit) {
 export default function Proposals() {
   const { toast } = useToast();
   const [tab, setTab] = useState<"estimates" | "proposals">("estimates");
+  const [proposalStatusFilter, setProposalStatusFilter] = useState<string | null>(null);
 
   // Estimates
   const [estimates, setEstimates] = useState<BuilderEstimate[]>([]);
@@ -409,16 +410,28 @@ export default function Proposals() {
       {/* Summary pills */}
       <div className="flex gap-2 flex-wrap flex-shrink-0">
         {[
-          { label: "Estimates", value: String(estimates.length) },
-          { label: "Proposals", value: String(proposalStats.total) },
-          { label: "Approved",  value: String(proposalStats.approved) },
-          { label: "Awaiting",  value: String(proposalStats.pending) },
-        ].map((s) => (
-          <div key={s.label} className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm" style={{ background: BLACK }}>
-            <span className="text-zinc-400 font-medium">{s.label}</span>
-            <span className="font-bold text-white">{s.value}</span>
-          </div>
-        ))}
+          { label: "Estimates", value: String(estimates.length),       onClick: () => { setTab("estimates"); setProposalStatusFilter(null); } },
+          { label: "Proposals", value: String(proposalStats.total),    onClick: () => { setTab("proposals"); setProposalStatusFilter(null); } },
+          { label: "Approved",  value: String(proposalStats.approved), onClick: () => { setTab("proposals"); setProposalStatusFilter("approved"); } },
+          { label: "Awaiting",  value: String(proposalStats.pending),  onClick: () => { setTab("proposals"); setProposalStatusFilter("sent"); } },
+        ].map((s) => {
+          const isActive =
+            (s.label === "Estimates" && tab === "estimates" && proposalStatusFilter === null) ||
+            (s.label === "Proposals" && tab === "proposals" && proposalStatusFilter === null) ||
+            (s.label === "Approved"  && tab === "proposals" && proposalStatusFilter === "approved") ||
+            (s.label === "Awaiting"  && tab === "proposals" && proposalStatusFilter === "sent");
+          return (
+            <button
+              key={s.label}
+              onClick={s.onClick}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-all hover:opacity-80 active:scale-95"
+              style={{ background: isActive ? GOLD : BLACK, cursor: "pointer" }}
+            >
+              <span className="font-medium" style={{ color: isActive ? BLACK : "#a1a1aa" }}>{s.label}</span>
+              <span className="font-bold" style={{ color: isActive ? BLACK : "#ffffff" }}>{s.value}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Tabs */}
@@ -496,15 +509,28 @@ export default function Proposals() {
         <TabsContent value="proposals" className="flex-1 flex gap-4 min-h-0 mt-3">
           {/* Left: list */}
           <div className="w-72 flex-shrink-0 overflow-y-auto space-y-2">
+            {proposalStatusFilter && (
+              <div className="flex items-center justify-between px-1 pb-1">
+                <span className="text-xs text-muted-foreground capitalize">
+                  Filtering: <strong>{proposalStatusFilter}</strong>
+                </span>
+                <button
+                  onClick={() => setProposalStatusFilter(null)}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
             {proposalsLoading ? (
               <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-            ) : proposals.length === 0 ? (
+            ) : proposals.filter((p) => !proposalStatusFilter || p.status === proposalStatusFilter).length === 0 ? (
               <div className="text-center py-10 text-sm text-muted-foreground">
                 <Send className="mx-auto mb-2 opacity-30" size={32} />
-                No proposals yet
-                <p className="text-xs mt-1 opacity-60">Convert an estimate to get started</p>
+                {proposalStatusFilter ? `No ${proposalStatusFilter} proposals` : "No proposals yet"}
+                {!proposalStatusFilter && <p className="text-xs mt-1 opacity-60">Convert an estimate to get started</p>}
               </div>
-            ) : proposals.map((p) => {
+            ) : proposals.filter((p) => !proposalStatusFilter || p.status === proposalStatusFilter).map((p) => {
               const s = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.draft;
               return (
                 <div
