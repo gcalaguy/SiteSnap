@@ -36,20 +36,25 @@ app.use(
 );
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
-// Global: 200 req / 15 min per IP.  Tighter limits on write-heavy & AI routes.
+// In dev, all requests share the same Replit proxy IP so IP-based limiting is
+// not meaningful and will fire erroneously.  Only enable in production.
+const isDev = process.env.NODE_ENV !== "production";
+
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 500,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Too many requests — please slow down", code: "RATE_LIMITED" },
   skip: (req) =>
-    req.path === "/api/healthz" || req.path.startsWith("/api/stripe/webhook"),
+    isDev ||
+    req.path === "/api/healthz" ||
+    req.path.startsWith("/api/stripe/webhook"),
 });
 
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 15,
+  max: isDev ? 1000 : 15,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "AI rate limit exceeded — wait a moment", code: "RATE_LIMITED" },
