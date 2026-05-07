@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  Linking,
   Alert,
   ScrollView,
 } from "react-native";
@@ -13,6 +12,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { customFetch } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { openStorageFile } from "@/utils/openStorageFile";
 
 const GOLD = "#C9A84C";
 
@@ -29,14 +29,6 @@ type FileAttachment = {
   createdAt: string;
   uploadedBy?: { firstName: string | null; lastName: string | null; email: string } | null;
 };
-
-function baseUrl() {
-  return process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "";
-}
-
-function fileDownloadUrl(objectPath: string) {
-  return `${baseUrl()}${objectPath.replace(/^\/objects\//, "/api/storage/objects/")}`;
-}
 
 function formatSize(bytes: number | null) {
   if (!bytes) return null;
@@ -80,17 +72,9 @@ export function FilesTab({ projectId }: Props) {
   });
 
   const handleOpen = useCallback(async (file: FileAttachment) => {
-    const url = fileDownloadUrl(file.objectPath);
     setOpeningId(file.id);
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert("Cannot open file", "No app found to open this file type.");
-      }
-    } catch {
-      Alert.alert("Error", "Failed to open file.");
+      await openStorageFile(file.objectPath, file.filename, file.fileType);
     } finally {
       setOpeningId(null);
     }

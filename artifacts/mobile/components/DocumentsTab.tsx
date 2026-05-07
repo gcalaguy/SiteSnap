@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  Linking,
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
@@ -19,6 +18,7 @@ import { customFetch, useListDocuments } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { openStorageFile } from "@/utils/openStorageFile";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type DocStatus = "pending" | "processing" | "ready" | "failed";
@@ -47,13 +47,6 @@ type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolea
 type QAMessage = { role: "user" | "assistant"; text: string; citations?: QACitation[]; ragEnabled?: boolean };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function baseUrl() {
-  return process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "";
-}
-
-function fileDownloadUrl(objectPath: string) {
-  return `${baseUrl()}${objectPath.replace(/^\/objects\//, "/api/storage/objects/")}`;
-}
 
 function formatSize(bytes: number | null) {
   if (!bytes) return null;
@@ -331,7 +324,7 @@ function SearchPanel({ projectId }: { projectId: number }) {
               <Pressable
                 key={doc.id}
                 style={[docStyles.searchResultRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => Linking.openURL(fileDownloadUrl(doc.objectPath))}
+                onPress={() => openStorageFile(doc.objectPath, doc.filename, doc.fileType)}
               >
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={[docStyles.docFilename, { color: colors.foreground }]} numberOfLines={1}>
@@ -789,7 +782,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                             </Pressable>
                           )}
                           <Pressable
-                            onPress={() => Linking.openURL(fileDownloadUrl(doc.objectPath))}
+                            onPress={() => openStorageFile(doc.objectPath, doc.filename, doc.fileType)}
                             style={[docStyles.iconBtn, { backgroundColor: colors.muted }]}
                           >
                             <Feather name="external-link" size={14} color={colors.mutedForeground} />
@@ -819,7 +812,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                   return (
                     <Pressable
                       key={upload.id}
-                      onPress={() => Linking.openURL(fileDownloadUrl(upload.objectPath))}
+                      onPress={() => openStorageFile(upload.objectPath, upload.filename, upload.fileType)}
                       style={({ pressed }) => [docStyles.docCard, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE", opacity: pressed ? 0.85 : 1 }]}
                     >
                       <View style={docStyles.docCardMain}>

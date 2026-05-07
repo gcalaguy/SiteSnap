@@ -26,7 +26,7 @@ import { TermsModal } from "@/components/TermsModal";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { tokenCache } from "@/utils/cache";
-import { setSignOut } from "@/utils/auth";
+import { setSignOut, setTokenGetter } from "@/utils/auth";
 import { OfflineQueueProvider } from "@/context/OfflineQueueContext";
 import { MediaQueueProvider } from "@/context/MediaQueueContext";
 import { NoteQueueProvider } from "@/context/NoteQueueContext";
@@ -91,13 +91,15 @@ function AuthSetup() {
   const { getToken, signOut: clerkSignOut, isSignedIn } = useAuth();
 
   useEffect(() => {
-    setAuthTokenGetter(async () => {
+    const getter = async () => {
       try {
         return await getToken();
       } catch {
         return null;
       }
-    });
+    };
+    setAuthTokenGetter(getter);
+    setTokenGetter(getter);
   }, [getToken]);
 
   useEffect(() => {
