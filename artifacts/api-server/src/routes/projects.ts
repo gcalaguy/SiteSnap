@@ -9,6 +9,7 @@ import {
   projectMembersTable,
   workerSchedulesTable,
   usersTable,
+  projectNotesTable,
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
@@ -338,6 +339,91 @@ router.delete(
           eq(projectMembersTable.projectId, projectId),
           eq(projectMembersTable.userId, memberId),
           eq(projectMembersTable.companyId, req.companyId!),
+        ),
+      );
+
+    res.status(204).send();
+  }),
+);
+
+// GET /projects/:projectId/notes
+router.get(
+  "/projects/:projectId/notes",
+  requireAuth,
+  requireCompany,
+  asyncHandler(async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) throw new BadRequestError("Invalid project ID");
+
+    const notes = await db
+      .select({
+        id: projectNotesTable.id,
+        content: projectNotesTable.content,
+        createdAt: projectNotesTable.createdAt,
+        author: {
+          id: usersTable.id,
+          firstName: usersTable.firstName,
+          lastName: usersTable.lastName,
+        },
+      })
+      .from(projectNotesTable)
+      .leftJoin(usersTable, eq(projectNotesTable.authorId, usersTable.id))
+      .where(
+        and(
+          eq(projectNotesTable.projectId, projectId),
+          eq(projectNotesTable.companyId, req.companyId!),
+        ),
+      )
+      .orderBy(projectNotesTable.createdAt);
+
+    res.json(notes);
+  }),
+);
+
+// POST /projects/:projectId/notes
+router.post(
+  "/projects/:projectId/notes",
+  requireAuth,
+  requireCompany,
+  asyncHandler(async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) throw new BadRequestError("Invalid project ID");
+
+    const { content } = req.body as { content?: string };
+    if (!content?.trim()) throw new ValidationError("content is required");
+
+    const [note] = await db
+      .insert(projectNotesTable)
+      .values({
+        projectId,
+        companyId: req.companyId!,
+        authorId: req.userId!,
+        content: content.trim(),
+      })
+      .returning();
+
+    res.status(201).json(note);
+  }),
+);
+
+// DELETE /projects/:projectId/notes/:noteId
+router.delete(
+  "/projects/:projectId/notes/:noteId",
+  requireAuth,
+  requireCompany,
+  asyncHandler(async (req, res) => {
+    const projectId = parseInt(req.params.projectId);
+    const noteId = parseInt(req.params.noteId);
+    if (isNaN(projectId) || isNaN(noteId)) throw new BadRequestError("Invalid IDs");
+
+    await db
+      .delete(projectNotesTable)
+      .where(
+        and(
+          eq(projectNotesTable.id, noteId),
+          eq(projectNotesTable.projectId, projectId),
+          eq(projectNotesTable.companyId, req.companyId!),
+          eq(projectNotesTable.authorId, req.userId!),
         ),
       );
 

@@ -1255,4 +1255,14 @@ export const inspectionAlertsTable = pgTable("inspection_alerts", {
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const projectNotesTable = pgTable("project_notes", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => projectsTable.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  authorId: integer("author_id").notNull().references(() => usersTable.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type ProjectNote = typeof projectNotesTable.$inferSelect;
 export type InspectionAlert = typeof inspectionAlertsTable.$inferSelect;

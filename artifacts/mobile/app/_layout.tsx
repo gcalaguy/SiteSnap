@@ -28,6 +28,9 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { tokenCache } from "@/utils/cache";
 import { setSignOut } from "@/utils/auth";
 import { OfflineQueueProvider } from "@/context/OfflineQueueContext";
+import { MediaQueueProvider } from "@/context/MediaQueueContext";
+import { NoteQueueProvider } from "@/context/NoteQueueContext";
+import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
 
 // Set the API base URL at module level (outside any component)
 if (process.env.EXPO_PUBLIC_DOMAIN) {
@@ -50,6 +53,9 @@ const queryClient = new QueryClient({
     queries: { retry: 1, staleTime: 30_000 },
   },
 });
+
+hydrateQueryCache(queryClient).catch(() => {});
+startCachePersistence(queryClient);
 
 async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (Platform.OS === "web") return null;
@@ -235,8 +241,12 @@ export default function RootLayout() {
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
                 <OfflineQueueProvider>
-                  <AuthSetup />
-                  <ProtectedNav />
+                  <MediaQueueProvider>
+                    <NoteQueueProvider>
+                      <AuthSetup />
+                      <ProtectedNav />
+                    </NoteQueueProvider>
+                  </MediaQueueProvider>
                 </OfflineQueueProvider>
               </KeyboardProvider>
             </GestureHandlerRootView>
