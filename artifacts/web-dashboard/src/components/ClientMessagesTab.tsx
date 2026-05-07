@@ -45,7 +45,7 @@ export default function ClientMessagesTab({ projectId }: Props) {
       customFetch<PortalMessage>(`/api/projects/${projectId}/portal/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, senderName: "Your Contractor" }),
+        body: JSON.stringify({ message }),
       }),
     onSuccess: (newMsg) => {
       qc.setQueryData<PortalMessage[]>(["portal-messages", projectId], (prev) =>

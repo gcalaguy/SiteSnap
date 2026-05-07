@@ -11,6 +11,7 @@ import {
   clientPortalUploadsTable,
   clientPortalMessagesTable,
   invoicesTable,
+  usersTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth.js";
 import { ObjectStorageService } from "../lib/objectStorage.js";
@@ -127,6 +128,15 @@ router.get(
       .limit(1);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
+    // Must have an active portal before messages make sense
+    const [portalToken] = await db.select().from(clientPortalTokensTable)
+      .where(and(eq(clientPortalTokensTable.projectId, projectId), eq(clientPortalTokensTable.isActive, true)))
+      .limit(1);
+    if (!portalToken) {
+      res.status(400).json({ error: "No active portal link for this project" });
+      return;
+    }
+
     const messages = await db.select().from(clientPortalMessagesTable)
       .where(eq(clientPortalMessagesTable.projectId, projectId))
       .orderBy(asc(clientPortalMessagesTable.createdAt));
@@ -164,11 +174,21 @@ router.post(
     const parsed = ContractorMessageBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid body" }); return; }
 
+    // Resolve the sender's real name from the DB
+    const [sender] = await db
+      .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.userId!))
+      .limit(1);
+    const resolvedName =
+      parsed.data.senderName ??
+      (sender ? `${sender.firstName} ${sender.lastName}`.trim() : "Your Contractor");
+
     const [created] = await db.insert(clientPortalMessagesTable).values({
       portalTokenId: portalToken.id,
       projectId,
       senderRole: "contractor",
-      senderName: parsed.data.senderName ?? "Your Contractor",
+      senderName: resolvedName,
       message: parsed.data.message,
     }).returning();
 
