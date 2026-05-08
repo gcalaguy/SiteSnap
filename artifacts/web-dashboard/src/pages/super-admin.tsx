@@ -39,6 +39,7 @@ type FeatureDialogProps = { open: boolean };
 type TenantDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  tenantId: number | null;
   tenantForm: { planId: string; status: string; billingCycle: string };
   setTenantForm: (value: { planId: string; status: string; billingCycle: string }) => void;
   plans: Plan[];
@@ -257,6 +258,7 @@ function ManageTab() {
       <TenantDialog
         open={tenantOpen}
         onOpenChange={setTenantOpen}
+        tenantId={editingTenantId}
         tenantForm={tenantForm}
         setTenantForm={setTenantForm}
         plans={plans}
@@ -397,18 +399,19 @@ function FeatureDialog({ open }: FeatureDialogProps) {
   );
 }
 
-function TenantDialog({ open, onOpenChange, tenantForm, setTenantForm, plans, onSave, isSaving }: TenantDialogProps) {
+function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm, plans, onSave, isSaving }: TenantDialogProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-3xl rounded-2xl border border-white/10 bg-black p-6 text-white shadow-2xl">
-        <h3 className="text-lg font-semibold">Tenant Administration</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+      <div className="w-full max-w-3xl rounded-2xl border border-amber-400/30 bg-black p-6 text-white shadow-2xl">
+        <h3 className="text-lg font-semibold text-white">Tenant Administration</h3>
         <p className="text-sm text-zinc-400">Update subscription, billing cycle, and tenant plan.</p>
+        {tenantId !== null && <p className="mt-1 text-xs uppercase tracking-wider text-amber-400">Editing tenant #{tenantId}</p>}
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           <div>
-            <Label>Plan</Label>
+            <Label className="text-white">Plan</Label>
             <select
-              className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+              className="w-full rounded-md border border-amber-400/20 bg-black px-3 py-2 text-white"
               value={tenantForm.planId}
               onChange={(e) => setTenantForm({ ...tenantForm, planId: e.target.value })}
             >
@@ -419,17 +422,17 @@ function TenantDialog({ open, onOpenChange, tenantForm, setTenantForm, plans, on
             </select>
           </div>
           <div>
-            <Label>Status</Label>
-            <Input className="bg-white/5 border-white/10 text-white" value={tenantForm.status} onChange={(e) => setTenantForm({ ...tenantForm, status: e.target.value })} />
+            <Label className="text-white">Status</Label>
+            <Input className="border-amber-400/20 bg-black text-white" value={tenantForm.status} onChange={(e) => setTenantForm({ ...tenantForm, status: e.target.value })} />
           </div>
           <div>
-            <Label>Billing Cycle</Label>
-            <Input className="bg-white/5 border-white/10 text-white" value={tenantForm.billingCycle} onChange={(e) => setTenantForm({ ...tenantForm, billingCycle: e.target.value })} />
+            <Label className="text-white">Billing Cycle</Label>
+            <Input className="border-amber-400/20 bg-black text-white" value={tenantForm.billingCycle} onChange={(e) => setTenantForm({ ...tenantForm, billingCycle: e.target.value })} />
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button className="bg-white text-black hover:bg-zinc-200" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
+          <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button className="bg-amber-400 text-black hover:bg-amber-300" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
         </div>
       </div>
     </div>
