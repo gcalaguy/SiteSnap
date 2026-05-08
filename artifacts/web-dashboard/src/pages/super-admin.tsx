@@ -98,6 +98,18 @@ function adminPlanSlug(slug: string) {
   return slug === "business" ? "enterprise" : slug;
 }
 
+const PLAN_COLORS: Record<string, { border: string; accent: string; glow: string; badge: string; icon: string }> = {
+  basic:      { border: "border-blue-500/60",   accent: "text-blue-400",   glow: "shadow-blue-900/40",   badge: "bg-blue-600",   icon: "text-blue-400" },
+  starter:    { border: "border-cyan-500/60",    accent: "text-cyan-400",   glow: "shadow-cyan-900/40",   badge: "bg-cyan-600",   icon: "text-cyan-400" },
+  pro:        { border: "border-violet-500/60",  accent: "text-violet-400", glow: "shadow-violet-900/40", badge: "bg-violet-600", icon: "text-violet-400" },
+  enterprise: { border: "border-amber-500/60",   accent: "text-amber-400",  glow: "shadow-amber-900/40",  badge: "bg-amber-500",  icon: "text-amber-400" },
+  default:    { border: "border-zinc-600/60",    accent: "text-zinc-300",   glow: "shadow-zinc-900/40",   badge: "bg-zinc-600",   icon: "text-zinc-300" },
+};
+
+function getPlanColor(slug: string) {
+  return PLAN_COLORS[slug.toLowerCase()] ?? PLAN_COLORS.default;
+}
+
 function StripePlansTab() {
   const { toast } = useToast();
   const [interval, setInterval] = useState<"month" | "year">("month");
@@ -328,10 +340,29 @@ function ManageTab() {
         </TabsList>
         <TabsContent value="plans" className="space-y-4">
           <div className="flex justify-end"><Button className="bg-white text-black font-bold hover:bg-zinc-200" onClick={() => { setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5 }); setPlanFeatureIds([]); setPlanOpen(true); }}>Create Plan</Button></div>
-          <div className="grid gap-4">
-            {plans.map((p) => (
-              <Card key={p.id} className="border-white/15 bg-black/70"><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold text-white">{p.name}</div><div className="text-sm text-zinc-400">{p.slug} · {p.monthlyPrice}/{p.yearlyPrice}</div></div><Button variant="outline" className="border-white/20 text-white font-bold" onClick={() => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}>Edit</Button></CardContent></Card>
-            ))}
+          <div className="grid gap-3">
+            {plans.map((p) => {
+              const c = getPlanColor(p.slug);
+              return (
+                <Card key={p.id} className={`border-l-4 ${c.border} bg-black shadow-lg ${c.glow}`}>
+                  <CardContent className="flex items-center justify-between py-4 px-5">
+                    <div className="flex items-center gap-4">
+                      <div className={`flex items-center justify-center w-10 h-10 rounded-full bg-black border ${c.border}`}>
+                        {planIcon(p.slug)}
+                      </div>
+                      <div>
+                        <div className={`font-bold text-base ${c.accent}`}>{p.name}</div>
+                        <div className="text-xs text-zinc-500 mt-0.5">{p.slug} · <span className="text-zinc-300">${p.monthlyPrice}/mo</span> · <span className="text-zinc-300">${p.yearlyPrice}/yr</span> · <span className="text-zinc-400">{p.maxSeats} seats</span></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.badge} text-white`}>{p.featureIds.length} features</span>
+                      <Button variant="outline" className={`border ${c.border} ${c.accent} font-bold hover:bg-white/5`} onClick={() => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}>Edit</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </TabsContent>
         <TabsContent value="features" className="space-y-4">
