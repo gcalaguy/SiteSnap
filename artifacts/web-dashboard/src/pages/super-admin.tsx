@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, useGetMe } from "@workspace/api-client-react";
+import { useGetMe } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ShieldCheck,
   Users,
@@ -66,6 +70,14 @@ interface Feature {
   id: number; name: string; key: string; description: string | null; isEnabled: boolean;
 }
 
+interface TenantRow {
+  id: number;
+  name: string;
+  subscription: { id: number; planId: number; status: string; billingCycle: string } | null;
+  plan: { id: number; name: string; slug: string } | null;
+  userCount: number;
+}
+
 function formatCAD(cents: number) {
   return `$${(cents / 100).toFixed(0)} CAD`;
 }
@@ -75,6 +87,10 @@ function planIcon(planSlug: string | undefined) {
   if (planSlug === "pro") return <Star className="h-6 w-6 text-primary" />;
   if (planSlug === "business" || planSlug === "enterprise") return <Crown className="h-6 w-6 text-yellow-500" />;
   return <CreditCard className="h-6 w-6 text-muted-foreground" />;
+}
+
+function adminPlanSlug(slug: string) {
+  return slug === "business" ? "enterprise" : slug;
 }
 
 function StripePlansTab() {
@@ -197,6 +213,199 @@ function StripePlansTab() {
   );
 }
 
+function ManageTab() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [planOpen, setPlanOpen] = useState(false);
+  const [featureOpen, setFeatureOpen] = useState(false);
+  const [tenantOpen, setTenantOpen] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
+  const [editingFeatureId, setEditingFeatureId] = useState<number | null>(null);
+  const [editingTenantId, setEditingTenantId] = useState<number | null>(null);
+  const [planFeatureIds, setPlanFeatureIds] = useState<number[]>([]);
+  const [planForm, setPlanForm] = useState({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5 });
+  const [featureForm, setFeatureForm] = useState({ name: "", key: "", description: "" });
+  const [tenantForm, setTenantForm] = useState({ planId: "", status: "active", billingCycle: "monthly" });
+
+  const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
+  const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
+  const { data: tenants = [] } = useQuery<TenantRow[]>({ queryKey: ["admin-tenants"], queryFn: () => customFetch<TenantRow[]>("/api/admin/tenants") });
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["admin-plans"] });
+    qc.invalidateQueries({ queryKey: ["admin-features"] });
+    qc.invalidateQueries({ queryKey: ["admin-tenants"] });
+  };
+
+  const savePlan = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        ...planForm,
+        maxSeats: Number(planForm.maxSeats),
+        description: planForm.description || null,
+      };
+      return editingPlanId
+        ? customFetch(`/api/admin/plans/${editingPlanId}`, { method: "PATCH", body: JSON.stringify(payload) })
+        : customFetch("/api/admin/plans", { method: "POST", body: JSON.stringify(payload) });
+    },
+    onSuccess: async (res: any) => {
+      if (res?.id && planFeatureIds.length > 0) {
+        await customFetch(`/api/admin/plans/${res.id}/features`, { method: "PUT", body: JSON.stringify({ featureIds: planFeatureIds }) });
+      }
+      setPlanOpen(false);
+      setEditingPlanId(null);
+      setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5 });
+      setPlanFeatureIds([]);
+      refresh();
+      toast({ title: "Plan saved" });
+    },
+    onError: (e: any) => toast({ title: "Plan save failed", description: e.message, variant: "destructive" }),
+  });
+
+  const saveFeature = useMutation({
+    mutationFn: () => {
+      const payload = { ...featureForm, description: featureForm.description || null };
+      return editingFeatureId
+        ? customFetch(`/api/admin/features/${editingFeatureId}`, { method: "PATCH", body: JSON.stringify(payload) })
+        : customFetch("/api/admin/features", { method: "POST", body: JSON.stringify(payload) });
+    },
+    onSuccess: () => {
+      setFeatureOpen(false);
+      setEditingFeatureId(null);
+      setFeatureForm({ name: "", key: "", description: "" });
+      refresh();
+      toast({ title: "Feature saved" });
+    },
+    onError: (e: any) => toast({ title: "Feature save failed", description: e.message, variant: "destructive" }),
+  });
+
+  const saveTenant = useMutation({
+    mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}/subscription`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        planId: tenantForm.planId ? Number(tenantForm.planId) : undefined,
+        status: tenantForm.status,
+        billingCycle: tenantForm.billingCycle,
+      }),
+    }),
+    onSuccess: () => {
+      setTenantOpen(false);
+      setEditingTenantId(null);
+      refresh();
+      toast({ title: "Tenant subscription updated" });
+    },
+    onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-6">
+      <Tabs defaultValue="plans" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="plans">Plans</TabsTrigger>
+          <TabsTrigger value="features">Features</TabsTrigger>
+          <TabsTrigger value="tenants">Tenants</TabsTrigger>
+        </TabsList>
+        <TabsContent value="plans" className="space-y-4">
+          <div className="flex justify-end"><Button onClick={() => { setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5 }); setPlanFeatureIds([]); setPlanOpen(true); }}>Create Plan</Button></div>
+          <div className="grid gap-4">
+            {plans.map((p) => (
+              <Card key={p.id}><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold">{p.name}</div><div className="text-sm text-muted-foreground">{p.slug} · {p.monthlyPrice}/{p.yearlyPrice}</div></div><Button variant="outline" onClick={() => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}>Edit</Button></CardContent></Card>
+            ))}
+          </div>
+        </TabsContent>
+        <TabsContent value="features" className="space-y-4">
+          <div className="flex justify-end"><Button onClick={() => { setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "" }); setFeatureOpen(true); }}>Create Feature</Button></div>
+          <div className="grid gap-4">
+            {features.map((f) => (
+              <Card key={f.id}><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold">{f.name}</div><div className="text-sm text-muted-foreground">{f.key}</div></div><Button variant="outline" onClick={() => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "" }); setFeatureOpen(true); }}>Edit</Button></CardContent></Card>
+            ))}
+          </div>
+        </TabsContent>
+        <TabsContent value="tenants" className="space-y-4">
+          <div className="grid gap-4">
+            {tenants.map((t) => (
+              <Card key={t.id}><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold">{t.name}</div><div className="text-sm text-muted-foreground">{t.plan?.name ?? "No plan"} · {t.userCount} users</div></div><Button variant="outline" onClick={() => { setEditingTenantId(t.id); setTenantForm({ planId: t.subscription?.planId ? String(t.subscription.planId) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly" }); setTenantOpen(true); }}>Edit</Button></CardContent></Card>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={planOpen} onOpenChange={setPlanOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{editingPlanId ? "Edit Plan" : "Create Plan"}</DialogTitle><DialogDescription>Manage DB plans and attach features.</DialogDescription></DialogHeader>
+          <div className="grid gap-3">
+            <Input placeholder="Name" value={planForm.name} onChange={(e) => setPlanForm((p) => ({ ...p, name: e.target.value }))} />
+            <Input placeholder="Slug" value={planForm.slug} onChange={(e) => setPlanForm((p) => ({ ...p, slug: e.target.value }))} />
+            <Input placeholder="Description" value={planForm.description} onChange={(e) => setPlanForm((p) => ({ ...p, description: e.target.value }))} />
+            <Input placeholder="Monthly price" value={planForm.monthlyPrice} onChange={(e) => setPlanForm((p) => ({ ...p, monthlyPrice: e.target.value }))} />
+            <Input placeholder="Yearly price" value={planForm.yearlyPrice} onChange={(e) => setPlanForm((p) => ({ ...p, yearlyPrice: e.target.value }))} />
+            <Input type="number" placeholder="Max seats" value={planForm.maxSeats} onChange={(e) => setPlanForm((p) => ({ ...p, maxSeats: Number(e.target.value) }))} />
+            <div className="grid gap-2">
+              {features.map((f) => (
+                <label key={f.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={planFeatureIds.includes(f.id)} onChange={(e) => setPlanFeatureIds((ids) => e.target.checked ? [...ids, f.id] : ids.filter((id) => id !== f.id))} />{f.name}</label>
+              ))}
+            </div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setPlanOpen(false)}>Cancel</Button><Button onClick={() => savePlan.mutate()}>Save</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={featureOpen} onOpenChange={setFeatureOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{editingFeatureId ? "Edit Feature" : "Create Feature"}</DialogTitle><DialogDescription>Manage the reusable feature catalog.</DialogDescription></DialogHeader>
+          <div className="grid gap-3">
+            <Input placeholder="Name" value={featureForm.name} onChange={(e) => setFeatureForm((p) => ({ ...p, name: e.target.value }))} />
+            <Input placeholder="Key" value={featureForm.key} onChange={(e) => setFeatureForm((p) => ({ ...p, key: e.target.value }))} />
+            <Input placeholder="Description" value={featureForm.description} onChange={(e) => setFeatureForm((p) => ({ ...p, description: e.target.value }))} />
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setFeatureOpen(false)}>Cancel</Button><Button onClick={() => saveFeature.mutate()}>Save</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={tenantOpen} onOpenChange={setTenantOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Tenant</DialogTitle><DialogDescription>Assign a plan and billing cycle.</DialogDescription></DialogHeader>
+          <div className="grid gap-3">
+            <Select value={tenantForm.planId} onValueChange={(value) => setTenantForm((p) => ({ ...p, planId: value }))}>
+              <SelectTrigger><SelectValue placeholder="Plan" /></SelectTrigger>
+              <SelectContent>{plans.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={tenantForm.status} onValueChange={(value) => setTenantForm((p) => ({ ...p, status: value }))}>
+              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent><SelectItem value="active">active</SelectItem><SelectItem value="trialing">trialing</SelectItem><SelectItem value="past_due">past_due</SelectItem><SelectItem value="canceled">canceled</SelectItem></SelectContent>
+            </Select>
+            <Select value={tenantForm.billingCycle} onValueChange={(value) => setTenantForm((p) => ({ ...p, billingCycle: value }))}>
+              <SelectTrigger><SelectValue placeholder="Billing cycle" /></SelectTrigger>
+              <SelectContent><SelectItem value="monthly">monthly</SelectItem><SelectItem value="yearly">yearly</SelectItem></SelectContent>
+            </Select>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setTenantOpen(false)}>Cancel</Button><Button onClick={() => saveTenant.mutate()}>Save</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function SuperAdminPage() {
-  return <StripePlansTab />;
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <ShieldCheck className="h-6 w-6 text-primary" />
+            Super Admin
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage pricing, features, and tenants.</p>
+        </div>
+      </div>
+      <Tabs defaultValue="manage" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="manage">Manage</TabsTrigger>
+          <TabsTrigger value="billing">Billing Plans</TabsTrigger>
+        </TabsList>
+        <TabsContent value="manage"><ManageTab /></TabsContent>
+        <TabsContent value="billing"><StripePlansTab /></TabsContent>
+      </Tabs>
+    </div>
+  );
 }
