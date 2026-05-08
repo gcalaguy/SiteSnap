@@ -259,7 +259,7 @@ export default function AdminPage() {
             <Button
               variant="outline"
               className="border-white/20 text-white font-bold hover:bg-white/5"
-              onClick={() => window.open("/register", "_blank")}
+              onClick={() => window.open("/sign-up", "_blank")}
             >
               Register a Plan
             </Button>
