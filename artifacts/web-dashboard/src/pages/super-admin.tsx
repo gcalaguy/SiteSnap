@@ -344,7 +344,6 @@ function ManageTab() {
           if (selectedTenantUserId) {
             saveTenantUserRole.mutate();
           }
-          setTenantOpen(false);
         }}
         isSaving={saveTenant.isPending || saveTenantUserRole.isPending}
         users={tenantDetail?.users}
