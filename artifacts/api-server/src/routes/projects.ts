@@ -30,6 +30,7 @@ router.get(
   "/projects",
   requireAuth,
   requireCompany,
+  requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     if (req.userRole === "worker") {
       const userId = req.userId!;
@@ -79,7 +80,6 @@ router.post(
   "/projects",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = CreateProjectBody.safeParse(req.body);
     if (!parsed.success) {
@@ -88,7 +88,12 @@ router.post(
 
     const [project] = await db
       .insert(projectsTable)
-      .values({ ...parsed.data, companyId: req.companyId! })
+      .values({
+        ...parsed.data,
+        companyId: req.companyId!,
+        startDate: parsed.data.startDate ? String(parsed.data.startDate) : null,
+        endDate: parsed.data.endDate ? String(parsed.data.endDate) : null,
+      })
       .returning();
 
     // Auto-create default tasks for new projects
