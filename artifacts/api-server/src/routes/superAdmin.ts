@@ -198,11 +198,13 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
 
   const stripeUpdates: Record<string, string | null> = {};
   const warnings: string[] = [];
+  const stripe = await getUncachableStripeClient().catch((err) => {
+    warnings.push(`stripe client unavailable: ${err?.message ?? String(err)}`);
+    return null;
+  });
 
-  try {
-    const stripe = await getUncachableStripeClient();
-
-    let productId = plan.stripeProductId;
+  let productId = plan.stripeProductId;
+  if (stripe) {
     if (productId) {
       await stripe.products.update(productId, {
         name: plan.name,
@@ -213,64 +215,61 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
         warnings.push(`product update failed: ${err?.message ?? String(err)}`);
       });
     } else {
-      try {
-        const product = await stripe.products.create({
-          name: plan.name,
-          description: plan.description ?? undefined,
-          metadata: { plan: plan.slug, slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
-        });
+      await stripe.products.create({
+        name: plan.name,
+        description: plan.description ?? undefined,
+        metadata: { plan: plan.slug, slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
+      }).then((product) => {
         productId = product.id;
         stripeUpdates.stripeProductId = productId;
-      } catch (err: any) {
+      }).catch((err) => {
         warnings.push(`product create failed: ${err?.message ?? String(err)}`);
-      }
+      });
     }
+  }
 
-    if (!productId) {
-      if (warnings.length > 0) {
-        req.log.warn({ warnings }, "Stripe sync completed with warnings");
-      }
-      const [updated] = await db
-        .update(plansTable)
-        .set(stripeUpdates)
-        .where(eq(plansTable.id, plan.id))
-        .returning();
-      res.json(updated ?? plan);
-      return;
-    }
+  if (!productId) {
+    const [updated] = await db
+      .update(plansTable)
+      .set(stripeUpdates)
+      .where(eq(plansTable.id, plan.id))
+      .returning();
+    if (warnings.length > 0) req.log.warn({ warnings }, "Stripe sync completed with warnings");
+    res.json({ ...(updated ?? plan), warnings });
+    return;
+  }
 
+  if (stripe) {
     const monthlyAmount = Math.round(Number(plan.monthlyPrice) * 100);
     if (monthlyAmount > 0) {
       if (plan.stripeMonthlyPriceId) {
         const existing = await stripe.prices.retrieve(plan.stripeMonthlyPriceId).catch(() => null);
         if (existing && existing.unit_amount !== monthlyAmount) {
           await stripe.prices.update(plan.stripeMonthlyPriceId, { active: false }).catch(() => {});
-          try {
-            const newPrice = await stripe.prices.create({
-              product: productId,
-              unit_amount: monthlyAmount,
-              currency: "cad",
-              recurring: { interval: "month" },
-              nickname: `${plan.name} Monthly`,
-            });
-            stripeUpdates.stripeMonthlyPriceId = newPrice.id;
-          } catch (err: any) {
-            warnings.push(`monthly price create failed: ${err?.message ?? String(err)}`);
-          }
-        }
-      } else {
-        try {
-          const newPrice = await stripe.prices.create({
+          await stripe.prices.create({
             product: productId,
             unit_amount: monthlyAmount,
             currency: "cad",
             recurring: { interval: "month" },
             nickname: `${plan.name} Monthly`,
+          }).then((newPrice) => {
+            stripeUpdates.stripeMonthlyPriceId = newPrice.id;
+          }).catch((err) => {
+            warnings.push(`monthly price create failed: ${err?.message ?? String(err)}`);
           });
-          stripeUpdates.stripeMonthlyPriceId = newPrice.id;
-        } catch (err: any) {
-          warnings.push(`monthly price create failed: ${err?.message ?? String(err)}`);
         }
+      } else {
+        await stripe.prices.create({
+          product: productId,
+          unit_amount: monthlyAmount,
+          currency: "cad",
+          recurring: { interval: "month" },
+          nickname: `${plan.name} Monthly`,
+        }).then((newPrice) => {
+          stripeUpdates.stripeMonthlyPriceId = newPrice.id;
+        }).catch((err) => {
+          warnings.push(`monthly price create failed: ${err?.message ?? String(err)}`);
+        });
       }
     }
 
@@ -280,52 +279,47 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
         const existing = await stripe.prices.retrieve(plan.stripeYearlyPriceId).catch(() => null);
         if (existing && existing.unit_amount !== yearlyAmount) {
           await stripe.prices.update(plan.stripeYearlyPriceId, { active: false }).catch(() => {});
-          try {
-            const newPrice = await stripe.prices.create({
-              product: productId,
-              unit_amount: yearlyAmount,
-              currency: "cad",
-              recurring: { interval: "year" },
-              nickname: `${plan.name} Annual`,
-            });
-            stripeUpdates.stripeYearlyPriceId = newPrice.id;
-          } catch (err: any) {
-            warnings.push(`yearly price create failed: ${err?.message ?? String(err)}`);
-          }
-        }
-      } else {
-        try {
-          const newPrice = await stripe.prices.create({
+          await stripe.prices.create({
             product: productId,
             unit_amount: yearlyAmount,
             currency: "cad",
             recurring: { interval: "year" },
             nickname: `${plan.name} Annual`,
+          }).then((newPrice) => {
+            stripeUpdates.stripeYearlyPriceId = newPrice.id;
+          }).catch((err) => {
+            warnings.push(`yearly price create failed: ${err?.message ?? String(err)}`);
           });
-          stripeUpdates.stripeYearlyPriceId = newPrice.id;
-        } catch (err: any) {
-          warnings.push(`yearly price create failed: ${err?.message ?? String(err)}`);
         }
+      } else {
+        await stripe.prices.create({
+          product: productId,
+          unit_amount: yearlyAmount,
+          currency: "cad",
+          recurring: { interval: "year" },
+          nickname: `${plan.name} Annual`,
+        }).then((newPrice) => {
+          stripeUpdates.stripeYearlyPriceId = newPrice.id;
+        }).catch((err) => {
+          warnings.push(`yearly price create failed: ${err?.message ?? String(err)}`);
+        });
       }
     }
-
-    const [updated] = await db
-      .update(plansTable)
-      .set(stripeUpdates)
-      .where(eq(plansTable.id, plan.id))
-      .returning();
-
-    if (warnings.length > 0) {
-      req.log.warn({ warnings }, "Stripe sync completed with warnings");
-      res.json({ ...updated, warnings });
-      return;
-    }
-
-    res.json(updated);
-  } catch (err: any) {
-    req.log.error({ err }, "Stripe sync failed");
-    res.status(500).json({ error: "Stripe sync failed", details: err.message });
   }
+
+  const [updated] = await db
+    .update(plansTable)
+    .set(stripeUpdates)
+    .where(eq(plansTable.id, plan.id))
+    .returning();
+
+  if (warnings.length > 0) {
+    req.log.warn({ warnings }, "Stripe sync completed with warnings");
+    res.json({ ...(updated ?? plan), warnings });
+    return;
+  }
+
+  res.json(updated ?? plan);
 });
 
 // ── Features ───────────────────────────────────────────────────────────────────
