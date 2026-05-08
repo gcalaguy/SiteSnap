@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNotNull } from 'drizzle-orm';
 import { requireAuth, requireCompany, requireOwner } from '../lib/auth';
-import { db, companiesTable, usersTable } from '@workspace/db';
+import { db, companiesTable, usersTable, plansTable } from '@workspace/db';
 import {
   getUncachableStripeClient,
   getStripePublishableKey,
@@ -16,10 +16,43 @@ import { getCompanySeatInfo } from '../lib/seatEnforcement';
 const router = Router();
 
 // GET /api/billing/plans — public list of products + prices
+// Only returns Stripe products that are linked to a DB plan (stripeProductId),
+// so orphaned/legacy Stripe products are never shown to customers.
 router.get('/billing/plans', async (req, res) => {
   try {
+    // Fetch the set of Stripe product IDs that are authoritative in our DB
+    const dbPlans = await db
+      .select({
+        stripeProductId: plansTable.stripeProductId,
+        stripeMonthlyPriceId: plansTable.stripeMonthlyPriceId,
+        stripeYearlyPriceId: plansTable.stripeYearlyPriceId,
+        maxSeats: plansTable.maxSeats,
+        slug: plansTable.slug,
+      })
+      .from(plansTable)
+      .where(isNotNull(plansTable.stripeProductId));
+
+    const linkedProductIds = new Set(dbPlans.map((p) => p.stripeProductId!));
+    const linkedPriceIds = new Set(
+      dbPlans.flatMap((p) => [p.stripeMonthlyPriceId, p.stripeYearlyPriceId].filter(Boolean) as string[])
+    );
+
+    if (linkedProductIds.size === 0) {
+      // No plans synced to Stripe yet — fall back to full list
+      const rows = await listProductsWithPrices();
+      const plans = groupProductsWithPrices(rows);
+      const publishableKey = await getStripePublishableKey();
+      return res.json({ plans, publishableKey });
+    }
+
     const rows = await listProductsWithPrices();
-    const plans = groupProductsWithPrices(rows);
+
+    // Filter to only products and prices registered in our DB
+    const filtered = rows.filter(
+      (r) => linkedProductIds.has(r.product_id) && (r.price_id === null || linkedPriceIds.has(r.price_id))
+    );
+
+    const plans = groupProductsWithPrices(filtered);
     const publishableKey = await getStripePublishableKey();
     res.json({ plans, publishableKey });
   } catch (err: any) {
