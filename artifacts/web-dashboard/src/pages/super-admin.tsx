@@ -230,7 +230,7 @@ function ManageTab() {
         billingCycle: tenantForm.billingCycle,
       }),
     }),
-    onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); refresh(); toast({ title: "Tenant updated" }); },
+    onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant updated" }); },
     onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
   });
   const saveTenantUserRole = useMutation({
@@ -345,7 +345,7 @@ function ManageTab() {
             saveTenantUserRole.mutate();
           }
         }}
-        isSaving={saveTenant.isPending}
+        isSaving={saveTenant.isPending || saveTenantUserRole.isPending}
         users={tenantDetail?.users}
       />
     </div>
