@@ -426,8 +426,9 @@ export default function AdminPage() {
             {plans.map((plan) => {
               const price = plan.prices.find((p) => p.recurring?.interval === billingInterval);
               const isCurrentPlan = plan.id === activeProductId;
-              const isPro = plan.metadata.plan === "pro";
-              const planSlug = plan.metadata.plan === "business" ? "enterprise" : plan.metadata.plan;
+              const metaPlan = plan.metadata.plan ?? plan.metadata.slug ?? "";
+              const isPro = metaPlan === "pro";
+              const planSlug = metaPlan === "business" ? "enterprise" : metaPlan;
               const dbPlan = dbPlans.find((p) => p.slug === planSlug);
               const features = dbPlan
                 ? dbPlan.featureIds

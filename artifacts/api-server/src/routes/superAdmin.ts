@@ -40,7 +40,7 @@ router.post("/admin/plans", ...guard, async (req, res) => {
     const product = await stripe.products.create({
       name: plan.name,
       description: plan.description ?? undefined,
-      metadata: { slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
+      metadata: { plan: plan.slug, slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
     });
 
     const stripeUpdates: Record<string, string | null> = { stripeProductId: product.id };
@@ -101,7 +101,7 @@ router.patch("/admin/plans/:id", ...guard, async (req, res) => {
       await stripe.products.update(plan.stripeProductId, {
         name: plan.name,
         description: plan.description ?? undefined,
-        metadata: { slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
+        metadata: { plan: plan.slug, slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
         ...(body.isActive !== undefined ? { active: plan.isActive } : {}),
       });
 
@@ -208,14 +208,14 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
       await stripe.products.update(productId, {
         name: plan.name,
         description: plan.description ?? undefined,
-        metadata: { slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
+        metadata: { plan: plan.slug, slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
         active: plan.isActive,
       });
     } else {
       const product = await stripe.products.create({
         name: plan.name,
         description: plan.description ?? undefined,
-        metadata: { slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
+        metadata: { plan: plan.slug, slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
       });
       productId = product.id;
       stripeUpdates.stripeProductId = productId;
