@@ -565,7 +565,7 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
             <Label className="text-white">Role</Label>
             <select
               className="w-full rounded-md border border-amber-400/20 bg-black px-3 py-2 text-white"
-              value={selectedTenantUserRole}
+              value={users?.find((user) => String(user.id) === selectedUserId)?.role ?? "member"}
               onChange={(e) => onSelectedUserRoleChange(e.target.value)}
               disabled={!selectedUserId}
             >
