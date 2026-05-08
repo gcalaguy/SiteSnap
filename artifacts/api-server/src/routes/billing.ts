@@ -15,18 +15,13 @@ import { getCompanySeatInfo } from '../lib/seatEnforcement';
 
 const router = Router();
 
-// GET /api/billing/plans — public list of products + prices
-// Only returns Stripe products that are linked to a DB plan (stripeProductId),
-// so orphaned/legacy Stripe products are never shown to customers.
 router.get('/billing/plans', async (req, res) => {
   try {
-    // Fetch the set of Stripe product IDs that are authoritative in our DB
     const dbPlans = await db
       .select({
         stripeProductId: plansTable.stripeProductId,
         stripeMonthlyPriceId: plansTable.stripeMonthlyPriceId,
         stripeYearlyPriceId: plansTable.stripeYearlyPriceId,
-        maxSeats: plansTable.maxSeats,
         slug: plansTable.slug,
       })
       .from(plansTable)
@@ -37,20 +32,10 @@ router.get('/billing/plans', async (req, res) => {
       dbPlans.flatMap((p) => [p.stripeMonthlyPriceId, p.stripeYearlyPriceId].filter(Boolean) as string[])
     );
 
-    if (linkedProductIds.size === 0) {
-      // No plans synced to Stripe yet — fall back to full list
-      const rows = await listProductsWithPrices();
-      const plans = groupProductsWithPrices(rows);
-      const publishableKey = await getStripePublishableKey();
-      return res.json({ plans, publishableKey });
-    }
-
     const rows = await listProductsWithPrices();
-
-    // Filter to only products and prices registered in our DB
-    const filtered = rows.filter(
-      (r) => linkedProductIds.has(r.product_id) && (r.price_id === null || linkedPriceIds.has(r.price_id))
-    );
+    const filtered = linkedProductIds.size === 0
+      ? rows
+      : rows.filter((r) => linkedProductIds.has(r.product_id) && (r.price_id === null || linkedPriceIds.has(r.price_id)));
 
     const plans = groupProductsWithPrices(filtered);
     const publishableKey = await getStripePublishableKey();
@@ -61,7 +46,6 @@ router.get('/billing/plans', async (req, res) => {
   }
 });
 
-// GET /api/billing/subscription — current company subscription
 router.get('/billing/subscription', requireAuth, requireCompany, async (req, res) => {
   try {
     const [company] = await db
@@ -81,7 +65,6 @@ router.get('/billing/subscription', requireAuth, requireCompany, async (req, res
   }
 });
 
-// POST /api/billing/checkout — create Stripe checkout session (owner only)
 router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, async (req, res) => {
   try {
     const { priceId, seats = 1 } = req.body as { priceId: string; seats?: number };
@@ -94,7 +77,6 @@ router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyn
 
     const stripe = await getUncachableStripeClient();
 
-    // Find or create Stripe customer for this company
     let customerId = company.stripeCustomerId ?? undefined;
     if (!customerId) {
       const [ownerUser] = await db
@@ -136,7 +118,6 @@ router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyn
   }
 });
 
-// GET /api/billing/seats — current seat usage for the company
 router.get('/billing/seats', requireAuth, requireCompany, async (req, res) => {
   try {
     const seatInfo = await getCompanySeatInfo(req.companyId!);
@@ -147,7 +128,6 @@ router.get('/billing/seats', requireAuth, requireCompany, async (req, res) => {
   }
 });
 
-// POST /api/billing/portal — create Stripe billing portal session (owner only)
 router.post('/billing/portal', requireAuth, requireCompany, requireOwner, async (req, res) => {
   try {
     const [company] = await db

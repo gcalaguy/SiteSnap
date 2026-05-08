@@ -1,937 +1,94 @@
-import { useState, useEffect } from "react";
-import { useGetMe, customFetch } from "@workspace/api-client-react";
+import { useState } from "react";
+import { api, useGetMe } from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Tabs, TabsContent, TabsList, TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  ShieldCheck, Plus, Pencil, Trash2, Loader2, Check,
-  Building2, Users, Zap, ToggleLeft, ToggleRight, Crown,
-  RefreshCw, DatabaseZap, Star, CheckCircle2, CreditCard,
-  AlertCircle, ExternalLink, ChevronDown, Sliders, RotateCcw,
+  ShieldCheck,
+  Users,
+  CreditCard,
+  CheckCircle2,
+  AlertCircle,
+  ExternalLink,
+  Building2,
+  TrendingUp,
+  Gift,
+  Copy,
+  Check,
+  Zap,
+  Star,
+  Crown,
+  ChevronDown,
+  Loader2,
+  RefreshCw,
+  DatabaseZap,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-// ── Types ───────────────────────────────────────────────────────────────────────
+interface Price {
+  id: string;
+  unitAmount: number;
+  currency: string;
+  recurring: { interval: string } | null;
+}
+
+interface StripePlanObj {
+  id: string;
+  name: string;
+  description: string;
+  metadata: { plan?: string; slug?: string; maxSeats?: string; features?: string };
+  prices: Price[];
+}
 
 interface Plan {
-  id: number; name: string; slug: string; description: string | null;
-  monthlyPrice: string; yearlyPrice: string; maxSeats: number;
-  isActive: boolean; featureIds: number[];
-  stripeProductId: string | null;
-  stripeMonthlyPriceId: string | null;
-  stripeYearlyPriceId: string | null;
+  id: number; name: string; slug: string;
+  description: string | null; monthlyPrice: string; yearlyPrice: string;
+  maxSeats: number; isActive: boolean; featureIds: number[];
 }
 
 interface Feature {
   id: number; name: string; key: string; description: string | null; isEnabled: boolean;
 }
 
-interface Tenant {
-  id: number; name: string; city: string; province: string;
-  userCount: number;
-  activeFeatures: string[] | null;
-  subscription: {
-    id: number; planId: number; status: string; billingCycle: string;
-  } | null;
-  plan: Plan | null;
-}
-
-// ── All 19 Feature Keys ─────────────────────────────────────────────────────────
-const ALL_FEATURES = [
-  { key: "SCHEDULING",      name: "Scheduling",             desc: "Worker & project scheduling" },
-  { key: "AI_ESTIMATING",   name: "AI Estimating",          desc: "AI-powered cost estimating" },
-  { key: "CLIENT_PORTAL",   name: "Client Portal",          desc: "Shared client project portal" },
-  { key: "REPORTING",       name: "Reporting",              desc: "Advanced reports & analytics" },
-  { key: "QUICKBOOKS",      name: "QuickBooks Integration", desc: "Sync with QuickBooks" },
-  { key: "AI_CHAT",         name: "AI Chat",                desc: "Conversational AI assistant" },
-  { key: "SITE_VISION_AI",  name: "Site Vision AI",         desc: "AI photo analysis & OCR" },
-  { key: "TRADEHUB",        name: "TradeHub",               desc: "Marketplace for trade pros" },
-  { key: "FINANCIALS",      name: "Financials",             desc: "Financial tracking & management" },
-  { key: "RISK_DASHBOARD",  name: "Risk Dashboard",         desc: "AI risk scoring & alerts" },
-  { key: "SAFETY_FORMS",    name: "Safety Forms",           desc: "Digital safety & incident reporting" },
-  { key: "DAILY_REPORTS",   name: "Daily Reports",          desc: "Field daily report submission" },
-  { key: "RFIS",            name: "RFIs",                   desc: "Request for Information tracking" },
-  { key: "TEAM_MANAGEMENT", name: "Team Management",        desc: "Crew & role management" },
-  { key: "INVOICES",        name: "Invoices",               desc: "Invoice creation & tracking" },
-  { key: "QUOTES",          name: "Quotes & Proposals",     desc: "Quote generation & approval" },
-  { key: "CRM_LEADS",       name: "CRM & Leads",            desc: "Lead management & CRM" },
-  { key: "SMART_ESTIMATOR", name: "Smart Estimator",        desc: "Hybrid AI + rule-based estimating" },
-  { key: "INSPECTIONS",     name: "Inspections",            desc: "Site inspection management" },
-];
-const MINIMAL_FEATURES = ["SCHEDULING", "DAILY_REPORTS", "TEAM_MANAGEMENT", "SAFETY_FORMS", "RFIS"];
-const MAXIMUM_FEATURES = ALL_FEATURES.map((f) => f.key);
-
-// ── Helpers ─────────────────────────────────────────────────────────────────────
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  return customFetch<T>(path, init);
-}
-
-const statusColors: Record<string, string> = {
-  active: "bg-green-100 text-green-800",
-  trial: "bg-blue-100 text-blue-800",
-  past_due: "bg-yellow-100 text-yellow-800",
-  cancelled: "bg-red-100 text-red-800",
-  inactive: "bg-gray-100 text-gray-800",
-};
-
-// ── Plans Tab ───────────────────────────────────────────────────────────────────
-
-function PlansTab({ plans, features, isLoading }: { plans: Plan[]; features: Feature[]; isLoading: boolean }) {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Plan | null>(null);
-  const [form, setForm] = useState({ name: "", slug: "", description: "", monthlyPrice: "0", yearlyPrice: "0", maxSeats: "5" });
-  const [syncingId, setSyncingId] = useState<number | null>(null);
-
-  function openCreate() {
-    setEditing(null);
-    setForm({ name: "", slug: "", description: "", monthlyPrice: "0", yearlyPrice: "0", maxSeats: "5" });
-    setOpen(true);
-  }
-  function openEdit(p: Plan) {
-    setEditing(p);
-    setForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: String(p.maxSeats) });
-    setOpen(true);
-  }
-
-  const saveMut = useMutation({
-    mutationFn: () => api<Plan>(editing ? `/api/admin/plans/${editing.id}` : "/api/admin/plans", {
-      method: editing ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, maxSeats: Number(form.maxSeats) }),
-    }),
-    onSuccess: (plan) => {
-      qc.invalidateQueries({ queryKey: ["admin-plans"] });
-      setOpen(false);
-      if (plan.stripeProductId) {
-        toast({ title: "Plan saved & synced to Stripe", description: `Product created in Stripe with monthly & yearly prices` });
-      } else {
-        toast({ title: "Plan saved", description: "Stripe sync pending — use the Sync button to push to Stripe" });
-      }
-    },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: (id: number) => api(`/api/admin/plans/${id}`, { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-plans"] }); toast({ title: "Plan deleted", description: "Stripe product archived" }); },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  async function syncToStripe(p: Plan) {
-    setSyncingId(p.id);
-    try {
-      await api(`/api/admin/plans/${p.id}/sync-stripe`, { method: "POST" });
-      qc.invalidateQueries({ queryKey: ["admin-plans"] });
-      toast({ title: "Synced to Stripe", description: `${p.name} is now live in Stripe with purchasable prices` });
-    } catch (e: any) {
-      toast({ title: "Sync failed", description: e.message, variant: "destructive" });
-    } finally {
-      setSyncingId(null);
-    }
-  }
-
-  if (isLoading) return <div className="flex items-center gap-2 text-muted-foreground p-8"><Loader2 className="h-4 w-4 animate-spin" /> Loading plans…</div>;
-
-  const unsynced = plans.filter((p) => !p.stripeProductId);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <p className="text-sm text-muted-foreground">{plans.length} pricing tier{plans.length !== 1 ? "s" : ""}</p>
-          {unsynced.length > 0 && (
-            <Badge className="bg-amber-100 text-amber-800 gap-1">
-              <AlertCircle className="h-3 w-3" />
-              {unsynced.length} not in Stripe
-            </Badge>
-          )}
-        </div>
-        <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-2" />New Plan</Button>
-      </div>
-
-      <div className="rounded-md border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead>Monthly</TableHead>
-              <TableHead>Yearly</TableHead>
-              <TableHead>Max Seats</TableHead>
-              <TableHead>Features</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Stripe</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {plans.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium">{p.name}</TableCell>
-                <TableCell><Badge variant="outline">{p.slug}</Badge></TableCell>
-                <TableCell>${p.monthlyPrice}/mo</TableCell>
-                <TableCell>${p.yearlyPrice}/yr</TableCell>
-                <TableCell>{p.maxSeats}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {p.featureIds.map((fid) => {
-                      const f = features.find((x) => x.id === fid);
-                      return f ? <Badge key={fid} className="text-[10px]">{f.name}</Badge> : null;
-                    })}
-                    {p.featureIds.length === 0 && <span className="text-xs text-muted-foreground">None</span>}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge className={p.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}>
-                    {p.isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {p.stripeProductId ? (
-                    <div className="flex flex-col gap-0.5">
-                      <Badge className="bg-violet-100 text-violet-800 gap-1 w-fit">
-                        <CheckCircle2 className="h-3 w-3" /> Synced
-                      </Badge>
-                      <div className="flex gap-1 mt-0.5">
-                        {p.stripeMonthlyPriceId && (
-                          <span className="text-[10px] text-muted-foreground font-mono">/mo ✓</span>
-                        )}
-                        {p.stripeYearlyPriceId && (
-                          <span className="text-[10px] text-muted-foreground font-mono">/yr ✓</span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <Badge className="bg-amber-100 text-amber-800 gap-1">
-                      <AlertCircle className="h-3 w-3" /> Not synced
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    {!p.stripeProductId && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1 text-violet-700 border-violet-200 hover:bg-violet-50"
-                        onClick={() => syncToStripe(p)}
-                        disabled={syncingId === p.id}
-                        title="Push this plan to Stripe so customers can purchase it"
-                      >
-                        {syncingId === p.id
-                          ? <Loader2 className="h-3 w-3 animate-spin" />
-                          : <CreditCard className="h-3 w-3" />}
-                        Sync
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMut.mutate(p.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {plans.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No plans yet. Create one above — it will be automatically pushed to Stripe.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {plans.some((p) => p.stripeProductId) && (
-        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5 text-violet-500" />
-          Synced plans appear on the customer billing page and can be purchased via Stripe Checkout.
-          Price edits automatically archive the old Stripe price and create a new one.
-        </p>
-      )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit Plan" : "Create Plan"}</DialogTitle>
-            {!editing && (
-              <p className="text-sm text-muted-foreground pt-1">
-                The plan will be automatically created as a product in Stripe with purchasable monthly and yearly prices.
-              </p>
-            )}
-          </DialogHeader>
-          <div className="space-y-3">
-            {(["name", "slug", "description"] as const).map((f) => (
-              <div key={f} className="grid gap-1.5">
-                <Label className="capitalize">{f}</Label>
-                <Input value={form[f]} onChange={(e) => setForm((p) => ({ ...p, [f]: e.target.value }))} />
-              </div>
-            ))}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="grid gap-1.5"><Label>Monthly ($)</Label><Input type="number" value={form.monthlyPrice} onChange={(e) => setForm((p) => ({ ...p, monthlyPrice: e.target.value }))} /></div>
-              <div className="grid gap-1.5"><Label>Yearly ($)</Label><Input type="number" value={form.yearlyPrice} onChange={(e) => setForm((p) => ({ ...p, yearlyPrice: e.target.value }))} /></div>
-              <div className="grid gap-1.5"><Label>Max Seats</Label><Input type="number" value={form.maxSeats} onChange={(e) => setForm((p) => ({ ...p, maxSeats: e.target.value }))} /></div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
-              {saveMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {editing ? "Save" : "Create & Push to Stripe"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-// ── Features Tab ────────────────────────────────────────────────────────────────
-
-function FeaturesTab({ features, isLoading }: { features: Feature[]; isLoading: boolean }) {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Feature | null>(null);
-  const [form, setForm] = useState({ name: "", key: "", description: "" });
-
-  function openCreate() { setEditing(null); setForm({ name: "", key: "", description: "" }); setOpen(true); }
-  function openEdit(f: Feature) { setEditing(f); setForm({ name: f.name, key: f.key, description: f.description ?? "" }); setOpen(true); }
-
-  const saveMut = useMutation({
-    mutationFn: () => api<Feature>(editing ? `/api/admin/features/${editing.id}` : "/api/admin/features", {
-      method: editing ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-features"] }); setOpen(false); toast({ title: "Feature saved" }); },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  const toggleMut = useMutation({
-    mutationFn: (f: Feature) => api<Feature>(`/api/admin/features/${f.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isEnabled: !f.isEnabled }),
-    }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-features"] }),
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: (id: number) => api(`/api/admin/features/${id}`, { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-features"] }); toast({ title: "Feature deleted" }); },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  if (isLoading) return <div className="flex items-center gap-2 text-muted-foreground p-8"><Loader2 className="h-4 w-4 animate-spin" /> Loading features…</div>;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{features.length} feature{features.length !== 1 ? "s" : ""}</p>
-        <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-2" />New Feature</Button>
-      </div>
-
-      <div className="rounded-md border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Key</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Global Toggle</TableHead>
-              <TableHead className="w-20" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {features.map((f) => (
-              <TableRow key={f.id}>
-                <TableCell className="font-medium">{f.name}</TableCell>
-                <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">{f.key}</code></TableCell>
-                <TableCell className="text-sm text-muted-foreground">{f.description ?? "—"}</TableCell>
-                <TableCell>
-                  <button
-                    onClick={() => toggleMut.mutate(f)}
-                    className="flex items-center gap-1.5 text-sm"
-                    title={f.isEnabled ? "Disable globally" : "Enable globally"}
-                  >
-                    {f.isEnabled
-                      ? <ToggleRight className="h-5 w-5 text-green-600" />
-                      : <ToggleLeft className="h-5 w-5 text-muted-foreground" />}
-                    <span className={f.isEnabled ? "text-green-700 font-medium" : "text-muted-foreground"}>
-                      {f.isEnabled ? "Enabled" : "Disabled"}
-                    </span>
-                  </button>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(f)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMut.mutate(f.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {features.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No features yet</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Edit Feature" : "Create Feature"}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            {(["name", "key", "description"] as const).map((field) => (
-              <div key={field} className="grid gap-1.5">
-                <Label className="capitalize">{field === "key" ? "Feature Key (e.g. AI_ESTIMATING)" : field}</Label>
-                <Input value={form[field]} onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))} />
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
-              {saveMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-// ── Plan → Features Assignment Tab ─────────────────────────────────────────────
-
-function PlanFeaturesTab({ plans, features, isLoadingPlans, isLoadingFeatures }: {
-  plans: Plan[]; features: Feature[]; isLoadingPlans: boolean; isLoadingFeatures: boolean;
-}) {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
-  const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
-  const [checked, setChecked] = useState<Set<number>>(new Set());
-
-  function selectPlan(id: number) {
-    const p = plans.find((x) => x.id === id);
-    setSelectedPlanId(id);
-    setChecked(new Set(p?.featureIds ?? []));
-  }
-
-  const saveMut = useMutation({
-    mutationFn: () => api(`/api/admin/plans/${selectedPlanId}/features`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ featureIds: Array.from(checked) }),
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-plans"] });
-      toast({ title: "Features updated", description: `${selectedPlan?.name} now has ${checked.size} feature(s)` });
-    },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  if (isLoadingPlans || isLoadingFeatures) return <div className="flex items-center gap-2 text-muted-foreground p-8"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-1.5 max-w-xs">
-        <Label>Select Plan</Label>
-        <Select onValueChange={(v) => selectPlan(Number(v))}>
-          <SelectTrigger><SelectValue placeholder="Choose a plan…" /></SelectTrigger>
-          <SelectContent>
-            {plans.map((p) => (
-              <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {selectedPlan && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Zap className="h-4 w-4 text-primary" />
-              {selectedPlan.name} — Feature Access
-            </CardTitle>
-            <CardDescription>Check the features this plan includes</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {features.map((f) => (
-              <div key={f.id} className={`flex items-start gap-3 p-3 rounded-lg border ${!f.isEnabled ? "opacity-50" : ""}`}>
-                <Checkbox
-                  id={`feature-${f.id}`}
-                  checked={checked.has(f.id)}
-                  onCheckedChange={(v) => setChecked((prev) => {
-                    const s = new Set(prev);
-                    v ? s.add(f.id) : s.delete(f.id);
-                    return s;
-                  })}
-                  disabled={!f.isEnabled}
-                />
-                <div className="flex-1">
-                  <label htmlFor={`feature-${f.id}`} className="text-sm font-medium cursor-pointer">{f.name}</label>
-                  <p className="text-xs text-muted-foreground">{f.description ?? f.key}</p>
-                  {!f.isEnabled && <Badge variant="outline" className="text-[10px] mt-1">Globally disabled</Badge>}
-                </div>
-              </div>
-            ))}
-            {features.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No features defined yet</p>}
-          </CardContent>
-          <div className="px-6 pb-6">
-            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="w-full">
-              {saveMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-              Save Feature Assignment
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {!selectedPlan && plans.length > 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          <Zap className="h-8 w-8 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Select a plan above to manage its features</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Tenants Tab ─────────────────────────────────────────────────────────────────
-
-function TenantsTab({ plans, isLoading }: { plans: Plan[]; isLoading: boolean }) {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const [editing, setEditing] = useState<Tenant | null>(null);
-  const [subForm, setSubForm] = useState({ planId: "", status: "active", billingCycle: "monthly" });
-
-  const { data: tenants = [], isLoading: tenantsLoading } = useQuery<Tenant[]>({
-    queryKey: ["admin-tenants"],
-    queryFn: () => api<Tenant[]>("/api/admin/tenants"),
-  });
-
-  function openEdit(t: Tenant) {
-    setEditing(t);
-    setSubForm({
-      planId: String(t.subscription?.planId ?? ""),
-      status: t.subscription?.status ?? "active",
-      billingCycle: t.subscription?.billingCycle ?? "monthly",
-    });
-  }
-
-  const saveMut = useMutation({
-    mutationFn: () => api(`/api/admin/tenants/${editing!.id}/subscription`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planId: Number(subForm.planId), status: subForm.status, billingCycle: subForm.billingCycle }),
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-tenants"] }); setEditing(null); toast({ title: "Subscription updated" }); },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  const loading = isLoading || tenantsLoading;
-  if (loading) return <div className="flex items-center gap-2 text-muted-foreground p-8"><Loader2 className="h-4 w-4 animate-spin" /> Loading tenants…</div>;
-
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">{tenants.length} tenant{tenants.length !== 1 ? "s" : ""} registered</p>
-      <div className="rounded-md border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Company</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Users</TableHead>
-              <TableHead>Plan</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Billing</TableHead>
-              <TableHead className="w-20" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tenants.map((t) => (
-              <TableRow key={t.id}>
-                <TableCell className="font-medium">{t.name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{t.city}, {t.province}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-sm">{t.userCount}</span>
-                    {t.plan && <span className="text-xs text-muted-foreground">/ {t.plan.maxSeats}</span>}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {t.plan
-                    ? <Badge className="bg-primary/10 text-primary">{t.plan.name}</Badge>
-                    : <span className="text-xs text-muted-foreground">No plan</span>}
-                </TableCell>
-                <TableCell>
-                  {t.subscription
-                    ? <Badge className={statusColors[t.subscription.status] ?? "bg-gray-100 text-gray-700"}>{t.subscription.status}</Badge>
-                    : <span className="text-xs text-muted-foreground">—</span>}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground capitalize">
-                  {t.subscription?.billingCycle ?? "—"}
-                </TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(t)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {tenants.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No tenants registered yet</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Manage Subscription — {editing?.name}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="grid gap-1.5">
-              <Label>Plan</Label>
-              <Select value={subForm.planId} onValueChange={(v) => setSubForm((p) => ({ ...p, planId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select plan…" /></SelectTrigger>
-                <SelectContent>
-                  {plans.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.name} — ${p.monthlyPrice}/mo</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Status</Label>
-              <Select value={subForm.status} onValueChange={(v) => setSubForm((p) => ({ ...p, status: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["active", "trial", "past_due", "cancelled", "inactive"].map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Billing Cycle</Label>
-              <Select value={subForm.billingCycle} onValueChange={(v) => setSubForm((p) => ({ ...p, billingCycle: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="yearly">Yearly</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || !subForm.planId}>
-              {saveMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Update Subscription
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-// ── Stripe Plans Tab ─────────────────────────────────────────────────────────────
-
-interface StripePriceObj {
-  id: string; unitAmount: number; currency: string;
-  recurring: { interval: string } | null;
-}
-interface StripePlanObj {
-  id: string; name: string; description: string;
-  metadata: { plan?: string; maxSeats?: string; features?: string };
-  prices: StripePriceObj[];
-}
-
-function stripeIcon(slug: string | undefined) {
-  if (slug === "starter") return <Zap className="h-6 w-6 text-blue-500" />;
-  if (slug === "pro")     return <Star className="h-6 w-6 text-yellow-500" />;
-  if (slug === "business") return <Crown className="h-6 w-6 text-yellow-500" />;
-  return <CreditCard className="h-6 w-6 text-muted-foreground" />;
-}
-
 function formatCAD(cents: number) {
   return `$${(cents / 100).toFixed(0)} CAD`;
 }
 
-// ── Feature Management Tab ───────────────────────────────────────────────────────
-function FeatureMgmtTab() {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-  const [selectedTenantId, setSelectedTenantId] = useState<string>("");
-  const [checkedFeatures, setCheckedFeatures] = useState<Set<string>>(new Set());
-
-  const { data: tenants = [], isLoading: tenantsLoading } = useQuery<Tenant[]>({
-    queryKey: ["admin-tenants"],
-    queryFn: () => api<Tenant[]>(`${basePath}/api/admin/tenants`),
-  });
-
-  const { data: tenantFeatures, isLoading: featuresLoading } = useQuery<{ activeFeatures: string[] }>({
-    queryKey: ["admin-tenant-features", selectedTenantId],
-    queryFn: () => api<{ activeFeatures: string[] }>(`${basePath}/api/admin/tenants/${selectedTenantId}/features`),
-    enabled: !!selectedTenantId,
-  });
-
-  // Sync checkedFeatures when tenantFeatures loads or tenant changes
-  useEffect(() => {
-    if (!tenantFeatures) return;
-    const active = tenantFeatures.activeFeatures ?? [];
-    setCheckedFeatures(new Set(active));
-  }, [tenantFeatures]);
-
-  const saveMut = useMutation({
-    mutationFn: (features: string[]) =>
-      api<{ ok: boolean }>(`${basePath}/api/admin/tenants/${selectedTenantId}/features`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ activeFeatures: features }),
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-tenant-features", selectedTenantId] });
-      qc.invalidateQueries({ queryKey: ["admin-tenants"] });
-      toast({ title: "Custom package saved" });
-    },
-    onError: (err: any) => toast({ title: "Failed to save", description: err?.message, variant: "destructive" }),
-  });
-
-  const resetMut = useMutation({
-    mutationFn: () =>
-      api<{ ok: boolean }>(`${basePath}/api/admin/tenants/${selectedTenantId}/features`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ activeFeatures: null }),
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-tenant-features", selectedTenantId] });
-      setCheckedFeatures(new Set());
-      toast({ title: "Reset to plan defaults" });
-    },
-    onError: (err: any) => toast({ title: "Failed to reset", description: err?.message, variant: "destructive" }),
-  });
-
-  function toggle(key: string) {
-    setCheckedFeatures((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }
-
-  const isCustom = (tenantFeatures?.activeFeatures?.length ?? 0) > 0;
-
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sliders className="h-5 w-5" style={{ color: GOLD }} />
-            Per-Tenant Feature Override
-          </CardTitle>
-          <CardDescription>
-            Build a custom feature package for any tenant. When set, this overrides the plan's feature set entirely.
-            Clear it to revert to plan defaults.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Tenant selector */}
-          <div className="max-w-sm">
-            <Label className="mb-2 block">Select Tenant</Label>
-            <Select value={selectedTenantId} onValueChange={(v) => { setSelectedTenantId(v); setCheckedFeatures(new Set()); }}>
-              <SelectTrigger>
-                <SelectValue placeholder={tenantsLoading ? "Loading…" : "Choose a tenant…"} />
-              </SelectTrigger>
-              <SelectContent>
-                {tenants.map((t) => (
-                  <SelectItem key={t.id} value={String(t.id)}>
-                    <span className="font-medium">{t.name}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">{t.city}, {t.province}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {selectedTenantId && (
-            <>
-              {/* Status banner */}
-              <div className={`rounded-lg px-4 py-2.5 flex items-center gap-2 text-sm font-medium ${isCustom ? "bg-amber-50 border border-amber-200 text-amber-800" : "bg-muted border border-border text-muted-foreground"}`}>
-                {isCustom
-                  ? <><Sliders className="h-4 w-4" /> Custom package active — {tenantFeatures?.activeFeatures?.length ?? 0} of {ALL_FEATURES.length} features enabled</>
-                  : <><CheckCircle2 className="h-4 w-4" /> Using plan defaults (no custom override)</> }
-              </div>
-
-              {/* Preset buttons */}
-              <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-sm text-muted-foreground mr-1">Presets:</span>
-                <Button
-                  variant="outline" size="sm"
-                  onClick={() => setCheckedFeatures(new Set(MINIMAL_FEATURES))}
-                >
-                  Minimal ({MINIMAL_FEATURES.length} features)
-                </Button>
-                <Button
-                  variant="outline" size="sm"
-                  onClick={() => setCheckedFeatures(new Set(MAXIMUM_FEATURES))}
-                >
-                  Maximum (all {ALL_FEATURES.length} features)
-                </Button>
-                <Button
-                  variant="ghost" size="sm"
-                  onClick={() => setCheckedFeatures(new Set())}
-                >
-                  Clear All
-                </Button>
-              </div>
-
-              {/* Feature checkbox grid */}
-              {featuresLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {[...Array(9)].map((_, i) => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {ALL_FEATURES.map(({ key, name, desc }) => {
-                    const checked = checkedFeatures.has(key);
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => toggle(key)}
-                        className={`text-left rounded-lg border p-3 transition-all cursor-pointer ${
-                          checked
-                            ? "border-[#C9A84C] bg-amber-50/60 ring-1 ring-[#C9A84C]/40"
-                            : "border-border bg-card hover:border-[#C9A84C]/40"
-                        }`}
-                      >
-                        <div className="flex items-start gap-2.5">
-                          <div className={`mt-0.5 flex h-4 w-4 shrink-0 rounded border items-center justify-center transition-colors ${
-                            checked ? "border-[#C9A84C] bg-[#C9A84C]" : "border-muted-foreground/50 bg-background"
-                          }`}>
-                            {checked && <Check className="h-3 w-3 text-black" strokeWidth={3} />}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold leading-tight">{name}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Selected count */}
-              <p className="text-sm text-muted-foreground">
-                {checkedFeatures.size} of {ALL_FEATURES.length} features selected
-              </p>
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  onClick={() => saveMut.mutate(Array.from(checkedFeatures))}
-                  disabled={saveMut.isPending || checkedFeatures.size === 0}
-                  style={{ background: GOLD, color: BLACK }}
-                  className="font-semibold"
-                >
-                  {saveMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Save as Custom Package
-                </Button>
-                {isCustom && (
-                  <Button
-                    variant="outline"
-                    onClick={() => resetMut.mutate()}
-                    disabled={resetMut.isPending}
-                    className="text-destructive border-destructive/30 hover:bg-destructive/5"
-                  >
-                    {resetMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
-                    Reset to Plan Defaults
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-
-          {!selectedTenantId && !tenantsLoading && (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 rounded-xl border border-dashed">
-              <Sliders className="h-8 w-8 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">Select a tenant to manage their feature package</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Reference card */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">All Available Features ({ALL_FEATURES.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-1">
-            {ALL_FEATURES.map(({ key, name }) => (
-              <div key={key} className="flex items-center gap-1.5 py-0.5">
-                <Zap className="h-3 w-3 shrink-0" style={{ color: GOLD }} />
-                <span className="text-xs">{name}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+function planIcon(planSlug: string | undefined) {
+  if (planSlug === "starter") return <Zap className="h-6 w-6 text-blue-500" />;
+  if (planSlug === "pro") return <Star className="h-6 w-6 text-primary" />;
+  if (planSlug === "business" || planSlug === "enterprise") return <Crown className="h-6 w-6 text-yellow-500" />;
+  return <CreditCard className="h-6 w-6 text-muted-foreground" />;
 }
 
 function StripePlansTab() {
   const { toast } = useToast();
   const [interval, setInterval] = useState<"month" | "year">("month");
-
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
   const { data: plansData, isLoading: plansLoading } = useQuery({
     queryKey: ["billing-plans"],
     queryFn: () => customFetch<{ plans: StripePlanObj[]; publishableKey: string }>(`${basePath}/api/billing/plans`),
   });
-
   const { data: subData } = useQuery({
     queryKey: ["billing-subscription"],
     queryFn: () => customFetch<{ subscription: any | null }>(`${basePath}/api/billing/subscription`),
   });
-
   const checkoutMut = useMutation({
     mutationFn: ({ priceId }: { priceId: string }) =>
       customFetch<{ url: string }>(`${basePath}/api/billing/checkout`, {
@@ -940,7 +97,6 @@ function StripePlansTab() {
     onSuccess: (data) => { window.location.href = data.url; },
     onError: (err: any) => toast({ title: "Checkout failed", description: err.message, variant: "destructive" }),
   });
-
   const { data: dbPlans = [] } = useQuery<Plan[]>({
     queryKey: ["admin-plans"],
     queryFn: () => customFetch<Plan[]>("/api/admin/plans"),
@@ -949,7 +105,6 @@ function StripePlansTab() {
     queryKey: ["admin-features"],
     queryFn: () => customFetch<Feature[]>("/api/admin/features"),
   });
-
   const plans: StripePlanObj[] = plansData?.plans ?? [];
   const subscription = subData?.subscription ?? null;
   const activeProductId = subscription?.items?.data?.[0]?.price?.product;
@@ -961,32 +116,18 @@ function StripePlansTab() {
       return next;
     });
   }
-
   return (
     <div className="space-y-6">
-      {/* Interval toggle */}
       <div className="flex items-center gap-4">
         <h2 className="text-lg font-semibold">Choose a Plan</h2>
         <div className="ml-auto flex items-center gap-1 rounded-lg p-1" style={{ background: BLACK }}>
           {(["month", "year"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setInterval(v)}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${interval === v ? "font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
-              style={interval === v ? { background: GOLD, color: BLACK } : undefined}
-            >
-              {v === "month" ? "Monthly" : (
-                <span className="flex items-center gap-1.5">
-                  Annual
-                  <span className="rounded-full bg-green-700 text-white px-1.5 py-0.5 text-[10px] font-semibold">Save 17%</span>
-                </span>
-              )}
+            <button key={v} onClick={() => setInterval(v)} className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${interval === v ? "font-semibold" : "text-zinc-400 hover:text-zinc-200"}`} style={interval === v ? { background: GOLD, color: BLACK } : undefined}>
+              {v === "month" ? "Monthly" : <span className="flex items-center gap-1.5">Annual <span className="rounded-full bg-green-700 text-white px-1.5 py-0.5 text-[10px] font-semibold">Save 17%</span></span>}
             </button>
           ))}
         </div>
       </div>
-
-      {/* Plan cards */}
       {plansLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[0, 1, 2].map((i) => <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />)}
@@ -994,41 +135,26 @@ function StripePlansTab() {
       ) : plans.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-xl border border-dashed">
           <AlertCircle className="h-10 w-10 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">No Stripe plans found. Make sure products are created in Stripe and the API is configured.</p>
+          <p className="text-sm text-muted-foreground">No Stripe plans found.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans.map((plan) => {
             const price = plan.prices.find((p) => p.recurring?.interval === interval);
-            const isCurrentPlan = plan.id === activeProductId;
-            const isPro = plan.metadata.plan === "pro";
-            const dbPlan = dbPlans.find((p) => p.slug === plan.metadata.plan);
+            const planSlug = (plan.metadata.plan ?? plan.metadata.slug ?? "").replace("business", "enterprise");
+            const dbPlan = dbPlans.find((p) => p.slug === planSlug);
             const features = dbPlan
-              ? dbPlan.featureIds
-                  .map((id) => dbFeatures.find((f) => f.id === id))
-                  .filter((f): f is Feature => !!f)
-                  .map((f) => f.name)
-              : (plan.metadata.features?.split(",").map((s) => s.trim()) ?? []);
+              ? dbPlan.featureIds.map((id) => dbFeatures.find((f) => f.id === id)).filter((f): f is Feature => !!f).map((f) => f.name)
+              : [];
+            const isCurrentPlan = plan.id === activeProductId;
+            const isPro = planSlug === "pro";
             return (
-              <Card
-                key={plan.id}
-                className={`relative flex flex-col transition-shadow ${
-                  isPro ? "border-primary shadow-md ring-1 ring-primary/30" : "border-border"
-                } ${isCurrentPlan ? "bg-primary/[0.03]" : ""}`}
-              >
-                {isPro && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground shadow">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
+              <Card key={plan.id} className={`relative flex flex-col transition-shadow ${isPro ? "border-primary shadow-md ring-1 ring-primary/30" : "border-border"} ${isCurrentPlan ? "bg-primary/[0.03]" : ""}`}>
+                {isPro && <div className="absolute -top-3 left-1/2 -translate-x-1/2"><span className="rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground shadow">Most Popular</span></div>}
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3 mb-2">
-                    {stripeIcon(plan.metadata.plan)}
-                    <CardTitle className="text-base">
-                      {plan.metadata.plan === "business" ? "Enterprise" : plan.name.replace("Site Snap ", "")}
-                    </CardTitle>
+                    {planIcon(planSlug)}
+                    <CardTitle className="text-base">{planSlug === "business" ? "Enterprise" : plan.name.replace("Site Snap ", "")}</CardTitle>
                   </div>
                   <div className="flex items-end gap-1">
                     <span className="text-3xl font-bold">{price ? formatCAD(price.unitAmount) : "—"}</span>
@@ -1037,33 +163,25 @@ function StripePlansTab() {
                   <CardDescription className="text-xs mt-1">{plan.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col flex-1">
-                  <button
-                    onClick={() => togglePlanFeatures(plan.id)}
-                    className="flex items-center justify-between w-full text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
-                  >
+                  <button onClick={() => togglePlanFeatures(plan.id)} className="flex items-center justify-between w-full text-sm text-muted-foreground hover:text-foreground transition-colors mb-2">
                     <span>{expandedPlans.has(plan.id) ? "Hide features" : `View ${features.length} features`}</span>
                     <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${expandedPlans.has(plan.id) ? "rotate-180" : ""}`} />
                   </button>
                   {expandedPlans.has(plan.id) && (
                     <ul className="space-y-1.5 mb-3 border-t pt-3">
-                      {features.map((f) => (
+                      {features.length > 0 ? features.map((f) => (
                         <li key={f} className="flex items-start gap-2 text-sm">
                           <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
                           <span>{f.trim()}</span>
                         </li>
-                      ))}
+                      )) : <li className="text-sm text-muted-foreground">No features attached.</li>}
                     </ul>
                   )}
                   <Separator className="my-3" />
                   {isCurrentPlan && subscription?.status === "active" ? (
                     <Button variant="secondary" className="w-full" disabled>Current Plan</Button>
                   ) : price ? (
-                    <Button
-                      className={`w-full ${isPro ? "bg-primary hover:bg-primary/90" : ""}`}
-                      variant={isPro ? "default" : "outline"}
-                      onClick={() => checkoutMut.mutate({ priceId: price.id })}
-                      disabled={checkoutMut.isPending}
-                    >
+                    <Button className={`w-full ${isPro ? "bg-primary hover:bg-primary/90" : ""}`} variant={isPro ? "default" : "outline"} onClick={() => checkoutMut.mutate({ priceId: price.id })} disabled={checkoutMut.isPending}>
                       {checkoutMut.isPending ? "Redirecting…" : subscription ? "Switch Plan" : "Get Started"}
                     </Button>
                   ) : (
@@ -1075,154 +193,6 @@ function StripePlansTab() {
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Main Page ───────────────────────────────────────────────────────────────────
-
-export default function SuperAdminPage() {
-  const { data: user, isLoading: userLoading } = useGetMe();
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const [, setLocation] = useLocation();
-
-  const isSuperAdmin = (user as any)?.systemRole === "super_admin";
-
-  const { data: plans = [], isLoading: plansLoading } = useQuery<Plan[]>({
-    queryKey: ["admin-plans"],
-    queryFn: () => api<Plan[]>("/api/admin/plans"),
-    enabled: isSuperAdmin,
-  });
-
-  const { data: features = [], isLoading: featuresLoading } = useQuery<Feature[]>({
-    queryKey: ["admin-features"],
-    queryFn: () => api<Feature[]>("/api/admin/features"),
-    enabled: isSuperAdmin,
-  });
-
-  const seedMut = useMutation({
-    mutationFn: () => api("/api/admin/seed", { method: "POST" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-plans"] });
-      qc.invalidateQueries({ queryKey: ["admin-features"] });
-      qc.invalidateQueries({ queryKey: ["admin-tenants"] });
-      toast({ title: "Seed data applied", description: "Starter, Pro & Enterprise plans created with features" });
-    },
-    onError: (e: Error) => toast({ title: "Seed failed", description: e.message, variant: "destructive" }),
-  });
-
-  if (userLoading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!isSuperAdmin) {
-    return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <ShieldCheck className="h-16 w-16 text-muted-foreground/30" />
-        <h2 className="text-xl font-semibold">Super Admin Access Required</h2>
-        <p className="text-muted-foreground max-w-sm text-sm">
-          This area is restricted to platform super admins only. Contact SiteSnap support if you believe you should have access.
-        </p>
-        <Button variant="outline" onClick={() => setLocation("/dashboard")}>Back to Dashboard</Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-            <Crown className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Super Admin</h1>
-            <p className="text-sm text-muted-foreground">Global platform management — plans, features, and tenants</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { qc.invalidateQueries({ queryKey: ["admin-plans"] }); qc.invalidateQueries({ queryKey: ["admin-features"] }); qc.invalidateQueries({ queryKey: ["admin-tenants"] }); }}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />Refresh
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => seedMut.mutate()}
-            disabled={seedMut.isPending}
-          >
-            {seedMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <DatabaseZap className="h-4 w-4 mr-2" />}
-            Seed Data
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats bar */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "Plans",           value: plans.length,                                   icon: Crown },
-          { label: "Features",        value: features.length,                                icon: Zap   },
-          { label: "Active Features", value: features.filter((f) => f.isEnabled).length,    icon: Check },
-        ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
-              <Icon size={15} style={{ color: GOLD }} />
-            </div>
-            <p className="text-2xl font-bold text-white">{value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Main tabs */}
-      <Tabs defaultValue="plans">
-        <TabsList className="grid w-full grid-cols-6" style={{ background: BLACK }}>
-          {[
-            { value: "plans",         label: "Plans",         Icon: Crown       },
-            { value: "features",      label: "Features",      Icon: Zap         },
-            { value: "plan-features", label: "Plan Features", Icon: DatabaseZap },
-            { value: "tenants",       label: "Tenants",       Icon: Building2   },
-            { value: "feature-mgmt",  label: "Feature Mgmt",  Icon: Sliders     },
-            { value: "stripe-plans",  label: "Stripe Plans",  Icon: CreditCard  },
-          ].map(({ value, label, Icon }) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className="flex items-center gap-2 text-neutral-400 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-[#111111] data-[state=active]:shadow-none"
-            >
-              <Icon className="h-3.5 w-3.5" />{label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        <TabsContent value="plans" className="mt-4">
-          <PlansTab plans={plans} features={features} isLoading={plansLoading} />
-        </TabsContent>
-        <TabsContent value="features" className="mt-4">
-          <FeaturesTab features={features} isLoading={featuresLoading} />
-        </TabsContent>
-        <TabsContent value="plan-features" className="mt-4">
-          <PlanFeaturesTab plans={plans} features={features} isLoadingPlans={plansLoading} isLoadingFeatures={featuresLoading} />
-        </TabsContent>
-        <TabsContent value="tenants" className="mt-4">
-          <TenantsTab plans={plans} isLoading={plansLoading} />
-        </TabsContent>
-        <TabsContent value="feature-mgmt" className="mt-4">
-          <FeatureMgmtTab />
-        </TabsContent>
-        <TabsContent value="stripe-plans" className="mt-4">
-          <StripePlansTab />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
