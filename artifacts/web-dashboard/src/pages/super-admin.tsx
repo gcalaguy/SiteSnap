@@ -402,8 +402,8 @@ function FeatureDialog({ open }: FeatureDialogProps) {
 function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm, plans, onSave, isSaving }: TenantDialogProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="w-full max-w-3xl rounded-2xl border border-amber-400/30 bg-black p-6 text-white shadow-2xl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 pointer-events-auto">
+      <div className="w-full max-w-3xl rounded-2xl border border-amber-400/30 bg-black p-6 text-white shadow-2xl pointer-events-auto">
         <h3 className="text-lg font-semibold text-white">Tenant Administration</h3>
         <p className="text-sm text-zinc-400">Update subscription, billing cycle, and tenant plan.</p>
         {tenantId !== null && <p className="mt-1 text-xs uppercase tracking-wider text-amber-400">Editing tenant #{tenantId}</p>}
@@ -423,11 +423,11 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
           </div>
           <div>
             <Label className="text-white">Status</Label>
-            <Input className="border-amber-400/20 bg-black text-white" value={tenantForm.status} onChange={(e) => setTenantForm({ ...tenantForm, status: e.target.value })} />
+            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.status} onChange={(e) => setTenantForm({ ...tenantForm, status: e.target.value })} />
           </div>
           <div>
             <Label className="text-white">Billing Cycle</Label>
-            <Input className="border-amber-400/20 bg-black text-white" value={tenantForm.billingCycle} onChange={(e) => setTenantForm({ ...tenantForm, billingCycle: e.target.value })} />
+            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.billingCycle} onChange={(e) => setTenantForm({ ...tenantForm, billingCycle: e.target.value })} />
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
