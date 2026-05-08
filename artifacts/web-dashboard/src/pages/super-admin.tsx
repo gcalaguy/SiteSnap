@@ -196,3 +196,7 @@ function StripePlansTab() {
     </div>
   );
 }
+
+export default function SuperAdminPage() {
+  return <StripePlansTab />;
+}
