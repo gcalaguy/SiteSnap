@@ -147,7 +147,7 @@ function StripePlansTab() {
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => window.open("/sign-up", "_blank")}>Open Sign Up</Button>
             <Button className="bg-white text-black font-bold hover:bg-zinc-200" onClick={() => window.open("/sign-in", "_blank")}>Sign In</Button>
-            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { const link = `${window.location.origin}/sign-up`; const subject = encodeURIComponent("Invite an owner to join your new company"); const body = encodeURIComponent(`Hi,\n\nYou’re invited to join a new company as an owner in Site Snap.\n\nCreate your account here:\n${link}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Email Owner Invite</Button>
+            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { const link = `${window.location.origin}/sign-up`; const subject = encodeURIComponent("Invite an owner to join your new company"); const body = encodeURIComponent(`Hi,\n\nYou’re invited to join a new company as an owner in Site Snap.\n\nCreate your account here:\n${link}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Create New Company</Button>
             <Button variant="secondary" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/sign-up`)}>Copy Link</Button>
           </div>
         </div>
