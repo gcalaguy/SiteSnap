@@ -8,6 +8,7 @@ import {
   companiesTable,
   usersTable,
   invitationsTable,
+  projectsTable,
   insertPlanSchema,
   insertFeatureSchema,
 } from "@workspace/db";
