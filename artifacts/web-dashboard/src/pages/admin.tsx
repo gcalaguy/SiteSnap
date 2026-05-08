@@ -207,7 +207,16 @@ function AdminPage() {
         <p className="text-muted-foreground text-sm mt-1">Manage your subscription, team seats, and company settings.</p>
       </div>
 
-      {subscriptionSection}
+      {isSuperAdmin && (
+        <SubscriptionCard
+          subLoading={subLoading}
+          subscription={subscription}
+          planName={planName}
+          renewalDate={renewalDate}
+          portalMutation={portalMutation}
+          navigate={navigate}
+        />
+      )}
 
       {/* ── Team Seats ── */}
       <div
