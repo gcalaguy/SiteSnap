@@ -113,7 +113,7 @@ export default function AdminPage() {
     queryKey: ["admin-features"],
     queryFn: () => customFetch<DbFeature[]>(`${basePath}/api/admin/features`),
   });
-  const referralLink = `${window.location.origin}/register`;
+  const referralLink = `${window.location.origin}/sign-up`;
 
   const checkoutMutation = useMutation({
     mutationFn: ({ priceId }: { priceId: string }) =>
@@ -145,6 +145,12 @@ export default function AdminPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  }
+
+  function shareReferralLink() {
+    const subject = encodeURIComponent("Create your Site Snap company");
+    const body = encodeURIComponent(`Use this link to create your new company in Site Snap:\n\n${referralLink}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
   }
 
   const { data: referralData } = useQuery({
@@ -269,10 +275,24 @@ export default function AdminPage() {
             >
               Sign In
             </Button>
+            <Button
+              variant="outline"
+              className="border-white/20 text-white font-bold hover:bg-white/5"
+              onClick={shareReferralLink}
+            >
+              Email Link
+            </Button>
           </div>
         </div>
-        <div className="mt-4 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-300 break-all">
-          {referralLink}
+        <div className="mt-4 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-300 break-all flex items-center justify-between gap-3">
+          <span>{referralLink}</span>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => copyReferralLink(referralLink)}
+          >
+            {copied ? "Copied" : "Copy"}
+          </Button>
         </div>
       </div>
 
