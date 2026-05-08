@@ -41,8 +41,11 @@ type TenantDialogProps = {
   onOpenChange: (open: boolean) => void;
   tenantId: number | null;
   tenantForm: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string; email: string; role: string };
-  setTenantForm: (value: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string; email: string; role: string }) => void;
+  setTenantForm: (value: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string; email: string; role: string; selectedUserId?: string }) => void;
   plans: Plan[];
+  users?: Array<{ id: number; email: string; firstName: string; lastName: string; role: string; systemRole: string | null }>;
+  selectedUserId: string;
+  onSelectedUserIdChange: (value: string) => void;
   onSave: () => void;
   isSaving: boolean;
 };
@@ -187,6 +190,7 @@ function ManageTab() {
   const [planForm, setPlanForm] = useState({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true });
   const [featureForm, setFeatureForm] = useState({ name: "", key: "", description: "", isEnabled: true });
   const [tenantForm, setTenantForm] = useState({ name: "", planId: "", status: "active", billingCycle: "monthly", userCount: "", website: "", phone: "", email: "", role: "member" });
+  const [selectedTenantUserId, setSelectedTenantUserId] = useState("");
   const [collapsed, setCollapsed] = useState({ plans: false, features: false, tenants: false });
 
   const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
@@ -226,6 +230,14 @@ function ManageTab() {
     }),
     onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); refresh(); toast({ title: "Tenant updated" }); },
     onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
+  });
+  const saveTenantUserRole = useMutation({
+    mutationFn: () => customFetch(`/api/admin/users/${selectedTenantUserId}/role`, {
+      method: "PATCH",
+      body: JSON.stringify({ role: tenantForm.role }),
+    }),
+    onSuccess: () => { refresh(); toast({ title: "User role updated" }); },
+    onError: (e: any) => toast({ title: "Role update failed", description: e.message, variant: "destructive" }),
   });
   const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
 
@@ -279,7 +291,7 @@ function ManageTab() {
             onSelectTenant={setTenantDetailId}
             onEditPlan={(p) => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats, isActive: p.isActive }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}
             onEditFeature={(f) => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "", isEnabled: f.isEnabled }); setFeatureOpen(true); }}
-            onEditTenant={(t) => { setEditingTenantId(t.id); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "", role: "member" }); setTenantOpen(true); }}
+            onEditTenant={(t) => { setEditingTenantId(t.id); setSelectedTenantUserId(""); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "", role: "member" }); setTenantOpen(true); }}
             onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
             collapsed={collapsed}
             setCollapsed={setCollapsed}
@@ -316,8 +328,14 @@ function ManageTab() {
         tenantForm={tenantForm}
         setTenantForm={setTenantForm}
         plans={plans}
-        onSave={() => saveTenant.mutate()}
+        selectedUserId={selectedTenantUserId}
+        onSelectedUserIdChange={setSelectedTenantUserId}
+        onSave={() => {
+          saveTenant.mutate();
+          if (selectedTenantUserId) saveTenantUserRole.mutate();
+        }}
         isSaving={saveTenant.isPending}
+        users={tenantDetail?.users}
       />
     </div>
   );
@@ -478,7 +496,7 @@ function FeatureDialog({ open, form, onChange, onSave, onCancel, isSaving }: Fea
   );
 }
 
-function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm, plans, onSave, isSaving }: TenantDialogProps) {
+function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm, plans, users, selectedUserId, onSelectedUserIdChange, onSave, isSaving }: TenantDialogProps) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 pointer-events-auto">
@@ -538,6 +556,19 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
               <option value="owner">owner</option>
               <option value="admin">admin</option>
               <option value="member">member</option>
+            </select>
+          </div>
+          <div className="md:col-span-3">
+            <Label className="text-white">User</Label>
+            <select
+              className="w-full rounded-md border border-amber-400/20 bg-black px-3 py-2 text-white"
+              value={selectedUserId}
+              onChange={(e) => onSelectedUserIdChange(e.target.value)}
+            >
+              <option value="">Select user</option>
+              {users?.map((user) => (
+                <option key={user.id} value={user.id}>{user.firstName} {user.lastName} · {user.email} · {user.role}</option>
+              ))}
             </select>
           </div>
         </div>
