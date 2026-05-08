@@ -45,8 +45,6 @@ type TenantDialogProps = {
   plans: Plan[];
   onSave: () => void;
   isSaving: boolean;
-  onDelete?: () => void;
-  isDeleting: boolean;
 };
 type PlanDialogState = {
   form: { name: string; slug: string; description: string; monthlyPrice: string; yearlyPrice: string; maxSeats: number; isActive: boolean };
@@ -309,8 +307,6 @@ function ManageTab() {
         plans={plans}
         onSave={() => saveTenant.mutate()}
         isSaving={saveTenant.isPending}
-        onDelete={editingTenantId ? () => deleteTenant.mutate(editingTenantId) : undefined}
-        isDeleting={deleteTenant.isPending}
       />
     </div>
   );
@@ -500,7 +496,6 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          {onDelete && <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={onDelete} disabled={isDeleting}>{isDeleting ? "Deleting…" : "Delete"}</Button>}
           <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button className="bg-amber-400 text-black hover:bg-amber-300" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
         </div>
