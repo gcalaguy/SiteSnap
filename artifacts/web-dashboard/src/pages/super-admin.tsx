@@ -295,6 +295,19 @@ function ManageTab() {
     onError: (e: any) => toast({ title: "Plan save failed", description: e.message, variant: "destructive" }),
   });
 
+  const deletePlan = useMutation({
+    mutationFn: (id: number) => customFetch(`/api/admin/plans/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      setPlanOpen(false);
+      setEditingPlanId(null);
+      setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5 });
+      setPlanFeatureIds([]);
+      refresh();
+      toast({ title: "Plan deleted" });
+    },
+    onError: (e: any) => toast({ title: "Plan delete failed", description: e.message, variant: "destructive" }),
+  });
+
   const saveFeature = useMutation({
     mutationFn: () => {
       const payload = { ...featureForm, description: featureForm.description || null };
@@ -432,7 +445,27 @@ function ManageTab() {
               ))}
             </div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setPlanOpen(false)}>Cancel</Button><Button onClick={() => savePlan.mutate()}>Save</Button></DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
+            {editingPlanId ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">Delete</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this plan?</AlertDialogTitle>
+                    <AlertDialogDescription>This will permanently remove the plan and archive its Stripe product.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => deletePlan.mutate(editingPlanId)}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : null}
+            <Button variant="outline" onClick={() => setPlanOpen(false)}>Cancel</Button>
+            <Button onClick={() => savePlan.mutate()}>Save</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
