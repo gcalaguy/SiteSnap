@@ -40,8 +40,8 @@ type TenantDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tenantId: number | null;
-  tenantForm: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string; email: string; role: string };
-  setTenantForm: (value: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string; email: string; role: string; selectedUserId?: string }) => void;
+  tenantForm: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string; email: string };
+  setTenantForm: (value: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string; email: string; selectedUserId?: string }) => void;
   plans: Plan[];
   users?: Array<{ id: number; email: string; firstName: string; lastName: string; role: string; systemRole: string | null }>;
   selectedUserId: string;
@@ -189,7 +189,7 @@ function ManageTab() {
   const [planFeatureIds, setPlanFeatureIds] = useState<number[]>([]);
   const [planForm, setPlanForm] = useState({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true });
   const [featureForm, setFeatureForm] = useState({ name: "", key: "", description: "", isEnabled: true });
-  const [tenantForm, setTenantForm] = useState({ name: "", planId: "", status: "active", billingCycle: "monthly", userCount: "", website: "", phone: "", email: "", role: "member" });
+  const [tenantForm, setTenantForm] = useState({ name: "", planId: "", status: "active", billingCycle: "monthly", userCount: "", website: "", phone: "", email: "" });
   const [selectedTenantUserId, setSelectedTenantUserId] = useState("");
   const [collapsed, setCollapsed] = useState({ plans: false, features: false, tenants: false });
 
@@ -230,14 +230,6 @@ function ManageTab() {
     }),
     onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); refresh(); toast({ title: "Tenant updated" }); },
     onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
-  });
-  const saveTenantUserRole = useMutation({
-    mutationFn: () => customFetch(`/api/admin/users/${selectedTenantUserId}/role`, {
-      method: "PATCH",
-      body: JSON.stringify({ role: tenantForm.role }),
-    }),
-    onSuccess: () => { refresh(); toast({ title: "User role updated" }); },
-    onError: (e: any) => toast({ title: "Role update failed", description: e.message, variant: "destructive" }),
   });
   const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
 
@@ -291,7 +283,7 @@ function ManageTab() {
             onSelectTenant={setTenantDetailId}
             onEditPlan={(p) => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats, isActive: p.isActive }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}
             onEditFeature={(f) => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "", isEnabled: f.isEnabled }); setFeatureOpen(true); }}
-            onEditTenant={(t) => { setEditingTenantId(t.id); setSelectedTenantUserId(""); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "", role: "member" }); setTenantOpen(true); }}
+            onEditTenant={(t) => { setEditingTenantId(t.id); setSelectedTenantUserId(""); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "" }); setTenantOpen(true); }}
             onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
             collapsed={collapsed}
             setCollapsed={setCollapsed}
@@ -332,7 +324,6 @@ function ManageTab() {
         onSelectedUserIdChange={setSelectedTenantUserId}
         onSave={() => {
           saveTenant.mutate();
-          if (selectedTenantUserId) saveTenantUserRole.mutate();
         }}
         isSaving={saveTenant.isPending}
         users={tenantDetail?.users}
@@ -436,7 +427,6 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
                   <div key={u.id} className="flex items-center justify-between rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm">
                     <div className="text-white">{u.firstName} {u.lastName}</div>
                     <div className="flex items-center gap-3">
-                      <Badge className="bg-zinc-700 text-white">{u.role}</Badge>
                       <a className="text-amber-400 hover:text-amber-300" href={`mailto:${u.email}`}>{u.email}</a>
                     </div>
                   </div>
@@ -545,18 +535,6 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
           <div>
             <Label className="text-white">Email</Label>
             <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.email} onChange={(e) => setTenantForm({ ...tenantForm, email: e.target.value })} />
-          </div>
-          <div>
-            <Label className="text-white">Role</Label>
-            <select
-              className="w-full rounded-md border border-amber-400/20 bg-black px-3 py-2 text-white"
-              value={tenantForm.role}
-              onChange={(e) => setTenantForm({ ...tenantForm, role: e.target.value })}
-            >
-              <option value="owner">owner</option>
-              <option value="admin">admin</option>
-              <option value="member">member</option>
-            </select>
           </div>
           <div className="md:col-span-3">
             <Label className="text-white">User</Label>
