@@ -113,6 +113,7 @@ export default function AdminPage() {
     queryKey: ["admin-features"],
     queryFn: () => customFetch<DbFeature[]>(`${basePath}/api/admin/features`),
   });
+  const referralLink = `${window.location.origin}/register`;
 
   const checkoutMutation = useMutation({
     mutationFn: ({ priceId }: { priceId: string }) =>
@@ -240,6 +241,39 @@ export default function AdminPage() {
             <span className="text-sm">No active subscription. Contact your administrator to get started.</span>
           </div>
         )}
+      </div>
+
+      <div className="rounded-xl p-5 border border-white/10 bg-black shadow-lg">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Gift className="h-4 w-4" style={{ color: GOLD }} />
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Refer Another Company</span>
+            </div>
+            <h3 className="text-lg font-semibold text-white">Invite a company to register</h3>
+            <p className="text-sm text-zinc-400 max-w-2xl">
+              Share this link so another company can register a plan and sign in to get started.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="border-white/20 text-white font-bold hover:bg-white/5"
+              onClick={() => window.open("/register", "_blank")}
+            >
+              Register a Plan
+            </Button>
+            <Button
+              className="bg-white text-black font-bold hover:bg-zinc-200"
+              onClick={() => window.open("/sign-in", "_blank")}
+            >
+              Sign In
+            </Button>
+          </div>
+        </div>
+        <div className="mt-4 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-300 break-all">
+          {referralLink}
+        </div>
       </div>
 
       <div className="rounded-xl p-5" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
