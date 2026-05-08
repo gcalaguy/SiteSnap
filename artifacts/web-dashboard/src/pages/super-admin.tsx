@@ -216,18 +216,12 @@ function ManageTab() {
   const deletePlan = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/plans/${id}`, { method: "DELETE" }), onSuccess: () => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan deleted" }); }, onError: (e: any) => toast({ title: "Plan delete failed", description: e.message, variant: "destructive" }) });
   const saveFeature = useMutation({ mutationFn: () => { const payload = { ...featureForm, description: featureForm.description || null }; return editingFeatureId ? customFetch(`/api/admin/features/${editingFeatureId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/features", { method: "POST", body: JSON.stringify(payload) }); }, onSuccess: () => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); refresh(); toast({ title: "Feature saved" }); }, onError: (e: any) => toast({ title: "Feature save failed", description: e.message, variant: "destructive" }) });
   const saveTenant = useMutation({
-    mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}`, {
+    mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}/subscription`, {
       method: "PATCH",
       body: JSON.stringify({
-        name: tenantForm.name.trim(),
         planId: tenantForm.planId ? Number(tenantForm.planId) : undefined,
         status: tenantForm.status,
         billingCycle: tenantForm.billingCycle,
-        userCount: tenantForm.userCount ? Number(tenantForm.userCount) : undefined,
-        website: tenantForm.website.trim() || null,
-        phone: tenantForm.phone.trim() || null,
-        email: tenantForm.email.trim() || null,
-        role: tenantForm.role,
       }),
     }),
     onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); refresh(); toast({ title: "Tenant updated" }); },
