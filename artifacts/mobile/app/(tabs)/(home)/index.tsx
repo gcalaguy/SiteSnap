@@ -143,6 +143,7 @@ function AiBriefingCard({ colors }: { colors: any }) {
 
 const QUICK_ACTIONS_WORKER = [
   { label: "My Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
+  { label: "Assigned Schedule", icon: "calendar", path: "/schedule", color: "#D4AF37" },
   { label: "My Tasks", icon: "check-square", path: "/tasks", color: "#10b981" },
   { label: "Calculators", icon: "percent", path: "/calculators", color: "#f59e0b" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
