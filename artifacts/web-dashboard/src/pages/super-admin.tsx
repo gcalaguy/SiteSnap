@@ -36,7 +36,15 @@ type TenantDetail = TenantRow & { users: Array<{ id: number; email: string; firs
 
 type PlanDialogProps = { open: boolean };
 type FeatureDialogProps = { open: boolean };
-type TenantDialogProps = { open: boolean };
+type TenantDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  tenantForm: { planId: string; status: string; billingCycle: string };
+  setTenantForm: (value: { planId: string; status: string; billingCycle: string }) => void;
+  plans: Plan[];
+  onSave: () => void;
+  isSaving: boolean;
+};
 
 type ManageSectionsProps = {
   plans: Plan[];
@@ -246,7 +254,15 @@ function ManageTab() {
 
       <PlanDialog open={planOpen} />
       <FeatureDialog open={featureOpen} />
-      <TenantDialog open={tenantOpen} />
+      <TenantDialog
+        open={tenantOpen}
+        onOpenChange={setTenantOpen}
+        tenantForm={tenantForm}
+        setTenantForm={setTenantForm}
+        plans={plans}
+        onSave={() => saveTenant.mutate()}
+        isSaving={saveTenant.isPending}
+      />
     </div>
   );
 }
@@ -381,7 +397,7 @@ function FeatureDialog({ open }: FeatureDialogProps) {
   );
 }
 
-function TenantDialog({ open }: TenantDialogProps) {
+function TenantDialog({ open, onOpenChange, tenantForm, setTenantForm, plans, onSave, isSaving }: TenantDialogProps) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -389,11 +405,32 @@ function TenantDialog({ open }: TenantDialogProps) {
         <h3 className="text-lg font-semibold">Tenant Administration</h3>
         <p className="text-sm text-zinc-400">Update subscription, billing cycle, and tenant plan.</p>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <div><Label>Plan</Label><Input className="bg-white/5 border-white/10 text-white" /></div>
-          <div><Label>Status</Label><Input className="bg-white/5 border-white/10 text-white" /></div>
-          <div><Label>Billing Cycle</Label><Input className="bg-white/5 border-white/10 text-white" /></div>
+          <div>
+            <Label>Plan</Label>
+            <select
+              className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-white"
+              value={tenantForm.planId}
+              onChange={(e) => setTenantForm({ ...tenantForm, planId: e.target.value })}
+            >
+              <option value="">No plan</option>
+              {plans.map((plan) => (
+                <option key={plan.id} value={plan.id}>{plan.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label>Status</Label>
+            <Input className="bg-white/5 border-white/10 text-white" value={tenantForm.status} onChange={(e) => setTenantForm({ ...tenantForm, status: e.target.value })} />
+          </div>
+          <div>
+            <Label>Billing Cycle</Label>
+            <Input className="bg-white/5 border-white/10 text-white" value={tenantForm.billingCycle} onChange={(e) => setTenantForm({ ...tenantForm, billingCycle: e.target.value })} />
+          </div>
         </div>
-        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" className="border-white/20 text-white hover:bg-white/10">Cancel</Button><Button className="bg-white text-black hover:bg-zinc-200">Save</Button></div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button className="bg-white text-black hover:bg-zinc-200" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
+        </div>
       </div>
     </div>
   );
