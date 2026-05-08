@@ -45,6 +45,8 @@ type TenantDialogProps = {
   plans: Plan[];
   onSave: () => void;
   isSaving: boolean;
+  onDelete?: () => void;
+  isDeleting: boolean;
 };
 
 type ManageSectionsProps = {
@@ -59,6 +61,9 @@ type ManageSectionsProps = {
   onEditPlan: (plan: Plan) => void;
   onEditFeature: (feature: Feature) => void;
   onEditTenant: (tenant: TenantRow | TenantDetail) => void;
+  onDeleteTenant: (tenant: TenantRow | TenantDetail) => void;
+  collapsed: { plans: boolean; features: boolean; tenants: boolean };
+  setCollapsed: (value: { plans: boolean; features: boolean; tenants: boolean }) => void;
 };
 
 function formatCAD(cents: number) {
@@ -165,6 +170,7 @@ function ManageTab() {
   const [planForm, setPlanForm] = useState({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true });
   const [featureForm, setFeatureForm] = useState({ name: "", key: "", description: "", isEnabled: true });
   const [tenantForm, setTenantForm] = useState({ planId: "", status: "active", billingCycle: "monthly" });
+  const [collapsed, setCollapsed] = useState({ plans: false, features: false, tenants: false });
 
   const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
   const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
@@ -193,6 +199,7 @@ function ManageTab() {
   const deletePlan = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/plans/${id}`, { method: "DELETE" }), onSuccess: () => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan deleted" }); }, onError: (e: any) => toast({ title: "Plan delete failed", description: e.message, variant: "destructive" }) });
   const saveFeature = useMutation({ mutationFn: () => { const payload = { ...featureForm, description: featureForm.description || null }; return editingFeatureId ? customFetch(`/api/admin/features/${editingFeatureId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/features", { method: "POST", body: JSON.stringify(payload) }); }, onSuccess: () => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); refresh(); toast({ title: "Feature saved" }); }, onError: (e: any) => toast({ title: "Feature save failed", description: e.message, variant: "destructive" }) });
   const saveTenant = useMutation({ mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}/subscription`, { method: "PATCH", body: JSON.stringify({ planId: tenantForm.planId ? Number(tenantForm.planId) : undefined, status: tenantForm.status, billingCycle: tenantForm.billingCycle }) }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); refresh(); toast({ title: "Tenant subscription updated" }); }, onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }) });
+  const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
 
   return (
     <div className="space-y-6 text-white">
@@ -248,6 +255,9 @@ function ManageTab() {
             onEditPlan={(p) => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats, isActive: p.isActive }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}
             onEditFeature={(f) => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "", isEnabled: f.isEnabled }); setFeatureOpen(true); }}
             onEditTenant={(t) => { setEditingTenantId(t.id); setTenantForm({ planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly" }); setTenantOpen(true); }}
+            onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
+            collapsed={collapsed}
+            setCollapsed={setCollapsed}
           />
         </TabsContent>
         <TabsContent value="billing"><StripePlansTab /></TabsContent>
@@ -264,20 +274,27 @@ function ManageTab() {
         plans={plans}
         onSave={() => saveTenant.mutate()}
         isSaving={saveTenant.isPending}
+        onDelete={editingTenantId ? () => deleteTenant.mutate(editingTenantId) : undefined}
+        isDeleting={deleteTenant.isPending}
       />
     </div>
   );
 }
 
-function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant }: ManageSectionsProps) {
+function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, collapsed, setCollapsed }: ManageSectionsProps) {
   return (
     <div className="space-y-6">
       <Card className="border-white/10 bg-black text-white">
-        <CardHeader>
-          <CardTitle>Plans</CardTitle>
-          <CardDescription className="text-zinc-400">Create and manage plan tiers.</CardDescription>
+        <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, plans: !collapsed.plans })}>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-white">Plans</CardTitle>
+              <CardDescription className="text-zinc-400">Create and manage plan tiers.</CardDescription>
+            </div>
+            <ChevronDown className={`h-5 w-5 text-amber-400 transition-transform ${collapsed.plans ? "" : "rotate-180"}`} />
+          </div>
         </CardHeader>
-        <CardContent>
+        {!collapsed.plans && <CardContent>
           <div className="space-y-2">
             {plans.map((p) => (
               <button key={p.id} onClick={() => onEditPlan(p)} className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-left hover:bg-white/10">
@@ -290,15 +307,20 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
             ))}
             <Button className="mt-3 bg-white text-black font-bold hover:bg-zinc-200" onClick={onOpenPlan}>New Plan</Button>
           </div>
-        </CardContent>
+        </CardContent>}
       </Card>
 
       <Card className="border-white/10 bg-black text-white">
-        <CardHeader>
-          <CardTitle>Features</CardTitle>
-          <CardDescription className="text-zinc-400">Create feature flags and assign them to plans.</CardDescription>
+        <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, features: !collapsed.features })}>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-white">Features</CardTitle>
+              <CardDescription className="text-zinc-400">Create feature flags and assign them to plans.</CardDescription>
+            </div>
+            <ChevronDown className={`h-5 w-5 text-amber-400 transition-transform ${collapsed.features ? "" : "rotate-180"}`} />
+          </div>
         </CardHeader>
-        <CardContent>
+        {!collapsed.features && <CardContent>
           <div className="space-y-2">
             {features.map((f) => (
               <button key={f.id} onClick={() => onEditFeature(f)} className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-left hover:bg-white/10">
@@ -311,15 +333,20 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
             ))}
             <Button className="mt-3 bg-white text-black font-bold hover:bg-zinc-200" onClick={onOpenFeature}>New Feature</Button>
           </div>
-        </CardContent>
+        </CardContent>}
       </Card>
 
       <Card className="border-white/10 bg-black text-white">
-        <CardHeader>
-          <CardTitle>Tenants</CardTitle>
-          <CardDescription className="text-zinc-400">View tenants, subscription status, and clickable user emails.</CardDescription>
+        <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, tenants: !collapsed.tenants })}>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-white">Tenants</CardTitle>
+              <CardDescription className="text-zinc-400">View tenants, subscription status, and clickable user emails.</CardDescription>
+            </div>
+            <ChevronDown className={`h-5 w-5 text-amber-400 transition-transform ${collapsed.tenants ? "" : "rotate-180"}`} />
+          </div>
         </CardHeader>
-        <CardContent>
+        {!collapsed.tenants && <CardContent>
           <div className="space-y-2">
             {tenants.map((t) => (
               <button key={t.id} onClick={() => { onSelectTenant(t.id); onEditTenant(t); }} className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-left hover:bg-white/10">
@@ -339,7 +366,10 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
                   <div className="font-semibold text-white">{tenantDetail.name}</div>
                   <div className="text-xs text-zinc-400">{tenantDetail.plan?.name ?? "No plan"} · {tenantDetail.subscription?.status ?? "No subscription"}</div>
                 </div>
-                <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => onEditTenant(tenantDetail)}>Edit Tenant</Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => onEditTenant(tenantDetail)}>Edit Tenant</Button>
+                  <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => onDeleteTenant(tenantDetail)}>Delete Tenant</Button>
+                </div>
               </div>
               <div className="mt-4 space-y-2">
                 {tenantDetail.users.map((u) => (
@@ -351,7 +381,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
               </div>
             </div>
           )}
-        </CardContent>
+        </CardContent>}
       </Card>
     </div>
   );
@@ -431,6 +461,7 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
+          {onDelete && <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={onDelete} disabled={isDeleting}>{isDeleting ? "Deleting…" : "Delete"}</Button>}
           <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button className="bg-amber-400 text-black hover:bg-amber-300" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
         </div>
@@ -441,15 +472,15 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
 
 export default function SuperAdminPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-white">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2 text-white"><ShieldCheck className="h-6 w-6 text-primary" /> Super Admin</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage plans, features, and tenants.</p>
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white"><ShieldCheck className="h-6 w-6 text-amber-400" /> Super Admin</h1>
+        <p className="mt-1 text-sm text-zinc-400">Manage plans, features, and tenants.</p>
       </div>
       <Tabs defaultValue="manage" className="space-y-6">
-        <TabsList className="bg-black border border-white/10">
-          <TabsTrigger value="manage">Manage</TabsTrigger>
-          <TabsTrigger value="billing">Billing Plans</TabsTrigger>
+        <TabsList className="border border-amber-400/20 bg-black">
+          <TabsTrigger value="manage" className="text-white data-[state=active]:bg-amber-400 data-[state=active]:text-black">Manage</TabsTrigger>
+          <TabsTrigger value="billing" className="text-white data-[state=active]:bg-amber-400 data-[state=active]:text-black">Billing Plans</TabsTrigger>
         </TabsList>
         <TabsContent value="manage"><ManageTab /></TabsContent>
         <TabsContent value="billing"><StripePlansTab /></TabsContent>
