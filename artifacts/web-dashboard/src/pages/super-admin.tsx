@@ -238,7 +238,7 @@ function ManageTab() {
       method: "PATCH",
       body: JSON.stringify({ systemRole: selectedTenantUserRole }),
     }),
-    onSuccess: () => { refresh(); toast({ title: "User role updated" }); },
+    onSuccess: () => { refresh(); setTenantDetailId((current) => current); toast({ title: "User role updated" }); },
     onError: (e: any) => toast({ title: "Role update failed", description: e.message, variant: "destructive" }),
   });
   const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
@@ -335,7 +335,10 @@ function ManageTab() {
           setSelectedTenantUserId(id);
           setSelectedTenantUserRole(tenantDetail?.users.find((user: { id: number; email: string; firstName: string; lastName: string; role: string; systemRole: string | null }) => String(user.id) === id)?.role ?? "member");
         }}
-        onSelectedUserRoleChange={setSelectedTenantUserRole}
+        onSelectedUserRoleChange={(role) => {
+          setSelectedTenantUserRole(role);
+          setTenantDetailId((current) => current);
+        }}
         onSave={() => {
           saveTenant.mutate();
           if (selectedTenantUserId) {
