@@ -40,8 +40,8 @@ type TenantDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tenantId: number | null;
-  tenantForm: { planId: string; status: string; billingCycle: string };
-  setTenantForm: (value: { planId: string; status: string; billingCycle: string }) => void;
+  tenantForm: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string };
+  setTenantForm: (value: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string }) => void;
   plans: Plan[];
   onSave: () => void;
   isSaving: boolean;
@@ -186,7 +186,7 @@ function ManageTab() {
   const [planFeatureIds, setPlanFeatureIds] = useState<number[]>([]);
   const [planForm, setPlanForm] = useState({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true });
   const [featureForm, setFeatureForm] = useState({ name: "", key: "", description: "", isEnabled: true });
-  const [tenantForm, setTenantForm] = useState({ planId: "", status: "active", billingCycle: "monthly" });
+  const [tenantForm, setTenantForm] = useState({ name: "", planId: "", status: "active", billingCycle: "monthly", userCount: "", website: "", phone: "" });
   const [collapsed, setCollapsed] = useState({ plans: false, features: false, tenants: false });
 
   const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
@@ -215,7 +215,22 @@ function ManageTab() {
 
   const deletePlan = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/plans/${id}`, { method: "DELETE" }), onSuccess: () => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan deleted" }); }, onError: (e: any) => toast({ title: "Plan delete failed", description: e.message, variant: "destructive" }) });
   const saveFeature = useMutation({ mutationFn: () => { const payload = { ...featureForm, description: featureForm.description || null }; return editingFeatureId ? customFetch(`/api/admin/features/${editingFeatureId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/features", { method: "POST", body: JSON.stringify(payload) }); }, onSuccess: () => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); refresh(); toast({ title: "Feature saved" }); }, onError: (e: any) => toast({ title: "Feature save failed", description: e.message, variant: "destructive" }) });
-  const saveTenant = useMutation({ mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}/subscription`, { method: "PATCH", body: JSON.stringify({ planId: tenantForm.planId ? Number(tenantForm.planId) : undefined, status: tenantForm.status, billingCycle: tenantForm.billingCycle }) }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); refresh(); toast({ title: "Tenant subscription updated" }); }, onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }) });
+  const saveTenant = useMutation({
+    mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: tenantForm.name.trim(),
+        planId: tenantForm.planId ? Number(tenantForm.planId) : undefined,
+        status: tenantForm.status,
+        billingCycle: tenantForm.billingCycle,
+        userCount: tenantForm.userCount ? Number(tenantForm.userCount) : undefined,
+        website: tenantForm.website.trim() || null,
+        phone: tenantForm.phone.trim() || null,
+      }),
+    }),
+    onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); refresh(); toast({ title: "Tenant updated" }); },
+    onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
+  });
   const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
 
   return (
@@ -268,7 +283,7 @@ function ManageTab() {
             onSelectTenant={setTenantDetailId}
             onEditPlan={(p) => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats, isActive: p.isActive }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}
             onEditFeature={(f) => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "", isEnabled: f.isEnabled }); setFeatureOpen(true); }}
-            onEditTenant={(t) => { setEditingTenantId(t.id); setTenantForm({ planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly" }); setTenantOpen(true); }}
+            onEditTenant={(t) => { setEditingTenantId(t.id); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "" }); setTenantOpen(true); }}
             onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
             collapsed={collapsed}
             setCollapsed={setCollapsed}
@@ -470,9 +485,13 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 pointer-events-auto">
       <div className="w-full max-w-3xl rounded-2xl border border-amber-400/30 bg-black p-6 text-white shadow-2xl pointer-events-auto">
         <h3 className="text-lg font-semibold text-white">Tenant Administration</h3>
-        <p className="text-sm text-zinc-400">Update subscription, billing cycle, and tenant plan.</p>
+        <p className="text-sm text-zinc-400">Update tenant profile, subscription, billing cycle, and plan.</p>
         {tenantId !== null && <p className="mt-1 text-xs uppercase tracking-wider text-amber-400">Editing tenant #{tenantId}</p>}
         <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div>
+            <Label className="text-white">Tenant Name</Label>
+            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.name} onChange={(e) => setTenantForm({ ...tenantForm, name: e.target.value })} />
+          </div>
           <div>
             <Label className="text-white">Plan</Label>
             <select
@@ -493,6 +512,18 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
           <div>
             <Label className="text-white">Billing Cycle</Label>
             <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.billingCycle} onChange={(e) => setTenantForm({ ...tenantForm, billingCycle: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-white">User Count</Label>
+            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.userCount} onChange={(e) => setTenantForm({ ...tenantForm, userCount: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-white">Website</Label>
+            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.website} onChange={(e) => setTenantForm({ ...tenantForm, website: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-white">Phone</Label>
+            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.phone} onChange={(e) => setTenantForm({ ...tenantForm, phone: e.target.value })} />
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
