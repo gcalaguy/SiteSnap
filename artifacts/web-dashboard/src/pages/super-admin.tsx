@@ -404,18 +404,3 @@ function ManageTab() {
     </div>
   );
 }
-
-export default function SuperAdminPage() {
-  return (
-    <div className="space-y-6">
-      <Tabs defaultValue="manage" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="manage">Manage</TabsTrigger>
-          <TabsTrigger value="billing">Billing Plans</TabsTrigger>
-        </TabsList>
-        <TabsContent value="manage"><ManageTab /></TabsContent>
-        <TabsContent value="billing"><StripePlansTab /></TabsContent>
-      </Tabs>
-    </div>
-  );
-}
