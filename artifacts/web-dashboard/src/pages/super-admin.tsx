@@ -48,6 +48,28 @@ type TenantDialogProps = {
   onDelete?: () => void;
   isDeleting: boolean;
 };
+type PlanDialogState = {
+  form: { name: string; slug: string; description: string; monthlyPrice: string; yearlyPrice: string; maxSeats: number; isActive: boolean };
+  featureIds: number[];
+  onChange: (value: { name: string; slug: string; description: string; monthlyPrice: string; yearlyPrice: string; maxSeats: number; isActive: boolean }) => void;
+  onFeatureIdsChange: (value: number[]) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onDelete?: () => void;
+  isSaving: boolean;
+  isDeleting?: boolean;
+  open: boolean;
+};
+type FeatureDialogState = {
+  form: { name: string; key: string; description: string; isEnabled: boolean };
+  onChange: (value: { name: string; key: string; description: string; isEnabled: boolean }) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onDelete?: () => void;
+  isSaving: boolean;
+  isDeleting?: boolean;
+  open: boolean;
+};
 
 type ManageSectionsProps = {
   plans: Plan[];
@@ -260,8 +282,27 @@ function ManageTab() {
         <TabsContent value="billing"><StripePlansTab /></TabsContent>
       </Tabs>
 
-      <PlanDialog open={planOpen} />
-      <FeatureDialog open={featureOpen} />
+      <PlanDialog
+        open={planOpen}
+        form={planForm}
+        featureIds={planFeatureIds}
+        onChange={setPlanForm}
+        onFeatureIdsChange={setPlanFeatureIds}
+        onSave={() => savePlan.mutate()}
+        onCancel={() => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); }}
+        onDelete={editingPlanId ? () => deletePlan.mutate(editingPlanId) : undefined}
+        isSaving={savePlan.isPending}
+        isDeleting={deletePlan.isPending}
+      />
+      <FeatureDialog
+        open={featureOpen}
+        form={featureForm}
+        onChange={setFeatureForm}
+        onSave={() => saveFeature.mutate()}
+        onCancel={() => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); }}
+        onDelete={undefined}
+        isSaving={saveFeature.isPending}
+      />
       <TenantDialog
         open={tenantOpen}
         onOpenChange={setTenantOpen}
@@ -384,7 +425,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
   );
 }
 
-function PlanDialog({ open }: PlanDialogProps) {
+function PlanDialog({ open, form, featureIds, onChange, onFeatureIdsChange, onSave, onCancel, onDelete, isSaving, isDeleting }: PlanDialogState) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -396,19 +437,23 @@ function PlanDialog({ open }: PlanDialogProps) {
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <div><Label>Name</Label><Input className="bg-white/5 border-white/10 text-white" /></div>
-          <div><Label>Slug</Label><Input className="bg-white/5 border-white/10 text-white" /></div>
-          <div><Label>Monthly Price</Label><Input className="bg-white/5 border-white/10 text-white" /></div>
-          <div><Label>Yearly Price</Label><Input className="bg-white/5 border-white/10 text-white" /></div>
+          <div><Label>Name</Label><Input className="bg-white/5 border-white/10 text-white" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} /></div>
+          <div><Label>Slug</Label><Input className="bg-white/5 border-white/10 text-white" value={form.slug} onChange={(e) => onChange({ ...form, slug: e.target.value })} /></div>
+          <div><Label>Monthly Price</Label><Input className="bg-white/5 border-white/10 text-white" value={form.monthlyPrice} onChange={(e) => onChange({ ...form, monthlyPrice: e.target.value })} /></div>
+          <div><Label>Yearly Price</Label><Input className="bg-white/5 border-white/10 text-white" value={form.yearlyPrice} onChange={(e) => onChange({ ...form, yearlyPrice: e.target.value })} /></div>
         </div>
-        <div className="mt-4"><Label>Description</Label><Textarea className="bg-white/5 border-white/10 text-white" /></div>
-        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" className="border-white/20 text-white hover:bg-white/10">Cancel</Button><Button className="bg-white text-black hover:bg-zinc-200">Save</Button></div>
+        <div className="mt-4"><Label>Description</Label><Textarea className="bg-white/5 border-white/10 text-white" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} /></div>
+        <div className="mt-4 flex justify-end gap-2">
+          {onDelete && <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={onDelete} disabled={isDeleting}>{isDeleting ? "Deleting…" : "Delete"}</Button>}
+          <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={onCancel}>Cancel</Button>
+          <Button className="bg-white text-black hover:bg-zinc-200" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
+        </div>
       </div>
     </div>
   );
 }
 
-function FeatureDialog({ open }: FeatureDialogProps) {
+function FeatureDialog({ open, form, onChange, onSave, onCancel, isSaving }: FeatureDialogState) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -416,11 +461,11 @@ function FeatureDialog({ open }: FeatureDialogProps) {
         <h3 className="text-lg font-semibold">Feature Administration</h3>
         <p className="text-sm text-zinc-400">Create enabled/disabled features and assign them to plans.</p>
         <div className="mt-4 grid gap-4">
-          <div><Label>Name</Label><Input className="bg-white/5 border-white/10 text-white" /></div>
-          <div><Label>Key</Label><Input className="bg-white/5 border-white/10 text-white" /></div>
-          <div><Label>Description</Label><Textarea className="bg-white/5 border-white/10 text-white" /></div>
+          <div><Label>Name</Label><Input className="bg-white/5 border-white/10 text-white" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} /></div>
+          <div><Label>Key</Label><Input className="bg-white/5 border-white/10 text-white" value={form.key} onChange={(e) => onChange({ ...form, key: e.target.value })} /></div>
+          <div><Label>Description</Label><Textarea className="bg-white/5 border-white/10 text-white" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} /></div>
         </div>
-        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" className="border-white/20 text-white hover:bg-white/10">Cancel</Button><Button className="bg-white text-black hover:bg-zinc-200">Save</Button></div>
+        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={onCancel}>Cancel</Button><Button className="bg-white text-black hover:bg-zinc-200" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button></div>
       </div>
     </div>
   );
