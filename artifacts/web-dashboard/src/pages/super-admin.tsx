@@ -369,14 +369,14 @@ function ManageTab() {
           <div className="flex justify-end"><Button className="bg-white text-black font-bold hover:bg-zinc-200" onClick={() => { setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "" }); setFeatureOpen(true); }}>Create Feature</Button></div>
           <div className="grid gap-4">
             {features.map((f) => (
-              <Card key={f.id} className="border-white/15 bg-black/70"><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold text-white">{f.name}</div><div className="text-sm text-green-500">{f.key}</div></div><Button variant="outline" className="border-white/20 text-white font-bold" onClick={() => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "" }); setFeatureOpen(true); }}>Edit</Button></CardContent></Card>
+              <Card key={f.id} className="border border-white/10 bg-black"><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold text-white">{f.name}</div><div className="text-sm text-green-500">{f.key}</div></div><Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "" }); setFeatureOpen(true); }}>Edit</Button></CardContent></Card>
             ))}
           </div>
         </TabsContent>
         <TabsContent value="tenants" className="space-y-4">
           <div className="grid gap-4">
             {tenants.map((t) => (
-              <Card key={t.id} className="border-white/15 bg-black/70"><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold text-white">{t.name}</div><div className="text-sm text-zinc-400">{t.plan?.name ?? "No plan"} · {t.userCount} users</div></div><div className="flex gap-2"><Button variant="outline" className="border-white/20 text-white font-bold" onClick={() => setTenantDetailId(t.id)}>View</Button><Button variant="outline" className="border-white/20 text-white font-bold" onClick={() => { setEditingTenantId(t.id); setTenantForm({ planId: t.subscription?.planId ? String(t.subscription.planId) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly" }); setTenantOpen(true); }}>Edit</Button></div></CardContent></Card>
+              <Card key={t.id} className="border border-white/10 bg-black"><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold text-white">{t.name}</div><div className="text-sm text-zinc-400">{t.plan?.name ?? "No plan"} · {t.userCount} users</div></div><div className="flex gap-2"><Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => setTenantDetailId(t.id)}>View</Button><Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { setEditingTenantId(t.id); setTenantForm({ planId: t.subscription?.planId ? String(t.subscription.planId) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly" }); setTenantOpen(true); }}>Edit</Button></div></CardContent></Card>
             ))}
           </div>
         </TabsContent>
