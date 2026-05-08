@@ -77,7 +77,7 @@ export const requireOwnerOrForeman = (
   res: Response,
   next: NextFunction,
 ) => {
-  if (req.userRole !== "owner" && req.userRole !== "foreman") {
+  if (req.userRole !== "owner" && req.userRole !== "foreman" && req.systemRole !== "super_admin") {
     res.status(403).json({ error: "Insufficient permissions" });
     return;
   }
