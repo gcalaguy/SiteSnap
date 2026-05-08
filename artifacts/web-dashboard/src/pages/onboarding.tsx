@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,6 +24,7 @@ const companySchema = z.object({
 });
 
 const INVITE_TOKEN_KEY = "sitesnap_pending_invite_token";
+const PENDING_COMPANY_KEY = "sitesnap_pending_company";
 
 export default function OnboardingPage() {
   const [, setLocation] = useLocation();
@@ -33,7 +34,6 @@ export default function OnboardingPage() {
   const urlToken = searchParams.get("token");
   const refCode = searchParams.get("ref") ?? undefined;
 
-  // Resolve token: prefer URL param, then sessionStorage (restored after sign-up redirect)
   const resolvedToken = urlToken || sessionStorage.getItem(INVITE_TOKEN_KEY) || "";
 
   const [activeTab, setActiveTab] = useState(resolvedToken ? "join" : "create");
@@ -54,18 +54,38 @@ export default function OnboardingPage() {
 
   const [inviteToken, setInviteToken] = useState(resolvedToken);
 
-  // Persist URL token to sessionStorage so it survives a sign-up redirect
-  useState(() => {
-    if (urlToken) sessionStorage.setItem(INVITE_TOKEN_KEY, urlToken);
-  });
+  if (urlToken) sessionStorage.setItem(INVITE_TOKEN_KEY, urlToken);
 
-  function onSubmitCreate(values: z.infer<typeof companySchema>) {
+  // Auto-resume pending company creation after sign-up redirect
+  const autoSubmitted = useRef(false);
+  useEffect(() => {
+    if (!clerkUser || autoSubmitted.current) return;
+    const raw = sessionStorage.getItem(PENDING_COMPANY_KEY);
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw) as z.infer<typeof companySchema>;
+      form.reset(saved);
+      setActiveTab("create");
+      autoSubmitted.current = true;
+      sessionStorage.removeItem(PENDING_COMPANY_KEY);
+      // Small delay so the form is visibly populated before submitting
+      setTimeout(() => {
+        form.handleSubmit(doCreate)();
+      }, 300);
+    } catch {
+      sessionStorage.removeItem(PENDING_COMPANY_KEY);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerkUser]);
+
+  function doCreate(values: z.infer<typeof companySchema>) {
     createCompany.mutate(
       { data: { ...values, ...(refCode ? { referredByCode: refCode } : {}) } as any },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
           sessionStorage.removeItem(INVITE_TOKEN_KEY);
+          sessionStorage.removeItem(PENDING_COMPANY_KEY);
           toast({ title: "Company created successfully" });
           setLocation("/dashboard");
         },
@@ -78,6 +98,20 @@ export default function OnboardingPage() {
         },
       }
     );
+  }
+
+  function onSubmitCreate(values: z.infer<typeof companySchema>) {
+    if (!clerkUser) {
+      // Save form state and redirect to sign-up; will auto-resume on return
+      sessionStorage.setItem(PENDING_COMPANY_KEY, JSON.stringify(values));
+      toast({
+        title: "Create your account first",
+        description: "Sign up below — we'll bring you right back to finish setting up your company.",
+      });
+      setLocation("/sign-up");
+      return;
+    }
+    doCreate(values);
   }
 
   function doAccept() {
@@ -105,7 +139,6 @@ export default function OnboardingPage() {
     e.preventDefault();
     if (!inviteToken.trim()) return;
 
-    // Not signed in — save token and send them to sign up first
     if (!clerkUser) {
       if (inviteToken.trim()) sessionStorage.setItem(INVITE_TOKEN_KEY, inviteToken.trim());
       toast({
@@ -214,8 +247,13 @@ export default function OnboardingPage() {
                     />
                     <Button type="submit" className="w-full" disabled={createCompany.isPending}>
                       {createCompany.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Create Company
+                      {clerkUser ? "Create Company" : "Continue to Sign Up"}
                     </Button>
+                    {!clerkUser && (
+                      <p className="text-center text-xs text-muted-foreground">
+                        You'll create your account on the next step, then your company will be set up automatically.
+                      </p>
+                    )}
                   </form>
                 </Form>
               </CardContent>

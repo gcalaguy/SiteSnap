@@ -169,7 +169,7 @@ function StripePlansTab() {
             <p className="text-sm text-zinc-400 max-w-2xl">Send this link by email or copy it to share so they can create a new company.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { const link = `${window.location.origin}/sign-up`; const subject = encodeURIComponent("Invite an owner to join your new company"); const body = encodeURIComponent(`Hi,\n\nYou’re invited to join a new company as an owner in Site Snap.\n\nCreate your account here:\n${link}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Create New Company</Button>
+            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { const link = `${window.location.origin}/onboarding`; const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Hi,\n\nYou’re invited to join a new company as an owner in Site Snap.\n\nCreate your account here:\n${link}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Create New Company</Button>
           </div>
         </div>
       </div>
@@ -271,7 +271,7 @@ function ManageTab() {
             <p className="max-w-2xl text-sm text-zinc-300">Send this link by email or copy it to share so they can create a new company.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => { const link = `${window.location.origin}/sign-up`; const subject = encodeURIComponent("Create your Site Snap company"); const body = encodeURIComponent(`Use this link to create your new company in Site Snap:\n\n${link}`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Create New Company</Button>
+            <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => { const link = `${window.location.origin}/onboarding`; const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Use this link to set up your account and company on Site Snap:\n\n${link}`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Create New Company</Button>
           </div>
         </div>
       </div>
