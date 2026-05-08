@@ -226,6 +226,25 @@ function StripePlansTab() {
           })}
         </div>
       )}
+      <div className="rounded-xl p-5 border border-white/10 bg-black shadow-lg">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Gift className="h-4 w-4" style={{ color: GOLD }} />
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Share Sign-up Link</span>
+            </div>
+            <h3 className="text-lg font-semibold text-white">Invite a new subscriber</h3>
+            <p className="text-sm text-zinc-400 max-w-2xl">Send this link by email or copy it to share so they can create a new company.</p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => window.open("/sign-up", "_blank")}>Open Sign Up</Button>
+            <Button className="bg-white text-black font-bold hover:bg-zinc-200" onClick={() => window.open("/sign-in", "_blank")}>Sign In</Button>
+            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { const link = `${window.location.origin}/sign-up`; const subject = encodeURIComponent("Create your Site Snap company"); const body = encodeURIComponent(`Use this link to create your new company in Site Snap:\n\n${link}`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Email Link</Button>
+            <Button variant="secondary" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/sign-up`)}>Copy Link</Button>
+          </div>
+        </div>
+        <div className="mt-4 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-300 break-all">{`${window.location.origin}/sign-up`}</div>
+      </div>
     </div>
   );
 }
@@ -245,9 +264,9 @@ function ManageTab() {
   const [featureForm, setFeatureForm] = useState({ name: "", key: "", description: "" });
   const [tenantForm, setTenantForm] = useState({ planId: "", status: "active", billingCycle: "monthly" });
 
-  const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
-  const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
-  const { data: tenants = [] } = useQuery<TenantRow[]>({ queryKey: ["admin-tenants"], queryFn: () => customFetch<TenantRow[]>("/api/admin/tenants") });
+  const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>('/api/admin/plans') });
+  const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>('/api/admin/features') });
+  const { data: tenants = [] } = useQuery<TenantRow[]>({ queryKey: ["admin-tenants"], queryFn: () => customFetch<TenantRow[]>('/api/admin/tenants') });
   const { data: tenantDetail } = useQuery<TenantDetail>({
     queryKey: ["admin-tenant-detail", tenantDetailId],
     queryFn: () => customFetch<TenantDetail>(`/api/admin/tenants/${tenantDetailId}`),
@@ -355,167 +374,24 @@ function ManageTab() {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="plans" className="space-y-4">
-        <TabsList className="bg-black text-white border border-white/20">
-          <TabsTrigger value="plans">Plans</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
-          <TabsTrigger value="tenants">Tenants</TabsTrigger>
-        </TabsList>
-        <TabsContent value="plans" className="space-y-4">
-          <div className="flex justify-end"><Button className="bg-white text-black font-bold hover:bg-zinc-200" onClick={() => { setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5 }); setPlanFeatureIds([]); setPlanOpen(true); }}>Create Plan</Button></div>
-          <div className="grid gap-3">
-            {plans.map((p) => {
-              const c = getPlanColor(p.slug);
-              return (
-                <Card key={p.id} className={`border-l-4 ${c.border} bg-black shadow-lg ${c.glow}`}>
-                  <CardContent className="flex items-center justify-between py-4 px-5">
-                    <div className="flex items-center gap-4">
-                      <div className={`flex items-center justify-center w-10 h-10 rounded-full bg-black border ${c.border}`}>
-                        {planIcon(p.slug)}
-                      </div>
-                      <div>
-                        <div className={`font-bold text-base ${c.accent}`}>{p.name}</div>
-                        <div className="text-xs text-zinc-500 mt-0.5">{p.slug} · <span className="text-zinc-300">${p.monthlyPrice}/mo</span> · <span className="text-zinc-300">${p.yearlyPrice}/yr</span> · <span className="text-zinc-400">{p.maxSeats} seats</span></div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.badge} text-white`}>{p.featureIds.length} features</span>
-                      <Button variant="outline" className={`border ${c.border} ${c.accent} font-bold hover:bg-white/5`} onClick={() => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}>Edit</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </TabsContent>
-        <TabsContent value="features" className="space-y-4">
-          <div className="flex justify-end"><Button className="bg-white text-black font-bold hover:bg-zinc-200" onClick={() => { setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "" }); setFeatureOpen(true); }}>Create Feature</Button></div>
-          <div className="grid gap-4">
-            {features.map((f) => (
-              <Card key={f.id} className="border border-white/10 bg-black"><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold text-white">{f.name}</div><div className="text-sm text-green-500">{f.key}</div></div><Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "" }); setFeatureOpen(true); }}>Edit</Button></CardContent></Card>
-            ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="tenants" className="space-y-4">
-          <div className="grid gap-4">
-            {tenants.map((t) => (
-              <Card key={t.id} className="border border-white/10 bg-black"><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold text-white">{t.name}</div><div className="text-sm text-zinc-400">{t.plan?.name ?? "No plan"} · {t.userCount} users</div></div><div className="flex gap-2"><Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => setTenantDetailId(t.id)}>View</Button><Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { setEditingTenantId(t.id); setTenantForm({ planId: t.subscription?.planId ? String(t.subscription.planId) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly" }); setTenantOpen(true); }}>Edit</Button></div></CardContent></Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      <Dialog open={tenantDetailId !== null} onOpenChange={(open) => !open && setTenantDetailId(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{tenantDetail?.name ?? "Tenant"}</DialogTitle>
-            <DialogDescription>{tenantDetail?.plan?.name ?? tenants.find((t) => t.id === tenantDetailId)?.plan?.name ?? "No plan"} · {tenantDetail?.users.length ?? 0} users</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {(tenantDetail?.users ?? []).map((u) => (
-              <div key={u.id} className="flex items-center justify-between rounded-md border border-white/10 bg-black/60 px-3 py-2">
-                <div>
-                  <div className="font-medium text-white">{u.firstName} {u.lastName}</div>
-                  <div className="text-sm text-zinc-400">{u.email}</div>
-                </div>
-                <Badge className={u.systemRole ? "bg-green-600 text-white" : "bg-zinc-800 text-zinc-200"}>{u.systemRole ?? u.role}</Badge>
-              </div>
-            ))}
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="destructive" onClick={() => tenantDetailId && deleteTenant.mutate(tenantDetailId)}>Delete Tenant</Button>
-            <Button variant="outline" className="border-white/20 text-white font-bold" onClick={() => setTenantDetailId(null)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={planOpen} onOpenChange={setPlanOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editingPlanId ? "Edit Plan" : "Create Plan"}</DialogTitle><DialogDescription>Manage DB plans and attach features.</DialogDescription></DialogHeader>
-          <div className="grid gap-3">
-            <Input placeholder="Name" value={planForm.name} onChange={(e) => setPlanForm((p) => ({ ...p, name: e.target.value }))} />
-            <Input placeholder="Slug" value={planForm.slug} onChange={(e) => setPlanForm((p) => ({ ...p, slug: e.target.value }))} />
-            <Input placeholder="Description" value={planForm.description} onChange={(e) => setPlanForm((p) => ({ ...p, description: e.target.value }))} />
-            <Input placeholder="Monthly price" value={planForm.monthlyPrice} onChange={(e) => setPlanForm((p) => ({ ...p, monthlyPrice: e.target.value }))} />
-            <Input placeholder="Yearly price" value={planForm.yearlyPrice} onChange={(e) => setPlanForm((p) => ({ ...p, yearlyPrice: e.target.value }))} />
-            <Input type="number" placeholder="Max seats" value={planForm.maxSeats} onChange={(e) => setPlanForm((p) => ({ ...p, maxSeats: Number(e.target.value) }))} />
-            <div className="grid gap-2">
-              {features.map((f) => (
-                <label key={f.id} className="flex items-center gap-2 text-sm"><input className="accent-green-500" type="checkbox" checked={planFeatureIds.includes(f.id)} onChange={(e) => setPlanFeatureIds((ids) => e.target.checked ? [...ids, f.id] : ids.filter((id) => id !== f.id))} /><span className="text-green-500">{f.name}</span></label>
-              ))}
+      <div className="rounded-xl p-5 border border-white/10 bg-black shadow-lg">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Gift className="h-4 w-4" style={{ color: GOLD }} />
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Share Sign-up Link</span>
             </div>
+            <h3 className="text-lg font-semibold text-white">Invite a new subscriber</h3>
+            <p className="text-sm text-zinc-400 max-w-2xl">Send this link by email or copy it to share so they can create a new company.</p>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            {editingPlanId ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive">Delete</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete this plan?</AlertDialogTitle>
-                    <AlertDialogDescription>This will permanently remove the plan and archive its Stripe product.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => deletePlan.mutate(editingPlanId)}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            ) : null}
-            <Button variant="outline" onClick={() => setPlanOpen(false)}>Cancel</Button>
-            <Button onClick={() => savePlan.mutate()}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={featureOpen} onOpenChange={setFeatureOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editingFeatureId ? "Edit Feature" : "Create Feature"}</DialogTitle><DialogDescription>Manage the reusable feature catalog.</DialogDescription></DialogHeader>
-          <div className="grid gap-3">
-            <Input placeholder="Name" value={featureForm.name} onChange={(e) => setFeatureForm((p) => ({ ...p, name: e.target.value }))} />
-            <Input placeholder="Key" value={featureForm.key} onChange={(e) => setFeatureForm((p) => ({ ...p, key: e.target.value }))} />
-            <Input placeholder="Description" value={featureForm.description} onChange={(e) => setFeatureForm((p) => ({ ...p, description: e.target.value }))} />
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => window.open("/sign-up", "_blank")}>Open Sign Up</Button>
+            <Button className="bg-white text-black font-bold hover:bg-zinc-200" onClick={() => window.open("/sign-in", "_blank")}>Sign In</Button>
+            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { const link = `${window.location.origin}/sign-up`; const subject = encodeURIComponent("Create your Site Snap company"); const body = encodeURIComponent(`Use this link to create your new company in Site Snap:\n\n${link}`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Email Link</Button>
+            <Button variant="secondary" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/sign-up`)}>Copy Link</Button>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setFeatureOpen(false)}>Cancel</Button><Button onClick={() => saveFeature.mutate()}>Save</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={tenantOpen} onOpenChange={setTenantOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit Tenant</DialogTitle><DialogDescription>Assign a plan and billing cycle.</DialogDescription></DialogHeader>
-          <div className="grid gap-3">
-            <Select value={tenantForm.planId} onValueChange={(value) => setTenantForm((p) => ({ ...p, planId: value }))}>
-              <SelectTrigger><SelectValue placeholder="Plan" /></SelectTrigger>
-              <SelectContent>{plans.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent>
-            </Select>
-            <Select value={tenantForm.status} onValueChange={(value) => setTenantForm((p) => ({ ...p, status: value }))}>
-              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent><SelectItem value="active">active</SelectItem><SelectItem value="trialing">trialing</SelectItem><SelectItem value="past_due">past_due</SelectItem><SelectItem value="canceled">canceled</SelectItem></SelectContent>
-            </Select>
-            <Select value={tenantForm.billingCycle} onValueChange={(value) => setTenantForm((p) => ({ ...p, billingCycle: value }))}>
-              <SelectTrigger><SelectValue placeholder="Billing cycle" /></SelectTrigger>
-              <SelectContent><SelectItem value="monthly">monthly</SelectItem><SelectItem value="yearly">yearly</SelectItem></SelectContent>
-            </Select>
-          </div>
-          <DialogFooter><Button variant="outline" onClick={() => setTenantOpen(false)}>Cancel</Button><Button onClick={() => saveTenant.mutate()}>Save</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-export default function SuperAdminPage() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-primary" />
-            Super Admin
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage pricing, features, and tenants.</p>
         </div>
+        <div className="mt-4 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-300 break-all">{`${window.location.origin}/sign-up`}</div>
       </div>
       <Tabs defaultValue="manage" className="space-y-6">
         <TabsList>
