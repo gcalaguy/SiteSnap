@@ -39,6 +39,7 @@ import {
   DatabaseZap,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -76,6 +77,10 @@ interface TenantRow {
   subscription: { id: number; planId: number; status: string; billingCycle: string } | null;
   plan: { id: number; name: string; slug: string } | null;
   userCount: number;
+}
+
+interface TenantDetail extends TenantRow {
+  users: Array<{ id: number; email: string; firstName: string; lastName: string; role: string; systemRole: string | null }>;
 }
 
 function formatCAD(cents: number) {
@@ -219,6 +224,7 @@ function ManageTab() {
   const [planOpen, setPlanOpen] = useState(false);
   const [featureOpen, setFeatureOpen] = useState(false);
   const [tenantOpen, setTenantOpen] = useState(false);
+  const [tenantDetailId, setTenantDetailId] = useState<number | null>(null);
   const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
   const [editingFeatureId, setEditingFeatureId] = useState<number | null>(null);
   const [editingTenantId, setEditingTenantId] = useState<number | null>(null);
@@ -230,6 +236,11 @@ function ManageTab() {
   const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
   const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
   const { data: tenants = [] } = useQuery<TenantRow[]>({ queryKey: ["admin-tenants"], queryFn: () => customFetch<TenantRow[]>("/api/admin/tenants") });
+  const { data: tenantDetail } = useQuery<TenantDetail>({
+    queryKey: ["admin-tenant-detail", tenantDetailId],
+    queryFn: () => customFetch<TenantDetail>(`/api/admin/tenants/${tenantDetailId}`),
+    enabled: tenantDetailId !== null,
+  });
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["admin-plans"] });
@@ -297,38 +308,72 @@ function ManageTab() {
     onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
   });
 
+  const deleteTenant = useMutation({
+    mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      setTenantDetailId(null);
+      refresh();
+      toast({ title: "Tenant deleted" });
+    },
+    onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }),
+  });
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="plans" className="space-y-4">
-        <TabsList>
+        <TabsList className="bg-black text-zinc-200 border border-yellow-700/40">
           <TabsTrigger value="plans">Plans</TabsTrigger>
           <TabsTrigger value="features">Features</TabsTrigger>
           <TabsTrigger value="tenants">Tenants</TabsTrigger>
         </TabsList>
         <TabsContent value="plans" className="space-y-4">
-          <div className="flex justify-end"><Button onClick={() => { setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5 }); setPlanFeatureIds([]); setPlanOpen(true); }}>Create Plan</Button></div>
+          <div className="flex justify-end"><Button className="bg-yellow-600 text-black hover:bg-yellow-500" onClick={() => { setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5 }); setPlanFeatureIds([]); setPlanOpen(true); }}>Create Plan</Button></div>
           <div className="grid gap-4">
             {plans.map((p) => (
-              <Card key={p.id}><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold">{p.name}</div><div className="text-sm text-muted-foreground">{p.slug} · {p.monthlyPrice}/{p.yearlyPrice}</div></div><Button variant="outline" onClick={() => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}>Edit</Button></CardContent></Card>
+              <Card key={p.id} className="border-yellow-700/30 bg-black/70"><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold text-yellow-100">{p.name}</div><div className="text-sm text-zinc-400">{p.slug} · {p.monthlyPrice}/{p.yearlyPrice}</div></div><Button variant="outline" className="border-yellow-700/40 text-yellow-100" onClick={() => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}>Edit</Button></CardContent></Card>
             ))}
           </div>
         </TabsContent>
         <TabsContent value="features" className="space-y-4">
-          <div className="flex justify-end"><Button onClick={() => { setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "" }); setFeatureOpen(true); }}>Create Feature</Button></div>
+          <div className="flex justify-end"><Button className="bg-yellow-600 text-black hover:bg-yellow-500" onClick={() => { setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "" }); setFeatureOpen(true); }}>Create Feature</Button></div>
           <div className="grid gap-4">
             {features.map((f) => (
-              <Card key={f.id}><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold">{f.name}</div><div className="text-sm text-muted-foreground">{f.key}</div></div><Button variant="outline" onClick={() => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "" }); setFeatureOpen(true); }}>Edit</Button></CardContent></Card>
+              <Card key={f.id} className="border-yellow-700/30 bg-black/70"><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold text-yellow-100">{f.name}</div><div className="text-sm text-green-500">{f.key}</div></div><Button variant="outline" className="border-yellow-700/40 text-yellow-100" onClick={() => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "" }); setFeatureOpen(true); }}>Edit</Button></CardContent></Card>
             ))}
           </div>
         </TabsContent>
         <TabsContent value="tenants" className="space-y-4">
           <div className="grid gap-4">
             {tenants.map((t) => (
-              <Card key={t.id}><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold">{t.name}</div><div className="text-sm text-muted-foreground">{t.plan?.name ?? "No plan"} · {t.userCount} users</div></div><Button variant="outline" onClick={() => { setEditingTenantId(t.id); setTenantForm({ planId: t.subscription?.planId ? String(t.subscription.planId) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly" }); setTenantOpen(true); }}>Edit</Button></CardContent></Card>
+              <Card key={t.id} className="border-yellow-700/30 bg-black/70"><CardContent className="flex items-center justify-between py-4"><div><div className="font-semibold text-yellow-100">{t.name}</div><div className="text-sm text-zinc-400">{t.plan?.name ?? "No plan"} · {t.userCount} users</div></div><div className="flex gap-2"><Button variant="outline" className="border-yellow-700/40 text-yellow-100" onClick={() => setTenantDetailId(t.id)}>View</Button><Button variant="outline" className="border-yellow-700/40 text-yellow-100" onClick={() => { setEditingTenantId(t.id); setTenantForm({ planId: t.subscription?.planId ? String(t.subscription.planId) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly" }); setTenantOpen(true); }}>Edit</Button></div></CardContent></Card>
             ))}
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={tenantDetailId !== null} onOpenChange={(open) => !open && setTenantDetailId(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{tenantDetail?.name ?? "Tenant"}</DialogTitle>
+            <DialogDescription>{tenantDetail?.plan?.name ?? "No plan"} · {tenantDetail?.users.length ?? 0} users</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {(tenantDetail?.users ?? []).map((u) => (
+              <div key={u.id} className="flex items-center justify-between rounded-md border border-yellow-700/20 bg-black/60 px-3 py-2">
+                <div>
+                  <div className="font-medium text-yellow-100">{u.firstName} {u.lastName}</div>
+                  <div className="text-sm text-zinc-400">{u.email}</div>
+                </div>
+                <Badge className={u.systemRole ? "bg-green-600 text-white" : "bg-zinc-800 text-zinc-200"}>{u.systemRole ?? u.role}</Badge>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="destructive" onClick={() => tenantDetailId && deleteTenant.mutate(tenantDetailId)}>Delete Tenant</Button>
+            <Button variant="outline" className="border-yellow-700/40 text-yellow-100" onClick={() => setTenantDetailId(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={planOpen} onOpenChange={setPlanOpen}>
         <DialogContent>
@@ -342,7 +387,7 @@ function ManageTab() {
             <Input type="number" placeholder="Max seats" value={planForm.maxSeats} onChange={(e) => setPlanForm((p) => ({ ...p, maxSeats: Number(e.target.value) }))} />
             <div className="grid gap-2">
               {features.map((f) => (
-                <label key={f.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={planFeatureIds.includes(f.id)} onChange={(e) => setPlanFeatureIds((ids) => e.target.checked ? [...ids, f.id] : ids.filter((id) => id !== f.id))} />{f.name}</label>
+                <label key={f.id} className="flex items-center gap-2 text-sm"><input className="accent-green-500" type="checkbox" checked={planFeatureIds.includes(f.id)} onChange={(e) => setPlanFeatureIds((ids) => e.target.checked ? [...ids, f.id] : ids.filter((id) => id !== f.id))} /><span className="text-green-500">{f.name}</span></label>
               ))}
             </div>
           </div>

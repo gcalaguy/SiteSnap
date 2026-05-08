@@ -404,6 +404,32 @@ router.get("/admin/tenants", ...guard, async (req, res) => {
   res.json(result);
 });
 
+// GET /admin/tenants/:id — tenant detail with users
+router.get("/admin/tenants/:id", ...guard, async (req, res) => {
+  const companyId = Number(req.params.id);
+  const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
+  if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  const [subscription] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.companyId, companyId)).limit(1);
+  const [plan] = subscription
+    ? await db.select().from(plansTable).where(eq(plansTable.id, subscription.planId)).limit(1)
+    : [null];
+  const users = await db
+    .select({
+      id: usersTable.id,
+      email: usersTable.email,
+      firstName: usersTable.firstName,
+      lastName: usersTable.lastName,
+      role: usersTable.role,
+      systemRole: usersTable.systemRole,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.companyId, companyId))
+    .orderBy(usersTable.lastName, usersTable.firstName);
+
+  res.json({ ...company, subscription: subscription ?? null, plan: plan ?? null, users });
+});
+
 // PATCH /admin/tenants/:id/subscription — assign or update subscription
 router.patch("/admin/tenants/:id/subscription", ...guard, async (req, res) => {
   const companyId = Number(req.params.id);
@@ -437,6 +463,16 @@ router.patch("/admin/tenants/:id/subscription", ...guard, async (req, res) => {
       .returning();
     res.json(sub);
   }
+});
+
+// DELETE /admin/tenants/:id
+router.delete("/admin/tenants/:id", ...guard, async (req, res) => {
+  const companyId = Number(req.params.id);
+  const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
+  if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  await db.delete(companiesTable).where(eq(companiesTable.id, companyId));
+  res.json({ ok: true });
 });
 
 // ── Per-Tenant Feature Override ─────────────────────────────────────────────────
