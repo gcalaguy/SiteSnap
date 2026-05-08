@@ -3,14 +3,26 @@ import { useGetMe } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import {
   ShieldCheck,
   Users,
   CreditCard,
   AlertCircle,
   ExternalLink,
+  ChevronRight,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  TrendingUp,
+  UserPlus,
+  ArrowRight,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -18,13 +30,32 @@ const BLACK = "#111111";
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface Subscription {
+  id: string;
   status: string;
+  current_period_start?: number;
   current_period_end?: number;
-  items?: { data: Array<{ price?: { product?: string } }> };
+  cancel_at_period_end?: boolean;
+  items?: { data: Array<{ price?: { product?: string; unit_amount?: number; currency?: string; recurring?: { interval: string } } }> };
+}
+
+interface SeatInfo {
+  currentSeats: number;
+  maxSeats: number | "unlimited";
+  planName: string | null;
+  canAddMore: boolean;
+}
+
+function statusBadge(status: string) {
+  if (status === "active") return <Badge className="bg-green-600 text-white font-semibold">Active</Badge>;
+  if (status === "trialing") return <Badge className="bg-blue-500 text-white font-semibold">Trial</Badge>;
+  if (status === "past_due") return <Badge className="bg-amber-500 text-white font-semibold">Past Due</Badge>;
+  if (status === "canceled") return <Badge className="bg-zinc-600 text-white font-semibold">Canceled</Badge>;
+  return <Badge className="bg-zinc-700 text-white font-semibold capitalize">{status}</Badge>;
 }
 
 function AdminPage() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const { data: me } = useGetMe();
 
   const { data: subData, isLoading: subLoading } = useQuery({
@@ -32,14 +63,15 @@ function AdminPage() {
     queryFn: () => customFetch<{ subscription: Subscription | null; company: any }>(`${basePath}/api/billing/subscription`),
   });
 
-  const checkoutMutation = useMutation({
-    mutationFn: ({ priceId }: { priceId: string }) =>
-      customFetch<{ url: string }>(`${basePath}/api/billing/checkout`, {
-        method: "POST",
-        body: JSON.stringify({ priceId }),
-      }),
+  const { data: seatInfo, isLoading: seatsLoading } = useQuery<SeatInfo>({
+    queryKey: ["billing-seats"],
+    queryFn: () => customFetch<SeatInfo>(`${basePath}/api/billing/seats`),
+  });
+
+  const portalMutation = useMutation({
+    mutationFn: () => customFetch<{ url: string }>(`${basePath}/api/billing/portal`, { method: "POST" }),
     onSuccess: (data) => { window.location.href = data.url; },
-    onError: (err: any) => { toast({ title: "Checkout failed", description: err.message, variant: "destructive" }); },
+    onError: (err: any) => toast({ title: "Could not open billing portal", description: err.message, variant: "destructive" }),
   });
 
   if (me?.role !== "owner") {
@@ -53,62 +85,191 @@ function AdminPage() {
   }
 
   const subscription: Subscription | null = subData?.subscription ?? null;
+  const company = subData?.company ?? null;
+
+  const renewalDate = subscription?.current_period_end
+    ? new Date(subscription.current_period_end * 1000).toLocaleDateString("en-CA", { dateStyle: "medium" })
+    : null;
+
+  const seatUsed = seatInfo?.currentSeats ?? 0;
+  const seatMax = seatInfo?.maxSeats;
+  const seatPct = seatMax === "unlimited" || !seatMax
+    ? 0
+    : Math.round((seatUsed / (seatMax as number)) * 100);
+  const planName = seatInfo?.planName ?? company?.name ?? "Site Snap";
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-primary" />
-            Admin & Billing
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage your subscription, team seats, and company settings.</p>
-        </div>
+    <div className="space-y-6 max-w-3xl">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <ShieldCheck className="h-6 w-6 text-primary" />
+          Admin &amp; Billing
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage your subscription, team seats, and company settings.</p>
       </div>
 
-      <div className="rounded-xl p-5" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
-        <div className="flex items-center justify-between mb-1">
+      {/* ── Current Subscription ── */}
+      <div
+        className="rounded-xl border border-white/10 overflow-hidden cursor-pointer group"
+        style={{ background: BLACK, boxShadow: "0 4px 20px rgba(0,0,0,0.22)" }}
+        onClick={() => subscription ? portalMutation.mutate() : navigate("/super-admin")}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <div className="flex items-center gap-2">
             <CreditCard size={15} style={{ color: GOLD }} />
             <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Current Subscription</span>
           </div>
+          <ChevronRight className="h-4 w-4 text-zinc-500 group-hover:text-white transition-colors" />
         </div>
-        <p className="text-xs mb-4" style={{ color: "#71717a" }}>Your company's active billing plan</p>
-        {subLoading ? (
-          <div className="h-10 rounded-md animate-pulse" style={{ background: "#1f1f1f" }} />
-        ) : subscription ? (
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
-              <CreditCard className="h-6 w-6" style={{ color: GOLD }} />
-              <div>
-                <div className="font-semibold text-sm text-white">Site Snap Plan</div>
-                <div className="text-xs mt-0.5" style={{ color: GOLD }}>
-                  Renews {new Date((subscription.current_period_end ?? 0) * 1000).toLocaleDateString("en-CA", { dateStyle: "medium" })}
+        <Separator className="bg-white/10" />
+        <div className="px-5 py-4">
+          {subLoading ? (
+            <div className="flex items-center gap-3 text-zinc-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Loading subscription…</span>
+            </div>
+          ) : subscription ? (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-white">{planName}</span>
+                    {statusBadge(subscription.status)}
+                    {subscription.cancel_at_period_end && (
+                      <Badge className="bg-red-700 text-white font-semibold">Cancels at period end</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                    <Clock className="h-3.5 w-3.5" />
+                    {subscription.cancel_at_period_end
+                      ? `Access until ${renewalDate}`
+                      : `Renews ${renewalDate}`}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  className="gap-2 shrink-0"
+                  style={{ background: GOLD, color: BLACK }}
+                  onClick={(e) => { e.stopPropagation(); portalMutation.mutate(); }}
+                  disabled={portalMutation.isPending}
+                >
+                  {portalMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                  {portalMutation.isPending ? "Opening…" : "Manage Billing"}
+                </Button>
+              </div>
+              <div className="flex items-center gap-6 text-sm text-zinc-400 pt-1">
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Auto-renewal {subscription.cancel_at_period_end ? "off" : "on"}</span>
+                </div>
+                <div className="flex items-center gap-1.5 cursor-pointer hover:text-white transition-colors" onClick={(e) => { e.stopPropagation(); navigate("/super-admin"); }}>
+                  <TrendingUp className="h-4 w-4" style={{ color: GOLD }} />
+                  <span>View &amp; upgrade plans</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </div>
               </div>
             </div>
-            <Button size="sm" className="gap-2" style={{ background: GOLD, color: BLACK }} onClick={() => checkoutMutation.mutate({ priceId: "" })} disabled={checkoutMutation.isPending}>
-              <ExternalLink className="h-3.5 w-3.5" />
-              {checkoutMutation.isPending ? "Opening…" : "Manage Billing"}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3" style={{ color: "#71717a" }}>
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <span className="text-sm">No active subscription. Contact your administrator to get started.</span>
-          </div>
-        )}
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 text-zinc-400">
+                <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
+                <span className="text-sm">No active subscription found for this company.</span>
+              </div>
+              <Button
+                size="sm"
+                className="gap-2"
+                style={{ background: GOLD, color: BLACK }}
+                onClick={(e) => { e.stopPropagation(); navigate("/super-admin"); }}
+              >
+                <TrendingUp className="h-3.5 w-3.5" />
+                View Plans
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="rounded-xl p-5" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
-        <div className="flex items-center gap-2 mb-1">
-          <Users size={15} style={{ color: GOLD }} />
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Team Seats</span>
+      {/* ── Team Seats ── */}
+      <div
+        className="rounded-xl border border-white/10 overflow-hidden cursor-pointer group"
+        style={{ background: BLACK, boxShadow: "0 4px 20px rgba(0,0,0,0.22)" }}
+        onClick={() => navigate("/team")}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div className="flex items-center gap-2">
+            <Users size={15} style={{ color: GOLD }} />
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Team Seats</span>
+          </div>
+          <ChevronRight className="h-4 w-4 text-zinc-500 group-hover:text-white transition-colors" />
         </div>
-        <p className="text-xs mb-4" style={{ color: "#71717a" }}>Active team members on your plan</p>
-        <div className="flex items-center gap-3" style={{ color: "#71717a" }}>
-          <AlertCircle className="h-5 w-5 shrink-0" />
-          <span className="text-sm">Seat details are managed in Super Admin.</span>
+        <Separator className="bg-white/10" />
+        <div className="px-5 py-4">
+          {seatsLoading ? (
+            <div className="flex items-center gap-3 text-zinc-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Loading seat info…</span>
+            </div>
+          ) : seatInfo ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-3xl font-bold text-white">{seatUsed}</span>
+                    <span className="text-zinc-400 text-sm">
+                      / {seatMax === "unlimited" ? "∞" : seatMax} seats used
+                    </span>
+                  </div>
+                  <div className="text-xs text-zinc-500 mt-0.5">
+                    {seatInfo.canAddMore
+                      ? seatMax === "unlimited"
+                        ? "Unlimited seats available"
+                        : `${(seatMax as number) - seatUsed} seat${(seatMax as number) - seatUsed !== 1 ? "s" : ""} remaining`
+                      : "Seat limit reached — upgrade to add more"}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2 border-white/20 text-white hover:bg-white/10 shrink-0"
+                  onClick={(e) => { e.stopPropagation(); navigate("/team"); }}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Manage Team
+                </Button>
+              </div>
+              {seatMax !== "unlimited" && typeof seatMax === "number" && (
+                <div className="space-y-1.5">
+                  <Progress
+                    value={seatPct}
+                    className="h-2 bg-white/10"
+                    style={
+                      { "--progress-foreground": seatPct >= 90 ? "#ef4444" : seatPct >= 70 ? "#f59e0b" : GOLD } as React.CSSProperties
+                    }
+                  />
+                  <div className="flex justify-between text-xs text-zinc-500">
+                    <span>{seatPct}% of capacity</span>
+                    {!seatInfo.canAddMore && (
+                      <button
+                        className="underline text-amber-400 hover:text-amber-300"
+                        onClick={(e) => { e.stopPropagation(); navigate("/super-admin"); }}
+                      >
+                        Upgrade plan
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 text-xs text-zinc-500 pt-0.5">
+                <span>Click to view and manage all team members</span>
+                <ArrowRight className="h-3 w-3" />
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-zinc-400">
+              <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
+              <span className="text-sm">Seat information unavailable.</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
