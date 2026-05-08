@@ -234,9 +234,9 @@ function ManageTab() {
     onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
   });
   const saveTenantUserRole = useMutation({
-    mutationFn: () => customFetch(`/api/admin/users/${selectedTenantUserId}/role`, {
+    mutationFn: () => customFetch(`/api/admin/users/${selectedTenantUserId}/system-role`, {
       method: "PATCH",
-      body: JSON.stringify({ role: selectedTenantUserRole }),
+      body: JSON.stringify({ systemRole: selectedTenantUserRole }),
     }),
     onSuccess: () => { refresh(); toast({ title: "User role updated" }); },
     onError: (e: any) => toast({ title: "Role update failed", description: e.message, variant: "destructive" }),
@@ -331,11 +331,16 @@ function ManageTab() {
         setTenantForm={setTenantForm}
         plans={plans}
         selectedUserId={selectedTenantUserId}
-        onSelectedUserIdChange={setSelectedTenantUserId}
+        onSelectedUserIdChange={(id) => {
+          setSelectedTenantUserId(id);
+          setSelectedTenantUserRole(tenantDetail?.users.find((user: { id: number; email: string; firstName: string; lastName: string; role: string; systemRole: string | null }) => String(user.id) === id)?.role ?? "member");
+        }}
         onSelectedUserRoleChange={setSelectedTenantUserRole}
         onSave={() => {
           saveTenant.mutate();
-          if (selectedTenantUserId) saveTenantUserRole.mutate();
+          if (selectedTenantUserId) {
+            saveTenantUserRole.mutate();
+          }
         }}
         isSaving={saveTenant.isPending}
         users={tenantDetail?.users}
