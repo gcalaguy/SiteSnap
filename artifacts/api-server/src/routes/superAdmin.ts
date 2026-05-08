@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { requireAuth, requireSuperAdmin } from "../lib/auth";
+import { getUncachableStripeClient } from "../lib/stripeClient";
 
 const router = Router();
 const guard = [requireAuth, requireSuperAdmin];
@@ -29,27 +30,267 @@ router.get("/admin/plans", ...guard, async (req, res) => {
   res.json(planList);
 });
 
-// POST /admin/plans
+// POST /admin/plans — create plan in DB then auto-create Stripe product + prices
 router.post("/admin/plans", ...guard, async (req, res) => {
   const body = insertPlanSchema.parse(req.body);
   const [plan] = await db.insert(plansTable).values(body).returning();
-  res.status(201).json(plan);
+
+  try {
+    const stripe = await getUncachableStripeClient();
+    const product = await stripe.products.create({
+      name: plan.name,
+      description: plan.description ?? undefined,
+      metadata: { slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
+    });
+
+    const stripeUpdates: Record<string, string | null> = { stripeProductId: product.id };
+
+    const monthlyAmount = Math.round(Number(plan.monthlyPrice) * 100);
+    if (monthlyAmount > 0) {
+      const monthlyPrice = await stripe.prices.create({
+        product: product.id,
+        unit_amount: monthlyAmount,
+        currency: "cad",
+        recurring: { interval: "month" },
+        nickname: `${plan.name} Monthly`,
+      });
+      stripeUpdates.stripeMonthlyPriceId = monthlyPrice.id;
+    }
+
+    const yearlyAmount = Math.round(Number(plan.yearlyPrice) * 100);
+    if (yearlyAmount > 0) {
+      const yearlyPrice = await stripe.prices.create({
+        product: product.id,
+        unit_amount: yearlyAmount,
+        currency: "cad",
+        recurring: { interval: "year" },
+        nickname: `${plan.name} Annual`,
+      });
+      stripeUpdates.stripeYearlyPriceId = yearlyPrice.id;
+    }
+
+    const [updated] = await db
+      .update(plansTable)
+      .set(stripeUpdates)
+      .where(eq(plansTable.id, plan.id))
+      .returning();
+
+    res.status(201).json({ ...updated, featureIds: [] });
+  } catch (stripeErr) {
+    req.log.warn({ err: stripeErr }, "Stripe sync failed; plan created without Stripe product");
+    res.status(201).json({ ...plan, featureIds: [] });
+  }
 });
 
-// PATCH /admin/plans/:id
+// PATCH /admin/plans/:id — update plan and sync changes to Stripe
 router.patch("/admin/plans/:id", ...guard, async (req, res) => {
   const id = Number(req.params.id);
   const body = insertPlanSchema.partial().parse(req.body);
+
+  // Fetch current state before update (to detect price changes)
+  const [existing] = await db.select().from(plansTable).where(eq(plansTable.id, id)).limit(1);
+  if (!existing) { res.status(404).json({ error: "Plan not found" }); return; }
+
   const [plan] = await db.update(plansTable).set(body).where(eq(plansTable.id, id)).returning();
-  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
+
+  if (plan.stripeProductId) {
+    try {
+      const stripe = await getUncachableStripeClient();
+      const stripeUpdates: Record<string, string | null> = {};
+
+      await stripe.products.update(plan.stripeProductId, {
+        name: plan.name,
+        description: plan.description ?? undefined,
+        metadata: { slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
+        ...(body.isActive !== undefined ? { active: plan.isActive } : {}),
+      });
+
+      // If monthly price changed, archive old and create new
+      if (body.monthlyPrice !== undefined) {
+        const newAmount = Math.round(Number(plan.monthlyPrice) * 100);
+        const oldAmount = Math.round(Number(existing.monthlyPrice) * 100);
+        if (newAmount !== oldAmount) {
+          if (existing.stripeMonthlyPriceId) {
+            await stripe.prices.update(existing.stripeMonthlyPriceId, { active: false }).catch(() => {});
+          }
+          if (newAmount > 0) {
+            const newPrice = await stripe.prices.create({
+              product: plan.stripeProductId,
+              unit_amount: newAmount,
+              currency: "cad",
+              recurring: { interval: "month" },
+              nickname: `${plan.name} Monthly`,
+            });
+            stripeUpdates.stripeMonthlyPriceId = newPrice.id;
+          } else {
+            stripeUpdates.stripeMonthlyPriceId = null;
+          }
+        }
+      }
+
+      // If yearly price changed, archive old and create new
+      if (body.yearlyPrice !== undefined) {
+        const newAmount = Math.round(Number(plan.yearlyPrice) * 100);
+        const oldAmount = Math.round(Number(existing.yearlyPrice) * 100);
+        if (newAmount !== oldAmount) {
+          if (existing.stripeYearlyPriceId) {
+            await stripe.prices.update(existing.stripeYearlyPriceId, { active: false }).catch(() => {});
+          }
+          if (newAmount > 0) {
+            const newPrice = await stripe.prices.create({
+              product: plan.stripeProductId,
+              unit_amount: newAmount,
+              currency: "cad",
+              recurring: { interval: "year" },
+              nickname: `${plan.name} Annual`,
+            });
+            stripeUpdates.stripeYearlyPriceId = newPrice.id;
+          } else {
+            stripeUpdates.stripeYearlyPriceId = null;
+          }
+        }
+      }
+
+      if (Object.keys(stripeUpdates).length > 0) {
+        const [updated] = await db
+          .update(plansTable)
+          .set(stripeUpdates)
+          .where(eq(plansTable.id, plan.id))
+          .returning();
+        res.json(updated);
+        return;
+      }
+    } catch (stripeErr) {
+      req.log.warn({ err: stripeErr }, "Stripe sync failed during plan update");
+    }
+  }
+
   res.json(plan);
 });
 
-// DELETE /admin/plans/:id
+// DELETE /admin/plans/:id — archive Stripe product then delete plan
 router.delete("/admin/plans/:id", ...guard, async (req, res) => {
   const id = Number(req.params.id);
+
+  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id)).limit(1);
+
+  if (plan?.stripeProductId) {
+    try {
+      const stripe = await getUncachableStripeClient();
+      if (plan.stripeMonthlyPriceId) {
+        await stripe.prices.update(plan.stripeMonthlyPriceId, { active: false }).catch(() => {});
+      }
+      if (plan.stripeYearlyPriceId) {
+        await stripe.prices.update(plan.stripeYearlyPriceId, { active: false }).catch(() => {});
+      }
+      await stripe.products.update(plan.stripeProductId, { active: false }).catch(() => {});
+    } catch (stripeErr) {
+      req.log.warn({ err: stripeErr }, "Stripe archive failed during plan delete");
+    }
+  }
+
   await db.delete(plansTable).where(eq(plansTable.id, id));
   res.json({ ok: true });
+});
+
+// POST /admin/plans/:id/sync-stripe — manually sync an existing plan to Stripe
+router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
+  const id = Number(req.params.id);
+  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id)).limit(1);
+  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
+
+  try {
+    const stripe = await getUncachableStripeClient();
+    const stripeUpdates: Record<string, string | null> = {};
+
+    let productId = plan.stripeProductId;
+    if (productId) {
+      await stripe.products.update(productId, {
+        name: plan.name,
+        description: plan.description ?? undefined,
+        metadata: { slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
+        active: plan.isActive,
+      });
+    } else {
+      const product = await stripe.products.create({
+        name: plan.name,
+        description: plan.description ?? undefined,
+        metadata: { slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
+      });
+      productId = product.id;
+      stripeUpdates.stripeProductId = productId;
+    }
+
+    // Monthly price — create if missing, re-create if amount changed
+    const monthlyAmount = Math.round(Number(plan.monthlyPrice) * 100);
+    if (monthlyAmount > 0) {
+      if (plan.stripeMonthlyPriceId) {
+        const existing = await stripe.prices.retrieve(plan.stripeMonthlyPriceId).catch(() => null);
+        if (existing && existing.unit_amount !== monthlyAmount) {
+          await stripe.prices.update(plan.stripeMonthlyPriceId, { active: false }).catch(() => {});
+          const newPrice = await stripe.prices.create({
+            product: productId,
+            unit_amount: monthlyAmount,
+            currency: "cad",
+            recurring: { interval: "month" },
+            nickname: `${plan.name} Monthly`,
+          });
+          stripeUpdates.stripeMonthlyPriceId = newPrice.id;
+        }
+      } else {
+        const newPrice = await stripe.prices.create({
+          product: productId,
+          unit_amount: monthlyAmount,
+          currency: "cad",
+          recurring: { interval: "month" },
+          nickname: `${plan.name} Monthly`,
+        });
+        stripeUpdates.stripeMonthlyPriceId = newPrice.id;
+      }
+    }
+
+    // Yearly price — create if missing, re-create if amount changed
+    const yearlyAmount = Math.round(Number(plan.yearlyPrice) * 100);
+    if (yearlyAmount > 0) {
+      if (plan.stripeYearlyPriceId) {
+        const existing = await stripe.prices.retrieve(plan.stripeYearlyPriceId).catch(() => null);
+        if (existing && existing.unit_amount !== yearlyAmount) {
+          await stripe.prices.update(plan.stripeYearlyPriceId, { active: false }).catch(() => {});
+          const newPrice = await stripe.prices.create({
+            product: productId,
+            unit_amount: yearlyAmount,
+            currency: "cad",
+            recurring: { interval: "year" },
+            nickname: `${plan.name} Annual`,
+          });
+          stripeUpdates.stripeYearlyPriceId = newPrice.id;
+        }
+      } else {
+        const newPrice = await stripe.prices.create({
+          product: productId,
+          unit_amount: yearlyAmount,
+          currency: "cad",
+          recurring: { interval: "year" },
+          nickname: `${plan.name} Annual`,
+        });
+        stripeUpdates.stripeYearlyPriceId = newPrice.id;
+      }
+    }
+
+    if (Object.keys(stripeUpdates).length > 0) {
+      const [updated] = await db
+        .update(plansTable)
+        .set(stripeUpdates)
+        .where(eq(plansTable.id, plan.id))
+        .returning();
+      res.json(updated);
+    } else {
+      res.json(plan);
+    }
+  } catch (err: any) {
+    req.log.error({ err }, "Stripe sync failed");
+    res.status(500).json({ error: "Stripe sync failed", details: err.message });
+  }
 });
 
 // ── Features ───────────────────────────────────────────────────────────────────
@@ -172,7 +413,6 @@ router.patch("/admin/tenants/:id/subscription", ...guard, async (req, res) => {
 // ── Per-Tenant Feature Override ────────────────────────────────────────────────
 
 // GET /admin/tenants/:id/features
-// Returns the tenant's current activeFeatures (custom package) or empty array if using plan defaults
 router.get("/admin/tenants/:id/features", ...guard, async (req, res) => {
   const companyId = Number(req.params.id);
   const [company] = await db
@@ -185,7 +425,6 @@ router.get("/admin/tenants/:id/features", ...guard, async (req, res) => {
 });
 
 // PATCH /admin/tenants/:id/features
-// Set or clear custom feature override for a tenant
 router.patch("/admin/tenants/:id/features", ...guard, async (req, res) => {
   const companyId = Number(req.params.id);
   const { activeFeatures } = req.body as { activeFeatures: string[] | null };
@@ -272,7 +511,6 @@ router.post("/admin/seed", ...guard, async (req, res) => {
 
     const get = (key: string) => features.find((f) => f.key === key);
 
-    // Starter: core essentials
     const starterFeatures = ["SCHEDULING", "DAILY_REPORTS", "TEAM_MANAGEMENT", "SAFETY_FORMS", "RFIS", "AI_CHAT"];
     if (starter) {
       const vals = starterFeatures.map((k) => get(k)).filter(Boolean);
@@ -283,7 +521,6 @@ router.post("/admin/seed", ...guard, async (req, res) => {
       }
     }
 
-    // Pro: everything except Inspections, Risk Dashboard
     const proKeys = ["SCHEDULING", "AI_ESTIMATING", "CLIENT_PORTAL", "REPORTING", "QUICKBOOKS", "AI_CHAT",
       "SITE_VISION_AI", "TRADEHUB", "FINANCIALS", "SAFETY_FORMS", "DAILY_REPORTS", "RFIS",
       "TEAM_MANAGEMENT", "INVOICES", "QUOTES", "CRM_LEADS", "SMART_ESTIMATOR"];
@@ -296,7 +533,6 @@ router.post("/admin/seed", ...guard, async (req, res) => {
       }
     }
 
-    // Enterprise: all features
     if (enterprise) {
       await db.insert(planFeaturesTable).values(
         features.map((f) => ({ planId: enterprise.id, featureId: f.id }))

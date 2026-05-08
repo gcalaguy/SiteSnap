@@ -709,10 +709,19 @@ export const plansTable = pgTable("plans", {
   yearlyPrice: numeric("yearly_price", { precision: 10, scale: 2 }).notNull().default("0"),
   maxSeats: integer("max_seats").notNull().default(5),
   isActive: boolean("is_active").notNull().default(true),
+  stripeProductId: text("stripe_product_id"),
+  stripeMonthlyPriceId: text("stripe_monthly_price_id"),
+  stripeYearlyPriceId: text("stripe_yearly_price_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertPlanSchema = createInsertSchema(plansTable).omit({ id: true, createdAt: true });
+export const insertPlanSchema = createInsertSchema(plansTable).omit({
+  id: true,
+  createdAt: true,
+  stripeProductId: true,
+  stripeMonthlyPriceId: true,
+  stripeYearlyPriceId: true,
+});
 export type InsertPlan = z.infer<typeof insertPlanSchema>;
 export type Plan = typeof plansTable.$inferSelect;
 

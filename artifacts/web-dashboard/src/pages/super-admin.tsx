@@ -42,6 +42,9 @@ interface Plan {
   id: number; name: string; slug: string; description: string | null;
   monthlyPrice: string; yearlyPrice: string; maxSeats: number;
   isActive: boolean; featureIds: number[];
+  stripeProductId: string | null;
+  stripeMonthlyPriceId: string | null;
+  stripeYearlyPriceId: string | null;
 }
 
 interface Feature {
@@ -105,6 +108,7 @@ function PlansTab({ plans, features, isLoading }: { plans: Plan[]; features: Fea
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Plan | null>(null);
   const [form, setForm] = useState({ name: "", slug: "", description: "", monthlyPrice: "0", yearlyPrice: "0", maxSeats: "5" });
+  const [syncingId, setSyncingId] = useState<number | null>(null);
 
   function openCreate() {
     setEditing(null);
@@ -123,22 +127,53 @@ function PlansTab({ plans, features, isLoading }: { plans: Plan[]; features: Fea
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, maxSeats: Number(form.maxSeats) }),
     }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-plans"] }); setOpen(false); toast({ title: "Plan saved" }); },
+    onSuccess: (plan) => {
+      qc.invalidateQueries({ queryKey: ["admin-plans"] });
+      setOpen(false);
+      if (plan.stripeProductId) {
+        toast({ title: "Plan saved & synced to Stripe", description: `Product created in Stripe with monthly & yearly prices` });
+      } else {
+        toast({ title: "Plan saved", description: "Stripe sync pending — use the Sync button to push to Stripe" });
+      }
+    },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: number) => api(`/api/admin/plans/${id}`, { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-plans"] }); toast({ title: "Plan deleted" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-plans"] }); toast({ title: "Plan deleted", description: "Stripe product archived" }); },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  async function syncToStripe(p: Plan) {
+    setSyncingId(p.id);
+    try {
+      await api(`/api/admin/plans/${p.id}/sync-stripe`, { method: "POST" });
+      qc.invalidateQueries({ queryKey: ["admin-plans"] });
+      toast({ title: "Synced to Stripe", description: `${p.name} is now live in Stripe with purchasable prices` });
+    } catch (e: any) {
+      toast({ title: "Sync failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSyncingId(null);
+    }
+  }
+
   if (isLoading) return <div className="flex items-center gap-2 text-muted-foreground p-8"><Loader2 className="h-4 w-4 animate-spin" /> Loading plans…</div>;
+
+  const unsynced = plans.filter((p) => !p.stripeProductId);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{plans.length} pricing tier{plans.length !== 1 ? "s" : ""}</p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">{plans.length} pricing tier{plans.length !== 1 ? "s" : ""}</p>
+          {unsynced.length > 0 && (
+            <Badge className="bg-amber-100 text-amber-800 gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {unsynced.length} not in Stripe
+            </Badge>
+          )}
+        </div>
         <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-2" />New Plan</Button>
       </div>
 
@@ -153,7 +188,8 @@ function PlansTab({ plans, features, isLoading }: { plans: Plan[]; features: Fea
               <TableHead>Max Seats</TableHead>
               <TableHead>Features</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-20" />
+              <TableHead>Stripe</TableHead>
+              <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -179,7 +215,43 @@ function PlansTab({ plans, features, isLoading }: { plans: Plan[]; features: Fea
                   </Badge>
                 </TableCell>
                 <TableCell>
+                  {p.stripeProductId ? (
+                    <div className="flex flex-col gap-0.5">
+                      <Badge className="bg-violet-100 text-violet-800 gap-1 w-fit">
+                        <CheckCircle2 className="h-3 w-3" /> Synced
+                      </Badge>
+                      <div className="flex gap-1 mt-0.5">
+                        {p.stripeMonthlyPriceId && (
+                          <span className="text-[10px] text-muted-foreground font-mono">/mo ✓</span>
+                        )}
+                        {p.stripeYearlyPriceId && (
+                          <span className="text-[10px] text-muted-foreground font-mono">/yr ✓</span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <Badge className="bg-amber-100 text-amber-800 gap-1">
+                      <AlertCircle className="h-3 w-3" /> Not synced
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell>
                   <div className="flex gap-1">
+                    {!p.stripeProductId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1 text-violet-700 border-violet-200 hover:bg-violet-50"
+                        onClick={() => syncToStripe(p)}
+                        disabled={syncingId === p.id}
+                        title="Push this plan to Stripe so customers can purchase it"
+                      >
+                        {syncingId === p.id
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : <CreditCard className="h-3 w-3" />}
+                        Sync
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -191,15 +263,30 @@ function PlansTab({ plans, features, isLoading }: { plans: Plan[]; features: Fea
               </TableRow>
             ))}
             {plans.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No plans yet</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No plans yet. Create one above — it will be automatically pushed to Stripe.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
       </div>
 
+      {plans.some((p) => p.stripeProductId) && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5 text-violet-500" />
+          Synced plans appear on the customer billing page and can be purchased via Stripe Checkout.
+          Price edits automatically archive the old Stripe price and create a new one.
+        </p>
+      )}
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Edit Plan" : "Create Plan"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editing ? "Edit Plan" : "Create Plan"}</DialogTitle>
+            {!editing && (
+              <p className="text-sm text-muted-foreground pt-1">
+                The plan will be automatically created as a product in Stripe with purchasable monthly and yearly prices.
+              </p>
+            )}
+          </DialogHeader>
           <div className="space-y-3">
             {(["name", "slug", "description"] as const).map((f) => (
               <div key={f} className="grid gap-1.5">
@@ -216,7 +303,8 @@ function PlansTab({ plans, features, isLoading }: { plans: Plan[]; features: Fea
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
-              {saveMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save
+              {saveMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editing ? "Save" : "Create & Push to Stripe"}
             </Button>
           </DialogFooter>
         </DialogContent>
