@@ -288,7 +288,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
         <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, plans: !collapsed.plans })}>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-white">Plans</CardTitle>
+              <CardTitle className="text-amber-400">Plans</CardTitle>
               <CardDescription className="text-zinc-400">Create and manage plan tiers.</CardDescription>
             </div>
             <ChevronDown className={`h-5 w-5 text-amber-400 transition-transform ${collapsed.plans ? "" : "rotate-180"}`} />
@@ -314,7 +314,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
         <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, features: !collapsed.features })}>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-white">Features</CardTitle>
+              <CardTitle className="text-amber-400">Features</CardTitle>
               <CardDescription className="text-zinc-400">Create feature flags and assign them to plans.</CardDescription>
             </div>
             <ChevronDown className={`h-5 w-5 text-amber-400 transition-transform ${collapsed.features ? "" : "rotate-180"}`} />
@@ -340,7 +340,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
         <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, tenants: !collapsed.tenants })}>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-white">Tenants</CardTitle>
+              <CardTitle className="text-amber-400">Tenants</CardTitle>
               <CardDescription className="text-zinc-400">View tenants, subscription status, and clickable user emails.</CardDescription>
             </div>
             <ChevronDown className={`h-5 w-5 text-amber-400 transition-transform ${collapsed.tenants ? "" : "rotate-180"}`} />
