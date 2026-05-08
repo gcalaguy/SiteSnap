@@ -264,9 +264,9 @@ function ManageTab() {
   const [featureForm, setFeatureForm] = useState({ name: "", key: "", description: "" });
   const [tenantForm, setTenantForm] = useState({ planId: "", status: "active", billingCycle: "monthly" });
 
-  const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>('/api/admin/plans') });
-  const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>('/api/admin/features') });
-  const { data: tenants = [] } = useQuery<TenantRow[]>({ queryKey: ["admin-tenants"], queryFn: () => customFetch<TenantRow[]>('/api/admin/tenants') });
+  const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
+  const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
+  const { data: tenants = [] } = useQuery<TenantRow[]>({ queryKey: ["admin-tenants"], queryFn: () => customFetch<TenantRow[]>("/api/admin/tenants") });
   const { data: tenantDetail } = useQuery<TenantDetail>({
     queryKey: ["admin-tenant-detail", tenantDetailId],
     queryFn: () => customFetch<TenantDetail>(`/api/admin/tenants/${tenantDetailId}`),
