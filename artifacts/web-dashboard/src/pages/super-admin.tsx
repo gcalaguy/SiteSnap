@@ -40,8 +40,8 @@ type TenantDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tenantId: number | null;
-  tenantForm: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string };
-  setTenantForm: (value: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string }) => void;
+  tenantForm: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string; email: string };
+  setTenantForm: (value: { name: string; planId: string; status: string; billingCycle: string; userCount: string; website: string; phone: string; email: string }) => void;
   plans: Plan[];
   onSave: () => void;
   isSaving: boolean;
@@ -186,7 +186,7 @@ function ManageTab() {
   const [planFeatureIds, setPlanFeatureIds] = useState<number[]>([]);
   const [planForm, setPlanForm] = useState({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true });
   const [featureForm, setFeatureForm] = useState({ name: "", key: "", description: "", isEnabled: true });
-  const [tenantForm, setTenantForm] = useState({ name: "", planId: "", status: "active", billingCycle: "monthly", userCount: "", website: "", phone: "" });
+  const [tenantForm, setTenantForm] = useState({ name: "", planId: "", status: "active", billingCycle: "monthly", userCount: "", website: "", phone: "", email: "" });
   const [collapsed, setCollapsed] = useState({ plans: false, features: false, tenants: false });
 
   const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
@@ -226,6 +226,7 @@ function ManageTab() {
         userCount: tenantForm.userCount ? Number(tenantForm.userCount) : undefined,
         website: tenantForm.website.trim() || null,
         phone: tenantForm.phone.trim() || null,
+        email: tenantForm.email.trim() || null,
       }),
     }),
     onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); refresh(); toast({ title: "Tenant updated" }); },
@@ -283,7 +284,7 @@ function ManageTab() {
             onSelectTenant={setTenantDetailId}
             onEditPlan={(p) => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats, isActive: p.isActive }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}
             onEditFeature={(f) => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "", isEnabled: f.isEnabled }); setFeatureOpen(true); }}
-            onEditTenant={(t) => { setEditingTenantId(t.id); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "" }); setTenantOpen(true); }}
+            onEditTenant={(t) => { setEditingTenantId(t.id); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "" }); setTenantOpen(true); }}
             onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
             collapsed={collapsed}
             setCollapsed={setCollapsed}
@@ -524,6 +525,10 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
           <div>
             <Label className="text-white">Phone</Label>
             <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.phone} onChange={(e) => setTenantForm({ ...tenantForm, phone: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-white">Email</Label>
+            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.email} onChange={(e) => setTenantForm({ ...tenantForm, email: e.target.value })} />
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
