@@ -488,6 +488,7 @@ router.delete("/admin/tenants/:id", ...guard, async (req, res) => {
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
 
   await db.update(usersTable).set({ companyId: null }).where(eq(usersTable.companyId, companyId));
+  await db.update(projectsTable).set({ companyId: null }).where(eq(projectsTable.companyId, companyId));
   await db.delete(invitationsTable).where(eq(invitationsTable.companyId, companyId));
   await db.delete(subscriptionsTable).where(eq(subscriptionsTable.companyId, companyId));
   await db.delete(companiesTable).where(eq(companiesTable.id, companyId));
