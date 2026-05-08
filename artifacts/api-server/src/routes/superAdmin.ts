@@ -87,7 +87,6 @@ router.patch("/admin/plans/:id", ...guard, async (req, res) => {
   const id = Number(req.params.id);
   const body = insertPlanSchema.partial().parse(req.body);
 
-  // Fetch current state before update (to detect price changes)
   const [existing] = await db.select().from(plansTable).where(eq(plansTable.id, id)).limit(1);
   if (!existing) { res.status(404).json({ error: "Plan not found" }); return; }
 
@@ -105,7 +104,6 @@ router.patch("/admin/plans/:id", ...guard, async (req, res) => {
         ...(body.isActive !== undefined ? { active: plan.isActive } : {}),
       });
 
-      // If monthly price changed, archive old and create new
       if (body.monthlyPrice !== undefined) {
         const newAmount = Math.round(Number(plan.monthlyPrice) * 100);
         const oldAmount = Math.round(Number(existing.monthlyPrice) * 100);
@@ -128,7 +126,6 @@ router.patch("/admin/plans/:id", ...guard, async (req, res) => {
         }
       }
 
-      // If yearly price changed, archive old and create new
       if (body.yearlyPrice !== undefined) {
         const newAmount = Math.round(Number(plan.yearlyPrice) * 100);
         const oldAmount = Math.round(Number(existing.yearlyPrice) * 100);
@@ -199,9 +196,11 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
   const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id)).limit(1);
   if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
 
+  const stripeUpdates: Record<string, string | null> = {};
+  const warnings: string[] = [];
+
   try {
     const stripe = await getUncachableStripeClient();
-    const stripeUpdates: Record<string, string | null> = {};
 
     let productId = plan.stripeProductId;
     if (productId) {
@@ -210,24 +209,57 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
         description: plan.description ?? undefined,
         metadata: { plan: plan.slug, slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
         active: plan.isActive,
+      }).catch((err) => {
+        warnings.push(`product update failed: ${err?.message ?? String(err)}`);
       });
     } else {
-      const product = await stripe.products.create({
-        name: plan.name,
-        description: plan.description ?? undefined,
-        metadata: { plan: plan.slug, slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
-      });
-      productId = product.id;
-      stripeUpdates.stripeProductId = productId;
+      try {
+        const product = await stripe.products.create({
+          name: plan.name,
+          description: plan.description ?? undefined,
+          metadata: { plan: plan.slug, slug: plan.slug, maxSeats: String(plan.maxSeats), source: "site_snap_admin" },
+        });
+        productId = product.id;
+        stripeUpdates.stripeProductId = productId;
+      } catch (err: any) {
+        warnings.push(`product create failed: ${err?.message ?? String(err)}`);
+      }
     }
 
-    // Monthly price — create if missing, re-create if amount changed
+    if (!productId) {
+      if (warnings.length > 0) {
+        req.log.warn({ warnings }, "Stripe sync completed with warnings");
+      }
+      const [updated] = await db
+        .update(plansTable)
+        .set(stripeUpdates)
+        .where(eq(plansTable.id, plan.id))
+        .returning();
+      res.json(updated ?? plan);
+      return;
+    }
+
     const monthlyAmount = Math.round(Number(plan.monthlyPrice) * 100);
     if (monthlyAmount > 0) {
       if (plan.stripeMonthlyPriceId) {
         const existing = await stripe.prices.retrieve(plan.stripeMonthlyPriceId).catch(() => null);
         if (existing && existing.unit_amount !== monthlyAmount) {
           await stripe.prices.update(plan.stripeMonthlyPriceId, { active: false }).catch(() => {});
+          try {
+            const newPrice = await stripe.prices.create({
+              product: productId,
+              unit_amount: monthlyAmount,
+              currency: "cad",
+              recurring: { interval: "month" },
+              nickname: `${plan.name} Monthly`,
+            });
+            stripeUpdates.stripeMonthlyPriceId = newPrice.id;
+          } catch (err: any) {
+            warnings.push(`monthly price create failed: ${err?.message ?? String(err)}`);
+          }
+        }
+      } else {
+        try {
           const newPrice = await stripe.prices.create({
             product: productId,
             unit_amount: monthlyAmount,
@@ -236,26 +268,33 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
             nickname: `${plan.name} Monthly`,
           });
           stripeUpdates.stripeMonthlyPriceId = newPrice.id;
+        } catch (err: any) {
+          warnings.push(`monthly price create failed: ${err?.message ?? String(err)}`);
         }
-      } else {
-        const newPrice = await stripe.prices.create({
-          product: productId,
-          unit_amount: monthlyAmount,
-          currency: "cad",
-          recurring: { interval: "month" },
-          nickname: `${plan.name} Monthly`,
-        });
-        stripeUpdates.stripeMonthlyPriceId = newPrice.id;
       }
     }
 
-    // Yearly price — create if missing, re-create if amount changed
     const yearlyAmount = Math.round(Number(plan.yearlyPrice) * 100);
     if (yearlyAmount > 0) {
       if (plan.stripeYearlyPriceId) {
         const existing = await stripe.prices.retrieve(plan.stripeYearlyPriceId).catch(() => null);
         if (existing && existing.unit_amount !== yearlyAmount) {
           await stripe.prices.update(plan.stripeYearlyPriceId, { active: false }).catch(() => {});
+          try {
+            const newPrice = await stripe.prices.create({
+              product: productId,
+              unit_amount: yearlyAmount,
+              currency: "cad",
+              recurring: { interval: "year" },
+              nickname: `${plan.name} Annual`,
+            });
+            stripeUpdates.stripeYearlyPriceId = newPrice.id;
+          } catch (err: any) {
+            warnings.push(`yearly price create failed: ${err?.message ?? String(err)}`);
+          }
+        }
+      } else {
+        try {
           const newPrice = await stripe.prices.create({
             product: productId,
             unit_amount: yearlyAmount,
@@ -264,29 +303,25 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
             nickname: `${plan.name} Annual`,
           });
           stripeUpdates.stripeYearlyPriceId = newPrice.id;
+        } catch (err: any) {
+          warnings.push(`yearly price create failed: ${err?.message ?? String(err)}`);
         }
-      } else {
-        const newPrice = await stripe.prices.create({
-          product: productId,
-          unit_amount: yearlyAmount,
-          currency: "cad",
-          recurring: { interval: "year" },
-          nickname: `${plan.name} Annual`,
-        });
-        stripeUpdates.stripeYearlyPriceId = newPrice.id;
       }
     }
 
-    if (Object.keys(stripeUpdates).length > 0) {
-      const [updated] = await db
-        .update(plansTable)
-        .set(stripeUpdates)
-        .where(eq(plansTable.id, plan.id))
-        .returning();
-      res.json(updated);
-    } else {
-      res.json(plan);
+    const [updated] = await db
+      .update(plansTable)
+      .set(stripeUpdates)
+      .where(eq(plansTable.id, plan.id))
+      .returning();
+
+    if (warnings.length > 0) {
+      req.log.warn({ warnings }, "Stripe sync completed with warnings");
+      res.json({ ...updated, warnings });
+      return;
     }
+
+    res.json(updated);
   } catch (err: any) {
     req.log.error({ err }, "Stripe sync failed");
     res.status(500).json({ error: "Stripe sync failed", details: err.message });
@@ -325,7 +360,7 @@ router.delete("/admin/features/:id", ...guard, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Plan ↔ Feature assignment ──────────────────────────────────────────────────
+// ── Plan ↔ Feature assignment ───────────────────────────────────────────────────
 
 // GET /admin/plans/:id/features
 router.get("/admin/plans/:id/features", ...guard, async (req, res) => {
@@ -353,7 +388,7 @@ router.put("/admin/plans/:id/features", ...guard, async (req, res) => {
   res.json({ ok: true, planId, featureIds });
 });
 
-// ── Tenants ────────────────────────────────────────────────────────────────────
+// ── Tenants ─────────────────────────────────────────────────────────────────────
 
 // GET /admin/tenants
 router.get("/admin/tenants", ...guard, async (req, res) => {
@@ -410,7 +445,7 @@ router.patch("/admin/tenants/:id/subscription", ...guard, async (req, res) => {
   }
 });
 
-// ── Per-Tenant Feature Override ────────────────────────────────────────────────
+// ── Per-Tenant Feature Override ─────────────────────────────────────────────────
 
 // GET /admin/tenants/:id/features
 router.get("/admin/tenants/:id/features", ...guard, async (req, res) => {
@@ -448,7 +483,7 @@ router.patch("/admin/tenants/:id/features", ...guard, async (req, res) => {
   res.json({ ok: true, companyId, activeFeatures: updated.activeFeatures ?? [] });
 });
 
-// ── Promote/demote super admin ─────────────────────────────────────────────────
+// ── Promote/demote super admin ──────────────────────────────────────────────────
 
 // PATCH /admin/users/:id/system-role
 router.patch("/admin/users/:id/system-role", ...guard, async (req, res) => {
@@ -463,7 +498,7 @@ router.patch("/admin/users/:id/system-role", ...guard, async (req, res) => {
   res.json(user);
 });
 
-// ── Seed Data ──────────────────────────────────────────────────────────────────
+// ── Seed Data ───────────────────────────────────────────────────────────────────
 
 router.post("/admin/seed", ...guard, async (req, res) => {
   const existingPlans = await db.select().from(plansTable);
@@ -543,7 +578,6 @@ router.post("/admin/seed", ...guard, async (req, res) => {
   res.json({ ok: true, message: "Seed data applied" });
 });
 
-// ── Feature Gate middleware (exported for use in other routes) ──────────────────
 export { requireFeature } from "../lib/featureGate";
 
 export default router;
