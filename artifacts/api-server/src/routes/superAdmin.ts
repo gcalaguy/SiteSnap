@@ -547,6 +547,23 @@ router.patch("/admin/users/:id/system-role", ...guard, async (req, res) => {
   res.json(user);
 });
 
+// PATCH /admin/users/:id/company-role — update a user's company role (owner/foreman/worker)
+router.patch("/admin/users/:id/company-role", ...guard, async (req, res) => {
+  const id = Number(req.params.id);
+  const { role } = req.body as { role: "owner" | "foreman" | "worker" };
+  if (!["owner", "foreman", "worker"].includes(role)) {
+    res.status(400).json({ error: "Invalid role. Must be owner, foreman, or worker." });
+    return;
+  }
+  const [user] = await db
+    .update(usersTable)
+    .set({ role })
+    .where(eq(usersTable.id, id))
+    .returning();
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  res.json(user);
+});
+
 // ── Seed Data ───────────────────────────────────────────────────────────────────
 
 router.post("/admin/seed", ...guard, async (req, res) => {

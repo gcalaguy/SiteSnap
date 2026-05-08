@@ -80,19 +80,33 @@ router.post(
   "/projects",
   requireAuth,
   requireCompany,
+  requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = CreateProjectBody.safeParse(req.body);
     if (!parsed.success) {
       throw new ValidationError("Invalid project data", parsed.error.issues);
     }
 
+    const { startDate, endDate, budget, ...rest } = parsed.data as {
+      startDate?: Date | string | null;
+      endDate?: Date | string | null;
+      budget?: number | string | null;
+      name: string;
+      address: string;
+      city: string;
+      province: string;
+      status?: "planning" | "active" | "on_hold" | "completed" | "cancelled";
+      description?: string | null;
+    };
+
     const [project] = await db
       .insert(projectsTable)
       .values({
-        ...parsed.data,
+        ...rest,
         companyId: req.companyId!,
-        startDate: parsed.data.startDate ? String(parsed.data.startDate) : null,
-        endDate: parsed.data.endDate ? String(parsed.data.endDate) : null,
+        startDate: startDate ? String(startDate) : null,
+        endDate: endDate ? String(endDate) : null,
+        budget: budget != null ? String(budget) : null,
       })
       .returning();
 
@@ -177,9 +191,26 @@ router.put(
       throw new ValidationError("Invalid project data", parsed.error.issues);
     }
 
+    const { startDate: ud, endDate: ue, budget: ub, ...updateRest } = parsed.data as {
+      startDate?: Date | string | null;
+      endDate?: Date | string | null;
+      budget?: number | string | null;
+      name?: string;
+      address?: string;
+      city?: string;
+      province?: string;
+      status?: "planning" | "active" | "on_hold" | "completed" | "cancelled";
+      description?: string | null;
+    };
+
     const [project] = await db
       .update(projectsTable)
-      .set(parsed.data)
+      .set({
+        ...updateRest,
+        startDate: ud !== undefined ? (ud ? String(ud) : null) : undefined,
+        endDate: ue !== undefined ? (ue ? String(ue) : null) : undefined,
+        budget: ub !== undefined ? (ub != null ? String(ub) : null) : undefined,
+      })
       .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
       .returning();
 
