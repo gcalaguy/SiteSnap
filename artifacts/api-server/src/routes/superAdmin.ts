@@ -488,11 +488,57 @@ router.delete("/admin/tenants/:id", ...guard, async (req, res) => {
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
 
-  await db.update(usersTable).set({ companyId: null }).where(eq(usersTable.companyId, companyId));
-  await db.update(projectsTable).set({ companyId: null }).where(eq(projectsTable.companyId, companyId));
+  // ── Step 1: Null out nullable FKs that point at this company's projects ──────
+  await db.execute(sql`UPDATE leads SET converted_project_id = NULL WHERE converted_project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`UPDATE quotes SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`UPDATE invoices SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`UPDATE builder_estimates SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+
+  // ── Step 2: Delete NOT-NULL FK rows that reference this company's projects ───
+  await db.execute(sql`DELETE FROM notifications WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`DELETE FROM change_orders WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`DELETE FROM worker_schedules WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`DELETE FROM time_entries WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`DELETE FROM daily_report_photos WHERE report_id IN (SELECT id FROM daily_reports WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId}))`);
+  await db.execute(sql`DELETE FROM daily_reports WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`DELETE FROM cost_analyses WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`DELETE FROM rfis WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`DELETE FROM tasks WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+  await db.execute(sql`DELETE FROM project_documents WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+
+  // ── Step 3: Delete projects (project_members, project_notes cascade) ─────────
+  await db.execute(sql`DELETE FROM projects WHERE company_id = ${companyId}`);
+
+  // ── Step 4: Delete company-level rows without cascade ────────────────────────
+  // Detach users first (nullable FK)
+  await db.execute(sql`UPDATE users SET company_id = NULL WHERE company_id = ${companyId}`);
+
+  // Payments reference invoices — delete before invoices
+  await db.execute(sql`DELETE FROM payments WHERE company_id = ${companyId}`);
+
+  // Lead activities reference leads — delete before leads
+  await db.execute(sql`DELETE FROM lead_activities WHERE lead_id IN (SELECT id FROM leads WHERE company_id = ${companyId})`);
+  await db.execute(sql`DELETE FROM leads WHERE company_id = ${companyId}`);
+  await db.execute(sql`DELETE FROM contacts WHERE company_id = ${companyId}`);
+
+  // Financial records (project_id already nulled above)
+  await db.execute(sql`DELETE FROM invoices WHERE company_id = ${companyId}`);
+  await db.execute(sql`DELETE FROM quotes WHERE company_id = ${companyId}`);
+
+  // Estimates and templates
+  await db.execute(sql`DELETE FROM builder_estimates WHERE company_id = ${companyId}`);
+  await db.execute(sql`DELETE FROM estimate_templates WHERE company_id = ${companyId}`);
+
+  // Misc company-scoped tables
+  await db.execute(sql`DELETE FROM file_attachments WHERE company_id = ${companyId}`);
+  await db.execute(sql`DELETE FROM quickbooks_connections WHERE company_id = ${companyId}`);
+  await db.execute(sql`DELETE FROM estimator_actuals WHERE company_id = ${companyId}`);
+
+  // ── Step 5: Delete subscriptions and invitations, then the company ────────────
   await db.delete(invitationsTable).where(eq(invitationsTable.companyId, companyId));
   await db.delete(subscriptionsTable).where(eq(subscriptionsTable.companyId, companyId));
   await db.delete(companiesTable).where(eq(companiesTable.id, companyId));
+
   res.json({ ok: true });
 });
 
