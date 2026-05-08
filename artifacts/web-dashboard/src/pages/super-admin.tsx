@@ -262,10 +262,20 @@ function ManageTab() {
 
   const savePlan = useMutation({
     mutationFn: async () => {
+      const missing: string[] = [];
+      if (!planForm.name.trim()) missing.push("Name");
+      if (!planForm.slug.trim()) missing.push("Slug");
+      if (!planForm.monthlyPrice.trim() || isNaN(Number(planForm.monthlyPrice))) missing.push("Monthly price (must be a number)");
+      if (!planForm.yearlyPrice.trim() || isNaN(Number(planForm.yearlyPrice))) missing.push("Yearly price (must be a number)");
+      if (missing.length > 0) throw new Error(`Required: ${missing.join(", ")}`);
+
       const payload = {
-        ...planForm,
-        maxSeats: Number(planForm.maxSeats),
-        description: planForm.description || null,
+        name: planForm.name.trim(),
+        slug: planForm.slug.trim(),
+        description: planForm.description.trim() || null,
+        monthlyPrice: String(Number(planForm.monthlyPrice)),
+        yearlyPrice: String(Number(planForm.yearlyPrice)),
+        maxSeats: Number(planForm.maxSeats) || 5,
       };
       return editingPlanId
         ? customFetch(`/api/admin/plans/${editingPlanId}`, { method: "PATCH", body: JSON.stringify(payload) })

@@ -32,7 +32,12 @@ router.get("/admin/plans", ...guard, async (req, res) => {
 
 // POST /admin/plans — create plan in DB then auto-create Stripe product + prices
 router.post("/admin/plans", ...guard, async (req, res) => {
-  const body = insertPlanSchema.parse(req.body);
+  const raw = req.body as Record<string, unknown>;
+  if (!raw.monthlyPrice || isNaN(Number(raw.monthlyPrice)) || !raw.yearlyPrice || isNaN(Number(raw.yearlyPrice))) {
+    res.status(400).json({ error: "monthlyPrice and yearlyPrice are required and must be valid numbers" });
+    return;
+  }
+  const body = insertPlanSchema.parse(raw);
   const [plan] = await db.insert(plansTable).values(body).returning();
 
   try {
@@ -85,7 +90,17 @@ router.post("/admin/plans", ...guard, async (req, res) => {
 // PATCH /admin/plans/:id — update plan and sync changes to Stripe
 router.patch("/admin/plans/:id", ...guard, async (req, res) => {
   const id = Number(req.params.id);
-  const body = insertPlanSchema.partial().parse(req.body);
+  const raw = req.body as Record<string, unknown>;
+  // Reject empty-string numeric fields before Zod / DB
+  if ("monthlyPrice" in raw && (raw.monthlyPrice === "" || isNaN(Number(raw.monthlyPrice)))) {
+    res.status(400).json({ error: "monthlyPrice must be a valid number" });
+    return;
+  }
+  if ("yearlyPrice" in raw && (raw.yearlyPrice === "" || isNaN(Number(raw.yearlyPrice)))) {
+    res.status(400).json({ error: "yearlyPrice must be a valid number" });
+    return;
+  }
+  const body = insertPlanSchema.partial().parse(raw);
 
   const [existing] = await db.select().from(plansTable).where(eq(plansTable.id, id)).limit(1);
   if (!existing) { res.status(404).json({ error: "Plan not found" }); return; }
