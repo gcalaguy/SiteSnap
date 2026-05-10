@@ -8,7 +8,7 @@ import { TermsModal } from "@/components/TermsModal";
 import * as SecureStore from "expo-secure-store";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
-import { setTokenGetter } from "@/utils/auth";
+import { setTokenGetter, setSignOut } from "@/utils/auth";
 
 const tokenCache = {
   async getToken(key: string) {
@@ -22,11 +22,11 @@ const tokenCache = {
 try { SplashScreen.preventAutoHideAsync(); } catch {}
 
 function RootLayoutNav() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken, signOut: clerkSignOut } = useAuth();
   const { user: clerkUser } = useUser();
   const queryClient = useQueryClient();
 
-  // Wire Clerk's token into customFetch so every API call carries Authorization: Bearer <token>.
+  // Wire Clerk's token + signOut into customFetch and utils/auth.
   // Also configure the base URL for native (relative URLs don't resolve in React Native).
   useEffect(() => {
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -34,12 +34,18 @@ function RootLayoutNav() {
 
     setAuthTokenGetter(() => getToken());
     setTokenGetter(() => getToken());
+    setSignOut(async () => {
+      // Clear all cached query data so stale me/company data doesn't linger.
+      queryClient.clear();
+      await clerkSignOut();
+    });
 
     return () => {
       setAuthTokenGetter(null);
       setBaseUrl(null);
+      setSignOut(async () => {});
     };
-  }, [getToken]);
+  }, [getToken, queryClient]);
 
   const syncUser = useSyncUser();
   const syncedRef = useRef(false);
