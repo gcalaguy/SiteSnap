@@ -1,10 +1,35 @@
 import { Router } from "express";
-import { db, usersTable, companiesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, companiesTable, invitationsTable } from "@workspace/db";
+import { eq, and, gt } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { SyncUserBody } from "@workspace/api-zod";
 import { getCompanyFeatureKeys } from "../lib/featureGate";
+
+async function autoAcceptPendingInvitation(userId: number, email: string) {
+  if (!email) return null;
+  const [invite] = await db
+    .select()
+    .from(invitationsTable)
+    .where(
+      and(
+        eq(invitationsTable.email, email),
+        eq(invitationsTable.status, "pending"),
+        gt(invitationsTable.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+  if (!invite) return null;
+  await db
+    .update(usersTable)
+    .set({ companyId: invite.companyId, role: invite.role })
+    .where(eq(usersTable.id, userId));
+  await db
+    .update(invitationsTable)
+    .set({ status: "accepted" })
+    .where(eq(invitationsTable.id, invite.id));
+  return invite;
+}
 
 const router = Router();
 
@@ -34,13 +59,31 @@ router.post("/users/sync", async (req, res) => {
       .set(updates)
       .where(eq(usersTable.clerkUserId, clerkUserId))
       .returning();
+    // Auto-accept any pending invitation for this email if user has no company yet
+    if (updated && !updated.companyId) {
+      await autoAcceptPendingInvitation(updated.id, updated.email);
+      const [refreshed] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, updated.id))
+        .limit(1);
+      res.json(refreshed ?? updated);
+      return;
+    }
     res.json(updated);
   } else {
     const [created] = await db
       .insert(usersTable)
       .values({ clerkUserId, email, firstName: firstName?.trim() || email.split("@")[0], lastName: lastName?.trim() || "" })
       .returning();
-    res.json(created);
+    // Auto-accept any pending invitation matching this email
+    await autoAcceptPendingInvitation(created.id, created.email);
+    const [refreshed] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, created.id))
+      .limit(1);
+    res.json(refreshed ?? created);
   }
 });
 
