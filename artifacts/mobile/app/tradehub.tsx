@@ -137,7 +137,7 @@ export default function TradeHubScreen() {
     return (
       <TouchableOpacity
         style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-        onPress={() => router.push(`/tradehub/${item.id}` as any)}
+        onPress={() => router.push(`/tradehub-post/${item.id}` as any)}
         activeOpacity={0.82}
       >
         {/* Type badge */}
