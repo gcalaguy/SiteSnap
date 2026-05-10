@@ -16,7 +16,6 @@ import { DocumentsTab } from "@/components/DocumentsTab";
 import { HoursTab } from "@/components/HoursTab";
 import { QuotesTab } from "@/components/QuotesTab";
 import { TimesheetsTab } from "@/components/TimesheetsTab";
-import { FilesTab } from "@/components/FilesTab";
 import { ClientMessagesTab } from "@/components/ClientMessagesTab";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import {
@@ -58,7 +57,7 @@ const STATUS_LABELS: Record<string, string> = {
   on_hold: "On Hold",
 };
 
-const TABS = ["Overview", "Reports", "Tasks", "RFIs", "Quotes", "Documents", "Hours", "Timesheets", "Files", "Messages"] as const;
+const TABS = ["Overview", "Reports", "Tasks", "RFIs", "Quotes", "Documents", "Hours", "Timesheets", "Messages"] as const;
 type Tab = (typeof TABS)[number];
 
 const RFI_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -998,10 +997,6 @@ export default function ProjectDetailScreen() {
         <TimesheetsTab projectId={projectId} />
       )}
 
-      {/* Files tab */}
-      {activeTab === "Files" && (
-        <FilesTab projectId={projectId} />
-      )}
 
       {/* Client Messages tab */}
       {activeTab === "Messages" && (
