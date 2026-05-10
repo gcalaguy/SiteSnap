@@ -6,9 +6,83 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText } from "lucide-react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
+function statusBadge(status: string) {
+  if (status === "active") return <Badge className="bg-green-600 text-white font-semibold">Active</Badge>;
+  if (status === "trialing") return <Badge className="bg-blue-500 text-white font-semibold">Trial</Badge>;
+  if (status === "past_due") return <Badge className="bg-amber-500 text-white font-semibold">Past Due</Badge>;
+  if (status === "canceled") return <Badge className="bg-zinc-600 text-white font-semibold">Canceled</Badge>;
+  return <Badge className="bg-zinc-700 text-white font-semibold capitalize">{status}</Badge>;
+}
+
+function TeamSeatsCard() {
+  const [, navigate] = useLocation();
+  const { data: seatInfo, isLoading: seatsLoading } = useQuery<{
+    currentSeats: number;
+    maxSeats: number | "unlimited";
+    canAddMore: boolean;
+  }>({
+    queryKey: ["billing-seats"],
+    queryFn: () => customFetch("/api/billing/seats"),
+  });
+
+  const seatUsed = seatInfo?.currentSeats ?? 0;
+  const seatMax = seatInfo?.maxSeats;
+  const seatPct = seatMax === "unlimited" || !seatMax ? 0 : Math.round((seatUsed / (seatMax as number)) * 100);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" />
+          Team Seats
+        </CardTitle>
+        <CardDescription>Manage your company seats and team members.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {seatsLoading ? (
+          <div className="flex items-center gap-3 text-zinc-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Loading seat info…</span>
+          </div>
+        ) : seatInfo ? (
+          <>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold">{seatUsed}</span>
+              <span className="text-muted-foreground text-sm">/ {seatMax === "unlimited" ? "∞" : seatMax} seats used</span>
+            </div>
+            {seatMax !== "unlimited" && typeof seatMax === "number" && (
+              <div className="space-y-1.5">
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${seatPct}%`, background: GOLD }} />
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{seatPct}% of capacity</span>
+                  {!seatInfo.canAddMore ? <span className="text-amber-500">Seat limit reached — contact support to add more</span> : null}
+                </div>
+              </div>
+            )}
+            <Button className="gap-2" onClick={() => navigate("/team")} style={{ background: BLACK, color: "white" }}>
+              <UserPlus className="h-4 w-4" />
+              Manage Team
+            </Button>
+          </>
+        ) : (
+          <div className="flex items-center gap-3 text-zinc-400">
+            <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
+            <span className="text-sm">Seat information unavailable.</span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 interface SendResult {
   sent: number;
@@ -775,6 +849,7 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      <TeamSeatsCard />
       <CompanyLogoCard company={company} />
       <DocumentTemplatesCard company={company} />
       <DigestCard />

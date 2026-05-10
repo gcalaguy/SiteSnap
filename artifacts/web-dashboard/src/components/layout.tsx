@@ -158,7 +158,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   ];
 
   const adminNavigation = [
-    ...(isOwner ? [{ name: "Admin & Billing", href: "/admin", icon: ShieldCheck, badge: 0 }] : []),
     ...(isSuperAdmin ? [{ name: "Super Admin", href: "/super-admin", icon: Crown, badge: 0 }] : []),
   ];
 
