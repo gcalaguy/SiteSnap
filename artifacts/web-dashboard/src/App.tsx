@@ -54,6 +54,8 @@ import Contacts from "@/pages/contacts";
 import Leads from "@/pages/leads";
 import ProposalsPage from "@/pages/proposals";
 import FinancialsPage from "@/pages/financials";
+import PublicQuotePage from "@/pages/public-quote";
+import PublicInvoicePage from "@/pages/public-invoice";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -325,6 +327,8 @@ function ClerkProviderWithRoutes() {
           <Route path="/sign-up/*?" component={SignUpPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/portal/:token" component={ClientPortal} />
+          <Route path="/q/:token" component={PublicQuotePage} />
+          <Route path="/i/:token" component={PublicInvoicePage} />
           <Route path="/worker-portal/*?">
             <WorkerPortalApp />
           </Route>

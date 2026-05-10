@@ -2492,6 +2492,12 @@ export const ListQuotesResponseItem = zod.object({
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
   convertedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2577,6 +2583,12 @@ export const GetQuoteResponse = zod.object({
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
   convertedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2654,6 +2666,12 @@ export const UpdateQuoteResponse = zod.object({
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
   convertedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2712,6 +2730,12 @@ export const SubmitQuoteForApprovalResponse = zod.object({
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
   convertedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2762,6 +2786,12 @@ export const UnsubmitQuoteResponse = zod.object({
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
   convertedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2812,6 +2842,12 @@ export const ApproveQuoteResponse = zod.object({
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
   convertedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2866,6 +2902,12 @@ export const RejectQuoteResponse = zod.object({
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
   convertedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2932,6 +2974,11 @@ export const ListTimesheetsResponseItem = zod.object({
   submittedAt: zod.coerce.date(),
   reviewedByUserId: zod.number().nullish(),
   reviewedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   user: zod
@@ -2987,6 +3034,11 @@ export const GetTimesheetResponse = zod.object({
   submittedAt: zod.coerce.date(),
   reviewedByUserId: zod.number().nullish(),
   reviewedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   user: zod
@@ -3009,14 +3061,18 @@ export const GetTimesheetResponse = zod.object({
 });
 
 /**
- * @summary Approve a timesheet
+ * @summary Approve a timesheet (signature required)
  */
 export const ApproveTimesheetParams = zod.object({
   timesheetId: zod.coerce.number(),
 });
 
 export const ApproveTimesheetBody = zod.object({
-  notes: zod.string().optional(),
+  signatureData: zod
+    .string()
+    .describe("Base64-encoded data URL (PNG) of the approver's signature"),
+  signerName: zod.string().nullish(),
+  notes: zod.string().nullish(),
 });
 
 export const ApproveTimesheetResponse = zod.object({
@@ -3033,6 +3089,11 @@ export const ApproveTimesheetResponse = zod.object({
   submittedAt: zod.coerce.date(),
   reviewedByUserId: zod.number().nullish(),
   reviewedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   user: zod
@@ -3079,6 +3140,11 @@ export const DenyTimesheetResponse = zod.object({
   submittedAt: zod.coerce.date(),
   reviewedByUserId: zod.number().nullish(),
   reviewedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   user: zod
@@ -3147,6 +3213,12 @@ export const ListAllQuotesResponseItem = zod.object({
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
   convertedAt: zod.coerce.date().nullish(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3187,6 +3259,12 @@ export const ListAllInvoicesResponseItem = zod.object({
   sentAt: zod.coerce.date().nullish(),
   paidAt: zod.coerce.date().nullish(),
   createdByUserId: zod.number(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3249,6 +3327,12 @@ export const GetInvoiceResponse = zod.object({
   sentAt: zod.coerce.date().nullish(),
   paidAt: zod.coerce.date().nullish(),
   createdByUserId: zod.number(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3311,6 +3395,12 @@ export const UpdateInvoiceResponse = zod.object({
   sentAt: zod.coerce.date().nullish(),
   paidAt: zod.coerce.date().nullish(),
   createdByUserId: zod.number(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3350,6 +3440,12 @@ export const MarkInvoiceSentResponse = zod.object({
   sentAt: zod.coerce.date().nullish(),
   paidAt: zod.coerce.date().nullish(),
   createdByUserId: zod.number(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3389,6 +3485,12 @@ export const MarkInvoicePaidResponse = zod.object({
   sentAt: zod.coerce.date().nullish(),
   paidAt: zod.coerce.date().nullish(),
   createdByUserId: zod.number(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

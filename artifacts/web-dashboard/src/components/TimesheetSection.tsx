@@ -11,10 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { SignaturePad } from "@/components/SignaturePad";
+import { SignatureBadge } from "@/components/SignatureBadge";
 import {
   ClipboardCheck, ChevronDown, ChevronUp, CheckCircle2, XCircle,
   AlertCircle, CalendarRange, Pencil, FileDown, Table2, Mail,
-  Save, X, Loader2, Download, Info,
+  Save, X, Loader2, Download, Info, ShieldCheck,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { estimateTax, type TaxBreakdown } from "@/lib/canadaTax";
@@ -34,6 +38,11 @@ export type Timesheet = {
   submittedAt: string;
   reviewedAt: string | null;
   projectId?: number | null;
+  signatureData?: string | null;
+  signerName?: string | null;
+  signerIp?: string | null;
+  signerUserAgent?: string | null;
+  signedAt?: string | null;
   user: { id: number; firstName: string | null; lastName: string | null; email: string; role: string } | null;
   reviewer: { id: number; firstName: string | null; lastName: string | null; email: string } | null;
 };
@@ -380,6 +389,9 @@ function TimesheetRow({
   const [editing,  setEditing]  = useState(false);
   const [denying,  setDenying]  = useState(false);
   const [denyNotes, setDenyNotes] = useState("");
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveSig, setApproveSig] = useState("");
+  const [approveSigner, setApproveSigner] = useState("");
   const [emailing, setEmailing] = useState(false);
   const [emailTo,  setEmailTo]  = useState("");
 
@@ -403,11 +415,31 @@ function TimesheetRow({
     mutation: {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
-        toast({ title: "Timesheet approved" });
+        setApproveOpen(false);
+        setApproveSig("");
+        setApproveSigner("");
+        toast({ title: "Timesheet approved & signed" });
       },
-      onError: () => toast({ title: "Failed to approve", variant: "destructive" }),
+      onError: (e: any) => toast({
+        title: e?.message ?? "Failed to approve",
+        variant: "destructive",
+      }),
     },
   });
+
+  function submitApproval() {
+    if (!approveSig) {
+      toast({ title: "Please draw your signature", variant: "destructive" });
+      return;
+    }
+    approveTs.mutate({
+      timesheetId: ts.id,
+      data: {
+        signatureData: approveSig,
+        signerName: approveSigner.trim() || undefined,
+      },
+    });
+  }
 
   const denyTs = useDenyTimesheet({
     mutation: {
@@ -541,7 +573,7 @@ function TimesheetRow({
                 variant="outline"
                 className="h-7 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50"
                 disabled={approveTs.isPending}
-                onClick={() => approveTs.mutate({ timesheetId: ts.id, data: {} })}
+                onClick={() => { setApproveOpen(true); setApproveSig(""); setApproveSigner(""); }}
               >
                 <CheckCircle2 className="h-3.5 w-3.5" /> Approve
               </Button>
@@ -555,8 +587,49 @@ function TimesheetRow({
               </Button>
             </>
           )}
+          {ts.status === "approved" && ts.signedAt && (
+            <SignatureBadge meta={ts} compact />
+          )}
         </div>
       </div>
+
+      {/* ── Approve-with-signature dialog ──────────────────────────────────── */}
+      <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-green-600" /> Approve & Sign Timesheet
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Approving {workerName(ts.user)}'s timesheet for {weekRange(ts.weekStart)}.
+              Your signature, IP address, browser, and a UTC timestamp will be recorded.
+            </p>
+            <div>
+              <Label htmlFor={`signer-${ts.id}`} className="text-xs">Approver name (optional)</Label>
+              <Input
+                id={`signer-${ts.id}`}
+                value={approveSigner}
+                onChange={(e) => setApproveSigner(e.target.value)}
+                placeholder="Your name"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Signature</Label>
+              <SignaturePad onChange={setApproveSig} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApproveOpen(false)} disabled={approveTs.isPending}>Cancel</Button>
+            <Button onClick={submitApproval} disabled={approveTs.isPending || !approveSig} className="gap-2">
+              {approveTs.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              Approve & Sign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Expanded panel ──────────────────────────────────────────────────── */}
       {expanded && (

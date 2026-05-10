@@ -600,6 +600,12 @@ export interface Quote {
   approvedByUserId?: number | null;
   approvedAt?: string | null;
   convertedAt?: string | null;
+  signatureData?: string | null;
+  signerName?: string | null;
+  signerIp?: string | null;
+  signerUserAgent?: string | null;
+  signedAt?: string | null;
+  publicToken?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -691,10 +697,22 @@ export interface Timesheet {
   submittedAt: string;
   reviewedByUserId?: number | null;
   reviewedAt?: string | null;
+  signatureData?: string | null;
+  signerName?: string | null;
+  signerIp?: string | null;
+  signerUserAgent?: string | null;
+  signedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   user?: TimesheetUser;
   reviewer?: TimesheetReviewer;
+}
+
+export interface ApproveTimesheetBody {
+  /** Base64-encoded data URL (PNG) of the approver's signature */
+  signatureData: string;
+  signerName?: string | null;
+  notes?: string | null;
 }
 
 export interface SubmitTimesheetBody {
@@ -736,6 +754,12 @@ export interface Invoice {
   sentAt?: string | null;
   paidAt?: string | null;
   createdByUserId: number;
+  signatureData?: string | null;
+  signerName?: string | null;
+  signerIp?: string | null;
+  signerUserAgent?: string | null;
+  signedAt?: string | null;
+  publicToken?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1350,10 +1374,6 @@ export type ListTimesheetsParams = {
   userId?: number;
   from?: string;
   to?: string;
-};
-
-export type ApproveTimesheetBody = {
-  notes?: string;
 };
 
 export type DenyTimesheetBody = {

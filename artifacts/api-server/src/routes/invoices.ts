@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import { db, invoicesTable, quotesTable, companiesTable } from "@workspace/db";
 import { eq, and, desc, count, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
@@ -51,6 +52,7 @@ router.post("/invoices", requireAuth, requireCompany, async (req, res) => {
     dueDate: dueDate ?? null,
     status: "draft",
     createdByUserId: req.userId!,
+    publicToken: randomUUID(),
   }).returning();
 
   res.status(201).json(invoice);

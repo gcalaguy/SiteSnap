@@ -2601,7 +2601,7 @@ paths:
     post:
       operationId: approveTimesheet
       tags: [timesheets]
-      summary: Approve a timesheet
+      summary: Approve a timesheet (signature required)
       parameters:
         - name: timesheetId
           in: path
@@ -2609,13 +2609,11 @@ paths:
           schema:
             type: integer
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                notes:
-                  type: string
+              $ref: "#/components/schemas/ApproveTimesheetBody"
       responses:
         "200":
           description: Timesheet approved
@@ -3902,6 +3900,25 @@ components:
           type: string
           format: date-time
           nullable: true
+        signatureData:
+          type: string
+          nullable: true
+        signerName:
+          type: string
+          nullable: true
+        signerIp:
+          type: string
+          nullable: true
+        signerUserAgent:
+          type: string
+          nullable: true
+        signedAt:
+          type: string
+          format: date-time
+          nullable: true
+        publicToken:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -4068,6 +4085,22 @@ components:
           type: string
           format: date-time
           nullable: true
+        signatureData:
+          type: string
+          nullable: true
+        signerName:
+          type: string
+          nullable: true
+        signerIp:
+          type: string
+          nullable: true
+        signerUserAgent:
+          type: string
+          nullable: true
+        signedAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -4100,6 +4133,20 @@ components:
               type: string
             email:
               type: string
+
+    ApproveTimesheetBody:
+      type: object
+      required: [signatureData]
+      properties:
+        signatureData:
+          type: string
+          description: Base64-encoded data URL (PNG) of the approver's signature
+        signerName:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
 
     SubmitTimesheetBody:
       type: object
@@ -4179,6 +4226,25 @@ components:
           nullable: true
         createdByUserId:
           type: integer
+        signatureData:
+          type: string
+          nullable: true
+        signerName:
+          type: string
+          nullable: true
+        signerIp:
+          type: string
+          nullable: true
+        signerUserAgent:
+          type: string
+          nullable: true
+        signedAt:
+          type: string
+          format: date-time
+          nullable: true
+        publicToken:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time

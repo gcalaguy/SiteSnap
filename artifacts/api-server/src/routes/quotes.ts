@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import {
   db,
   quotesTable,
@@ -167,6 +168,7 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     validUntil: validUntil ?? null,
     createdByUserId: req.userId!,
     status: "draft",
+    publicToken: randomUUID(),
   }).returning();
 
   res.status(201).json(quote);
@@ -391,6 +393,7 @@ router.post("/:quoteId/convert-to-invoice", requireAuth, requireCompany, async (
     notes: quote.notes ?? null,
     dueDate: dueDate ?? null,
     createdByUserId: req.userId!,
+    publicToken: randomUUID(),
   }).returning();
 
   await db.update(quotesTable)

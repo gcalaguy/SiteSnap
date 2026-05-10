@@ -4,6 +4,7 @@ import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
+import { getClientInfo } from "../lib/clientInfo";
 import { z } from "zod";
 
 const router = Router();
@@ -19,6 +20,15 @@ const SubmitTimesheetBody = z.object({
 
 const ReviewBody = z.object({
   notes: z.string().max(1000).optional(),
+});
+
+const ApproveBody = z.object({
+  notes: z.string().max(1000).optional(),
+  signatureData: z
+    .string()
+    .min(50, "signatureData (data URL) is required")
+    .max(2_000_000, "signature too large"),
+  signerName: z.string().min(1).max(120).optional(),
 });
 
 async function withReviewer(timesheet: Record<string, unknown>, reviewedByUserId: number | null) {
@@ -146,8 +156,11 @@ router.get("/timesheets/:timesheetId", requireAuth, requireCompany, async (req, 
 // POST /timesheets/:timesheetId/approve
 router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   const id = parseInt(req.params.timesheetId);
-  const parsed = ReviewBody.safeParse(req.body);
-  const notes = parsed.success ? (parsed.data.notes ?? null) : null;
+  const parsed = ApproveBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "A signature is required to approve a timesheet", details: parsed.error.flatten() });
+    return;
+  }
 
   const [ts] = await db.select().from(timesheetsTable)
     .where(and(eq(timesheetsTable.id, id), eq(timesheetsTable.companyId, req.companyId!)))
@@ -155,9 +168,20 @@ router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, req
   if (!ts) { res.status(404).json({ error: "Timesheet not found" }); return; }
   if (ts.status !== "submitted") { res.status(409).json({ error: "Only submitted timesheets can be approved" }); return; }
 
-  const now = new Date();
+  const info = getClientInfo(req);
   const [updated] = await db.update(timesheetsTable)
-    .set({ status: "approved", notes, reviewedByUserId: req.userId!, reviewedAt: now, updatedAt: now })
+    .set({
+      status: "approved",
+      notes: parsed.data.notes ?? null,
+      reviewedByUserId: req.userId!,
+      reviewedAt: info.signedAt,
+      signatureData: parsed.data.signatureData,
+      signerName: parsed.data.signerName ?? null,
+      signerIp: info.ip,
+      signerUserAgent: info.userAgent,
+      signedAt: info.signedAt,
+      updatedAt: info.signedAt,
+    })
     .where(eq(timesheetsTable.id, id))
     .returning();
 

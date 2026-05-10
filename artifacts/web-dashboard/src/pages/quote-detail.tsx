@@ -53,6 +53,10 @@ import * as XLSX from "xlsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
+import { renderSignatureBlock } from "@/lib/signaturePdf";
+import { SignaturePad } from "@/components/SignaturePad";
+import { SignatureBadge } from "@/components/SignatureBadge";
+import { Share2, Copy, ShieldCheck } from "lucide-react";
 import autoTable from "jspdf-autotable";
 
 function imgFmt(dataUrl: string): string {
@@ -292,6 +296,16 @@ function buildQuotePdfDoc(
     doc.setTextColor(...DARK);
     const noteLines = doc.splitTextToSize(quote.notes, pageW - margin * 2);
     doc.text(noteLines, margin, ny + 5);
+  }
+
+  // Signature block (renders above the footer strip if signed)
+  if ((quote as any).signedAt && (quote as any).signatureData) {
+    renderSignatureBlock(doc, {
+      signatureData: (quote as any).signatureData,
+      signerName: (quote as any).signerName,
+      signerIp: (quote as any).signerIp,
+      signedAt: (quote as any).signedAt,
+    }, { label: "CLIENT SIGNATURE" });
   }
 
   // Footer strip
@@ -801,6 +815,30 @@ export default function QuoteDetail() {
               <Send className="h-4 w-4" />
               Awaiting review
             </div>
+          )}
+
+          {/* Share signing link (clients can view + sign) — available once submitted */}
+          {(quote as any).publicToken && quote.status !== "draft" && quote.status !== "rejected" && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={async () => {
+                const url = `${window.location.origin}/q/${(quote as any).publicToken}`;
+                try {
+                  await navigator.clipboard.writeText(url);
+                  toast({ title: "Sign link copied", description: url });
+                } catch {
+                  toast({ title: "Sign link", description: url });
+                }
+              }}
+            >
+              <Share2 className="h-4 w-4" /> Copy Sign Link
+            </Button>
+          )}
+
+          {/* Signed badge */}
+          {(quote as any).signedAt && (
+            <SignatureBadge meta={quote as any} />
           )}
 
           {/* Approved: convert to invoice */}

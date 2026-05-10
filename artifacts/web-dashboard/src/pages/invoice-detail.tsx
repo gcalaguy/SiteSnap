@@ -26,6 +26,9 @@ import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetInvoiceQueryKey, getListAllInvoicesQueryKey } from "@workspace/api-client-react";
 import jsPDF from "jspdf";
+import { renderSignatureBlock } from "@/lib/signaturePdf";
+import { SignatureBadge } from "@/components/SignatureBadge";
+import { Share2, Copy } from "lucide-react";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
@@ -299,6 +302,17 @@ function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: strin
   }
 
   const pageH = doc.internal.pageSize.getHeight();
+
+  // Signature block (renders above the footer strip if signed)
+  if ((invoice as any).signedAt && (invoice as any).signatureData) {
+    renderSignatureBlock(doc, {
+      signatureData: (invoice as any).signatureData,
+      signerName: (invoice as any).signerName,
+      signerIp: (invoice as any).signerIp,
+      signedAt: (invoice as any).signedAt,
+    }, { label: "CLIENT SIGNATURE" });
+  }
+
   doc.setFillColor(...DARK);
   doc.rect(0, pageH - 12, pageW, 12, "F");
   doc.setFont("helvetica", "normal");
@@ -685,6 +699,30 @@ export default function InvoiceDetail() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          )}
+
+          {/* Share signing link */}
+          {(invoice as any).publicToken && invoice.status !== "draft" && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={async () => {
+                const url = `${window.location.origin}/i/${(invoice as any).publicToken}`;
+                try {
+                  await navigator.clipboard.writeText(url);
+                  toast({ title: "Sign link copied", description: url });
+                } catch {
+                  toast({ title: "Sign link", description: url });
+                }
+              }}
+            >
+              <Share2 className="h-4 w-4" /> Copy Sign Link
+            </Button>
+          )}
+
+          {/* Signed badge */}
+          {(invoice as any).signedAt && (
+            <SignatureBadge meta={invoice as any} />
           )}
 
           {/* Paid indicator */}

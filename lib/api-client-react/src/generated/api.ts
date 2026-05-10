@@ -11241,7 +11241,7 @@ export function useGetTimesheet<
 }
 
 /**
- * @summary Approve a timesheet
+ * @summary Approve a timesheet (signature required)
  */
 export const getApproveTimesheetUrl = (timesheetId: number) => {
   return `/api/timesheets/${timesheetId}/approve`;
@@ -11305,7 +11305,7 @@ export type ApproveTimesheetMutationBody = BodyType<ApproveTimesheetBody>;
 export type ApproveTimesheetMutationError = ErrorType<unknown>;
 
 /**
- * @summary Approve a timesheet
+ * @summary Approve a timesheet (signature required)
  */
 export const useApproveTimesheet = <
   TError = ErrorType<unknown>,

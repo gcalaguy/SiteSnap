@@ -42,8 +42,12 @@ import photoSummaryRouter from "./photoSummary";
 import inspectionsRouter from "./inspections";
 import riskDashboardRouter from "./riskDashboard";
 import scheduleEventsRouter from "./scheduleEvents";
+import publicRouter from "./public";
 
 const router: IRouter = Router();
+
+// Public (unauthenticated) routes — must be mounted BEFORE any auth middleware.
+router.use(publicRouter);
 
 router.use(healthRouter);
 router.use(usersRouter);

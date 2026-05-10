@@ -494,6 +494,13 @@ export const quotesTable = pgTable("quotes", {
   approvedByUserId: integer("approved_by_user_id").references(() => usersTable.id),
   approvedAt: timestamp("approved_at"),
   convertedAt: timestamp("converted_at"),
+  // E-signature audit trail
+  signatureData: text("signature_data"),
+  signerName: text("signer_name"),
+  signerIp: text("signer_ip"),
+  signerUserAgent: text("signer_user_agent"),
+  signedAt: timestamp("signed_at"),
+  publicToken: text("public_token").unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -538,6 +545,13 @@ export const invoicesTable = pgTable("invoices", {
   reminderSentAt: timestamp("reminder_sent_at"),
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
   assignedToUserId: integer("assigned_to_user_id").references(() => usersTable.id),
+  // E-signature audit trail
+  signatureData: text("signature_data"),
+  signerName: text("signer_name"),
+  signerIp: text("signer_ip"),
+  signerUserAgent: text("signer_user_agent"),
+  signedAt: timestamp("signed_at"),
+  publicToken: text("public_token").unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -640,6 +654,12 @@ export const timesheetsTable = pgTable("timesheets", {
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
   reviewedByUserId: integer("reviewed_by_user_id").references(() => usersTable.id),
   reviewedAt: timestamp("reviewed_at"),
+  // E-signature audit trail
+  signatureData: text("signature_data"),
+  signerName: text("signer_name"),
+  signerIp: text("signer_ip"),
+  signerUserAgent: text("signer_user_agent"),
+  signedAt: timestamp("signed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
