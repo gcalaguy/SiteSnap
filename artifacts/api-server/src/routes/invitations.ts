@@ -287,15 +287,35 @@ router.post("/invitations/:token/accept", async (req, res) => {
     }
   }
 
-  // 3. Look up and validate the invitation
+  // 3. Look up invitation by token (any status)
   const [invitation] = await db
     .select()
     .from(invitationsTable)
-    .where(and(eq(invitationsTable.token, token), eq(invitationsTable.status, "pending")))
+    .where(eq(invitationsTable.token, token))
     .limit(1);
 
   if (!invitation) {
-    res.status(404).json({ error: "Invitation not found or already used" });
+    res.status(404).json({ error: "Invitation not found" });
+    return;
+  }
+
+  // 3a. Idempotent: if already accepted and user is already in this company, return success
+  if (invitation.status === "accepted") {
+    if (dbUser.companyId === invitation.companyId) {
+      const [company] = await db
+        .select()
+        .from(companiesTable)
+        .where(eq(companiesTable.id, invitation.companyId))
+        .limit(1);
+      res.json({ ...dbUser, company: company ?? null });
+      return;
+    }
+    res.status(400).json({ error: "Invitation has already been used" });
+    return;
+  }
+
+  if (invitation.status !== "pending") {
+    res.status(400).json({ error: "Invitation is no longer valid" });
     return;
   }
 
