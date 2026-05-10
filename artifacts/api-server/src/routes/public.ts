@@ -137,7 +137,7 @@ router.post(
         and(
           eq(quotesTable.publicToken, token as string),
           isNull(quotesTable.signedAt),
-          eq(quotesTable.status, "pending_approval"),
+          or(eq(quotesTable.status, "pending_approval"), eq(quotesTable.status, "approved")),
         ),
       )
       .returning();

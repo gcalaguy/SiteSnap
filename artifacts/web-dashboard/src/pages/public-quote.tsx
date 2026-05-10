@@ -49,6 +49,7 @@ export default function PublicQuotePage() {
   const [signerName, setSignerName] = useState("");
   const [signature, setSignature] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +75,18 @@ export default function PublicQuotePage() {
     };
   }, [token]);
 
+  async function reloadQuote() {
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/public/quotes/${token}`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Quote not found");
+      setQuote(body);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   async function submitSignature() {
     if (!signature) {
       toast({ title: "Please draw your signature", variant: "destructive" });
@@ -93,6 +106,7 @@ export default function PublicQuotePage() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Failed to submit signature");
       setQuote(body);
+      await reloadQuote();
       toast({ title: "Quote signed", description: "Thank you — your signature has been recorded." });
     } catch (e: any) {
       toast({ title: e.message, variant: "destructive" });
@@ -235,7 +249,7 @@ export default function PublicQuotePage() {
                 <SignaturePad onChange={setSignature} />
               </div>
               <Button onClick={submitSignature} disabled={submitting} className="w-full">
-                {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                {submitting || refreshing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
                 Approve & Sign
               </Button>
               <p className="text-[11px] text-muted-foreground">
