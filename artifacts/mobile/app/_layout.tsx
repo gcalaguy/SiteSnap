@@ -1,11 +1,21 @@
 import React, { useEffect } from "react";
 import { View } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { useGetMe } from "@workspace/api-client-react";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import * as SplashScreen from "expo-splash-screen";
-import TermsModal from "@/components/TermsModal";
+import { TermsModal } from "@/components/TermsModal";
+import * as SecureStore from "expo-secure-store";
+
+const tokenCache = {
+  async getToken(key: string) {
+    return SecureStore.getItemAsync(key);
+  },
+  async saveToken(key: string, value: string) {
+    return SecureStore.setItemAsync(key, value);
+  },
+};
 
 export default function RootLayoutNav() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -34,14 +44,14 @@ export default function RootLayoutNav() {
     } else if (!me?.companyId) {
       if (!inOnboarding) router.replace("/onboarding");
     } else if (inSignIn || inOnboarding) {
-      router.replace("/(tabs)");
+      router.replace("/");
     }
   }, [isSignedIn, isLoaded, segments, me, meLoading, router]);
 
   const needsTerms = !!me && !me.termsAcceptedAt;
 
   return (
-    <>
+    <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache as any}>
       <TermsModal visible={needsTerms} />
       <Stack screenOptions={{ headerBackTitle: "Back" }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -53,6 +63,6 @@ export default function RootLayoutNav() {
         <Stack.Screen name="sync-queue" options={{ headerShown: false, presentation: "modal" }} />
         <Stack.Screen name="schedule" options={{ headerShown: true, title: "Assigned Schedule", headerStyle: { backgroundColor: "#0A0A0A" }, headerTintColor: "#FFFFFF" }} />
       </Stack>
-    </>
+    </ClerkProvider>
   );
 }
