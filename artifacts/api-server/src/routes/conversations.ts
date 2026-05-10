@@ -20,6 +20,7 @@ import {
 import { eq, desc, and, asc, ne, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { notify } from "../lib/notify";
 
 const router = Router();
 
@@ -559,6 +560,15 @@ router.post("/conversations", requireAuth, requireCompany, async (req, res) => {
       .values({ conversationId: conversation.id, role: "assistant", content: reply })
       .returning();
 
+    // Notify the user that the AI has replied
+    notify({
+      userId: req.userId!,
+      type: "message",
+      title: "Site Snap AI replied",
+      body: reply.length > 120 ? reply.slice(0, 120) + "…" : reply,
+      referenceId: conversation.id,
+    }).catch(() => {});
+
     res.status(201).json({ conversation, messages: [userMessage, aiMessage], reply });
   } catch (err) {
     req.log?.error({ err }, "Failed to create conversation");
@@ -660,6 +670,15 @@ router.post(
         .update(conversationsTable)
         .set({ updatedAt: new Date() })
         .where(eq(conversationsTable.id, id));
+
+      // Notify the user that the AI has replied
+      notify({
+        userId: req.userId!,
+        type: "message",
+        title: "Site Snap AI replied",
+        body: reply.length > 120 ? reply.slice(0, 120) + "…" : reply,
+        referenceId: id,
+      }).catch(() => {});
 
       res.json({ message: userMessage, reply, aiMessage });
     } catch (err) {

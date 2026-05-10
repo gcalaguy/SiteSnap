@@ -19,6 +19,7 @@ import {
   Calculator,
   Crown,
   Bell,
+  MessageSquare,
   Hammer,
   BookUser,
   TrendingUp,
@@ -389,35 +390,50 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <p className="text-xs text-muted-foreground">You're all caught up!</p>
                   </div>
                 ) : (
-                  notifications.slice(0, 10).map((n) => (
-                    <div
-                      key={n.id}
-                      className={`flex items-start gap-3 px-4 py-3 border-b last:border-0 transition-colors ${n.isRead ? "" : "bg-amber-50/40"}`}
-                    >
-                      <div
-                        className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full flex-shrink-0"
-                        style={{ background: n.isRead ? "#f3f4f6" : `${GOLD}22` }}
-                      >
-                        <Bell className="h-3.5 w-3.5" style={{ color: n.isRead ? "#9ca3af" : GOLD }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold leading-tight">{n.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.body}</p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-1">
-                          {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
-                        </p>
-                      </div>
-                      {!n.isRead && (
-                        <button
-                          className="flex-shrink-0 mt-1 h-5 w-5 rounded flex items-center justify-center hover:bg-gray-100 transition-colors"
-                          onClick={(e) => handleMarkOne(e, n.id)}
-                          title="Mark as read"
+                  notifications.slice(0, 10).map((n) => {
+                    const isMsg = n.type === "message";
+                    const NotifIcon = isMsg ? Bot : n.type === "rfi" ? MessageSquare : Bell;
+                    const href = isMsg
+                      ? `${basePath}/ai-chat`
+                      : n.projectId
+                        ? `${basePath}/projects/${n.projectId}`
+                        : undefined;
+                    const Wrapper = href
+                      ? ({ children }: { children: React.ReactNode }) => (
+                          <a href={href} className="block hover:no-underline">{children}</a>
+                        )
+                      : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+                    return (
+                      <Wrapper key={n.id}>
+                        <div
+                          className={`flex items-start gap-3 px-4 py-3 border-b last:border-0 transition-colors cursor-pointer ${n.isRead ? "hover:bg-gray-50/50" : "bg-amber-50/40 hover:bg-amber-50/60"}`}
                         >
-                          <Check className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                      )}
-                    </div>
-                  ))
+                          <div
+                            className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full flex-shrink-0"
+                            style={{ background: n.isRead ? "#f3f4f6" : `${GOLD}22` }}
+                          >
+                            <NotifIcon className="h-3.5 w-3.5" style={{ color: n.isRead ? "#9ca3af" : GOLD }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold leading-tight">{n.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.body}</p>
+                            <p className="text-[10px] text-muted-foreground/60 mt-1">
+                              {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                            </p>
+                          </div>
+                          {!n.isRead && (
+                            <button
+                              className="flex-shrink-0 mt-1 h-5 w-5 rounded flex items-center justify-center hover:bg-gray-100 transition-colors"
+                              onClick={(e) => handleMarkOne(e, n.id)}
+                              title="Mark as read"
+                            >
+                              <Check className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                          )}
+                        </div>
+                      </Wrapper>
+                    );
+                  })
                 )}
               </div>
             </DropdownMenuContent>

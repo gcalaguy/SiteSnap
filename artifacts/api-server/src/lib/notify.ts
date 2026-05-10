@@ -5,24 +5,33 @@ import { sendPushNotification } from "./push";
 interface NotifyOptions {
   userId: number;
   actorUserId?: number;
-  type: "task" | "rfi" | "inspection";
+  type: "task" | "rfi" | "inspection" | "message";
   title: string;
   body: string;
   referenceId: number;
-  projectId: number;
+  projectId?: number;
 }
 
 /**
  * Insert a notification record and fire a push notification to the user.
- * Never notifies a user of their own actions.
+ * For non-AI types, never notifies a user of their own actions.
  * Never throws — safe to call fire-and-forget.
  */
 export async function notify(opts: NotifyOptions): Promise<void> {
   const { userId, actorUserId, type, title, body, referenceId, projectId } = opts;
 
-  if (actorUserId && actorUserId === userId) return;
+  // For message (AI reply) notifications we always notify the user regardless
+  // of whether they are also the actor, since the reply comes from the AI.
+  if (type !== "message" && actorUserId && actorUserId === userId) return;
 
-  await db.insert(notificationsTable).values({ userId, type, title, body, referenceId, projectId });
+  await db.insert(notificationsTable).values({
+    userId,
+    type,
+    title,
+    body,
+    referenceId,
+    projectId: projectId ?? null,
+  });
 
   // Fire-and-forget push
   db.select({ pushToken: usersTable.pushToken })
@@ -31,7 +40,11 @@ export async function notify(opts: NotifyOptions): Promise<void> {
     .limit(1)
     .then(([user]) => {
       if (user?.pushToken) {
-        sendPushNotification(user.pushToken, title, body, { type, referenceId, projectId });
+        sendPushNotification(user.pushToken, title, body, {
+          type,
+          referenceId,
+          projectId: projectId ?? 0,
+        });
       }
     })
     .catch(() => {});

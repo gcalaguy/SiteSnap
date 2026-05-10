@@ -444,9 +444,7 @@ export const notificationsTable = pgTable("notifications", {
   title: text("title").notNull(),
   body: text("body").notNull(),
   referenceId: integer("reference_id").notNull(),
-  projectId: integer("project_id")
-    .notNull()
-    .references(() => projectsTable.id),
+  projectId: integer("project_id").references(() => projectsTable.id),
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

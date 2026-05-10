@@ -47,7 +47,10 @@ function NotificationRow({
   onPress: () => void;
 }) {
   const colors = useColors();
-  const icon = item.type === "rfi" ? "alert-circle" : "check-square";
+  const icon =
+    item.type === "message" ? "message-circle" :
+    item.type === "rfi" ? "alert-circle" :
+    "check-square";
 
   return (
     <Pressable
@@ -113,7 +116,11 @@ export default function NotificationsScreen() {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       queryClient.invalidateQueries({ queryKey: ["notifications", "unread"] });
     }
-    router.push(`/project/${item.projectId}`);
+    if (item.type === "message") {
+      router.push("/(tabs)/(home)/ask" as any);
+    } else if (item.projectId) {
+      router.push(`/project/${item.projectId}` as any);
+    }
   };
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
