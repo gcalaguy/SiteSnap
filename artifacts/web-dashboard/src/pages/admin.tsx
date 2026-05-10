@@ -202,9 +202,13 @@ function AdminPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-primary" />
-          Admin &amp; Billing
+          {isSuperAdmin ? "Admin & Billing" : "Team Management"}
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage your subscription, team seats, and company settings.</p>
+        <p className="text-muted-foreground text-sm mt-1">
+          {isSuperAdmin
+            ? "Manage your subscription, team seats, and company settings."
+            : "Manage your team seats and invite new members."}
+        </p>
       </div>
 
       {isSuperAdmin && (
@@ -277,13 +281,16 @@ function AdminPage() {
                   />
                   <div className="flex justify-between text-xs text-zinc-500">
                     <span>{seatPct}% of capacity</span>
-                    {!seatInfo.canAddMore && (
+                    {!seatInfo.canAddMore && isSuperAdmin && (
                       <button
                         className="underline text-amber-400 hover:text-amber-300"
                         onClick={(e) => { e.stopPropagation(); navigate("/super-admin"); }}
                       >
                         Upgrade plan
                       </button>
+                    )}
+                    {!seatInfo.canAddMore && !isSuperAdmin && (
+                      <span className="text-amber-400">Contact support to add seats</span>
                     )}
                   </div>
                 </div>
