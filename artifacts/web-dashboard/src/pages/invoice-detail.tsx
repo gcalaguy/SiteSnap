@@ -104,6 +104,12 @@ interface Invoice {
   createdAt: string;
   lineItems?: unknown;
   createdByUserId?: number;
+  signedAt?: string | null;
+  signatureData?: string | null;
+  signerName?: string | null;
+  signerIp?: string | null;
+  signerUserAgent?: string | null;
+  publicToken?: string | null;
 }
 
 function calcTotals(items: LineItem[], taxRate = 0.13) {
@@ -304,12 +310,12 @@ function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: strin
   const pageH = doc.internal.pageSize.getHeight();
 
   // Signature block (renders above the footer strip if signed)
-  if ((invoice as any).signedAt && (invoice as any).signatureData) {
+  if (invoice.signedAt && invoice.signatureData) {
     renderSignatureBlock(doc, {
-      signatureData: (invoice as any).signatureData,
-      signerName: (invoice as any).signerName,
-      signerIp: (invoice as any).signerIp,
-      signedAt: (invoice as any).signedAt,
+      signatureData: invoice.signatureData,
+      signerName: invoice.signerName,
+      signerIp: invoice.signerIp,
+      signedAt: invoice.signedAt,
     }, { label: "CLIENT SIGNATURE" });
   }
 
@@ -702,12 +708,12 @@ export default function InvoiceDetail() {
           )}
 
           {/* Share signing link */}
-          {(invoice as any).publicToken && invoice.status !== "cancelled" && (
+          {invoice.publicToken && invoice.status !== "cancelled" && (
             <Button
               variant="outline"
               className="gap-2"
               onClick={async () => {
-                const url = `${window.location.origin}/i/${(invoice as any).publicToken}`;
+                const url = `${window.location.origin}/i/${invoice.publicToken}`;
                 try {
                   await navigator.clipboard.writeText(url);
                   toast({ title: "Sign link copied", description: url });
@@ -721,8 +727,8 @@ export default function InvoiceDetail() {
           )}
 
           {/* Signed badge */}
-          {(invoice as any).signedAt && (
-            <SignatureBadge meta={invoice as any} />
+          {invoice.signedAt && (
+            <SignatureBadge meta={invoice as Invoice} />
           )}
 
           {/* Paid indicator */}
