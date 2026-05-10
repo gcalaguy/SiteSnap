@@ -1,6 +1,18 @@
 import { Router } from "express";
-import { db, usersTable, companiesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import {
+  db, usersTable, companiesTable,
+  rfisTable, tasksTable, quotesTable, invoicesTable, timesheetsTable,
+  formSubmissionsTable, changeOrdersTable, dailyReportsTable,
+  dailyReportPhotosTable, submissionCommentsTable, paymentsTable,
+  tradehubMessagesTable, tradehubNotificationsTable, tradehubReportsTable,
+  tradehubReactionsTable, tradehubCommentsTable, tradehubJobApplicationsTable,
+  tradehubPostsTable, notificationsTable, projectNotesTable,
+  fileAttachmentsTable, inspectionsTable, scheduleEventsTable,
+  workerSchedulesTable, timeEntriesTable, leadActivitiesTable,
+  projectDocumentsTable, estimatesTable, projectMembersTable,
+  conversations,
+} from "@workspace/db";
+import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
 import { CreateCompanyBody, UpdateMemberRoleBody } from "@workspace/api-zod";
 import crypto from "crypto";
@@ -192,10 +204,66 @@ router.delete(
       return;
     }
 
-    await db
-      .update(usersTable)
-      .set({ companyId: null })
-      .where(eq(usersTable.id, targetUserId));
+    const uid = targetUserId;
+
+    // Nullable FKs → NULL
+    await db.update(rfisTable).set({ assignedToUserId: null }).where(eq(rfisTable.assignedToUserId, uid));
+    await db.update(tasksTable).set({ assignedToUserId: null }).where(eq(tasksTable.assignedToUserId, uid));
+    await db.update(quotesTable).set({ assignedToUserId: null }).where(eq(quotesTable.assignedToUserId, uid));
+    await db.update(quotesTable).set({ approvedByUserId: null }).where(eq(quotesTable.approvedByUserId, uid));
+    await db.update(invoicesTable).set({ assignedToUserId: null }).where(eq(invoicesTable.assignedToUserId, uid));
+    await db.update(timesheetsTable).set({ reviewedByUserId: null }).where(eq(timesheetsTable.reviewedByUserId, uid));
+    await db.update(formSubmissionsTable).set({ reviewedByUserId: null }).where(eq(formSubmissionsTable.reviewedByUserId, uid));
+    await db.update(changeOrdersTable).set({ approvedByUserId: null }).where(eq(changeOrdersTable.approvedByUserId, uid));
+    // NULL quote_id on invoices referencing quotes owned by this user
+    const userQuoteIds = (await db.select({ id: quotesTable.id }).from(quotesTable).where(eq(quotesTable.createdByUserId, uid))).map(q => q.id);
+    if (userQuoteIds.length > 0) {
+      await db.update(invoicesTable).set({ quoteId: null }).where(inArray(invoicesTable.quoteId, userQuoteIds));
+    }
+
+    // Deep children first
+    const userDailyReportIds = (await db.select({ id: dailyReportsTable.id }).from(dailyReportsTable).where(eq(dailyReportsTable.submittedByUserId, uid))).map(r => r.id);
+    if (userDailyReportIds.length > 0) {
+      await db.delete(dailyReportPhotosTable).where(inArray(dailyReportPhotosTable.reportId, userDailyReportIds));
+    }
+    const userSubmissionIds = (await db.select({ id: formSubmissionsTable.id }).from(formSubmissionsTable).where(eq(formSubmissionsTable.userId, uid))).map(s => s.id);
+    if (userSubmissionIds.length > 0) {
+      await db.delete(submissionCommentsTable).where(inArray(submissionCommentsTable.submissionId, userSubmissionIds));
+    }
+    await db.delete(submissionCommentsTable).where(eq(submissionCommentsTable.userId, uid));
+    const userInvoiceIds = (await db.select({ id: invoicesTable.id }).from(invoicesTable).where(eq(invoicesTable.createdByUserId, uid))).map(i => i.id);
+    if (userInvoiceIds.length > 0) {
+      await db.delete(paymentsTable).where(inArray(paymentsTable.invoiceId, userInvoiceIds));
+    }
+
+    await db.delete(tradehubMessagesTable).where(eq(tradehubMessagesTable.senderId, uid));
+    await db.delete(tradehubNotificationsTable).where(eq(tradehubNotificationsTable.userId, uid));
+    await db.delete(tradehubReportsTable).where(eq(tradehubReportsTable.reporterId, uid));
+    await db.delete(tradehubReactionsTable).where(eq(tradehubReactionsTable.userId, uid));
+    await db.delete(tradehubCommentsTable).where(eq(tradehubCommentsTable.userId, uid));
+    await db.delete(tradehubJobApplicationsTable).where(eq(tradehubJobApplicationsTable.applicantId, uid));
+    await db.delete(tradehubPostsTable).where(eq(tradehubPostsTable.userId, uid));
+    await db.delete(notificationsTable).where(eq(notificationsTable.userId, uid));
+    await db.delete(projectNotesTable).where(eq(projectNotesTable.authorId, uid));
+    await db.delete(fileAttachmentsTable).where(eq(fileAttachmentsTable.uploadedByUserId, uid));
+    await db.delete(inspectionsTable).where(eq(inspectionsTable.inspectorId, uid));
+    await db.delete(scheduleEventsTable).where(eq(scheduleEventsTable.createdByUserId, uid));
+    await db.delete(workerSchedulesTable).where(eq(workerSchedulesTable.userId, uid));
+    await db.delete(timeEntriesTable).where(eq(timeEntriesTable.userId, uid));
+    await db.delete(leadActivitiesTable).where(eq(leadActivitiesTable.userId, uid));
+    await db.delete(formSubmissionsTable).where(eq(formSubmissionsTable.userId, uid));
+    await db.delete(projectDocumentsTable).where(eq(projectDocumentsTable.uploadedByUserId, uid));
+    await db.delete(dailyReportsTable).where(eq(dailyReportsTable.submittedByUserId, uid));
+    await db.delete(rfisTable).where(eq(rfisTable.submittedByUserId, uid));
+    await db.delete(estimatesTable).where(eq(estimatesTable.createdByUserId, uid));
+    await db.delete(changeOrdersTable).where(eq(changeOrdersTable.requestedByUserId, uid));
+    await db.delete(invoicesTable).where(eq(invoicesTable.createdByUserId, uid));
+    await db.delete(quotesTable).where(eq(quotesTable.createdByUserId, uid));
+    await db.delete(conversations).where(eq(conversations.userId, uid));
+    await db.delete(projectMembersTable).where(eq(projectMembersTable.userId, uid));
+
+    // Finally delete the user (cascades timesheets, tradehub_profiles, etc.)
+    await db.delete(usersTable).where(eq(usersTable.id, uid));
 
     res.status(204).send();
   },
