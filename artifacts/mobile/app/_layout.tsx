@@ -28,8 +28,10 @@ function RootLayoutNav() {
   const syncedRef = useRef(false);
   const [synced, setSynced] = useState(false);
 
-  const { data: me, isLoading: meLoading } = useGetMe({
-    query: { enabled: synced || !isSignedIn },
+  // Always fetch once Clerk is loaded and user is signed in so the query
+  // observer is active and invalidateQueries/refetchQueries can actually fire.
+  const { data: me, isLoading: meLoading, isFetching: meFetching } = useGetMe({
+    query: { enabled: isLoaded && !!isSignedIn },
   });
 
   const router = useRouter();
@@ -62,10 +64,8 @@ function RootLayoutNav() {
         },
       },
       {
-        onSuccess: async () => {
-          try {
-            await queryClient.refetchQueries({ queryKey: getGetMeQueryKey() });
-          } catch {}
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
           setSynced(true);
         },
         onError: () => {
@@ -93,16 +93,17 @@ function RootLayoutNav() {
       return;
     }
 
-    // Wait for sync + me query to resolve before routing
+    // Wait for sync + me query to fully settle before routing.
+    // meFetching covers the background refetch window after invalidateQueries.
     const syncPending = isSignedIn && !synced;
-    if (syncPending || meLoading) return;
+    if (syncPending || meLoading || meFetching) return;
 
     if (!me?.companyId) {
       if (!inOnboarding) router.replace("/onboarding");
     } else if (inSignIn || inOnboarding) {
       router.replace("/");
     }
-  }, [isSignedIn, isLoaded, segments, me, meLoading, synced, router]);
+  }, [isSignedIn, isLoaded, segments, me, meLoading, meFetching, synced, router]);
 
   const needsTerms = !!me && !me.termsAcceptedAt;
 
