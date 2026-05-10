@@ -102,6 +102,7 @@ export default function ReportsPage() {
                         <span className="font-medium text-foreground">{report.projectName} · </span>
                       )}
                       {report.submittedByName}
+                      <span className="ml-2 opacity-60">· Submitted {format(new Date(report.createdAt), "MMM d 'at' h:mm a")}</span>
                     </p>
                   </div>
                   <Link

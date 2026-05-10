@@ -6,6 +6,7 @@ import {
   useListTasks,
   useUpdateTask,
   useGetMe,
+  useCreateDailyReport,
   customFetch,
 } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -17,8 +18,10 @@ import { QuotesTab } from "@/components/QuotesTab";
 import { TimesheetsTab } from "@/components/TimesheetsTab";
 import { FilesTab } from "@/components/FilesTab";
 import { ClientMessagesTab } from "@/components/ClientMessagesTab";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Modal,
@@ -28,6 +31,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -226,6 +230,14 @@ function ReportRow({ report }: { report: any }) {
             {!!submittedBy && (
               <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 6 }]}>
                 Submitted by {submittedBy}
+              </Text>
+            )}
+            {!!report.createdAt && (
+              <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 2 }]}>
+                {new Date(report.createdAt).toLocaleString("en-CA", {
+                  month: "short", day: "numeric", year: "numeric",
+                  hour: "numeric", minute: "2-digit", hour12: true,
+                })}
               </Text>
             )}
           </View>
@@ -559,6 +571,190 @@ function RFIRow({ rfi, onPress }: { rfi: any; onPress: () => void }) {
   );
 }
 
+function ReportsTabSection({
+  projectId,
+  reports,
+  onReportAdded,
+}: {
+  projectId: number;
+  reports: any[];
+  onReportAdded: () => void;
+}) {
+  const colors = useColors();
+  const [expanded, setExpanded] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const createReport = useCreateDailyReport();
+
+  const voice = useVoiceRecorder((transcript) => {
+    setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${transcript}` : transcript));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  });
+
+  const today = new Date().toISOString().split("T")[0];
+  const nowLabel = new Date().toLocaleString("en-CA", {
+    weekday: "short", month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+
+  function reset() {
+    setNotes("");
+    setExpanded(false);
+    setSubmitted(false);
+  }
+
+  async function handleSubmit() {
+    if (!notes.trim()) {
+      Alert.alert("Empty note", "Please record or type your site note first.");
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    createReport.mutate(
+      { projectId, data: { reportDate: today, workPerformed: notes, crewCount: 1 } },
+      {
+        onSuccess: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setSubmitted(true);
+          onReportAdded();
+          setTimeout(reset, 2000);
+        },
+        onError: () => {
+          Alert.alert("Error", "Could not save report. Please try again.");
+        },
+      }
+    );
+  }
+
+  return (
+    <View style={styles.section}>
+      {/* Header row */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>Daily Reports</Text>
+        <TouchableOpacity
+          onPress={() => {
+            setExpanded((v) => !v);
+            setSubmitted(false);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          style={{
+            flexDirection: "row", alignItems: "center", gap: 4,
+            backgroundColor: expanded ? `${colors.primary}18` : colors.muted,
+            paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16,
+            borderWidth: 1, borderColor: expanded ? colors.primary : colors.border,
+          }}
+        >
+          <Feather name={expanded ? "x" : "plus"} size={13} color={expanded ? colors.primary : colors.mutedForeground} />
+          <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: expanded ? colors.primary : colors.mutedForeground }}>
+            {expanded ? "Cancel" : "Log Note"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Inline log panel */}
+      {expanded && (
+        <View style={{
+          borderWidth: 1, borderRadius: 12, borderColor: colors.primary,
+          backgroundColor: colors.card, padding: 14, marginBottom: 14,
+        }}>
+          {/* Timestamp label */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+            <Feather name="clock" size={13} color={colors.mutedForeground} />
+            <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+              {nowLabel}
+            </Text>
+          </View>
+
+          {/* Mic + label row */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0, fontSize: 11 }]}>
+              WHAT HAPPENED TODAY?
+            </Text>
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); voice.toggle(); }}
+              disabled={voice.state === "transcribing"}
+              style={{
+                width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center",
+                backgroundColor: voice.state === "recording" ? "#EF4444" : voice.state === "transcribing" ? colors.muted : `${colors.primary}18`,
+              }}
+            >
+              {voice.state === "transcribing" ? (
+                <ActivityIndicator size="small" color={colors.mutedForeground} />
+              ) : (
+                <Feather name={voice.state === "recording" ? "mic-off" : "mic"} size={16}
+                  color={voice.state === "recording" ? "#FFFFFF" : colors.primary} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Recording indicator */}
+          {voice.state === "recording" && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF2F2", borderRadius: 8, borderWidth: 1, borderColor: "#FECACA", paddingHorizontal: 10, paddingVertical: 7, marginBottom: 8 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#DC2626" }} />
+              <Text style={{ color: "#DC2626", fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                Recording… tap mic to stop & transcribe
+              </Text>
+            </View>
+          )}
+
+          {voice.error && (
+            <Text style={{ color: colors.destructive, fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 6 }}>
+              {voice.error}
+            </Text>
+          )}
+
+          {/* Notes textarea */}
+          <TextInput
+            style={{
+              borderRadius: 10, borderWidth: 1, borderColor: colors.border,
+              backgroundColor: colors.background, color: colors.foreground,
+              paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
+              fontFamily: "Inter_400Regular", minHeight: 90, textAlignVertical: "top",
+            }}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Speak or type your site notes…"
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            editable={voice.state !== "recording"}
+          />
+
+          {/* Submit / success */}
+          {submitted ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, backgroundColor: "#D1FAE5", borderRadius: 8, padding: 10 }}>
+              <Feather name="check-circle" size={16} color="#16A34A" />
+              <Text style={{ color: "#15803D", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>Report saved!</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={createReport.isPending || voice.state !== "idle"}
+              style={{
+                marginTop: 10, borderRadius: 10, paddingVertical: 12, alignItems: "center",
+                backgroundColor: (createReport.isPending || voice.state !== "idle") ? colors.muted : colors.primary,
+              }}
+            >
+              {createReport.isPending ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>Save Report</Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Existing reports list */}
+      {reports.length === 0 && !expanded ? (
+        <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No reports yet — tap Log Note to add one</Text>
+      ) : (
+        [...reports]
+          .sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime())
+          .map((r) => <ReportRow key={r.id} report={r} />)
+      )}
+    </View>
+  );
+}
+
 export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = Number(id);
@@ -736,16 +932,7 @@ export default function ProjectDetailScreen() {
 
       {/* Reports tab */}
       {activeTab === "Reports" && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Daily Reports</Text>
-          {(reports ?? []).length === 0 ? (
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No reports yet</Text>
-          ) : (
-            [...(reports ?? [])].sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime()).map(r => (
-              <ReportRow key={r.id} report={r} />
-            ))
-          )}
-        </View>
+        <ReportsTabSection projectId={projectId} reports={reports ?? []} onReportAdded={refetchReports} />
       )}
 
       {/* Tasks tab */}
