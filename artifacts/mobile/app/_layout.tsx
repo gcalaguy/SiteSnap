@@ -1,5 +1,4 @@
 import React, { useEffect } from "react";
-import { View } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { useGetMe } from "@workspace/api-client-react";
@@ -17,11 +16,14 @@ const tokenCache = {
   },
 };
 
-export default function RootLayoutNav() {
+SplashScreen.preventAutoHideAsync();
+
+function RootLayoutNav() {
   const { isLoaded, isSignedIn } = useAuth();
   const { data: me, isLoading: meLoading } = useGetMe();
   const router = useRouter();
   const segments = useSegments();
+
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -36,7 +38,7 @@ export default function RootLayoutNav() {
   }, [fontsLoaded, fontError]);
 
   useEffect(() => {
-    if (!isLoaded || meLoading || isSignedIn === undefined) return;
+    if (!isLoaded || meLoading) return;
     const inSignIn = segments[0] === "sign-in";
     const inOnboarding = segments[0] === "onboarding";
     if (!isSignedIn) {
@@ -51,7 +53,7 @@ export default function RootLayoutNav() {
   const needsTerms = !!me && !me.termsAcceptedAt;
 
   return (
-    <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache as any}>
+    <>
       <TermsModal visible={needsTerms} />
       <Stack screenOptions={{ headerBackTitle: "Back" }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -63,6 +65,17 @@ export default function RootLayoutNav() {
         <Stack.Screen name="sync-queue" options={{ headerShown: false, presentation: "modal" }} />
         <Stack.Screen name="schedule" options={{ headerShown: true, title: "Assigned Schedule", headerStyle: { backgroundColor: "#0A0A0A" }, headerTintColor: "#FFFFFF" }} />
       </Stack>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ClerkProvider
+      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+      tokenCache={tokenCache as any}
+    >
+      <RootLayoutNav />
     </ClerkProvider>
   );
 }
