@@ -1,10 +1,12 @@
 import { Router } from "express";
-import { db, quotesTable, invoicesTable, companiesTable } from "@workspace/db";
+import { db, quotesTable, invoicesTable, companiesTable, usersTable } from "@workspace/db";
 import { eq, and, isNull, or } from "drizzle-orm";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { getClientInfo } from "../lib/clientInfo";
+import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
@@ -87,6 +89,175 @@ async function getCompanyName(companyId: number): Promise<string | null> {
     .where(eq(companiesTable.id, companyId))
     .limit(1);
   return c?.name ?? null;
+}
+
+async function getCompanyOwnerEmail(companyId: number): Promise<string | null> {
+  const [owner] = await db
+    .select({ email: usersTable.email })
+    .from(usersTable)
+    .where(and(eq(usersTable.companyId, companyId), eq(usersTable.role, "owner")))
+    .limit(1);
+  return owner?.email ?? null;
+}
+
+const fmtCAD = (v: string | number) =>
+  new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildInvoiceSignedClientHtml(invoice: {
+  invoiceNumber: string;
+  clientName: string;
+  total: string | number;
+  signerName: string;
+  signedAt: Date;
+}, companyName: string): string {
+  const timestamp = invoice.signedAt.toUTCString();
+  const safeCompanyName = escapeHtml(companyName);
+  const safeInvoiceNumber = escapeHtml(invoice.invoiceNumber);
+  const safeClientName = escapeHtml(invoice.clientName);
+  const safeSignerName = escapeHtml(invoice.signerName);
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#172034;">
+      <div style="background:#FF6600;padding:24px 32px;border-radius:8px 8px 0 0;">
+        <h1 style="color:#fff;margin:0;font-size:22px;">${safeCompanyName}</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:14px;">Invoice Signed — ${safeInvoiceNumber}</p>
+      </div>
+      <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        <p style="margin:0 0 16px;">Hi ${safeClientName},</p>
+        <p style="margin:0 0 24px;">Thank you for signing invoice <strong>${safeInvoiceNumber}</strong>. Here is a summary for your records.</p>
+        <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:4px 0 0 0;color:#6b7280;font-size:13px;">Invoice Number</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-left:none;border-radius:0 4px 0 0;font-size:13px;font-weight:600;">${safeInvoiceNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;color:#6b7280;font-size:13px;">Total</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;font-size:13px;font-weight:600;color:#FF6600;">${fmtCAD(invoice.total)}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;color:#6b7280;font-size:13px;">Signed By</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;font-size:13px;font-weight:600;">${safeSignerName}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 0 4px;color:#6b7280;font-size:13px;">Signed At (UTC)</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;border-radius:0 0 4px 0;font-size:13px;">${timestamp}</td>
+          </tr>
+        </table>
+        <p style="margin:0;font-size:13px;color:#6b7280;">Please keep this email as your confirmation. If you have any questions, reply to this email or contact <strong>${safeCompanyName}</strong> directly.</p>
+        <p style="margin:16px 0 0;font-size:13px;font-weight:600;">${safeCompanyName}</p>
+      </div>
+      <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0;">Powered by Site Snap</p>
+    </div>
+  `;
+}
+
+function buildInvoiceSignedOwnerHtml(invoice: {
+  invoiceNumber: string;
+  clientName: string;
+  clientEmail: string | null;
+  total: string | number;
+  signerName: string;
+  signedAt: Date;
+}, companyName: string): string {
+  const timestamp = invoice.signedAt.toUTCString();
+  const safeInvoiceNumber = escapeHtml(invoice.invoiceNumber);
+  const safeClientName = escapeHtml(invoice.clientName);
+  const safeClientEmail = invoice.clientEmail ? escapeHtml(invoice.clientEmail) : null;
+  const safeSignerName = escapeHtml(invoice.signerName);
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#172034;">
+      <div style="background:#172034;padding:24px 32px;border-radius:8px 8px 0 0;">
+        <h1 style="color:#fff;margin:0;font-size:22px;">Site Snap</h1>
+        <p style="color:rgba(255,255,255,0.7);margin:4px 0 0;font-size:14px;">Invoice Signed Notification</p>
+      </div>
+      <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        <p style="margin:0 0 16px;">Your invoice has been signed by the client.</p>
+        <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:4px 0 0 0;color:#6b7280;font-size:13px;">Invoice Number</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-left:none;border-radius:0 4px 0 0;font-size:13px;font-weight:600;">${safeInvoiceNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;color:#6b7280;font-size:13px;">Client</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;font-size:13px;font-weight:600;">${safeClientName}${safeClientEmail ? ` &lt;${safeClientEmail}&gt;` : ""}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;color:#6b7280;font-size:13px;">Total</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;font-size:13px;font-weight:600;color:#FF6600;">${fmtCAD(invoice.total)}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;color:#6b7280;font-size:13px;">Signed By</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;font-size:13px;font-weight:600;">${safeSignerName}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 0 4px;color:#6b7280;font-size:13px;">Signed At (UTC)</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;border-radius:0 0 4px 0;font-size:13px;">${timestamp}</td>
+          </tr>
+        </table>
+        <p style="margin:0;font-size:13px;color:#6b7280;">Log in to Site Snap to view the signed invoice and proceed with next steps.</p>
+      </div>
+      <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0;">Powered by Site Snap</p>
+    </div>
+  `;
+}
+
+async function sendInvoiceSignedEmails(invoice: {
+  id: number;
+  invoiceNumber: string;
+  clientName: string;
+  clientEmail: string | null;
+  total: string | number;
+  signerName: string;
+  signedAt: Date;
+  companyId: number;
+}, companyName: string): Promise<void> {
+  const ownerEmail = await getCompanyOwnerEmail(invoice.companyId);
+
+  const emailPromises: Promise<void>[] = [];
+
+  if (invoice.clientEmail) {
+    const clientHtml = buildInvoiceSignedClientHtml(invoice, companyName);
+    emailPromises.push(
+      sendEmail({
+        to: [invoice.clientEmail],
+        subject: `Invoice ${invoice.invoiceNumber} — Signature Confirmed`,
+        html: clientHtml,
+      }).catch((err) => {
+        if (err instanceof ResendSandboxError) {
+          logger.warn({ invoiceId: invoice.id, sandboxWarning: err.message }, "Invoice signed client email sandboxed");
+        } else {
+          logger.error({ err, invoiceId: invoice.id }, "Failed to send invoice signed client email");
+        }
+      })
+    );
+  }
+
+  if (ownerEmail) {
+    const ownerHtml = buildInvoiceSignedOwnerHtml(invoice, companyName);
+    emailPromises.push(
+      sendEmail({
+        to: [ownerEmail],
+        subject: `Invoice ${invoice.invoiceNumber} Signed by ${invoice.signerName}`,
+        html: ownerHtml,
+      }).catch((err) => {
+        if (err instanceof ResendSandboxError) {
+          logger.warn({ invoiceId: invoice.id, sandboxWarning: err.message }, "Invoice signed owner email sandboxed");
+        } else {
+          logger.error({ err, invoiceId: invoice.id }, "Failed to send invoice signed owner email");
+        }
+      })
+    );
+  }
+
+  await Promise.all(emailPromises);
 }
 
 // ── Public Quote: GET ─────────────────────────────────────────────────────────
@@ -235,6 +406,23 @@ router.post(
     const updated = updatedRows[0];
     const companyName = await getCompanyName(updated.companyId);
     res.json(publicInvoicePayload(updated as unknown as Record<string, unknown>, companyName));
+
+    // Send confirmation emails (fire-and-forget; errors are logged, not surfaced to client)
+    sendInvoiceSignedEmails(
+      {
+        id: updated.id,
+        invoiceNumber: updated.invoiceNumber,
+        clientName: updated.clientName,
+        clientEmail: updated.clientEmail,
+        total: updated.total,
+        signerName: updated.signerName ?? parsed.data.signerName,
+        signedAt: updated.signedAt ?? info.signedAt,
+        companyId: updated.companyId,
+      },
+      companyName ?? "Site Snap"
+    ).catch((err) => {
+      logger.error({ err, invoiceId: updated.id }, "Unexpected error in sendInvoiceSignedEmails");
+    });
   }),
 );
 
