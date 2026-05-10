@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useUser } from "@clerk/react";
-import { useCreateCompany, useAcceptInvitation, useSyncUser, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useCreateCompany, useAcceptInvitation, useSyncUser, useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 
@@ -36,7 +36,17 @@ export default function OnboardingPage() {
 
   const resolvedToken = urlToken || sessionStorage.getItem(INVITE_TOKEN_KEY) || "";
 
-  const [activeTab, setActiveTab] = useState(resolvedToken ? "join" : "create");
+  const { data: dbUser } = useGetMe({
+    query: { enabled: !!clerkUser },
+  });
+  const isWorker = dbUser?.role === "worker";
+
+  const [activeTab, setActiveTab] = useState(resolvedToken || isWorker ? "join" : "create");
+
+  // Force workers to the join tab
+  useEffect(() => {
+    if (isWorker) setActiveTab("join");
+  }, [isWorker]);
 
   const createCompany = useCreateCompany();
   const acceptInvitation = useAcceptInvitation();
@@ -173,15 +183,21 @@ export default function OnboardingPage() {
             <Building2 className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Welcome to Site Snap</h1>
-          <p className="mt-2 text-muted-foreground">Let's get your workspace set up.</p>
+          <p className="mt-2 text-muted-foreground">
+            {isWorker
+              ? "Enter the invite token your owner or foreman sent you to join your team."
+              : "Let's get your workspace set up."}
+          </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="create">Create Company</TabsTrigger>
-            <TabsTrigger value="join">Join Existing</TabsTrigger>
-          </TabsList>
-          
+          {!isWorker && (
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="create">Create Company</TabsTrigger>
+              <TabsTrigger value="join">Join Existing</TabsTrigger>
+            </TabsList>
+          )}
+
           <TabsContent value="create" className="mt-6">
             <Card>
               <CardHeader>
