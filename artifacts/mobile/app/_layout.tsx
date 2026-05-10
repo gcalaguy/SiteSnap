@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { useGetMe } from "@workspace/api-client-react";
@@ -6,6 +6,8 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import * as SplashScreen from "expo-splash-screen";
 import { TermsModal } from "@/components/TermsModal";
 import * as SecureStore from "expo-secure-store";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
 
 const tokenCache = {
   async getToken(key: string) {
@@ -70,12 +72,26 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+  }));
+
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    hydrateQueryCache(queryClient).finally(() => {
+      stop = startCachePersistence(queryClient);
+    });
+    return () => { stop?.(); };
+  }, [queryClient]);
+
   return (
     <ClerkProvider
       publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
       tokenCache={tokenCache as any}
     >
-      <RootLayoutNav />
+      <QueryClientProvider client={queryClient}>
+        <RootLayoutNav />
+      </QueryClientProvider>
     </ClerkProvider>
   );
 }
