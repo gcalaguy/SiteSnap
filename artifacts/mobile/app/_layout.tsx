@@ -62,8 +62,10 @@ function RootLayoutNav() {
         },
       },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        onSuccess: async () => {
+          try {
+            await queryClient.refetchQueries({ queryKey: getGetMeQueryKey() });
+          } catch {}
           setSynced(true);
         },
         onError: () => {

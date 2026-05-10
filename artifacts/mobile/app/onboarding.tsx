@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Alert,
   Platform,
@@ -17,6 +17,7 @@ import {
   useCreateCompany,
   useAcceptInvitation,
   useSyncUser,
+  useGetMe,
   getGetMeQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,7 +35,15 @@ export default function OnboardingScreen() {
   const { user: clerkUser } = useUser();
   const queryClient = useQueryClient();
 
+  const { data: me } = useGetMe({ query: { enabled: !!clerkUser } });
+  const isWorker = me?.role === "worker";
+
   const [tab, setTab] = useState<"create" | "join">("create");
+
+  // Force workers to the join tab — they cannot create a company
+  useEffect(() => {
+    if (isWorker) setTab("join");
+  }, [isWorker]);
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
   const [province, setProvince] = useState("");
@@ -128,28 +137,34 @@ export default function OnboardingScreen() {
               <Feather name="home" size={32} color={PRIMARY} />
             </View>
             <Text style={styles.title}>Welcome to Site Snap</Text>
-            <Text style={styles.subtitle}>Let's get your workspace set up.</Text>
+            <Text style={styles.subtitle}>
+              {isWorker
+                ? "Enter the invite token your owner or foreman sent you to join your team."
+                : "Let's get your workspace set up."}
+            </Text>
           </View>
 
-          {/* Tabs */}
-          <View style={styles.tabs}>
-            <TouchableOpacity
-              style={[styles.tab, tab === "create" && styles.tabActive]}
-              onPress={() => setTab("create")}
-            >
-              <Text style={[styles.tabText, tab === "create" && styles.tabTextActive]}>
-                Create Company
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, tab === "join" && styles.tabActive]}
-              onPress={() => setTab("join")}
-            >
-              <Text style={[styles.tabText, tab === "join" && styles.tabTextActive]}>
-                Join Existing
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* Tabs — workers only see "Join Existing" */}
+          {!isWorker && (
+            <View style={styles.tabs}>
+              <TouchableOpacity
+                style={[styles.tab, tab === "create" && styles.tabActive]}
+                onPress={() => setTab("create")}
+              >
+                <Text style={[styles.tabText, tab === "create" && styles.tabTextActive]}>
+                  Create Company
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, tab === "join" && styles.tabActive]}
+                onPress={() => setTab("join")}
+              >
+                <Text style={[styles.tabText, tab === "join" && styles.tabTextActive]}>
+                  Join Existing
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Create Company */}
           {tab === "create" && (
