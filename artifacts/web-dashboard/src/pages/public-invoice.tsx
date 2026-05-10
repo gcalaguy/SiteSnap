@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ShieldCheck, Loader2, FileText, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Loader2, FileText, CheckCircle2, Ban, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { SignaturePad } from "@/components/SignaturePad";
 import { SignatureBadge } from "@/components/SignatureBadge";
@@ -49,6 +49,7 @@ export default function PublicInvoicePage() {
   const [signerName, setSignerName] = useState("");
   const [signature, setSignature] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +75,18 @@ export default function PublicInvoicePage() {
     };
   }, [token]);
 
+  async function reloadInvoice() {
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/public/invoices/${token}`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Invoice not found");
+      setInvoice(body);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   async function submitSignature() {
     if (!signature) {
       toast({ title: "Please draw your signature", variant: "destructive" });
@@ -93,6 +106,7 @@ export default function PublicInvoicePage() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Failed to submit signature");
       setInvoice(body);
+      await reloadInvoice();
       toast({ title: "Invoice acknowledged", description: "Thank you — your signature has been recorded." });
     } catch (e: any) {
       toast({ title: e.message, variant: "destructive" });
@@ -212,6 +226,32 @@ export default function PublicInvoicePage() {
               </div>
             </CardContent>
           </Card>
+        ) : invoice.status === "paid" ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-700">
+                <CreditCard className="h-5 w-5" /> Invoice Paid
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                This invoice has already been marked as paid. No signature is required.
+              </p>
+            </CardContent>
+          </Card>
+        ) : invoice.status === "cancelled" ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-muted-foreground">
+                <Ban className="h-5 w-5" /> Invoice Cancelled
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                This invoice has been cancelled and is no longer available for signing.
+              </p>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <CardHeader>
@@ -234,8 +274,8 @@ export default function PublicInvoicePage() {
                 <Label className="text-xs">Signature</Label>
                 <SignaturePad onChange={setSignature} />
               </div>
-              <Button onClick={submitSignature} disabled={submitting} className="w-full">
-                {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+              <Button onClick={submitSignature} disabled={submitting || refreshing} className="w-full">
+                {submitting || refreshing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
                 Acknowledge & Sign
               </Button>
               <p className="text-[11px] text-muted-foreground">

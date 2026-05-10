@@ -702,7 +702,7 @@ export default function InvoiceDetail() {
           )}
 
           {/* Share signing link */}
-          {(invoice as any).publicToken && invoice.status !== "draft" && (
+          {(invoice as any).publicToken && invoice.status !== "cancelled" && (
             <Button
               variant="outline"
               className="gap-2"
