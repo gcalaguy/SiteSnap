@@ -502,6 +502,13 @@ export default function InvoiceDetail() {
       [`HST (${(taxRate * 100).toFixed(0)}%)`, "", "", "", taxAmount],
       ["TOTAL CAD", "", "", "", total],
     ];
+    if (invoice.signedAt) {
+      wsData.push([]);
+      wsData.push(["Signature"]);
+      wsData.push(["Signer Name", invoice.signerName ?? ""]);
+      wsData.push(["IP Address", invoice.signerIp ?? ""]);
+      wsData.push(["Signed At", new Date(invoice.signedAt).toISOString().replace("T", " ").replace(/\.\d+Z$/, "") + " UTC"]);
+    }
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws["!cols"] = [{ wch: 30 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
     const wb = XLSX.utils.book_new();
