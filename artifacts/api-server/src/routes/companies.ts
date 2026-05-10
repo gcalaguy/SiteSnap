@@ -1,6 +1,6 @@
 import { Router } from "express";
 import {
-  db, usersTable, companiesTable,
+  db, usersTable, companiesTable, invitationsTable,
   rfisTable, tasksTable, quotesTable, invoicesTable, timesheetsTable,
   formSubmissionsTable, changeOrdersTable, dailyReportsTable,
   dailyReportPhotosTable, submissionCommentsTable, paymentsTable,
@@ -261,6 +261,12 @@ router.delete(
     await db.delete(quotesTable).where(eq(quotesTable.createdByUserId, uid));
     await db.delete(conversations).where(eq(conversations.userId, uid));
     await db.delete(projectMembersTable).where(eq(projectMembersTable.userId, uid));
+
+    // Clear any invitations for this user so they can be re-invited cleanly
+    const targetUser = await db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, uid));
+    if (targetUser[0]?.email) {
+      await db.delete(invitationsTable).where(eq(invitationsTable.email, targetUser[0].email));
+    }
 
     // Finally delete the user (cascades timesheets, tradehub_profiles, etc.)
     await db.delete(usersTable).where(eq(usersTable.id, uid));
