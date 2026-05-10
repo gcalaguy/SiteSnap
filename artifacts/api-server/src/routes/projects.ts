@@ -30,7 +30,6 @@ router.get(
   "/projects",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     if (req.userRole === "worker") {
       const userId = req.userId!;
