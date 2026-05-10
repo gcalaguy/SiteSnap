@@ -26,7 +26,7 @@ export default function RootLayoutNav() {
   }, [fontsLoaded, fontError]);
 
   useEffect(() => {
-    if (!isLoaded || meLoading) return;
+    if (!isLoaded || meLoading || isSignedIn === undefined) return;
     const inSignIn = segments[0] === "sign-in";
     const inOnboarding = segments[0] === "onboarding";
     if (!isSignedIn) {
