@@ -143,9 +143,9 @@ export default function OnboardingPage() {
       if (inviteToken.trim()) sessionStorage.setItem(INVITE_TOKEN_KEY, inviteToken.trim());
       toast({
         title: "Sign in first",
-        description: "Create an account or sign in, then you'll be automatically brought back to join your company.",
+        description: "Sign in or create an account, then you'll be automatically brought back to join your company.",
       });
-      setLocation("/sign-up");
+      setLocation("/sign-in");
       return;
     }
 

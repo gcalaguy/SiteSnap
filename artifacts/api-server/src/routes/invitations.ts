@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, companiesTable, invitationsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, lt } from "drizzle-orm";
 import { getAuth, clerkClient } from "@clerk/express";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requireSeatAvailable } from "../lib/seatEnforcement";
@@ -22,6 +22,49 @@ router.post(
     const parsed = CreateInvitationBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid body" });
+      return;
+    }
+
+    const email = parsed.data.email.toLowerCase().trim();
+
+    // Check if this email already belongs to an active member of the company
+    const [existingMember] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(and(eq(usersTable.email, email), eq(usersTable.companyId, req.companyId!)))
+      .limit(1);
+
+    if (existingMember) {
+      res.status(409).json({ error: "This person is already a member of your team." });
+      return;
+    }
+
+    // Delete any expired invitations for this email so the slot is clean
+    await db
+      .delete(invitationsTable)
+      .where(
+        and(
+          eq(invitationsTable.email, email),
+          eq(invitationsTable.companyId, req.companyId!),
+          lt(invitationsTable.expiresAt, new Date()),
+        ),
+      );
+
+    // Check if there's already a live pending invitation for this email
+    const [existingInvite] = await db
+      .select({ id: invitationsTable.id })
+      .from(invitationsTable)
+      .where(
+        and(
+          eq(invitationsTable.email, email),
+          eq(invitationsTable.companyId, req.companyId!),
+          eq(invitationsTable.status, "pending"),
+        ),
+      )
+      .limit(1);
+
+    if (existingInvite) {
+      res.status(409).json({ error: "A pending invitation has already been sent to this email. Revoke it first before re-inviting." });
       return;
     }
 
