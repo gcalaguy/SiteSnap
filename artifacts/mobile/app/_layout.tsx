@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
-import { useGetMe } from "@workspace/api-client-react";
+import { ClerkProvider, useAuth, useUser } from "@clerk/clerk-expo";
+import { useGetMe, useSyncUser, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import * as SplashScreen from "expo-splash-screen";
 import { TermsModal } from "@/components/TermsModal";
 import * as SecureStore from "expo-secure-store";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
 
 const tokenCache = {
@@ -18,11 +18,20 @@ const tokenCache = {
   },
 };
 
-SplashScreen.preventAutoHideAsync();
+try { SplashScreen.preventAutoHideAsync(); } catch {}
 
 function RootLayoutNav() {
   const { isLoaded, isSignedIn } = useAuth();
-  const { data: me, isLoading: meLoading } = useGetMe();
+  const { user: clerkUser } = useUser();
+  const queryClient = useQueryClient();
+  const syncUser = useSyncUser();
+  const syncedRef = useRef(false);
+  const [synced, setSynced] = useState(false);
+
+  const { data: me, isLoading: meLoading } = useGetMe({
+    query: { enabled: synced || !isSignedIn },
+  });
+
   const router = useRouter();
   const segments = useSegments();
 
@@ -35,22 +44,63 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+      try { SplashScreen.hideAsync(); } catch {}
     }
   }, [fontsLoaded, fontError]);
 
+  // Auto-sync DB user when Clerk session is available
   useEffect(() => {
-    if (!isLoaded || meLoading) return;
+    if (!isLoaded || !isSignedIn || !clerkUser || syncedRef.current) return;
+    syncedRef.current = true;
+    syncUser.mutate(
+      {
+        data: {
+          clerkUserId: clerkUser.id,
+          email: clerkUser.primaryEmailAddress?.emailAddress ?? "",
+          firstName: clerkUser.firstName ?? "",
+          lastName: clerkUser.lastName ?? "",
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          setSynced(true);
+        },
+        onError: () => {
+          setSynced(true);
+        },
+      },
+    );
+  }, [isLoaded, isSignedIn, clerkUser]);
+
+  // Reset sync state when user signs out
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      syncedRef.current = false;
+      setSynced(false);
+    }
+  }, [isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
     const inSignIn = segments[0] === "sign-in";
     const inOnboarding = segments[0] === "onboarding";
+
     if (!isSignedIn) {
       if (!inSignIn) router.replace("/sign-in");
-    } else if (!me?.companyId) {
+      return;
+    }
+
+    // Wait for sync + me query to resolve before routing
+    const syncPending = isSignedIn && !synced;
+    if (syncPending || meLoading) return;
+
+    if (!me?.companyId) {
       if (!inOnboarding) router.replace("/onboarding");
     } else if (inSignIn || inOnboarding) {
       router.replace("/");
     }
-  }, [isSignedIn, isLoaded, segments, me, meLoading, router]);
+  }, [isSignedIn, isLoaded, segments, me, meLoading, synced, router]);
 
   const needsTerms = !!me && !me.termsAcceptedAt;
 
