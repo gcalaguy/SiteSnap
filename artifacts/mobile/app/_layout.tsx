@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, useAuth, useUser } from "@clerk/clerk-expo";
-import { useGetMe, useSyncUser, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useGetMe, useSyncUser, getGetMeQueryKey, setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import * as SplashScreen from "expo-splash-screen";
 import { TermsModal } from "@/components/TermsModal";
 import * as SecureStore from "expo-secure-store";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
+import { setTokenGetter } from "@/utils/auth";
 
 const tokenCache = {
   async getToken(key: string) {
@@ -21,9 +22,25 @@ const tokenCache = {
 try { SplashScreen.preventAutoHideAsync(); } catch {}
 
 function RootLayoutNav() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const { user: clerkUser } = useUser();
   const queryClient = useQueryClient();
+
+  // Wire Clerk's token into customFetch so every API call carries Authorization: Bearer <token>.
+  // Also configure the base URL for native (relative URLs don't resolve in React Native).
+  useEffect(() => {
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    if (domain) setBaseUrl(`https://${domain}`);
+
+    setAuthTokenGetter(() => getToken());
+    setTokenGetter(() => getToken());
+
+    return () => {
+      setAuthTokenGetter(null);
+      setBaseUrl(null);
+    };
+  }, [getToken]);
+
   const syncUser = useSyncUser();
   const syncedRef = useRef(false);
   const [synced, setSynced] = useState(false);
@@ -64,8 +81,12 @@ function RootLayoutNav() {
         },
       },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        onSuccess: async () => {
+          // Await the refetch so setSynced(true) only fires once we have
+          // confirmed fresh data — eliminating the stale-cache routing race.
+          try {
+            await queryClient.refetchQueries({ queryKey: getGetMeQueryKey() });
+          } catch {}
           setSynced(true);
         },
         onError: () => {
