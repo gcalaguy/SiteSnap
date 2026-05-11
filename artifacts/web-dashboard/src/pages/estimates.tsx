@@ -1069,7 +1069,7 @@ export default function EstimatesPage() {
                     onClick={async () => {
                       setScanModalLoading(true);
                       try {
-                        const res = await customFetch(`/api/scans/${activeEstimate.scanId}/url`);
+                        const res = await customFetch<{ url: string }>(`/api/scans/${activeEstimate.scanId}/url`);
                         setScanModalUrl(res.url);
                         setScanModalOpen(true);
                       } catch {
