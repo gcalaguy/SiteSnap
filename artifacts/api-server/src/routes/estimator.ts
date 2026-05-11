@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, count, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
   db,
@@ -589,7 +589,7 @@ router.get(
       .where(
         and(
           eq(estimatesTable.companyId, req.companyId!),
-          eq(estimatesTable.sourceType, "smart"),
+          inArray(estimatesTable.sourceType, ["smart", "scan"]),
         ),
       )
       .orderBy(desc(estimatesTable.createdAt));

@@ -12,7 +12,10 @@ const objectStorageService = new ObjectStorageService();
 
 // POST /api/scans — register a scan record after presigned upload
 const CreateScanBody = z.object({
-  objectPath: z.string().min(1),
+  objectPath: z.string().min(1).refine(
+    (p) => p.startsWith("/objects/"),
+    { message: "objectPath must be a valid object storage path (must start with /objects/)" }
+  ),
   fileName: z.string().min(1),
   fileSizeBytes: z.number().int().positive().optional(),
 });
