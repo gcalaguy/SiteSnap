@@ -80,12 +80,6 @@ export default function ProfileScreen() {
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const isWorker = me?.role === "worker";
 
-  const { data: workerTasks, isLoading: workerTasksLoading } = useQuery({
-    queryKey: ["my-tasks"],
-    queryFn: () => customFetch<any[]>("/api/dashboard/my-tasks"),
-    enabled: isWorker && !!me?.companyId,
-  });
-
   const { data: referralData } = useQuery({
     queryKey: ["referrals"],
     queryFn: async () => {
@@ -253,61 +247,6 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Worker: My Tasks snapshot */}
-        {isWorker && (
-          <View style={styles.section}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>My Tasks</Text>
-              <TouchableOpacity onPress={() => router.push("/tasks")}>
-                <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "600" }}>See all</Text>
-              </TouchableOpacity>
-            </View>
-            {workerTasksLoading ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : !workerTasks || workerTasks.length === 0 ? (
-              <View style={[styles.emptyTasks, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Feather name="check-circle" size={28} color={colors.mutedForeground} />
-                <Text style={[{ color: colors.mutedForeground, marginTop: 8, fontSize: 14 }]}>No tasks assigned to you</Text>
-              </View>
-            ) : (
-              workerTasks.slice(0, 4).map((task: any) => {
-                const statusColors: Record<string, string> = {
-                  todo: "#6B7280",
-                  in_progress: "#F59E0B",
-                  done: "#10B981",
-                  blocked: "#EF4444",
-                };
-                const statusLabels: Record<string, string> = {
-                  todo: "To Do",
-                  in_progress: "In Progress",
-                  done: "Done",
-                  blocked: "Blocked",
-                };
-                const sc = statusColors[task.status] ?? "#6B7280";
-                return (
-                  <TouchableOpacity
-                    key={task.id}
-                    style={[styles.taskCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => router.push("/tasks")}
-                    activeOpacity={0.75}
-                  >
-                    <View style={[styles.taskDot, { backgroundColor: sc }]} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.taskTitle, { color: colors.foreground }]} numberOfLines={1}>{task.title}</Text>
-                      {task.projectName && (
-                        <Text style={[styles.taskProject, { color: colors.mutedForeground }]} numberOfLines={1}>{task.projectName}</Text>
-                      )}
-                    </View>
-                    <View style={[styles.taskBadge, { backgroundColor: `${sc}20` }]}>
-                      <Text style={[styles.taskBadgeText, { color: sc }]}>{statusLabels[task.status] ?? task.status}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </View>
-        )}
-
         {/* Quick Create — owners & foremen only */}
         {isOwnerOrForeman && (
           <View style={styles.section}>
@@ -372,24 +311,6 @@ export default function ProfileScreen() {
         {/* Tools */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Tools</Text>
-          {!isWorker && (
-            <TouchableOpacity
-              style={[styles.featureBanner, { backgroundColor: colors.sidebar, marginBottom: 8 }]}
-              onPress={() => router.push("/calculators")}
-              activeOpacity={0.85}
-            >
-              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="percent" size={22} color="#D4AF37" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.featureBannerTitle}>Trade Calculators</Text>
-                <Text style={styles.featureBannerSub}>Concrete · Electrical · Plumbing · Roofing</Text>
-              </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
-                <Feather name="arrow-right" size={14} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
-          )}
           <TouchableOpacity
             style={[styles.featureBanner, { backgroundColor: colors.sidebar }]}
             onPress={() => router.push("/tradehub")}
@@ -401,6 +322,22 @@ export default function ProfileScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.featureBannerTitle}>TradeHub</Text>
               <Text style={styles.featureBannerSub}>Canadian Trades Community</Text>
+            </View>
+            <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
+              <Feather name="arrow-right" size={14} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.featureBanner, { backgroundColor: colors.sidebar, marginTop: 8 }]}
+            onPress={() => router.push("/calculators")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+              <Feather name="percent" size={22} color="#D4AF37" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.featureBannerTitle}>Trade Calculators</Text>
+              <Text style={styles.featureBannerSub}>Concrete · Electrical · Plumbing · Roofing</Text>
             </View>
             <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
               <Feather name="arrow-right" size={14} color="#FFFFFF" />
