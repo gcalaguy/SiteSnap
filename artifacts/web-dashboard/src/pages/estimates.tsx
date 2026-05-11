@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 import { customFetch, useGetMe } from "@workspace/api-client-react";
@@ -18,7 +18,7 @@ import {
   Sparkles, FileText, Trash2, Clock,
   Loader2, X, HardHat, Package, Wrench,
   TrendingUp, ArrowRight, RotateCcw, Info,
-  Printer, Mail, FileDown, Pencil, Save, Plus, Calculator,
+  Printer, Mail, FileDown, Pencil, Save, Plus, Calculator, Box,
 } from "lucide-react";
 import SmartEstimatorTab from "@/pages/smart-estimator";
 import { format } from "date-fns";
@@ -68,7 +68,10 @@ type Estimate = {
   result: EstimateResult | null;
   status: string;
   createdAt: string;
+  scanId: number | null;
 };
+
+const LazySplatViewer = lazy(() => import("@/components/SplatViewer"));
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -810,6 +813,11 @@ function HistoryCard({ estimate, onDelete, onView }: {
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {estimate.scanId != null && (
+              <Badge variant="secondary" className="text-xs gap-0.5 px-1.5">
+                <Box className="h-2.5 w-2.5" /> 3D
+              </Badge>
+            )}
             {estimate.status === "ready" && (
               <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => onView(estimate)}>
                 View <ArrowRight className="h-3 w-3" />
@@ -847,6 +855,10 @@ export default function EstimatesPage() {
   const [tab, setTab] = useState<"estimator" | "history">("estimator");
   const [activeEstimate, setActiveEstimate] = useState<Estimate | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [scanModalUrl, setScanModalUrl] = useState<string | null>(null);
+  const [scanModalLoading, setScanModalLoading] = useState(false);
 
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailTo, setEmailTo] = useState("");
@@ -1050,6 +1062,29 @@ export default function EstimatesPage() {
                 <Button variant="outline" size="sm" className="gap-2 h-8 text-xs" onClick={() => setEmailDialogOpen(true)}>
                   <Mail className="h-3.5 w-3.5 text-primary" /> Email
                 </Button>
+                {activeEstimate.scanId != null && (
+                  <Button
+                    variant="outline" size="sm" className="gap-2 h-8 text-xs"
+                    disabled={scanModalLoading}
+                    onClick={async () => {
+                      setScanModalLoading(true);
+                      try {
+                        const res = await customFetch(`/api/scans/${activeEstimate.scanId}/url`);
+                        setScanModalUrl(res.url);
+                        setScanModalOpen(true);
+                      } catch {
+                        toast({ title: "Could not load 3D scan", variant: "destructive" });
+                      } finally {
+                        setScanModalLoading(false);
+                      }
+                    }}
+                  >
+                    {scanModalLoading
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Box className="h-3.5 w-3.5 text-violet-500" />}
+                    3D View
+                  </Button>
+                )}
               </>
             )}
             <div className="ml-auto">
@@ -1074,6 +1109,42 @@ export default function EstimatesPage() {
           ) : (
             <EstimateReport estimate={activeEstimate} />
           )}
+
+          <Dialog
+            open={scanModalOpen}
+            onOpenChange={(open) => {
+              setScanModalOpen(open);
+              if (!open) setScanModalUrl(null);
+            }}
+          >
+            <DialogContent className="sm:max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
+              <DialogHeader className="px-4 py-3 border-b border-border flex-shrink-0">
+                <DialogTitle className="flex items-center gap-2 text-sm">
+                  <Box className="h-4 w-4 text-violet-500" />
+                  3D Site Scan — {activeEstimate.title}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="flex-1 min-h-0">
+                {scanModalUrl ? (
+                  <Suspense
+                    fallback={
+                      <div className="flex flex-col items-center justify-center h-full gap-3">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-sm text-muted-foreground">Loading 3D viewer…</p>
+                      </div>
+                    }
+                  >
+                    <LazySplatViewer scanUrl={scanModalUrl} />
+                  </Suspense>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Fetching scan URL…</p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
             <DialogContent className="sm:max-w-md">
