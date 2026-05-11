@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { useThemeColors } from "@/hooks/useThemeColors";
 import { customFetch } from "@workspace/api-client-react";
+import { useColors } from "@/hooks/useColors";
 
 const GOLD = "#C9A84C";
 const BLACK = "#0A0A0A";
@@ -64,8 +64,8 @@ function fmt(n: number) {
 }
 
 export default function EstimatorScreen() {
-  const colors = useThemeColors();
-  const isDark = colors.background === BLACK || colors.background === "#111111" || colors.background.startsWith("#0");
+  const colors = useColors();
+  const isDark = false;
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [description, setDescription] = useState("");
@@ -137,10 +137,10 @@ export default function EstimatorScreen() {
     });
   }
 
-  const cardBg = isDark ? "#1a1a1a" : colors.card;
-  const borderColor = isDark ? "rgba(201,168,76,0.18)" : colors.border;
-  const textPrimary = colors.text;
-  const textMuted = isDark ? "rgba(255,255,255,0.5)" : "#6b7280";
+  const cardBg = colors.card;
+  const borderColor = colors.border;
+  const textPrimary = colors.foreground;
+  const textMuted = colors.mutedForeground;
 
   return (
     <ScrollView
