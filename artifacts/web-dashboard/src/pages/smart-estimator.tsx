@@ -51,6 +51,8 @@ import {
   X,
   Plus,
   Trash2,
+  Box,
+  ScanLine,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -478,6 +480,13 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
   const [uploadDragActive, setUploadDragActive] = useState(false);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
+  // 3D scan attachment
+  const [attachedScanFile, setAttachedScanFile] = useState<File | null>(null);
+  const [attachedScanId, setAttachedScanId] = useState<number | null>(null);
+  const [scanUploading, setScanUploading] = useState(false);
+  const [scanDragActive, setScanDragActive] = useState(false);
+  const scanFileInputRef = useRef<HTMLInputElement>(null);
+
   // Step 2 — Parsed / Editable Params
   const [params, setParams] = useState<ParsedParams>({
     project_type: "renovation_residential",
@@ -651,7 +660,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
   });
 
   const saveMutation = useMutation({
-    mutationFn: (body: { title: string; params: object; result: object; sourcePrompt?: string }) =>
+    mutationFn: (body: { title: string; params: object; result: object; sourcePrompt?: string; scanId?: number }) =>
       customFetch<{ id: number }>("/api/estimator/smart-estimates", {
         method: "POST",
         body: JSON.stringify(body),
@@ -703,6 +712,51 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
     onError: (err) => handleError(err, "Failed to record actual cost"),
   });
 
+  async function handleScanUpload(file: File) {
+    if (scanUploading) return;
+    setAttachedScanFile(file);
+    setAttachedScanId(null);
+    setScanUploading(true);
+    try {
+      const urlRes = await customFetch<{ uploadURL: string; objectPath: string }>(
+        "/api/storage/uploads/request-url",
+        {
+          method: "POST",
+          body: JSON.stringify({ name: file.name, size: file.size, contentType: "application/octet-stream" }),
+        },
+      );
+
+      const uploadRes = await fetch(urlRes.uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": "application/octet-stream" },
+      });
+      if (!uploadRes.ok) {
+        throw new Error(`Upload failed (${uploadRes.status} ${uploadRes.statusText})`);
+      }
+
+      const scan = await customFetch<{ id: number }>(
+        "/api/scans",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            objectPath: urlRes.objectPath,
+            fileName: file.name,
+            fileSizeBytes: file.size,
+          }),
+        },
+      );
+
+      setAttachedScanId(scan.id);
+      toast({ title: "3D scan attached", description: `${file.name} is ready to save with this estimate.` });
+    } catch (err) {
+      setAttachedScanFile(null);
+      toast({ title: "Scan upload failed", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setScanUploading(false);
+    }
+  }
+
   const handleParseAndNext = () => {
     if (inputMode === "text") {
       if (freeText.trim().length < 10) {
@@ -744,6 +798,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
         },
         costModelUsed: estimateResult.costModelUsed,
       },
+      ...(attachedScanId != null ? { scanId: attachedScanId } : {}),
     });
   };
 
@@ -769,6 +824,8 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
     setEstimateResult(null);
     setLineItems([]);
     setSavedEstimateId(null);
+    setAttachedScanFile(null);
+    setAttachedScanId(null);
     setParams({ project_type: "renovation_residential", square_feet: 1000, finish_level: "standard", addons: [], confidence: 100, notes: "" });
   };
 
@@ -1315,9 +1372,99 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
               </div>
             )}
 
+            {/* ── 3D Scan Attachment (optional) ───────────────────────── */}
+            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Box className="h-4 w-4 text-violet-500" />
+                <span className="text-sm font-medium">Attach 3D Scan</span>
+                <span className="text-xs text-muted-foreground">(optional · .ply, .sog, .compressed.ply)</span>
+                {attachedScanId && (
+                  <span className="ml-auto flex items-center gap-1 text-xs text-green-600 font-medium">
+                    <Check className="h-3.5 w-3.5" /> Scan attached
+                  </span>
+                )}
+              </div>
+
+              {attachedScanFile ? (
+                <div className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2">
+                  {scanUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-violet-500 flex-shrink-0" />
+                  ) : attachedScanId ? (
+                    <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <Box className="h-4 w-4 text-violet-500 flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{attachedScanFile.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {(attachedScanFile.size / 1024 / 1024).toFixed(2)} MB ·{" "}
+                      {scanUploading ? "Uploading…" : attachedScanId ? "Ready" : "Upload failed"}
+                    </p>
+                  </div>
+                  {!scanUploading && (
+                    <button
+                      className="p-1 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive"
+                      onClick={() => { setAttachedScanFile(null); setAttachedScanId(null); }}
+                      title="Remove scan"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div
+                  className={cn(
+                    "relative border border-dashed rounded-md px-4 py-3 text-center cursor-pointer transition-colors",
+                    scanDragActive ? "border-violet-400 bg-violet-50" : "border-border hover:border-violet-300 hover:bg-muted/40",
+                  )}
+                  onClick={() => scanFileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setScanDragActive(true); }}
+                  onDragLeave={() => setScanDragActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setScanDragActive(false);
+                    const f = e.dataTransfer.files[0];
+                    if (f) {
+                      const name = f.name.toLowerCase();
+                      if (!name.endsWith(".ply") && !name.endsWith(".sog") && !name.endsWith(".compressed.ply")) {
+                        toast({ title: "Unsupported file type", description: "Please select a .ply, .sog, or .compressed.ply file.", variant: "destructive" });
+                        return;
+                      }
+                      handleScanUpload(f);
+                    }
+                  }}
+                >
+                  <input
+                    ref={scanFileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".ply,.sog,.compressed.ply"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const name = f.name.toLowerCase();
+                      if (!name.endsWith(".ply") && !name.endsWith(".sog") && !name.endsWith(".compressed.ply")) {
+                        toast({ title: "Unsupported file type", description: "Please select a .ply, .sog, or .compressed.ply file.", variant: "destructive" });
+                        e.target.value = "";
+                        return;
+                      }
+                      handleScanUpload(f);
+                    }}
+                  />
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                    <ScanLine className="h-4 w-4 text-violet-400" />
+                    <span className="text-xs">Drop a .ply, .sog, or .compressed.ply file here, or <span className="text-violet-600 font-medium">browse</span></span>
+                  </div>
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Attaching a scan enables the <strong>3D View</strong> button on the saved estimate.
+              </p>
+            </div>
+
             <Button
               onClick={handleParseAndNext}
-              disabled={isLoading}
+              disabled={isLoading || scanUploading}
               className="w-full gap-2"
               size="lg"
             >
@@ -1325,6 +1472,8 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                 <><Loader2 className="h-4 w-4 animate-spin" />
                   {parseFromFileMutation.isPending ? "Reading file with AI…" : "Parsing with AI…"}
                 </>
+              ) : scanUploading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />Uploading scan…</>
               ) : (
                 <><Sparkles className="h-4 w-4" />
                   {inputMode === "text" ? "Extract Parameters with AI" : inputMode === "file" ? "Extract Parameters from File" : "Continue to Review"}
@@ -1650,14 +1799,26 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
             <DialogTitle>Save Estimate</DialogTitle>
             <DialogDescription>Give your estimate a name so you can find it later.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label>Estimate name</Label>
-            <Input
-              value={saveTitle}
-              onChange={(e) => setSaveTitle(e.target.value)}
-              placeholder="e.g. Smith Basement Renovation"
-              autoFocus
-            />
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label>Estimate name</Label>
+              <Input
+                value={saveTitle}
+                onChange={(e) => setSaveTitle(e.target.value)}
+                placeholder="e.g. Smith Basement Renovation"
+                autoFocus
+              />
+            </div>
+            {attachedScanId && (
+              <div className="flex items-center gap-2 rounded-md border border-violet-200 bg-violet-50 px-3 py-2">
+                <Box className="h-4 w-4 text-violet-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-violet-900 truncate">{attachedScanFile?.name}</p>
+                  <p className="text-[10px] text-violet-600">3D scan will be linked — enables the 3D View button</p>
+                </div>
+                <Check className="h-3.5 w-3.5 text-violet-500 flex-shrink-0" />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSaveDialog(false)}>Cancel</Button>
