@@ -1,0 +1,42 @@
+This prompt is engineered to guide an AI agent through a complex, multi-platform integration. It ensures that the SuperSplat 3D scan isn't just a visual gimmick, but a functional data source for your existing Estimator logic.
+
+The Master Prompt: SuperSplat 3D Integration
+Task: Integrate SuperSplat 3D Scanning & Visual Estimation (Mobile + Web Sync)
+
+Context: > I am integrating SuperSplat (Gaussian Splatting) into SiteSnap. We need to allow users to capture/view 3D site scans on mobile and use that data to trigger a new estimate that syncs to the Web Dashboard.
+
+1. Mobile Quick Action (iOS/Android):
+
+Add a new "3D Site Scan" action to the Quick Actions menu in the mobile app for all roles.
+
+This action should trigger a placeholder "Capture" workflow (standardizing on .ply or .sog file types) that uploads the scan to our existing cloud storage.
+
+2. 3D-to-Estimate Workflow:
+
+Once a scan is captured or selected on mobile, provide an option: "Generate Estimate from Scan."
+
+This should route the user to the "Estimator" flow.
+
+Logic: Pass the Scan ID as metadata to the new estimate. Use the existing "Smart Estimator" backend logic to initialize an estimate record.
+
+3. Web Dashboard Integration:
+
+Update the Estimates page on the Web Dashboard to support a "3D View" tab or modal.
+
+Integrate the @playcanvas/supersplat-viewer to render the uploaded scan associated with that estimate.
+
+Ensure the pricing data from the Pricing DB remains the source of truth for the financial output, even when viewing the 3D model.
+
+4. Data Sync & Persistence:
+
+Ensure the mobile-created estimate is saved to the central database using the current schema.
+
+It must appear immediately in the "Past Estimates" list on both mobile and web.
+
+5. Safety & Constraints:
+
+Do not modify the existing pricing calculation engine or the "Structured Form" logic.
+
+Ensure the 3D viewer is lazy-loaded to prevent performance lag on the web dashboard.
+
+Maintain backward compatibility: estimates without 3D scans should still display normally without errors.
