@@ -547,6 +547,7 @@ const SaveSmartEstimateBody = z.object({
   }),
   result: z.record(z.unknown()),
   sourcePrompt: z.string().optional(),
+  scanId: z.number().int().positive().optional(),
 });
 
 router.post(
@@ -558,16 +559,17 @@ router.post(
     const parsed = SaveSmartEstimateBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
 
-    const { title, params, result, sourcePrompt } = parsed.data;
+    const { title, params, result, sourcePrompt, scanId } = parsed.data;
 
     const [estimate] = await db.insert(estimatesTable).values({
       companyId: req.companyId!,
       createdByUserId: req.userId!,
       title,
       scopeText: sourcePrompt ?? null,
-      sourceType: "smart",
+      sourceType: scanId ? "scan" : "smart",
       status: "ready",
       result: { ...result, _params: params },
+      scanId: scanId ?? null,
     }).returning();
 
     res.status(201).json(estimate);

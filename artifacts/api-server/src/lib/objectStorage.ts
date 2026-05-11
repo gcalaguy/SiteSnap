@@ -175,6 +175,16 @@ export class ObjectStorageService {
     return `/objects/${entityId}`;
   }
 
+  async getObjectEntityReadURL(objectPath: string, ttlSec = 900): Promise<string> {
+    const objectFile = await this.getObjectEntityFile(objectPath);
+    return signObjectURL({
+      bucketName: objectFile.bucket.name,
+      objectName: objectFile.name,
+      method: "GET",
+      ttlSec,
+    });
+  }
+
   async trySetObjectEntityAclPolicy(
     rawPath: string,
     aclPolicy: ObjectAclPolicy
@@ -262,6 +272,6 @@ async function signObjectURL({
     );
   }
 
-  const { signed_url: signedURL } = await response.json();
-  return signedURL;
+  const body = (await response.json()) as { signed_url: string };
+  return body.signed_url;
 }

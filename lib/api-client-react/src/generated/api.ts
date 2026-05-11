@@ -58,6 +58,7 @@ import type {
   CreateProjectBody,
   CreateQuoteBody,
   CreateRFIBody,
+  CreateScanBody,
   CreateTaskBody,
   DailyReport,
   DailyReportPhoto,
@@ -105,6 +106,8 @@ import type {
   RegisterFileBody,
   RejectQuoteBody,
   Rfi,
+  ScanRecord,
+  ScanUrlResponse,
   SendInvoiceEmail200,
   SendInvoiceEmailBody,
   SendInvoiceReminder200,
@@ -9984,6 +9987,179 @@ export function useGetStorageObject<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStorageObjectQueryOptions(objectPath, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register a 3D scan record after presigned upload
+ */
+export const getCreateScanUrl = () => {
+  return `/api/scans`;
+};
+
+export const createScan = async (
+  createScanBody: CreateScanBody,
+  options?: RequestInit,
+): Promise<ScanRecord> => {
+  return customFetch<ScanRecord>(getCreateScanUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createScanBody),
+  });
+};
+
+export const getCreateScanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createScan>>,
+    TError,
+    { data: BodyType<CreateScanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createScan>>,
+  TError,
+  { data: BodyType<CreateScanBody> },
+  TContext
+> => {
+  const mutationKey = ["createScan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createScan>>,
+    { data: BodyType<CreateScanBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createScan(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateScanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createScan>>
+>;
+export type CreateScanMutationBody = BodyType<CreateScanBody>;
+export type CreateScanMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register a 3D scan record after presigned upload
+ */
+export const useCreateScan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createScan>>,
+    TError,
+    { data: BodyType<CreateScanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createScan>>,
+  TError,
+  { data: BodyType<CreateScanBody> },
+  TContext
+> => {
+  return useMutation(getCreateScanMutationOptions(options));
+};
+
+/**
+ * @summary Get a signed read URL for a 3D scan file
+ */
+export const getGetScanUrlUrl = (id: number) => {
+  return `/api/scans/${id}/url`;
+};
+
+export const getScanUrl = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ScanUrlResponse> => {
+  return customFetch<ScanUrlResponse>(getGetScanUrlUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetScanUrlQueryKey = (id: number) => {
+  return [`/api/scans/${id}/url`] as const;
+};
+
+export const getGetScanUrlQueryOptions = <
+  TData = Awaited<ReturnType<typeof getScanUrl>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScanUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetScanUrlQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getScanUrl>>> = ({
+    signal,
+  }) => getScanUrl(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getScanUrl>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetScanUrlQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getScanUrl>>
+>;
+export type GetScanUrlQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a signed read URL for a 3D scan file
+ */
+
+export function useGetScanUrl<
+  TData = Awaited<ReturnType<typeof getScanUrl>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScanUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetScanUrlQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

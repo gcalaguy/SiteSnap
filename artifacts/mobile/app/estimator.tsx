@@ -21,6 +21,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { format } from "date-fns";
 import { useRef } from "react";
+import { useLocalSearchParams } from "expo-router";
 
 const GOLD = "#C9A84C";
 
@@ -148,6 +149,8 @@ function fmt(n: number | undefined | null) {
 export default function EstimatorScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
+  const { scanId: rawScanId, scanName } = useLocalSearchParams<{ scanId?: string; scanName?: string }>();
+  const incomingScanId = rawScanId ? parseInt(rawScanId, 10) : undefined;
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [inputMode, setInputMode] = useState<"text" | "form" | "voice">("text");
@@ -251,7 +254,7 @@ export default function EstimatorScreen() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: (body: { title: string; params: object; result: object; sourcePrompt?: string }) =>
+    mutationFn: (body: { title: string; params: object; result: object; sourcePrompt?: string; scanId?: number }) =>
       customFetch<{ id: number }>("/api/estimator/smart-estimates", {
         method: "POST",
         body: JSON.stringify(body),
@@ -336,6 +339,7 @@ export default function EstimatorScreen() {
     saveMutation.mutate({
       title: saveTitle.trim(),
       sourcePrompt: freeText || undefined,
+      scanId: incomingScanId,
       params: { ...params, margin_pct: marginPct },
       result: {
         lineItems,

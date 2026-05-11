@@ -2252,6 +2252,48 @@ paths:
         "404":
           description: Not found
 
+  # ── Scans ──────────────────────────────────────────────────────────────────
+
+  /scans:
+    post:
+      operationId: createScan
+      tags: [Storage]
+      summary: Register a 3D scan record after presigned upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScanBody"
+      responses:
+        "201":
+          description: Scan record created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanRecord"
+
+  /scans/{id}/url:
+    get:
+      operationId: getScanUrl
+      tags: [Storage]
+      summary: Get a signed read URL for a 3D scan file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Signed URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanUrlResponse"
+        "404":
+          description: Scan not found
+
   # ── Quotes ──────────────────────────────────────────────────────────────────
 
   /projects/{projectId}/quotes:
@@ -2899,6 +2941,48 @@ components:
         type: string
 
   schemas:
+    ScanRecord:
+      type: object
+      required: [id, companyId, createdByUserId, objectPath, fileName, createdAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        createdByUserId:
+          type: integer
+        objectPath:
+          type: string
+        fileName:
+          type: string
+        fileSizeBytes:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateScanBody:
+      type: object
+      required: [objectPath, fileName]
+      properties:
+        objectPath:
+          type: string
+        fileName:
+          type: string
+        fileSizeBytes:
+          type: integer
+          nullable: true
+
+    ScanUrlResponse:
+      type: object
+      required: [url, scan]
+      properties:
+        url:
+          type: string
+        scan:
+          $ref: "#/components/schemas/ScanRecord"
+
     HealthStatus:
       type: object
       properties:

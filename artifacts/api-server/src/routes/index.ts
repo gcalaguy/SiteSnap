@@ -43,6 +43,7 @@ import inspectionsRouter from "./inspections";
 import riskDashboardRouter from "./riskDashboard";
 import scheduleEventsRouter from "./scheduleEvents";
 import publicRouter from "./public";
+import scansRouter from "./scans";
 
 const router: IRouter = Router();
 
@@ -92,5 +93,6 @@ router.use(photoSummaryRouter);
 router.use(inspectionsRouter);
 router.use(riskDashboardRouter);
 router.use(scheduleEventsRouter);
+router.use(scansRouter);
 
 export default router;

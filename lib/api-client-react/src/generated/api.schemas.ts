@@ -5,6 +5,27 @@
  * Construction AI Assistant API
  * OpenAPI spec version: 0.1.0
  */
+export interface ScanRecord {
+  id: number;
+  companyId: number;
+  createdByUserId: number;
+  objectPath: string;
+  fileName: string;
+  fileSizeBytes?: number | null;
+  createdAt: string;
+}
+
+export interface CreateScanBody {
+  objectPath: string;
+  fileName: string;
+  fileSizeBytes?: number | null;
+}
+
+export interface ScanUrlResponse {
+  url: string;
+  scan: ScanRecord;
+}
+
 export interface HealthStatus {
   status: string;
 }

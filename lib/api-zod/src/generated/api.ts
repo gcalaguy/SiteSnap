@@ -2448,6 +2448,35 @@ export const GetStorageObjectParams = zod.object({
 });
 
 /**
+ * @summary Register a 3D scan record after presigned upload
+ */
+export const CreateScanBody = zod.object({
+  objectPath: zod.string(),
+  fileName: zod.string(),
+  fileSizeBytes: zod.number().nullish(),
+});
+
+/**
+ * @summary Get a signed read URL for a 3D scan file
+ */
+export const GetScanUrlParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetScanUrlResponse = zod.object({
+  url: zod.string(),
+  scan: zod.object({
+    id: zod.number(),
+    companyId: zod.number(),
+    createdByUserId: zod.number(),
+    objectPath: zod.string(),
+    fileName: zod.string(),
+    fileSizeBytes: zod.number().nullish(),
+    createdAt: zod.coerce.date(),
+  }),
+});
+
+/**
  * @summary List quotes for a project
  */
 export const ListQuotesParams = zod.object({
