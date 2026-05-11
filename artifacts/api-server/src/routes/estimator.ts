@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import { eq, and, desc, count } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -339,13 +340,76 @@ router.post(
   "/estimator/parse",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = ParseBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
 
     await seedPricingData();
     const params = await parsePromptToParams(parsed.data.prompt);
+    res.json(params);
+  }),
+);
+
+// POST /api/estimator/parse-from-file — upload file → extract text → AI parse params
+const fileUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+router.post(
+  "/estimator/parse-from-file",
+  requireAuth,
+  requireCompany,
+  fileUpload.single("file"),
+  asyncHandler(async (req, res) => {
+    const file = req.file;
+    if (!file) throw new BadRequestError("No file uploaded");
+
+    let extractedText: string;
+    const mime = file.mimetype.toLowerCase();
+    const filename = file.originalname.toLowerCase();
+
+    if (mime.startsWith("image/") || /\.(png|jpg|jpeg|webp|heic)$/.test(filename)) {
+      const base64 = file.buffer.toString("base64");
+      const dataUrl = `data:${file.mimetype};base64,${base64}`;
+      const visionResponse = await openai.chat.completions.create({
+        model: "gpt-4o",
+        max_tokens: 1024,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: "Analyze this construction plan or document image. Extract a detailed description of the project scope, including project type, approximate size in square feet, finish quality (basic/standard/premium/luxury), and any specific requirements visible. Be specific and comprehensive." },
+            { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
+          ],
+        }],
+      });
+      extractedText = visionResponse.choices[0]?.message?.content ?? "";
+      if (!extractedText) throw new BadRequestError("Could not extract information from the image");
+    } else {
+      let text: string | null = null;
+      if (mime.includes("pdf") || filename.endsWith(".pdf")) {
+        try {
+          // @ts-ignore
+          const pdfParse = (await import("pdf-parse")).default;
+          const parsed = await pdfParse(file.buffer);
+          text = parsed.text?.trim() || null;
+        } catch { text = null; }
+      } else if (mime.includes("word") || mime.includes("docx") || filename.endsWith(".docx") || filename.endsWith(".doc")) {
+        try {
+          const mammoth = await import("mammoth");
+          const result = await mammoth.extractRawText({ buffer: file.buffer });
+          text = result.value?.trim() || null;
+        } catch { text = null; }
+      } else if (mime.startsWith("text/") || filename.endsWith(".txt")) {
+        text = file.buffer.toString("utf-8").trim();
+      }
+      if (!text || text.length < 10) {
+        throw new BadRequestError("Could not extract readable text from the file. Please try a PDF, Word document, text file, or image.");
+      }
+      extractedText = text;
+    }
+
+    const hint = typeof req.body.hint === "string" ? req.body.hint.trim() : "";
+    const fullPrompt = hint ? `${extractedText}\n\nAdditional context: ${hint}` : extractedText;
+    await seedPricingData();
+    const params = await parsePromptToParams(fullPrompt);
     res.json(params);
   }),
 );
@@ -363,7 +427,6 @@ router.post(
   "/estimator/calculate",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = CalculateBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");

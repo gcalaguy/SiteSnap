@@ -1,8 +1,7 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 import { customFetch, useGetMe } from "@workspace/api-client-react";
-import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { queryClient } from "@/lib/queryClient";
 import { downloadEstimatePDF, downloadEstimateDocx, printEstimate, type CompanyInfo } from "@/lib/estimateExport";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,10 +15,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Sparkles, Upload, FileText, Trash2, Clock, ChevronDown, ChevronUp,
-  AlertCircle, Loader2, X, HardHat, Hammer, Package, Wrench,
-  TrendingUp, ArrowRight, FilePlus, RotateCcw, Info, Mic, MicOff,
-  Download, Printer, Mail, FileDown, Pencil, Save, Plus, Building2, Calculator,
+  Sparkles, FileText, Trash2, Clock,
+  Loader2, X, HardHat, Package, Wrench,
+  TrendingUp, ArrowRight, RotateCcw, Info,
+  Printer, Mail, FileDown, Pencil, Save, Plus, Calculator,
 } from "lucide-react";
 import SmartEstimatorTab from "@/pages/smart-estimator";
 import { format } from "date-fns";
@@ -845,19 +844,9 @@ export default function EstimatesPage() {
   const { data: me } = useGetMe();
   const { getToken } = useAuth();
 
-  const voice = useVoiceRecorder((transcript) => {
-    setScope((prev) => (prev ? `${prev.trimEnd()} ${transcript}` : transcript));
-  });
-
-  const [tab, setTab] = useState<"ai" | "smart" | "history">("ai");
-  const [mode, setMode] = useState<"text" | "file">("text");
-  const [scope, setScope] = useState("");
-  const [hint, setHint] = useState("");
-  const [dragActive, setDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [tab, setTab] = useState<"estimator" | "history">("estimator");
   const [activeEstimate, setActiveEstimate] = useState<Estimate | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailTo, setEmailTo] = useState("");
@@ -866,7 +855,6 @@ export default function EstimatesPage() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
   const [printing, setPrinting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
 
   async function fetchLogoDataUrl(): Promise<string | undefined> {
     const logoPath = (me?.company as any)?.logoPath;
@@ -899,72 +887,11 @@ export default function EstimatesPage() {
     mutationFn: (id: number) => customFetch(`/api/estimates/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["estimates"] });
+      if (activeEstimate) setActiveEstimate(null);
       toast({ title: "Estimate deleted" });
     },
     onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
   });
-
-  async function handleGenerate() {
-    if (mode === "text") {
-      if (scope.trim().length < 20) {
-        toast({ title: "Please provide at least 20 characters of scope description", variant: "destructive" });
-        return;
-      }
-      setIsGenerating(true);
-      try {
-        const result = await customFetch<Estimate>("/api/estimates/generate", {
-          method: "POST",
-          body: JSON.stringify({ scope }),
-        });
-        queryClient.invalidateQueries({ queryKey: ["estimates"] });
-        setActiveEstimate(result);
-        setScope("");
-        toast({ title: "Estimate ready" });
-      } catch (e: any) {
-        toast({ title: e.message ?? "Generation failed", variant: "destructive" });
-      } finally {
-        setIsGenerating(false);
-      }
-    } else {
-      if (!selectedFile) {
-        toast({ title: "Please select a file", variant: "destructive" });
-        return;
-      }
-      setIsGenerating(true);
-      try {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        if (hint.trim()) formData.append("hint", hint.trim());
-
-        const res = await fetch(`${BASE}/api/estimates/generate-from-file`, {
-          method: "POST",
-          body: formData,
-          headers: { Authorization: `Bearer ${await fetchAuthToken()}` },
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error ?? "Generation failed");
-        }
-        const result: Estimate = await res.json();
-        queryClient.invalidateQueries({ queryKey: ["estimates"] });
-        setActiveEstimate(result);
-        setSelectedFile(null);
-        setHint("");
-        toast({ title: "Estimate ready" });
-      } catch (e: any) {
-        toast({ title: e.message ?? "Generation failed", variant: "destructive" });
-      } finally {
-        setIsGenerating(false);
-      }
-    }
-  }
-
-  // Get auth token for raw multipart fetch (Clerk token)
-  async function fetchAuthToken(): Promise<string | null> {
-    try {
-      return await getToken() ?? null;
-    } catch { return null; }
-  }
 
   async function handleSendEmail() {
     if (!activeEstimate || !emailTo.trim()) return;
@@ -994,6 +921,17 @@ export default function EstimatesPage() {
     }
   }
 
+  function handleViewEstimate(est: Estimate) {
+    setActiveEstimate(est);
+    setIsEditing(false);
+    setTab("history");
+  }
+
+  function handleBackToList() {
+    setActiveEstimate(null);
+    setIsEditing(false);
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1004,12 +942,12 @@ export default function EstimatesPage() {
             Estimating
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            AI-powered cost estimation — describe scope, upload plans, or use the Smart Estimator
+            DB-driven pricing · AI-powered parsing · type scope or upload plans
           </p>
         </div>
-        {tab === "ai" && activeEstimate && (
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => setActiveEstimate(null)}>
-            <FilePlus className="h-4 w-4" /> New Estimate
+        {tab === "history" && activeEstimate && (
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleBackToList}>
+            <RotateCcw className="h-4 w-4" /> Back to List
           </Button>
         )}
       </div>
@@ -1017,8 +955,7 @@ export default function EstimatesPage() {
       {/* Tab bar */}
       <div className="flex rounded-lg border border-border overflow-hidden">
         {([
-          { key: "ai" as const, label: "AI Estimator", icon: Sparkles },
-          { key: "smart" as const, label: "Smart Estimator", icon: Calculator },
+          { key: "estimator" as const, label: "Estimator", icon: Calculator },
           { key: "history" as const, label: "Past Estimates", icon: Clock },
         ]).map(({ key, label, icon: Icon }) => (
           <button
@@ -1028,7 +965,7 @@ export default function EstimatesPage() {
                 ? "bg-primary text-white"
                 : "bg-transparent text-muted-foreground hover:bg-muted/60"
             }`}
-            onClick={() => { setTab(key); if (key !== "ai") setActiveEstimate(null); }}
+            onClick={() => { setTab(key); setActiveEstimate(null); setIsEditing(false); }}
           >
             <Icon className="h-3.5 w-3.5" />
             {label}
@@ -1041,25 +978,23 @@ export default function EstimatesPage() {
         ))}
       </div>
 
-      {tab === "ai" && (activeEstimate ? (
-        /* ── Active Estimate View ── */
+      {/* Estimator tab — renders the full DB-backed estimator */}
+      {tab === "estimator" && <SmartEstimatorTab />}
+
+      {/* Past Estimates tab */}
+      {tab === "history" && (activeEstimate ? (
+        /* ── Viewing a saved estimate ── */
         <div className="space-y-4">
-          {/* Title row */}
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <h2 className="text-xl font-bold">{activeEstimate.title}</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Generated {format(new Date(activeEstimate.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                {format(new Date(activeEstimate.createdAt), "MMM d, yyyy 'at' h:mm a")}
                 {activeEstimate.sourceFilename && ` · from ${activeEstimate.sourceFilename}`}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 text-muted-foreground"
-              onClick={() => setActiveEstimate(null)}
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> New
+            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={handleBackToList}>
+              <RotateCcw className="h-3.5 w-3.5" /> Back
             </Button>
           </div>
 
@@ -1068,16 +1003,13 @@ export default function EstimatesPage() {
             {!isEditing && (
               <>
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 h-8 text-xs"
+                  variant="outline" size="sm" className="gap-2 h-8 text-xs"
                   disabled={exportingPdf}
                   onClick={async () => {
                     setExportingPdf(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      const co = me?.company as any;
-                      await downloadEstimatePDF(activeEstimate, false, logo, co ?? undefined);
+                      await downloadEstimatePDF(activeEstimate, false, logo, (me?.company as any) ?? undefined);
                     } catch { toast({ title: "PDF export failed", variant: "destructive" }); }
                     finally { setExportingPdf(false); }
                   }}
@@ -1085,18 +1017,14 @@ export default function EstimatesPage() {
                   {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 text-red-500" />}
                   Save as PDF
                 </Button>
-
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 h-8 text-xs"
+                  variant="outline" size="sm" className="gap-2 h-8 text-xs"
                   disabled={exportingDocx}
                   onClick={async () => {
                     setExportingDocx(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      const co = me?.company as any;
-                      await downloadEstimateDocx(activeEstimate, logo, co ?? undefined);
+                      await downloadEstimateDocx(activeEstimate, logo, (me?.company as any) ?? undefined);
                     } catch { toast({ title: "Word export failed", variant: "destructive" }); }
                     finally { setExportingDocx(false); }
                   }}
@@ -1104,18 +1032,14 @@ export default function EstimatesPage() {
                   {exportingDocx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 text-blue-600" />}
                   Save as Word
                 </Button>
-
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 h-8 text-xs"
+                  variant="outline" size="sm" className="gap-2 h-8 text-xs"
                   disabled={printing}
                   onClick={async () => {
                     setPrinting(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      const co = me?.company as any;
-                      await printEstimate(activeEstimate, logo, co ?? undefined);
+                      await printEstimate(activeEstimate, logo, (me?.company as any) ?? undefined);
                     } catch { toast({ title: "Print failed", variant: "destructive" }); }
                     finally { setPrinting(false); }
                   }}
@@ -1123,23 +1047,14 @@ export default function EstimatesPage() {
                   {printing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
                   Print
                 </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 h-8 text-xs"
-                  onClick={() => setEmailDialogOpen(true)}
-                >
-                  <Mail className="h-3.5 w-3.5 text-primary" />
-                  Email
+                <Button variant="outline" size="sm" className="gap-2 h-8 text-xs" onClick={() => setEmailDialogOpen(true)}>
+                  <Mail className="h-3.5 w-3.5 text-primary" /> Email
                 </Button>
               </>
             )}
-
             <div className="ml-auto">
               <Button
-                variant={isEditing ? "default" : "outline"}
-                size="sm"
+                variant={isEditing ? "default" : "outline"} size="sm"
                 className={`gap-2 h-8 text-xs ${isEditing ? "bg-muted hover:bg-muted/80 text-foreground" : ""}`}
                 onClick={() => setIsEditing((v) => !v)}
               >
@@ -1160,7 +1075,6 @@ export default function EstimatesPage() {
             <EstimateReport estimate={activeEstimate} />
           )}
 
-          {/* Email dialog */}
           <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
@@ -1175,20 +1089,19 @@ export default function EstimatesPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground">Recipient email address</label>
                   <Input
-                    type="email"
-                    placeholder="client@example.com"
-                    value={emailTo}
-                    onChange={(e) => setEmailTo(e.target.value)}
+                    type="email" placeholder="client@example.com"
+                    value={emailTo} onChange={(e) => setEmailTo(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && emailTo.trim()) handleSendEmail(); }}
                     autoFocus
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground">Personal message <span className="font-normal text-muted-foreground">(optional)</span></label>
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Personal message <span className="font-normal">(optional)</span>
+                  </label>
                   <Textarea
-                    placeholder="Hi John, please find the estimate for the basement renovation attached below…"
-                    value={emailMessage}
-                    onChange={(e) => setEmailMessage(e.target.value)}
+                    placeholder="Hi John, please find the estimate attached below…"
+                    value={emailMessage} onChange={(e) => setEmailMessage(e.target.value)}
                     className="min-h-[80px] resize-none text-sm"
                   />
                 </div>
@@ -1208,234 +1121,7 @@ export default function EstimatesPage() {
           </Dialog>
         </div>
       ) : (
-        /* ── Input Form ── */
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-3 space-y-4">
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Hammer className="h-4 w-4 text-primary" />
-                  Generate Estimate
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Mode toggle */}
-                <div className="flex rounded-lg border border-border overflow-hidden">
-                  <button
-                    className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                      mode === "text" ? "bg-primary text-white" : "bg-transparent text-muted-foreground hover:bg-muted"
-                    }`}
-                    onClick={() => setMode("text")}
-                  >
-                    <FileText className="h-4 w-4" /> Type Scope
-                  </button>
-                  <button
-                    className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                      mode === "file" ? "bg-primary text-white" : "bg-transparent text-muted-foreground hover:bg-muted"
-                    }`}
-                    onClick={() => setMode("file")}
-                  >
-                    <Upload className="h-4 w-4" /> Upload Plans
-                  </button>
-                </div>
-
-                {mode === "text" ? (
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <Textarea
-                        placeholder={`Describe the project scope in detail. For example:\n\n"Renovate a 1,200 sq ft residential basement in Toronto. Scope includes: framing new walls to create 2 bedrooms and a bathroom, plumbing rough-in for bathroom (toilet, vanity, shower), electrical (15 pot lights, 8 outlets, panel sub-feed), drywall, insulation, LVP flooring throughout, and painting."`}
-                        value={scope}
-                        onChange={(e) => setScope(e.target.value)}
-                        className="min-h-[220px] resize-none text-sm pr-12"
-                        disabled={voice.state === "transcribing"}
-                      />
-                      <button
-                        type="button"
-                        title={voice.state === "recording" ? "Stop recording" : "Dictate scope"}
-                        onClick={voice.toggle}
-                        disabled={voice.state === "transcribing"}
-                        className={`absolute bottom-3 right-3 rounded-full p-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 ${
-                          voice.state === "recording"
-                            ? "bg-red-500 text-white hover:bg-red-600 animate-pulse"
-                            : voice.state === "transcribing"
-                            ? "bg-muted text-muted-foreground cursor-not-allowed"
-                            : "bg-primary/10 text-primary hover:bg-primary/20"
-                        }`}
-                      >
-                        {voice.state === "transcribing" ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : voice.state === "recording" ? (
-                          <MicOff className="h-4 w-4" />
-                        ) : (
-                          <Mic className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-
-                    {voice.state === "recording" && (
-                      <p className="flex items-center gap-1.5 text-xs text-red-500 font-medium">
-                        <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                        Recording… tap the mic button to stop and transcribe
-                      </p>
-                    )}
-                    {voice.state === "transcribing" && (
-                      <p className="text-xs text-muted-foreground">Transcribing your voice…</p>
-                    )}
-                    {voice.error && (
-                      <p className="text-xs text-destructive">{voice.error}</p>
-                    )}
-
-                    <p className="text-xs text-muted-foreground">
-                      Be specific: include square footage, location (city/province), materials preferences, and special requirements for the most accurate estimate. Use the mic to dictate instead of typing.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {/* File drop zone */}
-                    <div
-                      className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                        dragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"
-                      }`}
-                      onClick={() => fileInputRef.current?.click()}
-                      onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-                      onDragLeave={() => setDragActive(false)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setDragActive(false);
-                        const f = e.dataTransfer.files[0];
-                        if (f) setSelectedFile(f);
-                      }}
-                    >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.webp,.heic"
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) setSelectedFile(f); }}
-                      />
-                      {selectedFile ? (
-                        <div className="flex items-center justify-center gap-3">
-                          <FileText className="h-8 w-8 text-primary" />
-                          <div className="text-left">
-                            <p className="text-sm font-semibold">{selectedFile.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB · Click to change
-                            </p>
-                          </div>
-                          <button
-                            className="ml-2 p-1 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive"
-                            onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }}
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-2">
-                          <Upload className="h-10 w-10 text-slate-300" />
-                          <p className="text-sm font-medium text-muted-foreground">
-                            Drop plans here or <span className="text-primary">browse</span>
-                          </p>
-                          <p className="text-xs text-muted-foreground/70">PDF, Word, images (PNG/JPG), or text files — max 20 MB</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Optional hint */}
-                    <Textarea
-                      placeholder="Optional: Add context about the project (location, specific requirements, budget target...)"
-                      value={hint}
-                      onChange={(e) => setHint(e.target.value)}
-                      className="min-h-[80px] resize-none text-sm"
-                    />
-                  </div>
-                )}
-
-                <Button
-                  className="w-full gap-2 bg-primary hover:bg-primary/90 text-white"
-                  onClick={handleGenerate}
-                  disabled={isGenerating || (mode === "text" ? !scope.trim() : !selectedFile)}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Analysing & Estimating…
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      Generate Estimate
-                    </>
-                  )}
-                </Button>
-
-                {isGenerating && (
-                  <p className="text-xs text-center text-muted-foreground">
-                    The AI is analysing your scope and building a detailed estimate — this usually takes 15–30 seconds.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Tips sidebar */}
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="shadow-sm border-primary/20 bg-primary/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-primary">
-                  <TrendingUp className="h-4 w-4" /> What You'll Get
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2.5">
-                {[
-                  { icon: Package, label: "Materials", desc: "Line-by-line with quantities & unit costs" },
-                  { icon: HardHat, label: "Labour", desc: "Hours per trade at Canadian market rates" },
-                  { icon: Wrench, label: "Equipment", desc: "Rental days and rates where applicable" },
-                  { icon: TrendingUp, label: "Cost Range", desc: "Tight budget to high estimate with contingency" },
-                ].map(({ icon: Icon, label, desc }) => (
-                  <div key={label} className="flex items-start gap-3">
-                    <div className="rounded-md bg-primary/15 p-1.5 shrink-0">
-                      <Icon className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold">{label}</p>
-                      <p className="text-xs text-muted-foreground">{desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Info className="h-4 w-4 text-muted-foreground" /> Tips for Better Estimates
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-xs text-muted-foreground">
-                  {[
-                    "Include square footage and dimensions",
-                    "Mention the city/province for accurate labour rates",
-                    "Specify materials (e.g. LVP vs. tile vs. hardwood)",
-                    "Note any special requirements or existing conditions",
-                    "Upload a PDF or drawing for the highest accuracy",
-                  ].map((tip, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary/50 shrink-0" />
-                      {tip}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      ))}
-
-      {tab === "smart" && <SmartEstimatorTab />}
-
-      {/* ── Past Estimates tab ── */}
-      {tab === "history" && (
+        /* ── Estimate list ── */
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -1447,8 +1133,7 @@ export default function EstimatesPage() {
           <CardContent className="p-0">
             {isLoading ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-                Loading…
+                <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />Loading…
               </div>
             ) : estimates.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">No saved estimates yet.</div>
@@ -1459,14 +1144,14 @@ export default function EstimatesPage() {
                     key={e.id}
                     estimate={e}
                     onDelete={(id) => deleteEstimate.mutate(id)}
-                    onView={(est) => { setActiveEstimate(est); setTab("ai"); }}
+                    onView={handleViewEstimate}
                   />
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
-      )}
+      ))}
     </div>
   );
 }

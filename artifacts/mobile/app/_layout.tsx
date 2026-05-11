@@ -147,6 +147,7 @@ function RootLayoutNav() {
         <Stack.Screen name="sync-queue" options={{ headerShown: false, presentation: "modal" }} />
         <Stack.Screen name="schedule" options={{ headerShown: true, title: "Assigned Schedule", headerStyle: { backgroundColor: "#0A0A0A" }, headerTintColor: "#FFFFFF" }} />
         <Stack.Screen name="tradehub-post/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="estimator" options={{ headerShown: true, title: "Estimator", headerStyle: { backgroundColor: "#0A0A0A" }, headerTintColor: "#FFFFFF" }} />
       </Stack>
     </>
   );

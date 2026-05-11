@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
@@ -47,6 +47,8 @@ import {
   ChevronDown,
   ChevronUp,
   DollarSign,
+  Upload,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -453,10 +455,14 @@ export default function SmartEstimatorPage() {
 
   // Step: 1=input, 2=params, 3=results
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [inputMode, setInputMode] = useState<"text" | "form">("text");
+  const [inputMode, setInputMode] = useState<"text" | "file" | "form">("text");
 
   // Step 1 — Input
   const [freeText, setFreeText] = useState("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadHint, setUploadHint] = useState("");
+  const [uploadDragActive, setUploadDragActive] = useState(false);
+  const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2 — Parsed / Editable Params
   const [params, setParams] = useState<ParsedParams>({
@@ -518,6 +524,23 @@ export default function SmartEstimatorPage() {
       setStep(2);
     },
     onError: (err) => handleError(err, "Failed to parse project description"),
+  });
+
+  const parseFromFileMutation = useMutation({
+    mutationFn: async ({ file, hint }: { file: File; hint?: string }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (hint?.trim()) formData.append("hint", hint.trim());
+      return customFetch<ParsedParams>("/api/estimator/parse-from-file", {
+        method: "POST",
+        body: formData,
+      });
+    },
+    onSuccess: (data) => {
+      setParams(data);
+      setStep(2);
+    },
+    onError: (err) => handleError(err, "Failed to extract parameters from file"),
   });
 
   const calculateMutation = useMutation({
@@ -601,6 +624,12 @@ export default function SmartEstimatorPage() {
         return;
       }
       parseMutation.mutate(freeText.trim());
+    } else if (inputMode === "file") {
+      if (!uploadFile) {
+        toast({ title: "Please select a file", description: "Upload a PDF, image, or document.", variant: "destructive" });
+        return;
+      }
+      parseFromFileMutation.mutate({ file: uploadFile, hint: uploadHint });
     } else {
       setStep(2);
     }
@@ -649,6 +678,8 @@ export default function SmartEstimatorPage() {
   const resetAll = () => {
     setStep(1);
     setFreeText("");
+    setUploadFile(null);
+    setUploadHint("");
     setEstimateResult(null);
     setLineItems([]);
     setSavedEstimateId(null);
@@ -656,7 +687,7 @@ export default function SmartEstimatorPage() {
   };
 
   const addons = modelsData?.addons ?? [];
-  const isLoading = parseMutation.isPending || calculateMutation.isPending;
+  const isLoading = parseMutation.isPending || calculateMutation.isPending || parseFromFileMutation.isPending;
 
   // Average variance from learning data
   const avgVariance = actuals.length > 0
@@ -670,7 +701,7 @@ export default function SmartEstimatorPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Calculator className="h-6 w-6 text-primary" />
-            Smart Estimator
+            Estimator
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             AI-powered parsing · DB-driven pricing · fully editable output
@@ -754,7 +785,7 @@ export default function SmartEstimatorPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <History className="h-4 w-4 text-primary" />
-              Saved Smart Estimates
+              Saved Estimates
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -828,17 +859,21 @@ export default function SmartEstimatorPage() {
           </CardHeader>
           <CardContent className="space-y-5">
             {/* Mode toggle */}
-            <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border w-fit">
-              {(["text", "form"] as const).map((m) => (
+            <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border w-fit flex-wrap">
+              {([
+                { key: "text", label: "Free Text" },
+                { key: "file", label: "Upload Plans" },
+                { key: "form", label: "Structured Form" },
+              ] as const).map(({ key, label }) => (
                 <button
-                  key={m}
-                  onClick={() => setInputMode(m)}
+                  key={key}
+                  onClick={() => setInputMode(key)}
                   className={cn(
                     "px-4 py-1.5 rounded-md text-sm font-medium transition-all",
-                    inputMode === m ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                    inputMode === key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {m === "text" ? "Free Text" : "Structured Form"}
+                  {label}
                 </button>
               ))}
             </div>
@@ -855,6 +890,69 @@ export default function SmartEstimatorPage() {
                 <p className="text-xs text-muted-foreground">
                   Describe the project scope, size, finish quality, and any specific requirements.
                   The AI will extract the parameters — pricing comes from our database.
+                </p>
+              </div>
+            ) : inputMode === "file" ? (
+              <div className="space-y-3">
+                <div
+                  className={cn(
+                    "relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
+                    uploadDragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30",
+                  )}
+                  onClick={() => uploadFileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setUploadDragActive(true); }}
+                  onDragLeave={() => setUploadDragActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setUploadDragActive(false);
+                    const f = e.dataTransfer.files[0];
+                    if (f) setUploadFile(f);
+                  }}
+                >
+                  <input
+                    ref={uploadFileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.webp,.heic"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) setUploadFile(f); }}
+                  />
+                  {uploadFile ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <FileText className="h-8 w-8 text-primary" />
+                      <div className="text-left">
+                        <p className="text-sm font-semibold">{uploadFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(uploadFile.size / 1024 / 1024).toFixed(2)} MB · Click to change
+                        </p>
+                      </div>
+                      <button
+                        className="ml-2 p-1 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); setUploadFile(null); }}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="h-10 w-10 text-slate-300" />
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Drop plans here or <span className="text-primary">browse</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground/70">PDF, Word, images (PNG/JPG/HEIC), or text — max 20 MB</p>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Additional context (optional)</Label>
+                  <Textarea
+                    placeholder="e.g. This is for a Toronto property, mid-range finishes preferred"
+                    value={uploadHint}
+                    onChange={(e) => setUploadHint(e.target.value)}
+                    className="min-h-[72px] resize-none text-sm"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  AI reads the file and extracts the project scope — pricing always comes from our database.
                 </p>
               </div>
             ) : (
@@ -916,11 +1014,13 @@ export default function SmartEstimatorPage() {
               className="w-full gap-2"
               size="lg"
             >
-              {parseMutation.isPending ? (
-                <><Loader2 className="h-4 w-4 animate-spin" />Parsing with AI…</>
+              {(parseMutation.isPending || parseFromFileMutation.isPending) ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />
+                  {parseFromFileMutation.isPending ? "Reading file with AI…" : "Parsing with AI…"}
+                </>
               ) : (
                 <><Sparkles className="h-4 w-4" />
-                  {inputMode === "text" ? "Extract Parameters with AI" : "Continue to Review"}
+                  {inputMode === "text" ? "Extract Parameters with AI" : inputMode === "file" ? "Extract Parameters from File" : "Continue to Review"}
                   <ChevronRight className="h-4 w-4" /></>
               )}
             </Button>

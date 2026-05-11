@@ -20,7 +20,7 @@ type Msg = { role: "user" | "assistant"; content: string };
 
 const QUICK_CHIPS = [
   "How do I create a quote?",
-  "How does Smart Estimator work?",
+  "How does the Estimator work?",
   "How do I add a daily report?",
   "How do I invite a team member?",
   "How do I use Voice Estimator on mobile?",
