@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { customFetch, useGetMe } from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -463,7 +463,7 @@ const BLANK_MODEL_FORM = {
   notes: "",
 };
 
-export default function SmartEstimatorPage() {
+export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwnerOrForeman?: boolean }) {
   const { toast } = useToast();
   const handleError = useApiError();
 
@@ -531,10 +531,6 @@ export default function SmartEstimatorPage() {
     queryKey: ["estimator-actuals"],
     queryFn: () => customFetch("/api/estimator/actuals"),
   });
-
-  // Role check
-  const { data: me } = useGetMe();
-  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
   // Pricing DB CRUD mutations
   const createModelMutation = useMutation({
@@ -871,7 +867,7 @@ export default function SmartEstimatorPage() {
                       <td className="px-3 py-1.5 text-muted-foreground max-w-[200px] truncate">{m.notes}</td>
                       {isOwnerOrForeman && (
                         <td className="px-2 py-1.5">
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-0.5">
                             <Button
                               size="icon"
                               variant="ghost"

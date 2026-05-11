@@ -979,7 +979,7 @@ export default function EstimatesPage() {
       </div>
 
       {/* Estimator tab — renders the full DB-backed estimator */}
-      {tab === "estimator" && <SmartEstimatorTab />}
+      {tab === "estimator" && <SmartEstimatorTab isOwnerOrForeman={me?.role === "owner" || me?.role === "foreman"} />}
 
       {/* Past Estimates tab */}
       {tab === "history" && (activeEstimate ? (
