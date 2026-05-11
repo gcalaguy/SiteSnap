@@ -331,6 +331,78 @@ router.get(
   }),
 );
 
+// POST /api/estimator/cost-models — create a new cost model
+const CostModelBody = z.object({
+  projectType:         z.string().min(1, "projectType is required"),
+  finishLevel:         z.enum(["basic", "standard", "premium", "luxury"]),
+  name:                z.string().min(1, "name is required"),
+  baseCostPerSqft:     z.string(),
+  laborCostPerSqft:    z.string(),
+  materialCostPerSqft: z.string(),
+  overheadPct:         z.string().default("10"),
+  contingencyPct:      z.string().default("10"),
+  notes:               z.string().optional(),
+});
+
+router.post(
+  "/estimator/cost-models",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const parsed = CostModelBody.safeParse(req.body);
+    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    const { notes, ...rest } = parsed.data;
+    const [model] = await db
+      .insert(estimatorCostModelsTable)
+      .values({ ...rest, notes: notes ?? null, createdAt: new Date(), updatedAt: new Date() })
+      .returning();
+    res.status(201).json(model);
+  }),
+);
+
+// PUT /api/estimator/cost-models/:id — update a cost model
+router.put(
+  "/estimator/cost-models/:id",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(String(req.params.id));
+    if (isNaN(id)) throw new BadRequestError("Invalid ID");
+    const parsed = CostModelBody.partial().safeParse(req.body);
+    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    const { notes, ...rest } = parsed.data;
+    const updateData: Record<string, unknown> = { ...rest, updatedAt: new Date() };
+    if ("notes" in parsed.data) updateData.notes = notes ?? null;
+    const [model] = await db
+      .update(estimatorCostModelsTable)
+      .set(updateData)
+      .where(eq(estimatorCostModelsTable.id, id))
+      .returning();
+    if (!model) throw new NotFoundError("Cost model not found");
+    res.json(model);
+  }),
+);
+
+// DELETE /api/estimator/cost-models/:id — delete a cost model
+router.delete(
+  "/estimator/cost-models/:id",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(String(req.params.id));
+    if (isNaN(id)) throw new BadRequestError("Invalid ID");
+    const [deleted] = await db
+      .delete(estimatorCostModelsTable)
+      .where(eq(estimatorCostModelsTable.id, id))
+      .returning({ id: estimatorCostModelsTable.id });
+    if (!deleted) throw new NotFoundError("Cost model not found");
+    res.json({ success: true });
+  }),
+);
+
 // POST /api/estimator/parse — AI: free text → structured params
 const ParseBody = z.object({
   prompt: z.string().min(10, "Please describe the project (min 10 characters)"),

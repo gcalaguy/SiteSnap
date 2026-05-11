@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +49,8 @@ import {
   DollarSign,
   Upload,
   X,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -449,6 +451,18 @@ function ActualCard({ actual }: { actual: { estimatedCost: string; actualCost: s
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+const BLANK_MODEL_FORM = {
+  projectType: "",
+  finishLevel: "standard" as "basic" | "standard" | "premium" | "luxury",
+  name: "",
+  baseCostPerSqft: "",
+  laborCostPerSqft: "",
+  materialCostPerSqft: "",
+  overheadPct: "10",
+  contingencyPct: "10",
+  notes: "",
+};
+
 export default function SmartEstimatorPage() {
   const { toast } = useToast();
   const handleError = useApiError();
@@ -496,6 +510,12 @@ export default function SmartEstimatorPage() {
   const [quoteNotes, setQuoteNotes] = useState("");
   const [createdQuoteNumber, setCreatedQuoteNumber] = useState<string | null>(null);
 
+  // Pricing DB — model edit/add dialog
+  const [showModelDialog, setShowModelDialog] = useState(false);
+  const [editingModelId, setEditingModelId] = useState<number | null>(null);
+  const [modelForm, setModelForm] = useState<typeof BLANK_MODEL_FORM>({ ...BLANK_MODEL_FORM });
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
   // Data
   const { data: modelsData } = useQuery<{ models: CostModel[]; addons: AddonModel[] }>({
     queryKey: ["estimator-cost-models"],
@@ -511,6 +531,76 @@ export default function SmartEstimatorPage() {
     queryKey: ["estimator-actuals"],
     queryFn: () => customFetch("/api/estimator/actuals"),
   });
+
+  // Role check
+  const { data: me } = useGetMe();
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+
+  // Pricing DB CRUD mutations
+  const createModelMutation = useMutation({
+    mutationFn: (body: typeof BLANK_MODEL_FORM) =>
+      customFetch("/api/estimator/cost-models", { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["estimator-cost-models"] });
+      setShowModelDialog(false);
+      toast({ title: "Cost model added" });
+    },
+    onError: (err) => handleError(err, "Failed to add cost model"),
+  });
+
+  const updateModelMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: Partial<typeof BLANK_MODEL_FORM> }) =>
+      customFetch(`/api/estimator/cost-models/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["estimator-cost-models"] });
+      setShowModelDialog(false);
+      toast({ title: "Cost model updated" });
+    },
+    onError: (err) => handleError(err, "Failed to update cost model"),
+  });
+
+  const deleteModelMutation = useMutation({
+    mutationFn: (id: number) =>
+      customFetch(`/api/estimator/cost-models/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["estimator-cost-models"] });
+      setDeleteConfirmId(null);
+      toast({ title: "Cost model deleted" });
+    },
+    onError: (err) => handleError(err, "Failed to delete cost model"),
+  });
+
+  function openAddDialog() {
+    setEditingModelId(null);
+    setModelForm({ ...BLANK_MODEL_FORM });
+    setShowModelDialog(true);
+  }
+
+  function openEditDialog(m: CostModel) {
+    setEditingModelId(m.id);
+    setModelForm({
+      projectType: m.projectType,
+      finishLevel: m.finishLevel as typeof BLANK_MODEL_FORM["finishLevel"],
+      name: m.name,
+      baseCostPerSqft: m.baseCostPerSqft,
+      laborCostPerSqft: m.laborCostPerSqft,
+      materialCostPerSqft: m.materialCostPerSqft,
+      overheadPct: m.overheadPct,
+      contingencyPct: m.contingencyPct,
+      notes: m.notes ?? "",
+    });
+    setShowModelDialog(true);
+  }
+
+  function handleSaveModel() {
+    if (editingModelId !== null) {
+      updateModelMutation.mutate({ id: editingModelId, body: modelForm });
+    } else {
+      createModelMutation.mutate(modelForm);
+    }
+  }
+
+  const modelMutating = createModelMutation.isPending || updateModelMutation.isPending;
 
   // Mutations
   const parseMutation = useMutation({
@@ -739,29 +829,38 @@ export default function SmartEstimatorPage() {
       {/* Pricing DB Panel */}
       {showCostModels && (
         <Card className="border-dashed">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Database className="h-4 w-4 text-primary" />
-              Pricing Database — Cost Models
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground mb-3">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Database className="h-4 w-4 text-primary" />
+                Pricing Database — Cost Models
+              </CardTitle>
+              {isOwnerOrForeman && (
+                <Button size="sm" className="gap-1.5 h-7 text-xs" onClick={openAddDialog}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Model
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
               All estimates use these DB-sourced rates. AI only parses text — it never invents pricing.
+              {isOwnerOrForeman && <span className="ml-1 text-primary/70">Owners and foremen can edit rates.</span>}
             </p>
+          </CardHeader>
+          <CardContent className="pt-0">
             <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-xs">
                 <thead className="bg-muted/40 border-b border-border">
                   <tr>
-                    {["Project Type", "Finish", "Labour/sqft", "Materials/sqft", "Overhead", "Contingency", "Notes"].map((h) => (
-                      <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
+                    {["Project Type", "Finish", "Labour/sqft", "Materials/sqft", "Overhead", "Contingency", "Notes", ...(isOwnerOrForeman ? [""] : [])].map((h, i) => (
+                      <th key={i} className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
                   {(modelsData?.models ?? []).map((m) => (
-                    <tr key={m.id} className="hover:bg-muted/20">
-                      <td className="px-3 py-1.5 font-medium">{PROJECT_TYPE_LABELS[m.projectType] ?? m.projectType}</td>
+                    <tr key={m.id} className="hover:bg-muted/20 group">
+                      <td className="px-3 py-1.5 font-medium whitespace-nowrap">{PROJECT_TYPE_LABELS[m.projectType] ?? m.projectType}</td>
                       <td className="px-3 py-1.5">
                         <Badge variant="outline" className="text-[10px]">{m.finishLevel}</Badge>
                       </td>
@@ -770,6 +869,30 @@ export default function SmartEstimatorPage() {
                       <td className="px-3 py-1.5 text-amber-600 font-mono">{m.overheadPct}%</td>
                       <td className="px-3 py-1.5 text-purple-600 font-mono">{m.contingencyPct}%</td>
                       <td className="px-3 py-1.5 text-muted-foreground max-w-[200px] truncate">{m.notes}</td>
+                      {isOwnerOrForeman && (
+                        <td className="px-2 py-1.5">
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={() => openEditDialog(m)}
+                              title="Edit"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setDeleteConfirmId(m.id)}
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -778,6 +901,194 @@ export default function SmartEstimatorPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={deleteConfirmId !== null} onOpenChange={(o) => { if (!o) setDeleteConfirmId(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete cost model?</DialogTitle>
+            <DialogDescription>This will permanently remove this pricing model. Existing estimates are not affected.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteConfirmId !== null && deleteModelMutation.mutate(deleteConfirmId)}
+              disabled={deleteModelMutation.isPending}
+            >
+              {deleteModelMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cost Model Add / Edit Dialog */}
+      <Dialog open={showModelDialog} onOpenChange={(o) => { if (!o) setShowModelDialog(false); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingModelId !== null ? "Edit Cost Model" : "Add Cost Model"}</DialogTitle>
+            <DialogDescription>
+              Set the per-sqft labour and materials rates for this project type and finish level.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-4 py-1">
+            {/* Project Type */}
+            <div className="col-span-2 grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Project Type</Label>
+                <Select
+                  value={modelForm.projectType}
+                  onValueChange={(v) => {
+                    const label = PROJECT_TYPE_LABELS[v] ?? v;
+                    const fl = modelForm.finishLevel;
+                    const flLabel = fl.charAt(0).toUpperCase() + fl.slice(1);
+                    setModelForm((f) => ({
+                      ...f,
+                      projectType: v,
+                      name: `${label} — ${flLabel}`,
+                    }));
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select type…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PROJECT_TYPE_LABELS).map(([k, v]) => (
+                      <SelectItem key={k} value={k} className="text-xs">{v}</SelectItem>
+                    ))}
+                    <SelectItem value="custom" className="text-xs italic">Custom…</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Finish Level</Label>
+                <Select
+                  value={modelForm.finishLevel}
+                  onValueChange={(v) => {
+                    const fl = v as typeof BLANK_MODEL_FORM["finishLevel"];
+                    const label = PROJECT_TYPE_LABELS[modelForm.projectType] ?? modelForm.projectType;
+                    const flLabel = fl.charAt(0).toUpperCase() + fl.slice(1);
+                    setModelForm((f) => ({
+                      ...f,
+                      finishLevel: fl,
+                      name: label ? `${label} — ${flLabel}` : f.name,
+                    }));
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(["basic", "standard", "premium", "luxury"] as const).map((fl) => (
+                      <SelectItem key={fl} value={fl} className="text-xs capitalize">{fl}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="col-span-2 space-y-1.5">
+              <Label className="text-xs">Display Name</Label>
+              <Input
+                className="h-8 text-xs"
+                value={modelForm.name}
+                onChange={(e) => setModelForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Home Addition — Premium"
+              />
+            </div>
+
+            {/* Cost fields */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Labour / sqft ($)</Label>
+              <Input
+                className="h-8 text-xs font-mono"
+                type="number"
+                min="0"
+                step="0.01"
+                value={modelForm.laborCostPerSqft}
+                onChange={(e) => setModelForm((f) => ({ ...f, laborCostPerSqft: e.target.value }))}
+                placeholder="e.g. 75.00"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Materials / sqft ($)</Label>
+              <Input
+                className="h-8 text-xs font-mono"
+                type="number"
+                min="0"
+                step="0.01"
+                value={modelForm.materialCostPerSqft}
+                onChange={(e) => setModelForm((f) => ({ ...f, materialCostPerSqft: e.target.value }))}
+                placeholder="e.g. 85.00"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Base Cost / sqft ($) <span className="text-muted-foreground">(optional total)</span></Label>
+              <Input
+                className="h-8 text-xs font-mono"
+                type="number"
+                min="0"
+                step="0.01"
+                value={modelForm.baseCostPerSqft}
+                onChange={(e) => setModelForm((f) => ({ ...f, baseCostPerSqft: e.target.value }))}
+                placeholder="e.g. 185.00"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Overhead (%)</Label>
+              <Input
+                className="h-8 text-xs font-mono"
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={modelForm.overheadPct}
+                onChange={(e) => setModelForm((f) => ({ ...f, overheadPct: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Contingency (%)</Label>
+              <Input
+                className="h-8 text-xs font-mono"
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={modelForm.contingencyPct}
+                onChange={(e) => setModelForm((f) => ({ ...f, contingencyPct: e.target.value }))}
+              />
+            </div>
+
+            {/* Notes */}
+            <div className="col-span-2 space-y-1.5">
+              <Label className="text-xs">Notes</Label>
+              <Textarea
+                className="text-xs min-h-[60px] resize-none"
+                value={modelForm.notes}
+                onChange={(e) => setModelForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="Brief description of what's included in this model…"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowModelDialog(false)} disabled={modelMutating}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveModel} disabled={modelMutating || !modelForm.projectType || !modelForm.name}>
+              {modelMutating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {editingModelId !== null ? "Save Changes" : "Add Model"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* History Panel */}
       {showHistory && (
