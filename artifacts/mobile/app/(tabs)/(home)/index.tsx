@@ -143,7 +143,7 @@ function AiBriefingCard({ colors }: { colors: any }) {
 
 const QUICK_ACTIONS_WORKER = [
   { label: "My Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
-  { label: "Estimator", icon: "calculator", path: "/estimator", color: "#C9A84C" },
+  { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
   { label: "Site Vision", icon: "camera", path: "/site-vision", color: "#C9A84C" },
 ];
@@ -151,7 +151,7 @@ const QUICK_ACTIONS_WORKER = [
 const QUICK_ACTIONS_OWNER = [
   { label: "Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
   { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
-  { label: "Estimator", icon: "calculator", path: "/estimator", color: "#C9A84C" },
+  { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
   { label: "Site Vision", icon: "camera", path: "/site-vision", color: "#C9A84C" },
 ];
