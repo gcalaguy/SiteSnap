@@ -911,10 +911,24 @@ export default function ProjectDetailScreen() {
       customFetch(`/api/projects/${projectId}/schedule`).catch(() => []),
       customFetch(`/api/schedule/events?projectId=${projectId}`).catch(() => []),
     ]).then(([assignments, events]) => {
-      setScheduleAssignments(Array.isArray(assignments) ? assignments : []);
-      setScheduleEvents(Array.isArray(events) ? events : []);
+      const myUserId = me?.id;
+      setScheduleAssignments(
+        Array.isArray(assignments)
+          ? (myUserId ? assignments.filter((a: any) => a.userId === myUserId) : [])
+          : [],
+      );
+      setScheduleEvents(
+        Array.isArray(events)
+          ? (myUserId
+              ? events.filter((ev: any) =>
+                  Array.isArray(ev.assignees) &&
+                  ev.assignees.some((a: any) => a.resourceType === "user" && a.resourceId === myUserId),
+                )
+              : [])
+          : [],
+      );
     }).finally(() => setScheduleLoading(false));
-  }, [projectId, activeTab]);
+  }, [projectId, activeTab, me?.id]);
 
   const formatCurrency = (v?: number | null) => {
     if (v == null) return "—";
