@@ -57,7 +57,7 @@ const STATUS_LABELS: Record<string, string> = {
   on_hold: "On Hold",
 };
 
-const TABS = ["Overview", "Reports", "Tasks", "RFIs", "Quotes", "Documents", "Hours", "Timesheets", "Messages"] as const;
+const TABS = ["Overview", "Reports", "Tasks", "Schedules", "RFIs", "Quotes", "Documents", "Hours", "Timesheets", "Messages"] as const;
 type Tab = (typeof TABS)[number];
 
 const RFI_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -542,6 +542,126 @@ const styles = StyleSheet.create({
   docStatusText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
 });
 
+const schedSt = StyleSheet.create({
+  statCard: {
+    borderRadius: 12,
+    padding: 14,
+    alignItems: "flex-start",
+    gap: 6,
+  },
+  statValue: {
+    fontSize: 26,
+    fontFamily: "Inter_700Bold",
+    color: "#FFFFFF",
+  },
+  statLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.65)",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  emptyBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    borderStyle: "dashed",
+    padding: 28,
+    alignItems: "center",
+    gap: 10,
+  },
+  emptyText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 19,
+  },
+  assignRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+  },
+  workerName: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  dateRange: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  assignNotes: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 3,
+    lineHeight: 17,
+  },
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  roleText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "capitalize",
+  },
+  eventRow: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderRadius: 10,
+    marginBottom: 8,
+    overflow: "hidden",
+    padding: 12,
+  },
+  eventTypeBar: {
+    width: 3,
+    borderRadius: 2,
+    alignSelf: "stretch",
+    flexShrink: 0,
+  },
+  eventTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+    marginRight: 8,
+  },
+  eventMeta: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  typeBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  typeBadgeText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+});
+
 function RFIRow({ rfi, onPress }: { rfi: any; onPress: () => void }) {
   const colors = useColors();
   const conf = RFI_STATUS_CONFIG[rfi.status] ?? RFI_STATUS_CONFIG.open;
@@ -781,6 +901,21 @@ export default function ProjectDetailScreen() {
       .catch(() => {});
   }, [projectId]);
 
+  const [scheduleAssignments, setScheduleAssignments] = useState<any[]>([]);
+  const [scheduleEvents, setScheduleEvents] = useState<any[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  useEffect(() => {
+    if (activeTab !== "Schedules") return;
+    setScheduleLoading(true);
+    Promise.all([
+      customFetch(`/api/projects/${projectId}/schedule`).catch(() => []),
+      customFetch(`/api/schedule/events?projectId=${projectId}`).catch(() => []),
+    ]).then(([assignments, events]) => {
+      setScheduleAssignments(Array.isArray(assignments) ? assignments : []);
+      setScheduleEvents(Array.isArray(events) ? events : []);
+    }).finally(() => setScheduleLoading(false));
+  }, [projectId, activeTab]);
+
   const formatCurrency = (v?: number | null) => {
     if (v == null) return "—";
     if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
@@ -944,6 +1079,142 @@ export default function ProjectDetailScreen() {
             (tasks ?? []).map(t => (
               <TaskItem key={t.id} task={t} projectId={projectId} onUpdate={refetchTasks} />
             ))
+          )}
+        </View>
+      )}
+
+      {/* Schedules tab */}
+      {activeTab === "Schedules" && (
+        <View style={styles.section}>
+          {scheduleLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+          ) : (
+            <>
+              {/* Summary stat cards */}
+              <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
+                <View style={[schedSt.statCard, { backgroundColor: colors.sidebar, flex: 1 }]}>
+                  <Feather name="users" size={18} color="#C9A84C" />
+                  <Text style={schedSt.statValue}>{scheduleAssignments.length}</Text>
+                  <Text style={schedSt.statLabel}>Workers Scheduled</Text>
+                </View>
+                <View style={[schedSt.statCard, { backgroundColor: colors.sidebar, flex: 1 }]}>
+                  <Feather name="calendar" size={18} color="#C9A84C" />
+                  <Text style={schedSt.statValue}>{scheduleEvents.length}</Text>
+                  <Text style={schedSt.statLabel}>Events</Text>
+                </View>
+              </View>
+
+              {/* Workers Scheduled */}
+              <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 10 }]}>Workers Scheduled</Text>
+              {scheduleAssignments.length === 0 ? (
+                <View style={[schedSt.emptyBox, { borderColor: colors.border }]}>
+                  <Feather name="user-x" size={28} color={colors.border} />
+                  <Text style={[schedSt.emptyText, { color: colors.mutedForeground }]}>No workers assigned to this project yet</Text>
+                </View>
+              ) : (
+                scheduleAssignments.map((a: any) => {
+                  const name = [a.userFirstName, a.userLastName].filter(Boolean).join(" ") || a.userEmail || "Unknown";
+                  const start = new Date(a.startDate).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+                  const end = new Date(a.endDate).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
+                  const initials = name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+                  return (
+                    <View key={a.id} style={[schedSt.assignRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <View style={[schedSt.avatar, { backgroundColor: `${colors.primary}20` }]}>
+                        <Text style={[schedSt.avatarText, { color: colors.primary }]}>{initials}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[schedSt.workerName, { color: colors.foreground }]}>{name}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+                          <Feather name="calendar" size={11} color={colors.mutedForeground} />
+                          <Text style={[schedSt.dateRange, { color: colors.mutedForeground }]}>{start} – {end}</Text>
+                        </View>
+                        {!!a.notes && (
+                          <Text style={[schedSt.assignNotes, { color: colors.mutedForeground }]} numberOfLines={2}>{a.notes}</Text>
+                        )}
+                      </View>
+                      <View style={[schedSt.roleBadge, { backgroundColor: `${colors.primary}15` }]}>
+                        <Text style={[schedSt.roleText, { color: colors.primary }]}>{a.userRole ?? "worker"}</Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+
+              <View style={{ height: 20 }} />
+
+              {/* Events */}
+              <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 10 }]}>Events</Text>
+              {scheduleEvents.length === 0 ? (
+                <View style={[schedSt.emptyBox, { borderColor: colors.border }]}>
+                  <Feather name="calendar" size={28} color={colors.border} />
+                  <Text style={[schedSt.emptyText, { color: colors.mutedForeground }]}>No events scheduled for this project</Text>
+                </View>
+              ) : (
+                scheduleEvents.map((ev: any) => {
+                  const start = new Date(ev.startTime);
+                  const end = new Date(ev.endTime);
+                  const sameDay = start.toDateString() === end.toDateString();
+                  const dateStr = start.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" });
+                  const timeStr = start.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", hour12: true })
+                    + " – " + end.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", hour12: true });
+                  const dateRange = sameDay
+                    ? `${dateStr} · ${timeStr}`
+                    : `${dateStr} – ${end.toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`;
+
+                  const typeColors: Record<string, string> = {
+                    meeting: "#3B82F6",
+                    site_visit: "#22C55E",
+                    inspection: "#F59E0B",
+                    equipment_booking: "#8B5CF6",
+                    other: "#6B7280",
+                  };
+                  const typeLabels: Record<string, string> = {
+                    meeting: "Meeting",
+                    site_visit: "Site Visit",
+                    inspection: "Inspection",
+                    equipment_booking: "Equipment",
+                    other: "Event",
+                  };
+                  const evColor = typeColors[ev.type] ?? "#6B7280";
+                  const evLabel = typeLabels[ev.type] ?? ev.type;
+                  const statusColors: Record<string, string> = {
+                    scheduled: "#3B82F6",
+                    in_progress: "#F59E0B",
+                    completed: "#22C55E",
+                    cancelled: "#EF4444",
+                  };
+                  const evStatusColor = statusColors[ev.status] ?? "#6B7280";
+
+                  return (
+                    <View key={ev.id} style={[schedSt.eventRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                      <View style={[schedSt.eventTypeBar, { backgroundColor: evColor }]} />
+                      <View style={{ flex: 1, paddingLeft: 10 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                          <Text style={[schedSt.eventTitle, { color: colors.foreground }]} numberOfLines={2}>{ev.title}</Text>
+                          <View style={[schedSt.typeBadge, { backgroundColor: `${evColor}18` }]}>
+                            <Text style={[schedSt.typeBadgeText, { color: evColor }]}>{evLabel}</Text>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                          <Feather name="clock" size={11} color={colors.mutedForeground} />
+                          <Text style={[schedSt.eventMeta, { color: colors.mutedForeground }]}>{dateRange}</Text>
+                        </View>
+                        {!!ev.location && (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <Feather name="map-pin" size={11} color={colors.mutedForeground} />
+                            <Text style={[schedSt.eventMeta, { color: colors.mutedForeground }]}>{ev.location}</Text>
+                          </View>
+                        )}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                          <View style={[schedSt.statusDot, { backgroundColor: evStatusColor }]} />
+                          <Text style={[schedSt.eventMeta, { color: evStatusColor, textTransform: "capitalize" }]}>{(ev.status ?? "scheduled").replace("_", " ")}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </>
           )}
         </View>
       )}
