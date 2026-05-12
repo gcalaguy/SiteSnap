@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -20,6 +21,7 @@ import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import * as Haptics from "expo-haptics";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -75,6 +77,32 @@ const QUICK_CATS = [
 function FieldRenderer({ field, value, onChange, colors }: {
   field: FormField; value: any; onChange: (v: any) => void; colors: any;
 }) {
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(value ? new Date(value) : new Date());
+  const formatDateValue = useCallback((date: Date) => {
+    if (field.type === "datetime-local") {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      const h = String(date.getHours()).padStart(2, "0");
+      const min = String(date.getMinutes()).padStart(2, "0");
+      return `${y}-${m}-${d}T${h}:${min}`;
+    }
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, [field.type]);
+
+  const onDateChange = useCallback((_event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+      if (_event.type === "set" && date) onChange(formatDateValue(date));
+    } else if (date) {
+      setTempDate(date);
+    }
+  }, [formatDateValue, onChange]);
+
   if (field.type === "textarea") {
     return (
       <TextInput
@@ -87,6 +115,67 @@ function FieldRenderer({ field, value, onChange, colors }: {
         value={value ?? ""}
         onChangeText={onChange}
       />
+    );
+  }
+
+  if (field.type === "date" || field.type === "datetime-local") {
+    const displayValue = value ? String(value) : "";
+    return (
+      <>
+        <Pressable
+          onPress={() => {
+            setTempDate(displayValue ? new Date(displayValue) : new Date());
+            setShowDatePicker(true);
+          }}
+          style={[styles.dateField, { backgroundColor: colors.background, borderColor: colors.border }]}
+        >
+          <Feather name="calendar" size={15} color={colors.primary} />
+          <Text style={[styles.dateFieldText, { color: displayValue ? colors.foreground : colors.mutedForeground }]}>
+            {displayValue || (field.type === "datetime-local" ? "Select date & time" : "Select date")}
+          </Text>
+          <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+        </Pressable>
+
+        {showDatePicker && Platform.OS === "android" && (
+          <DateTimePicker
+            value={tempDate}
+            mode="date"
+            display="default"
+            onChange={onDateChange}
+          />
+        )}
+
+        {Platform.OS === "ios" && (
+          <Modal visible={showDatePicker} transparent animationType="slide" onRequestClose={() => setShowDatePicker(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+                <View style={styles.modalHeader}>
+                  <Pressable onPress={() => setShowDatePicker(false)} hitSlop={8}>
+                    <Text style={[styles.modalCancel, { color: colors.mutedForeground }]}>Cancel</Text>
+                  </Pressable>
+                  <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select Date</Text>
+                  <Pressable
+                    onPress={() => {
+                      onChange(formatDateValue(tempDate));
+                      setShowDatePicker(false);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Text style={[styles.modalDone, { color: colors.primary }]}>Done</Text>
+                  </Pressable>
+                </View>
+                <DateTimePicker
+                  value={tempDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={onDateChange}
+                  style={{ width: "100%" }}
+                />
+              </View>
+            </View>
+          </Modal>
+        )}
+      </>
     );
   }
 
