@@ -112,6 +112,8 @@ type SavedEstimate = {
   status: string;
   result: Record<string, unknown> | null;
   createdAt: string;
+  scanId: number | null;
+  scanProjectName: string | null;
 };
 
 type AddonModel = { id: number; addonKey: string; name: string; description: string | null; costType: string; amount: string; applicableTypes: string | null };
@@ -1174,7 +1176,15 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                       <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{e.title}</p>
-                        <p className="text-xs text-muted-foreground">{format(new Date(e.createdAt), "MMM d, yyyy")}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-xs text-muted-foreground">{format(new Date(e.createdAt), "MMM d, yyyy")}</p>
+                          {e.scanId != null && e.scanProjectName && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+                              <Box className="h-2.5 w-2.5" />
+                              Scan linked to: {e.scanProjectName}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {price && <span className="text-sm font-bold text-primary">{fmt(price)}</span>}
                     </div>

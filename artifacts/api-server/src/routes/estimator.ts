@@ -9,6 +9,8 @@ import {
   estimatorActualsTable,
   estimatesTable,
   quotesTable,
+  scansTable,
+  projectsTable,
   type EstimatorCostModel,
   type EstimatorAddon,
 } from "@workspace/db";
@@ -561,6 +563,15 @@ router.post(
 
     const { title, params, result, sourcePrompt, scanId } = parsed.data;
 
+    if (scanId != null) {
+      const [scan] = await db
+        .select({ id: scansTable.id })
+        .from(scansTable)
+        .where(and(eq(scansTable.id, scanId), eq(scansTable.companyId, req.companyId!)))
+        .limit(1);
+      if (!scan) throw new BadRequestError("Scan not found or does not belong to your company");
+    }
+
     const [estimate] = await db.insert(estimatesTable).values({
       companyId: req.companyId!,
       createdByUserId: req.userId!,
@@ -583,8 +594,24 @@ router.get(
   requireCompany,
   asyncHandler(async (req, res) => {
     const estimates = await db
-      .select()
+      .select({
+        id: estimatesTable.id,
+        companyId: estimatesTable.companyId,
+        createdByUserId: estimatesTable.createdByUserId,
+        title: estimatesTable.title,
+        scopeText: estimatesTable.scopeText,
+        sourceType: estimatesTable.sourceType,
+        sourceFilename: estimatesTable.sourceFilename,
+        result: estimatesTable.result,
+        status: estimatesTable.status,
+        scanId: estimatesTable.scanId,
+        createdAt: estimatesTable.createdAt,
+        updatedAt: estimatesTable.updatedAt,
+        scanProjectName: projectsTable.name,
+      })
       .from(estimatesTable)
+      .leftJoin(scansTable, and(eq(estimatesTable.scanId, scansTable.id), eq(scansTable.companyId, req.companyId!)))
+      .leftJoin(projectsTable, and(eq(scansTable.projectId, projectsTable.id), eq(projectsTable.companyId, req.companyId!)))
       .where(
         and(
           eq(estimatesTable.companyId, req.companyId!),
