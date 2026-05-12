@@ -2943,7 +2943,7 @@ components:
   schemas:
     ScanRecord:
       type: object
-      required: [id, companyId, createdByUserId, objectPath, fileName, createdAt]
+      required: [id, companyId, createdByUserId, objectPath, fileName, sourceType, status, createdAt]
       properties:
         id:
           type: integer
@@ -2958,6 +2958,12 @@ components:
         fileSizeBytes:
           type: integer
           nullable: true
+        sourceType:
+          type: string
+          enum: [file, video_capture]
+        status:
+          type: string
+          enum: [ready, processing]
         createdAt:
           type: string
           format: date-time
@@ -2973,6 +2979,9 @@ components:
         fileSizeBytes:
           type: integer
           nullable: true
+        sourceType:
+          type: string
+          enum: [file, video_capture]
 
     ScanUrlResponse:
       type: object

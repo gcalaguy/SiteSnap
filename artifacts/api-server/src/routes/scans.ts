@@ -18,6 +18,7 @@ const CreateScanBody = z.object({
   ),
   fileName: z.string().min(1),
   fileSizeBytes: z.number().int().positive().optional(),
+  sourceType: z.enum(["file", "video_capture"]).optional().default("file"),
 });
 
 router.post(
@@ -28,7 +29,7 @@ router.post(
     const parsed = CreateScanBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
 
-    const { objectPath, fileName, fileSizeBytes } = parsed.data;
+    const { objectPath, fileName, fileSizeBytes, sourceType } = parsed.data;
 
     const [scan] = await db.insert(scansTable).values({
       companyId: req.companyId!,
@@ -36,6 +37,8 @@ router.post(
       objectPath,
       fileName,
       fileSizeBytes: fileSizeBytes ?? null,
+      sourceType,
+      status: sourceType === "video_capture" ? "processing" : "ready",
     }).returning();
 
     res.status(201).json(scan);

@@ -2454,6 +2454,7 @@ export const CreateScanBody = zod.object({
   objectPath: zod.string(),
   fileName: zod.string(),
   fileSizeBytes: zod.number().nullish(),
+  sourceType: zod.enum(["file", "video_capture"]).optional(),
 });
 
 /**
@@ -2472,6 +2473,8 @@ export const GetScanUrlResponse = zod.object({
     objectPath: zod.string(),
     fileName: zod.string(),
     fileSizeBytes: zod.number().nullish(),
+    sourceType: zod.enum(["file", "video_capture"]),
+    status: zod.enum(["ready", "processing"]),
     createdAt: zod.coerce.date(),
   }),
 });

@@ -61,6 +61,14 @@
           "photosPermission": "Site Snap uses your photo library to attach site photos to daily reports.",
           "cameraPermission": "Site Snap uses your camera to capture site photos for daily reports."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Site Snap uses your camera to record 3D site scan walkthroughs.",
+          "microphonePermission": "Site Snap uses the microphone when recording site scan videos.",
+          "recordAudioAndroid": true
+        }
       ]
     ],
     "experiments": {

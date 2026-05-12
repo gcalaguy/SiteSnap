@@ -5,6 +5,22 @@
  * Construction AI Assistant API
  * OpenAPI spec version: 0.1.0
  */
+export type ScanRecordSourceType =
+  (typeof ScanRecordSourceType)[keyof typeof ScanRecordSourceType];
+
+export const ScanRecordSourceType = {
+  file: "file",
+  video_capture: "video_capture",
+} as const;
+
+export type ScanRecordStatus =
+  (typeof ScanRecordStatus)[keyof typeof ScanRecordStatus];
+
+export const ScanRecordStatus = {
+  ready: "ready",
+  processing: "processing",
+} as const;
+
 export interface ScanRecord {
   id: number;
   companyId: number;
@@ -12,13 +28,24 @@ export interface ScanRecord {
   objectPath: string;
   fileName: string;
   fileSizeBytes?: number | null;
+  sourceType: ScanRecordSourceType;
+  status: ScanRecordStatus;
   createdAt: string;
 }
+
+export type CreateScanBodySourceType =
+  (typeof CreateScanBodySourceType)[keyof typeof CreateScanBodySourceType];
+
+export const CreateScanBodySourceType = {
+  file: "file",
+  video_capture: "video_capture",
+} as const;
 
 export interface CreateScanBody {
   objectPath: string;
   fileName: string;
   fileSizeBytes?: number | null;
+  sourceType?: CreateScanBodySourceType;
 }
 
 export interface ScanUrlResponse {

@@ -848,6 +848,8 @@ export const scansTable = pgTable("scans", {
   objectPath: text("object_path").notNull(),
   fileName: text("file_name").notNull(),
   fileSizeBytes: integer("file_size_bytes"),
+  sourceType: text("source_type").notNull().default("file"), // "file" | "video_capture"
+  status: text("status").notNull().default("ready"),          // "ready" | "processing"
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type Scan = typeof scansTable.$inferSelect;
