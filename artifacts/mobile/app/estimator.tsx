@@ -472,6 +472,21 @@ export default function EstimatorScreen() {
         ))}
       </View>
 
+      {/* ── Linked Scan Pill ── */}
+      {incomingScanId != null && Number.isFinite(incomingScanId) && (
+        <TouchableOpacity
+          style={s.scanPill}
+          onPress={() => openScanViewer(incomingScanId)}
+          activeOpacity={0.8}
+        >
+          <Feather name="box" size={13} color="#06b6d4" />
+          <Text style={s.scanPillText} numberOfLines={1}>
+            3D Scan linked{scanName ? `: ${scanName}` : ""}
+          </Text>
+          <Feather name="external-link" size={11} color="#06b6d480" />
+        </TouchableOpacity>
+      )}
+
       {/* ── History Panel ── */}
       <TouchableOpacity
         style={[s.historyHeader, { backgroundColor: c.card, borderColor: c.border }]}
@@ -1451,6 +1466,27 @@ const s = StyleSheet.create({
     color: "rgba(255,255,255,0.45)",
     fontSize: 12,
     marginTop: 2,
+  },
+
+  // Linked scan pill (persistent across all steps)
+  scanPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#06b6d450",
+    backgroundColor: "#06b6d412",
+  },
+  scanPillText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#06b6d4",
+    flexShrink: 1,
+    maxWidth: 220,
   },
 
   // Scan viewer
