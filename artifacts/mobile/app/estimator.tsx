@@ -12,9 +12,10 @@ import {
   Animated,
   Pressable,
   Platform,
+  SafeAreaView,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, useGetScanUrl, getGetScanUrlQueryKey } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { Feather } from "@expo/vector-icons";
@@ -22,6 +23,7 @@ import * as Haptics from "expo-haptics";
 import { format } from "date-fns";
 import { useRef } from "react";
 import { useLocalSearchParams } from "expo-router";
+import { WebView } from "react-native-webview";
 
 const GOLD = "#C9A84C";
 
@@ -77,6 +79,7 @@ type SavedEstimate = {
   status: string;
   result: Record<string, any> | null;
   createdAt: string;
+  scanId?: number | null;
 };
 
 type AddonModel = {
@@ -177,6 +180,10 @@ export default function EstimatorScreen() {
   const [showHistory, setShowHistory] = useState(false);
   const [savedEstimateId, setSavedEstimateId] = useState<number | null>(null);
 
+  // Scan viewer
+  const [viewingScanId, setViewingScanId] = useState<number | null>(null);
+  const [scanViewerVisible, setScanViewerVisible] = useState(false);
+
   // Save dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveTitle, setSaveTitle] = useState("");
@@ -216,6 +223,27 @@ export default function EstimatorScreen() {
   });
 
   const addons = modelsData?.addons ?? [];
+
+  const { data: scanUrlData, isLoading: scanUrlLoading, error: scanUrlError } = useGetScanUrl(
+    viewingScanId ?? 0,
+    {
+      query: {
+        queryKey: getGetScanUrlQueryKey(viewingScanId ?? 0),
+        enabled: viewingScanId != null && Number.isFinite(viewingScanId) && scanViewerVisible,
+      },
+    },
+  );
+
+  function openScanViewer(scanId: number) {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setViewingScanId(scanId);
+    setScanViewerVisible(true);
+  }
+
+  function closeScanViewer() {
+    setScanViewerVisible(false);
+    setViewingScanId(null);
+  }
 
   // ── Mutations ────────────────────────────────────────────────────────────────
 
@@ -476,6 +504,16 @@ export default function EstimatorScreen() {
                     <Text style={[s.historyTitle, { color: c.foreground }]} numberOfLines={1}>{e.title}</Text>
                     <Text style={[s.muted, { color: c.mutedForeground }]}>{format(new Date(e.createdAt), "MMM d, yyyy")}</Text>
                   </View>
+                  {e.scanId != null && (
+                    <TouchableOpacity
+                      onPress={() => openScanViewer(e.scanId!)}
+                      hitSlop={8}
+                      style={[s.scanBadge, { borderColor: "#06b6d440" }]}
+                    >
+                      <Feather name="box" size={11} color="#06b6d4" />
+                      <Text style={{ fontSize: 10, color: "#06b6d4", fontWeight: "600" }}>3D</Text>
+                    </TouchableOpacity>
+                  )}
                   {price != null && (
                     <Text style={{ color: GOLD, fontWeight: "700", fontSize: 13 }}>{fmt(price)}</Text>
                   )}
@@ -968,6 +1006,18 @@ export default function EstimatorScreen() {
             </View>
           )}
 
+          {/* View 3D Scan — only when a valid scan is linked */}
+          {incomingScanId != null && Number.isFinite(incomingScanId) && (
+            <TouchableOpacity
+              style={[s.scanBtn, { borderColor: "#06b6d4" }]}
+              onPress={() => openScanViewer(incomingScanId)}
+              activeOpacity={0.8}
+            >
+              <Feather name="box" size={16} color="#06b6d4" />
+              <Text style={[s.scanBtnText, { color: "#06b6d4" }]}>View 3D Scan</Text>
+            </TouchableOpacity>
+          )}
+
           {/* DB source note */}
           <View style={[s.dbNote, { backgroundColor: c.card, borderColor: c.border }]}>
             <Feather name="database" size={12} color={GOLD} />
@@ -1052,6 +1102,63 @@ export default function EstimatorScreen() {
         </View>
       </Modal>
 
+      {/* ── Scan Viewer Modal ────────────────────────────────────────────────────── */}
+      <Modal visible={scanViewerVisible} animationType="slide" onRequestClose={closeScanViewer}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
+          {/* Header */}
+          <View style={s.scanHeader}>
+            <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={s.scanBackBtn}>
+              <Feather name="x" size={22} color="#fff" />
+            </TouchableOpacity>
+            <Text style={s.scanHeaderTitle}>3D Site Scan</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          {/* Content */}
+          <View style={{ flex: 1 }}>
+            {scanUrlLoading && (
+              <View style={s.scanCenter}>
+                <ActivityIndicator size="large" color="#06b6d4" />
+                <Text style={s.scanStatusText}>Loading scan…</Text>
+              </View>
+            )}
+            {scanUrlError && !scanUrlLoading && (
+              <View style={s.scanCenter}>
+                <Feather name="alert-triangle" size={36} color="#f59e0b" />
+                <Text style={s.scanStatusText}>Failed to load 3D scan</Text>
+                <Text style={[s.scanStatusText, { fontSize: 12, marginTop: 4 }]}>
+                  {scanUrlError instanceof Error ? scanUrlError.message : "Unknown error"}
+                </Text>
+                <TouchableOpacity
+                  style={[s.primaryBtn, { marginTop: 20, paddingHorizontal: 24 }]}
+                  onPress={closeScanViewer}
+                >
+                  <Text style={s.primaryBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {scanUrlData?.url && !scanUrlLoading && !scanUrlError && (() => {
+              const domain = process.env.EXPO_PUBLIC_DOMAIN;
+              if (!domain) {
+                return (
+                  <View style={s.scanCenter}>
+                    <Feather name="alert-triangle" size={36} color="#f59e0b" />
+                    <Text style={s.scanStatusText}>Viewer unavailable</Text>
+                    <Text style={[s.scanStatusText, { fontSize: 12, marginTop: 4 }]}>
+                      EXPO_PUBLIC_DOMAIN is not configured.
+                    </Text>
+                  </View>
+                );
+              }
+              const viewerBase = `https://${domain}/supersplat-viewer/index.html`;
+              const params = new URLSearchParams({ content: scanUrlData.url, noui: "" });
+              const viewerUrl = `${viewerBase}?${params.toString()}`;
+              return <ScanWebView url={viewerUrl} />;
+            })()}
+          </View>
+        </SafeAreaView>
+      </Modal>
+
       {/* ── To-Quote Modal ──────────────────────────────────────────────────────── */}
       <Modal visible={showQuoteDialog} transparent animationType="fade" onRequestClose={() => setShowQuoteDialog(false)}>
         <View style={s.modalOverlay}>
@@ -1118,6 +1225,43 @@ function SummaryLine({ label, value, valueColor, colors }: { label: string; valu
     <View style={s.row}>
       <Text style={{ fontSize: 13, color: colors.mutedForeground }}>{label}</Text>
       <Text style={{ fontSize: 13, fontWeight: "600", color: valueColor ?? colors.foreground }}>{value}</Text>
+    </View>
+  );
+}
+
+function ScanWebView({ url }: { url: string }) {
+  const [webLoaded, setWebLoaded] = useState(false);
+  const [webErrored, setWebErrored] = useState(false);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      {!webLoaded && !webErrored && (
+        <View style={[StyleSheet.absoluteFillObject, s.scanCenter, { zIndex: 10 }]}>
+          <ActivityIndicator size="large" color="#06b6d4" />
+          <Text style={s.scanStatusText}>Loading 3D viewer…</Text>
+        </View>
+      )}
+      {webErrored ? (
+        <View style={s.scanCenter}>
+          <Feather name="alert-triangle" size={36} color="#f59e0b" />
+          <Text style={s.scanStatusText}>Failed to load 3D viewer</Text>
+          <Text style={[s.scanStatusText, { fontSize: 12, marginTop: 4 }]}>
+            Check your connection and try again.
+          </Text>
+        </View>
+      ) : (
+        <WebView
+          source={{ uri: url }}
+          style={{ flex: 1 }}
+          onLoad={() => setWebLoaded(true)}
+          onError={() => { setWebErrored(true); setWebLoaded(true); }}
+          onHttpError={() => { setWebErrored(true); setWebLoaded(true); }}
+          javaScriptEnabled
+          allowsInlineMediaPlayback
+          mediaPlaybackRequiresUserAction={false}
+          originWhitelist={["https://*"]}
+        />
+      )}
     </View>
   );
 }
@@ -1229,4 +1373,25 @@ const s = StyleSheet.create({
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   summaryLabel: { fontSize: 13 },
   summaryValue: { fontSize: 13, fontWeight: "600" },
+
+  // Scan viewer
+  scanBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, paddingVertical: 14, borderRadius: 10, borderWidth: 1.5,
+    backgroundColor: "#06b6d410",
+  },
+  scanBtnText: { fontSize: 15, fontWeight: "700" },
+  scanBadge: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1,
+    backgroundColor: "#06b6d412",
+  },
+  scanHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#111",
+  },
+  scanBackBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  scanHeaderTitle: { fontSize: 17, fontWeight: "700", color: "#fff" },
+  scanCenter: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24, backgroundColor: "#000" },
+  scanStatusText: { fontSize: 14, color: "rgba(255,255,255,0.6)", textAlign: "center" },
 });

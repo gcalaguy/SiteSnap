@@ -71,6 +71,7 @@
     "expo-print": "^55.0.13",
     "expo-secure-store": "^15.0.8",
     "expo-sharing": "^55.0.18",
+    "react-native-webview": "^13.16.1",
     "xlsx": "^0.18.5"
   }
 }
