@@ -485,6 +485,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
   const [attachedScanId, setAttachedScanId] = useState<number | null>(null);
   const [scanUploading, setScanUploading] = useState(false);
   const [scanDragActive, setScanDragActive] = useState(false);
+  const [scanProjectId, setScanProjectId] = useState<number | null>(null);
   const scanFileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2 — Parsed / Editable Params
@@ -526,6 +527,12 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   // Data
+  const { data: projectsList = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["projects-list"],
+    queryFn: () => customFetch("/api/projects"),
+    select: (data) => data.map((p: { id: number; name: string }) => ({ id: p.id, name: p.name })),
+  });
+
   const { data: modelsData } = useQuery<{ models: CostModel[]; addons: AddonModel[] }>({
     queryKey: ["estimator-cost-models"],
     queryFn: () => customFetch("/api/estimator/cost-models"),
@@ -743,6 +750,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
             objectPath: urlRes.objectPath,
             fileName: file.name,
             fileSizeBytes: file.size,
+            ...(scanProjectId != null ? { projectId: scanProjectId } : {}),
           }),
         },
       );
@@ -826,6 +834,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
     setSavedEstimateId(null);
     setAttachedScanFile(null);
     setAttachedScanId(null);
+    setScanProjectId(null);
     setParams({ project_type: "renovation_residential", square_feet: 1000, finish_level: "standard", addons: [], confidence: 100, notes: "" });
   };
 
@@ -1384,6 +1393,28 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                   </span>
                 )}
               </div>
+
+              {/* Project link selector */}
+              {projectsList.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground shrink-0">Link to project</Label>
+                  <Select
+                    value={scanProjectId != null ? String(scanProjectId) : "none"}
+                    onValueChange={(v) => setScanProjectId(v === "none" ? null : parseInt(v, 10))}
+                    disabled={scanUploading || attachedScanId != null}
+                  >
+                    <SelectTrigger className="h-7 text-xs flex-1">
+                      <SelectValue placeholder="No project (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No project</SelectItem>
+                      {projectsList.map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {attachedScanFile ? (
                 <div className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2">

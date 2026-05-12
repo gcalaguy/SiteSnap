@@ -45,7 +45,8 @@ export default function SiteScanScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ videoUri?: string; videoName?: string }>();
+  const params = useLocalSearchParams<{ videoUri?: string; videoName?: string; projectId?: string }>();
+  const projectId = params.projectId ? parseInt(params.projectId, 10) : undefined;
 
   const [mode, setMode] = useState<ScanMode>("choose");
   const [step, setStep] = useState<UploadStep>("idle");
@@ -162,6 +163,7 @@ export default function SiteScanScreen() {
           fileName: file.name,
           fileSizeBytes: file.size,
           sourceType: file.sourceType,
+          ...(projectId != null && !isNaN(projectId) ? { projectId } : {}),
         }),
       });
 
