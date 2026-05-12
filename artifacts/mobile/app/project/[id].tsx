@@ -7,11 +7,16 @@ import {
   useUpdateTask,
   useGetMe,
   useCreateDailyReport,
+  useListScans,
+  useGetScanUrl,
+  getGetScanUrlQueryKey,
   customFetch,
 } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { WebView } from "react-native-webview";
 import { DocumentsTab } from "@/components/DocumentsTab";
 import { HoursTab } from "@/components/HoursTab";
 import { QuotesTab } from "@/components/QuotesTab";
@@ -21,12 +26,14 @@ import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   Linking,
   Modal,
   Platform,
   Pressable,
   RefreshControl,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -874,6 +881,187 @@ function ReportsTabSection({
   );
 }
 
+const SCAN_HINT_KEY = "sitesnap.scanGestureHintDismissed";
+
+function ScanWebView({ url }: { url: string }) {
+  const [webLoaded, setWebLoaded] = useState(false);
+  const [webErrored, setWebErrored] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const hintOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    AsyncStorage.getItem(SCAN_HINT_KEY).then((val) => {
+      if (!val) {
+        setShowHint(true);
+        Animated.timing(hintOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      }
+    }).catch(() => {});
+  }, []);
+
+  const dismissHint = useCallback(() => {
+    Animated.timing(hintOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+      setShowHint(false);
+    });
+    AsyncStorage.setItem(SCAN_HINT_KEY, "1").catch(() => {});
+  }, [hintOpacity]);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      {!webLoaded && !webErrored && (
+        <View style={[StyleSheet.absoluteFillObject, scanSt.center, { zIndex: 10 }]}>
+          <ActivityIndicator size="large" color="#06b6d4" />
+          <Text style={scanSt.statusText}>Loading 3D viewer…</Text>
+        </View>
+      )}
+      {webErrored ? (
+        <View style={scanSt.center}>
+          <Feather name="alert-triangle" size={36} color="#f59e0b" />
+          <Text style={scanSt.statusText}>Failed to load 3D viewer</Text>
+          <Text style={[scanSt.statusText, { fontSize: 12, marginTop: 4 }]}>
+            Check your connection and try again.
+          </Text>
+        </View>
+      ) : (
+        <WebView
+          source={{ uri: url }}
+          style={{ flex: 1 }}
+          onLoad={() => setWebLoaded(true)}
+          onError={() => { setWebErrored(true); setWebLoaded(true); }}
+          onHttpError={() => { setWebErrored(true); setWebLoaded(true); }}
+          javaScriptEnabled
+          allowsInlineMediaPlayback
+          mediaPlaybackRequiresUserAction={false}
+          originWhitelist={["https://*"]}
+          allowsFullscreenVideo
+          allowsBackForwardNavigationGestures
+        />
+      )}
+      {showHint && !webErrored && (
+        <Animated.View
+          style={[scanSt.gestureHint, { opacity: hintOpacity }]}
+          pointerEvents="box-none"
+        >
+          <TouchableOpacity style={scanSt.gestureHintInner} onPress={dismissHint} activeOpacity={0.85}>
+            <View style={scanSt.gestureHintRow}>
+              <Feather name="zoom-in" size={18} color="#fff" />
+              <Text style={scanSt.gestureHintText}>Pinch to zoom</Text>
+            </View>
+            <View style={scanSt.gestureHintDivider} />
+            <View style={scanSt.gestureHintRow}>
+              <Feather name="rotate-cw" size={18} color="#fff" />
+              <Text style={scanSt.gestureHintText}>Drag to rotate</Text>
+            </View>
+            <Text style={scanSt.gestureHintDismiss}>Tap to dismiss</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
+function VideoWebView({ url }: { url: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  video{width:100%;height:100%;object-fit:contain}
+</style>
+</head>
+<body>
+<video src="${url}" controls autoplay playsinline webkit-playsinline></video>
+</body>
+</html>`;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      {!loaded && (
+        <View style={[StyleSheet.absoluteFillObject, scanSt.center, { zIndex: 10 }]}>
+          <ActivityIndicator size="large" color="#06b6d4" />
+          <Text style={scanSt.statusText}>Loading video…</Text>
+        </View>
+      )}
+      <WebView
+        source={{ html }}
+        style={{ flex: 1 }}
+        onLoad={() => setLoaded(true)}
+        javaScriptEnabled
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        allowsFullscreenVideo
+        originWhitelist={["*"]}
+      />
+    </View>
+  );
+}
+
+const scanSt = StyleSheet.create({
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24, backgroundColor: "#000" },
+  statusText: { fontSize: 14, color: "rgba(255,255,255,0.6)", textAlign: "center" },
+  header: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#111",
+  },
+  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontSize: 17, fontWeight: "700", color: "#fff" },
+  gestureHint: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingBottom: 48,
+    zIndex: 20,
+  },
+  gestureHintInner: {
+    backgroundColor: "rgba(0,0,0,0.72)",
+    borderRadius: 16,
+    paddingHorizontal: 28,
+    paddingVertical: 18,
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  gestureHintRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  gestureHintText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  gestureHintDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.2)", alignSelf: "stretch" },
+  gestureHintDismiss: { color: "rgba(255,255,255,0.45)", fontSize: 12, marginTop: 2 },
+
+  // Scan list row (project overview)
+  scanRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  scanIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#06b6d412",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  scanName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  scanMeta: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  scanBadge: {
+    backgroundColor: "#06b6d412",
+    borderWidth: 1,
+    borderColor: "#06b6d440",
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  scanBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: "#06b6d4" },
+});
+
 export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = Number(id);
@@ -882,6 +1070,21 @@ export default function ProjectDetailScreen() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
+
+  // Scan viewer state
+  const [viewingScanId, setViewingScanId] = useState<number | null>(null);
+  const [scanViewerVisible, setScanViewerVisible] = useState(false);
+
+  function openScanViewer(scanId: number) {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setViewingScanId(scanId);
+    setScanViewerVisible(true);
+  }
+
+  function closeScanViewer() {
+    setScanViewerVisible(false);
+    setViewingScanId(null);
+  }
 
   const { data: me } = useGetMe();
   const isWorker = me?.role === "worker";
@@ -893,6 +1096,17 @@ export default function ProjectDetailScreen() {
   const { data: reports, refetch: refetchReports } = useListDailyReports(projectId);
   const { data: tasks, refetch: refetchTasks } = useListTasks(projectId);
   const { data: rfis } = useListRFIs(projectId);
+  const { data: scans } = useListScans({ projectId });
+
+  const { data: scanUrlData, isLoading: scanUrlLoading, error: scanUrlError } = useGetScanUrl(
+    viewingScanId ?? 0,
+    {
+      query: {
+        queryKey: getGetScanUrlQueryKey(viewingScanId ?? 0),
+        enabled: viewingScanId != null && Number.isFinite(viewingScanId) && scanViewerVisible,
+      },
+    },
+  );
 
   const [clientUploads, setClientUploads] = useState<any[]>([]);
   useEffect(() => {
@@ -1039,7 +1253,47 @@ export default function ProjectDetailScreen() {
             </>
           )}
 
+          {/* Site Scans section — only shown when scans exist for this project */}
+          {scans != null && scans.length > 0 && (
+            <>
+              <View style={{ height: 20 }} />
+              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Site Scans</Text>
+              {scans.map((scan) => (
+                <TouchableOpacity
+                  key={scan.id}
+                  onPress={() => openScanViewer(scan.id)}
+                  activeOpacity={0.8}
+                  style={[
+                    scanSt.scanRow,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                  ]}
+                >
+                  <View style={scanSt.scanIconWrap}>
+                    <Feather name="box" size={18} color="#06b6d4" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[scanSt.scanName, { color: colors.foreground }]} numberOfLines={1}>
+                      {scan.name}
+                    </Text>
+                    {scan.createdAt && (
+                      <Text style={[scanSt.scanMeta, { color: colors.mutedForeground }]}>
+                        {new Date(scan.createdAt).toLocaleDateString("en-CA", {
+                          month: "short", day: "numeric", year: "numeric",
+                        })}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={scanSt.scanBadge}>
+                    <Text style={scanSt.scanBadgeText}>3D</Text>
+                  </View>
+                  <Feather name="chevron-right" size={16} color={colors.border} />
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+
           {/* Project details */}
+          <View style={{ height: 20 }} />
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Details</Text>
           <View style={[styles.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.detailRow}>
@@ -1287,6 +1541,64 @@ export default function ProjectDetailScreen() {
       {activeTab === "Messages" && (
         <ClientMessagesTab projectId={projectId} />
       )}
+
+      {/* 3D Scan viewer modal */}
+      <Modal visible={scanViewerVisible} animationType="slide" onRequestClose={closeScanViewer}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
+          <View style={scanSt.header}>
+            <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={scanSt.backBtn}>
+              <Feather name="x" size={22} color="#fff" />
+            </TouchableOpacity>
+            <Text style={scanSt.headerTitle}>3D Site Scan</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <View style={{ flex: 1 }}>
+            {scanUrlLoading && (
+              <View style={scanSt.center}>
+                <ActivityIndicator size="large" color="#06b6d4" />
+                <Text style={scanSt.statusText}>Loading scan…</Text>
+              </View>
+            )}
+            {scanUrlError && !scanUrlLoading && (
+              <View style={scanSt.center}>
+                <Feather name="alert-triangle" size={36} color="#f59e0b" />
+                <Text style={scanSt.statusText}>Failed to load 3D scan</Text>
+                <Text style={[scanSt.statusText, { fontSize: 12, marginTop: 4 }]}>
+                  {scanUrlError instanceof Error ? scanUrlError.message : "Unknown error"}
+                </Text>
+                <TouchableOpacity
+                  style={{ marginTop: 20, backgroundColor: "#06b6d4", borderRadius: 10, paddingVertical: 12, paddingHorizontal: 24 }}
+                  onPress={closeScanViewer}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {scanUrlData?.url && !scanUrlLoading && !scanUrlError && (() => {
+              const isVideo = scanUrlData.scan?.sourceType === "video_capture";
+              if (isVideo) {
+                return <VideoWebView url={scanUrlData.url} />;
+              }
+              const domain = process.env.EXPO_PUBLIC_DOMAIN;
+              if (!domain) {
+                return (
+                  <View style={scanSt.center}>
+                    <Feather name="alert-triangle" size={36} color="#f59e0b" />
+                    <Text style={scanSt.statusText}>Viewer unavailable</Text>
+                    <Text style={[scanSt.statusText, { fontSize: 12, marginTop: 4 }]}>
+                      EXPO_PUBLIC_DOMAIN is not configured.
+                    </Text>
+                  </View>
+                );
+              }
+              const viewerBase = `https://${domain}/supersplat-viewer/index.html`;
+              const params = new URLSearchParams({ content: scanUrlData.url, noui: "" });
+              const viewerUrl = `${viewerBase}?${params.toString()}`;
+              return <ScanWebView url={viewerUrl} />;
+            })()}
+          </View>
+        </SafeAreaView>
+      </Modal>
     </ScrollView>
   );
 }
