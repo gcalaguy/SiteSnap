@@ -260,6 +260,25 @@ export default function EstimatorScreen() {
     setViewingScanId(null);
   }
 
+  function deleteViewerScan() {
+    if (viewingScanId == null) return;
+    Alert.alert("Delete scan?", "This will permanently remove this site scan.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await customFetch(`/api/scans/${viewingScanId}`, { method: "DELETE" });
+            closeScanViewer();
+          } catch (err: any) {
+            Alert.alert("Delete failed", err?.message ?? "Could not delete scan.");
+          }
+        },
+      },
+    ]);
+  }
+
   // ── Mutations ────────────────────────────────────────────────────────────────
 
   const parseMutation = useMutation({
@@ -1137,18 +1156,6 @@ export default function EstimatorScreen() {
       {/* ── Scan Viewer Modal ────────────────────────────────────────────────────── */}
       <Modal visible={scanViewerVisible} animationType="slide" onRequestClose={closeScanViewer}>
         <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
-          {/* Header */}
-          <View style={s.scanHeader}>
-            <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={s.scanBackBtn}>
-              <Feather name="x" size={22} color="#fff" />
-            </TouchableOpacity>
-            <Text style={s.scanHeaderTitle}>3D Site Scan</Text>
-            <TouchableOpacity onPress={deleteViewerScan} hitSlop={10} style={s.scanDeleteBtn}>
-              <Feather name="trash-2" size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Content */}
           <View style={{ flex: 1 }}>
             {scanUrlLoading && (
               <View style={s.scanCenter}>
@@ -1173,9 +1180,23 @@ export default function EstimatorScreen() {
             )}
             {scanUrlData?.url && !scanUrlLoading && !scanUrlError && (() => {
               const isVideo = scanUrlData.scan?.sourceType === "video_capture";
+              const title = isVideo ? "Site Recording" : "3D Site Scan";
 
               if (isVideo) {
-                return <VideoWebView url={scanUrlData.url} />;
+                return (
+                  <View style={{ flex: 1 }}>
+                    <VideoWebView url={scanUrlData.url} />
+                    <View style={s.scanOverlay}>
+                      <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={s.scanOverlayBtn}>
+                        <Feather name="x" size={22} color="#fff" />
+                      </TouchableOpacity>
+                      <Text style={s.scanHeaderTitle}>{title}</Text>
+                      <TouchableOpacity onPress={deleteViewerScan} hitSlop={10} style={s.scanOverlayBtn}>
+                        <Feather name="trash-2" size={18} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
               }
 
               const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -1193,7 +1214,20 @@ export default function EstimatorScreen() {
               const viewerBase = `https://${domain}/supersplat-viewer/index.html`;
               const params = new URLSearchParams({ content: scanUrlData.url, noui: "" });
               const viewerUrl = `${viewerBase}?${params.toString()}`;
-              return <ScanWebView url={viewerUrl} />;
+              return (
+                <View style={{ flex: 1 }}>
+                  <ScanWebView url={viewerUrl} />
+                  <View style={s.scanOverlay}>
+                    <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={s.scanOverlayBtn}>
+                      <Feather name="x" size={22} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={s.scanHeaderTitle}>{title}</Text>
+                    <TouchableOpacity onPress={deleteViewerScan} hitSlop={10} style={s.scanOverlayBtn}>
+                      <Feather name="trash-2" size={18} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
             })()}
           </View>
         </SafeAreaView>
@@ -1565,11 +1599,20 @@ const s = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1,
     backgroundColor: "#06b6d412",
   },
-  scanHeader: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#111",
+  scanOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    zIndex: 50,
   },
-  scanBackBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  scanOverlayBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   scanHeaderTitle: { fontSize: 17, fontWeight: "700", color: "#fff" },
   scanCenter: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24, backgroundColor: "#000" },
   scanStatusText: { fontSize: 14, color: "rgba(255,255,255,0.6)", textAlign: "center" },

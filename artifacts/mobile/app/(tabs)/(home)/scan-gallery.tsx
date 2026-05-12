@@ -145,18 +145,6 @@ function ScanViewerModal({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
-        <View style={styles.viewerHeader}>
-          <TouchableOpacity onPress={onClose} hitSlop={10} style={styles.viewerBackBtn}>
-            <Feather name="x" size={22} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.viewerTitle}>
-            {scanUrlData?.scan?.sourceType === "video_capture" ? "Site Recording" : "3D Site Scan"}
-          </Text>
-          <TouchableOpacity onPress={onDelete} hitSlop={10} style={styles.viewerDeleteBtn}>
-            <Feather name="trash-2" size={18} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
         <View style={{ flex: 1 }}>
           {isLoading && (
             <View style={styles.center}>
@@ -178,9 +166,23 @@ function ScanViewerModal({
           )}
           {scanUrlData?.url && !isLoading && !error && (() => {
             const isVideo = scanUrlData.scan?.sourceType === "video_capture";
+            const title = isVideo ? "Site Recording" : "3D Site Scan";
 
             if (isVideo) {
-              return <VideoWebView url={scanUrlData.url} />;
+              return (
+                <View style={{ flex: 1 }}>
+                  <VideoWebView url={scanUrlData.url} />
+                  <View style={styles.viewerOverlay} pointerEvents="box-none">
+                    <TouchableOpacity onPress={onClose} hitSlop={10} style={styles.viewerOverlayBtn}>
+                      <Feather name="x" size={22} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={styles.viewerOverlayTitle}>{title}</Text>
+                    <TouchableOpacity onPress={onDelete} hitSlop={10} style={styles.viewerOverlayBtn}>
+                      <Feather name="trash-2" size={18} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
             }
 
             const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -198,7 +200,20 @@ function ScanViewerModal({
             const viewerBase = `https://${domain}/supersplat-viewer/index.html`;
             const params = new URLSearchParams({ content: scanUrlData.url, noui: "" });
             const viewerUrl = `${viewerBase}?${params.toString()}`;
-            return <ScanWebView url={viewerUrl} />;
+            return (
+              <View style={{ flex: 1 }}>
+                <ScanWebView url={viewerUrl} />
+                <View style={styles.viewerOverlay} pointerEvents="box-none">
+                  <TouchableOpacity onPress={onClose} hitSlop={10} style={styles.viewerOverlayBtn}>
+                    <Feather name="x" size={22} color="#fff" />
+                  </TouchableOpacity>
+                  <Text style={styles.viewerOverlayTitle}>{title}</Text>
+                  <TouchableOpacity onPress={onDelete} hitSlop={10} style={styles.viewerOverlayBtn}>
+                    <Feather name="trash-2" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
           })()}
         </View>
       </SafeAreaView>
@@ -525,18 +540,21 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
 
-  viewerHeader: {
+  viewerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.1)",
+    zIndex: 50,
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
-  viewerBackBtn: { width: 40, alignItems: "flex-start" },
-  viewerTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#fff" },
-  viewerDeleteBtn: { width: 40, alignItems: "flex-end" },
+  viewerOverlayBtn: { width: 40, alignItems: "center", justifyContent: "center" },
+  viewerOverlayTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#fff" },
 
   closeBtn: {
     backgroundColor: CYAN,
