@@ -2355,6 +2355,31 @@ paths:
         "404":
           description: Scan not found
 
+  /scans/{id}/thumbnail-url:
+    get:
+      operationId: getScanThumbnailUrl
+      tags: [Storage]
+      summary: Get a signed read URL for a scan's thumbnail image
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Signed thumbnail URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url:
+                    type: string
+        "404":
+          description: Scan not found or no thumbnail
+
   # ── Quotes ──────────────────────────────────────────────────────────────────
 
   /projects/{projectId}/quotes:
@@ -3031,6 +3056,9 @@ components:
         status:
           type: string
           enum: [ready, processing]
+        thumbnailPath:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time

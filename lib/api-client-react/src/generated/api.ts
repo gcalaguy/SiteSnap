@@ -73,6 +73,7 @@ import type {
   FormSubmissionRecord,
   FormTemplateRecord,
   GetFormSubmission200,
+  GetScanThumbnailUrl200,
   HealthStatus,
   Invitation,
   Invoice,
@@ -10427,6 +10428,93 @@ export function useGetScanUrl<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetScanUrlQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a signed read URL for a scan's thumbnail image
+ */
+export const getGetScanThumbnailUrlUrl = (id: number) => {
+  return `/api/scans/${id}/thumbnail-url`;
+};
+
+export const getScanThumbnailUrl = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GetScanThumbnailUrl200> => {
+  return customFetch<GetScanThumbnailUrl200>(getGetScanThumbnailUrlUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetScanThumbnailUrlQueryKey = (id: number) => {
+  return [`/api/scans/${id}/thumbnail-url`] as const;
+};
+
+export const getGetScanThumbnailUrlQueryOptions = <
+  TData = Awaited<ReturnType<typeof getScanThumbnailUrl>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScanThumbnailUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetScanThumbnailUrlQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getScanThumbnailUrl>>
+  > = ({ signal }) => getScanThumbnailUrl(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getScanThumbnailUrl>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetScanThumbnailUrlQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getScanThumbnailUrl>>
+>;
+export type GetScanThumbnailUrlQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a signed read URL for a scan's thumbnail image
+ */
+
+export function useGetScanThumbnailUrl<
+  TData = Awaited<ReturnType<typeof getScanThumbnailUrl>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScanThumbnailUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetScanThumbnailUrlQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

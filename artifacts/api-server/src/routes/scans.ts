@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, scansTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { BadRequestError, NotFoundError } from "../lib/errors";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { generatePlyThumbnailFromUrl } from "../lib/plyThumbnail";
+import { logger } from "../lib/logger";
 
 const router = Router();
 const objectStorageService = new ObjectStorageService();
@@ -71,9 +73,27 @@ router.post(
       status: "ready",
       projectId: projectId ?? null,
       name: name ?? null,
+      thumbnailPath: null,
     }).returning();
 
     res.status(201).json(scan);
+
+    // Fire-and-forget: generate thumbnail server-side after responding
+    (async () => {
+      try {
+        const signedUrl = await objectStorageService.getObjectEntityReadURL(objectPath, 300);
+        const pngBuf = await generatePlyThumbnailFromUrl(signedUrl);
+        if (pngBuf) {
+          const thumbPath = await objectStorageService.uploadBuffer(pngBuf, "image/png");
+          await db.update(scansTable)
+            .set({ thumbnailPath: thumbPath })
+            .where(eq(scansTable.id, scan!.id));
+          logger.info({ scanId: scan!.id, thumbPath }, "scan thumbnail generated");
+        }
+      } catch (err) {
+        logger.warn({ err, scanId: scan!.id }, "scan thumbnail generation failed (non-fatal)");
+      }
+    })();
   }),
 );
 
@@ -154,6 +174,30 @@ router.get(
     const signedUrl = await objectStorageService.getObjectEntityReadURL(scan.objectPath, 900);
 
     res.json({ url: signedUrl, scan });
+  }),
+);
+
+// GET /api/scans/:id/thumbnail-url — get a signed read URL for the scan thumbnail
+router.get(
+  "/scans/:id/thumbnail-url",
+  requireAuth,
+  requireCompany,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id)) throw new BadRequestError("Invalid scan ID");
+
+    const [scan] = await db
+      .select()
+      .from(scansTable)
+      .where(and(eq(scansTable.id, id), eq(scansTable.companyId, req.companyId!)))
+      .limit(1);
+
+    if (!scan) throw new NotFoundError("Scan not found");
+    if (!scan.thumbnailPath) throw new NotFoundError("Scan has no thumbnail");
+
+    const url = await objectStorageService.getObjectEntityReadURL(scan.thumbnailPath, 900);
+
+    res.json({ url });
   }),
 );
 

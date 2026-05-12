@@ -2467,6 +2467,7 @@ export const ListScansResponseItem = zod.object({
   fileSizeBytes: zod.number().nullish(),
   sourceType: zod.enum(["file", "video_capture"]),
   status: zod.enum(["ready", "processing"]),
+  thumbnailPath: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListScansResponse = zod.array(ListScansResponseItem);
@@ -2505,6 +2506,7 @@ export const UpdateScanResponse = zod.object({
   fileSizeBytes: zod.number().nullish(),
   sourceType: zod.enum(["file", "video_capture"]),
   status: zod.enum(["ready", "processing"]),
+  thumbnailPath: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -2535,8 +2537,20 @@ export const GetScanUrlResponse = zod.object({
     fileSizeBytes: zod.number().nullish(),
     sourceType: zod.enum(["file", "video_capture"]),
     status: zod.enum(["ready", "processing"]),
+    thumbnailPath: zod.string().nullish(),
     createdAt: zod.coerce.date(),
   }),
+});
+
+/**
+ * @summary Get a signed read URL for a scan's thumbnail image
+ */
+export const GetScanThumbnailUrlParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetScanThumbnailUrlResponse = zod.object({
+  url: zod.string(),
 });
 
 /**

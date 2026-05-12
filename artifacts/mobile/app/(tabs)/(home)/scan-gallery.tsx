@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -21,6 +22,8 @@ import {
   getListScansQueryKey,
   useGetScanUrl,
   getGetScanUrlQueryKey,
+  useGetScanThumbnailUrl,
+  getGetScanThumbnailUrlQueryKey,
   ScanRecord,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
@@ -198,6 +201,51 @@ function ScanViewerModal({
   );
 }
 
+function ScanCardThumbnail({
+  scan,
+  colors,
+}: {
+  scan: ScanRecord;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const hasThumbnail = !!scan.thumbnailPath;
+  const isReady = scan.status === "ready";
+  const isVideo = scan.sourceType === "video_capture";
+
+  const { data: thumbData } = useGetScanThumbnailUrl(
+    scan.id,
+    {
+      query: {
+        queryKey: getGetScanThumbnailUrlQueryKey(scan.id),
+        enabled: hasThumbnail && isReady,
+        staleTime: 600_000,
+        retry: false,
+      },
+    },
+  );
+
+  const [imgError, setImgError] = useState(false);
+
+  if (hasThumbnail && thumbData?.url && !imgError) {
+    return (
+      <View style={styles.cardIcon}>
+        <Image
+          source={{ uri: thumbData.url }}
+          style={styles.thumbnailImg}
+          onError={() => setImgError(true)}
+          resizeMode="cover"
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.cardIcon, { backgroundColor: `${CYAN}18` }]}>
+      <Feather name={isVideo ? "film" : "file"} size={22} color={CYAN} />
+    </View>
+  );
+}
+
 function ScanCard({
   scan,
   colors,
@@ -217,9 +265,7 @@ function ScanCard({
       activeOpacity={isReady ? 0.75 : 1}
       disabled={!isReady}
     >
-      <View style={[styles.cardIcon, { backgroundColor: `${CYAN}18` }]}>
-        <Feather name={isVideo ? "film" : "file"} size={22} color={CYAN} />
-      </View>
+      <ScanCardThumbnail scan={scan} colors={colors} />
 
       <View style={{ flex: 1, gap: 4 }}>
         <Text style={[styles.cardName, { color: colors.foreground }]} numberOfLines={1}>
@@ -414,8 +460,14 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 12,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
+  },
+  thumbnailImg: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
   },
   cardName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 

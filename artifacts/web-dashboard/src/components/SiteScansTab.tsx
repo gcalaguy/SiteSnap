@@ -3,7 +3,9 @@ import {
   useListScans,
   useUpdateScan,
   useDeleteScan,
+  useGetScanThumbnailUrl,
   getListScansQueryKey,
+  getGetScanThumbnailUrlQueryKey,
   customFetch,
   ScanRecord,
 } from "@workspace/api-client-react";
@@ -198,6 +200,51 @@ function ScanViewerDialog({ scan, open, onOpenChange }: ScanViewerDialogProps) {
   );
 }
 
+function ScanThumbnail({ scan, onClick }: { scan: ScanRecord; onClick: () => void }) {
+  const isProcessing = scan.status === "processing";
+  const hasThumbnail = !!scan.thumbnailPath;
+
+  const { data: thumbData, isLoading: thumbLoading } = useGetScanThumbnailUrl(
+    scan.id,
+    {
+      query: {
+        queryKey: getGetScanThumbnailUrlQueryKey(scan.id),
+        enabled: hasThumbnail && !isProcessing,
+        staleTime: 600_000,
+        retry: false,
+      },
+    },
+  );
+
+  const [imgError, setImgError] = useState(false);
+  const showImg = thumbData?.url && !imgError;
+
+  return (
+    <button
+      className="shrink-0 w-16 h-16 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity disabled:cursor-default disabled:opacity-50"
+      style={{ background: BLACK }}
+      disabled={isProcessing}
+      onClick={onClick}
+      title={isProcessing ? "Processing…" : "Open 3D viewer"}
+    >
+      {isProcessing ? (
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: GOLD }} />
+      ) : showImg ? (
+        <img
+          src={thumbData.url}
+          alt="Scan thumbnail"
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : thumbLoading && hasThumbnail ? (
+        <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
+      ) : (
+        <Box className="h-7 w-7 text-violet-400" />
+      )}
+    </button>
+  );
+}
+
 interface ScanCardProps {
   scan: ScanRecord;
 }
@@ -215,20 +262,8 @@ function ScanCard({ scan }: ScanCardProps) {
       <Card className="border border-border bg-card hover:shadow-md transition-shadow">
         <CardContent className="p-4">
           <div className="flex items-start gap-4">
-            {/* Thumbnail placeholder */}
-            <button
-              className="shrink-0 w-16 h-16 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity disabled:cursor-default disabled:opacity-50"
-              style={{ background: BLACK }}
-              disabled={isProcessing}
-              onClick={() => !isProcessing && setViewerOpen(true)}
-              title={isProcessing ? "Processing…" : "Open 3D viewer"}
-            >
-              {isProcessing ? (
-                <Loader2 className="h-6 w-6 animate-spin" style={{ color: GOLD }} />
-              ) : (
-                <Box className="h-7 w-7 text-violet-400" />
-              )}
-            </button>
+            {/* Thumbnail */}
+            <ScanThumbnail scan={scan} onClick={() => !isProcessing && setViewerOpen(true)} />
 
             {/* Info */}
             <div className="flex-1 min-w-0 space-y-1.5">

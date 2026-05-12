@@ -32,6 +32,7 @@ export interface ScanRecord {
   fileSizeBytes?: number | null;
   sourceType: ScanRecordSourceType;
   status: ScanRecordStatus;
+  thumbnailPath?: string | null;
   createdAt: string;
 }
 
@@ -1419,6 +1420,10 @@ export type MarkNotificationRead200 = {
 
 export type ListScansParams = {
   projectId?: number;
+};
+
+export type GetScanThumbnailUrl200 = {
+  url: string;
 };
 
 export type RejectQuoteBody = {
