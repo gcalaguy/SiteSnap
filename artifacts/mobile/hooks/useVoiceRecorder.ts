@@ -62,7 +62,7 @@ export function useVoiceRecorder(
       const result = await customFetch<{ text?: string }>("/api/ai/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio: base64 }),
+        body: JSON.stringify({ audio: base64, format: "m4a" }),
       });
 
       if (result.text?.trim()) {
