@@ -132,7 +132,7 @@ export default function SiteScanScreen() {
         method: "POST",
         body: JSON.stringify({
           name: file.name,
-          size: file.size ?? 0,
+          size: file.size ?? 0,  // 0 is acceptable for video captures where size is unknown
           contentType,
         }),
       });
