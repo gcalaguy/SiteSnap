@@ -1580,6 +1580,10 @@ export default function ProjectDetailScreen() {
                 return (
                   <View style={{ flex: 1 }}>
                     <VideoWebView url={scanUrlData.url} />
+                    <TouchableOpacity onPress={deleteViewerScan} style={scanSt.videoDeleteFab} activeOpacity={0.85}>
+                      <Feather name="trash-2" size={18} color="#fff" />
+                      <Text style={scanSt.videoDeleteFabText}>Delete video</Text>
+                    </TouchableOpacity>
                     <View style={scanSt.overlay}>
                       <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={scanSt.overlayBtn}>
                         <Feather name="x" size={22} color="#fff" />
