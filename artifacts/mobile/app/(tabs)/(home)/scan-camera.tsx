@@ -33,6 +33,7 @@ export default function ScanCameraScreen() {
 
   const cameraRef = useRef<CameraView>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -59,6 +60,7 @@ export default function ScanCameraScreen() {
 
   async function startRecording() {
     if (!cameraRef.current || isRecording || isStarting) return;
+    cancelledRef.current = false;
     setIsStarting(true);
     setElapsed(0);
     try {
@@ -69,8 +71,9 @@ export default function ScanCameraScreen() {
       const video = await cameraRef.current.recordAsync({ maxDuration: 300 });
 
       if (timerRef.current) clearInterval(timerRef.current);
+      setIsRecording(false);
 
-      if (video?.uri) {
+      if (video?.uri && !cancelledRef.current) {
         router.navigate({
           pathname: "/site-scan" as any,
           params: { videoUri: video.uri, videoName: `site-scan-${Date.now()}.mp4` },
@@ -92,6 +95,12 @@ export default function ScanCameraScreen() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+  }
+
+  function handleCancel() {
+    cancelledRef.current = true;
+    if (isRecording) stopRecording();
+    router.back();
   }
 
   if (!cameraPermission || !micPermission) {
@@ -134,10 +143,7 @@ export default function ScanCameraScreen() {
       <View style={[styles.topBar, { paddingTop: Platform.OS === "web" ? 16 : insets.top + 8 }]}>
         <Pressable
           style={styles.cancelBtn}
-          onPress={() => {
-            if (isRecording) stopRecording();
-            router.back();
-          }}
+          onPress={handleCancel}
           hitSlop={12}
         >
           <Feather name="x" size={22} color="#fff" />
