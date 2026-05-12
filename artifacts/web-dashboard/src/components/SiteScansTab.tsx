@@ -10,14 +10,17 @@ import {
   ScanRecord,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { DateRange } from "react-day-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import {
-  Box, Pencil, Trash2, Loader2, X, Check, ScanLine, ExternalLink,
+  Box, Pencil, Trash2, Loader2, X, Check, ScanLine, ExternalLink, Search, CalendarRange,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -262,10 +265,8 @@ function ScanCard({ scan }: ScanCardProps) {
       <Card className="border border-border bg-card hover:shadow-md transition-shadow">
         <CardContent className="p-4">
           <div className="flex items-start gap-4">
-            {/* Thumbnail */}
             <ScanThumbnail scan={scan} onClick={() => !isProcessing && setViewerOpen(true)} />
 
-            {/* Info */}
             <div className="flex-1 min-w-0 space-y-1.5">
               {renaming ? (
                 <InlineRename scan={scan} onDone={() => setRenaming(false)} />
@@ -290,7 +291,6 @@ function ScanCard({ scan }: ScanCardProps) {
               )}
             </div>
 
-            {/* Actions */}
             <div className="flex items-center gap-1 shrink-0">
               {!isProcessing && (
                 <Button
@@ -334,6 +334,12 @@ function ScanCard({ scan }: ScanCardProps) {
   );
 }
 
+function formatDateRangeLabel(range: DateRange | undefined): string {
+  if (!range?.from) return "Pick a date range";
+  if (!range.to) return format(range.from, "MMM d, yyyy");
+  return `${format(range.from, "MMM d")} – ${format(range.to, "MMM d, yyyy")}`;
+}
+
 interface SiteScansTabProps {
   projectId: number;
 }
@@ -343,6 +349,34 @@ export default function SiteScansTab({ projectId }: SiteScansTabProps) {
     { projectId },
     { query: { staleTime: 30_000, queryKey: getListScansQueryKey({ projectId }) } }
   );
+
+  const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const hasDateFilter = !!(dateRange?.from);
+  const hasAnyFilter = search.trim() !== "" || hasDateFilter;
+
+  const filteredScans = (scans ?? []).filter((scan) => {
+    const needle = search.trim().toLowerCase();
+    if (needle) {
+      const displayName = (scan.name ?? scan.fileName).toLowerCase();
+      const fileName = scan.fileName.toLowerCase();
+      if (!displayName.includes(needle) && !fileName.includes(needle)) return false;
+    }
+    if (dateRange?.from) {
+      const scanDate = new Date(scan.createdAt);
+      const from = startOfDay(dateRange.from);
+      const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+      if (!isWithinInterval(scanDate, { start: from, end: to })) return false;
+    }
+    return true;
+  });
+
+  function clearFilters() {
+    setSearch("");
+    setDateRange(undefined);
+  }
 
   if (isLoading) {
     return (
@@ -382,14 +416,95 @@ export default function SiteScansTab({ projectId }: SiteScansTabProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-muted-foreground">
-          {scans.length} scan{scans.length !== 1 ? "s" : ""} on record
-        </p>
+      {/* Search & filter bar */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search by name or filename…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 h-9 text-sm"
+          />
+          {search && (
+            <button
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={hasDateFilter ? "secondary" : "outline"}
+                className="h-9 gap-2 text-sm"
+              >
+                <CalendarRange className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{hasDateFilter ? formatDateRangeLabel(dateRange) : "Date range"}</span>
+                <span className="sm:hidden">Date</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={(range) => {
+                  setDateRange(range);
+                  if (range?.from && range?.to) setCalendarOpen(false);
+                }}
+                disabled={{ after: new Date() }}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          {hasDateFilter && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-muted-foreground hover:text-foreground"
+              aria-label="Clear date filter"
+              onClick={() => setDateRange(undefined)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
-      {scans.map((scan) => (
-        <ScanCard key={scan.id} scan={scan} />
-      ))}
+
+      {/* Result count row */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {hasAnyFilter
+            ? `${filteredScans.length} of ${scans.length} scan${scans.length !== 1 ? "s" : ""} match`
+            : `${scans.length} scan${scans.length !== 1 ? "s" : ""} on record`}
+        </p>
+        {hasAnyFilter && (
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+      {/* Results */}
+      {filteredScans.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+          <Search className="h-8 w-8 text-muted-foreground/40" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">No scans match your filters</p>
+            <p className="text-xs text-muted-foreground">Try a different name or date range.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button>
+        </div>
+      ) : (
+        filteredScans.map((scan) => (
+          <ScanCard key={scan.id} scan={scan} />
+        ))
+      )}
     </div>
   );
 }
