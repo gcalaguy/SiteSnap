@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db, scansTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -9,6 +9,22 @@ import { ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
 const objectStorageService = new ObjectStorageService();
+
+// GET /api/scans — list all company scans, newest first
+router.get(
+  "/scans",
+  requireAuth,
+  requireCompany,
+  asyncHandler(async (req, res) => {
+    const scans = await db
+      .select()
+      .from(scansTable)
+      .where(eq(scansTable.companyId, req.companyId!))
+      .orderBy(desc(scansTable.createdAt));
+
+    res.json(scans);
+  }),
+);
 
 // POST /api/scans — register a scan record after presigned upload
 const CreateScanBody = z.object({

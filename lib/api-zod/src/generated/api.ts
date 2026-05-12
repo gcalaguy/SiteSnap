@@ -2448,6 +2448,22 @@ export const GetStorageObjectParams = zod.object({
 });
 
 /**
+ * @summary List all 3D scan records for the company
+ */
+export const ListScansResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  createdByUserId: zod.number(),
+  objectPath: zod.string(),
+  fileName: zod.string(),
+  fileSizeBytes: zod.number().nullish(),
+  sourceType: zod.enum(["file", "video_capture"]),
+  status: zod.enum(["ready", "processing"]),
+  createdAt: zod.coerce.date(),
+});
+export const ListScansResponse = zod.array(ListScansResponseItem);
+
+/**
  * @summary Register a 3D scan record after presigned upload
  */
 export const CreateScanBody = zod.object({

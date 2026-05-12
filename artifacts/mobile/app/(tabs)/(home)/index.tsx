@@ -144,7 +144,7 @@ function AiBriefingCard({ colors }: { colors: any }) {
 const QUICK_ACTIONS_WORKER = [
   { label: "My Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
   { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
-  { label: "3D Site Scan", icon: "box", path: "/site-scan", color: "#06b6d4" },
+  { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
   { label: "Site Vision", icon: "camera", path: "/site-vision", color: "#C9A84C" },
 ];
@@ -153,7 +153,7 @@ const QUICK_ACTIONS_OWNER = [
   { label: "Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
   { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
   { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
-  { label: "3D Site Scan", icon: "box", path: "/site-scan", color: "#06b6d4" },
+  { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
   { label: "Site Vision", icon: "camera", path: "/site-vision", color: "#C9A84C" },
 ];

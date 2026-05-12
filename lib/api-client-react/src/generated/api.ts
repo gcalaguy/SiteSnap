@@ -9996,6 +9996,73 @@ export function useGetStorageObject<
 }
 
 /**
+ * @summary List all 3D scan records for the company
+ */
+export const getListScansUrl = () => {
+  return `/api/scans`;
+};
+
+export const listScans = async (
+  options?: RequestInit,
+): Promise<ScanRecord[]> => {
+  return customFetch<ScanRecord[]>(getListScansUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListScansQueryKey = () => {
+  return [`/api/scans`] as const;
+};
+
+export const getListScansQueryOptions = <
+  TData = Awaited<ReturnType<typeof listScans>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listScans>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListScansQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listScans>>> = ({
+    signal,
+  }) => listScans({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listScans>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListScansQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listScans>>
+>;
+export type ListScansQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all 3D scan records for the company
+ */
+
+export function useListScans<
+  TData = Awaited<ReturnType<typeof listScans>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listScans>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListScansQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Register a 3D scan record after presigned upload
  */
 export const getCreateScanUrl = () => {

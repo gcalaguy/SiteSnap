@@ -423,6 +423,14 @@ export default function SiteScanScreen() {
             >
               <Text style={[styles.secondaryBtnText, { color: colors.mutedForeground }]}>Scan another site</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryBtn, { borderColor: colors.border }]}
+              onPress={() => router.replace("/scan-gallery")}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.secondaryBtnText, { color: colors.mutedForeground }]}>View all scans</Text>
+            </TouchableOpacity>
           </View>
         )}
 
