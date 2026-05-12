@@ -513,15 +513,15 @@ export default function VoiceEstimateScreen() {
                     { backgroundColor: clientName.trim() ? colors.primary : colors.border },
                   ]}
                   onPress={handleSaveAsQuote}
-                  disabled={!clientName.trim() || step === "saving"}
+                  disabled={!clientName.trim() || savedQuoteId != null}
                 >
-                  {step === "saving" ? (
+                  {savedQuoteId != null ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Feather name="send" size={16} color="#FFFFFF" />
                   )}
                   <Text style={styles.btnPrimaryText}>
-                    {step === "saving" ? "Saving…" : "Save as Quote"}
+                    {savedQuoteId != null ? "Saved" : "Save as Quote"}
                   </Text>
                 </TouchableOpacity>
               </View>

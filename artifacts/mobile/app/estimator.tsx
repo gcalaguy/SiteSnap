@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch, useGetScanUrl, getGetScanUrlQueryKey } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useGetScanUrl, getGetScanUrlQueryKey } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { Feather } from "@expo/vector-icons";
@@ -153,6 +153,8 @@ function fmt(n: number | undefined | null) {
 export default function EstimatorScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
+  const { data: me } = useGetMe();
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const { scanId: rawScanId, scanName } = useLocalSearchParams<{ scanId?: string; scanName?: string }>();
   const incomingScanId = rawScanId ? parseInt(rawScanId, 10) : undefined;
 
@@ -200,6 +202,17 @@ export default function EstimatorScreen() {
   const scanPillOpacity = useRef(new Animated.Value(0)).current;
   const scanPillScale = useRef(new Animated.Value(0.85)).current;
   const scanPillAnimated = useRef(false);
+  if (me && !isOwnerOrForeman) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 24 }}>
+        <Feather name="lock" size={40} color={colors.mutedForeground} />
+        <Text style={{ marginTop: 12, fontSize: 18, color: colors.foreground, fontFamily: "Inter_700Bold" }}>Owners & Foremen Only</Text>
+        <Text style={{ marginTop: 6, fontSize: 14, color: colors.mutedForeground, textAlign: "center" }}>
+          Estimate creation is available for owners and foremen only.
+        </Text>
+      </View>
+    );
+  }
   useEffect(() => {
     if (incomingScanId != null && Number.isFinite(incomingScanId) && !scanPillAnimated.current) {
       scanPillAnimated.current = true;
