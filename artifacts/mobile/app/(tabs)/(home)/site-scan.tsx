@@ -60,9 +60,11 @@ export default function SiteScanScreen() {
     if (params.videoUri && params.videoUri !== "") {
       const uri = params.videoUri;
       const name = params.videoName ?? `site-scan-${Date.now()}.mp4`;
-      setPickedFile({ name, uri, mimeType: "video/mp4", sourceType: "video_capture" });
+      const file: ScanFile = { name, uri, mimeType: "video/mp4", sourceType: "video_capture" };
+      setPickedFile(file);
       setMode("file");
       setStep("idle");
+      startUpload(file);
     }
   }, [params.videoUri, params.videoName]);
 
@@ -110,15 +112,14 @@ export default function SiteScanScreen() {
     router.push("/scan-camera" as any);
   }
 
-  async function handleUpload() {
-    if (!pickedFile) return;
+  async function startUpload(file: ScanFile) {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStep("uploading");
     setUploadProgress(0);
     setErrorMsg(null);
 
     try {
-      const contentType = pickedFile.mimeType ?? "application/octet-stream";
+      const contentType = file.mimeType ?? "application/octet-stream";
 
       const { uploadURL, objectPath } = await customFetch<{
         uploadURL: string;
@@ -127,15 +128,15 @@ export default function SiteScanScreen() {
       }>("/api/storage/uploads/request-url", {
         method: "POST",
         body: JSON.stringify({
-          name: pickedFile.name,
-          size: pickedFile.size ?? 0,
+          name: file.name,
+          size: file.size ?? 0,
           contentType,
         }),
       });
 
       setUploadProgress(30);
 
-      const fileResponse = await fetch(pickedFile.uri);
+      const fileResponse = await fetch(file.uri);
       const fileBlob = await fileResponse.blob();
 
       setUploadProgress(50);
@@ -155,9 +156,9 @@ export default function SiteScanScreen() {
         method: "POST",
         body: JSON.stringify({
           objectPath,
-          fileName: pickedFile.name,
-          fileSizeBytes: pickedFile.size,
-          sourceType: pickedFile.sourceType,
+          fileName: file.name,
+          fileSizeBytes: file.size,
+          sourceType: file.sourceType,
         }),
       });
 
@@ -168,6 +169,10 @@ export default function SiteScanScreen() {
       setErrorMsg(e?.message ?? "Upload failed. Please try again.");
       setStep("error");
     }
+  }
+
+  function handleUpload() {
+    if (pickedFile) startUpload(pickedFile);
   }
 
   function handleGenerateEstimate() {
@@ -224,7 +229,7 @@ export default function SiteScanScreen() {
               How do you want to capture the scan?
             </Text>
 
-            {/* Camera option */}
+            {/* Camera option — mobile only */}
             {Platform.OS !== "web" ? (
               <TouchableOpacity
                 style={[styles.modeCard, { backgroundColor: colors.card, borderColor: `${CYAN}40` }]}
@@ -243,16 +248,11 @@ export default function SiteScanScreen() {
                 <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
               </TouchableOpacity>
             ) : (
-              <View style={[styles.modeCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: 0.5 }]}>
-                <View style={[styles.modeIconWrap, { backgroundColor: `${CYAN}18` }]}>
-                  <Feather name="video" size={26} color={CYAN} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.modeTitle, { color: colors.foreground }]}>Capture with Camera</Text>
-                  <Text style={[styles.modeSub, { color: colors.mutedForeground }]}>
-                    Available on the mobile app only.
-                  </Text>
-                </View>
+              <View style={[styles.webNotice, { backgroundColor: `${CYAN}10`, borderColor: `${CYAN}30` }]}>
+                <Feather name="smartphone" size={14} color={CYAN} />
+                <Text style={[styles.webNoticeText, { color: colors.mutedForeground }]}>
+                  Camera capture is available in the mobile app. Use the file upload below to import a scan here.
+                </Text>
               </View>
             )}
 
@@ -540,4 +540,10 @@ const styles = StyleSheet.create({
   howRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   howIcon: { width: 28, height: 28, borderRadius: 7, alignItems: "center", justifyContent: "center", marginTop: 2 },
   howLabel: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
+
+  webNotice: {
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+    padding: 12, borderRadius: 10, borderWidth: 1,
+  },
+  webNoticeText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
 });
