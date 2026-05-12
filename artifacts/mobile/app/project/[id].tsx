@@ -1577,7 +1577,20 @@ export default function ProjectDetailScreen() {
             {scanUrlData?.url && !scanUrlLoading && !scanUrlError && (() => {
               const isVideo = scanUrlData.scan?.sourceType === "video_capture";
               if (isVideo) {
-                return <VideoWebView url={scanUrlData.url} />;
+                return (
+                  <View style={{ flex: 1 }}>
+                    <VideoWebView url={scanUrlData.url} />
+                    <View style={scanSt.overlay}>
+                      <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={scanSt.overlayBtn}>
+                        <Feather name="x" size={22} color="#fff" />
+                      </TouchableOpacity>
+                      <Text style={scanSt.headerTitle}>Site Recording</Text>
+                      <TouchableOpacity onPress={deleteViewerScan} hitSlop={10} style={scanSt.overlayBtn}>
+                        <Feather name="trash-2" size={18} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
               }
               const domain = process.env.EXPO_PUBLIC_DOMAIN;
               if (!domain) {
@@ -1594,7 +1607,20 @@ export default function ProjectDetailScreen() {
               const viewerBase = `https://${domain}/supersplat-viewer/index.html`;
               const params = new URLSearchParams({ content: scanUrlData.url, noui: "" });
               const viewerUrl = `${viewerBase}?${params.toString()}`;
-              return <ScanWebView url={viewerUrl} />;
+              return (
+                <View style={{ flex: 1 }}>
+                  <ScanWebView url={viewerUrl} />
+                  <View style={scanSt.overlay}>
+                    <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={scanSt.overlayBtn}>
+                      <Feather name="x" size={22} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={scanSt.headerTitle}>3D Site Scan</Text>
+                    <TouchableOpacity onPress={deleteViewerScan} hitSlop={10} style={scanSt.overlayBtn}>
+                      <Feather name="trash-2" size={18} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
             })()}
           </View>
         </SafeAreaView>
