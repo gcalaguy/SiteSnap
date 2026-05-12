@@ -170,19 +170,23 @@ function ScanViewerModal({
             const isVideo = scanUrlData.scan?.sourceType === "video_capture";
             const title = isVideo ? "Site Recording" : "3D Site Scan";
 
+            const header = (
+              <View style={styles.viewerHeader}>
+                <TouchableOpacity onPress={onClose} hitSlop={16} style={styles.viewerOverlayBtn}>
+                  <Feather name="x" size={24} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.viewerOverlayTitle} numberOfLines={1}>{title}</Text>
+                <TouchableOpacity onPress={onDelete} hitSlop={16} style={styles.viewerOverlayBtn}>
+                  <Feather name="trash-2" size={20} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            );
+
             if (isVideo) {
               return (
                 <View style={{ flex: 1 }}>
+                  {header}
                   <VideoWebView url={scanUrlData.url} />
-                  <View style={styles.viewerOverlay}>
-                    <TouchableOpacity onPress={onClose} hitSlop={10} style={styles.viewerOverlayBtn}>
-                      <Feather name="x" size={22} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.viewerOverlayTitle}>{title}</Text>
-                    <TouchableOpacity onPress={onDelete} hitSlop={10} style={styles.viewerOverlayBtn}>
-                      <Feather name="trash-2" size={18} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
                 </View>
               );
             }
@@ -204,16 +208,8 @@ function ScanViewerModal({
             const viewerUrl = `${viewerBase}?${params.toString()}`;
             return (
               <View style={{ flex: 1 }}>
+                {header}
                 <ScanWebView url={viewerUrl} />
-                <View style={styles.viewerOverlay}>
-                  <TouchableOpacity onPress={onClose} hitSlop={10} style={styles.viewerOverlayBtn}>
-                    <Feather name="x" size={22} color="#fff" />
-                  </TouchableOpacity>
-                  <Text style={styles.viewerOverlayTitle}>{title}</Text>
-                  <TouchableOpacity onPress={onDelete} hitSlop={10} style={styles.viewerOverlayBtn}>
-                    <Feather name="trash-2" size={18} color="#fff" />
-                  </TouchableOpacity>
-                </View>
               </View>
             );
           })()}
@@ -587,21 +583,18 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
 
-  viewerOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+  viewerHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    zIndex: 50,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    paddingVertical: 12,
+    backgroundColor: "#111",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
   },
-  viewerOverlayBtn: { width: 40, alignItems: "center", justifyContent: "center" },
-  viewerOverlayTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#fff" },
+  viewerOverlayBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  viewerOverlayTitle: { flex: 1, fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff", textAlign: "center" },
 
   closeBtn: {
     backgroundColor: CYAN,
