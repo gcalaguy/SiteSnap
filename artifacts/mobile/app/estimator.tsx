@@ -196,6 +196,20 @@ export default function EstimatorScreen() {
   const [quoteNotes, setQuoteNotes] = useState("");
   const [createdQuoteNum, setCreatedQuoteNum] = useState<string | null>(null);
 
+  // Scan pill entrance animation
+  const scanPillOpacity = useRef(new Animated.Value(0)).current;
+  const scanPillScale = useRef(new Animated.Value(0.85)).current;
+  const scanPillAnimated = useRef(false);
+  useEffect(() => {
+    if (incomingScanId != null && Number.isFinite(incomingScanId) && !scanPillAnimated.current) {
+      scanPillAnimated.current = true;
+      Animated.parallel([
+        Animated.timing(scanPillOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.timing(scanPillScale, { toValue: 1, duration: 350, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [incomingScanId, scanPillOpacity, scanPillScale]);
+
   // Voice pulse animation
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const startPulse = useCallback(() => {
@@ -474,17 +488,19 @@ export default function EstimatorScreen() {
 
       {/* ── Linked Scan Pill ── */}
       {incomingScanId != null && Number.isFinite(incomingScanId) && (
-        <TouchableOpacity
-          style={s.scanPill}
-          onPress={() => openScanViewer(incomingScanId)}
-          activeOpacity={0.8}
-        >
-          <Feather name="box" size={13} color="#06b6d4" />
-          <Text style={s.scanPillText} numberOfLines={1}>
-            3D Scan linked{scanName ? `: ${scanName}` : ""}
-          </Text>
-          <Feather name="external-link" size={11} color="#06b6d480" />
-        </TouchableOpacity>
+        <Animated.View style={{ opacity: scanPillOpacity, transform: [{ scale: scanPillScale }] }}>
+          <TouchableOpacity
+            style={s.scanPill}
+            onPress={() => openScanViewer(incomingScanId)}
+            activeOpacity={0.8}
+          >
+            <Feather name="box" size={13} color="#06b6d4" />
+            <Text style={s.scanPillText} numberOfLines={1}>
+              3D Scan linked{scanName ? `: ${scanName}` : ""}
+            </Text>
+            <Feather name="external-link" size={11} color="#06b6d480" />
+          </TouchableOpacity>
+        </Animated.View>
       )}
 
       {/* ── History Panel ── */}
