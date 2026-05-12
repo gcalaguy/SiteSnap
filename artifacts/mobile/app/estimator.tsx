@@ -1143,7 +1143,9 @@ export default function EstimatorScreen() {
               <Feather name="x" size={22} color="#fff" />
             </TouchableOpacity>
             <Text style={s.scanHeaderTitle}>3D Site Scan</Text>
-            <View style={{ width: 40 }} />
+            <TouchableOpacity onPress={deleteViewerScan} hitSlop={10} style={s.scanDeleteBtn}>
+              <Feather name="trash-2" size={18} color="#fff" />
+            </TouchableOpacity>
           </View>
 
           {/* Content */}

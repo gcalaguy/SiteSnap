@@ -24,6 +24,7 @@ import {
   getGetScanUrlQueryKey,
   useGetScanThumbnailUrl,
   getGetScanThumbnailUrlQueryKey,
+  useDeleteScan,
   ScanRecord,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
@@ -124,10 +125,12 @@ function ScanViewerModal({
   scanId,
   visible,
   onClose,
+  onDelete,
 }: {
   scanId: number | null;
   visible: boolean;
   onClose: () => void;
+  onDelete: () => void;
 }) {
   const { data: scanUrlData, isLoading, error } = useGetScanUrl(
     scanId ?? 0,
@@ -149,7 +152,9 @@ function ScanViewerModal({
           <Text style={styles.viewerTitle}>
             {scanUrlData?.scan?.sourceType === "video_capture" ? "Site Recording" : "3D Site Scan"}
           </Text>
-          <View style={{ width: 40 }} />
+          <TouchableOpacity onPress={onDelete} hitSlop={10} style={styles.viewerDeleteBtn}>
+            <Feather name="trash-2" size={18} color="#fff" />
+          </TouchableOpacity>
         </View>
 
         <View style={{ flex: 1 }}>
@@ -318,6 +323,14 @@ export default function ScanGalleryScreen() {
 
   const [viewingScanId, setViewingScanId] = useState<number | null>(null);
   const [viewerVisible, setViewerVisible] = useState(false);
+  const deleteScanMutation = useDeleteScan({
+    mutation: {
+      onSuccess: () => {
+        setViewerVisible(false);
+        setViewingScanId(null);
+      },
+    },
+  });
 
   const { data: scans, isLoading, refetch, isRefetching } = useListScans(
     undefined,
@@ -333,6 +346,11 @@ export default function ScanGalleryScreen() {
   function closeViewer() {
     setViewerVisible(false);
     setViewingScanId(null);
+  }
+
+  function deleteViewerScan() {
+    if (viewingScanId == null) return;
+    deleteScanMutation.mutate({ id: viewingScanId });
   }
 
   function handleNewScan() {
@@ -411,7 +429,12 @@ export default function ScanGalleryScreen() {
         />
       )}
 
-      <ScanViewerModal scanId={viewingScanId} visible={viewerVisible} onClose={closeViewer} />
+      <ScanViewerModal
+        scanId={viewingScanId}
+        visible={viewerVisible}
+        onClose={closeViewer}
+        onDelete={deleteViewerScan}
+      />
     </View>
   );
 }
@@ -513,6 +536,7 @@ const styles = StyleSheet.create({
   },
   viewerBackBtn: { width: 40, alignItems: "flex-start" },
   viewerTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#fff" },
+  viewerDeleteBtn: { width: 40, alignItems: "flex-end" },
 
   closeBtn: {
     backgroundColor: CYAN,
