@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Modal,
@@ -270,10 +271,12 @@ function ScanCard({
   scan,
   colors,
   onView,
+  onDelete,
 }: {
   scan: ScanRecord;
   colors: ReturnType<typeof useColors>;
   onView: (id: number) => void;
+  onDelete: (id: number) => void;
 }) {
   const isReady = scan.status === "ready";
   const isVideo = scan.sourceType === "video_capture";
@@ -292,14 +295,12 @@ function ScanCard({
           {scan.fileName}
         </Text>
         <View style={styles.badgeRow}>
-          {/* Source type badge */}
           <View style={[styles.badge, { backgroundColor: `${CYAN}15`, borderColor: `${CYAN}30` }]}>
             <Text style={[styles.badgeText, { color: CYAN }]}>
               {isVideo ? "Camera" : "File"}
             </Text>
           </View>
 
-          {/* Status badge */}
           {isReady ? (
             <View style={[styles.badge, { backgroundColor: "#16a34a15", borderColor: "#16a34a30" }]}>
               <Feather name="check-circle" size={10} color="#16a34a" />
@@ -312,7 +313,6 @@ function ScanCard({
             </View>
           )}
 
-          {/* Size */}
           {!!scan.fileSizeBytes && (
             <Text style={[styles.meta, { color: colors.mutedForeground }]}>
               {formatBytes(scan.fileSizeBytes)}
@@ -324,9 +324,22 @@ function ScanCard({
         </Text>
       </View>
 
-      {isReady && (
-        <Feather name="box" size={18} color={CYAN} style={{ marginLeft: 4 }} />
-      )}
+      <View style={styles.cardActions}>
+        {isReady && (
+          <Feather name="box" size={18} color={CYAN} />
+        )}
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation();
+            onDelete(scan.id);
+          }}
+          hitSlop={10}
+          style={styles.cardDeleteBtn}
+          activeOpacity={0.7}
+        >
+          <Feather name="trash-2" size={17} color="#ef4444" />
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -366,6 +379,18 @@ export default function ScanGalleryScreen() {
   function deleteViewerScan() {
     if (viewingScanId == null) return;
     deleteScanMutation.mutate({ id: viewingScanId });
+  }
+
+  function handleDeleteCard(id: number) {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert("Delete scan?", "This will permanently remove this scan.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => deleteScanMutation.mutate({ id }),
+      },
+    ]);
   }
 
   function handleNewScan() {
@@ -421,7 +446,7 @@ export default function ScanGalleryScreen() {
             />
           }
           renderItem={({ item }) => (
-            <ScanCard scan={item} colors={colors} onView={openViewer} />
+            <ScanCard scan={item} colors={colors} onView={openViewer} onDelete={handleDeleteCard} />
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -508,6 +533,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   cardName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+
+  cardActions: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginLeft: 4,
+  },
+  cardDeleteBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ef444418",
+  },
 
   badgeRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   badge: {
