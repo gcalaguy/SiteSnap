@@ -2258,10 +2258,16 @@ paths:
     get:
       operationId: listScans
       tags: [Storage]
-      summary: List all 3D scan records for the company
+      summary: List 3D scans, optionally filtered by project
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: integer
       responses:
         "200":
-          description: List of scans ordered newest first
+          description: List of scans
           content:
             application/json:
               schema:
@@ -2285,6 +2291,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ScanRecord"
+
+  /scans/{id}:
+    patch:
+      operationId: updateScan
+      tags: [Storage]
+      summary: Rename a 3D scan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScanBody"
+      responses:
+        "200":
+          description: Updated scan record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanRecord"
+        "404":
+          description: Scan not found
+    delete:
+      operationId: deleteScan
+      tags: [Storage]
+      summary: Delete a 3D scan record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Scan not found
 
   /scans/{id}/url:
     get:
@@ -2964,6 +3012,12 @@ components:
           type: integer
         createdByUserId:
           type: integer
+        projectId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          nullable: true
         objectPath:
           type: string
         fileName:
@@ -2995,6 +3049,18 @@ components:
         sourceType:
           type: string
           enum: [file, video_capture]
+        projectId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          nullable: true
+
+    UpdateScanBody:
+      type: object
+      properties:
+        name:
+          type: string
 
     ScanUrlResponse:
       type: object

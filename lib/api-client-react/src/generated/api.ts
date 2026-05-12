@@ -85,6 +85,7 @@ import type {
   ListContactsParams,
   ListFilesParams,
   ListFormSubmissionsParams,
+  ListScansParams,
   ListTimesheetsParams,
   MarkAllNotificationsRead200,
   MarkNotificationRead200,
@@ -127,6 +128,7 @@ import type {
   UpdateProposalBody,
   UpdateQuoteBody,
   UpdateRFIBody,
+  UpdateScanBody,
   UpdateTaskBody,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -9996,39 +9998,59 @@ export function useGetStorageObject<
 }
 
 /**
- * @summary List all 3D scan records for the company
+ * @summary List 3D scans, optionally filtered by project
  */
-export const getListScansUrl = () => {
-  return `/api/scans`;
+export const getListScansUrl = (params?: ListScansParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/scans?${stringifiedParams}`
+    : `/api/scans`;
 };
 
 export const listScans = async (
+  params?: ListScansParams,
   options?: RequestInit,
 ): Promise<ScanRecord[]> => {
-  return customFetch<ScanRecord[]>(getListScansUrl(), {
+  return customFetch<ScanRecord[]>(getListScansUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListScansQueryKey = () => {
-  return [`/api/scans`] as const;
+export const getListScansQueryKey = (params?: ListScansParams) => {
+  return [`/api/scans`, ...(params ? [params] : [])] as const;
 };
 
 export const getListScansQueryOptions = <
   TData = Awaited<ReturnType<typeof listScans>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof listScans>>, TError, TData>;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: ListScansParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listScans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListScansQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getListScansQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listScans>>> = ({
     signal,
-  }) => listScans({ signal, ...requestOptions });
+  }) => listScans(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listScans>>,
@@ -10043,17 +10065,24 @@ export type ListScansQueryResult = NonNullable<
 export type ListScansQueryError = ErrorType<unknown>;
 
 /**
- * @summary List all 3D scan records for the company
+ * @summary List 3D scans, optionally filtered by project
  */
 
 export function useListScans<
   TData = Awaited<ReturnType<typeof listScans>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof listScans>>, TError, TData>;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListScansQueryOptions(options);
+>(
+  params?: ListScansParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listScans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListScansQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -10146,6 +10175,177 @@ export const useCreateScan = <
   TContext
 > => {
   return useMutation(getCreateScanMutationOptions(options));
+};
+
+/**
+ * @summary Rename a 3D scan
+ */
+export const getUpdateScanUrl = (id: number) => {
+  return `/api/scans/${id}`;
+};
+
+export const updateScan = async (
+  id: number,
+  updateScanBody: UpdateScanBody,
+  options?: RequestInit,
+): Promise<ScanRecord> => {
+  return customFetch<ScanRecord>(getUpdateScanUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateScanBody),
+  });
+};
+
+export const getUpdateScanMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateScan>>,
+    TError,
+    { id: number; data: BodyType<UpdateScanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateScan>>,
+  TError,
+  { id: number; data: BodyType<UpdateScanBody> },
+  TContext
+> => {
+  const mutationKey = ["updateScan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateScan>>,
+    { id: number; data: BodyType<UpdateScanBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateScan(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateScanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateScan>>
+>;
+export type UpdateScanMutationBody = BodyType<UpdateScanBody>;
+export type UpdateScanMutationError = ErrorType<void>;
+
+/**
+ * @summary Rename a 3D scan
+ */
+export const useUpdateScan = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateScan>>,
+    TError,
+    { id: number; data: BodyType<UpdateScanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateScan>>,
+  TError,
+  { id: number; data: BodyType<UpdateScanBody> },
+  TContext
+> => {
+  return useMutation(getUpdateScanMutationOptions(options));
+};
+
+/**
+ * @summary Delete a 3D scan record
+ */
+export const getDeleteScanUrl = (id: number) => {
+  return `/api/scans/${id}`;
+};
+
+export const deleteScan = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteScanUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteScanMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteScan>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteScan>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteScan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteScan>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteScan(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteScanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteScan>>
+>;
+
+export type DeleteScanMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a 3D scan record
+ */
+export const useDeleteScan = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteScan>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteScan>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteScanMutationOptions(options));
 };
 
 /**

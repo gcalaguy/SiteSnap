@@ -2448,12 +2448,18 @@ export const GetStorageObjectParams = zod.object({
 });
 
 /**
- * @summary List all 3D scan records for the company
+ * @summary List 3D scans, optionally filtered by project
  */
+export const ListScansQueryParams = zod.object({
+  projectId: zod.coerce.number().optional(),
+});
+
 export const ListScansResponseItem = zod.object({
   id: zod.number(),
   companyId: zod.number(),
   createdByUserId: zod.number(),
+  projectId: zod.number().nullish(),
+  name: zod.string().nullish(),
   objectPath: zod.string(),
   fileName: zod.string(),
   fileSizeBytes: zod.number().nullish(),
@@ -2471,6 +2477,40 @@ export const CreateScanBody = zod.object({
   fileName: zod.string(),
   fileSizeBytes: zod.number().nullish(),
   sourceType: zod.enum(["file", "video_capture"]).optional(),
+  projectId: zod.number().nullish(),
+  name: zod.string().nullish(),
+});
+
+/**
+ * @summary Rename a 3D scan
+ */
+export const UpdateScanParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateScanBody = zod.object({
+  name: zod.string().optional(),
+});
+
+export const UpdateScanResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  createdByUserId: zod.number(),
+  projectId: zod.number().nullish(),
+  name: zod.string().nullish(),
+  objectPath: zod.string(),
+  fileName: zod.string(),
+  fileSizeBytes: zod.number().nullish(),
+  sourceType: zod.enum(["file", "video_capture"]),
+  status: zod.enum(["ready", "processing"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a 3D scan record
+ */
+export const DeleteScanParams = zod.object({
+  id: zod.coerce.number(),
 });
 
 /**
@@ -2486,6 +2526,8 @@ export const GetScanUrlResponse = zod.object({
     id: zod.number(),
     companyId: zod.number(),
     createdByUserId: zod.number(),
+    projectId: zod.number().nullish(),
+    name: zod.string().nullish(),
     objectPath: zod.string(),
     fileName: zod.string(),
     fileSizeBytes: zod.number().nullish(),

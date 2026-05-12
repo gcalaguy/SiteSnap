@@ -25,6 +25,8 @@ export interface ScanRecord {
   id: number;
   companyId: number;
   createdByUserId: number;
+  projectId?: number | null;
+  name?: string | null;
   objectPath: string;
   fileName: string;
   fileSizeBytes?: number | null;
@@ -46,6 +48,12 @@ export interface CreateScanBody {
   fileName: string;
   fileSizeBytes?: number | null;
   sourceType?: CreateScanBodySourceType;
+  projectId?: number | null;
+  name?: string | null;
+}
+
+export interface UpdateScanBody {
+  name?: string;
 }
 
 export interface ScanUrlResponse {
@@ -1407,6 +1415,10 @@ export type MarkAllNotificationsRead200 = {
 
 export type MarkNotificationRead200 = {
   ok?: boolean;
+};
+
+export type ListScansParams = {
+  projectId?: number;
 };
 
 export type RejectQuoteBody = {

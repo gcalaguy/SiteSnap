@@ -845,6 +845,8 @@ export const scansTable = pgTable("scans", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
+  projectId: integer("project_id").references(() => projectsTable.id, { onDelete: "set null" }),
+  name: text("name"),
   objectPath: text("object_path").notNull(),
   fileName: text("file_name").notNull(),
   fileSizeBytes: integer("file_size_bytes"),

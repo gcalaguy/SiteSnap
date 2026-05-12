@@ -28,6 +28,7 @@ import {
 import DocumentsTab from "@/components/DocumentsTab";
 import QuotesTab from "@/components/QuotesTab";
 import ClientMessagesTab from "@/components/ClientMessagesTab";
+import SiteScansTab from "@/components/SiteScansTab";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert, MessageCircle } from "lucide-react";
+import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert, MessageCircle, ScanLine } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const GOLD = "#C9A84C";
@@ -745,6 +746,9 @@ export default function ProjectDetail() {
             <TabsTrigger value="client-messages" className="px-4 whitespace-nowrap flex items-center gap-1.5">
               <MessageCircle className="h-3.5 w-3.5" />Client Messages
             </TabsTrigger>
+            <TabsTrigger value="site-scans" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+              <ScanLine className="h-3.5 w-3.5" />Site Scans
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -1333,6 +1337,10 @@ export default function ProjectDetail() {
 
         <TabsContent value="client-messages" className="mt-6">
           <ClientMessagesTab projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="site-scans" className="mt-6">
+          <SiteScansTab projectId={projectId} />
         </TabsContent>
       </Tabs>
 
