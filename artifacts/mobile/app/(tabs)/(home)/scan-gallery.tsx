@@ -172,7 +172,7 @@ function ScanViewerModal({
               return (
                 <View style={{ flex: 1 }}>
                   <VideoWebView url={scanUrlData.url} />
-                  <View style={styles.viewerOverlay} pointerEvents="box-none">
+                  <View style={styles.viewerOverlay}>
                     <TouchableOpacity onPress={onClose} hitSlop={10} style={styles.viewerOverlayBtn}>
                       <Feather name="x" size={22} color="#fff" />
                     </TouchableOpacity>
@@ -203,7 +203,7 @@ function ScanViewerModal({
             return (
               <View style={{ flex: 1 }}>
                 <ScanWebView url={viewerUrl} />
-                <View style={styles.viewerOverlay} pointerEvents="box-none">
+                <View style={styles.viewerOverlay}>
                   <TouchableOpacity onPress={onClose} hitSlop={10} style={styles.viewerOverlayBtn}>
                     <Feather name="x" size={22} color="#fff" />
                   </TouchableOpacity>
