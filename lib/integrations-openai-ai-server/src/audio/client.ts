@@ -60,6 +60,7 @@ export function detectAudioFormat(buffer: Buffer): AudioFormat {
 
 /**
  * Convert any audio/video format to WAV using ffmpeg.
+ * Only used as a last resort for formats OpenAI doesn't accept natively.
  */
 export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
   const inputPath = join(tmpdir(), `input-${randomUUID()}`);
@@ -68,6 +69,7 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
   try {
     await writeFile(inputPath, audioBuffer);
 
+    let ffmpegStderr = "";
     await new Promise<void>((resolve, reject) => {
       const ffmpeg = spawn("ffmpeg", [
         "-i", inputPath,
@@ -80,10 +82,10 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
         outputPath,
       ]);
 
-      ffmpeg.stderr.on("data", () => {});
+      ffmpeg.stderr.on("data", (chunk: Buffer) => { ffmpegStderr += chunk.toString(); });
       ffmpeg.on("close", (code) => {
         if (code === 0) resolve();
-        else reject(new Error(`ffmpeg exited with code ${code}`));
+        else reject(new Error(`ffmpeg exited with code ${code}: ${ffmpegStderr.slice(-300)}`));
       });
       ffmpeg.on("error", reject);
     });
@@ -96,14 +98,20 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
 }
 
 /**
- * Auto-detect and convert audio to OpenAI-compatible format.
+ * Auto-detect and return audio in an OpenAI Whisper-compatible format.
+ * OpenAI Whisper natively supports: wav, mp3, mp4/m4a, ogg, webm.
+ * ffmpeg conversion is only attempted for truly unknown formats.
  */
 export async function ensureCompatibleFormat(
   audioBuffer: Buffer
-): Promise<{ buffer: Buffer; format: "wav" | "mp3" }> {
+): Promise<{ buffer: Buffer; format: "wav" | "mp3" | "mp4" | "ogg" | "webm" }> {
   const detected = detectAudioFormat(audioBuffer);
-  if (detected === "wav") return { buffer: audioBuffer, format: "wav" };
-  if (detected === "mp3") return { buffer: audioBuffer, format: "mp3" };
+  if (detected === "wav")  return { buffer: audioBuffer, format: "wav" };
+  if (detected === "mp3")  return { buffer: audioBuffer, format: "mp3" };
+  if (detected === "mp4")  return { buffer: audioBuffer, format: "mp4" };
+  if (detected === "ogg")  return { buffer: audioBuffer, format: "ogg" };
+  if (detected === "webm") return { buffer: audioBuffer, format: "webm" };
+  // Unknown format — attempt ffmpeg conversion to WAV as a fallback
   const wavBuffer = await convertToWav(audioBuffer);
   return { buffer: wavBuffer, format: "wav" };
 }
@@ -219,7 +227,7 @@ export async function textToSpeechStream(
 /** Speech-to-Text using gpt-4o-mini-transcribe. */
 export async function speechToText(
   audioBuffer: Buffer,
-  format: "wav" | "mp3" | "webm" = "wav"
+  format: "wav" | "mp3" | "mp4" | "ogg" | "webm" = "wav"
 ): Promise<string> {
   const file = await toFile(audioBuffer, `audio.${format}`);
   const response = await openai.audio.transcriptions.create({
@@ -232,7 +240,7 @@ export async function speechToText(
 /** Streaming Speech-to-Text. */
 export async function speechToTextStream(
   audioBuffer: Buffer,
-  format: "wav" | "mp3" | "webm" = "wav"
+  format: "wav" | "mp3" | "mp4" | "ogg" | "webm" = "wav"
 ): Promise<AsyncIterable<string>> {
   const file = await toFile(audioBuffer, `audio.${format}`);
   const stream = await openai.audio.transcriptions.create({
