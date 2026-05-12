@@ -576,12 +576,11 @@ router.post(
   }),
 );
 
-// GET /api/estimator/smart-estimates — list saved smart estimates
+// GET /api/estimator/smart-estimates — list saved smart estimates (all roles)
 router.get(
   "/estimator/smart-estimates",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const estimates = await db
       .select()
