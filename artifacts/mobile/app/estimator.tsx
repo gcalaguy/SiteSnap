@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Platform,
   SafeAreaView,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch, useGetScanUrl, getGetScanUrlQueryKey } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
@@ -1229,9 +1230,29 @@ function SummaryLine({ label, value, valueColor, colors }: { label: string; valu
   );
 }
 
+const SCAN_HINT_KEY = "sitesnap.scanGestureHintDismissed";
+
 function ScanWebView({ url }: { url: string }) {
   const [webLoaded, setWebLoaded] = useState(false);
   const [webErrored, setWebErrored] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const hintOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    AsyncStorage.getItem(SCAN_HINT_KEY).then((val) => {
+      if (!val) {
+        setShowHint(true);
+        Animated.timing(hintOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      }
+    }).catch(() => {});
+  }, []);
+
+  const dismissHint = useCallback(() => {
+    Animated.timing(hintOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+      setShowHint(false);
+    });
+    AsyncStorage.setItem(SCAN_HINT_KEY, "1").catch(() => {});
+  }, [hintOpacity]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
@@ -1260,7 +1281,26 @@ function ScanWebView({ url }: { url: string }) {
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
           originWhitelist={["https://*"]}
+          allowsFullscreenVideo
+          allowsBackForwardNavigationGestures
         />
+      )}
+
+      {showHint && !webErrored && (
+        <Animated.View style={[s.gestureHint, { opacity: hintOpacity }]} pointerEvents="box-none">
+          <TouchableOpacity style={s.gestureHintInner} onPress={dismissHint} activeOpacity={0.85}>
+            <View style={s.gestureHintRow}>
+              <Feather name="zoom-in" size={18} color="#fff" />
+              <Text style={s.gestureHintText}>Pinch to zoom</Text>
+            </View>
+            <View style={s.gestureHintDivider} />
+            <View style={s.gestureHintRow}>
+              <Feather name="rotate-cw" size={18} color="#fff" />
+              <Text style={s.gestureHintText}>Drag to rotate</Text>
+            </View>
+            <Text style={s.gestureHintDismiss}>Tap to dismiss</Text>
+          </TouchableOpacity>
+        </Animated.View>
       )}
     </View>
   );
@@ -1373,6 +1413,45 @@ const s = StyleSheet.create({
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   summaryLabel: { fontSize: 13 },
   summaryValue: { fontSize: 13, fontWeight: "600" },
+
+  // Gesture hint overlay
+  gestureHint: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingBottom: 48,
+    zIndex: 20,
+  },
+  gestureHintInner: {
+    backgroundColor: "rgba(0,0,0,0.72)",
+    borderRadius: 16,
+    paddingHorizontal: 28,
+    paddingVertical: 18,
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  gestureHintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  gestureHintText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  gestureHintDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignSelf: "stretch",
+  },
+  gestureHintDismiss: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 12,
+    marginTop: 2,
+  },
 
   // Scan viewer
   scanBtn: {
