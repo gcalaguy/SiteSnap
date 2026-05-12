@@ -1060,6 +1060,35 @@ const scanSt = StyleSheet.create({
     paddingVertical: 3,
   },
   scanBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: "#06b6d4" },
+
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  uploadScanBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  uploadScanBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#06b6d4" },
+
+  emptyScans: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    marginBottom: 8,
+  },
+  emptyScansText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
 });
 
 export default function ProjectDetailScreen() {
@@ -1253,44 +1282,66 @@ export default function ProjectDetailScreen() {
             </>
           )}
 
-          {/* Site Scans section — only shown when scans exist for this project */}
-          {scans != null && scans.length > 0 && (
-            <>
-              <View style={{ height: 20 }} />
-              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Site Scans</Text>
-              {scans.map((scan) => (
-                <TouchableOpacity
-                  key={scan.id}
-                  onPress={() => openScanViewer(scan.id)}
-                  activeOpacity={0.8}
-                  style={[
-                    scanSt.scanRow,
-                    { backgroundColor: colors.card, borderColor: colors.border },
-                  ]}
-                >
-                  <View style={scanSt.scanIconWrap}>
-                    <Feather name="box" size={18} color="#06b6d4" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[scanSt.scanName, { color: colors.foreground }]} numberOfLines={1}>
-                      {scan.name}
-                    </Text>
-                    {scan.createdAt && (
-                      <Text style={[scanSt.scanMeta, { color: colors.mutedForeground }]}>
-                        {new Date(scan.createdAt).toLocaleDateString("en-CA", {
-                          month: "short", day: "numeric", year: "numeric",
-                        })}
+          {/* Site Scans section — always visible so users can upload a new scan */}
+          <>
+            <View style={{ height: 20 }} />
+            <View style={scanSt.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>Site Scans</Text>
+              <TouchableOpacity
+                style={[scanSt.uploadScanBtn, { backgroundColor: "#06b6d420", borderColor: "#06b6d440" }]}
+                onPress={() => {
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({ pathname: "/site-scan", params: { projectId: String(projectId) } });
+                }}
+                activeOpacity={0.75}
+              >
+                <Feather name="upload-cloud" size={13} color="#06b6d4" />
+                <Text style={scanSt.uploadScanBtnText}>Upload Scan</Text>
+              </TouchableOpacity>
+            </View>
+            {scans != null && scans.length > 0 ? (
+              <>
+                {scans.map((scan) => (
+                  <TouchableOpacity
+                    key={scan.id}
+                    onPress={() => openScanViewer(scan.id)}
+                    activeOpacity={0.8}
+                    style={[
+                      scanSt.scanRow,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                    ]}
+                  >
+                    <View style={scanSt.scanIconWrap}>
+                      <Feather name="box" size={18} color="#06b6d4" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[scanSt.scanName, { color: colors.foreground }]} numberOfLines={1}>
+                        {scan.name}
                       </Text>
-                    )}
-                  </View>
-                  <View style={scanSt.scanBadge}>
-                    <Text style={scanSt.scanBadgeText}>3D</Text>
-                  </View>
-                  <Feather name="chevron-right" size={16} color={colors.border} />
-                </TouchableOpacity>
-              ))}
-            </>
-          )}
+                      {scan.createdAt && (
+                        <Text style={[scanSt.scanMeta, { color: colors.mutedForeground }]}>
+                          {new Date(scan.createdAt).toLocaleDateString("en-CA", {
+                            month: "short", day: "numeric", year: "numeric",
+                          })}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={scanSt.scanBadge}>
+                      <Text style={scanSt.scanBadgeText}>3D</Text>
+                    </View>
+                    <Feather name="chevron-right" size={16} color={colors.border} />
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : (
+              <View style={[scanSt.emptyScans, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Feather name="box" size={22} color="#06b6d440" />
+                <Text style={[scanSt.emptyScansText, { color: colors.mutedForeground }]}>
+                  No scans yet. Tap "Upload Scan" to add one.
+                </Text>
+              </View>
+            )}
+          </>
 
           {/* Project details */}
           <View style={{ height: 20 }} />

@@ -14,8 +14,9 @@ import { Feather } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, getListScansQueryKey, useGetProject } from "@workspace/api-client-react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 
 const CYAN = "#06b6d4";
 const SCAN_MIME_TYPES = ["application/octet-stream", "*/*"];
@@ -45,8 +46,11 @@ export default function SiteScanScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ videoUri?: string; videoName?: string; projectId?: string }>();
   const projectId = params.projectId ? parseInt(params.projectId, 10) : undefined;
+
+  const { data: linkedProject } = useGetProject(projectId ?? 0, { query: { enabled: projectId != null && !isNaN(projectId) } });
 
   const [mode, setMode] = useState<ScanMode>("choose");
   const [step, setStep] = useState<UploadStep>("idle");
@@ -170,6 +174,10 @@ export default function SiteScanScreen() {
       setScan(created);
       setUploadProgress(100);
       setStep("done");
+
+      if (projectId != null && !isNaN(projectId)) {
+        queryClient.invalidateQueries({ queryKey: getListScansQueryKey({ projectId }) });
+      }
     } catch (e: any) {
       setErrorMsg(e?.message ?? "Upload failed. Please try again.");
       setStep("error");
@@ -219,6 +227,14 @@ export default function SiteScanScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>3D Site Scan</Text>
           <Text style={styles.headerSub}>Capture or upload a scan to generate an estimate</Text>
+          {linkedProject != null && (
+            <View style={styles.projectBadge}>
+              <Feather name="layers" size={10} color={CYAN} />
+              <Text style={styles.projectBadgeText} numberOfLines={1}>
+                {linkedProject.name}
+              </Text>
+            </View>
+          )}
         </View>
         <View style={[styles.headerIcon, { backgroundColor: `${CYAN}22` }]}>
           <Feather name="box" size={20} color={CYAN} />
@@ -473,6 +489,20 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#fff" },
   headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.55)", marginTop: 2 },
   headerIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  projectBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 5,
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(6,182,212,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(6,182,212,0.35)",
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  projectBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#06b6d4" },
   content: { padding: 16, gap: 14 },
 
   sectionLabel: { fontSize: 13, fontFamily: "Inter_500Medium" },
