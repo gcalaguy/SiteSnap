@@ -68,7 +68,7 @@ router.post(
       fileName,
       fileSizeBytes: fileSizeBytes ?? null,
       sourceType,
-      status: sourceType === "video_capture" ? "processing" : "ready",
+      status: "ready",
       projectId: projectId ?? null,
       name: name ?? null,
     }).returning();
