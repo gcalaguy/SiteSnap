@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import {
   useListScans,
   useUpdateScan,
@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import {
-  Box, Pencil, Trash2, Loader2, X, Check, ScanLine, ExternalLink, Search, CalendarRange,
+  Box, Pencil, Trash2, Loader2, X, Check, ScanLine, ExternalLink, Search, CalendarRange, Upload,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -345,6 +345,11 @@ interface SiteScansTabProps {
 }
 
 export default function SiteScansTab({ projectId }: SiteScansTabProps) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
   const { data: scans, isLoading, isError } = useListScans(
     { projectId },
     { query: { staleTime: 30_000, queryKey: getListScansQueryKey({ projectId }) } }
@@ -378,6 +383,79 @@ export default function SiteScansTab({ projectId }: SiteScansTabProps) {
     setDateRange(undefined);
   }
 
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const ext = file.name.toLowerCase();
+    if (!ext.endsWith(".ply") && !ext.endsWith(".sog") && !ext.endsWith(".mp4")) {
+      toast({ title: "Unsupported file", description: "Please select a .ply, .sog, or .mp4 file.", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
+        "/api/storage/uploads/request-url",
+        {
+          method: "POST",
+          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+        },
+      );
+
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      if (!uploadRes.ok) throw new Error(`Upload failed (${uploadRes.status})`);
+
+      await customFetch("/api/scans", {
+        method: "POST",
+        body: JSON.stringify({
+          objectPath,
+          fileName: file.name,
+          fileSizeBytes: file.size,
+          sourceType: file.name.toLowerCase().endsWith(".mp4") ? "video_capture" : "file",
+          projectId,
+        }),
+      });
+
+      qc.invalidateQueries({ queryKey: getListScansQueryKey({ projectId }) });
+      toast({ title: "Scan uploaded", description: `${file.name} has been saved to this project.` });
+    } catch (err) {
+      toast({
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const uploadButton = (
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".ply,.sog,.mp4"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+      <Button
+        size="sm"
+        className="gap-1.5 h-9"
+        disabled={uploading}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+        {uploading ? "Uploading…" : "Upload Scan"}
+      </Button>
+    </>
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16 gap-3">
@@ -398,18 +476,16 @@ export default function SiteScansTab({ projectId }: SiteScansTabProps) {
   if (!scans || scans.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-        <div
-          className="rounded-full p-4"
-          style={{ background: BLACK }}
-        >
+        <div className="rounded-full p-4" style={{ background: BLACK }}>
           <ScanLine className="h-8 w-8" style={{ color: GOLD }} />
         </div>
         <div className="space-y-1">
           <p className="text-sm font-semibold">No site scans yet</p>
           <p className="text-xs text-muted-foreground max-w-xs">
-            Upload a .ply scan file from the Smart Estimator or use the mobile app to capture a site scan. It will appear here once linked to this project.
+            Upload a .ply or .sog scan file to link it to this project, or capture a scan from the mobile app.
           </p>
         </div>
+        {uploadButton}
       </div>
     );
   }
@@ -473,6 +549,7 @@ export default function SiteScansTab({ projectId }: SiteScansTabProps) {
               <X className="h-3.5 w-3.5" />
             </Button>
           )}
+          {uploadButton}
         </div>
       </div>
 
