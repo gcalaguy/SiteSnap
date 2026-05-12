@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
   Alert,
@@ -349,6 +350,7 @@ export default function ScanGalleryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  const queryClient = useQueryClient();
   const [viewingScanId, setViewingScanId] = useState<number | null>(null);
   const [viewerVisible, setViewerVisible] = useState(false);
   const deleteScanMutation = useDeleteScan({
@@ -356,6 +358,10 @@ export default function ScanGalleryScreen() {
       onSuccess: () => {
         setViewerVisible(false);
         setViewingScanId(null);
+        queryClient.invalidateQueries({ queryKey: getListScansQueryKey() });
+      },
+      onError: () => {
+        Alert.alert("Error", "Failed to delete scan. Please try again.");
       },
     },
   });
