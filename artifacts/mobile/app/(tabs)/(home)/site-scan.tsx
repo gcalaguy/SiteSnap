@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ const CYAN = "#06b6d4";
 const SCAN_MIME_TYPES = ["application/octet-stream", "*/*"];
 
 type UploadStep = "idle" | "picking" | "uploading" | "registering" | "done" | "error";
-type ScanMode = "choose" | "camera" | "file";
+type ScanMode = "choose" | "file";
 
 type ScanFile = {
   name: string;
@@ -54,10 +54,13 @@ export default function SiteScanScreen() {
   const [scan, setScan] = useState<ScanRecord | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const processedVideoUri = useRef<string | null>(null);
+
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
   useEffect(() => {
-    if (params.videoUri && params.videoUri !== "") {
+    if (params.videoUri && params.videoUri !== "" && params.videoUri !== processedVideoUri.current) {
+      processedVideoUri.current = params.videoUri;
       const uri = params.videoUri;
       const name = params.videoName ?? `site-scan-${Date.now()}.mp4`;
       const file: ScanFile = { name, uri, mimeType: "video/mp4", sourceType: "video_capture" };
@@ -277,7 +280,7 @@ export default function SiteScanScreen() {
         )}
 
         {/* ── File / video ready to upload ── */}
-        {(mode === "file" || mode === "camera") && step !== "done" && (
+        {mode === "file" && step !== "done" && (
           <>
             {/* File info card */}
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
