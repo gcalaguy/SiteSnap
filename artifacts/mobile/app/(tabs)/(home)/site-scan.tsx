@@ -109,7 +109,7 @@ export default function SiteScanScreen() {
 
   function handleOpenCamera() {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/scan-camera" as any);
+    router.push("/scan-camera");
   }
 
   async function startUpload(file: ScanFile) {
@@ -178,7 +178,7 @@ export default function SiteScanScreen() {
   function handleGenerateEstimate() {
     if (!scan) return;
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push({ pathname: "/estimator", params: { scanId: String(scan.id), scanName: pickedFile?.name ?? "" } } as any);
+    router.push({ pathname: "/estimator", params: { scanId: String(scan.id), scanName: pickedFile?.name ?? "" } });
   }
 
   function handleReset() {

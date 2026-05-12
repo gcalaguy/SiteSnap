@@ -75,7 +75,7 @@ export default function ScanCameraScreen() {
 
       if (video?.uri && !cancelledRef.current) {
         router.navigate({
-          pathname: "/site-scan" as any,
+          pathname: "/site-scan",
           params: { videoUri: video.uri, videoName: `site-scan-${Date.now()}.mp4` },
         });
       } else {
