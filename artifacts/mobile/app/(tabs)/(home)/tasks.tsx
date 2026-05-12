@@ -333,9 +333,18 @@ function OwnerTasksScreen() {
 
   // Use all projects in selector (not just "active")
   const allProjects = projects ?? [];
-  const resolvedProjectId = selectedProjectId ?? (allProjects[0]?.id ?? 0);
-
-  const { data: tasks, isLoading: tasksLoading, refetch } = useListTasks(resolvedProjectId);
+  const resolvedProjectId = selectedProjectId;
+  const projectIds = allProjects.map((p) => p.id);
+  const { data: tasks, isLoading: tasksLoading, refetch } = useQuery<Task[]>({
+    queryKey: ["tasks", "accessible"],
+    queryFn: async () => {
+      const results = await Promise.all(
+        projectIds.map((projectId) => customFetch<Task[]>(`/api/projects/${projectId}/tasks`)),
+      );
+      return results.flat();
+    },
+    enabled: projectIds.length > 0,
+  });
   const updateTask = useUpdateTask();
 
   const handleToggle = (task: Task) => {
@@ -351,7 +360,9 @@ function OwnerTasksScreen() {
   const allTasks = (tasks ?? []) as Task[];
   const myUserId = me?.id;
   const myTasksAll = myUserId ? allTasks.filter((t) => t.assignedToUserId === myUserId) : [];
-  const visibleTasks = filterMode === "mine" ? myTasksAll : allTasks;
+  const visibleTasks = (filterMode === "mine" ? myTasksAll : allTasks).filter(
+    (t) => resolvedProjectId === null || t.projectId === resolvedProjectId,
+  );
 
   const inProgress = visibleTasks.filter((t) => t.status === "in_progress");
   const todo = visibleTasks.filter((t) => t.status === "todo");
@@ -382,6 +393,25 @@ function OwnerTasksScreen() {
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.projectSelector}>
+              <Pressable
+                style={[
+                  styles.projectTab,
+                  {
+                    backgroundColor: resolvedProjectId === null ? colors.card : colors.muted,
+                    borderColor: resolvedProjectId === null ? colors.foreground + "40" : colors.border,
+                  },
+                ]}
+                onPress={() => setSelectedProjectId(null)}
+              >
+                <Text
+                  style={[
+                    styles.projectTabText,
+                    { color: resolvedProjectId === null ? colors.foreground : colors.mutedForeground },
+                  ]}
+                >
+                  All Projects
+                </Text>
+              </Pressable>
               {allProjects.map((p) => {
                 const active = resolvedProjectId === p.id;
                 return (
@@ -412,7 +442,7 @@ function OwnerTasksScreen() {
         )}
       </View>
 
-      {!resolvedProjectId ? (
+      {!allProjects.length ? (
         <View style={styles.noProjectBanner}>
           <Feather name="layers" size={44} color={colors.border} />
           <Text style={[styles.noProjectText, { color: colors.foreground }]}>No projects yet</Text>
