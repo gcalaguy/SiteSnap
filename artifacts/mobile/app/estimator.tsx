@@ -1154,6 +1154,12 @@ export default function EstimatorScreen() {
               </View>
             )}
             {scanUrlData?.url && !scanUrlLoading && !scanUrlError && (() => {
+              const isVideo = scanUrlData.scan?.sourceType === "video_capture";
+
+              if (isVideo) {
+                return <VideoWebView url={scanUrlData.url} />;
+              }
+
               const domain = process.env.EXPO_PUBLIC_DOMAIN;
               if (!domain) {
                 return (
@@ -1317,6 +1323,46 @@ function ScanWebView({ url }: { url: string }) {
           </TouchableOpacity>
         </Animated.View>
       )}
+    </View>
+  );
+}
+
+function VideoWebView({ url }: { url: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  video{width:100%;height:100%;object-fit:contain}
+</style>
+</head>
+<body>
+<video src="${url}" controls autoplay playsinline webkit-playsinline></video>
+</body>
+</html>`;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      {!loaded && (
+        <View style={[StyleSheet.absoluteFillObject, s.scanCenter, { zIndex: 10 }]}>
+          <ActivityIndicator size="large" color="#06b6d4" />
+          <Text style={s.scanStatusText}>Loading video…</Text>
+        </View>
+      )}
+      <WebView
+        source={{ html }}
+        style={{ flex: 1 }}
+        onLoad={() => setLoaded(true)}
+        javaScriptEnabled
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        allowsFullscreenVideo
+        originWhitelist={["*"]}
+      />
     </View>
   );
 }

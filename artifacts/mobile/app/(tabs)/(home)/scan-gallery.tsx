@@ -70,8 +70,49 @@ function ScanWebView({ url }: { url: string }) {
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
           originWhitelist={["https://*"]}
+          allowsFullscreenVideo
         />
       )}
+    </View>
+  );
+}
+
+function VideoWebView({ url }: { url: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  video{width:100%;height:100%;object-fit:contain}
+</style>
+</head>
+<body>
+<video src="${url}" controls autoplay playsinline webkit-playsinline></video>
+</body>
+</html>`;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      {!loaded && (
+        <View style={[StyleSheet.absoluteFillObject, styles.center, { zIndex: 10 }]}>
+          <ActivityIndicator size="large" color={CYAN} />
+          <Text style={styles.statusText}>Loading video…</Text>
+        </View>
+      )}
+      <WebView
+        source={{ html }}
+        style={{ flex: 1 }}
+        onLoad={() => setLoaded(true)}
+        javaScriptEnabled
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        allowsFullscreenVideo
+        originWhitelist={["*"]}
+      />
     </View>
   );
 }
@@ -102,7 +143,9 @@ function ScanViewerModal({
           <TouchableOpacity onPress={onClose} hitSlop={10} style={styles.viewerBackBtn}>
             <Feather name="x" size={22} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.viewerTitle}>3D Site Scan</Text>
+          <Text style={styles.viewerTitle}>
+            {scanUrlData?.scan?.sourceType === "video_capture" ? "Site Recording" : "3D Site Scan"}
+          </Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -126,6 +169,12 @@ function ScanViewerModal({
             </View>
           )}
           {scanUrlData?.url && !isLoading && !error && (() => {
+            const isVideo = scanUrlData.scan?.sourceType === "video_capture";
+
+            if (isVideo) {
+              return <VideoWebView url={scanUrlData.url} />;
+            }
+
             const domain = process.env.EXPO_PUBLIC_DOMAIN;
             if (!domain) {
               return (
@@ -224,9 +273,10 @@ export default function ScanGalleryScreen() {
   const [viewingScanId, setViewingScanId] = useState<number | null>(null);
   const [viewerVisible, setViewerVisible] = useState(false);
 
-  const { data: scans, isLoading, refetch, isRefetching } = useListScans({
-    query: { queryKey: getListScansQueryKey() },
-  });
+  const { data: scans, isLoading, refetch, isRefetching } = useListScans(
+    undefined,
+    { query: { queryKey: getListScansQueryKey() } },
+  );
 
   function openViewer(id: number) {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

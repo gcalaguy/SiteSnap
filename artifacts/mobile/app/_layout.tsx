@@ -26,26 +26,49 @@ function RootLayoutNav() {
   const { user: clerkUser } = useUser();
   const queryClient = useQueryClient();
 
-  // Wire Clerk's token + signOut into customFetch and utils/auth.
-  // Also configure the base URL for native (relative URLs don't resolve in React Native).
+  // Keep a stable ref to the latest getToken so we can register the setter
+  // once (no cleanup/re-register cycle) while always calling the freshest token.
+  const getTokenRef = useRef(getToken);
+  useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
+
+  // Keep a stable ref to queryClient / signOut too, so sign-out effect deps
+  // don't cause unnecessary re-runs.
+  const queryClientRef = useRef(queryClient);
+  useEffect(() => { queryClientRef.current = queryClient; }, [queryClient]);
+  const clerkSignOutRef = useRef(clerkSignOut);
+  useEffect(() => { clerkSignOutRef.current = clerkSignOut; }, [clerkSignOut]);
+
+  // Configure base URL once on mount — it never changes between renders.
   useEffect(() => {
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
     if (domain) setBaseUrl(`https://${domain}`);
+    return () => setBaseUrl(null);
+  }, []);
 
-    setAuthTokenGetter(() => getToken());
-    setTokenGetter(() => getToken());
-    setSignOut(async () => {
-      // Clear all cached query data so stale me/company data doesn't linger.
-      queryClient.clear();
-      await clerkSignOut();
-    });
-
+  // Register auth getter once — uses ref to always call the latest getToken.
+  // Mirroring the web dashboard's ClerkAuthTokenSetter pattern (useLayoutEffect +
+  // stable ref) prevents the brief null-auth window that occurs when
+  // getToken changes reference and the old effect cleanup fires.
+  useEffect(() => {
+    const getter = async () => {
+      try { return await getTokenRef.current(); } catch { return null; }
+    };
+    setAuthTokenGetter(getter);
+    setTokenGetter(getter);
     return () => {
       setAuthTokenGetter(null);
-      setBaseUrl(null);
-      setSignOut(async () => {});
+      setTokenGetter(async () => null);
     };
-  }, [getToken, queryClient]);
+  }, []); // empty deps — stable via ref
+
+  // Wire sign-out separately so its deps don't affect the auth getter.
+  useEffect(() => {
+    setSignOut(async () => {
+      queryClientRef.current.clear();
+      await clerkSignOutRef.current();
+    });
+    return () => setSignOut(async () => {});
+  }, []);
 
   const syncUser = useSyncUser();
   const syncedRef = useRef(false);
