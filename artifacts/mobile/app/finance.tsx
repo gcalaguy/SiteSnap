@@ -140,8 +140,15 @@ export default function FinanceScreen() {
       customFetch("/api/projects/0/quotes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
   });
 
-  const { data: invoices, isLoading: invLoading, refetch: refetchInv } = useListAllInvoices({});
-  const { data: quotes, isLoading: qLoading, refetch: refetchQ } = useListAllQuotes({});
+  const { data: invoices, isLoading: invLoading, isError: invError, error: invErrorObj, refetch: refetchInv } = useListAllInvoices({});
+  const { data: quotes, isLoading: qLoading, isError: qError, error: qErrorObj, refetch: refetchQ } = useListAllQuotes({});
+
+  // Debug: log quote fetch errors to help diagnose empty-list issues
+  React.useEffect(() => {
+    if (qError && qErrorObj) {
+      console.warn("[Finance] Quotes fetch error:", qErrorObj);
+    }
+  }, [qError, qErrorObj]);
 
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const { state: voiceState, toggle: toggleVoice } = useVoiceRecorder((text) => {
@@ -239,6 +246,16 @@ export default function FinanceScreen() {
       {tab === "invoices" ? (
         invLoading ? (
           <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+        ) : invError ? (
+          <View style={styles.center}>
+            <Feather name="alert-circle" size={28} color="#EF4444" />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground, marginTop: 12 }]}>
+              Failed to load invoices
+            </Text>
+            <Pressable onPress={() => refetchInv()} style={{ marginTop: 12 }}>
+              <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Retry</Text>
+            </Pressable>
+          </View>
         ) : (
           <FlatList
             data={invoices ?? []}
@@ -254,6 +271,16 @@ export default function FinanceScreen() {
       ) : (
         qLoading ? (
           <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+        ) : qError ? (
+          <View style={styles.center}>
+            <Feather name="alert-circle" size={28} color="#EF4444" />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground, marginTop: 12 }]}>
+              Failed to load quotes
+            </Text>
+            <Pressable onPress={() => refetchQ()} style={{ marginTop: 12 }}>
+              <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Retry</Text>
+            </Pressable>
+          </View>
         ) : (
           <FlatList
             data={quotes ?? []}

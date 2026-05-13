@@ -223,7 +223,7 @@ export default function QuoteDetailScreen() {
         {
           text: "Submit",
           onPress: () => {
-            submitQuote.mutate({ quoteId }, {
+            submitQuote.mutate({ projectId, quoteId }, {
               onSuccess: () => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 Alert.alert("Quote Submitted", "The foreman and owner have been notified by email.");
@@ -265,7 +265,7 @@ export default function QuoteDetailScreen() {
       { text: "Cancel", style: "cancel" },
       {
         text: "Convert", onPress: () => {
-          convertQuote.mutate({ projectId: quote?.projectId ?? 0, quoteId }, {
+          convertQuote.mutate({ projectId: quote?.projectId ?? 0, quoteId, data: {} }, {
             onSuccess: (inv) => {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert("Invoice Created", `Invoice ${inv.invoiceNumber} is ready.`);

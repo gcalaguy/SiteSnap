@@ -538,4 +538,6 @@ const styles = StyleSheet.create({
   actionBtnFull: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderTopWidth: 1 },
   actionBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   actionHint: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  submittedBanner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, marginTop: 12 },
+  submittedBannerText: { fontSize: 13, fontFamily: "Inter_500Medium" },
 });
