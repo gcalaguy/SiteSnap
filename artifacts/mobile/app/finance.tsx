@@ -80,7 +80,7 @@ function QuoteRow({ item }: { item: any }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.row, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
-      onPress={() => router.push(`/quote/${item.id}`)}
+      onPress={() => router.push({ pathname: "/quote/[id]", params: { id: String(item.id), projectId: String(item.projectId ?? 0) } })}
     >
       <View style={{ flex: 1 }}>
         <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>

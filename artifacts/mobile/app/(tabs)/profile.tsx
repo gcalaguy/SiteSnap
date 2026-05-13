@@ -167,7 +167,7 @@ export default function ProfileScreen() {
         }) as any;
         setShowVoiceModal(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        if (q?.id) router.push(`/quote/${q.id}`);
+        if (q?.id) router.push({ pathname: "/quote/[id]", params: { id: String(q.id), projectId: String(q.projectId ?? 0) } });
         else router.push("/finance");
       }
     } catch {
