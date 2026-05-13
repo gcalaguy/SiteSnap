@@ -190,32 +190,42 @@ export default function FinanceScreen() {
     setSaving(true);
     try {
       if (voiceFor === "invoice") {
-        await createInvoice.mutateAsync({
+        const inv = await createInvoice.mutateAsync({
           title: aiResult.title ?? "New Invoice",
           clientName: aiResult.clientName ?? clientName ?? "Client",
           lineItems: aiResult.lineItems ?? [],
           notes: aiResult.notes ?? undefined,
-        });
-        await refetchInv();
-        setTab("invoices");
+        }) as any;
+        setShowVoiceModal(false);
+        setAiResult(null);
+        if (inv?.id) {
+          router.push(`/invoice/${inv.id}`);
+        } else {
+          await refetchInv();
+          setTab("invoices");
+        }
       } else {
-        await createQuote.mutateAsync({
+        const q = await createQuote.mutateAsync({
           title: aiResult.title ?? "New Quote",
           clientName: aiResult.clientName ?? clientName ?? "Client",
           lineItems: aiResult.lineItems ?? [],
           notes: aiResult.notes ?? undefined,
-        });
-        await refetchQ();
-        setTab("quotes");
+        }) as any;
+        setShowVoiceModal(false);
+        setAiResult(null);
+        if (q?.id) {
+          router.push({ pathname: "/quote/[id]", params: { id: String(q.id), projectId: String(q.projectId ?? 0) } });
+        } else {
+          await refetchQ();
+          setTab("quotes");
+        }
       }
-      setShowVoiceModal(false);
-      setAiResult(null);
     } catch {
       Alert.alert(`Failed to create ${voiceFor}. Please try again.`);
     } finally {
       setSaving(false);
     }
-  }, [aiResult, voiceFor, clientName, createInvoice, createQuote, refetchInv, refetchQ]);
+  }, [aiResult, voiceFor, clientName, createInvoice, createQuote, refetchInv, refetchQ, router]);
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 

@@ -322,7 +322,16 @@ export default function InvoiceDetailScreen() {
           <Feather name="arrow-left" size={22} color="#FFFFFF" />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>{invoice.invoiceNumber}</Text>
-        <View style={{ width: 36 }} />
+        {(invoice.status === "draft") ? (
+          <Pressable
+            onPress={() => router.push({ pathname: "/invoice/edit", params: { id: String(invoiceId) } })}
+            hitSlop={10}
+          >
+            <Feather name="edit-2" size={20} color="#FFFFFF" />
+          </Pressable>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
       </View>
 
       <ScrollView
