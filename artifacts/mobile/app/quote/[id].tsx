@@ -322,7 +322,15 @@ export default function QuoteDetailScreen() {
           <Feather name="arrow-left" size={22} color="#FFFFFF" />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>{quote.quoteNumber}</Text>
-        <View style={{ width: 36 }} />
+        {isEditable && (
+          <Pressable
+            onPress={() => router.push({ pathname: "/quote/edit", params: { id: String(quoteId), projectId: String(projectId) } })}
+            hitSlop={10}
+          >
+            <Feather name="edit-2" size={20} color="#FFFFFF" />
+          </Pressable>
+        )}
+        {!isEditable && <View style={{ width: 36 }} />}
       </View>
 
       <ScrollView
