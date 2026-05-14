@@ -123,7 +123,7 @@ function DigestCard() {
     }
   };
 
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <Card>
@@ -427,7 +427,7 @@ function QuickBooksCard() {
   const fmtDate = (d: string | null) => d ? new Date(d).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" }) : "Never";
   const isSyncing = syncInvoices.isPending || syncCosts.isPending;
 
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <Card>
@@ -801,7 +801,7 @@ function DocumentTemplatesCard({ company }: { company: any }) {
 // ── Pricing Manager Card (collapsible) ───────────────────────────────────────
 
 function PricingManagerCard() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <Card>
