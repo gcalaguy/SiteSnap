@@ -18,6 +18,7 @@ import NewCost from "@/pages/new-cost";
 import NewRFI from "@/pages/new-rfi";
 import Team from "@/pages/team";
 import Settings from "@/pages/settings";
+import PricingManagerPage from "@/pages/pricing-manager";
 import AIChat from "@/pages/ai-chat";
 import OnboardingPage from "@/pages/onboarding";
 import Quotes from "@/pages/quotes";
@@ -270,6 +271,7 @@ function AuthApp() {
           <Route path="/super-admin" component={SuperAdminPage} />
           <Route path="/ai-chat" component={AIChat} />
           <Route path="/team" component={Team} />
+          <Route path="/settings/pricing" component={PricingManagerPage} />
           <Route path="/settings" component={Settings} />
           <Route path="/schedule" component={Schedule} />
           <Route path="/hours" component={Hours} />

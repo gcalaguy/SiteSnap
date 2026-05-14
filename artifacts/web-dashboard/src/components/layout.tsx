@@ -29,6 +29,7 @@ import {
   Sparkles,
   Menu,
   X,
+  DollarSign,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import { useState } from "react";
@@ -155,7 +156,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TradeHub" }] : []),
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT" },
     ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0 }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0 }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Pricing", href: "/settings/pricing", icon: DollarSign, badge: 0 }] : []),
+  ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0 }] : []),
   ];
 
   const adminNavigation = [

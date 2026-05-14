@@ -56,6 +56,8 @@ tags:
     description: Lead management and pipeline tracking
   - name: activities
     description: Lead activity logging
+  - name: estimator
+    description: Smart Estimator pricing models and add-ons
 
 paths:
   # ── Forms ────────────────────────────────────────────────────────────────────
@@ -2981,6 +2983,146 @@ paths:
                   sandboxWarning:
                     type: string
 
+  # ── Estimator Pricing ────────────────────────────────────────────────────────
+  /estimator/cost-models:
+    get:
+      operationId: listCostModels
+      tags: [estimator]
+      summary: List all cost models and add-ons
+      responses:
+        "200":
+          description: Cost models and add-ons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostModelsResponse"
+    post:
+      operationId: createCostModel
+      tags: [estimator]
+      summary: Create a new cost model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CostModelBody"
+      responses:
+        "201":
+          description: Created cost model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostModelRecord"
+
+  /estimator/cost-models/{id}:
+    put:
+      operationId: updateCostModel
+      tags: [estimator]
+      summary: Update a cost model
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CostModelBody"
+      responses:
+        "200":
+          description: Updated cost model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostModelRecord"
+    delete:
+      operationId: deleteCostModel
+      tags: [estimator]
+      summary: Delete a cost model
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /estimator/addons:
+    post:
+      operationId: createAddon
+      tags: [estimator]
+      summary: Create a new add-on
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddonBody"
+      responses:
+        "201":
+          description: Created add-on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddonRecord"
+
+  /estimator/addons/{id}:
+    put:
+      operationId: updateAddon
+      tags: [estimator]
+      summary: Update an add-on
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddonBody"
+      responses:
+        "200":
+          description: Updated add-on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddonRecord"
+    delete:
+      operationId: deleteAddon
+      tags: [estimator]
+      summary: Delete an add-on
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
 components:
   parameters:
     companyId:
@@ -5158,6 +5300,119 @@ components:
         notes:
           type: string
           nullable: true
+
+    CostModelRecord:
+      type: object
+      required: [id, projectType, finishLevel, name, baseCostPerSqft, laborCostPerSqft, materialCostPerSqft, overheadPct, contingencyPct, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        projectType:
+          type: string
+        finishLevel:
+          type: string
+        name:
+          type: string
+        baseCostPerSqft:
+          type: string
+        laborCostPerSqft:
+          type: string
+        materialCostPerSqft:
+          type: string
+        overheadPct:
+          type: string
+        contingencyPct:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CostModelBody:
+      type: object
+      properties:
+        projectType:
+          type: string
+        finishLevel:
+          type: string
+          enum: [basic, standard, premium, luxury]
+        name:
+          type: string
+        baseCostPerSqft:
+          type: string
+        laborCostPerSqft:
+          type: string
+        materialCostPerSqft:
+          type: string
+        overheadPct:
+          type: string
+        contingencyPct:
+          type: string
+        notes:
+          type: string
+          nullable: true
+
+    AddonRecord:
+      type: object
+      required: [id, name, addonKey, costType, amount, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        addonKey:
+          type: string
+        description:
+          type: string
+          nullable: true
+        costType:
+          type: string
+          enum: [flat, per_sqft]
+        amount:
+          type: string
+        applicableTypes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AddonBody:
+      type: object
+      properties:
+        name:
+          type: string
+        addonKey:
+          type: string
+        description:
+          type: string
+          nullable: true
+        costType:
+          type: string
+          enum: [flat, per_sqft]
+        amount:
+          type: string
+        applicableTypes:
+          type: string
+          nullable: true
+
+    CostModelsResponse:
+      type: object
+      required: [models, addons]
+      properties:
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/CostModelRecord"
+        addons:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddonRecord"
 
     CreateInvoiceBody:
       type: object

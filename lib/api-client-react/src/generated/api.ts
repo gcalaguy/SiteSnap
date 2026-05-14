@@ -28,6 +28,8 @@ import type {
   ActivityItem,
   AddPhotoBody,
   AddProjectMemberBody,
+  AddonBody,
+  AddonRecord,
   ApproveProposalBody,
   ApproveTimesheetBody,
   BuilderEstimate,
@@ -41,6 +43,9 @@ import type {
   ConvertLeadBody,
   ConvertQuoteToInvoiceBody,
   CostAnalysis,
+  CostModelBody,
+  CostModelRecord,
+  CostModelsResponse,
   CreateActivityBody,
   CreateBuilderEstimateBody,
   CreateChangeOrderBody,
@@ -63,6 +68,8 @@ import type {
   DailyReport,
   DailyReportPhoto,
   DashboardSummary,
+  DeleteAddon200,
+  DeleteCostModel200,
   DenyTimesheetBody,
   ErrorEnvelope,
   EstimateItemBody,
@@ -12733,4 +12740,593 @@ export const useSendInvoiceReminder = <
   TContext
 > => {
   return useMutation(getSendInvoiceReminderMutationOptions(options));
+};
+
+/**
+ * @summary List all cost models and add-ons
+ */
+export const getListCostModelsUrl = () => {
+  return `/api/estimator/cost-models`;
+};
+
+export const listCostModels = async (
+  options?: RequestInit,
+): Promise<CostModelsResponse> => {
+  return customFetch<CostModelsResponse>(getListCostModelsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCostModelsQueryKey = () => {
+  return [`/api/estimator/cost-models`] as const;
+};
+
+export const getListCostModelsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCostModels>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCostModels>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCostModelsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCostModels>>> = ({
+    signal,
+  }) => listCostModels({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCostModels>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCostModelsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCostModels>>
+>;
+export type ListCostModelsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all cost models and add-ons
+ */
+
+export function useListCostModels<
+  TData = Awaited<ReturnType<typeof listCostModels>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCostModels>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCostModelsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new cost model
+ */
+export const getCreateCostModelUrl = () => {
+  return `/api/estimator/cost-models`;
+};
+
+export const createCostModel = async (
+  costModelBody: CostModelBody,
+  options?: RequestInit,
+): Promise<CostModelRecord> => {
+  return customFetch<CostModelRecord>(getCreateCostModelUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(costModelBody),
+  });
+};
+
+export const getCreateCostModelMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCostModel>>,
+    TError,
+    { data: BodyType<CostModelBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCostModel>>,
+  TError,
+  { data: BodyType<CostModelBody> },
+  TContext
+> => {
+  const mutationKey = ["createCostModel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCostModel>>,
+    { data: BodyType<CostModelBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCostModel(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCostModelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCostModel>>
+>;
+export type CreateCostModelMutationBody = BodyType<CostModelBody>;
+export type CreateCostModelMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new cost model
+ */
+export const useCreateCostModel = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCostModel>>,
+    TError,
+    { data: BodyType<CostModelBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCostModel>>,
+  TError,
+  { data: BodyType<CostModelBody> },
+  TContext
+> => {
+  return useMutation(getCreateCostModelMutationOptions(options));
+};
+
+/**
+ * @summary Update a cost model
+ */
+export const getUpdateCostModelUrl = (id: number) => {
+  return `/api/estimator/cost-models/${id}`;
+};
+
+export const updateCostModel = async (
+  id: number,
+  costModelBody: CostModelBody,
+  options?: RequestInit,
+): Promise<CostModelRecord> => {
+  return customFetch<CostModelRecord>(getUpdateCostModelUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(costModelBody),
+  });
+};
+
+export const getUpdateCostModelMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCostModel>>,
+    TError,
+    { id: number; data: BodyType<CostModelBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCostModel>>,
+  TError,
+  { id: number; data: BodyType<CostModelBody> },
+  TContext
+> => {
+  const mutationKey = ["updateCostModel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCostModel>>,
+    { id: number; data: BodyType<CostModelBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateCostModel(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCostModelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCostModel>>
+>;
+export type UpdateCostModelMutationBody = BodyType<CostModelBody>;
+export type UpdateCostModelMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a cost model
+ */
+export const useUpdateCostModel = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCostModel>>,
+    TError,
+    { id: number; data: BodyType<CostModelBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCostModel>>,
+  TError,
+  { id: number; data: BodyType<CostModelBody> },
+  TContext
+> => {
+  return useMutation(getUpdateCostModelMutationOptions(options));
+};
+
+/**
+ * @summary Delete a cost model
+ */
+export const getDeleteCostModelUrl = (id: number) => {
+  return `/api/estimator/cost-models/${id}`;
+};
+
+export const deleteCostModel = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteCostModel200> => {
+  return customFetch<DeleteCostModel200>(getDeleteCostModelUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCostModelMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCostModel>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCostModel>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCostModel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCostModel>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCostModel(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCostModelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCostModel>>
+>;
+
+export type DeleteCostModelMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a cost model
+ */
+export const useDeleteCostModel = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCostModel>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCostModel>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteCostModelMutationOptions(options));
+};
+
+/**
+ * @summary Create a new add-on
+ */
+export const getCreateAddonUrl = () => {
+  return `/api/estimator/addons`;
+};
+
+export const createAddon = async (
+  addonBody: AddonBody,
+  options?: RequestInit,
+): Promise<AddonRecord> => {
+  return customFetch<AddonRecord>(getCreateAddonUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addonBody),
+  });
+};
+
+export const getCreateAddonMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAddon>>,
+    TError,
+    { data: BodyType<AddonBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAddon>>,
+  TError,
+  { data: BodyType<AddonBody> },
+  TContext
+> => {
+  const mutationKey = ["createAddon"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAddon>>,
+    { data: BodyType<AddonBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAddon(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAddonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAddon>>
+>;
+export type CreateAddonMutationBody = BodyType<AddonBody>;
+export type CreateAddonMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new add-on
+ */
+export const useCreateAddon = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAddon>>,
+    TError,
+    { data: BodyType<AddonBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAddon>>,
+  TError,
+  { data: BodyType<AddonBody> },
+  TContext
+> => {
+  return useMutation(getCreateAddonMutationOptions(options));
+};
+
+/**
+ * @summary Update an add-on
+ */
+export const getUpdateAddonUrl = (id: number) => {
+  return `/api/estimator/addons/${id}`;
+};
+
+export const updateAddon = async (
+  id: number,
+  addonBody: AddonBody,
+  options?: RequestInit,
+): Promise<AddonRecord> => {
+  return customFetch<AddonRecord>(getUpdateAddonUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addonBody),
+  });
+};
+
+export const getUpdateAddonMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAddon>>,
+    TError,
+    { id: number; data: BodyType<AddonBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAddon>>,
+  TError,
+  { id: number; data: BodyType<AddonBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAddon"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAddon>>,
+    { id: number; data: BodyType<AddonBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAddon(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAddonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAddon>>
+>;
+export type UpdateAddonMutationBody = BodyType<AddonBody>;
+export type UpdateAddonMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an add-on
+ */
+export const useUpdateAddon = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAddon>>,
+    TError,
+    { id: number; data: BodyType<AddonBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAddon>>,
+  TError,
+  { id: number; data: BodyType<AddonBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAddonMutationOptions(options));
+};
+
+/**
+ * @summary Delete an add-on
+ */
+export const getDeleteAddonUrl = (id: number) => {
+  return `/api/estimator/addons/${id}`;
+};
+
+export const deleteAddon = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteAddon200> => {
+  return customFetch<DeleteAddon200>(getDeleteAddonUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAddonMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAddon>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAddon>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAddon"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAddon>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAddon(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAddonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAddon>>
+>;
+
+export type DeleteAddonMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an add-on
+ */
+export const useDeleteAddon = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAddon>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAddon>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAddonMutationOptions(options));
 };

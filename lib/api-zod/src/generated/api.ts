@@ -3628,3 +3628,147 @@ export const SendInvoiceReminderResponse = zod.object({
   ok: zod.boolean().optional(),
   sandboxWarning: zod.string().optional(),
 });
+
+/**
+ * @summary List all cost models and add-ons
+ */
+export const ListCostModelsResponse = zod.object({
+  models: zod.array(
+    zod.object({
+      id: zod.number(),
+      projectType: zod.string(),
+      finishLevel: zod.string(),
+      name: zod.string(),
+      baseCostPerSqft: zod.string(),
+      laborCostPerSqft: zod.string(),
+      materialCostPerSqft: zod.string(),
+      overheadPct: zod.string(),
+      contingencyPct: zod.string(),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+  addons: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      addonKey: zod.string(),
+      description: zod.string().nullish(),
+      costType: zod.enum(["flat", "per_sqft"]),
+      amount: zod.string(),
+      applicableTypes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a new cost model
+ */
+export const CreateCostModelBody = zod.object({
+  projectType: zod.string().optional(),
+  finishLevel: zod.enum(["basic", "standard", "premium", "luxury"]).optional(),
+  name: zod.string().optional(),
+  baseCostPerSqft: zod.string().optional(),
+  laborCostPerSqft: zod.string().optional(),
+  materialCostPerSqft: zod.string().optional(),
+  overheadPct: zod.string().optional(),
+  contingencyPct: zod.string().optional(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Update a cost model
+ */
+export const UpdateCostModelParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCostModelBody = zod.object({
+  projectType: zod.string().optional(),
+  finishLevel: zod.enum(["basic", "standard", "premium", "luxury"]).optional(),
+  name: zod.string().optional(),
+  baseCostPerSqft: zod.string().optional(),
+  laborCostPerSqft: zod.string().optional(),
+  materialCostPerSqft: zod.string().optional(),
+  overheadPct: zod.string().optional(),
+  contingencyPct: zod.string().optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateCostModelResponse = zod.object({
+  id: zod.number(),
+  projectType: zod.string(),
+  finishLevel: zod.string(),
+  name: zod.string(),
+  baseCostPerSqft: zod.string(),
+  laborCostPerSqft: zod.string(),
+  materialCostPerSqft: zod.string(),
+  overheadPct: zod.string(),
+  contingencyPct: zod.string(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a cost model
+ */
+export const DeleteCostModelParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCostModelResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
+ * @summary Create a new add-on
+ */
+export const CreateAddonBody = zod.object({
+  name: zod.string().optional(),
+  addonKey: zod.string().optional(),
+  description: zod.string().nullish(),
+  costType: zod.enum(["flat", "per_sqft"]).optional(),
+  amount: zod.string().optional(),
+  applicableTypes: zod.string().nullish(),
+});
+
+/**
+ * @summary Update an add-on
+ */
+export const UpdateAddonParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAddonBody = zod.object({
+  name: zod.string().optional(),
+  addonKey: zod.string().optional(),
+  description: zod.string().nullish(),
+  costType: zod.enum(["flat", "per_sqft"]).optional(),
+  amount: zod.string().optional(),
+  applicableTypes: zod.string().nullish(),
+});
+
+export const UpdateAddonResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  addonKey: zod.string(),
+  description: zod.string().nullish(),
+  costType: zod.enum(["flat", "per_sqft"]),
+  amount: zod.string(),
+  applicableTypes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete an add-on
+ */
+export const DeleteAddonParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAddonResponse = zod.object({
+  success: zod.boolean().optional(),
+});

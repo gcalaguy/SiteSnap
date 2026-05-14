@@ -1336,6 +1336,84 @@ export interface CreateContactBody {
   notes?: string | null;
 }
 
+export interface CostModelRecord {
+  id: number;
+  projectType: string;
+  finishLevel: string;
+  name: string;
+  baseCostPerSqft: string;
+  laborCostPerSqft: string;
+  materialCostPerSqft: string;
+  overheadPct: string;
+  contingencyPct: string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CostModelBodyFinishLevel =
+  (typeof CostModelBodyFinishLevel)[keyof typeof CostModelBodyFinishLevel];
+
+export const CostModelBodyFinishLevel = {
+  basic: "basic",
+  standard: "standard",
+  premium: "premium",
+  luxury: "luxury",
+} as const;
+
+export interface CostModelBody {
+  projectType?: string;
+  finishLevel?: CostModelBodyFinishLevel;
+  name?: string;
+  baseCostPerSqft?: string;
+  laborCostPerSqft?: string;
+  materialCostPerSqft?: string;
+  overheadPct?: string;
+  contingencyPct?: string;
+  notes?: string | null;
+}
+
+export type AddonRecordCostType =
+  (typeof AddonRecordCostType)[keyof typeof AddonRecordCostType];
+
+export const AddonRecordCostType = {
+  flat: "flat",
+  per_sqft: "per_sqft",
+} as const;
+
+export interface AddonRecord {
+  id: number;
+  name: string;
+  addonKey: string;
+  description?: string | null;
+  costType: AddonRecordCostType;
+  amount: string;
+  applicableTypes?: string | null;
+  createdAt: string;
+}
+
+export type AddonBodyCostType =
+  (typeof AddonBodyCostType)[keyof typeof AddonBodyCostType];
+
+export const AddonBodyCostType = {
+  flat: "flat",
+  per_sqft: "per_sqft",
+} as const;
+
+export interface AddonBody {
+  name?: string;
+  addonKey?: string;
+  description?: string | null;
+  costType?: AddonBodyCostType;
+  amount?: string;
+  applicableTypes?: string | null;
+}
+
+export interface CostModelsResponse {
+  models: CostModelRecord[];
+  addons: AddonRecord[];
+}
+
 export interface CreateInvoiceBody {
   title: string;
   clientName: string;
@@ -1490,4 +1568,12 @@ export type SendInvoiceEmail200 = {
 export type SendInvoiceReminder200 = {
   ok?: boolean;
   sandboxWarning?: string;
+};
+
+export type DeleteCostModel200 = {
+  success?: boolean;
+};
+
+export type DeleteAddon200 = {
+  success?: boolean;
 };

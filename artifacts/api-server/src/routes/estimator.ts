@@ -405,6 +405,77 @@ router.delete(
   }),
 );
 
+// POST /api/estimator/addons — create a new add-on
+const AddonBody = z.object({
+  name:            z.string().min(1, "name is required"),
+  addonKey:        z.string().min(1, "addonKey is required"),
+  description:     z.string().optional(),
+  costType:        z.enum(["flat", "per_sqft"]).default("flat"),
+  amount:          z.string().min(1, "amount is required"),
+  applicableTypes: z.string().optional(),
+});
+
+router.post(
+  "/estimator/addons",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    await seedPricingData();
+    const parsed = AddonBody.safeParse(req.body);
+    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    const { description, applicableTypes, ...rest } = parsed.data;
+    const [addon] = await db
+      .insert(estimatorAddonsTable)
+      .values({ ...rest, description: description ?? null, applicableTypes: applicableTypes ?? null, createdAt: new Date() })
+      .returning();
+    res.status(201).json(addon);
+  }),
+);
+
+// PUT /api/estimator/addons/:id — update an add-on
+router.put(
+  "/estimator/addons/:id",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(String(req.params.id));
+    if (isNaN(id)) throw new BadRequestError("Invalid ID");
+    const parsed = AddonBody.partial().safeParse(req.body);
+    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    const { description, applicableTypes, ...rest } = parsed.data;
+    const updateData: Record<string, unknown> = { ...rest };
+    if ("description" in parsed.data) updateData.description = description ?? null;
+    if ("applicableTypes" in parsed.data) updateData.applicableTypes = applicableTypes ?? null;
+    const [addon] = await db
+      .update(estimatorAddonsTable)
+      .set(updateData)
+      .where(eq(estimatorAddonsTable.id, id))
+      .returning();
+    if (!addon) throw new NotFoundError("Add-on not found");
+    res.json(addon);
+  }),
+);
+
+// DELETE /api/estimator/addons/:id — delete an add-on
+router.delete(
+  "/estimator/addons/:id",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(String(req.params.id));
+    if (isNaN(id)) throw new BadRequestError("Invalid ID");
+    const [deleted] = await db
+      .delete(estimatorAddonsTable)
+      .where(eq(estimatorAddonsTable.id, id))
+      .returning({ id: estimatorAddonsTable.id });
+    if (!deleted) throw new NotFoundError("Add-on not found");
+    res.json({ success: true });
+  }),
+);
+
 // POST /api/estimator/parse — AI: free text → structured params
 const ParseBody = z.object({
   prompt: z.string().min(10, "Please describe the project (min 10 characters)"),
