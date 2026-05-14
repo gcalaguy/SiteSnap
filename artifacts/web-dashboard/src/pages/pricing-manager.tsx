@@ -8,6 +8,7 @@ import {
   useCreateAddon,
   useUpdateAddon,
   useDeleteAddon,
+  getListCostModelsQueryKey,
 } from "@workspace/api-client-react";
 import type { CostModelRecord, AddonRecord } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,7 @@ function CostModelModal({
   onClose: () => void;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const updateMutation = useUpdateCostModel();
 
   const [form, setForm] = useState<CostModelForm>({
@@ -137,6 +139,7 @@ function CostModelModal({
       { id: model.id, data: { ...form, notes: form.notes || undefined } },
       {
         onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
           toast({ title: "Cost model updated" });
           onClose();
         },
@@ -222,6 +225,7 @@ function CostModelModal({
 
 function CostModelsTab({ models }: { models: CostModelRecord[] }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const deleteMutation = useDeleteCostModel();
   const createMutation = useCreateCostModel();
 
@@ -302,6 +306,7 @@ function CostModelsTab({ models }: { models: CostModelRecord[] }) {
       },
       {
         onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
           toast({ title: "Cost model created" });
           setAddingType(null);
         },
@@ -444,7 +449,11 @@ function CostModelsTab({ models }: { models: CostModelRecord[] }) {
                   deleteMutation.mutate(
                     { id: deleteConfirm.id },
                     {
-                      onSuccess: () => { toast({ title: "Deleted" }); setDeleteConfirm(null); },
+                      onSuccess: () => {
+                        void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+                        toast({ title: "Deleted" });
+                        setDeleteConfirm(null);
+                      },
                       onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
                     },
                   )
@@ -566,6 +575,7 @@ function AddonModal({
   onClose: () => void;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const createMutation = useCreateAddon();
   const updateMutation = useUpdateAddon();
 
@@ -607,7 +617,11 @@ function AddonModal({
       createMutation.mutate(
         { data: body },
         {
-          onSuccess: () => { toast({ title: "Add-on created" }); onClose(); },
+          onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+            toast({ title: "Add-on created" });
+            onClose();
+          },
           onError: () => toast({ title: "Failed to create", variant: "destructive" }),
         },
       );
@@ -615,7 +629,11 @@ function AddonModal({
       updateMutation.mutate(
         { id: (addon as AddonRecord).id, data: body },
         {
-          onSuccess: () => { toast({ title: "Add-on updated" }); onClose(); },
+          onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+            toast({ title: "Add-on updated" });
+            onClose();
+          },
           onError: () => toast({ title: "Failed to save", variant: "destructive" }),
         },
       );
@@ -737,6 +755,7 @@ function AddonModal({
 
 function AddonsTab({ addons }: { addons: AddonRecord[] }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const deleteMutation = useDeleteAddon();
 
   const [editAddon, setEditAddon] = useState<AddonRecord | "new" | null>(null);
@@ -854,7 +873,11 @@ function AddonsTab({ addons }: { addons: AddonRecord[] }) {
                   deleteMutation.mutate(
                     { id: deleteConfirm.id },
                     {
-                      onSuccess: () => { toast({ title: "Add-on deleted" }); setDeleteConfirm(null); },
+                      onSuccess: () => {
+                        void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+                        toast({ title: "Add-on deleted" });
+                        setDeleteConfirm(null);
+                      },
                       onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
                     },
                   )

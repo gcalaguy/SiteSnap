@@ -315,12 +315,12 @@ function runPricingEngine(
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
-// GET /api/estimator/cost-models
+// GET /api/estimator/cost-models — readable by any authenticated company member
+// (foremen and crew use this data in the smart estimator; owner-only for writes below)
 router.get(
   "/estimator/cost-models",
   requireAuth,
   requireCompany,
-  requireOwner,
   asyncHandler(async (_req, res) => {
     await seedPricingData();
     const [models, addons] = await Promise.all([
