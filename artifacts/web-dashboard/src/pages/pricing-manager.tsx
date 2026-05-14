@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import {
+  useGetMe,
   useListCostModels,
   useCreateCostModel,
   useUpdateCostModel,
@@ -896,9 +898,16 @@ function AddonsTab({ addons }: { addons: AddonRecord[] }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PricingManagerPage() {
+  const [, navigate] = useLocation();
+  const { data: me } = useGetMe();
   const [activeTab, setActiveTab] = useState<"models" | "addons">("models");
 
   const { data, isLoading, isError } = useListCostModels();
+
+  if (me && me.role !== "owner") {
+    navigate("/dashboard");
+    return null;
+  }
 
   const models: CostModelRecord[] = data?.models ?? [];
   const addons: AddonRecord[] = data?.addons ?? [];
