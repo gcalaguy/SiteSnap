@@ -144,14 +144,15 @@ export default function SafetyPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Forms",      value: counts.total,    icon: FileText },
-          { label: "Templates",        value: templates.length, icon: ClipboardList },
-          { label: "Awaiting Review",  value: counts.submitted, icon: AlertTriangle },
-          { label: "Reviewed",         value: counts.reviewed,  icon: CheckCircle2 },
-        ].map(({ label, value, icon: Icon }) => (
+          { label: "Total Forms",      value: counts.total,    icon: FileText,      action: () => { setTab("submissions"); setStatusFilter("all"); } },
+          { label: "Templates",        value: templates.length, icon: ClipboardList, action: () => setTab("forms") },
+          { label: "Awaiting Review",  value: counts.submitted, icon: AlertTriangle, action: () => { setTab("submissions"); setStatusFilter("submitted"); } },
+          { label: "Reviewed",         value: counts.reviewed,  icon: CheckCircle2,  action: () => { setTab("submissions"); setStatusFilter("all"); } },
+        ].map(({ label, value, icon: Icon, action }) => (
           <div
             key={label}
-            className="rounded-xl p-4"
+            onClick={action}
+            className="rounded-xl p-4 cursor-pointer hover:opacity-90 transition-opacity"
             style={{ background: BLACK }}
           >
             <div className="flex items-center justify-between mb-3">
