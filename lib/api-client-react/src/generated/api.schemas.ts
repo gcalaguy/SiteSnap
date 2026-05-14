@@ -109,6 +109,15 @@ export interface User {
   createdAt: string;
 }
 
+export type CompanyEstimatorConfigProjectTypeLabels = { [key: string]: string };
+
+/**
+ * Company-specific estimator overrides
+ */
+export type CompanyEstimatorConfig = {
+  projectTypeLabels?: CompanyEstimatorConfigProjectTypeLabels;
+} | null;
+
 export interface Company {
   id: number;
   name: string;
@@ -118,6 +127,8 @@ export interface Company {
   logoPath?: string | null;
   quoteTemplatePath?: string | null;
   invoiceTemplatePath?: string | null;
+  /** Company-specific estimator overrides */
+  estimatorConfig?: CompanyEstimatorConfig;
   createdAt: string;
 }
 
@@ -1409,9 +1420,16 @@ export interface AddonBody {
   applicableTypes?: string | null;
 }
 
+/**
+ * Merged map of project type key → display label (defaults + custom)
+ */
+export type CostModelsResponseProjectTypes = { [key: string]: string };
+
 export interface CostModelsResponse {
   models: CostModelRecord[];
   addons: AddonRecord[];
+  /** Merged map of project type key → display label (defaults + custom) */
+  projectTypes: CostModelsResponseProjectTypes;
 }
 
 export interface CreateInvoiceBody {

@@ -71,6 +71,25 @@ router.get("/companies/:companyId", requireAuth, requireCompany, async (req, res
   res.json(company);
 });
 
+// GET /companies/:companyId/settings
+router.get("/companies/:companyId/settings", requireAuth, requireCompany, async (req, res) => {
+  const companyId = parseInt(req.params.companyId);
+  if (companyId !== req.companyId) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  const [row] = await db
+    .select({ estimatorConfig: companiesTable.estimatorConfig })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, companyId))
+    .limit(1);
+
+  res.json({
+    estimatorConfig: (row?.estimatorConfig ?? {}) as Record<string, unknown>,
+  });
+});
+
 // PATCH /companies/:companyId — update company profile details
 router.patch("/companies/:companyId", requireAuth, requireCompany, async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
@@ -79,10 +98,12 @@ router.patch("/companies/:companyId", requireAuth, requireCompany, async (req, r
     return;
   }
 
-  const allowed = ["name", "phone", "address", "city", "province", "website", "hstNumber"] as const;
-  const update: Record<string, string> = {};
+  const allowed = ["name", "phone", "address", "city", "province", "website", "hstNumber", "estimatorConfig"] as const;
+  const update: Record<string, unknown> = {};
   for (const key of allowed) {
-    if (typeof req.body?.[key] === "string") {
+    if (key === "estimatorConfig" && req.body?.estimatorConfig != null) {
+      update.estimatorConfig = req.body.estimatorConfig;
+    } else if (typeof req.body?.[key] === "string") {
       update[key === "hstNumber" ? "hstNumber" : key] = req.body[key].trim();
     }
   }

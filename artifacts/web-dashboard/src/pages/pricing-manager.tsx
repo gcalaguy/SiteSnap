@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   useGetMe,
@@ -11,6 +11,8 @@ import {
   useUpdateAddon,
   useDeleteAddon,
   getListCostModelsQueryKey,
+  customFetch,
+  getGetCompanyQueryKey,
 } from "@workspace/api-client-react";
 import type { CostModelRecord, AddonRecord } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -61,7 +63,8 @@ import {
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
 
-const PROJECT_TYPE_LABELS: Record<string, string> = {
+/** Hardcoded fallback defaults — merged with server-returned custom labels at runtime. */
+const DEFAULT_PROJECT_TYPE_LABELS: Record<string, string> = {
   residential_new_build:  "Residential New Build",
   commercial_new_build:   "Commercial New Build",
   renovation_residential: "Residential Renovation",
@@ -225,7 +228,13 @@ function CostModelModal({
 
 // ── Cost Models Tab ───────────────────────────────────────────────────────────
 
-function CostModelsTab({ models }: { models: CostModelRecord[] }) {
+function CostModelsTab({
+  models,
+  projectTypes,
+}: {
+  models: CostModelRecord[];
+  projectTypes: Record<string, string>;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const deleteMutation = useDeleteCostModel();
@@ -242,7 +251,7 @@ function CostModelsTab({ models }: { models: CostModelRecord[] }) {
     return acc;
   }, {});
 
-  const allTypes = Object.keys(PROJECT_TYPE_LABELS);
+  const allTypes = Object.keys(projectTypes);
 
   const missingFinishLevels = (type: string): string[] => {
     const existing = (grouped[type] ?? []).map(m => m.finishLevel);
@@ -290,7 +299,7 @@ function CostModelsTab({ models }: { models: CostModelRecord[] }) {
   function handleAddSave() {
     if (!addingType) return;
     if (!validateNewModel()) return;
-    const label = PROJECT_TYPE_LABELS[addingType] ?? addingType;
+    const label = projectTypes[addingType] ?? addingType;
     const fl = newModelForm.finishLevel;
     createMutation.mutate(
       {
@@ -335,7 +344,7 @@ function CostModelsTab({ models }: { models: CostModelRecord[] }) {
                   ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                 <span className="font-semibold text-sm">
-                  {PROJECT_TYPE_LABELS[type] ?? type}
+                  {projectTypes[type] ?? type}
                 </span>
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                   {rows.length} / {FINISH_LEVELS.length}
@@ -477,7 +486,7 @@ function CostModelsTab({ models }: { models: CostModelRecord[] }) {
                 Add Cost Model
               </DialogTitle>
               <DialogDescription className="text-xs">
-                {PROJECT_TYPE_LABELS[addingType] ?? addingType}
+                {projectTypes[addingType] ?? addingType}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
@@ -755,7 +764,7 @@ function AddonModal({
   );
 }
 
-function AddonsTab({ addons }: { addons: AddonRecord[] }) {
+function AddonsTab({ addons, projectTypes }: { addons: AddonRecord[]; projectTypes: Record<string, string> }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const deleteMutation = useDeleteAddon();
@@ -806,7 +815,7 @@ function AddonsTab({ addons }: { addons: AddonRecord[] }) {
                     )}
                     {a.applicableTypes && (
                       <div className="text-[10px] text-amber-600 mt-0.5">
-                        Only: {a.applicableTypes.split(",").map(t => PROJECT_TYPE_LABELS[t.trim()] ?? t.trim()).join(", ")}
+                        Only: {a.applicableTypes.split(",").map(t => projectTypes[t.trim()] ?? t.trim()).join(", ")}
                       </div>
                     )}
                   </td>
@@ -895,13 +904,254 @@ function AddonsTab({ addons }: { addons: AddonRecord[] }) {
   );
 }
 
+// ── Project Types Tab ─────────────────────────────────────────────────────────
+
+function ProjectTypesTab({
+  projectTypes,
+  companyId,
+  onSaved,
+}: {
+  projectTypes: Record<string, string>;
+  companyId: number;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const [deleteKey, setDeleteKey] = useState<string | null>(null);
+
+  const [form, setForm] = useState({ key: "", label: "" });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const isDefault = (k: string) => Object.prototype.hasOwnProperty.call(DEFAULT_PROJECT_TYPE_LABELS, k);
+
+  const updateMutation = useMutation({
+    mutationFn: async (payload: { key: string; label: string }) => {
+      const current: Record<string, string> = {};
+      for (const [k, v] of Object.entries(projectTypes)) {
+        if (!isDefault(k)) current[k] = v;
+      }
+      const next = { ...current, [payload.key]: payload.label };
+      return customFetch(`/api/companies/${companyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estimatorConfig: { projectTypeLabels: next } }),
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetCompanyQueryKey(companyId) });
+      toast({ title: editKey ? "Label updated" : "Label created" });
+      onSaved();
+      setAddOpen(false);
+      setEditKey(null);
+      setForm({ key: "", label: "" });
+      setErrors({});
+    },
+    onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (key: string) => {
+      const current: Record<string, string> = {};
+      for (const [k, v] of Object.entries(projectTypes)) {
+        if (!isDefault(k)) current[k] = v;
+      }
+      delete current[key];
+      return customFetch(`/api/companies/${companyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estimatorConfig: { projectTypeLabels: current } }),
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetCompanyQueryKey(companyId) });
+      toast({ title: "Label deleted" });
+      onSaved();
+      setDeleteKey(null);
+    },
+    onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+  });
+
+  function validate() {
+    const e: Record<string, string> = {};
+    const k = form.key.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+    if (!k) e.key = "A valid key is required (letters, numbers, underscores)";
+    else if (k.length > 40) e.key = "Key must be under 40 characters";
+    if (!form.label.trim()) e.label = "Display name is required";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function handleSave() {
+    if (!validate()) return;
+    const key = editKey ?? form.key.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+    updateMutation.mutate({ key, label: form.label.trim() });
+  }
+
+  const sorted = Object.entries(projectTypes).sort((a, b) => a[1].localeCompare(b[1]));
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {sorted.length} project type{sorted.length !== 1 ? "s" : ""}
+        </p>
+        <Button
+          size="sm"
+          style={{ background: BLACK, color: "white" }}
+          className="gap-1.5 text-xs h-8"
+          onClick={() => { setForm({ key: "", label: "" }); setEditKey(null); setAddOpen(true); }}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          New Type
+        </Button>
+      </div>
+
+      <div className="rounded-xl border border-border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/30 border-b border-border">
+            <tr>
+              <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Key</th>
+              <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Display Name</th>
+              <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground w-24">Source</th>
+              <th className="px-4 py-2.5 w-20" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/40">
+            {sorted.map(([key, label]) => (
+              <tr key={key} className="group">
+                <td className="px-4 py-3">
+                  <code className="text-[11px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{key}</code>
+                </td>
+                <td className="px-4 py-3 font-medium text-sm">{label}</td>
+                <td className="px-4 py-3">
+                  <Badge variant="outline" className="text-[10px]">
+                    {isDefault(key) ? "Default" : "Custom"}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => { setForm({ key, label }); setEditKey(key); setAddOpen(true); }}
+                      disabled={isDefault(key)}
+                      title={isDefault(key) ? "Defaults cannot be edited" : "Edit"}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => setDeleteKey(key)}
+                      disabled={isDefault(key)}
+                      title={isDefault(key) ? "Defaults cannot be deleted" : "Delete"}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {addOpen && (
+        <Dialog open onOpenChange={o => !o && setAddOpen(false)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-base flex items-center gap-2">
+                <Plus className="h-4 w-4 text-primary" />
+                {editKey ? "Edit Label" : "New Project Type"}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                {editKey ? "Change the display name for this type." : "Add a custom project type label."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Key</Label>
+                <Input
+                  value={form.key}
+                  onChange={e => setForm(f => ({ ...f, key: e.target.value }))}
+                  placeholder="e.g. pole_barn"
+                  className={cn("text-sm font-mono", errors.key && "border-red-400")}
+                  disabled={!!editKey}
+                />
+                {errors.key && <p className="text-[11px] text-red-500">{errors.key}</p>}
+                <p className="text-[10px] text-muted-foreground">
+                  Snake_case key used by the estimator and add-ons. Cannot be changed after creation.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Display Name</Label>
+                <Input
+                  value={form.label}
+                  onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+                  placeholder="e.g. Pole Barn"
+                  className={cn("text-sm", errors.label && "border-red-400")}
+                />
+                {errors.label && <p className="text-[11px] text-red-500">{errors.label}</p>}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setAddOpen(false)}>Cancel</Button>
+              <Button
+                size="sm"
+                style={{ background: BLACK, color: "white" }}
+                disabled={updateMutation.isPending}
+                onClick={handleSave}
+              >
+                {updateMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                {editKey ? "Save Changes" : "Create Label"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {deleteKey && (
+        <AlertDialog open onOpenChange={o => !o && setDeleteKey(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete custom label?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Remove <strong>{projectTypes[deleteKey]}</strong> from the list. Cost models for this type will remain in the database.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 text-white hover:bg-red-700"
+                onClick={() => deleteMutation.mutate(deleteKey)}
+              >
+                {deleteMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function PricingSettingsBody() {
-  const [activeTab, setActiveTab] = useState<"models" | "addons">("models");
+  const [activeTab, setActiveTab] = useState<"models" | "types" | "addons">("models");
   const { data, isLoading, isError } = useListCostModels();
   const models: CostModelRecord[] = data?.models ?? [];
   const addons: AddonRecord[] = data?.addons ?? [];
+  const projectTypes: Record<string, string> = data?.projectTypes ?? DEFAULT_PROJECT_TYPE_LABELS;
+  const { data: me } = useGetMe();
+  const companyId = me?.companyId;
 
   return (
     <div className="space-y-4">
@@ -916,6 +1166,7 @@ export function PricingSettingsBody() {
       <div className="flex gap-1 border-b border-border">
         {([
           { key: "models", label: "Cost Models", icon: LayoutGrid },
+          { key: "types",  label: "Project Types", icon: Tag },
           { key: "addons", label: "Add-ons & Upgrades", icon: Tag },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
@@ -945,9 +1196,15 @@ export function PricingSettingsBody() {
           <span className="text-sm">Failed to load pricing data.</span>
         </div>
       ) : activeTab === "models" ? (
-        <CostModelsTab models={models} />
+        <CostModelsTab models={models} projectTypes={projectTypes} />
+      ) : activeTab === "types" ? (
+        <ProjectTypesTab
+          projectTypes={projectTypes}
+          companyId={companyId ?? 0}
+          onSaved={() => {}}
+        />
       ) : (
-        <AddonsTab addons={addons} />
+        <AddonsTab addons={addons} projectTypes={projectTypes} />
       )}
     </div>
   );

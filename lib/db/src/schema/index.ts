@@ -67,6 +67,7 @@ export const companiesTable = pgTable("companies", {
   invoiceTemplatePath: text("invoice_template_path"),
   activeFeatures: text("active_features").array(),
   meetingConfig: jsonb("meeting_config"),
+  estimatorConfig: jsonb("estimator_config"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

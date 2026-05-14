@@ -121,21 +121,6 @@ type CostModel = { id: number; projectType: string; finishLevel: string; name: s
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const PROJECT_TYPE_LABELS: Record<string, string> = {
-  residential_new_build: "Residential New Build",
-  commercial_new_build: "Commercial New Build",
-  renovation_residential: "Residential Renovation",
-  renovation_commercial: "Commercial Renovation",
-  addition: "Home Addition",
-  garage: "Garage",
-  deck_patio: "Deck / Patio",
-  basement_finish: "Basement Finish",
-  roofing: "Roofing",
-  concrete_flatwork: "Concrete Flatwork",
-  framing_only: "Framing Only",
-  landscaping: "Landscaping",
-};
-
 const FINISH_LEVEL_LABELS: Record<string, { label: string; desc: string; color: string }> = {
   basic:    { label: "Basic",    desc: "Builder-grade / functional",          color: "bg-gray-100 text-gray-700 border-gray-200" },
   standard: { label: "Standard", desc: "Mid-range / good quality",            color: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -535,10 +520,24 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
     select: (data) => data.map((p: { id: number; name: string }) => ({ id: p.id, name: p.name })),
   });
 
-  const { data: modelsData } = useQuery<{ models: CostModel[]; addons: AddonModel[] }>({
+  const { data: modelsData } = useQuery<{ models: CostModel[]; addons: AddonModel[]; projectTypes: Record<string, string> }>({
     queryKey: ["estimator-cost-models"],
     queryFn: () => customFetch("/api/estimator/cost-models"),
   });
+  const PROJECT_TYPE_LABELS = modelsData?.projectTypes ?? {
+    residential_new_build:  "Residential New Build",
+    commercial_new_build:   "Commercial New Build",
+    renovation_residential: "Residential Renovation",
+    renovation_commercial:  "Commercial Renovation",
+    addition:               "Home Addition",
+    garage:                 "Garage",
+    deck_patio:             "Deck / Patio",
+    basement_finish:        "Basement Finish",
+    roofing:                "Roofing",
+    concrete_flatwork:      "Concrete Flatwork",
+    framing_only:           "Framing Only",
+    landscaping:            "Landscaping",
+  };
 
   const { data: savedEstimates = [] } = useQuery<SavedEstimate[]>({
     queryKey: ["smart-estimates"],

@@ -1210,6 +1210,14 @@ export const GetMeResponse = zod
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
+          estimatorConfig: zod
+            .object({
+              projectTypeLabels: zod
+                .record(zod.string(), zod.string())
+                .optional(),
+            })
+            .nullish()
+            .describe("Company-specific estimator overrides"),
           createdAt: zod.coerce.date(),
         })
         .nullish(),
@@ -1247,6 +1255,14 @@ export const AcceptTermsResponse = zod
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
+          estimatorConfig: zod
+            .object({
+              projectTypeLabels: zod
+                .record(zod.string(), zod.string())
+                .optional(),
+            })
+            .nullish()
+            .describe("Company-specific estimator overrides"),
           createdAt: zod.coerce.date(),
         })
         .nullish(),
@@ -1305,6 +1321,12 @@ export const GetCompanyResponse = zod.object({
   logoPath: zod.string().nullish(),
   quoteTemplatePath: zod.string().nullish(),
   invoiceTemplatePath: zod.string().nullish(),
+  estimatorConfig: zod
+    .object({
+      projectTypeLabels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Company-specific estimator overrides"),
   createdAt: zod.coerce.date(),
 });
 
@@ -1343,6 +1365,14 @@ export const ListCompanyMembersResponseItem = zod
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
+          estimatorConfig: zod
+            .object({
+              projectTypeLabels: zod
+                .record(zod.string(), zod.string())
+                .optional(),
+            })
+            .nullish()
+            .describe("Company-specific estimator overrides"),
           createdAt: zod.coerce.date(),
         })
         .nullish(),
@@ -1400,6 +1430,14 @@ export const UpdateMemberRoleResponse = zod
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
+          estimatorConfig: zod
+            .object({
+              projectTypeLabels: zod
+                .record(zod.string(), zod.string())
+                .optional(),
+            })
+            .nullish()
+            .describe("Company-specific estimator overrides"),
           createdAt: zod.coerce.date(),
         })
         .nullish(),
@@ -1436,6 +1474,12 @@ export const ListInvitationsResponseItem = zod.object({
       logoPath: zod.string().nullish(),
       quoteTemplatePath: zod.string().nullish(),
       invoiceTemplatePath: zod.string().nullish(),
+      estimatorConfig: zod
+        .object({
+          projectTypeLabels: zod.record(zod.string(), zod.string()).optional(),
+        })
+        .nullish()
+        .describe("Company-specific estimator overrides"),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -1473,6 +1517,12 @@ export const UpdateInvitationResponse = zod.object({
       logoPath: zod.string().nullish(),
       quoteTemplatePath: zod.string().nullish(),
       invoiceTemplatePath: zod.string().nullish(),
+      estimatorConfig: zod
+        .object({
+          projectTypeLabels: zod.record(zod.string(), zod.string()).optional(),
+        })
+        .nullish()
+        .describe("Company-specific estimator overrides"),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -1511,6 +1561,12 @@ export const GetInvitationResponse = zod.object({
       logoPath: zod.string().nullish(),
       quoteTemplatePath: zod.string().nullish(),
       invoiceTemplatePath: zod.string().nullish(),
+      estimatorConfig: zod
+        .object({
+          projectTypeLabels: zod.record(zod.string(), zod.string()).optional(),
+        })
+        .nullish()
+        .describe("Company-specific estimator overrides"),
       createdAt: zod.coerce.date(),
     })
     .nullish(),
@@ -1551,6 +1607,14 @@ export const AcceptInvitationResponse = zod
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
+          estimatorConfig: zod
+            .object({
+              projectTypeLabels: zod
+                .record(zod.string(), zod.string())
+                .optional(),
+            })
+            .nullish()
+            .describe("Company-specific estimator overrides"),
           createdAt: zod.coerce.date(),
         })
         .nullish(),
@@ -3661,6 +3725,11 @@ export const ListCostModelsResponse = zod.object({
       createdAt: zod.coerce.date(),
     }),
   ),
+  projectTypes: zod
+    .record(zod.string(), zod.string())
+    .describe(
+      "Merged map of project type key → display label (defaults + custom)",
+    ),
 });
 
 /**

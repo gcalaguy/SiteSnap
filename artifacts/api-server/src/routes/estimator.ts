@@ -11,6 +11,7 @@ import {
   quotesTable,
   scansTable,
   projectsTable,
+  companiesTable,
   type EstimatorCostModel,
   type EstimatorAddon,
 } from "@workspace/db";
@@ -20,6 +21,21 @@ import { requireFeature } from "../lib/featureGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import { BadRequestError, NotFoundError } from "../lib/errors";
 import { openai } from "@workspace/integrations-openai-ai-server";
+
+const DEFAULT_PROJECT_TYPE_LABELS: Record<string, string> = {
+  residential_new_build:  "Residential New Build",
+  commercial_new_build:   "Commercial New Build",
+  renovation_residential: "Residential Renovation",
+  renovation_commercial:  "Commercial Renovation",
+  addition:               "Home Addition",
+  garage:                 "Garage",
+  deck_patio:             "Deck / Patio",
+  basement_finish:        "Basement Finish",
+  roofing:                "Roofing",
+  concrete_flatwork:      "Concrete Flatwork",
+  framing_only:           "Framing Only",
+  landscaping:            "Landscaping",
+};
 
 const router = Router();
 router.use(requireFeature("Smart_Estimator"));
@@ -321,7 +337,7 @@ router.get(
   "/estimator/cost-models",
   requireAuth,
   requireCompany,
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
     await seedPricingData();
     const [models, addons] = await Promise.all([
       db.select().from(estimatorCostModelsTable).orderBy(
@@ -330,7 +346,16 @@ router.get(
       ),
       db.select().from(estimatorAddonsTable),
     ]);
-    res.json({ models, addons });
+    // Merge default labels with company-specific overrides
+    const companyId = req.companyId!;
+    const [company] = await db
+      .select({ estimatorConfig: companiesTable.estimatorConfig })
+      .from(companiesTable)
+      .where(eq(companiesTable.id, companyId))
+      .limit(1);
+    const custom = (company?.estimatorConfig as Record<string, unknown> | null)?.projectTypeLabels as Record<string, string> | undefined;
+    const projectTypes: Record<string, string> = { ...DEFAULT_PROJECT_TYPE_LABELS, ...(custom ?? {}) };
+    res.json({ models, addons, projectTypes });
   }),
 );
 

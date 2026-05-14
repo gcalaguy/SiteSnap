@@ -3372,6 +3372,15 @@ components:
         invoiceTemplatePath:
           type: string
           nullable: true
+        estimatorConfig:
+          type: object
+          nullable: true
+          properties:
+            projectTypeLabels:
+              type: object
+              additionalProperties:
+                type: string
+          description: Company-specific estimator overrides
         createdAt:
           type: string
           format: date-time
@@ -5403,7 +5412,7 @@ components:
 
     CostModelsResponse:
       type: object
-      required: [models, addons]
+      required: [models, addons, projectTypes]
       properties:
         models:
           type: array
@@ -5413,6 +5422,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AddonRecord"
+        projectTypes:
+          type: object
+          additionalProperties:
+            type: string
+          description: Merged map of project type key → display label (defaults + custom)
 
     CreateInvoiceBody:
       type: object
