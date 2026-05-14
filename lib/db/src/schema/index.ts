@@ -404,6 +404,7 @@ export type DailyReportPhoto = typeof dailyReportPhotosTable.$inferSelect;
 export const documentStatusEnum = pgEnum("document_status", [
   "pending",
   "processing",
+  "processing_ocr",
   "ready",
   "failed",
 ]);

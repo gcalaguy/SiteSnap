@@ -6,6 +6,10 @@ import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
+import { execFile } from "child_process";
+import { promisify } from "util";
+
+const execFileAsync = promisify(execFile);
 
 const router = Router({ mergeParams: true });
 const objectStorageService = new ObjectStorageService();
@@ -149,6 +153,70 @@ async function extractWordText(buffer: Buffer): Promise<string> {
   } catch (err) {
     logger.error({ err }, "Word extract failed");
     return "";
+  }
+}
+
+// ── PDF-to-Image OCR Fallback ─────────────────────────────────────────────────
+
+const MIN_EXTRACTED_CHARS = 80;   // threshold to trigger OCR
+const OCR_MAX_PAGES = 3;
+const OCR_DPI = 200;
+
+async function convertPDFPagesToImages(
+  pdfBuffer: Buffer,
+  maxPages = OCR_MAX_PAGES,
+  dpi = OCR_DPI,
+): Promise<Array<{ base64: string; mimeType: string }>> {
+  const { mkdtempSync, writeFileSync, readdirSync, readFileSync, rmSync } = await import("fs");
+  const { tmpdir } = await import("os");
+  const { join } = await import("path");
+
+  const tmpDir = mkdtempSync(join(tmpdir(), "pdf-ocr-"));
+  const pdfPath = join(tmpDir, "input.pdf");
+  writeFileSync(pdfPath, pdfBuffer);
+
+  try {
+    // pdftoppm (Poppler) is the preferred tool; it handles -singlefile + auto-suffix
+    const outBase = join(tmpDir, "page");
+    await execFileAsync("pdftoppm", [
+      "-png", "-singlefile",
+      "-r", String(dpi),
+      "-f", "1",
+      "-l", String(maxPages),
+      pdfPath, outBase,
+    ]);
+
+    const files = readdirSync(tmpDir)
+      .filter(f => f.endsWith(".png"))
+      .sort();
+
+    const images: Array<{ base64: string; mimeType: string }> = [];
+    for (const f of files.slice(0, maxPages)) {
+      images.push({ base64: readFileSync(join(tmpDir, f)).toString("base64"), mimeType: "image/png" });
+    }
+    return images;
+  } catch (err) {
+    logger.warn({ err }, "pdftoppm failed; trying ImageMagick fallback");
+    try {
+      await execFileAsync("convert", [
+        "-density", String(dpi),
+        `${pdfPath}[0-${maxPages - 1}]`,
+        join(tmpDir, "page-%d.png"),
+      ]);
+      const files = readdirSync(tmpDir)
+        .filter(f => f.endsWith(".png"))
+        .sort();
+      const images: Array<{ base64: string; mimeType: string }> = [];
+      for (const f of files.slice(0, maxPages)) {
+        images.push({ base64: readFileSync(join(tmpDir, f)).toString("base64"), mimeType: "image/png" });
+      }
+      return images;
+    } catch (err2) {
+      logger.error({ err: err2 }, "ImageMagick fallback also failed");
+      return [];
+    }
+  } finally {
+    try { rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 }
 
@@ -554,9 +622,122 @@ async function runPDFAnalysis(
     const objectFile = await objectStorageService.getObjectEntityFile(doc.objectPath);
     const [fileContent] = await objectFile.download();
 
-    const rawText = await extractPDFText(fileContent);
-    const textForAnalysis = rawText.slice(0, 6000);
+    let rawText = await extractPDFText(fileContent);
+    let ocrFallback = false;
 
+    // ── OCR Fallback for image-only PDFs ──────────────────────────────
+    if (rawText.trim().length < MIN_EXTRACTED_CHARS) {
+      logger.info({ docId, filename: doc.filename, extractedChars: rawText.trim().length }, "PDF text too short; triggering OCR fallback");
+      ocrFallback = true;
+      await db.update(projectDocumentsTable)
+        .set({ status: "processing_ocr" as any })
+        .where(eq(projectDocumentsTable.id, docId));
+
+      const images = await convertPDFPagesToImages(fileContent, OCR_MAX_PAGES, OCR_DPI);
+      if (images.length > 0) {
+        const ocrPrompt = `You are a construction document analyst for Canadian construction companies.
+
+You are looking at scanned pages from a PDF named "${doc.filename}".
+Extract ALL visible text, numbers, labels, dimensions, annotations, and project specifications from these images.
+Then analyze and return ONLY a JSON object:
+- documentType: string (e.g. "Contract","Blueprint","Specification","Schedule","Invoice","Safety Plan","Permit","Change Order","RFI","Report","Correspondence","Other")
+- summary: string (2-4 sentence professional summary covering key details: parties, amounts, dates, scope)
+- ocrText: string (ALL text visible in the images, transcribed verbatim)
+- extractedData: object:
+  - vendor: string | null
+  - amount: number | null
+  - currency: "CAD"|"USD"|null
+  - date: string | null (ISO)
+  - projectReference: string | null
+  - invoiceNumber: string | null
+  - version: string | null
+  - notes: string | null
+- confidence: "high"|"medium"|"low"
+
+Respond with ONLY the JSON object. No markdown. No explanation.`;
+
+        const visionContent: any = [
+          { type: "text", text: ocrPrompt },
+          ...images.map(img => ({
+            type: "image_url" as const,
+            image_url: { url: `data:${img.mimeType};base64,${img.base64}`, detail: "high" as const },
+          })),
+        ];
+
+        const visionResponse = await openai.chat.completions.create({
+          model: "gpt-5.4",
+          max_completion_tokens: 8192,
+          messages: [{ role: "user", content: visionContent }],
+        });
+
+        const visionResultText = visionResponse.choices[0]?.message?.content ?? "{}";
+        let visionParsed: Record<string, unknown>;
+        try { visionParsed = JSON.parse(visionResultText); } catch {
+          visionParsed = { documentType: "PDF", summary: "Scanned PDF document uploaded.", extractedData: {}, confidence: "low", ocrText: "" };
+        }
+
+        const ocrText = typeof visionParsed.ocrText === "string" ? visionParsed.ocrText : "";
+        rawText = ocrText.trim() || rawText.trim();
+        // Merge: let the vision-parsed result take precedence if we got real OCR data
+        if (rawText.length >= MIN_EXTRACTED_CHARS) {
+          // Re-run classification with the OCR text using the normal prompt
+          const classifyPrompt = `You are a construction document analyst for Canadian construction companies.
+
+The following text was extracted from a PDF named "${doc.filename}" via OCR.
+
+Analyze it and return ONLY a JSON object:
+- documentType: string (e.g. "Contract","Blueprint","Specification","Schedule","Invoice","Safety Plan","Permit","Change Order","RFI","Report","Correspondence","Other")
+- summary: string (2-4 sentence professional summary covering key details: parties, amounts, dates, scope)
+- extractedData: object:
+  - vendor: string | null
+  - amount: number | null
+  - currency: "CAD"|"USD"|null
+  - date: string | null (ISO)
+  - projectReference: string | null
+  - invoiceNumber: string | null
+  - version: string | null
+  - notes: string | null
+- confidence: "high"|"medium"|"low"
+
+Extracted text:
+${rawText.slice(0, 6000)}
+
+Respond with ONLY the JSON object. No markdown.`;
+
+          const classifyResponse = await openai.chat.completions.create({
+            model: "gpt-5.4",
+            max_completion_tokens: 2048,
+            messages: [{ role: "user", content: classifyPrompt }],
+          });
+
+          const classifyContent = classifyResponse.choices[0]?.message?.content ?? "{}";
+          let classifyParsed: Record<string, unknown>;
+          try { classifyParsed = JSON.parse(classifyContent); } catch {
+            classifyParsed = { documentType: "PDF", summary: "PDF document uploaded.", extractedData: {}, confidence: "low" };
+          }
+
+          const summary = typeof classifyParsed.summary === "string" ? classifyParsed.summary : (typeof visionParsed.summary === "string" ? visionParsed.summary : "PDF document stored.");
+          await db.update(projectDocumentsTable).set({
+            status: "ready", aiSummary: summary, extractedData: classifyParsed, extractedText: rawText,
+          }).where(eq(projectDocumentsTable.id, docId));
+
+          if (rawText.length > 50) {
+            embedAndStoreChunks(docId, projectId, companyId, rawText).catch(err =>
+              logger.error({ err }, "Auto-embed after PDF OCR analysis failed")
+            );
+          }
+
+          const [updated] = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.id, docId));
+          res.json({ ...updated, chunkCount: 0 });
+          return;
+        }
+        // OCR produced text but not enough for classification; fall through to normal flow with what we have
+      }
+      // No images generated or OCR failed; fall through to normal flow
+    }
+
+    // ── Normal text-based analysis (or fallback with minimal text) ───────────
+    const textForAnalysis = rawText.slice(0, 6000);
     const prompt = `You are a construction document analyst for Canadian construction companies.
 
 The following text was extracted from a PDF named "${doc.filename}".

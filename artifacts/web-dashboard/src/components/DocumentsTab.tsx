@@ -16,7 +16,7 @@ import {
 import { format } from "date-fns";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type DocStatus = "pending" | "processing" | "ready" | "failed";
+type DocStatus = "pending" | "processing" | "processing_ocr" | "ready" | "failed";
 
 type ClientUpload = {
   id: number; projectId: number; portalTokenId: number;
@@ -67,10 +67,11 @@ const CATEGORY_LABELS: Record<string, string> = {
 // ─── Helper components ────────────────────────────────────────────────────────
 function statusBadge(status: DocStatus) {
   switch (status) {
-    case "pending":    return <Badge variant="outline" className="gap-1 text-xs"><Clock className="h-3 w-3" />Pending</Badge>;
-    case "processing": return <Badge variant="outline" className="gap-1 text-xs border-amber-400 text-amber-700"><Loader2 className="h-3 w-3 animate-spin" />Analyzing…</Badge>;
-    case "ready":      return <Badge variant="outline" className="gap-1 text-xs border-green-500 text-green-700"><CheckCircle className="h-3 w-3" />Analyzed</Badge>;
-    case "failed":     return <Badge variant="outline" className="gap-1 text-xs border-red-400 text-red-600"><AlertCircle className="h-3 w-3" />Failed</Badge>;
+    case "pending":          return <Badge variant="outline" className="gap-1 text-xs"><Clock className="h-3 w-3" />Pending</Badge>;
+    case "processing":       return <Badge variant="outline" className="gap-1 text-xs border-amber-400 text-amber-700"><Loader2 className="h-3 w-3 animate-spin" />Analyzing…</Badge>;
+    case "processing_ocr":   return <Badge variant="outline" className="gap-1 text-xs border-blue-400 text-blue-700"><Loader2 className="h-3 w-3 animate-spin" />Performing OCR Analysis…</Badge>;
+    case "ready":            return <Badge variant="outline" className="gap-1 text-xs border-green-500 text-green-700"><CheckCircle className="h-3 w-3" />Analyzed</Badge>;
+    case "failed":           return <Badge variant="outline" className="gap-1 text-xs border-red-400 text-red-600"><AlertCircle className="h-3 w-3" />Failed</Badge>;
   }
 }
 
@@ -641,7 +642,7 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
             const isAnalyzing = analyzingIds.has(doc.id);
             const displayStatus: DocStatus = isAnalyzing ? "processing" : doc.status;
             const downloadPath = doc.objectPath.replace(/^\/objects\//, "/api/storage/objects/");
-            const canAnalyze = !isAnalyzing && doc.status !== "processing" && doc.status !== "ready";
+            const canAnalyze = !isAnalyzing && doc.status !== "processing" && doc.status !== "processing_ocr" && doc.status !== "ready";
 
             return (
               <Card key={doc.id} className="overflow-hidden">
