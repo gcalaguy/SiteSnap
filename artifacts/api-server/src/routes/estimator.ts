@@ -14,7 +14,7 @@ import {
   type EstimatorCostModel,
   type EstimatorAddon,
 } from "@workspace/db";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwner, requireOwnerOrForeman } from "../lib/auth";
 import { requireFeature } from "../lib/featureGate";
 
 import { asyncHandler } from "../lib/asyncHandler";
@@ -320,6 +320,7 @@ router.get(
   "/estimator/cost-models",
   requireAuth,
   requireCompany,
+  requireOwner,
   asyncHandler(async (_req, res) => {
     await seedPricingData();
     const [models, addons] = await Promise.all([
@@ -350,7 +351,7 @@ router.post(
   "/estimator/cost-models",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
+  requireOwner,
   asyncHandler(async (req, res) => {
     const parsed = CostModelBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
@@ -368,7 +369,7 @@ router.put(
   "/estimator/cost-models/:id",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
+  requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) throw new BadRequestError("Invalid ID");
@@ -392,7 +393,7 @@ router.delete(
   "/estimator/cost-models/:id",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
+  requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) throw new BadRequestError("Invalid ID");
@@ -419,7 +420,7 @@ router.post(
   "/estimator/addons",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
+  requireOwner,
   asyncHandler(async (req, res) => {
     await seedPricingData();
     const parsed = AddonBody.safeParse(req.body);
@@ -438,7 +439,7 @@ router.put(
   "/estimator/addons/:id",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
+  requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) throw new BadRequestError("Invalid ID");
@@ -463,7 +464,7 @@ router.delete(
   "/estimator/addons/:id",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
+  requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) throw new BadRequestError("Invalid ID");

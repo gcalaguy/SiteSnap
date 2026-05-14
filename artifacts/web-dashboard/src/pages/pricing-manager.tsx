@@ -252,6 +252,7 @@ function CostModelsTab({ models }: { models: CostModelRecord[] }) {
     contingencyPct: "10",
     notes: "",
   });
+  const [newModelErrors, setNewModelErrors] = useState<Record<string, string>>({});
 
   function toggleCollapse(type: string) {
     setCollapsed(s => {
@@ -267,8 +268,22 @@ function CostModelsTab({ models }: { models: CostModelRecord[] }) {
     setAddingType(projectType);
   }
 
+  function validateNewModel() {
+    const e: Record<string, string> = {};
+    const numFields = [
+      "baseCostPerSqft", "laborCostPerSqft", "materialCostPerSqft",
+      "overheadPct", "contingencyPct",
+    ] as const;
+    for (const f of numFields) {
+      if (!numericField(newModelForm[f])) e[f] = "Must be a valid number ≥ 0";
+    }
+    setNewModelErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
   function handleAddSave() {
     if (!addingType) return;
+    if (!validateNewModel()) return;
     const label = PROJECT_TYPE_LABELS[addingType] ?? addingType;
     const fl = newModelForm.finishLevel;
     createMutation.mutate(
@@ -486,10 +501,11 @@ function CostModelsTab({ models }: { models: CostModelRecord[] }) {
                         value={newModelForm[key]}
                         onChange={e => setNewModelForm(f => ({ ...f, [key]: e.target.value }))}
                         placeholder="0.00"
-                        className="pr-10 text-sm"
+                        className={cn("pr-10 text-sm", newModelErrors[key] && "border-red-400 focus-visible:ring-red-400")}
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">{suffix}</span>
                     </div>
+                    {newModelErrors[key] && <p className="text-[11px] text-red-500">{newModelErrors[key]}</p>}
                   </div>
                 ))}
               </div>
@@ -861,8 +877,8 @@ export default function PricingManagerPage() {
 
   const { data, isLoading, isError } = useListCostModels();
 
-  const models = (data as any)?.models as CostModelRecord[] ?? [];
-  const addons = (data as any)?.addons as AddonRecord[] ?? [];
+  const models: CostModelRecord[] = data?.models ?? [];
+  const addons: AddonRecord[] = data?.addons ?? [];
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
