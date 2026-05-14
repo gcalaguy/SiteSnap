@@ -1,4 +1,5 @@
 import { useGetMe, customFetch } from "@workspace/api-client-react";
+import { PricingSettingsBody } from "@/pages/pricing-manager";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -852,6 +853,22 @@ export default function Settings() {
       <TeamSeatsCard />
       <CompanyLogoCard company={company} />
       <DocumentTemplatesCard company={company} />
+      {user?.role === "owner" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Pricing Manager
+            </CardTitle>
+            <CardDescription>
+              Customize the $/sqft rates, overhead, and contingency used by the Smart Estimator.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PricingSettingsBody />
+          </CardContent>
+        </Card>
+      )}
       <DigestCard />
       <QuickBooksCard />
     </div>

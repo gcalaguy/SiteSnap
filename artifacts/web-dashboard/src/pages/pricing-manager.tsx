@@ -897,37 +897,14 @@ function AddonsTab({ addons }: { addons: AddonRecord[] }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function PricingManagerPage() {
-  const [, navigate] = useLocation();
-  const { data: me } = useGetMe();
+export function PricingSettingsBody() {
   const [activeTab, setActiveTab] = useState<"models" | "addons">("models");
-
   const { data, isLoading, isError } = useListCostModels();
-
-  if (me && me.role !== "owner") {
-    navigate("/dashboard");
-    return null;
-  }
-
   const models: CostModelRecord[] = data?.models ?? [];
   const addons: AddonRecord[] = data?.addons ?? [];
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <DollarSign className="h-6 w-6" style={{ color: GOLD }} />
-            Pricing Manager
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Customize the $/sqft rates, overhead, and contingency used by the Smart Estimator.
-            Changes apply immediately to all new estimates.
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-4">
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2.5">
         <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
         <p className="text-xs text-amber-800">
@@ -936,7 +913,6 @@ export default function PricingManagerPage() {
         </p>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
         {([
           { key: "models", label: "Cost Models", icon: LayoutGrid },
@@ -958,7 +934,6 @@ export default function PricingManagerPage() {
         ))}
       </div>
 
-      {/* Content */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
@@ -974,6 +949,30 @@ export default function PricingManagerPage() {
       ) : (
         <AddonsTab addons={addons} />
       )}
+    </div>
+  );
+}
+
+export default function PricingManagerPage() {
+  const [, navigate] = useLocation();
+  const { data: me } = useGetMe();
+  if (me && me.role !== "owner") {
+    navigate("/dashboard");
+    return null;
+  }
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <DollarSign className="h-6 w-6" style={{ color: GOLD }} />
+          Pricing Manager
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Customize the $/sqft rates, overhead, and contingency used by the Smart Estimator.
+          Changes apply immediately to all new estimates.
+        </p>
+      </div>
+      <PricingSettingsBody />
     </div>
   );
 }
