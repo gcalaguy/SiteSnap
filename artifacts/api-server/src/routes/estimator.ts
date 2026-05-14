@@ -475,9 +475,44 @@ router.post(
         text = file.buffer.toString("utf-8").trim();
       }
       if (!text || text.length < 10) {
-        throw new BadRequestError("Could not extract readable text from the file. Please try a PDF, Word document, text file, or image.");
+        // OCR fallback for image-only PDFs
+        if (mime.includes("pdf") || filename.endsWith(".pdf")) {
+          try {
+            const { convertPDFPagesToImages } = await import("../lib/pdfOcr.js");
+            const images = await convertPDFPagesToImages(file.buffer, 3, 200);
+            if (images.length > 0) {
+              const visionContent: any = [
+                { type: "text", text: "Analyze this construction plan or document image. Extract a detailed description of the project scope, including project type, approximate size in square feet, finish quality (basic/standard/premium/luxury), and any specific requirements visible. Be specific and comprehensive." },
+              ];
+              for (const img of images) {
+                visionContent.push({
+                  type: "image_url",
+                  image_url: { url: `data:${img.mimeType};base64,${img.base64}`, detail: "high" },
+                });
+              }
+              const visionResponse = await openai.chat.completions.create({
+                model: "gpt-5.4",
+                max_completion_tokens: 2048,
+                messages: [{ role: "user", content: visionContent }],
+              });
+              extractedText = visionResponse.choices[0]?.message?.content ?? "";
+              if (extractedText) {
+                // proceed with the OCR text below
+              } else {
+                throw new BadRequestError("Could not extract information from the scanned PDF");
+              }
+            } else {
+              throw new BadRequestError("Could not extract readable text from the file. Please try a PDF, Word document, text file, or image.");
+            }
+          } catch {
+            throw new BadRequestError("Could not extract readable text from the file. Please try a PDF, Word document, text file, or image.");
+          }
+        } else {
+          throw new BadRequestError("Could not extract readable text from the file. Please try a PDF, Word document, text file, or image.");
+        }
+      } else {
+        extractedText = text;
       }
-      extractedText = text;
     }
 
     const hint = typeof req.body.hint === "string" ? req.body.hint.trim() : "";

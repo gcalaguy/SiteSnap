@@ -58,9 +58,33 @@ async function extractTextFromFile(buffer: Buffer, mimetype: string, filename: s
 
   if (mime.includes("pdf")) {
     try {
+      // @ts-ignore
       const pdfParse = (await import("pdf-parse")).default;
       const parsed = await pdfParse(buffer);
-      return parsed.text?.trim() || null;
+      const text = parsed.text?.trim() ?? "";
+      if (text.length >= 10) return text;
+    } catch { /* fall through to OCR */ }
+
+    // OCR fallback for image-only / scanned PDFs
+    try {
+      const { convertPDFPagesToImages } = await import("../lib/pdfOcr.js");
+      const images = await convertPDFPagesToImages(buffer, 3, 200);
+      if (images.length === 0) return null;
+      const visionContent: any = [
+        { type: "text", text: "Extract all visible text, dimensions, labels, and project specifications from these construction document images. Transcribe everything verbatim." },
+      ];
+      for (const img of images) {
+        visionContent.push({
+          type: "image_url",
+          image_url: { url: `data:${img.mimeType};base64,${img.base64}`, detail: "high" },
+        });
+      }
+      const visionResponse = await openai.chat.completions.create({
+        model: "gpt-5.4",
+        max_completion_tokens: 4096,
+        messages: [{ role: "user", content: visionContent }],
+      });
+      return visionResponse.choices[0]?.message?.content?.trim() || null;
     } catch {
       return null;
     }
@@ -251,7 +275,7 @@ router.post(
         const text = await extractTextFromFile(file.buffer, mime, file.originalname);
         const scope = [hint, text].filter(Boolean).join("\n\n");
         if (!scope.trim()) {
-          throw new Error("Could not extract text from the uploaded file");
+          throw new Error("Could not extract text from the uploaded file. For scanned PDFs, the OCR service may have failed.");
         }
         result = await generateEstimateFromScope(scope);
       }

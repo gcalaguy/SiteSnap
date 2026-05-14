@@ -6,10 +6,7 @@ import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
-import { execFile } from "child_process";
-import { promisify } from "util";
-
-const execFileAsync = promisify(execFile);
+import { convertPDFPagesToImages } from "../lib/pdfOcr.js";
 
 const router = Router({ mergeParams: true });
 const objectStorageService = new ObjectStorageService();
@@ -156,69 +153,9 @@ async function extractWordText(buffer: Buffer): Promise<string> {
   }
 }
 
-// ── PDF-to-Image OCR Fallback ─────────────────────────────────────────────────
-
 const MIN_EXTRACTED_CHARS = 80;   // threshold to trigger OCR
 const OCR_MAX_PAGES = 3;
 const OCR_DPI = 200;
-
-async function convertPDFPagesToImages(
-  pdfBuffer: Buffer,
-  maxPages = OCR_MAX_PAGES,
-  dpi = OCR_DPI,
-): Promise<Array<{ base64: string; mimeType: string }>> {
-  const { mkdtempSync, writeFileSync, readdirSync, readFileSync, rmSync } = await import("fs");
-  const { tmpdir } = await import("os");
-  const { join } = await import("path");
-
-  const tmpDir = mkdtempSync(join(tmpdir(), "pdf-ocr-"));
-  const pdfPath = join(tmpDir, "input.pdf");
-  writeFileSync(pdfPath, pdfBuffer);
-
-  try {
-    // pdftoppm (Poppler) is the preferred tool; it handles -singlefile + auto-suffix
-    const outBase = join(tmpDir, "page");
-    await execFileAsync("pdftoppm", [
-      "-png", "-singlefile",
-      "-r", String(dpi),
-      "-f", "1",
-      "-l", String(maxPages),
-      pdfPath, outBase,
-    ]);
-
-    const files = readdirSync(tmpDir)
-      .filter(f => f.endsWith(".png"))
-      .sort();
-
-    const images: Array<{ base64: string; mimeType: string }> = [];
-    for (const f of files.slice(0, maxPages)) {
-      images.push({ base64: readFileSync(join(tmpDir, f)).toString("base64"), mimeType: "image/png" });
-    }
-    return images;
-  } catch (err) {
-    logger.warn({ err }, "pdftoppm failed; trying ImageMagick fallback");
-    try {
-      await execFileAsync("convert", [
-        "-density", String(dpi),
-        `${pdfPath}[0-${maxPages - 1}]`,
-        join(tmpDir, "page-%d.png"),
-      ]);
-      const files = readdirSync(tmpDir)
-        .filter(f => f.endsWith(".png"))
-        .sort();
-      const images: Array<{ base64: string; mimeType: string }> = [];
-      for (const f of files.slice(0, maxPages)) {
-        images.push({ base64: readFileSync(join(tmpDir, f)).toString("base64"), mimeType: "image/png" });
-      }
-      return images;
-    } catch (err2) {
-      logger.error({ err: err2 }, "ImageMagick fallback also failed");
-      return [];
-    }
-  } finally {
-    try { rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
-  }
-}
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
