@@ -148,7 +148,11 @@ export function HoursTab({ projectId }: { projectId: number }) {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: QUERY_KEY }); resetForm(); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+      resetForm();
+    },
     onError: () => Alert.alert("Error", "Failed to log hours. Please try again."),
   });
 
@@ -158,14 +162,21 @@ export function HoursTab({ projectId }: { projectId: number }) {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: QUERY_KEY }); resetForm(); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+      resetForm();
+    },
     onError: () => Alert.alert("Error", "Failed to update entry. Please try again."),
   });
 
   const deleteEntry = useMutation({
     mutationFn: (entryId: number) =>
       customFetch(`/api/projects/${projectId}/time-entries/${entryId}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+    },
     onError: () => Alert.alert("Error", "Failed to delete entry."),
   });
 
