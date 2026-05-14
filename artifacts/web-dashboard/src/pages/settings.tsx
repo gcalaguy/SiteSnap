@@ -123,20 +123,30 @@ function DigestCard() {
     }
   };
 
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Mail className="h-5 w-5 text-primary" />
-          Daily Digest Email
-        </CardTitle>
-        <CardDescription>
-          A morning summary is automatically emailed to all owners and foremens every day at 7:00 AM ET,
-          showing yesterday's reports, open RFIs, and overdue tasks across all active projects.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-md border border-border bg-muted/40 p-4 text-sm text-muted-foreground space-y-1">
+      <button onClick={() => setCollapsed(c => !c)} className="w-full text-left">
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              Daily Digest Email
+            </CardTitle>
+            <CardDescription>
+              A morning summary is automatically emailed to all owners and foremens every day at 7:00 AM ET,
+              showing yesterday's reports, open RFIs, and overdue tasks across all active projects.
+            </CardDescription>
+          </div>
+          {collapsed
+            ? <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />
+            : <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />}
+        </CardHeader>
+      </button>
+      {!collapsed && (
+        <CardContent className="space-y-4">
+          <div className="rounded-md border border-border bg-muted/40 p-4 text-sm text-muted-foreground space-y-1">
           <p className="font-medium text-foreground">What's included in each digest:</p>
           <ul className="list-disc list-inside space-y-0.5">
             <li>Daily reports submitted yesterday (per project)</li>
@@ -214,6 +224,7 @@ function DigestCard() {
           )}
         </div>
       </CardContent>
+      )}
     </Card>
   );
 }
@@ -416,24 +427,34 @@ function QuickBooksCard() {
   const fmtDate = (d: string | null) => d ? new Date(d).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" }) : "Never";
   const isSyncing = syncInvoices.isPending || syncCosts.isPending;
 
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-[#2CA01C]" />
-          QuickBooks Integration
-          {qb?.connected && (
-            <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50 ml-1">
-              Connected
-            </Badge>
-          )}
-        </CardTitle>
-        <CardDescription>
-          Sync your Site Snap invoices and project costs directly to QuickBooks Online for seamless accounting.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {!qb?.configured && !qbLoading && (
+      <button onClick={() => setCollapsed(c => !c)} className="w-full text-left">
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-[#2CA01C]" />
+              QuickBooks Integration
+              {qb?.connected && (
+                <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50 ml-1">
+                  Connected
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Sync your Site Snap invoices and project costs directly to QuickBooks Online for seamless accounting.
+            </CardDescription>
+          </div>
+          {collapsed
+            ? <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />
+            : <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />}
+        </CardHeader>
+      </button>
+      {!collapsed && (
+        <CardContent className="space-y-4">
+          {!qb?.configured && !qbLoading && (
           <div className="rounded-md border border-amber-200 bg-amber-50 p-4 space-y-2">
             <div className="flex items-start gap-2">
               <Info className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
@@ -533,6 +554,7 @@ function QuickBooksCard() {
           </div>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }
