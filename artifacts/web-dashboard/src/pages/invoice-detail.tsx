@@ -714,8 +714,8 @@ export default function InvoiceDetail() {
             </AlertDialog>
           )}
 
-          {/* Share signing link */}
-          {invoice.publicToken && invoice.status !== "cancelled" && (
+          {/* Share signing link — only when actually signable */}
+          {invoice.publicToken && (invoice.status === "draft" || invoice.status === "sent" || invoice.status === "overdue") && (
             <Button
               variant="outline"
               className="gap-2"

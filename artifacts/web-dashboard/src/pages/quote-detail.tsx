@@ -817,8 +817,8 @@ export default function QuoteDetail() {
             </div>
           )}
 
-          {/* Share signing link (clients can view + sign) — available once submitted */}
-          {(quote as any).publicToken && quote.status !== "draft" && quote.status !== "rejected" && (
+          {/* Share signing link (clients can view + sign) — only when actually signable */}
+          {(quote as any).publicToken && (quote.status === "pending_approval" || quote.status === "approved") && (
             <Button
               variant="outline"
               className="gap-2"
