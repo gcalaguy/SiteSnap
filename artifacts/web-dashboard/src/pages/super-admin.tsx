@@ -344,7 +344,7 @@ function ManageTab() {
           <p className="mt-1 text-sm text-gray-500">Create, edit, activate, or delete plan tiers.</p>
         </button>
         <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb]" onClick={() => setFeatureOpen(true)}>
-          <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs font-semibold uppercase tracking-wider text-[#D4AF37]">Feature Administration</span></div>
+          <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Feature Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Features</h3>
           <p className="mt-1 text-sm text-gray-500">Create enabled/disabled features and assign them to plans.</p>
         </button>
