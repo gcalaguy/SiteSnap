@@ -9,6 +9,7 @@ import {
   projectMembersTable,
   workerSchedulesTable,
   usersTable,
+  userMembershipsTable,
   projectNotesTable,
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
@@ -301,11 +302,18 @@ router.get(
         firstName: usersTable.firstName,
         lastName: usersTable.lastName,
         email: usersTable.email,
-        role: usersTable.role,
+        role: userMembershipsTable.role,
         addedAt: projectMembersTable.addedAt,
       })
       .from(projectMembersTable)
       .innerJoin(usersTable, eq(usersTable.id, projectMembersTable.userId))
+      .innerJoin(
+        userMembershipsTable,
+        and(
+          eq(userMembershipsTable.userId, usersTable.id),
+          eq(userMembershipsTable.companyId, req.companyId!),
+        ),
+      )
       .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.companyId, req.companyId!)));
 
     res.json(rows);
@@ -334,7 +342,14 @@ router.post(
       db
         .select()
         .from(usersTable)
-        .where(and(eq(usersTable.id, userId), eq(usersTable.companyId, req.companyId!)))
+        .innerJoin(
+          userMembershipsTable,
+          and(
+            eq(userMembershipsTable.userId, usersTable.id),
+            eq(userMembershipsTable.companyId, req.companyId!),
+          ),
+        )
+        .where(eq(usersTable.id, userId))
         .limit(1),
     ]);
 

@@ -2,6 +2,7 @@ import {
   db,
   companiesTable,
   usersTable,
+  userMembershipsTable,
   projectsTable,
   dailyReportsTable,
   rfisTable,
@@ -59,10 +60,17 @@ export async function buildDigest(
       email: usersTable.email,
     })
     .from(usersTable)
+    .innerJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, companyId),
+      ),
+    )
     .where(
       and(
-        eq(usersTable.companyId, companyId),
-        inArray(usersTable.role, ["owner", "foreman"]),
+        eq(userMembershipsTable.companyId, companyId),
+        inArray(userMembershipsTable.role, ["owner", "foreman"]),
       ),
     );
 

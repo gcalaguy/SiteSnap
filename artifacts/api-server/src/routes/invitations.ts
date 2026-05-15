@@ -31,7 +31,14 @@ router.post(
     const [existingMember] = await db
       .select({ id: usersTable.id })
       .from(usersTable)
-      .where(and(eq(usersTable.email, email), eq(usersTable.companyId, req.companyId!)))
+      .innerJoin(
+        userMembershipsTable,
+        and(
+          eq(userMembershipsTable.userId, usersTable.id),
+          eq(userMembershipsTable.companyId, req.companyId!),
+        ),
+      )
+      .where(eq(usersTable.email, email))
       .limit(1);
 
     if (existingMember) {

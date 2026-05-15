@@ -202,9 +202,15 @@ router.get(
     const members = await db
       .select()
       .from(usersTable)
-      .where(eq(usersTable.companyId, companyId));
+      .innerJoin(
+        userMembershipsTable,
+        and(
+          eq(userMembershipsTable.userId, usersTable.id),
+          eq(userMembershipsTable.companyId, companyId),
+        ),
+      );
 
-    const result = members.map((m) => ({ ...m, company: null }));
+    const result = members.map((m) => ({ ...m.users, company: null }));
     res.json(result);
   },
 );
@@ -365,7 +371,7 @@ router.patch(
     const [updated] = await db
       .update(usersTable)
       .set({ firstName: firstName.trim(), lastName: lastName.trim() })
-      .where(and(eq(usersTable.id, targetUserId), eq(usersTable.companyId, companyId)))
+      .where(eq(usersTable.id, targetUserId))
       .returning();
 
     if (!updated) {

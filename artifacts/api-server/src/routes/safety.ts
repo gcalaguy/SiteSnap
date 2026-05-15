@@ -7,6 +7,7 @@ import {
   submissionPhotosTable,
   submissionCommentsTable,
   usersTable,
+  userMembershipsTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { openai } from "@workspace/integrations-openai-ai-server";
@@ -538,11 +539,13 @@ async function notifyForemen(companyId: number, submissionId: number, templateNa
   const foremen = await db
     .select()
     .from(usersTable)
-    .where(
+    .innerJoin(
+      userMembershipsTable,
       and(
-        eq(usersTable.companyId, companyId),
-        sql`${usersTable.role} IN ('owner', 'foreman')`
-      )
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, companyId),
+        sql`${userMembershipsTable.role} IN ('owner', 'foreman')`,
+      ),
     );
 
   if (!foremen.length) return;

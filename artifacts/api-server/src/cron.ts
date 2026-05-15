@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { db, companiesTable, leadsTable, usersTable, notificationsTable } from "@workspace/db";
+import { db, companiesTable, leadsTable, usersTable, userMembershipsTable, notificationsTable } from "@workspace/db";
 import { buildDigest } from "./lib/digest.js";
 import { buildDigestHtml } from "./lib/digestTemplate.js";
 import { sendEmail } from "./lib/mailer.js";
@@ -85,12 +85,19 @@ async function sendIdleLeadNotifications(): Promise<{ notified: number; skipped:
 
       // Get owners and foremen to notify
       const recipients = await db
-        .select()
+        .select({
+          id: usersTable.id,
+          email: usersTable.email,
+          firstName: usersTable.firstName,
+          lastName: usersTable.lastName,
+        })
         .from(usersTable)
-        .where(
+        .innerJoin(
+          userMembershipsTable,
           and(
-            eq(usersTable.companyId, company.id),
-            sql`${usersTable.role} IN ('owner', 'foreman')`,
+            eq(userMembershipsTable.userId, usersTable.id),
+            eq(userMembershipsTable.companyId, company.id),
+            sql`${userMembershipsTable.role} IN ('owner', 'foreman')`,
           ),
         );
 
@@ -105,7 +112,7 @@ async function sendIdleLeadNotifications(): Promise<{ notified: number; skipped:
                 eq(notificationsTable.userId, user.id),
                 eq(notificationsTable.type, "idle_lead"),
                 eq(notificationsTable.referenceId, lead.id),
-                sql`${notificationsTable.created_at} > NOW() - INTERVAL '7 days'`,
+                sql`${notificationsTable.createdAt} > NOW() - INTERVAL '7 days'`,
               ),
             )
             .limit(1);

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { eq, and, isNotNull } from 'drizzle-orm';
 import { requireAuth, requireCompany, requireOwner } from '../lib/auth';
-import { db, companiesTable, usersTable, plansTable } from '@workspace/db';
+import { db, companiesTable, usersTable, userMembershipsTable, plansTable } from '@workspace/db';
 import {
   getUncachableStripeClient,
   getStripePublishableKey,
@@ -80,9 +80,16 @@ router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyn
     let customerId = company.stripeCustomerId ?? undefined;
     if (!customerId) {
       const [ownerUser] = await db
-        .select()
+        .select({ email: usersTable.email })
         .from(usersTable)
-        .where(and(eq(usersTable.companyId, req.companyId!), eq(usersTable.role, 'owner')))
+        .innerJoin(
+          userMembershipsTable,
+          and(
+            eq(userMembershipsTable.userId, usersTable.id),
+            eq(userMembershipsTable.companyId, req.companyId!),
+            eq(userMembershipsTable.role, 'owner'),
+          ),
+        )
         .limit(1);
 
       const customer = await stripe.customers.create({

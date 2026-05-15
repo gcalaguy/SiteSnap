@@ -8,6 +8,7 @@ import {
   tasksTable,
   rfisTable,
   usersTable,
+  userMembershipsTable,
   quotesTable,
   invoicesTable,
   leadsTable,
@@ -169,11 +170,17 @@ async function buildTenantContext(companyId: number, _userId: number): Promise<s
       .select({
         firstName: usersTable.firstName,
         lastName: usersTable.lastName,
-        role: usersTable.role,
+        role: userMembershipsTable.role,
       })
       .from(usersTable)
-      .where(eq(usersTable.companyId, companyId))
-      .orderBy(asc(usersTable.role), asc(usersTable.firstName)),
+      .innerJoin(
+        userMembershipsTable,
+        and(
+          eq(userMembershipsTable.userId, usersTable.id),
+          eq(userMembershipsTable.companyId, companyId),
+        ),
+      )
+      .orderBy(asc(userMembershipsTable.role), asc(usersTable.firstName)),
 
     // Recent 10 quotes
     db

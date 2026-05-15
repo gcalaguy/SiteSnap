@@ -1,5 +1,5 @@
 import { sql, eq, count } from 'drizzle-orm';
-import { db, companiesTable, usersTable } from '@workspace/db';
+import { db, companiesTable, usersTable, userMembershipsTable } from '@workspace/db';
 import type { Request, Response, NextFunction } from 'express';
 
 export interface SeatInfo {
@@ -20,8 +20,8 @@ export async function getCompanySeatInfo(companyId: number): Promise<SeatInfo> {
   // Count current team members
   const [{ value: currentSeats }] = await db
     .select({ value: count() })
-    .from(usersTable)
-    .where(eq(usersTable.companyId, companyId));
+    .from(userMembershipsTable)
+    .where(eq(userMembershipsTable.companyId, companyId));
 
   // Get company's subscription ID
   const [company] = await db

@@ -6,6 +6,7 @@ import {
   invoicesTable,
   projectsTable,
   usersTable,
+  userMembershipsTable,
 } from "@workspace/db";
 import { eq, and, count, desc, inArray, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
@@ -24,14 +25,16 @@ async function notifyQuoteSubmitted(quote: {
   if (!resend) return;
   try {
     const recipients = await db
-      .select({ email: usersTable.email, firstName: usersTable.firstName, role: usersTable.role })
+      .select({ email: usersTable.email, firstName: usersTable.firstName, role: userMembershipsTable.role })
       .from(usersTable)
-      .where(
+      .innerJoin(
+        userMembershipsTable,
         and(
-          eq(usersTable.companyId, quote.companyId),
-          inArray(usersTable.role, ["owner", "foreman"]),
+          eq(userMembershipsTable.userId, usersTable.id),
+          eq(userMembershipsTable.companyId, quote.companyId),
         ),
-      );
+      )
+      .where(inArray(userMembershipsTable.role, ["owner", "foreman"]));
 
     if (!recipients.length) return;
 

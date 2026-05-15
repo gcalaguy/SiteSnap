@@ -6,6 +6,7 @@ import {
   rfisTable,
   costAnalysesTable,
   usersTable,
+  userMembershipsTable,
   tasksTable,
   workerSchedulesTable,
   projectMembersTable,
@@ -62,7 +63,13 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
   const members = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.companyId, companyId));
+    .innerJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, companyId),
+      ),
+    );
 
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
@@ -307,7 +314,13 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
   const members = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.companyId, companyId));
+    .innerJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, companyId),
+      ),
+    );
   const userMap = Object.fromEntries(
     members.map((u) => [u.id, displayName(u.firstName, u.lastName, u.email)]),
   );

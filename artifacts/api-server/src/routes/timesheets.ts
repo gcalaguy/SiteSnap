@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, timesheetsTable, timeEntriesTable, usersTable } from "@workspace/db";
+import { db, timesheetsTable, timeEntriesTable, usersTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -43,8 +43,12 @@ async function withReviewer(timesheet: Record<string, unknown>, reviewedByUserId
 
 async function withSubmitter(timesheet: Record<string, unknown>, userId: number) {
   const [submitter] = await db
-    .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email, role: usersTable.role })
+    .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email, role: userMembershipsTable.role })
     .from(usersTable)
+    .leftJoin(
+      userMembershipsTable,
+      eq(userMembershipsTable.userId, usersTable.id),
+    )
     .where(eq(usersTable.id, userId))
     .limit(1);
   return { ...timesheet, user: submitter ?? null };

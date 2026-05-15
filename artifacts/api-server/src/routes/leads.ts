@@ -7,6 +7,7 @@ import {
   contactsTable,
   projectsTable,
   usersTable,
+  userMembershipsTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requireFeature } from "../lib/featureGate";
@@ -238,7 +239,16 @@ router.get("/leads/:leadId/activities", requireAuth, requireCompany, async (req,
   const userIds = [...new Set(activities.map((a) => a.userId))];
   const users =
     userIds.length > 0
-      ? await db.select().from(usersTable).where(eq(usersTable.companyId, req.companyId!))
+      ? await db
+          .select()
+          .from(usersTable)
+          .innerJoin(
+            userMembershipsTable,
+            and(
+              eq(userMembershipsTable.userId, usersTable.id),
+              eq(userMembershipsTable.companyId, req.companyId!),
+            ),
+          )
       : [];
   const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
 

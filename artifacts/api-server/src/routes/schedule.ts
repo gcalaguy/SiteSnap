@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, workerSchedulesTable, usersTable, projectsTable, companiesTable } from "@workspace/db";
+import { db, workerSchedulesTable, usersTable, userMembershipsTable, projectsTable, companiesTable } from "@workspace/db";
 import { eq, and, lte, gte, or } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 
@@ -32,11 +32,18 @@ router.get("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asyn
       projectStatus: projectsTable.status,
       userFirstName: usersTable.firstName,
       userLastName: usersTable.lastName,
-      userRole: usersTable.role,
+      userRole: userMembershipsTable.role,
     })
     .from(workerSchedulesTable)
     .leftJoin(projectsTable, eq(workerSchedulesTable.projectId, projectsTable.id))
     .leftJoin(usersTable, eq(workerSchedulesTable.userId, usersTable.id))
+    .leftJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, workerSchedulesTable.userId),
+        eq(userMembershipsTable.companyId, req.companyId!),
+      ),
+    )
     .where(
       and(
         eq(workerSchedulesTable.companyId, req.companyId!),
@@ -51,11 +58,17 @@ router.get("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asyn
       id: usersTable.id,
       firstName: usersTable.firstName,
       lastName: usersTable.lastName,
-      role: usersTable.role,
+      role: userMembershipsTable.role,
       email: usersTable.email,
     })
     .from(usersTable)
-    .where(eq(usersTable.companyId, req.companyId!));
+    .innerJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, req.companyId!),
+      ),
+    );
 
   // And all active projects
   const projects = await db
@@ -88,11 +101,18 @@ router.get("/projects/:projectId/schedule", requireAuth, requireCompany, async (
       createdAt: workerSchedulesTable.createdAt,
       userFirstName: usersTable.firstName,
       userLastName: usersTable.lastName,
-      userRole: usersTable.role,
+      userRole: userMembershipsTable.role,
       userEmail: usersTable.email,
     })
     .from(workerSchedulesTable)
     .leftJoin(usersTable, eq(workerSchedulesTable.userId, usersTable.id))
+    .leftJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, workerSchedulesTable.userId),
+        eq(userMembershipsTable.companyId, req.companyId!),
+      ),
+    )
     .where(
       and(
         eq(workerSchedulesTable.projectId, projectId),
@@ -135,11 +155,18 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
       projectName: projectsTable.name,
       userFirstName: usersTable.firstName,
       userLastName: usersTable.lastName,
-      userRole: usersTable.role,
+      userRole: userMembershipsTable.role,
     })
     .from(workerSchedulesTable)
     .leftJoin(projectsTable, eq(workerSchedulesTable.projectId, projectsTable.id))
     .leftJoin(usersTable, eq(workerSchedulesTable.userId, usersTable.id))
+    .leftJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, workerSchedulesTable.userId),
+        eq(userMembershipsTable.companyId, req.companyId!),
+      ),
+    )
     .where(eq(workerSchedulesTable.id, row.id));
 
   res.status(201).json(full);
@@ -204,11 +231,18 @@ router.get("/schedule/gantt", requireAuth, requireCompany, requireOwnerOrForeman
         projectName: projectsTable.name,
         userFirstName: usersTable.firstName,
         userLastName: usersTable.lastName,
-        userRole: usersTable.role,
+        userRole: userMembershipsTable.role,
       })
       .from(workerSchedulesTable)
       .leftJoin(projectsTable, eq(workerSchedulesTable.projectId, projectsTable.id))
       .leftJoin(usersTable, eq(workerSchedulesTable.userId, usersTable.id))
+      .leftJoin(
+        userMembershipsTable,
+        and(
+          eq(userMembershipsTable.userId, workerSchedulesTable.userId),
+          eq(userMembershipsTable.companyId, req.companyId!),
+        ),
+      )
       .where(
         and(
           eq(workerSchedulesTable.companyId, req.companyId!),
@@ -231,11 +265,17 @@ router.get("/schedule/gantt", requireAuth, requireCompany, requireOwnerOrForeman
         id: usersTable.id,
         firstName: usersTable.firstName,
         lastName: usersTable.lastName,
-        role: usersTable.role,
+        role: userMembershipsTable.role,
         email: usersTable.email,
       })
       .from(usersTable)
-      .where(eq(usersTable.companyId, req.companyId!)),
+      .innerJoin(
+        userMembershipsTable,
+        and(
+          eq(userMembershipsTable.userId, usersTable.id),
+          eq(userMembershipsTable.companyId, req.companyId!),
+        ),
+      ),
   ]);
 
   res.json({ assignments, projects, members, from: fromDate, to: toDate });

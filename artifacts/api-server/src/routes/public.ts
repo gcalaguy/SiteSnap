@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, quotesTable, invoicesTable, companiesTable, usersTable } from "@workspace/db";
+import { db, quotesTable, invoicesTable, companiesTable, usersTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, isNull, or } from "drizzle-orm";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -95,7 +95,14 @@ async function getCompanyOwnerEmail(companyId: number): Promise<string | null> {
   const [owner] = await db
     .select({ email: usersTable.email })
     .from(usersTable)
-    .where(and(eq(usersTable.companyId, companyId), eq(usersTable.role, "owner")))
+    .innerJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, companyId),
+        eq(userMembershipsTable.role, "owner"),
+      ),
+    )
     .limit(1);
   return owner?.email ?? null;
 }

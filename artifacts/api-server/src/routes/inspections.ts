@@ -6,6 +6,7 @@ import {
   inspectionItemsTable,
   inspectionAlertsTable,
   usersTable,
+  userMembershipsTable,
   projectsTable,
   companiesTable,
 } from "@workspace/db";
@@ -372,9 +373,16 @@ async function notifyTeam(
 ): Promise<void> {
   try {
     const team = await db
-      .select({ id: usersTable.id, email: usersTable.email, role: usersTable.role, firstName: usersTable.firstName })
+      .select({ id: usersTable.id, email: usersTable.email, role: userMembershipsTable.role, firstName: usersTable.firstName })
       .from(usersTable)
-      .where(and(eq(usersTable.companyId, companyId), sql`${usersTable.role} IN ('owner','foreman')`));
+      .innerJoin(
+        userMembershipsTable,
+        and(
+          eq(userMembershipsTable.userId, usersTable.id),
+          eq(userMembershipsTable.companyId, companyId),
+          sql`${userMembershipsTable.role} IN ('owner','foreman')`,
+        ),
+      );
 
     const riskTag = riskLevel ? ` [${riskLevel} Risk]` : "";
     const title = `Inspection Submitted${riskTag}`;
