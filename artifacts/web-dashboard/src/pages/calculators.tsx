@@ -357,14 +357,7 @@ function CalcCard({ calc, onOpen, isFav }: { calc: CalcDef; onOpen: (c: CalcDef)
   return (
     <button
       onClick={() => onOpen(calc)}
-      className="group relative text-left rounded-2xl transition-all p-4 space-y-2 bg-[#11111114] text-[#121212] border-t-[#121212] border-r-[#121212] border-b-[#121212] border-l-[#121212] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]"
-      style={{
-        background: BLACK,
-        border: "1px solid rgba(201,168,76,0.18)",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
-      }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.border = `1px solid ${GOLD}`; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.border = "1px solid rgba(201,168,76,0.18)"; }}
+      className="group relative text-left rounded-2xl transition-all p-4 space-y-2 bg-[#111111] text-[#121212] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-[#D4AF37]/20 hover:border-[#D4AF37] shadow-[0_4px_16px_rgba(0,0,0,0.18)]"
     >
       {isFav && (
         <Star className="absolute top-3 right-3 h-3.5 w-3.5 text-yellow-400" fill="currentColor" />
