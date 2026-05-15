@@ -338,12 +338,12 @@ function ManageTab() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
-        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb38]" onClick={() => setPlanOpen(true)}>
+        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb]" onClick={() => setPlanOpen(true)}>
           <div className="flex items-center gap-2"><DatabaseZap className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs font-semibold uppercase tracking-wider text-[#D4AF37]">Plan Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Plans</h3>
           <p className="mt-1 text-sm text-gray-500">Create, edit, activate, or delete plan tiers.</p>
         </button>
-        <button className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:bg-gray-50 shadow-sm" onClick={() => setFeatureOpen(true)}>
+        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb]" onClick={() => setFeatureOpen(true)}>
           <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs font-semibold uppercase tracking-wider text-[#D4AF37]">Feature Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Features</h3>
           <p className="mt-1 text-sm text-gray-500">Create enabled/disabled features and assign them to plans.</p>
