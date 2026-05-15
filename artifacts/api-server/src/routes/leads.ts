@@ -250,7 +250,7 @@ router.get("/leads/:leadId/activities", requireAuth, requireCompany, async (req,
             ),
           )
       : [];
-  const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
+  const userMap = Object.fromEntries(users.map((u) => [u.users.id, u.users]));
 
   res.json(
     activities.map((a) => ({

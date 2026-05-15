@@ -322,7 +322,7 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
       ),
     );
   const userMap = Object.fromEntries(
-    members.map((u) => [u.id, displayName(u.firstName, u.lastName, u.email)]),
+    members.map((u) => [u.users.id, displayName(u.users.firstName, u.users.lastName, u.users.email)]),
   );
 
   const activity: Array<{
@@ -563,7 +563,7 @@ router.get("/rfis", requireAuth, requireCompany, async (req, res) => {
   const users = userIds.length
     ? await db.select().from(usersTable).where(inArray(usersTable.id, userIds))
     : [];
-  const userMap = Object.fromEntries(users.map((u) => [u.id, displayName(u.firstName, u.lastName, u.email)]));
+  const userMap = Object.fromEntries(users.map((u) => [u.users.id, displayName(u.users.firstName, u.users.lastName, u.users.email)]));
 
   res.json(rfis.map((r) => ({
     ...r,
@@ -593,7 +593,7 @@ router.get("/daily-reports", requireAuth, requireCompany, async (req, res) => {
   const users = userIds.length
     ? await db.select().from(usersTable).where(inArray(usersTable.id, userIds))
     : [];
-  const userMap = Object.fromEntries(users.map((u) => [u.id, displayName(u.firstName, u.lastName, u.email)]));
+  const userMap = Object.fromEntries(users.map((u) => [u.users.id, displayName(u.users.firstName, u.users.lastName, u.users.email)]));
 
   res.json(reports.map((r) => ({
     ...r,

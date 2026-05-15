@@ -558,7 +558,7 @@ async function notifyForemen(companyId: number, submissionId: number, templateNa
 
   try {
     await sendEmail({
-      to: foremen.map((f) => f.email),
+      to: foremen.map((f) => f.users.email),
       subject: `[Site Snap Safety] New Submission: ${templateName}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; padding: 24px; border-radius: 8px;">

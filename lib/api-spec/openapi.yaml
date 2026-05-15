@@ -1178,6 +1178,33 @@ paths:
         "401":
           description: Unauthorized
 
+  /users/me/active-company:
+    post:
+      operationId: setActiveCompany
+      tags: [users]
+      summary: Switch the user's active company
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                companyId:
+                  type: integer
+              required: [companyId]
+      responses:
+        "200":
+          description: Updated user with new active company
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithCompany"
+        "400":
+          description: Invalid request
+        "403":
+          description: Not a member of this company
+
   /users/accept-terms:
     post:
       operationId: acceptTerms
@@ -3322,6 +3349,25 @@ components:
           format: date-time
       required: [id, clerkUserId, email, firstName, lastName, role, createdAt]
 
+    UserMembership:
+      type: object
+      properties:
+        userId:
+          type: integer
+        companyId:
+          type: integer
+        role:
+          $ref: "#/components/schemas/UserRole"
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        companyName:
+          type: string
+          nullable: true
+      required: [userId, companyId, role, isActive, createdAt]
+
     UserWithCompany:
       allOf:
         - $ref: "#/components/schemas/User"
@@ -3329,6 +3375,13 @@ components:
           properties:
             company:
               $ref: "#/components/schemas/Company"
+              nullable: true
+            memberships:
+              type: array
+              items:
+                $ref: "#/components/schemas/UserMembership"
+            activeCompanyId:
+              type: integer
               nullable: true
 
     UserRole:

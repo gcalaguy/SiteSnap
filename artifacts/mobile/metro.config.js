@@ -10,7 +10,21 @@ config.resolver.blockList = [
   /node_modules\/pdf-parse[^/]*\/.*_tmp_.*/,
 ];
 
+const workspacePackages = {
+  "@workspace/api-client-react": path.resolve(__dirname, "../../lib/api-client-react/src/index.ts"),
+  "@workspace/api-zod": path.resolve(__dirname, "../../lib/api-zod/src/index.ts"),
+  "@workspace/db": path.resolve(__dirname, "../../lib/db/src/index.ts"),
+};
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Resolve @workspace/* monorepo packages for Metro
+  if (workspacePackages[moduleName]) {
+    return {
+      filePath: workspacePackages[moduleName],
+      type: "sourceFile",
+    };
+  }
+
   // Shim expo-secure-store with AsyncStorage-based fallback (Expo Go compatible)
   if (moduleName === "expo-secure-store") {
     return {

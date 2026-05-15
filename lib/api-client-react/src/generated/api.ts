@@ -120,6 +120,7 @@ import type {
   SendInvoiceEmail200,
   SendInvoiceEmailBody,
   SendInvoiceReminder200,
+  SetActiveCompanyBody,
   SmartSummary,
   SubmitTimesheetBody,
   SyncUserBody,
@@ -5066,6 +5067,92 @@ export function useGetMe<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Switch the user's active company
+ */
+export const getSetActiveCompanyUrl = () => {
+  return `/api/users/me/active-company`;
+};
+
+export const setActiveCompany = async (
+  setActiveCompanyBody: SetActiveCompanyBody,
+  options?: RequestInit,
+): Promise<UserWithCompany> => {
+  return customFetch<UserWithCompany>(getSetActiveCompanyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setActiveCompanyBody),
+  });
+};
+
+export const getSetActiveCompanyMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setActiveCompany>>,
+    TError,
+    { data: BodyType<SetActiveCompanyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setActiveCompany>>,
+  TError,
+  { data: BodyType<SetActiveCompanyBody> },
+  TContext
+> => {
+  const mutationKey = ["setActiveCompany"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setActiveCompany>>,
+    { data: BodyType<SetActiveCompanyBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setActiveCompany(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetActiveCompanyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setActiveCompany>>
+>;
+export type SetActiveCompanyMutationBody = BodyType<SetActiveCompanyBody>;
+export type SetActiveCompanyMutationError = ErrorType<void>;
+
+/**
+ * @summary Switch the user's active company
+ */
+export const useSetActiveCompany = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setActiveCompany>>,
+    TError,
+    { data: BodyType<SetActiveCompanyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setActiveCompany>>,
+  TError,
+  { data: BodyType<SetActiveCompanyBody> },
+  TContext
+> => {
+  return useMutation(getSetActiveCompanyMutationOptions(options));
+};
 
 /**
  * @summary Record that the current user accepted the Terms and Conditions

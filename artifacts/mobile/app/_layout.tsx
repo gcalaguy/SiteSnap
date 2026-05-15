@@ -148,7 +148,9 @@ function RootLayoutNav() {
     const syncPending = isSignedIn && !synced;
     if (syncPending || meLoading || meFetching) return;
 
-    if (!me?.companyId) {
+    // Phase 2: use activeCompanyId as source of truth; fallback to legacy companyId
+    const hasCompany = !!(me?.activeCompanyId ?? me?.companyId);
+    if (!hasCompany) {
       if (!inOnboarding) router.replace("/onboarding");
     } else if (inSignIn || inOnboarding) {
       router.replace("/");

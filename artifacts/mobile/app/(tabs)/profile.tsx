@@ -1,4 +1,4 @@
-import { useGetMe, customFetch } from "@workspace/api-client-react";
+import { useGetMe, customFetch, useSetActiveCompany, getGetMeQueryKey } from "@workspace/api-client-react";
 import { signOut } from "@/utils/auth";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -75,10 +75,17 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: me, isLoading } = useGetMe();
+  const setActiveCompany = useSetActiveCompany();
+  const [showCompanyPicker, setShowCompanyPicker] = useState(false);
 
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const isWorker = me?.role === "worker";
+
+  const activeCompanyId = me?.activeCompanyId ?? me?.companyId;
+  const memberships = me?.memberships ?? [];
+  const hasMultipleCompanies = memberships.length > 1;
 
   const { data: referralData } = useQuery({
     queryKey: ["referrals"],
@@ -87,8 +94,27 @@ export default function ProfileScreen() {
       if (res && typeof res === "object" && "referralCode" in res) return res;
       return null;
     },
-    enabled: !!me?.companyId,
+    enabled: !!(me?.activeCompanyId ?? me?.companyId),
   });
+
+  const handleSwitchCompany = (companyId: number) => {
+    setShowCompanyPicker(false);
+    if (companyId === activeCompanyId) return;
+    setActiveCompany.mutate(
+      { data: { companyId } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          // Reload the app to ensure all contexts pick up the new company
+          router.replace("/");
+        },
+        onError: () => {
+          Alert.alert("Switch failed", "Could not switch company. Please try again.");
+        },
+      },
+    );
+  };
 
   // Voice create state
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -237,11 +263,30 @@ export default function ProfileScreen() {
         </View>
 
         {/* Company */}
-        {me?.company && (
+        {(me?.company || memberships.length > 0) && (
           <View style={[styles.section, { marginTop: 24 }]}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Company</Text>
-            <MenuItem icon="briefcase" label={me.company.name} />
-            {!!me.company.province && (
+            <TouchableOpacity
+              activeOpacity={hasMultipleCompanies ? 0.7 : 1}
+              onPress={() => hasMultipleCompanies && setShowCompanyPicker(true)}
+              style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10 }}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: colors.muted }]}>
+                <Feather name="briefcase" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuLabel, { color: colors.foreground }]}>
+                  {me?.company?.name ?? memberships[0]?.companyName ?? "No Company"}
+                </Text>
+                <Text style={[styles.menuValue, { color: colors.mutedForeground }]}>
+                  {ROLE_LABELS[me?.role ?? "worker"] ?? me?.role ?? "Member"}
+                </Text>
+              </View>
+              {hasMultipleCompanies && (
+                <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+              )}
+            </TouchableOpacity>
+            {!!me?.company?.province && (
               <MenuItem icon="map-pin" label="Province" value={me.company.province} />
             )}
           </View>
@@ -396,6 +441,65 @@ export default function ProfileScreen() {
           Site Snap v1.0.0
         </Text>
       </ScrollView>
+
+      {/* Company Picker Modal */}
+      <Modal
+        visible={showCompanyPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCompanyPicker(false)}
+      >
+        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowCompanyPicker(false)} hitSlop={10}>
+              <Feather name="x" size={22} color={colors.foreground} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>Switch Company</Text>
+            <View style={{ width: 22 }} />
+          </View>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+            <Text style={{ color: colors.mutedForeground, marginBottom: 12, fontSize: 13 }}>
+              Select the company you want to work with.
+            </Text>
+            {memberships.map((m) => {
+              const isActive = m.companyId === activeCompanyId;
+              return (
+                <TouchableOpacity
+                  key={m.companyId}
+                  activeOpacity={0.7}
+                  onPress={() => handleSwitchCompany(m.companyId)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: 12,
+                    paddingHorizontal: 12,
+                    borderRadius: 8,
+                    marginBottom: 8,
+                    backgroundColor: isActive ? colors.muted : colors.card,
+                    borderWidth: 1,
+                    borderColor: isActive ? colors.primary : colors.border,
+                  }}
+                >
+                  <View style={[styles.menuIcon, { backgroundColor: isActive ? `${colors.primary}22` : colors.muted }]}>
+                    <Feather name="briefcase" size={18} color={isActive ? colors.primary : colors.mutedForeground} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "600" }}>
+                      {m.companyName ?? `Company ${m.companyId}`}
+                    </Text>
+                    <Text style={{ color: colors.mutedForeground, fontSize: 13, marginTop: 2 }}>
+                      {ROLE_LABELS[m.role] ?? m.role}
+                    </Text>
+                  </View>
+                  {isActive && (
+                    <Feather name="check" size={18} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* Voice / AI Modal */}
       <Modal visible={showVoiceModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowVoiceModal(false)}>

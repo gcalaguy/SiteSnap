@@ -51,11 +51,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [isSignedIn, clerkUser, clerkLoaded, dbUser, isError, syncUserMutation.isPending, refetch]);
 
   // Company-based redirect — must be in useEffect, not during render
+  // Phase 2: use activeCompanyId as the source of truth; fall back to legacy companyId
   useEffect(() => {
     if (!dbUser) return;
-    if (!dbUser.companyId && location !== "/onboarding") {
+    const hasCompany = !!(dbUser.activeCompanyId ?? dbUser.companyId);
+    if (!hasCompany && location !== "/onboarding") {
       setLocation("/onboarding");
-    } else if (dbUser.companyId && location === "/onboarding") {
+    } else if (hasCompany && location === "/onboarding") {
       setLocation("/dashboard");
     }
   }, [dbUser, location, setLocation]);

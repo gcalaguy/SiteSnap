@@ -109,6 +109,15 @@ export interface User {
   createdAt: string;
 }
 
+export interface UserMembership {
+  userId: number;
+  companyId: number;
+  role: UserRole;
+  isActive: boolean;
+  createdAt: string;
+  companyName?: string | null;
+}
+
 export type CompanyEstimatorConfigProjectTypeLabels = { [key: string]: string };
 
 /**
@@ -134,6 +143,8 @@ export interface Company {
 
 export type UserWithCompany = User & {
   company?: Company | null;
+  memberships?: UserMembership[];
+  activeCompanyId?: number | null;
 };
 
 export interface SyncUserBody {
@@ -1505,6 +1516,10 @@ export const ListContactsType = {
   subcontractor: "subcontractor",
   supplier: "supplier",
 } as const;
+
+export type SetActiveCompanyBody = {
+  companyId: number;
+};
 
 export type MarkAllNotificationsRead200 = {
   ok?: boolean;

@@ -106,8 +106,16 @@ router.get("/users/me", requireAuth, async (req, res) => {
   }
 
   const memberships = await db
-    .select()
+    .select({
+      userId: userMembershipsTable.userId,
+      companyId: userMembershipsTable.companyId,
+      role: userMembershipsTable.role,
+      isActive: userMembershipsTable.isActive,
+      createdAt: userMembershipsTable.createdAt,
+      companyName: companiesTable.name,
+    })
     .from(userMembershipsTable)
+    .leftJoin(companiesTable, eq(companiesTable.id, userMembershipsTable.companyId))
     .where(eq(userMembershipsTable.userId, user.id));
 
   const activeCompanyId = user.activeCompanyId;

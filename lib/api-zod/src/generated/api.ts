@@ -1221,6 +1221,81 @@ export const GetMeResponse = zod
           createdAt: zod.coerce.date(),
         })
         .nullish(),
+      memberships: zod
+        .array(
+          zod.object({
+            userId: zod.number(),
+            companyId: zod.number(),
+            role: zod.enum(["owner", "foreman", "worker"]),
+            isActive: zod.boolean(),
+            createdAt: zod.coerce.date(),
+            companyName: zod.string().nullish(),
+          }),
+        )
+        .optional(),
+      activeCompanyId: zod.number().nullish(),
+    }),
+  );
+
+/**
+ * @summary Switch the user's active company
+ */
+export const SetActiveCompanyBody = zod.object({
+  companyId: zod.number(),
+});
+
+export const SetActiveCompanyResponse = zod
+  .object({
+    id: zod.number(),
+    clerkUserId: zod.string(),
+    email: zod.string(),
+    firstName: zod.string(),
+    lastName: zod.string(),
+    companyId: zod.number().nullish(),
+    role: zod.enum(["owner", "foreman", "worker"]),
+    systemRole: zod
+      .string()
+      .nullish()
+      .describe("'super_admin' for global admins, null for regular users"),
+    termsAcceptedAt: zod.coerce.date().nullish(),
+    createdAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      company: zod
+        .object({
+          id: zod.number(),
+          name: zod.string(),
+          province: zod.string(),
+          city: zod.string(),
+          phone: zod.string().nullish(),
+          logoPath: zod.string().nullish(),
+          quoteTemplatePath: zod.string().nullish(),
+          invoiceTemplatePath: zod.string().nullish(),
+          estimatorConfig: zod
+            .object({
+              projectTypeLabels: zod
+                .record(zod.string(), zod.string())
+                .optional(),
+            })
+            .nullish()
+            .describe("Company-specific estimator overrides"),
+          createdAt: zod.coerce.date(),
+        })
+        .nullish(),
+      memberships: zod
+        .array(
+          zod.object({
+            userId: zod.number(),
+            companyId: zod.number(),
+            role: zod.enum(["owner", "foreman", "worker"]),
+            isActive: zod.boolean(),
+            createdAt: zod.coerce.date(),
+            companyName: zod.string().nullish(),
+          }),
+        )
+        .optional(),
+      activeCompanyId: zod.number().nullish(),
     }),
   );
 
@@ -1266,6 +1341,19 @@ export const AcceptTermsResponse = zod
           createdAt: zod.coerce.date(),
         })
         .nullish(),
+      memberships: zod
+        .array(
+          zod.object({
+            userId: zod.number(),
+            companyId: zod.number(),
+            role: zod.enum(["owner", "foreman", "worker"]),
+            isActive: zod.boolean(),
+            createdAt: zod.coerce.date(),
+            companyName: zod.string().nullish(),
+          }),
+        )
+        .optional(),
+      activeCompanyId: zod.number().nullish(),
     }),
   );
 
@@ -1376,6 +1464,19 @@ export const ListCompanyMembersResponseItem = zod
           createdAt: zod.coerce.date(),
         })
         .nullish(),
+      memberships: zod
+        .array(
+          zod.object({
+            userId: zod.number(),
+            companyId: zod.number(),
+            role: zod.enum(["owner", "foreman", "worker"]),
+            isActive: zod.boolean(),
+            createdAt: zod.coerce.date(),
+            companyName: zod.string().nullish(),
+          }),
+        )
+        .optional(),
+      activeCompanyId: zod.number().nullish(),
     }),
   );
 export const ListCompanyMembersResponse = zod.array(
@@ -1441,6 +1542,19 @@ export const UpdateMemberRoleResponse = zod
           createdAt: zod.coerce.date(),
         })
         .nullish(),
+      memberships: zod
+        .array(
+          zod.object({
+            userId: zod.number(),
+            companyId: zod.number(),
+            role: zod.enum(["owner", "foreman", "worker"]),
+            isActive: zod.boolean(),
+            createdAt: zod.coerce.date(),
+            companyName: zod.string().nullish(),
+          }),
+        )
+        .optional(),
+      activeCompanyId: zod.number().nullish(),
     }),
   );
 
@@ -1618,6 +1732,19 @@ export const AcceptInvitationResponse = zod
           createdAt: zod.coerce.date(),
         })
         .nullish(),
+      memberships: zod
+        .array(
+          zod.object({
+            userId: zod.number(),
+            companyId: zod.number(),
+            role: zod.enum(["owner", "foreman", "worker"]),
+            isActive: zod.boolean(),
+            createdAt: zod.coerce.date(),
+            companyName: zod.string().nullish(),
+          }),
+        )
+        .optional(),
+      activeCompanyId: zod.number().nullish(),
     }),
   );
 

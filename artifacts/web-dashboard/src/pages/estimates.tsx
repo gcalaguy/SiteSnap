@@ -18,7 +18,7 @@ import {
   Sparkles, FileText, Trash2, Clock,
   Loader2, X, HardHat, Package, Wrench,
   TrendingUp, ArrowRight, RotateCcw, Info,
-  Printer, Mail, FileDown, Pencil, Save, Plus, Calculator, Box,
+  Printer, Mail, FileDown, Pencil, Save, Plus, Calculator, Box, Building2,
 } from "lucide-react";
 import SmartEstimatorTab from "@/pages/smart-estimator";
 import { format } from "date-fns";

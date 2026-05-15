@@ -41,6 +41,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
@@ -217,28 +218,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Company switcher */}
         <div className="px-4 py-3 relative z-10 flex-shrink-0">
-          <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer"
-            style={{ background: SURFACE, border: `1px solid ${GOLD_BORDER}` }}
-          >
-            <div
-              className="rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{
-                width: 28,
-                height: 28,
-                background: `${GOLD}22`,
-                color: GOLD,
-                border: `1px solid ${GOLD}44`,
-              }}
-            >
-              {companyInitials || "?"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold truncate" style={{ color: "#FFF" }}>{companyName}</p>
-              <p className="text-xs capitalize" style={{ color: "#666" }}>{user?.role ?? "Member"}</p>
-            </div>
-            <ChevronDown size={13} style={{ color: "#555" }} />
-          </div>
+          <CompanySwitcher user={user} />
         </div>
 
         {/* Nav label */}
