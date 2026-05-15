@@ -210,7 +210,7 @@ function CreateCompanyCard() {
             <p className="text-sm text-gray-500 max-w-2xl">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" className="border-white/20 text-[#121212] font-bold hover:bg-gray-50" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "" }); }}>Create New Company</Button>
+            <Button variant="outline" className="border-white/20 text-[#121212] font-bold hover:bg-gray-50 bg-[#d4af37]" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "" }); }}>Create New Company</Button>
           </div>
         </div>
       </div>
