@@ -356,8 +356,8 @@ function ManageTab() {
       <CreateCompanyCard />
       <Tabs defaultValue="manage" className="space-y-6">
         <TabsList className="border border-gray-200 bg-white">
-          <TabsTrigger value="manage" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white">Manage</TabsTrigger>
-          <TabsTrigger value="billing" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white">Billing Plans</TabsTrigger>
+          <TabsTrigger value="manage" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold">Manage</TabsTrigger>
+          <TabsTrigger value="billing" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold">Billing Plans</TabsTrigger>
         </TabsList>
         <TabsContent value="manage">
           <ManageAdminSections
@@ -755,8 +755,8 @@ export default function SuperAdminPage() {
       </div>
       <Tabs defaultValue="manage" className="space-y-6">
         <TabsList className="border border-gray-200 bg-white">
-          <TabsTrigger value="manage" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white">Manage</TabsTrigger>
-          <TabsTrigger value="billing" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white">Billing Plans</TabsTrigger>
+          <TabsTrigger value="manage" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold">Manage</TabsTrigger>
+          <TabsTrigger value="billing" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold">Billing Plans</TabsTrigger>
         </TabsList>
         <TabsContent value="manage"><ManageTab /></TabsContent>
         <TabsContent value="billing"><StripePlansTab /></TabsContent>
