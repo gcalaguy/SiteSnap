@@ -1,6 +1,6 @@
 import { getAuth } from "@clerk/express";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, userMembershipsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
 
 declare global {
@@ -10,6 +10,7 @@ declare global {
       companyId?: number | null;
       userRole?: "owner" | "foreman" | "worker";
       systemRole?: string | null;
+      memberships?: Array<{ companyId: number; role: "owner" | "foreman" | "worker" }>;
     }
   }
 }
@@ -38,10 +39,41 @@ export const requireAuth = async (
     return;
   }
 
+  // Load memberships from the new multi-tenancy table
+  const memberships = await db
+    .select()
+    .from(userMembershipsTable)
+    .where(eq(userMembershipsTable.userId, user.id));
+
+  const memList = memberships.map((m) => ({
+    companyId: m.companyId,
+    role: m.role,
+  }));
+  req.memberships = memList;
+
+  // Determine active company + role:
+  // 1) Prefer activeCompanyId if a matching membership exists
+  // 2) Fallback to the first membership (or legacy companyId column for Phase 0)
+  const activeFromMembership = memList.find(
+    (m) => user.activeCompanyId && m.companyId === user.activeCompanyId,
+  );
+  const fallbackMembership = memList[0];
+
   req.userId = user.id;
-  req.companyId = user.companyId;
-  req.userRole = user.role;
   req.systemRole = user.systemRole;
+
+  if (activeFromMembership) {
+    req.companyId = activeFromMembership.companyId;
+    req.userRole = activeFromMembership.role;
+  } else if (fallbackMembership) {
+    req.companyId = fallbackMembership.companyId;
+    req.userRole = fallbackMembership.role;
+  } else {
+    // Phase 0 fallback: legacy columns still exist as backup
+    req.companyId = user.companyId;
+    req.userRole = user.role;
+  }
+
   next();
 };
 

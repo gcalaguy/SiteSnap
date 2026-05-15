@@ -86,8 +86,11 @@ export const usersTable = pgTable("users", {
   email: text("email").notNull().unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
+  // DEPRECATED: use user_memberships table instead. Kept for Phase 0 migration.
   companyId: integer("company_id").references(() => companiesTable.id),
+  // DEPRECATED: use user_memberships table instead. Kept for Phase 0 migration.
   role: userRoleEnum("role").notNull().default("worker"),
+  activeCompanyId: integer("active_company_id").references(() => companiesTable.id),
   systemRole: text("system_role"), // null = regular user, 'super_admin' = global admin
   pushToken: text("push_token"),
   termsAcceptedAt: timestamp("terms_accepted_at"),
@@ -100,6 +103,32 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
 });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof usersTable.$inferSelect;
+
+// ── User Memberships (multi-tenancy) ──────────────────────────────────────────
+
+export const userMembershipsTable = pgTable(
+  "user_memberships",
+  {
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companiesTable.id, { onDelete: "cascade" }),
+    role: userRoleEnum("role").notNull().default("worker"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.companyId] })],
+);
+
+export const insertUserMembershipSchema = createInsertSchema(
+  userMembershipsTable,
+).omit({
+  createdAt: true,
+});
+export type InsertUserMembership = z.infer<typeof insertUserMembershipSchema>;
+export type UserMembership = typeof userMembershipsTable.$inferSelect;
 
 // ── Invitations ───────────────────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, usersTable, companiesTable, invitationsTable } from "@workspace/db";
+import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable } from "@workspace/db";
 import { eq, and, lt } from "drizzle-orm";
 import { getAuth, clerkClient } from "@clerk/express";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
@@ -324,10 +324,17 @@ router.post("/invitations/:token/accept", async (req, res) => {
     return;
   }
 
-  // 4. Assign user to company with invited role
+  // 4. Assign user to company: dual-write memberships + legacy columns (Phase 0)
+  await db
+    .insert(userMembershipsTable)
+    .values({ userId: dbUser.id, companyId: invitation.companyId, role: invitation.role, isActive: true })
+    .onConflictDoUpdate({
+      target: [userMembershipsTable.userId, userMembershipsTable.companyId],
+      set: { role: invitation.role, isActive: true },
+    });
   await db
     .update(usersTable)
-    .set({ companyId: invitation.companyId, role: invitation.role })
+    .set({ companyId: invitation.companyId, role: invitation.role, activeCompanyId: invitation.companyId })
     .where(eq(usersTable.id, dbUser.id));
 
   // 5. Mark invitation as accepted

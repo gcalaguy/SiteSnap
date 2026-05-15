@@ -7,6 +7,7 @@ import {
   subscriptionsTable,
   companiesTable,
   usersTable,
+  userMembershipsTable,
   invitationsTable,
   projectsTable,
   insertPlanSchema,
@@ -432,9 +433,9 @@ router.get("/admin/tenants", ...guard, async (req, res) => {
   const plans = await db.select().from(plansTable);
 
   const userCounts = await db
-    .select({ companyId: usersTable.companyId, count: sql<number>`count(*)` })
-    .from(usersTable)
-    .groupBy(usersTable.companyId);
+    .select({ companyId: userMembershipsTable.companyId, count: sql<number>`count(*)` })
+    .from(userMembershipsTable)
+    .groupBy(userMembershipsTable.companyId);
 
   const result = companies.map((c) => {
     const sub = subs.find((s) => s.companyId === c.id) ?? null;
@@ -461,11 +462,17 @@ router.get("/admin/tenants/:id", ...guard, async (req, res) => {
       email: usersTable.email,
       firstName: usersTable.firstName,
       lastName: usersTable.lastName,
-      role: usersTable.role,
+      role: userMembershipsTable.role,
       systemRole: usersTable.systemRole,
     })
     .from(usersTable)
-    .where(eq(usersTable.companyId, companyId))
+    .innerJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, companyId),
+      ),
+    )
     .orderBy(usersTable.lastName, usersTable.firstName);
 
   res.json({ ...company, subscription: subscription ?? null, plan: plan ?? null, users });
@@ -627,12 +634,24 @@ router.patch("/admin/users/:id/company-role", ...guard, async (req, res) => {
     res.status(400).json({ error: "Invalid role. Must be owner, foreman, or worker." });
     return;
   }
+  // Dual-write role to memberships + legacy columns (Phase 0)
   const [user] = await db
     .update(usersTable)
     .set({ role })
     .where(eq(usersTable.id, id))
     .returning();
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (user.companyId) {
+    await db
+      .update(userMembershipsTable)
+      .set({ role })
+      .where(
+        and(
+          eq(userMembershipsTable.userId, id),
+          eq(userMembershipsTable.companyId, user.companyId),
+        ),
+      );
+  }
   res.json(user);
 });
 

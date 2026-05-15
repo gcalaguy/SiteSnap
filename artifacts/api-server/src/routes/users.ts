@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, usersTable, companiesTable, invitationsTable } from "@workspace/db";
+import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable } from "@workspace/db";
 import { eq, and, gt } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { requireAuth, requireCompany } from "../lib/auth";
@@ -20,9 +20,14 @@ async function autoAcceptPendingInvitation(userId: number, email: string) {
     )
     .limit(1);
   if (!invite) return null;
+  // Phase 0: insert into memberships + update legacy columns + set active company
+  await db
+    .insert(userMembershipsTable)
+    .values({ userId, companyId: invite.companyId, role: invite.role, isActive: true })
+    .onConflictDoNothing();
   await db
     .update(usersTable)
-    .set({ companyId: invite.companyId, role: invite.role })
+    .set({ companyId: invite.companyId, role: invite.role, activeCompanyId: invite.companyId })
     .where(eq(usersTable.id, userId));
   await db
     .update(invitationsTable)
@@ -87,7 +92,7 @@ router.post("/users/sync", async (req, res) => {
   }
 });
 
-// GET /users/me — get current user with company
+// GET /users/me — get current user with memberships and active company
 router.get("/users/me", requireAuth, async (req, res) => {
   const [user] = await db
     .select()
@@ -100,17 +105,68 @@ router.get("/users/me", requireAuth, async (req, res) => {
     return;
   }
 
+  const memberships = await db
+    .select()
+    .from(userMembershipsTable)
+    .where(eq(userMembershipsTable.userId, user.id));
+
+  const activeCompanyId = user.activeCompanyId;
   let company = null;
-  if (user.companyId) {
+  if (activeCompanyId) {
     const [c] = await db
       .select()
       .from(companiesTable)
-      .where(eq(companiesTable.id, user.companyId))
+      .where(eq(companiesTable.id, activeCompanyId))
       .limit(1);
     company = c ?? null;
   }
 
-  res.json({ ...user, company });
+  res.json({
+    ...user,
+    company,
+    memberships,
+    activeCompanyId,
+  });
+});
+
+// POST /users/me/active-company — switch the user's active company
+router.post("/users/me/active-company", requireAuth, async (req, res) => {
+  const { companyId } = req.body as { companyId?: number };
+  if (typeof companyId !== "number") {
+    res.status(400).json({ error: "companyId (number) is required" });
+    return;
+  }
+
+  // Verify the user actually belongs to this company
+  const [membership] = await db
+    .select()
+    .from(userMembershipsTable)
+    .where(
+      and(
+        eq(userMembershipsTable.userId, req.userId!),
+        eq(userMembershipsTable.companyId, companyId),
+      ),
+    )
+    .limit(1);
+
+  if (!membership) {
+    res.status(403).json({ error: "You are not a member of this company" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(usersTable)
+    .set({ activeCompanyId: companyId })
+    .where(eq(usersTable.id, req.userId!))
+    .returning();
+
+  const [company] = await db
+    .select()
+    .from(companiesTable)
+    .where(eq(companiesTable.id, companyId))
+    .limit(1);
+
+  res.json({ ...updated, company, activeCompanyId: companyId });
 });
 
 // POST /users/accept-terms — record that the current user accepted the T&C
@@ -121,17 +177,18 @@ router.post("/users/accept-terms", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, req.userId!))
     .returning();
 
+  const activeCompanyId = updated?.activeCompanyId;
   let company = null;
-  if (updated?.companyId) {
+  if (activeCompanyId) {
     const [c] = await db
       .select()
       .from(companiesTable)
-      .where(eq(companiesTable.id, updated.companyId))
+      .where(eq(companiesTable.id, activeCompanyId))
       .limit(1);
     company = c ?? null;
   }
 
-  res.json({ ...updated, company });
+  res.json({ ...updated, company, activeCompanyId });
 });
 
 // GET /users/me/features — list feature keys the company's active plan includes

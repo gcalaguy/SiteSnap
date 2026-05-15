@@ -1,6 +1,6 @@
 import { Router } from "express";
 import {
-  db, usersTable, companiesTable, invitationsTable,
+  db, usersTable, userMembershipsTable, companiesTable, invitationsTable,
   rfisTable, tasksTable, quotesTable, invoicesTable, timesheetsTable,
   formSubmissionsTable, changeOrdersTable, dailyReportsTable,
   dailyReportPhotosTable, submissionCommentsTable, paymentsTable,
@@ -40,10 +40,14 @@ router.post("/companies", requireAuth, async (req, res) => {
     .values({ ...parsed.data, referralCode, referredByCode })
     .returning();
 
-  // Assign requester as owner of this company
+  // Assign requester as owner: dual-write to memberships + legacy columns (Phase 0)
+  await db
+    .insert(userMembershipsTable)
+    .values({ userId: req.userId!, companyId: company.id, role: "owner", isActive: true })
+    .onConflictDoNothing();
   await db
     .update(usersTable)
-    .set({ companyId: company.id, role: "owner" })
+    .set({ companyId: company.id, role: "owner", activeCompanyId: company.id })
     .where(eq(usersTable.id, req.userId!));
 
   res.status(201).json(company);
@@ -317,6 +321,16 @@ router.patch(
       return;
     }
 
+    // Dual-write role to memberships + legacy columns (Phase 0)
+    await db
+      .update(userMembershipsTable)
+      .set({ role: parsed.data.role })
+      .where(
+        and(
+          eq(userMembershipsTable.userId, targetUserId),
+          eq(userMembershipsTable.companyId, companyId),
+        ),
+      );
     const [updated] = await db
       .update(usersTable)
       .set({ role: parsed.data.role })
@@ -401,21 +415,24 @@ router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
     return;
   }
 
-  // Verify no user is already owner of this company
-  const existingOwners = await db
+  // Verify no user is already owner via memberships (Phase 0: also check legacy column)
+  const existingMembers = await db
     .select()
-    .from(usersTable)
-    .where(eq(usersTable.companyId, companyId));
-
-  if (existingOwners.length > 0) {
+    .from(userMembershipsTable)
+    .where(eq(userMembershipsTable.companyId, companyId));
+  if (existingMembers.length > 0) {
     res.status(409).json({ error: "Company already claimed" });
     return;
   }
 
-  // Assign authenticated user as owner
+  // Assign authenticated user as owner: dual-write to memberships + legacy columns
+  await db
+    .insert(userMembershipsTable)
+    .values({ userId: req.userId!, companyId, role: "owner", isActive: true })
+    .onConflictDoNothing();
   const [updatedUser] = await db
     .update(usersTable)
-    .set({ companyId, role: "owner" })
+    .set({ companyId, role: "owner", activeCompanyId: companyId })
     .where(eq(usersTable.id, req.userId!))
     .returning();
 
