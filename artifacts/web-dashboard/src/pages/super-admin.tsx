@@ -263,7 +263,7 @@ function ManageTab() {
   const [tenantForm, setTenantForm] = useState({ name: "", planId: "", status: "active", billingCycle: "monthly", userCount: "", website: "", phone: "", email: "" });
   const [selectedTenantUserId, setSelectedTenantUserId] = useState("");
   const [selectedTenantUserRole, setSelectedTenantUserRole] = useState("worker");
-  const [collapsed, setCollapsed] = useState({ plans: false, features: false, tenants: false });
+  const [collapsed, setCollapsed] = useState({ plans: true, features: true, tenants: true });
 
   const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
   const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
