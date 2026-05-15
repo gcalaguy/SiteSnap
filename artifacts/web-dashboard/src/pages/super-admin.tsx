@@ -37,6 +37,14 @@ type TenantDetail = TenantRow & { users: Array<{ id: number; email: string; firs
 
 type PlanDialogProps = { open: boolean };
 type FeatureDialogProps = { open: boolean };
+type MemberDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  form: { firstName: string; lastName: string; email: string; role: string };
+  onChange: (value: { firstName: string; lastName: string; email: string; role: string }) => void;
+  onSave: () => void;
+  isSaving: boolean;
+};
 type TenantDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -263,6 +271,9 @@ function ManageTab() {
   const [tenantForm, setTenantForm] = useState({ name: "", planId: "", status: "active", billingCycle: "monthly", userCount: "", website: "", phone: "", email: "" });
   const [selectedTenantUserId, setSelectedTenantUserId] = useState("");
   const [selectedTenantUserRole, setSelectedTenantUserRole] = useState("worker");
+  const [memberOpen, setMemberOpen] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
+  const [memberForm, setMemberForm] = useState({ firstName: "", lastName: "", email: "", role: "worker" });
   const [collapsed, setCollapsed] = useState({ plans: true, features: true, tenants: true });
 
   const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
@@ -317,6 +328,12 @@ function ManageTab() {
     onError: (e: any) => toast({ title: "Remove failed", description: e.message, variant: "destructive" }),
   });
   const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
+  const saveMember = useMutation({
+    mutationFn: ({ userId, payload }: { userId: number; payload: { firstName: string; lastName: string; email: string } }) =>
+      customFetch(`/api/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    onSuccess: () => { refresh(); setMemberOpen(false); setEditingMemberId(null); toast({ title: "Member updated" }); },
+    onError: (e: any) => toast({ title: "Member update failed", description: e.message, variant: "destructive" }),
+  });
 
   return (
     <div className="space-y-6 bg-black text-white">
@@ -360,7 +377,12 @@ function ManageTab() {
             onEditTenant={(t) => { setEditingTenantId(t.id); setSelectedTenantUserId(""); setSelectedTenantUserRole("worker"); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "" }); setTenantOpen(true); }}
             onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
             onEditTenantUser={(userId, role) => {
-              if (tenantDetailId != null) saveTenantUserRole.mutate({ userId, role, companyId: tenantDetailId });
+              const u = tenantDetail?.users.find((x) => x.id === userId);
+              if (u) {
+                setEditingMemberId(userId);
+                setMemberForm({ firstName: u.firstName || "", lastName: u.lastName || "", email: u.email || "", role });
+                setMemberOpen(true);
+              }
             }}
             onDeleteTenantUser={(userId) => {
               if (tenantDetailId != null && confirm("Remove this user from the tenant?")) {
@@ -419,6 +441,21 @@ function ManageTab() {
         }}
         isSaving={saveTenant.isPending || saveTenantUserRole.isPending}
         users={tenantDetail?.users}
+      />
+      <MemberDialog
+        open={memberOpen}
+        onOpenChange={setMemberOpen}
+        form={memberForm}
+        onChange={setMemberForm}
+        onSave={() => {
+          if (editingMemberId != null && tenantDetailId != null) {
+            saveMember.mutate({ userId: editingMemberId, payload: { firstName: memberForm.firstName, lastName: memberForm.lastName, email: memberForm.email } });
+            if (memberForm.role) {
+              saveTenantUserRole.mutate({ userId: editingMemberId, role: memberForm.role, companyId: tenantDetailId });
+            }
+          }
+        }}
+        isSaving={saveMember.isPending || saveTenantUserRole.isPending}
       />
     </div>
   );
@@ -655,6 +692,48 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
               value={users?.find((user) => String(user.id) === selectedUserId)?.role ?? "worker"}
               onChange={(e) => onSelectedUserRoleChange(e.target.value)}
               disabled={!selectedUserId}
+            >
+              <option value="owner">Owner</option>
+              <option value="foreman">Foreman</option>
+              <option value="worker">Worker</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button className="bg-amber-400 text-black hover:bg-amber-300" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MemberDialog({ open, onOpenChange, form, onChange, onSave, isSaving }: MemberDialogProps) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 pointer-events-auto">
+      <div className="w-full max-w-lg rounded-2xl border border-amber-400/30 bg-black p-6 text-white shadow-2xl pointer-events-auto">
+        <h3 className="text-lg font-semibold text-white">Edit Member</h3>
+        <p className="text-sm text-zinc-400">Update first name, last name, email, and company role.</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div>
+            <Label className="text-white">First Name</Label>
+            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={form.firstName} onChange={(e) => onChange({ ...form, firstName: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-white">Last Name</Label>
+            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={form.lastName} onChange={(e) => onChange({ ...form, lastName: e.target.value })} />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-white">Email</Label>
+            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={form.email} onChange={(e) => onChange({ ...form, email: e.target.value })} />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-white">Role</Label>
+            <select
+              className="w-full rounded-md border border-amber-400/20 bg-black px-3 py-2 text-white"
+              value={form.role}
+              onChange={(e) => onChange({ ...form, role: e.target.value })}
             >
               <option value="owner">Owner</option>
               <option value="foreman">Foreman</option>

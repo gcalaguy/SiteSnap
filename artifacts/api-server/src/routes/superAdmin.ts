@@ -693,6 +693,35 @@ router.delete("/admin/tenants/:companyId/users/:userId", ...guard, async (req, r
   res.status(204).send();
 });
 
+// PATCH /admin/users/:id — update a user's name and email (super-admin)
+router.patch("/admin/users/:id", ...guard, async (req, res) => {
+  const id = Number(req.params.id);
+  const { firstName, lastName, email } = req.body as {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  if (!existing) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const updates: Record<string, string | null> = {};
+  if (firstName !== undefined) updates.firstName = firstName.trim();
+  if (lastName !== undefined) updates.lastName = lastName.trim();
+  if (email !== undefined) updates.email = email.trim();
+
+  if (Object.keys(updates).length === 0) {
+    res.json(existing);
+    return;
+  }
+
+  const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.id, id)).returning();
+  res.json(updated);
+});
+
 // ── Seed Data ───────────────────────────────────────────────────────────────────
 
 router.post("/admin/seed", ...guard, async (req, res) => {
