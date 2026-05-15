@@ -218,7 +218,7 @@ function CreateCompanyCard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
             <h3 className="text-lg font-semibold text-[#121212]">Create New Company</h3>
-            <p className="text-sm text-gray-500">Enter company details. A shareable link will be generated for the owner to claim it.</p>
+            <p className="text-sm text-gray-500 font-semibold">Enter company details. A shareable link will be generated for the owner to claim it.</p>
             {createdLink ? (
               <div className="mt-4 space-y-3">
                 <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
@@ -340,17 +340,17 @@ function ManageTab() {
         <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb]" onClick={() => setPlanOpen(true)}>
           <div className="flex items-center gap-2"><DatabaseZap className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Plan Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Plans</h3>
-          <p className="mt-1 text-sm text-gray-500">Create, edit, activate, or delete plan tiers.</p>
+          <p className="mt-1 text-sm text-gray-500 font-semibold">Create, edit, activate, or delete plan tiers.</p>
         </button>
         <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb]" onClick={() => setFeatureOpen(true)}>
           <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Feature Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Features</h3>
-          <p className="mt-1 text-sm text-gray-500">Create enabled/disabled features and assign them to plans.</p>
+          <p className="mt-1 text-sm text-gray-500 font-semibold">Create enabled/disabled features and assign them to plans.</p>
         </button>
         <button className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:bg-gray-50 shadow-sm" onClick={() => setTenantOpen(true)}>
           <div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Tenant Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Tenants</h3>
-          <p className="mt-1 text-sm text-gray-500">View tenant users, subscription state, and plan assignment.</p>
+          <p className="mt-1 text-sm text-gray-500 font-semibold">View tenant users, subscription state, and plan assignment.</p>
         </button>
       </div>
       <CreateCompanyCard />
@@ -580,7 +580,7 @@ function PlanDialog({ open, form, featureIds, onChange, onFeatureIdsChange, onSa
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-[#121212]">Plan Administration</h3>
-            <p className="text-sm text-gray-500">Create, edit, activate, or delete plan tiers.</p>
+            <p className="text-sm text-gray-500 font-semibold">Create, edit, activate, or delete plan tiers.</p>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -606,7 +606,7 @@ function FeatureDialog({ open, form, onChange, onSave, onCancel, isSaving }: Fea
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
         <h3 className="text-lg font-semibold text-[#121212]">Feature Administration</h3>
-        <p className="text-sm text-gray-500">Create enabled/disabled features and assign them to plans.</p>
+        <p className="text-sm text-gray-500 font-semibold">Create enabled/disabled features and assign them to plans.</p>
         <div className="mt-4 grid gap-4">
           <div><Label className="text-[#D4AF37]">Name</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} /></div>
           <div><Label className="text-[#D4AF37]">Key</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={form.key} onChange={(e) => onChange({ ...form, key: e.target.value })} /></div>
@@ -624,7 +624,7 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
       <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
         <h3 className="text-lg font-semibold text-[#121212]">Tenant Administration</h3>
-        <p className="text-sm text-gray-500">Update tenant profile, subscription, billing cycle, and plan.</p>
+        <p className="text-sm text-gray-500 font-semibold">Update tenant profile, subscription, billing cycle, and plan.</p>
         {tenantId !== null && <p className="mt-1 text-xs uppercase tracking-wider text-[#D4AF37]">Editing tenant #{tenantId}</p>}
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           <div>
@@ -710,7 +710,7 @@ function MemberDialog({ open, onOpenChange, form, onChange, onSave, isSaving }: 
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
       <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
         <h3 className="text-lg font-semibold text-[#121212]">Edit Member</h3>
-        <p className="text-sm text-gray-500">Update first name, last name, email, and company role.</p>
+        <p className="text-sm text-gray-500 font-semibold">Update first name, last name, email, and company role.</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
             <Label className="text-[#121212]">First Name</Label>
@@ -751,7 +751,7 @@ export default function SuperAdminPage() {
     <div className="space-y-6">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-[#121212]"><ShieldCheck className="h-6 w-6 text-[#D4AF37]" /> Super Admin</h1>
-        <p className="mt-1 text-sm text-gray-500">Manage plans, features, and tenants.</p>
+        <p className="mt-1 text-sm text-gray-500 font-semibold">Manage plans, features, and tenants.</p>
       </div>
       <Tabs defaultValue="manage" className="space-y-6">
         <TabsList className="border border-gray-200 bg-white">
