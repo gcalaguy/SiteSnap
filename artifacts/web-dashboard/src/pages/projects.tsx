@@ -144,15 +144,17 @@ export default function Projects() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold tracking-tight" style={{ color: TEXT }}>Project Overview</h1>
-          <p className="text-sm mt-0.5" style={{ color: MUTED }}>All your job sites in one place</p>
+          <h1 className="text-xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+            <Building2 className="h-6 w-6" style={{ color: "#D4AF37" }} />
+            Project Overview
+          </h1>
+          <p className="text-sm mt-0.5 text-[#121212]/60 font-medium">All your job sites in one place</p>
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <button
-                className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg"
-                style={{ background: GOLD, color: BLACK }}
+                className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg bg-[#D4AF37] text-white hover:bg-[#b5922e]"
               >
                 <Plus size={13} />
                 New Project
@@ -231,22 +233,22 @@ export default function Projects() {
             <button
               key={label}
               onClick={() => setFilter(isActive ? "All" : filterKey)}
-              className="rounded-xl p-4 text-left transition-all duration-150"
+              className="rounded-xl p-4 text-left transition-all duration-150 bg-white"
               style={{
-                background: BLACK,
+                border: isActive ? `2px solid ${GOLD}` : "2px solid rgba(212,175,55,0.20)",
                 boxShadow: isActive
-                  ? `0 0 0 2px ${GOLD}, 0 4px 20px rgba(212,175,55,0.25)`
-                  : "0 4px 16px rgba(0,0,0,0.18)",
+                  ? `0 0 0 1px ${GOLD}22, 0 4px 12px rgba(0,0,0,0.06)`
+                  : "0 2px 8px rgba(0,0,0,0.04)",
                 outline: "none",
                 cursor: "pointer",
               }}
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+                <span className="text-xs font-extrabold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
                 <Icon size={15} style={{ color: GOLD }} />
               </div>
-              <p className="text-2xl font-bold mb-1 text-white">{isLoading ? "—" : value}</p>
-              <p className="text-xs" style={{ color: "#71717a" }}>{sub}</p>
+              <p className="text-2xl font-extrabold mb-1 text-[#121212]">{isLoading ? "—" : value}</p>
+              <p className="text-xs font-medium text-[#121212]/50">{sub}</p>
             </button>
           );
         })}
@@ -291,15 +293,15 @@ export default function Projects() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-16" style={{ color: MUTED }}>
+          <div className="flex items-center justify-center py-16">
             <Loader2 size={20} className="animate-spin mr-2" style={{ color: GOLD }} />
-            <span className="text-sm">Loading projects…</span>
+            <span className="text-sm text-[#121212]/60 font-medium">Loading projects…</span>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <Building2 size={36} style={{ color: BORDER, marginBottom: 12 }} />
-            <p className="text-sm font-medium" style={{ color: TEXT }}>No projects found</p>
-            <p className="text-xs mt-1" style={{ color: MUTED }}>Create your first project to get started</p>
+            <Building2 size={36} style={{ color: "rgba(212,175,55,0.25)", marginBottom: 12 }} />
+            <p className="text-sm font-extrabold text-[#121212]">No projects found</p>
+            <p className="text-xs mt-1 text-[#121212]/60 font-medium">Create your first project to get started</p>
           </div>
         ) : (
           <>
@@ -316,8 +318,8 @@ export default function Projects() {
                   ].map(({ label, sortable, col }) => (
                     <th
                       key={label || "actions"}
-                      className="text-left px-4 py-3 font-semibold tracking-wider"
-                      style={{ color: GOLD, fontSize: 10, textTransform: "uppercase", background: SURFACE2, cursor: sortable ? "pointer" : "default" }}
+                      className="text-left px-4 py-3 font-extrabold tracking-wider"
+                      style={{ color: "#D4AF37", fontSize: 10, textTransform: "uppercase", background: "#F8F8F8", cursor: sortable ? "pointer" : "default" }}
                       onClick={() => sortable && toggleSort(col)}
                     >
                       <div className="flex items-center gap-1">
@@ -343,24 +345,24 @@ export default function Projects() {
                       <td className="px-4 py-3">
                         <Link href={`/projects/${project.id}`}>
                           <div>
-                            <p className="font-semibold hover:underline" style={{ color: TEXT, fontSize: 12 }}>{project.name}</p>
-                            <p style={{ color: MUTED, fontSize: 10 }}>#{project.id}</p>
+                            <p className="font-extrabold hover:underline" style={{ color: "#121212", fontSize: 12 }}>{project.name}</p>
+                            <p style={{ color: "#888888", fontSize: 10 }}>#{project.id}</p>
                           </div>
                         </Link>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5" style={{ color: MUTED, fontSize: 12 }}>
-                          <MapPin size={11} style={{ color: MUTED, flexShrink: 0 }} />
+                        <div className="flex items-center gap-1.5 font-medium" style={{ color: "#888888", fontSize: 12 }}>
+                          <MapPin size={11} style={{ color: "#D4AF37", flexShrink: 0 }} />
                           <span>{project.city}, {project.province}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         {budget ? (
-                          <span className="font-semibold" style={{ color: GOLD, fontSize: 12 }}>
+                          <span className="font-extrabold" style={{ color: "#D4AF37", fontSize: 12 }}>
                             ${budget.toLocaleString("en-CA")}
                           </span>
                         ) : (
-                          <span style={{ color: MUTED, fontSize: 12 }}>—</span>
+                          <span style={{ color: "#888888", fontSize: 12 }}>—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">

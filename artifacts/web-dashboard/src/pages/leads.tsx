@@ -312,13 +312,15 @@ export default function Leads() {
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Pipeline</h1>
-          <p className="text-muted-foreground text-sm">Drag cards between stages to move leads</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+            <TrendingUp className="h-7 w-7" style={{ color: "#D4AF37" }} />
+            Pipeline
+          </h1>
+          <p className="text-[#121212]/60 text-sm font-medium">Drag cards between stages to move leads</p>
         </div>
         <Button
           onClick={() => setCreateOpen(true)}
-          style={{ background: GOLD, color: BLACK }}
-          className="font-semibold hover:opacity-90"
+          className="font-semibold bg-[#D4AF37] hover:bg-[#b5922e] text-white"
         >
           <Plus className="mr-2 h-4 w-4" /> New Lead
         </Button>
@@ -327,15 +329,15 @@ export default function Leads() {
       {/* Summary pills */}
       <div className="flex gap-3 flex-wrap flex-shrink-0">
         {([
-          { label: "Total Leads",    value: String(allLeads.length), color: GOLD,      filter: null          as "pipeline" | "won" | "closed" | null },
-          { label: "Pipeline Value", value: fmt(totalValue),          color: GOLD,      filter: "pipeline"    as const },
-          { label: "Won Value",      value: fmt(wonValue),            color: "#4ade80", filter: "won"         as const },
+          { label: "Total Leads",    value: String(allLeads.length), color: "#D4AF37",      filter: null          as "pipeline" | "won" | "closed" | null },
+          { label: "Pipeline Value", value: fmt(totalValue),          color: "#D4AF37",      filter: "pipeline"    as const },
+          { label: "Won Value",      value: fmt(wonValue),            color: "#16A34A", filter: "won"         as const },
           {
             label: "Win Rate",
             value: allLeads.filter((l) => l.stage === "won" || l.stage === "lost").length > 0
               ? `${Math.round((allLeads.filter((l) => l.stage === "won").length / allLeads.filter((l) => l.stage === "won" || l.stage === "lost").length) * 100)}%`
               : "—",
-            color: "#38bdf8",
+            color: "#0EA5E9",
             filter: "closed" as const,
           },
         ] as const).map((s) => {
@@ -344,24 +346,22 @@ export default function Leads() {
             <button
               key={s.label}
               onClick={() => setStageGroupFilter(stageGroupFilter === s.filter ? null : s.filter)}
-              className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm transition-all hover:opacity-90 active:scale-95"
+              className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm transition-all hover:opacity-90 active:scale-95 bg-white"
               style={{
-                background: BLACK,
-                border: isActive ? `1px solid ${s.color}` : "1px solid rgba(201,168,76,0.18)",
-                boxShadow: isActive ? `0 0 0 1px ${s.color}33, 0 4px 16px ${s.color}22` : "0 4px 16px rgba(0,0,0,0.18)",
+                border: isActive ? `2px solid ${s.color}` : "2px solid rgba(212,175,55,0.20)",
+                boxShadow: isActive ? `0 0 0 1px ${s.color}22, 0 4px 12px rgba(0,0,0,0.06)` : "0 2px 8px rgba(0,0,0,0.04)",
                 cursor: "pointer",
               }}
             >
-              <span className="font-semibold uppercase tracking-wide text-xs" style={{ color: "rgba(201,168,76,0.7)" }}>{s.label}</span>
-              <span className="font-bold text-base" style={{ color: s.color }}>{s.value}</span>
+              <span className="font-extrabold uppercase tracking-wide text-xs" style={{ color: "#D4AF37" }}>{s.label}</span>
+              <span className="font-extrabold text-base text-[#121212]">{s.value}</span>
             </button>
           );
         })}
         {stageGroupFilter !== null && (
           <button
             onClick={() => setStageGroupFilter(null)}
-            className="flex items-center gap-1.5 rounded-xl px-3 py-3 text-xs text-zinc-400 hover:text-white transition-colors"
-            style={{ background: "#1a1a1a", border: "1px solid #333" }}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-3 text-xs text-[#121212]/50 hover:text-[#121212] transition-colors bg-white border border-[#D4AF37]/20"
           >
             Clear filter
           </button>
@@ -371,7 +371,7 @@ export default function Leads() {
       {/* Kanban board */}
       {isLoading ? (
         <div className="flex items-center justify-center flex-1">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#D4AF37" }} />
         </div>
       ) : (
         <div

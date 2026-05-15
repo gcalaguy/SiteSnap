@@ -195,13 +195,15 @@ export default function Contacts() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Contacts</h1>
-          <p className="text-muted-foreground">CRM — clients, workers, subcontractors & suppliers</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+            <BookUser className="h-7 w-7" style={{ color: "#D4AF37" }} />
+            Contacts
+          </h1>
+          <p className="text-[#121212]/60 font-medium">CRM — clients, workers, subcontractors & suppliers</p>
         </div>
         <Button
           onClick={openCreate}
-          style={{ background: GOLD, color: BLACK }}
-          className="font-semibold hover:opacity-90"
+          className="font-semibold bg-[#D4AF37] hover:bg-[#b5922e] text-white"
         >
           <Plus className="mr-2 h-4 w-4" /> New Contact
         </Button>
@@ -215,25 +217,24 @@ export default function Contacts() {
           return (
             <div
               key={t}
-              className="rounded-xl p-4 flex items-center gap-3 cursor-pointer transition-all"
+              className="rounded-xl p-4 flex items-center gap-3 cursor-pointer transition-all bg-white"
               style={{
-                background: BLACK,
-                border: active ? `1.5px solid ${GOLD}` : "1.5px solid rgba(201,168,76,0.18)",
-                boxShadow: active ? `0 0 0 2px rgba(201,168,76,0.15), 0 4px 16px rgba(0,0,0,0.22)` : "0 4px 16px rgba(0,0,0,0.18)",
+                border: active ? `2px solid #D4AF37` : "2px solid rgba(212,175,55,0.20)",
+                boxShadow: active ? `0 0 0 2px rgba(212,175,55,0.10), 0 4px 12px rgba(0,0,0,0.06)` : "0 2px 8px rgba(0,0,0,0.04)",
               }}
               onClick={() => setTypeFilter(active ? "all" : t)}
             >
               <div
                 className="rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ width: 36, height: 36, background: "rgba(201,168,76,0.12)" }}
+                style={{ width: 36, height: 36, background: "rgba(212,175,55,0.12)" }}
               >
-                <User size={16} style={{ color: GOLD }} />
+                <User size={16} style={{ color: "#D4AF37" }} />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: GOLD }}>
+                <p className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "#D4AF37" }}>
                   {cfg.label}
                 </p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-extrabold text-[#121212]">
                   {typeCounts[t] ?? 0}
                 </p>
               </div>
@@ -268,22 +269,22 @@ export default function Contacts() {
       {/* Contact list */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+          <Loader2 className="h-7 w-7 animate-spin" style={{ color: "#D4AF37" }} />
         </div>
       ) : contacts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div
             className="rounded-full flex items-center justify-center mb-4"
-            style={{ width: 64, height: 64, background: `${GOLD}18` }}
+            style={{ width: 64, height: 64, background: "rgba(212,175,55,0.12)" }}
           >
-            <BookUser size={28} style={{ color: GOLD }} />
+            <BookUser size={28} style={{ color: "#D4AF37" }} />
           </div>
-          <h3 className="text-lg font-semibold mb-1">No contacts yet</h3>
-          <p className="text-sm text-muted-foreground mb-4">
+          <h3 className="text-lg font-extrabold mb-1 text-[#121212]">No contacts yet</h3>
+          <p className="text-sm text-[#121212]/60 mb-4 font-medium">
             {search || typeFilter !== "all" ? "No contacts match your filters." : "Add your first client, worker, subcontractor or supplier."}
           </p>
           {!search && typeFilter === "all" && (
-            <Button onClick={openCreate} style={{ background: GOLD, color: BLACK }} className="font-semibold">
+            <Button onClick={openCreate} className="font-semibold bg-[#D4AF37] hover:bg-[#b5922e] text-white">
               <Plus className="mr-2 h-4 w-4" /> Add Contact
             </Button>
           )}
@@ -296,13 +297,13 @@ export default function Contacts() {
               <div
                 key={c.id}
                 className="bg-white rounded-xl border p-5 flex flex-col gap-3 group hover:shadow-md transition-all"
-                style={{ borderColor: "#E5E5E5" }}
+                style={{ borderColor: "rgba(212,175,55,0.20)" }}
               >
                 {/* Top row */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
                     <div
-                      className="rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold"
+                      className="rounded-full flex items-center justify-center flex-shrink-0 text-sm font-extrabold"
                       style={{
                         width: 40,
                         height: 40,
@@ -313,16 +314,16 @@ export default function Contacts() {
                       {c.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm truncate">{c.name}</p>
+                      <p className="font-extrabold text-sm truncate text-[#121212]">{c.name}</p>
                       {c.company && (
-                        <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                        <p className="text-xs text-[#121212]/60 truncate flex items-center gap-1 font-medium">
                           <Building2 size={11} /> {c.company}
                         </p>
                       )}
                     </div>
                   </div>
                   <Badge
-                    className="flex-shrink-0 text-xs font-medium border-0"
+                    className="flex-shrink-0 text-xs font-extrabold border-0"
                     style={{ background: cfg.bg, color: cfg.color }}
                   >
                     {cfg.label}
@@ -334,7 +335,7 @@ export default function Contacts() {
                   {c.email && (
                     <a
                       href={`mailto:${c.email}`}
-                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors truncate"
+                      className="flex items-center gap-2 text-xs text-[#121212]/60 hover:text-[#121212] transition-colors truncate font-medium"
                     >
                       <Mail size={12} /> {c.email}
                     </a>
@@ -342,7 +343,7 @@ export default function Contacts() {
                   {c.phone && (
                     <a
                       href={`tel:${c.phone}`}
-                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-2 text-xs text-[#121212]/60 hover:text-[#121212] transition-colors font-medium"
                     >
                       <Phone size={12} /> {c.phone}
                     </a>
@@ -350,17 +351,17 @@ export default function Contacts() {
                 </div>
 
                 {c.notes && (
-                  <p className="text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2 line-clamp-2">
+                  <p className="text-xs text-[#121212]/60 bg-[#D4AF37]/5 rounded-md px-3 py-2 line-clamp-2 font-medium">
                     {c.notes}
                   </p>
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-1.5 mt-auto pt-1 border-t border-muted/40">
+                <div className="flex gap-1.5 mt-auto pt-1 border-t border-[#D4AF37]/10">
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="flex-1 text-xs h-7"
+                    className="flex-1 text-xs h-7 font-semibold text-[#121212]/70 hover:text-[#121212] hover:bg-[#D4AF37]/10"
                     onClick={() => openEdit(c)}
                   >
                     <Pencil size={12} className="mr-1" /> Edit
@@ -368,7 +369,7 @@ export default function Contacts() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="flex-1 text-xs h-7"
+                    className="flex-1 text-xs h-7 font-semibold text-[#121212]/70 hover:text-[#121212] hover:bg-[#D4AF37]/10"
                     onClick={() => setFilesContact({ id: c.id, name: c.name })}
                   >
                     <Paperclip size={12} className="mr-1" /> Files

@@ -300,7 +300,6 @@ export default function CalculatorsPage() {
         </div>
         <Badge variant="secondary" className="text-xs">{CALCULATORS.length} calculators</Badge>
       </div>
-
       {favCalcs.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -311,7 +310,6 @@ export default function CalculatorsPage() {
           </div>
         </div>
       )}
-
       {recentCalcs.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -322,7 +320,6 @@ export default function CalculatorsPage() {
           </div>
         </div>
       )}
-
       <div>
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">All Calculators</h2>
         <div className="flex flex-wrap gap-2 mb-5">
@@ -330,7 +327,7 @@ export default function CalculatorsPage() {
             <button
               key={cat}
               onClick={() => setCategory(cat)}
-              className="px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+              className="px-3 py-1.5 rounded-full text-sm font-medium transition-all text-[#ffffff8c]"
               style={
                 category === cat
                   ? { background: GOLD, color: BLACK }
@@ -357,7 +354,7 @@ function CalcCard({ calc, onOpen, isFav }: { calc: CalcDef; onOpen: (c: CalcDef)
   return (
     <button
       onClick={() => onOpen(calc)}
-      className="group relative text-left rounded-2xl transition-all p-4 space-y-2 bg-[#111111] text-[#121212] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-[#D4AF37]/20 hover:border-[#D4AF37] shadow-[0_4px_16px_rgba(0,0,0,0.18)]"
+      className="group relative text-left rounded-2xl transition-all p-4 space-y-2 bg-[#111111] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-[#D4AF37]/20 hover:border-[#D4AF37] shadow-[0_4px_16px_rgba(0,0,0,0.18)] text-[#fff5f5]"
     >
       {isFav && (
         <Star className="absolute top-3 right-3 h-3.5 w-3.5 text-yellow-400" fill="currentColor" />
@@ -366,7 +363,7 @@ function CalcCard({ calc, onOpen, isFav }: { calc: CalcDef; onOpen: (c: CalcDef)
         <Icon className="h-4 w-4" style={{ color: GOLD }} />
       </div>
       <div>
-        <p className="text-sm leading-tight text-[#121212] font-extrabold">{calc.name}</p>
+        <p className="text-sm leading-tight font-extrabold text-[#fff5f5]">{calc.name}</p>
         <p className="text-xs mt-0.5 leading-snug line-clamp-2 text-[#121212]" style={{ color: "rgba(255,255,255,0.45)" }}>{calc.description}</p>
       </div>
       <Badge variant="outline" className="text-xs border-0 px-2 py-0.5 text-[#d4af37] font-extrabold" style={{ background: "rgba(201,168,76,0.12)" }}>
