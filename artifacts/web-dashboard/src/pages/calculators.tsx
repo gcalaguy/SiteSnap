@@ -354,7 +354,7 @@ function CalcCard({ calc, onOpen, isFav }: { calc: CalcDef; onOpen: (c: CalcDef)
   return (
     <button
       onClick={() => onOpen(calc)}
-      className="group relative text-left rounded-2xl transition-all p-4 space-y-2 bg-[#111111] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-[#D4AF37]/20 hover:border-[#D4AF37] shadow-[0_4px_16px_rgba(0,0,0,0.18)] text-[#fff5f5]"
+      className="group relative text-left rounded-2xl transition-all p-4 space-y-2 border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] bg-[#111111] border-[#D4AF37]/20 hover:border-[#D4AF37] shadow-[0_4px_16px_rgba(0,0,0,0.18)] text-[#fff5f5]"
     >
       {isFav && (
         <Star className="absolute top-3 right-3 h-3.5 w-3.5 text-yellow-400" fill="currentColor" />
