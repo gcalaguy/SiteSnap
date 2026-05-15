@@ -349,7 +349,7 @@ function ManageTab() {
           <p className="mt-1 text-sm text-gray-500">Create enabled/disabled features and assign them to plans.</p>
         </button>
         <button className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:bg-gray-50 shadow-sm" onClick={() => setTenantOpen(true)}>
-          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs font-semibold uppercase tracking-wider text-[#D4AF37]">Tenant Administration</span></div>
+          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Tenant Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Tenants</h3>
           <p className="mt-1 text-sm text-gray-500">View tenant users, subscription state, and plan assignment.</p>
         </button>
