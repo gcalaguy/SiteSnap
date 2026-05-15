@@ -205,7 +205,7 @@ function CreateCompanyCard() {
       <div className="rounded-xl p-5 border border-gray-200 bg-white shadow-lg">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
-            <div className="flex items-center gap-2"><Gift className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs font-semibold uppercase tracking-wider text-[#D4AF37]">Share Sign-up Link</span></div>
+            <div className="flex items-center gap-2"><Gift className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Share Sign-up Link</span></div>
             <h3 className="text-lg font-semibold text-[#121212]">Invite a new subscriber</h3>
             <p className="text-sm text-gray-500 max-w-2xl">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
           </div>
