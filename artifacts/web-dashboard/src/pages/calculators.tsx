@@ -373,7 +373,7 @@ function CalcCard({ calc, onOpen, isFav }: { calc: CalcDef; onOpen: (c: CalcDef)
         <Icon className="h-4 w-4" style={{ color: GOLD }} />
       </div>
       <div>
-        <p className="font-semibold text-sm leading-tight text-[#121212]">{calc.name}</p>
+        <p className="text-sm leading-tight text-[#121212] font-extrabold">{calc.name}</p>
         <p className="text-xs mt-0.5 leading-snug line-clamp-2 text-[#121212]" style={{ color: "rgba(255,255,255,0.45)" }}>{calc.description}</p>
       </div>
       <Badge variant="outline" className="text-xs border-0 px-2 py-0.5 text-[#d4af37] font-extrabold" style={{ background: "rgba(201,168,76,0.12)" }}>
