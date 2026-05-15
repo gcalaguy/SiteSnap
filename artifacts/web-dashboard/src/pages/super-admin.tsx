@@ -108,16 +108,16 @@ function formatCAD(cents: number) {
 function planIcon(planSlug: string | undefined) {
   if (planSlug === "starter") return <Zap className="h-6 w-6 text-blue-500" />;
   if (planSlug === "pro") return <Star className="h-6 w-6 text-primary" />;
-  if (planSlug === "business" || planSlug === "enterprise") return <Crown className="h-6 w-6 text-white font-bold" />;
+  if (planSlug === "business" || planSlug === "enterprise") return <Crown className="h-6 w-6 text-gray-900 font-bold" />;
   return <CreditCard className="h-6 w-6 text-muted-foreground" />;
 }
 
 function statusBadge(status: string) {
-  if (status === "active") return <Badge className="bg-green-600 text-white font-semibold">Active</Badge>;
-  if (status === "trialing") return <Badge className="bg-blue-500 text-white font-semibold">Trial</Badge>;
-  if (status === "past_due") return <Badge className="bg-amber-500 text-white font-semibold">Past Due</Badge>;
-  if (status === "canceled") return <Badge className="bg-zinc-600 text-white font-semibold">Canceled</Badge>;
-  return <Badge className="bg-zinc-700 text-white font-semibold capitalize">{status}</Badge>;
+  if (status === "active") return <Badge className="bg-green-100 text-green-700 font-semibold">Active</Badge>;
+  if (status === "trialing") return <Badge className="bg-blue-100 text-blue-700 font-semibold">Trial</Badge>;
+  if (status === "past_due") return <Badge className="bg-amber-100 text-amber-700 font-semibold">Past Due</Badge>;
+  if (status === "canceled") return <Badge className="bg-gray-100 text-gray-600 font-semibold">Canceled</Badge>;
+  return <Badge className="bg-gray-100 text-gray-600 font-semibold capitalize">{status}</Badge>;
 }
 
 function StripePlansTab() {
@@ -132,26 +132,26 @@ function StripePlansTab() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <h2 className="text-lg font-semibold text-white">Choose a Plan</h2>
-        <div className="ml-auto flex items-center gap-1 rounded-lg p-1 bg-black">
+        <h2 className="text-lg font-semibold text-gray-900">Choose a Plan</h2>
+        <div className="ml-auto flex items-center gap-1 rounded-lg p-1 bg-white border border-gray-200">
           {(["month", "year"] as const).map((v) => (
-            <button key={v} onClick={() => setInterval(v)} className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${interval === v ? "font-semibold" : "text-zinc-400 hover:text-zinc-200"}`} style={interval === v ? { background: GOLD, color: BLACK } : undefined}>
+            <button key={v} onClick={() => setInterval(v)} className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${interval === v ? "font-semibold" : "text-gray-500 hover:text-gray-700"}`} style={interval === v ? { background: GOLD, color: BLACK } : undefined}>
               {v === "month" ? "Monthly" : "Annual"}
             </button>
           ))}
         </div>
       </div>
-      {isLoading ? <div className="h-40 rounded-xl bg-white/5 animate-pulse" /> : (
+      {isLoading ? <div className="h-40 rounded-xl bg-gray-100 animate-pulse" /> : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans.map((plan) => {
             const price = plan.prices.find((p) => p.recurring?.interval === interval);
             const planSlug = (plan.metadata.plan ?? plan.metadata.slug ?? "").replace("business", "enterprise");
             const features = (dbPlans.find((p) => p.slug === planSlug)?.featureIds ?? []).map((id) => dbFeatures.find((f) => f.id === id)?.name).filter((name): name is string => Boolean(name));
             return (
-              <Card key={plan.id} className="border-white/10 bg-black text-white">
+              <Card key={plan.id} className="border-gray-200 bg-white text-gray-900">
                 <CardHeader>
                   <div className="flex items-center gap-3">{planIcon(planSlug)}<CardTitle>{plan.name}</CardTitle></div>
-                  <CardDescription className="text-zinc-400">{plan.description}</CardDescription>
+                  <CardDescription className="text-gray-500">{plan.description}</CardDescription>
                   <div className="text-3xl font-bold">{price ? formatCAD(price.unitAmount) : "—"}</div>
                 </CardHeader>
                 <CardContent>
@@ -159,12 +159,12 @@ function StripePlansTab() {
                     const next = new Set(prev);
                     next.has(plan.id.toString()) ? next.delete(plan.id.toString()) : next.add(plan.id.toString());
                     return next;
-                  })} className="flex w-full items-center justify-between text-sm mb-2 text-zinc-300 hover:text-white">
+                  })} className="flex w-full items-center justify-between text-sm mb-2 text-gray-600 hover:text-gray-900">
                     <span>{expandedPlans.has(plan.id.toString()) ? "Hide features" : `View ${features.length} features`}</span>
                     <ChevronDown className={`h-4 w-4 transition-transform ${expandedPlans.has(plan.id.toString()) ? "rotate-180" : ""}`} />
                   </button>
-                  {expandedPlans.has(plan.id.toString()) && <div className="space-y-1">{features.map((f) => <div key={f} className="flex gap-2 text-sm text-zinc-200"><CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />{f}</div>)}</div>}
-                  <Separator className="my-3 bg-white/10" />
+                  {expandedPlans.has(plan.id.toString()) && <div className="space-y-1">{features.map((f) => <div key={f} className="flex gap-2 text-sm text-gray-600"><CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />{f}</div>)}</div>}
+                  <Separator className="my-3 bg-gray-200" />
                   <Button className="w-full" onClick={() => price && checkoutMut.mutate({ priceId: price.id })} disabled={!price || checkoutMut.isPending}>{checkoutMut.isPending ? "Redirecting…" : "Get Started"}</Button>
                 </CardContent>
               </Card>
@@ -202,49 +202,49 @@ function CreateCompanyCard() {
 
   return (
     <>
-      <div className="rounded-xl p-5 border border-white/10 bg-black shadow-lg">
+      <div className="rounded-xl p-5 border border-gray-200 bg-white shadow-lg">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
-            <div className="flex items-center gap-2"><Gift className="h-4 w-4 text-amber-400" /><span className="text-xs font-semibold uppercase tracking-wider text-amber-400">Share Sign-up Link</span></div>
-            <h3 className="text-lg font-semibold text-white">Invite a new subscriber</h3>
-            <p className="text-sm text-zinc-400 max-w-2xl">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
+            <div className="flex items-center gap-2"><Gift className="h-4 w-4 text-amber-600" /><span className="text-xs font-semibold uppercase tracking-wider text-amber-600">Share Sign-up Link</span></div>
+            <h3 className="text-lg font-semibold text-gray-900">Invite a new subscriber</h3>
+            <p className="text-sm text-gray-500 max-w-2xl">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "" }); }}>Create New Company</Button>
+            <Button variant="outline" className="border-white/20 text-gray-900 font-bold hover:bg-gray-50" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "" }); }}>Create New Company</Button>
           </div>
         </div>
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-amber-400/20 bg-zinc-950 p-6 text-white shadow-2xl">
-            <h3 className="text-lg font-semibold text-white">Create New Company</h3>
-            <p className="text-sm text-zinc-300">Enter company details. A shareable link will be generated for the owner to claim it.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-gray-900 shadow-2xl">
+            <h3 className="text-lg font-semibold text-gray-900">Create New Company</h3>
+            <p className="text-sm text-gray-500">Enter company details. A shareable link will be generated for the owner to claim it.</p>
             {createdLink ? (
               <div className="mt-4 space-y-3">
                 <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-green-400 mb-1">Shareable Link</div>
-                  <div className="break-all text-sm text-white">{createdLink}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-green-600 mb-1">Shareable Link</div>
+                  <div className="break-all text-sm text-gray-900">{createdLink}</div>
                 </div>
                 <div className="flex gap-2">
-                  <Button className="flex-1 bg-white text-black hover:bg-zinc-200" onClick={() => { navigator.clipboard.writeText(createdLink); toast({ title: "Link copied to clipboard" }); }}><Copy className="h-4 w-4 mr-2" />Copy Link</Button>
-                  <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => setOpen(false)}>Close</Button>
+                  <Button className="flex-1 bg-amber-500 text-white hover:bg-amber-600" onClick={() => { navigator.clipboard.writeText(createdLink); toast({ title: "Link copied to clipboard" }); }}><Copy className="h-4 w-4 mr-2" />Copy Link</Button>
+                  <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setOpen(false)}>Close</Button>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => { const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Hi,\n\nYour company has been created on Site Snap. Click the link below to sign up and claim ownership:\n\n${createdLink}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Send via Email</Button>
+                  <Button variant="outline" className="flex-1 border-amber-500/40 text-amber-600 hover:bg-amber-500/10" onClick={() => { const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Hi,\n\nYour company has been created on Site Snap. Click the link below to sign up and claim ownership:\n\n${createdLink}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Send via Email</Button>
                 </div>
               </div>
             ) : (
               <div className="mt-4 grid gap-3">
-                <div><Label className="text-amber-400">Company Name</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} placeholder="Acme Construction" /></div>
+                <div><Label className="text-amber-600">Company Name</Label><Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} placeholder="Acme Construction" /></div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><Label className="text-amber-400">City</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={companyForm.city} onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} placeholder="Toronto" /></div>
-                  <div><Label className="text-amber-400">Province</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={companyForm.province} onChange={(e) => setCompanyForm({ ...companyForm, province: e.target.value })} placeholder="Ontario" /></div>
+                  <div><Label className="text-amber-600">City</Label><Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={companyForm.city} onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} placeholder="Toronto" /></div>
+                  <div><Label className="text-amber-600">Province</Label><Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={companyForm.province} onChange={(e) => setCompanyForm({ ...companyForm, province: e.target.value })} placeholder="Ontario" /></div>
                 </div>
-                <div><Label className="text-amber-400">Phone</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} placeholder="(416) 555-0123" /></div>
+                <div><Label className="text-amber-600">Phone</Label><Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} placeholder="(416) 555-0123" /></div>
                 <div className="mt-2 flex justify-end gap-2">
-                  <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button className="bg-white text-black hover:bg-zinc-200" onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !companyForm.name.trim() || !companyForm.city.trim() || !companyForm.province.trim()}>{createCompany.isPending ? "Creating\u2026" : "Create & Generate Link"}</Button>
+                  <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setOpen(false)}>Cancel</Button>
+                  <Button className="bg-amber-500 text-white hover:bg-amber-600" onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !companyForm.name.trim() || !companyForm.city.trim() || !companyForm.province.trim()}>{createCompany.isPending ? "Creating\u2026" : "Create & Generate Link"}</Button>
                 </div>
               </div>
             )}
@@ -336,31 +336,31 @@ function ManageTab() {
   });
 
   return (
-    <div className="space-y-6 bg-black text-white">
+    <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
-        <button className="rounded-xl border border-amber-400/20 bg-zinc-950 p-5 text-left transition-colors hover:bg-zinc-900" onClick={() => setPlanOpen(true)}>
-          <div className="flex items-center gap-2"><DatabaseZap className="h-4 w-4 text-amber-400" /><span className="text-xs font-semibold uppercase tracking-wider text-amber-400">Plan Administration</span></div>
+        <button className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:bg-gray-50 shadow-sm" onClick={() => setPlanOpen(true)}>
+          <div className="flex items-center gap-2"><DatabaseZap className="h-4 w-4 text-amber-600" /><span className="text-xs font-semibold uppercase tracking-wider text-amber-600">Plan Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Plans</h3>
-          <p className="mt-1 text-sm text-zinc-300">Create, edit, activate, or delete plan tiers.</p>
+          <p className="mt-1 text-sm text-gray-500">Create, edit, activate, or delete plan tiers.</p>
         </button>
-        <button className="rounded-xl border border-amber-400/20 bg-zinc-950 p-5 text-left transition-colors hover:bg-zinc-900" onClick={() => setFeatureOpen(true)}>
-          <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-amber-400" /><span className="text-xs font-semibold uppercase tracking-wider text-amber-400">Feature Administration</span></div>
+        <button className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:bg-gray-50 shadow-sm" onClick={() => setFeatureOpen(true)}>
+          <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-amber-600" /><span className="text-xs font-semibold uppercase tracking-wider text-amber-600">Feature Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Features</h3>
-          <p className="mt-1 text-sm text-zinc-300">Create enabled/disabled features and assign them to plans.</p>
+          <p className="mt-1 text-sm text-gray-500">Create enabled/disabled features and assign them to plans.</p>
         </button>
-        <button className="rounded-xl border border-amber-400/20 bg-zinc-950 p-5 text-left transition-colors hover:bg-zinc-900" onClick={() => setTenantOpen(true)}>
-          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-amber-400" /><span className="text-xs font-semibold uppercase tracking-wider text-amber-400">Tenant Administration</span></div>
+        <button className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:bg-gray-50 shadow-sm" onClick={() => setTenantOpen(true)}>
+          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-amber-600" /><span className="text-xs font-semibold uppercase tracking-wider text-amber-600">Tenant Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Tenants</h3>
-          <p className="mt-1 text-sm text-zinc-300">View tenant users, subscription state, and plan assignment.</p>
+          <p className="mt-1 text-sm text-gray-500">View tenant users, subscription state, and plan assignment.</p>
         </button>
       </div>
 
       <CreateCompanyCard />
 
       <Tabs defaultValue="manage" className="space-y-6">
-        <TabsList className="border border-amber-400/20 bg-zinc-950">
-          <TabsTrigger value="manage" className="text-white data-[state=active]:bg-amber-400 data-[state=active]:text-black">Manage</TabsTrigger>
-          <TabsTrigger value="billing" className="text-white data-[state=active]:bg-amber-400 data-[state=active]:text-black">Billing Plans</TabsTrigger>
+        <TabsList className="border border-gray-200 bg-white">
+          <TabsTrigger value="manage" className="text-gray-600 data-[state=active]:bg-amber-500 data-[state=active]:text-white">Manage</TabsTrigger>
+          <TabsTrigger value="billing" className="text-gray-600 data-[state=active]:bg-amber-500 data-[state=active]:text-white">Billing Plans</TabsTrigger>
         </TabsList>
         <TabsContent value="manage">
           <ManageAdminSections
@@ -464,105 +464,105 @@ function ManageTab() {
 function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, onEditTenantUser, onDeleteTenantUser, collapsed, setCollapsed }: ManageSectionsProps) {
   return (
     <div className="space-y-6">
-      <Card className="border-amber-400/20 bg-zinc-950 text-white">
+      <Card className="border-gray-200 bg-white text-gray-900">
         <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, plans: !collapsed.plans })}>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-amber-400">Plans</CardTitle>
-              <CardDescription className="text-zinc-400">Create and manage plan tiers.</CardDescription>
+              <CardTitle className="text-amber-600">Plans</CardTitle>
+              <CardDescription className="text-gray-500">Create and manage plan tiers.</CardDescription>
             </div>
-            <ChevronDown className={`h-5 w-5 text-amber-400 transition-transform ${collapsed.plans ? "" : "rotate-180"}`} />
+            <ChevronDown className={`h-5 w-5 text-amber-600 transition-transform ${collapsed.plans ? "" : "rotate-180"}`} />
           </div>
         </CardHeader>
         {!collapsed.plans && <CardContent>
           <div className="space-y-2">
             {plans.map((p) => (
-              <button key={p.id} onClick={() => onEditPlan(p)} className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-left hover:bg-white/10">
+              <button key={p.id} onClick={() => onEditPlan(p)} className="w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-left hover:bg-gray-100">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-white">{p.name}</span>
-                  <Badge className={p.isActive ? "bg-green-600 text-white" : "bg-zinc-600 text-white"}>{p.isActive ? "Enabled" : "Disabled"}</Badge>
+                  <span className="font-semibold text-gray-900">{p.name}</span>
+                  <Badge className={p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}>{p.isActive ? "Enabled" : "Disabled"}</Badge>
                 </div>
-                <div className="mt-1 text-xs text-zinc-400">{p.slug} · {p.maxSeats} seats · {p.featureIds.length} features</div>
+                <div className="mt-1 text-xs text-gray-500">{p.slug} · {p.maxSeats} seats · {p.featureIds.length} features</div>
               </button>
             ))}
-            <Button className="mt-3 bg-white text-black font-bold hover:bg-zinc-200" onClick={onOpenPlan}>New Plan</Button>
+            <Button className="mt-3 bg-amber-500 text-gray-900 font-bold hover:bg-amber-600" onClick={onOpenPlan}>New Plan</Button>
           </div>
         </CardContent>}
       </Card>
 
-      <Card className="border-amber-400/20 bg-zinc-950 text-white">
+      <Card className="border-gray-200 bg-white text-gray-900">
         <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, features: !collapsed.features })}>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-amber-400">Features</CardTitle>
-              <CardDescription className="text-zinc-400">Create feature flags and assign them to plans.</CardDescription>
+              <CardTitle className="text-amber-600">Features</CardTitle>
+              <CardDescription className="text-gray-500">Create feature flags and assign them to plans.</CardDescription>
             </div>
-            <ChevronDown className={`h-5 w-5 text-amber-400 transition-transform ${collapsed.features ? "" : "rotate-180"}`} />
+            <ChevronDown className={`h-5 w-5 text-amber-600 transition-transform ${collapsed.features ? "" : "rotate-180"}`} />
           </div>
         </CardHeader>
         {!collapsed.features && <CardContent>
           <div className="space-y-2">
             {features.map((f) => (
-              <button key={f.id} onClick={() => onEditFeature(f)} className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-left hover:bg-white/10">
+              <button key={f.id} onClick={() => onEditFeature(f)} className="w-full rounded-lg border border-gray-200 bg-white p-3 text-left hover:bg-gray-50">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-white">{f.name}</span>
-                  <Badge className={f.isEnabled ? "bg-green-600 text-white" : "bg-zinc-600 text-white"}>{f.isEnabled ? "Enabled" : "Disabled"}</Badge>
+                  <span className="font-semibold text-gray-900">{f.name}</span>
+                  <Badge className={f.isEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}>{f.isEnabled ? "Enabled" : "Disabled"}</Badge>
                 </div>
-                <div className="mt-1 text-xs text-zinc-400">{f.key}</div>
+                <div className="mt-1 text-xs text-gray-500">{f.key}</div>
               </button>
             ))}
-            <Button className="mt-3 bg-white text-black font-bold hover:bg-zinc-200" onClick={onOpenFeature}>New Feature</Button>
+            <Button className="mt-3 bg-amber-500 text-white font-bold hover:bg-amber-600" onClick={onOpenFeature}>New Feature</Button>
           </div>
         </CardContent>}
       </Card>
 
-      <Card className="border-amber-400/20 bg-zinc-950 text-white">
+      <Card className="border-gray-200 bg-white text-gray-900">
         <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, tenants: !collapsed.tenants })}>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-amber-400">Tenants</CardTitle>
-              <CardDescription className="text-zinc-400">View tenants, subscription status, and clickable user emails.</CardDescription>
+              <CardTitle className="text-amber-600">Tenants</CardTitle>
+              <CardDescription className="text-gray-500">View tenants, subscription status, and clickable user emails.</CardDescription>
             </div>
-            <ChevronDown className={`h-5 w-5 text-amber-400 transition-transform ${collapsed.tenants ? "" : "rotate-180"}`} />
+            <ChevronDown className={`h-5 w-5 text-amber-600 transition-transform ${collapsed.tenants ? "" : "rotate-180"}`} />
           </div>
         </CardHeader>
         {!collapsed.tenants && <CardContent>
           <div className="space-y-2">
             {tenants.map((t) => (
-              <button key={t.id} onClick={() => { onSelectTenant(t.id); onEditTenant(t); }} className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-left hover:bg-white/10">
+              <button key={t.id} onClick={() => { onSelectTenant(t.id); onEditTenant(t); }} className="w-full rounded-lg border border-gray-200 bg-white p-3 text-left hover:bg-gray-50">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-white">{t.name}</span>
-                  <span className="text-xs text-zinc-400">{t.userCount} users</span>
+                  <span className="font-semibold text-gray-900">{t.name}</span>
+                  <span className="text-xs text-gray-500">{t.userCount} users</span>
                 </div>
-                <div className="mt-1 text-xs text-zinc-400">{t.plan?.name ?? "No plan"} · {t.subscription?.status ?? "No subscription"}</div>
+                <div className="mt-1 text-xs text-gray-500">{t.plan?.name ?? "No plan"} · {t.subscription?.status ?? "No subscription"}</div>
               </button>
             ))}
-            <Button className="mt-3 bg-white text-black font-bold hover:bg-zinc-200" onClick={onOpenTenant}>Manage Tenant</Button>
+            <Button className="mt-3 bg-amber-500 text-white font-bold hover:bg-amber-600" onClick={onOpenTenant}>Manage Tenant</Button>
           </div>
           {tenantDetail && (
-            <div className="mt-6 rounded-lg border border-white/10 bg-white/5 p-4">
+            <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-semibold text-white">{tenantDetail.name}</div>
-                  <div className="text-xs text-zinc-400">{tenantDetail.plan?.name ?? "No plan"} · {tenantDetail.subscription?.status ?? "No subscription"}</div>
+                  <div className="font-semibold text-gray-900">{tenantDetail.name}</div>
+                  <div className="text-xs text-gray-500">{tenantDetail.plan?.name ?? "No plan"} · {tenantDetail.subscription?.status ?? "No subscription"}</div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => onEditTenant(tenantDetail)}>Edit Tenant</Button>
-                  <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => onDeleteTenant(tenantDetail)}>Delete Tenant</Button>
+                  <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => onEditTenant(tenantDetail)}>Edit Tenant</Button>
+                  <Button variant="outline" className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10" onClick={() => onDeleteTenant(tenantDetail)}>Delete Tenant</Button>
                 </div>
               </div>
               <div className="mt-4 space-y-2">
                 {tenantDetail.users.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm">
+                  <div key={u.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
                     <div className="flex items-center gap-3">
-                      <div className="text-white">{u.firstName} {u.lastName}</div>
-                      <span className="text-xs uppercase tracking-wider text-zinc-500">{u.role}</span>
+                      <div className="text-gray-900">{u.firstName} {u.lastName}</div>
+                      <span className="text-xs uppercase tracking-wider text-gray-500">{u.role}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <a className="text-amber-400 hover:text-amber-300" href={`mailto:${u.email}`}>{u.email}</a>
+                      <a className="text-amber-600 hover:text-amber-700" href={`mailto:${u.email}`}>{u.email}</a>
                       <div className="flex gap-1">
-                        <Button variant="outline" size="sm" className="border-white/20 text-white hover:bg-white/10 h-7 text-xs px-2" onClick={() => onEditTenantUser(u.id, u.role)}>Edit</Button>
-                        <Button variant="outline" size="sm" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10 h-7 text-xs px-2" onClick={() => onDeleteTenantUser(u.id)}>Delete</Button>
+                        <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 hover:bg-gray-100 h-7 text-xs px-2" onClick={() => onEditTenantUser(u.id, u.role)}>Edit</Button>
+                        <Button variant="outline" size="sm" className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10 h-7 text-xs px-2" onClick={() => onDeleteTenantUser(u.id)}>Delete</Button>
                       </div>
                     </div>
                   </div>
@@ -579,25 +579,25 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
 function PlanDialog({ open, form, featureIds, onChange, onFeatureIdsChange, onSave, onCancel, onDelete, isSaving, isDeleting }: PlanDialogState) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-amber-400/20 bg-zinc-950 p-6 text-white shadow-2xl shadow-amber-400/10">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 text-gray-900 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-white">Plan Administration</h3>
-            <p className="text-sm text-zinc-300">Create, edit, activate, or delete plan tiers.</p>
+            <h3 className="text-lg font-semibold text-gray-900">Plan Administration</h3>
+            <p className="text-sm text-gray-500">Create, edit, activate, or delete plan tiers.</p>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <div><Label className="text-amber-400">Name</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} /></div>
-          <div><Label className="text-amber-400">Slug</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={form.slug} onChange={(e) => onChange({ ...form, slug: e.target.value })} /></div>
-          <div><Label className="text-amber-400">Monthly Price</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={form.monthlyPrice} onChange={(e) => onChange({ ...form, monthlyPrice: e.target.value })} /></div>
-          <div><Label className="text-amber-400">Yearly Price</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={form.yearlyPrice} onChange={(e) => onChange({ ...form, yearlyPrice: e.target.value })} /></div>
+          <div><Label className="text-amber-600">Name</Label><Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} /></div>
+          <div><Label className="text-amber-600">Slug</Label><Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.slug} onChange={(e) => onChange({ ...form, slug: e.target.value })} /></div>
+          <div><Label className="text-amber-600">Monthly Price</Label><Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.monthlyPrice} onChange={(e) => onChange({ ...form, monthlyPrice: e.target.value })} /></div>
+          <div><Label className="text-amber-600">Yearly Price</Label><Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.yearlyPrice} onChange={(e) => onChange({ ...form, yearlyPrice: e.target.value })} /></div>
         </div>
-        <div className="mt-4"><Label className="text-amber-400">Description</Label><Textarea className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} /></div>
+        <div className="mt-4"><Label className="text-amber-600">Description</Label><Textarea className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} /></div>
         <div className="mt-4 flex justify-end gap-2">
-          {onDelete && <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={onDelete} disabled={isDeleting}>{isDeleting ? "Deleting…" : "Delete"}</Button>}
-          <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={onCancel}>Cancel</Button>
-          <Button className="bg-white text-black hover:bg-zinc-200" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
+          {onDelete && <Button variant="outline" className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10" onClick={onDelete} disabled={isDeleting}>{isDeleting ? "Deleting…" : "Delete"}</Button>}
+          <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={onCancel}>Cancel</Button>
+          <Button className="bg-amber-500 text-white hover:bg-amber-600" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
         </div>
       </div>
     </div>
@@ -607,16 +607,16 @@ function PlanDialog({ open, form, featureIds, onChange, onFeatureIdsChange, onSa
 function FeatureDialog({ open, form, onChange, onSave, onCancel, isSaving }: FeatureDialogState) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
-      <div className="w-full max-w-xl rounded-2xl border border-amber-400/20 bg-zinc-950 p-6 text-white shadow-2xl shadow-amber-400/10">
-        <h3 className="text-lg font-semibold text-white">Feature Administration</h3>
-        <p className="text-sm text-zinc-300">Create enabled/disabled features and assign them to plans.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-6 text-gray-900 shadow-2xl">
+        <h3 className="text-lg font-semibold text-gray-900">Feature Administration</h3>
+        <p className="text-sm text-gray-500">Create enabled/disabled features and assign them to plans.</p>
         <div className="mt-4 grid gap-4">
-          <div><Label className="text-amber-400">Name</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} /></div>
-          <div><Label className="text-amber-400">Key</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={form.key} onChange={(e) => onChange({ ...form, key: e.target.value })} /></div>
-          <div><Label className="text-amber-400">Description</Label><Textarea className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} /></div>
+          <div><Label className="text-amber-600">Name</Label><Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} /></div>
+          <div><Label className="text-amber-600">Key</Label><Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.key} onChange={(e) => onChange({ ...form, key: e.target.value })} /></div>
+          <div><Label className="text-amber-600">Description</Label><Textarea className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} /></div>
         </div>
-        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={onCancel}>Cancel</Button><Button className="bg-white text-black hover:bg-zinc-200" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button></div>
+        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={onCancel}>Cancel</Button><Button className="bg-amber-500 text-white hover:bg-amber-600" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button></div>
       </div>
     </div>
   );
@@ -625,20 +625,20 @@ function FeatureDialog({ open, form, onChange, onSave, onCancel, isSaving }: Fea
 function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm, plans, users, selectedUserId, onSelectedUserIdChange, onSelectedUserRoleChange, onSave, isSaving }: TenantDialogProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 pointer-events-auto">
-      <div className="w-full max-w-3xl rounded-2xl border border-amber-400/30 bg-black p-6 text-white shadow-2xl pointer-events-auto">
-        <h3 className="text-lg font-semibold text-white">Tenant Administration</h3>
-        <p className="text-sm text-zinc-400">Update tenant profile, subscription, billing cycle, and plan.</p>
-        {tenantId !== null && <p className="mt-1 text-xs uppercase tracking-wider text-amber-400">Editing tenant #{tenantId}</p>}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
+      <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 text-gray-900 shadow-2xl pointer-events-auto">
+        <h3 className="text-lg font-semibold text-gray-900">Tenant Administration</h3>
+        <p className="text-sm text-gray-500">Update tenant profile, subscription, billing cycle, and plan.</p>
+        {tenantId !== null && <p className="mt-1 text-xs uppercase tracking-wider text-amber-600">Editing tenant #{tenantId}</p>}
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           <div>
-            <Label className="text-white">Tenant Name</Label>
-            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.name} onChange={(e) => setTenantForm({ ...tenantForm, name: e.target.value })} />
+            <Label className="text-gray-900">Tenant Name</Label>
+            <Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={tenantForm.name} onChange={(e) => setTenantForm({ ...tenantForm, name: e.target.value })} />
           </div>
           <div>
-            <Label className="text-white">Plan</Label>
+            <Label className="text-gray-900">Plan</Label>
             <select
-              className="w-full rounded-md border border-amber-400/20 bg-black px-3 py-2 text-white"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900"
               value={tenantForm.planId}
               onChange={(e) => setTenantForm({ ...tenantForm, planId: e.target.value })}
             >
@@ -649,33 +649,33 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
             </select>
           </div>
           <div>
-            <Label className="text-white">Status</Label>
-            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.status} onChange={(e) => setTenantForm({ ...tenantForm, status: e.target.value })} />
+            <Label className="text-gray-900">Status</Label>
+            <Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={tenantForm.status} onChange={(e) => setTenantForm({ ...tenantForm, status: e.target.value })} />
           </div>
           <div>
-            <Label className="text-white">Billing Cycle</Label>
-            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.billingCycle} onChange={(e) => setTenantForm({ ...tenantForm, billingCycle: e.target.value })} />
+            <Label className="text-gray-900">Billing Cycle</Label>
+            <Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={tenantForm.billingCycle} onChange={(e) => setTenantForm({ ...tenantForm, billingCycle: e.target.value })} />
           </div>
           <div>
-            <Label className="text-white">User Count</Label>
-            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.userCount} onChange={(e) => setTenantForm({ ...tenantForm, userCount: e.target.value })} />
+            <Label className="text-gray-900">User Count</Label>
+            <Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={tenantForm.userCount} onChange={(e) => setTenantForm({ ...tenantForm, userCount: e.target.value })} />
           </div>
           <div>
-            <Label className="text-white">Website</Label>
-            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.website} onChange={(e) => setTenantForm({ ...tenantForm, website: e.target.value })} />
+            <Label className="text-gray-900">Website</Label>
+            <Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={tenantForm.website} onChange={(e) => setTenantForm({ ...tenantForm, website: e.target.value })} />
           </div>
           <div>
-            <Label className="text-white">Phone</Label>
-            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.phone} onChange={(e) => setTenantForm({ ...tenantForm, phone: e.target.value })} />
+            <Label className="text-gray-900">Phone</Label>
+            <Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={tenantForm.phone} onChange={(e) => setTenantForm({ ...tenantForm, phone: e.target.value })} />
           </div>
           <div>
-            <Label className="text-white">Email</Label>
-            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={tenantForm.email} onChange={(e) => setTenantForm({ ...tenantForm, email: e.target.value })} />
+            <Label className="text-gray-900">Email</Label>
+            <Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={tenantForm.email} onChange={(e) => setTenantForm({ ...tenantForm, email: e.target.value })} />
           </div>
           <div className="md:col-span-3">
-            <Label className="text-white">User</Label>
+            <Label className="text-gray-900">User</Label>
             <select
-              className="w-full rounded-md border border-amber-400/20 bg-black px-3 py-2 text-white"
+              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-gray-900"
               value={selectedUserId}
               onChange={(e) => onSelectedUserIdChange(e.target.value)}
             >
@@ -686,9 +686,9 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
             </select>
           </div>
           <div>
-            <Label className="text-white">Role</Label>
+            <Label className="text-gray-900">Role</Label>
             <select
-              className="w-full rounded-md border border-amber-400/20 bg-black px-3 py-2 text-white"
+              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-gray-900"
               value={users?.find((user) => String(user.id) === selectedUserId)?.role ?? "worker"}
               onChange={(e) => onSelectedUserRoleChange(e.target.value)}
               disabled={!selectedUserId}
@@ -700,8 +700,8 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button className="bg-amber-400 text-black hover:bg-amber-300" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
+          <Button variant="outline" className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button className="bg-amber-500 text-white hover:bg-amber-600" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
         </div>
       </div>
     </div>
@@ -711,27 +711,27 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
 function MemberDialog({ open, onOpenChange, form, onChange, onSave, isSaving }: MemberDialogProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 pointer-events-auto">
-      <div className="w-full max-w-lg rounded-2xl border border-amber-400/30 bg-black p-6 text-white shadow-2xl pointer-events-auto">
-        <h3 className="text-lg font-semibold text-white">Edit Member</h3>
-        <p className="text-sm text-zinc-400">Update first name, last name, email, and company role.</p>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
+      <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-gray-900 shadow-2xl pointer-events-auto">
+        <h3 className="text-lg font-semibold text-gray-900">Edit Member</h3>
+        <p className="text-sm text-gray-500">Update first name, last name, email, and company role.</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
-            <Label className="text-white">First Name</Label>
-            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={form.firstName} onChange={(e) => onChange({ ...form, firstName: e.target.value })} />
+            <Label className="text-gray-900">First Name</Label>
+            <Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.firstName} onChange={(e) => onChange({ ...form, firstName: e.target.value })} />
           </div>
           <div>
-            <Label className="text-white">Last Name</Label>
-            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={form.lastName} onChange={(e) => onChange({ ...form, lastName: e.target.value })} />
+            <Label className="text-gray-900">Last Name</Label>
+            <Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.lastName} onChange={(e) => onChange({ ...form, lastName: e.target.value })} />
           </div>
           <div className="md:col-span-2">
-            <Label className="text-white">Email</Label>
-            <Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-500" value={form.email} onChange={(e) => onChange({ ...form, email: e.target.value })} />
+            <Label className="text-gray-900">Email</Label>
+            <Input className="border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-amber-500" value={form.email} onChange={(e) => onChange({ ...form, email: e.target.value })} />
           </div>
           <div className="md:col-span-2">
-            <Label className="text-white">Role</Label>
+            <Label className="text-gray-900">Role</Label>
             <select
-              className="w-full rounded-md border border-amber-400/20 bg-black px-3 py-2 text-white"
+              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-gray-900"
               value={form.role}
               onChange={(e) => onChange({ ...form, role: e.target.value })}
             >
@@ -742,7 +742,7 @@ function MemberDialog({ open, onOpenChange, form, onChange, onSave, isSaving }: 
           </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button className="bg-amber-400 text-black hover:bg-amber-300" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
         </div>
       </div>
@@ -752,15 +752,15 @@ function MemberDialog({ open, onOpenChange, form, onChange, onSave, isSaving }: 
 
 export default function SuperAdminPage() {
   return (
-    <div className="space-y-6 text-white">
+    <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white"><ShieldCheck className="h-6 w-6 text-amber-400" /> Super Admin</h1>
-        <p className="mt-1 text-sm text-zinc-400">Manage plans, features, and tenants.</p>
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-gray-900"><ShieldCheck className="h-6 w-6 text-amber-600" /> Super Admin</h1>
+        <p className="mt-1 text-sm text-gray-500">Manage plans, features, and tenants.</p>
       </div>
       <Tabs defaultValue="manage" className="space-y-6">
-        <TabsList className="border border-amber-400/20 bg-black">
-          <TabsTrigger value="manage" className="text-white data-[state=active]:bg-amber-400 data-[state=active]:text-black">Manage</TabsTrigger>
-          <TabsTrigger value="billing" className="text-white data-[state=active]:bg-amber-400 data-[state=active]:text-black">Billing Plans</TabsTrigger>
+        <TabsList className="border border-gray-200 bg-white">
+          <TabsTrigger value="manage" className="text-gray-600 data-[state=active]:bg-amber-500 data-[state=active]:text-white">Manage</TabsTrigger>
+          <TabsTrigger value="billing" className="text-gray-600 data-[state=active]:bg-amber-500 data-[state=active]:text-white">Billing Plans</TabsTrigger>
         </TabsList>
         <TabsContent value="manage"><ManageTab /></TabsContent>
         <TabsContent value="billing"><StripePlansTab /></TabsContent>
