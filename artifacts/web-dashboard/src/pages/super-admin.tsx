@@ -87,6 +87,8 @@ type ManageSectionsProps = {
   onEditFeature: (feature: Feature) => void;
   onEditTenant: (tenant: TenantRow | TenantDetail) => void;
   onDeleteTenant: (tenant: TenantRow | TenantDetail) => void;
+  onEditTenantUser: (userId: number, role: string) => void;
+  onDeleteTenantUser: (userId: number) => void;
   collapsed: { plans: boolean; features: boolean; tenants: boolean };
   setCollapsed: (value: { plans: boolean; features: boolean; tenants: boolean }) => void;
 };
@@ -302,12 +304,17 @@ function ManageTab() {
     onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
   });
   const saveTenantUserRole = useMutation({
-    mutationFn: () => customFetch(`/api/admin/users/${selectedTenantUserId}/company-role`, {
+    mutationFn: ({ userId, role, companyId }: { userId: number; role: string; companyId: number }) => customFetch(`/api/admin/users/${userId}/company-role`, {
       method: "PATCH",
-      body: JSON.stringify({ role: selectedTenantUserRole }),
+      body: JSON.stringify({ role, companyId }),
     }),
     onSuccess: () => { refresh(); setTenantDetailId((current) => current); toast({ title: "User role updated" }); },
     onError: (e: any) => toast({ title: "Role update failed", description: e.message, variant: "destructive" }),
+  });
+  const deleteTenantUser = useMutation({
+    mutationFn: ({ userId, companyId }: { userId: number; companyId: number }) => customFetch(`/api/admin/tenants/${companyId}/users/${userId}`, { method: "DELETE" }),
+    onSuccess: () => { refresh(); setTenantDetailId((current) => current); toast({ title: "User removed from tenant" }); },
+    onError: (e: any) => toast({ title: "Remove failed", description: e.message, variant: "destructive" }),
   });
   const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
 
@@ -352,6 +359,14 @@ function ManageTab() {
             onEditFeature={(f) => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "", isEnabled: f.isEnabled }); setFeatureOpen(true); }}
             onEditTenant={(t) => { setEditingTenantId(t.id); setSelectedTenantUserId(""); setSelectedTenantUserRole("worker"); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "" }); setTenantOpen(true); }}
             onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
+            onEditTenantUser={(userId, role) => {
+              if (tenantDetailId != null) saveTenantUserRole.mutate({ userId, role, companyId: tenantDetailId });
+            }}
+            onDeleteTenantUser={(userId) => {
+              if (tenantDetailId != null && confirm("Remove this user from the tenant?")) {
+                deleteTenantUser.mutate({ userId, companyId: tenantDetailId });
+              }
+            }}
             collapsed={collapsed}
             setCollapsed={setCollapsed}
           />
@@ -398,8 +413,8 @@ function ManageTab() {
         }}
         onSave={() => {
           saveTenant.mutate();
-          if (selectedTenantUserId) {
-            saveTenantUserRole.mutate();
+          if (selectedTenantUserId && editingTenantId != null) {
+            saveTenantUserRole.mutate({ userId: Number(selectedTenantUserId), role: selectedTenantUserRole, companyId: editingTenantId });
           }
         }}
         isSaving={saveTenant.isPending || saveTenantUserRole.isPending}
@@ -409,7 +424,7 @@ function ManageTab() {
   );
 }
 
-function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, collapsed, setCollapsed }: ManageSectionsProps) {
+function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, onEditTenantUser, onDeleteTenantUser, collapsed, setCollapsed }: ManageSectionsProps) {
   return (
     <div className="space-y-6">
       <Card className="border-amber-400/20 bg-zinc-950 text-white">
@@ -502,9 +517,16 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
               <div className="mt-4 space-y-2">
                 {tenantDetail.users.map((u) => (
                   <div key={u.id} className="flex items-center justify-between rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm">
-                    <div className="text-white">{u.firstName} {u.lastName}</div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-white">{u.firstName} {u.lastName}</div>
+                      <span className="text-xs uppercase tracking-wider text-zinc-500">{u.role}</span>
+                    </div>
                     <div className="flex items-center gap-3">
                       <a className="text-amber-400 hover:text-amber-300" href={`mailto:${u.email}`}>{u.email}</a>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" className="border-white/20 text-white hover:bg-white/10 h-7 text-xs px-2" onClick={() => onEditTenantUser(u.id, u.role)}>Edit</Button>
+                        <Button variant="outline" size="sm" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10 h-7 text-xs px-2" onClick={() => onDeleteTenantUser(u.id)}>Delete</Button>
+                      </div>
                     </div>
                   </div>
                 ))}

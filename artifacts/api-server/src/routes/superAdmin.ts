@@ -629,7 +629,7 @@ router.patch("/admin/users/:id/system-role", ...guard, async (req, res) => {
 // PATCH /admin/users/:id/company-role — update a user's company role (owner/foreman/worker)
 router.patch("/admin/users/:id/company-role", ...guard, async (req, res) => {
   const id = Number(req.params.id);
-  const { role } = req.body as { role: "owner" | "foreman" | "worker" };
+  const { role, companyId } = req.body as { role: "owner" | "foreman" | "worker"; companyId?: number };
   if (!["owner", "foreman", "worker"].includes(role)) {
     res.status(400).json({ error: "Invalid role. Must be owner, foreman, or worker." });
     return;
@@ -641,12 +641,56 @@ router.patch("/admin/users/:id/company-role", ...guard, async (req, res) => {
     .where(eq(usersTable.id, id))
     .limit(1);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  // Update role in all of the user's memberships
-  await db
-    .update(userMembershipsTable)
-    .set({ role })
-    .where(eq(userMembershipsTable.userId, id));
+  if (companyId) {
+    // Scoped to a specific tenant — safe for multi-tenancy
+    await db
+      .update(userMembershipsTable)
+      .set({ role })
+      .where(and(eq(userMembershipsTable.userId, id), eq(userMembershipsTable.companyId, companyId)));
+  } else {
+    // Update role in all of the user's memberships (legacy behaviour for single-tenant users)
+    await db
+      .update(userMembershipsTable)
+      .set({ role })
+      .where(eq(userMembershipsTable.userId, id));
+  }
   res.json(user);
+});
+
+// DELETE /admin/tenants/:companyId/users/:userId — remove a user from a tenant (super-admin)
+router.delete("/admin/tenants/:companyId/users/:userId", ...guard, async (req, res) => {
+  const companyId = Number(req.params.companyId);
+  const userId = Number(req.params.userId);
+
+  const [membership] = await db
+    .select()
+    .from(userMembershipsTable)
+    .where(and(eq(userMembershipsTable.userId, userId), eq(userMembershipsTable.companyId, companyId)))
+    .limit(1);
+  if (!membership) {
+    res.status(404).json({ error: "Membership not found" });
+    return;
+  }
+
+  // Remove the membership link; historical data is preserved for audit
+  await db
+    .delete(userMembershipsTable)
+    .where(and(eq(userMembershipsTable.userId, userId), eq(userMembershipsTable.companyId, companyId)));
+
+  // Clear activeCompanyId if it points to this company so the user isn't stranded
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  if (user && user.activeCompanyId === companyId) {
+    await db
+      .update(usersTable)
+      .set({ activeCompanyId: null })
+      .where(eq(usersTable.id, userId));
+  }
+
+  res.status(204).send();
 });
 
 // ── Seed Data ───────────────────────────────────────────────────────────────────
