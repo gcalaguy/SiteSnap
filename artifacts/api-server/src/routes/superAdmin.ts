@@ -11,10 +11,12 @@ import {
   projectsTable,
   insertPlanSchema,
   insertFeatureSchema,
+  insertCompanySchema,
 } from "@workspace/db";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { requireAuth, requireSuperAdmin } from "../lib/auth";
 import { getUncachableStripeClient } from "../lib/stripeClient";
+import crypto from "crypto";
 
 const router = Router();
 const guard = [requireAuth, requireSuperAdmin];
@@ -400,6 +402,28 @@ router.put("/admin/plans/:id/features", ...guard, async (req, res) => {
 });
 
 // ── Tenants ─────────────────────────────────────────────────────────────────────
+
+// POST /admin/tenants — super-admin creates a company (no owner yet)
+router.post("/admin/tenants", ...guard, async (req, res) => {
+  const raw = req.body as Record<string, unknown>;
+  if (!raw.name || typeof raw.name !== "string" || !raw.province || typeof raw.province !== "string" || !raw.city || typeof raw.city !== "string") {
+    res.status(400).json({ error: "name, province, and city are required" });
+    return;
+  }
+  const referralCode = crypto.randomBytes(4).toString("hex").toUpperCase();
+  const body = insertCompanySchema.parse({
+    name: raw.name,
+    province: raw.province,
+    city: raw.city,
+    phone: raw.phone ?? null,
+    address: raw.address ?? null,
+    website: raw.website ?? null,
+    hstNumber: raw.hstNumber ?? null,
+    referralCode,
+  });
+  const [company] = await db.insert(companiesTable).values(body).returning();
+  res.status(201).json(company);
+});
 
 // GET /admin/tenants
 router.get("/admin/tenants", ...guard, async (req, res) => {

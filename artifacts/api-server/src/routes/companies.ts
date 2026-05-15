@@ -382,4 +382,44 @@ router.get(
   },
 );
 
+// POST /companies/:companyId/claim — claim a pre-created company as owner
+router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
+  const companyId = parseInt(req.params.companyId);
+  if (isNaN(companyId)) {
+    res.status(400).json({ error: "Invalid companyId" });
+    return;
+  }
+
+  const [company] = await db
+    .select()
+    .from(companiesTable)
+    .where(eq(companiesTable.id, companyId))
+    .limit(1);
+
+  if (!company) {
+    res.status(404).json({ error: "Company not found" });
+    return;
+  }
+
+  // Verify no user is already owner of this company
+  const existingOwners = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.companyId, companyId));
+
+  if (existingOwners.length > 0) {
+    res.status(409).json({ error: "Company already claimed" });
+    return;
+  }
+
+  // Assign authenticated user as owner
+  const [updatedUser] = await db
+    .update(usersTable)
+    .set({ companyId, role: "owner" })
+    .where(eq(usersTable.id, req.userId!))
+    .returning();
+
+  res.json({ company, user: updatedUser });
+});
+
 export default router;

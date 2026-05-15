@@ -14,6 +14,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronDown,
+  Copy,
   CreditCard,
   Crown,
   DatabaseZap,
@@ -161,19 +162,86 @@ function StripePlansTab() {
           })}
         </div>
       )}
+      <CreateCompanyCard />
+    </div>
+  );
+}
+
+function CreateCompanyCard() {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [companyForm, setCompanyForm] = useState({ name: "", province: "", city: "", phone: "" });
+  const [createdLink, setCreatedLink] = useState<string | null>(null);
+  const createCompany = useMutation({
+    mutationFn: () => customFetch<{ id: number }>("/api/admin/tenants", {
+      method: "POST",
+      body: JSON.stringify({
+        name: companyForm.name.trim(),
+        province: companyForm.province.trim(),
+        city: companyForm.city.trim(),
+        phone: companyForm.phone.trim() || undefined,
+      }),
+    }),
+    onSuccess: (data) => {
+      const link = `${window.location.origin}/onboarding?companyId=${data.id}`;
+      setCreatedLink(link);
+      toast({ title: "Company created", description: "Share the link below with the new owner." });
+    },
+    onError: (err: any) => toast({ title: "Failed to create company", description: err?.message, variant: "destructive" }),
+  });
+
+  return (
+    <>
       <div className="rounded-xl p-5 border border-white/10 bg-black shadow-lg">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
             <div className="flex items-center gap-2"><Gift className="h-4 w-4 text-amber-400" /><span className="text-xs font-semibold uppercase tracking-wider text-amber-400">Share Sign-up Link</span></div>
             <h3 className="text-lg font-semibold text-white">Invite a new subscriber</h3>
-            <p className="text-sm text-zinc-400 max-w-2xl">Send this link by email or copy it to share so they can create a new company.</p>
+            <p className="text-sm text-zinc-400 max-w-2xl">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { const link = `${window.location.origin}/onboarding`; const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Hi,\n\nYou’re invited to join a new company as an owner in Site Snap.\n\nCreate your account here:\n${link}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Create New Company</Button>
+            <Button variant="outline" className="border-white/20 text-white font-bold hover:bg-white/5" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "" }); }}>Create New Company</Button>
           </div>
         </div>
       </div>
-    </div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-amber-400/20 bg-zinc-950 p-6 text-white shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">Create New Company</h3>
+            <p className="text-sm text-zinc-300">Enter company details. A shareable link will be generated for the owner to claim it.</p>
+            {createdLink ? (
+              <div className="mt-4 space-y-3">
+                <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-green-400 mb-1">Shareable Link</div>
+                  <div className="break-all text-sm text-white">{createdLink}</div>
+                </div>
+                <div className="flex gap-2">
+                  <Button className="flex-1 bg-white text-black hover:bg-zinc-200" onClick={() => { navigator.clipboard.writeText(createdLink); toast({ title: "Link copied to clipboard" }); }}><Copy className="h-4 w-4 mr-2" />Copy Link</Button>
+                  <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => setOpen(false)}>Close</Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1 border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => { const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Hi,\n\nYour company has been created on Site Snap. Click the link below to sign up and claim ownership:\n\n${createdLink}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Send via Email</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-3">
+                <div><Label className="text-amber-400">Company Name</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} placeholder="Acme Construction" /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label className="text-amber-400">City</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={companyForm.city} onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} placeholder="Toronto" /></div>
+                  <div><Label className="text-amber-400">Province</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={companyForm.province} onChange={(e) => setCompanyForm({ ...companyForm, province: e.target.value })} placeholder="Ontario" /></div>
+                </div>
+                <div><Label className="text-amber-400">Phone</Label><Input className="border-amber-400/20 bg-black text-white placeholder:text-zinc-600 focus:border-amber-400" value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} placeholder="(416) 555-0123" /></div>
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button variant="outline" className="border-white/20 text-white hover:bg-white/10" onClick={() => setOpen(false)}>Cancel</Button>
+                  <Button className="bg-white text-black hover:bg-zinc-200" onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !companyForm.name.trim() || !companyForm.city.trim() || !companyForm.province.trim()}>{createCompany.isPending ? "Creating\u2026" : "Create & Generate Link"}</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -263,18 +331,7 @@ function ManageTab() {
         </button>
       </div>
 
-      <div className="rounded-xl border border-amber-400/20 bg-zinc-950 p-5 shadow-lg shadow-amber-400/5">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2"><Gift className="h-4 w-4" style={{ color: GOLD }} /><span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Share Sign-up Link</span></div>
-            <h3 className="text-lg font-semibold text-white">Invite a new subscriber</h3>
-            <p className="max-w-2xl text-sm text-zinc-300">Send this link by email or copy it to share so they can create a new company.</p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-400/10" onClick={() => { const link = `${window.location.origin}/onboarding`; const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Use this link to set up your account and company on Site Snap:\n\n${link}`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Create New Company</Button>
-          </div>
-        </div>
-      </div>
+      <CreateCompanyCard />
 
       <Tabs defaultValue="manage" className="space-y-6">
         <TabsList className="border border-amber-400/20 bg-zinc-950">

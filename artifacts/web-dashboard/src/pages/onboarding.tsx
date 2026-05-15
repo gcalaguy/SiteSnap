@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useUser } from "@clerk/react";
-import { useCreateCompany, useAcceptInvitation, useSyncUser, useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useCreateCompany, useAcceptInvitation, useSyncUser, useGetMe, getGetMeQueryKey, customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 
@@ -25,6 +25,7 @@ const companySchema = z.object({
 
 const INVITE_TOKEN_KEY = "sitesnap_pending_invite_token";
 const PENDING_COMPANY_KEY = "sitesnap_pending_company";
+const PENDING_CLAIM_KEY = "sitesnap_pending_claim";
 
 export default function OnboardingPage() {
   const [, setLocation] = useLocation();
@@ -32,12 +33,14 @@ export default function OnboardingPage() {
   const { user: clerkUser } = useUser();
   const searchParams = new URLSearchParams(window.location.search);
   const urlToken = searchParams.get("token");
+  const urlCompanyId = searchParams.get("companyId");
   const refCode = searchParams.get("ref") ?? undefined;
 
   const resolvedToken = urlToken || sessionStorage.getItem(INVITE_TOKEN_KEY) || "";
+  const resolvedClaimCompanyId = urlCompanyId || sessionStorage.getItem(PENDING_CLAIM_KEY) || "";
 
   const { data: dbUser } = useGetMe({
-    query: { enabled: !!clerkUser },
+    query: { queryKey: getGetMeQueryKey(), enabled: !!clerkUser },
   });
   const isWorker = dbUser?.role === "worker";
 
@@ -47,6 +50,17 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (isWorker) setActiveTab("join");
   }, [isWorker]);
+
+  // Early redirect: unauthenticated user with companyId → sign-up then auto-claim
+  useEffect(() => {
+    if (clerkUser || !resolvedClaimCompanyId) return;
+    toast({
+      title: "Create your account first",
+      description: "Sign up below — you'll be automatically assigned as the company owner.",
+    });
+    setLocation("/sign-up");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerkUser, resolvedClaimCompanyId]);
 
   const createCompany = useCreateCompany();
   const acceptInvitation = useAcceptInvitation();
@@ -65,11 +79,38 @@ export default function OnboardingPage() {
   const [inviteToken, setInviteToken] = useState(resolvedToken);
 
   if (urlToken) sessionStorage.setItem(INVITE_TOKEN_KEY, urlToken);
+  if (urlCompanyId) sessionStorage.setItem(PENDING_CLAIM_KEY, urlCompanyId);
 
-  // Auto-resume pending company creation after sign-up redirect
+  // Auto-resume pending company claim after sign-up redirect
+  const autoClaimed = useRef(false);
+  useEffect(() => {
+    if (!clerkUser || autoClaimed.current) return;
+    const claimId = sessionStorage.getItem(PENDING_CLAIM_KEY);
+    if (!claimId) return;
+    autoClaimed.current = true;
+    sessionStorage.removeItem(PENDING_CLAIM_KEY);
+    // Sync user first (ensures DB user record exists), then claim
+    syncUser.mutate(
+      {
+        data: {
+          clerkUserId: clerkUser.id,
+          email: clerkUser.primaryEmailAddress?.emailAddress || "",
+          firstName: clerkUser.firstName || "",
+          lastName: clerkUser.lastName || "",
+        },
+      },
+      {
+        onSuccess: () => doClaimCompany(claimId),
+        onError: () => doClaimCompany(claimId),
+      }
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerkUser]);
+
+  // Auto-resume pending company creation after sign-up redirect (legacy self-serve flow)
   const autoSubmitted = useRef(false);
   useEffect(() => {
-    if (!clerkUser || autoSubmitted.current) return;
+    if (!clerkUser || autoSubmitted.current || autoClaimed.current) return;
     const raw = sessionStorage.getItem(PENDING_COMPANY_KEY);
     if (!raw) return;
     try {
@@ -78,7 +119,6 @@ export default function OnboardingPage() {
       setActiveTab("create");
       autoSubmitted.current = true;
       sessionStorage.removeItem(PENDING_COMPANY_KEY);
-      // Small delay so the form is visibly populated before submitting
       setTimeout(() => {
         form.handleSubmit(doCreate)();
       }, 300);
@@ -87,6 +127,22 @@ export default function OnboardingPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clerkUser]);
+
+  function doClaimCompany(companyId: string) {
+    customFetch(`/api/companies/${companyId}/claim`, { method: "POST" })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        toast({ title: "Company claimed successfully" });
+        setLocation("/dashboard");
+      })
+      .catch((err: any) => {
+        toast({
+          title: "Failed to claim company",
+          description: err?.message || "Company may already be claimed or invalid.",
+          variant: "destructive",
+        });
+      });
+  }
 
   function doCreate(values: z.infer<typeof companySchema>) {
     createCompany.mutate(
@@ -112,7 +168,6 @@ export default function OnboardingPage() {
 
   function onSubmitCreate(values: z.infer<typeof companySchema>) {
     if (!clerkUser) {
-      // Save form state and redirect to sign-up; will auto-resume on return
       sessionStorage.setItem(PENDING_COMPANY_KEY, JSON.stringify(values));
       toast({
         title: "Create your account first",
