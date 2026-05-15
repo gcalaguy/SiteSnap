@@ -465,7 +465,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Plans</CardTitle>
-              <CardDescription className="text-gray-500">Create and manage plan tiers.</CardDescription>
+              <CardDescription className="text-gray-500 font-semibold">Create and manage plan tiers.</CardDescription>
             </div>
             <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.plans ? "" : "rotate-180"}`} />
           </div>
@@ -491,7 +491,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Features</CardTitle>
-              <CardDescription className="text-gray-500">Create feature flags and assign them to plans.</CardDescription>
+              <CardDescription className="text-gray-500 font-semibold">Create feature flags and assign them to plans.</CardDescription>
             </div>
             <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.features ? "" : "rotate-180"}`} />
           </div>
@@ -517,7 +517,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Tenants</CardTitle>
-              <CardDescription className="text-gray-500">View tenants, subscription status, and clickable user emails.</CardDescription>
+              <CardDescription className="text-gray-500 font-semibold">View tenants, subscription status, and clickable user emails.</CardDescription>
             </div>
             <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.tenants ? "" : "rotate-180"}`} />
           </div>
