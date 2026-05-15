@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, useAuth, useUser } from "@clerk/clerk-expo";
-import { useGetMe, useSyncUser, getGetMeQueryKey, setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
+import { useGetMe, useSyncUser, getGetMeQueryKey, setAuthTokenGetter, setBaseUrl, setTenantIdGetter } from "@workspace/api-client-react";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import * as SplashScreen from "expo-splash-screen";
 import { TermsModal } from "@/components/TermsModal";
@@ -80,6 +80,17 @@ function RootLayoutNav() {
     query: { enabled: isLoaded && !!isSignedIn },
   });
 
+  // Phase 3: Set tenant id getter for x-tenant-id header on API requests
+  useEffect(() => {
+    const activeCompanyId = me?.activeCompanyId;
+    if (activeCompanyId != null) {
+      setTenantIdGetter(() => activeCompanyId);
+    } else {
+      setTenantIdGetter(null);
+    }
+    return () => setTenantIdGetter(null);
+  }, [me?.activeCompanyId]);
+
   const router = useRouter();
   const segments = useSegments();
 
@@ -149,7 +160,7 @@ function RootLayoutNav() {
     if (syncPending || meLoading || meFetching) return;
 
     // Phase 2: use activeCompanyId as source of truth; fallback to legacy companyId
-    const hasCompany = !!(me?.activeCompanyId ?? me?.companyId);
+    const hasCompany = !!me?.activeCompanyId;
     if (!hasCompany) {
       if (!inOnboarding) router.replace("/onboarding");
     } else if (inSignIn || inOnboarding) {

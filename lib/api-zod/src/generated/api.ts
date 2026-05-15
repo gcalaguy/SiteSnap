@@ -1189,8 +1189,7 @@ export const GetMeResponse = zod
     email: zod.string(),
     firstName: zod.string(),
     lastName: zod.string(),
-    companyId: zod.number().nullish(),
-    role: zod.enum(["owner", "foreman", "worker"]),
+    activeCompanyId: zod.number().nullish(),
     systemRole: zod
       .string()
       .nullish()
@@ -1234,6 +1233,10 @@ export const GetMeResponse = zod
         )
         .optional(),
       activeCompanyId: zod.number().nullish(),
+      role: zod
+        .enum(["owner", "foreman", "worker"])
+        .optional()
+        .describe("Computed from the active (or first available) membership"),
     }),
   );
 
@@ -1251,8 +1254,7 @@ export const SetActiveCompanyResponse = zod
     email: zod.string(),
     firstName: zod.string(),
     lastName: zod.string(),
-    companyId: zod.number().nullish(),
-    role: zod.enum(["owner", "foreman", "worker"]),
+    activeCompanyId: zod.number().nullish(),
     systemRole: zod
       .string()
       .nullish()
@@ -1296,6 +1298,10 @@ export const SetActiveCompanyResponse = zod
         )
         .optional(),
       activeCompanyId: zod.number().nullish(),
+      role: zod
+        .enum(["owner", "foreman", "worker"])
+        .optional()
+        .describe("Computed from the active (or first available) membership"),
     }),
   );
 
@@ -1309,8 +1315,7 @@ export const AcceptTermsResponse = zod
     email: zod.string(),
     firstName: zod.string(),
     lastName: zod.string(),
-    companyId: zod.number().nullish(),
-    role: zod.enum(["owner", "foreman", "worker"]),
+    activeCompanyId: zod.number().nullish(),
     systemRole: zod
       .string()
       .nullish()
@@ -1354,6 +1359,10 @@ export const AcceptTermsResponse = zod
         )
         .optional(),
       activeCompanyId: zod.number().nullish(),
+      role: zod
+        .enum(["owner", "foreman", "worker"])
+        .optional()
+        .describe("Computed from the active (or first available) membership"),
     }),
   );
 
@@ -1373,8 +1382,7 @@ export const SyncUserResponse = zod.object({
   email: zod.string(),
   firstName: zod.string(),
   lastName: zod.string(),
-  companyId: zod.number().nullish(),
-  role: zod.enum(["owner", "foreman", "worker"]),
+  activeCompanyId: zod.number().nullish(),
   systemRole: zod
     .string()
     .nullish()
@@ -1432,8 +1440,7 @@ export const ListCompanyMembersResponseItem = zod
     email: zod.string(),
     firstName: zod.string(),
     lastName: zod.string(),
-    companyId: zod.number().nullish(),
-    role: zod.enum(["owner", "foreman", "worker"]),
+    activeCompanyId: zod.number().nullish(),
     systemRole: zod
       .string()
       .nullish()
@@ -1477,6 +1484,10 @@ export const ListCompanyMembersResponseItem = zod
         )
         .optional(),
       activeCompanyId: zod.number().nullish(),
+      role: zod
+        .enum(["owner", "foreman", "worker"])
+        .optional()
+        .describe("Computed from the active (or first available) membership"),
     }),
   );
 export const ListCompanyMembersResponse = zod.array(
@@ -1510,8 +1521,7 @@ export const UpdateMemberRoleResponse = zod
     email: zod.string(),
     firstName: zod.string(),
     lastName: zod.string(),
-    companyId: zod.number().nullish(),
-    role: zod.enum(["owner", "foreman", "worker"]),
+    activeCompanyId: zod.number().nullish(),
     systemRole: zod
       .string()
       .nullish()
@@ -1555,6 +1565,10 @@ export const UpdateMemberRoleResponse = zod
         )
         .optional(),
       activeCompanyId: zod.number().nullish(),
+      role: zod
+        .enum(["owner", "foreman", "worker"])
+        .optional()
+        .describe("Computed from the active (or first available) membership"),
     }),
   );
 
@@ -1700,8 +1714,7 @@ export const AcceptInvitationResponse = zod
     email: zod.string(),
     firstName: zod.string(),
     lastName: zod.string(),
-    companyId: zod.number().nullish(),
-    role: zod.enum(["owner", "foreman", "worker"]),
+    activeCompanyId: zod.number().nullish(),
     systemRole: zod
       .string()
       .nullish()
@@ -1745,6 +1758,10 @@ export const AcceptInvitationResponse = zod
         )
         .optional(),
       activeCompanyId: zod.number().nullish(),
+      role: zod
+        .enum(["owner", "foreman", "worker"])
+        .optional()
+        .describe("Computed from the active (or first available) membership"),
     }),
   );
 
@@ -1935,8 +1952,7 @@ export const ListDailyReportsResponseItem = zod.object({
       email: zod.string(),
       firstName: zod.string(),
       lastName: zod.string(),
-      companyId: zod.number().nullish(),
-      role: zod.enum(["owner", "foreman", "worker"]),
+      activeCompanyId: zod.number().nullish(),
       systemRole: zod
         .string()
         .nullish()
@@ -1996,8 +2012,7 @@ export const GetDailyReportResponse = zod.object({
       email: zod.string(),
       firstName: zod.string(),
       lastName: zod.string(),
-      companyId: zod.number().nullish(),
-      role: zod.enum(["owner", "foreman", "worker"]),
+      activeCompanyId: zod.number().nullish(),
       systemRole: zod
         .string()
         .nullish()
@@ -2049,8 +2064,7 @@ export const UpdateDailyReportResponse = zod.object({
       email: zod.string(),
       firstName: zod.string(),
       lastName: zod.string(),
-      companyId: zod.number().nullish(),
-      role: zod.enum(["owner", "foreman", "worker"]),
+      activeCompanyId: zod.number().nullish(),
       systemRole: zod
         .string()
         .nullish()
@@ -2151,8 +2165,7 @@ export const ListRFIsResponseItem = zod.object({
       email: zod.string(),
       firstName: zod.string(),
       lastName: zod.string(),
-      companyId: zod.number().nullish(),
-      role: zod.enum(["owner", "foreman", "worker"]),
+      activeCompanyId: zod.number().nullish(),
       systemRole: zod
         .string()
         .nullish()
@@ -2210,8 +2223,7 @@ export const GetRFIResponse = zod.object({
       email: zod.string(),
       firstName: zod.string(),
       lastName: zod.string(),
-      companyId: zod.number().nullish(),
-      role: zod.enum(["owner", "foreman", "worker"]),
+      activeCompanyId: zod.number().nullish(),
       systemRole: zod
         .string()
         .nullish()
@@ -2260,8 +2272,7 @@ export const UpdateRFIResponse = zod.object({
       email: zod.string(),
       firstName: zod.string(),
       lastName: zod.string(),
-      companyId: zod.number().nullish(),
-      role: zod.enum(["owner", "foreman", "worker"]),
+      activeCompanyId: zod.number().nullish(),
       systemRole: zod
         .string()
         .nullish()

@@ -83,7 +83,7 @@ export default function ProfileScreen() {
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const isWorker = me?.role === "worker";
 
-  const activeCompanyId = me?.activeCompanyId ?? me?.companyId;
+  const activeCompanyId = me?.activeCompanyId;
   const memberships = me?.memberships ?? [];
   const hasMultipleCompanies = memberships.length > 1;
 
@@ -94,7 +94,7 @@ export default function ProfileScreen() {
       if (res && typeof res === "object" && "referralCode" in res) return res;
       return null;
     },
-    enabled: !!(me?.activeCompanyId ?? me?.companyId),
+    enabled: !!me?.activeCompanyId,
   });
 
   const handleSwitchCompany = (companyId: number) => {

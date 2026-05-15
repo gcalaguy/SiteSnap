@@ -69,9 +69,35 @@ export const requireAuth = async (
     req.companyId = fallbackMembership.companyId;
     req.userRole = fallbackMembership.role;
   } else {
-    // Phase 0 fallback: legacy columns still exist as backup
-    req.companyId = user.companyId;
-    req.userRole = user.role;
+    // No memberships at all — user is not associated with any company
+    req.log.warn({ userId: user.id }, "User has no company memberships");
+    res.status(403).json({ error: "No company association found" });
+    return;
+  }
+
+  // Phase 3: Validate x-tenant-id header if present.
+  // Clients send this header to explicitly declare which company context
+  // they intend to operate in. We verify the user actually belongs to it.
+  const headerTenantId = req.headers["x-tenant-id"];
+  if (headerTenantId != null) {
+    const tenantId = Number(headerTenantId);
+    if (!isNaN(tenantId)) {
+      const allowed = memList.some((m) => m.companyId === tenantId);
+      if (!allowed) {
+        res.status(403).json({ error: "Invalid tenant context" });
+        return;
+      }
+      // If header tenant differs from the resolved company, trust the header
+      // (the user may have just switched and the DB activeCompanyId hasn't
+      // propagated yet, or they explicitly want this context).
+      if (tenantId !== req.companyId) {
+        const headerMembership = memList.find((m) => m.companyId === tenantId);
+        if (headerMembership) {
+          req.companyId = headerMembership.companyId;
+          req.userRole = headerMembership.role;
+        }
+      }
+    }
   }
 
   next();

@@ -308,7 +308,17 @@ router.post("/invitations/:token/accept", async (req, res) => {
 
   // 3a. Idempotent: if already accepted and user is already in this company, return success
   if (invitation.status === "accepted") {
-    if (dbUser.companyId === invitation.companyId) {
+    const [existingMembership] = await db
+      .select()
+      .from(userMembershipsTable)
+      .where(
+        and(
+          eq(userMembershipsTable.userId, dbUser.id),
+          eq(userMembershipsTable.companyId, invitation.companyId),
+        ),
+      )
+      .limit(1);
+    if (existingMembership) {
       const [company] = await db
         .select()
         .from(companiesTable)
@@ -331,7 +341,7 @@ router.post("/invitations/:token/accept", async (req, res) => {
     return;
   }
 
-  // 4. Assign user to company: dual-write memberships + legacy columns (Phase 0)
+  // 4. Assign user to company: write to memberships only (Phase 4)
   await db
     .insert(userMembershipsTable)
     .values({ userId: dbUser.id, companyId: invitation.companyId, role: invitation.role, isActive: true })
@@ -341,7 +351,7 @@ router.post("/invitations/:token/accept", async (req, res) => {
     });
   await db
     .update(usersTable)
-    .set({ companyId: invitation.companyId, role: invitation.role, activeCompanyId: invitation.companyId })
+    .set({ activeCompanyId: invitation.companyId })
     .where(eq(usersTable.id, dbUser.id));
 
   // 5. Mark invitation as accepted

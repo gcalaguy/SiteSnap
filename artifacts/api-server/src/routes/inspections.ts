@@ -166,8 +166,17 @@ router.get(
   requireCompany,
   requireFeature("INSPECTIONS"),
   asyncHandler(async (req, res) => {
-    const me = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
-    const myRole = me[0]?.role;
+    const myMembership = await db
+      .select({ role: userMembershipsTable.role })
+      .from(userMembershipsTable)
+      .where(
+        and(
+          eq(userMembershipsTable.userId, req.userId!),
+          eq(userMembershipsTable.companyId, req.companyId!),
+        ),
+      )
+      .limit(1);
+    const myRole = myMembership[0]?.role;
     const isWorker = myRole === "worker";
 
     const rows = await db

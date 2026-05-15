@@ -453,8 +453,8 @@ export default function DashboardScreen() {
   const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useGetDashboardSummary();
   const { data: activity, isLoading: activityLoading, refetch: refetchActivity } = useGetRecentActivity();
   const { data: projects, isLoading: projectsLoading, refetch: refetchProjects } = useListProjects();
-  const { data: members } = useListCompanyMembers(me?.companyId ?? 0, {
-    query: { enabled: !!me?.companyId },
+  const { data: members } = useListCompanyMembers(me?.activeCompanyId ?? 0, {
+    query: { enabled: !!me?.activeCompanyId },
   });
 
   const { data: unreadData } = useQuery<{ count: number }>({

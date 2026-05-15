@@ -86,10 +86,6 @@ export const usersTable = pgTable("users", {
   email: text("email").notNull().unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  // DEPRECATED: use user_memberships table instead. Kept for Phase 0 migration.
-  companyId: integer("company_id").references(() => companiesTable.id),
-  // DEPRECATED: use user_memberships table instead. Kept for Phase 0 migration.
-  role: userRoleEnum("role").notNull().default("worker"),
   activeCompanyId: integer("active_company_id").references(() => companiesTable.id),
   systemRole: text("system_role"), // null = regular user, 'super_admin' = global admin
   pushToken: text("push_token"),

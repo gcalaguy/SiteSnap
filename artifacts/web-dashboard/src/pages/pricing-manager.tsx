@@ -1151,7 +1151,7 @@ export function PricingSettingsBody() {
   const addons: AddonRecord[] = data?.addons ?? [];
   const projectTypes: Record<string, string> = data?.projectTypes ?? DEFAULT_PROJECT_TYPE_LABELS;
   const { data: me } = useGetMe();
-  const companyId = me?.companyId;
+  const companyId = me?.activeCompanyId;
 
   return (
     <div className="space-y-4">

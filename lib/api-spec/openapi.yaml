@@ -3331,11 +3331,9 @@ components:
           type: string
         lastName:
           type: string
-        companyId:
+        activeCompanyId:
           type: integer
           nullable: true
-        role:
-          $ref: "#/components/schemas/UserRole"
         systemRole:
           type: string
           nullable: true
@@ -3347,7 +3345,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, clerkUserId, email, firstName, lastName, role, createdAt]
+      required: [id, clerkUserId, email, firstName, lastName, createdAt]
 
     UserMembership:
       type: object
@@ -3383,6 +3381,9 @@ components:
             activeCompanyId:
               type: integer
               nullable: true
+            role:
+              $ref: "#/components/schemas/UserRole"
+              description: "Computed from the active (or first available) membership"   
 
     UserRole:
       type: string

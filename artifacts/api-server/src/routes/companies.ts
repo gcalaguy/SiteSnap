@@ -40,14 +40,14 @@ router.post("/companies", requireAuth, async (req, res) => {
     .values({ ...parsed.data, referralCode, referredByCode })
     .returning();
 
-  // Assign requester as owner: dual-write to memberships + legacy columns (Phase 0)
+  // Assign requester as owner: write to memberships only (Phase 4)
   await db
     .insert(userMembershipsTable)
     .values({ userId: req.userId!, companyId: company.id, role: "owner", isActive: true })
     .onConflictDoNothing();
   await db
     .update(usersTable)
-    .set({ companyId: company.id, role: "owner", activeCompanyId: company.id })
+    .set({ activeCompanyId: company.id })
     .where(eq(usersTable.id, req.userId!));
 
   res.status(201).json(company);
@@ -338,10 +338,10 @@ router.patch(
         ),
       );
     const [updated] = await db
-      .update(usersTable)
-      .set({ role: parsed.data.role })
+      .select()
+      .from(usersTable)
       .where(eq(usersTable.id, targetUserId))
-      .returning();
+      .limit(1);
 
     res.json({ ...updated, company: null });
   },
@@ -431,14 +431,14 @@ router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
     return;
   }
 
-  // Assign authenticated user as owner: dual-write to memberships + legacy columns
+  // Assign authenticated user as owner: write to memberships only (Phase 4)
   await db
     .insert(userMembershipsTable)
     .values({ userId: req.userId!, companyId, role: "owner", isActive: true })
     .onConflictDoNothing();
   const [updatedUser] = await db
     .update(usersTable)
-    .set({ companyId, role: "owner", activeCompanyId: companyId })
+    .set({ activeCompanyId: companyId })
     .where(eq(usersTable.id, req.userId!))
     .returning();
 

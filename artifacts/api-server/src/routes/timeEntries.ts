@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, timeEntriesTable, projectsTable, usersTable, timesheetsTable } from "@workspace/db";
+import { db, timeEntriesTable, projectsTable, usersTable, timesheetsTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { z } from "zod";
@@ -95,11 +95,18 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
         firstName: usersTable.firstName,
         lastName: usersTable.lastName,
         email: usersTable.email,
-        role: usersTable.role,
+        role: userMembershipsTable.role,
       },
     })
     .from(timeEntriesTable)
     .leftJoin(usersTable, eq(timeEntriesTable.userId, usersTable.id))
+    .leftJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, timeEntriesTable.userId),
+        eq(userMembershipsTable.companyId, req.companyId!),
+      ),
+    )
     .where(where)
     .orderBy(desc(timeEntriesTable.date), desc(timeEntriesTable.createdAt));
 
@@ -134,8 +141,24 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
   await syncTimesheetFromEntries(req.companyId!, req.userId!, getMonday(parsed.data.date), projectId);
 
   // Attach user info to response
-  const [user] = await db.select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email, role: usersTable.role })
-    .from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
+  const [user] = await db
+    .select({
+      id: usersTable.id,
+      firstName: usersTable.firstName,
+      lastName: usersTable.lastName,
+      email: usersTable.email,
+      role: userMembershipsTable.role,
+    })
+    .from(usersTable)
+    .leftJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, req.companyId!),
+      ),
+    )
+    .where(eq(usersTable.id, req.userId!))
+    .limit(1);
 
   res.status(201).json({ ...entry, user });
 });
@@ -190,8 +213,23 @@ router.patch("/:entryId", requireAuth, requireCompany, async (req, res) => {
   }
 
   const [user] = await db
-    .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email, role: usersTable.role })
-    .from(usersTable).where(eq(usersTable.id, updated.userId)).limit(1);
+    .select({
+      id: usersTable.id,
+      firstName: usersTable.firstName,
+      lastName: usersTable.lastName,
+      email: usersTable.email,
+      role: userMembershipsTable.role,
+    })
+    .from(usersTable)
+    .leftJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, req.companyId!),
+      ),
+    )
+    .where(eq(usersTable.id, updated.userId))
+    .limit(1);
 
   res.json({ ...updated, user });
 });

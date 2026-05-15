@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, timeEntriesTable, projectsTable, usersTable } from "@workspace/db";
+import { db, timeEntriesTable, projectsTable, usersTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 
@@ -32,7 +32,7 @@ router.get("/time-entries", requireAuth, requireCompany, requireOwnerOrForeman, 
         firstName: usersTable.firstName,
         lastName: usersTable.lastName,
         email: usersTable.email,
-        role: usersTable.role,
+        role: userMembershipsTable.role,
       },
       project: {
         id: projectsTable.id,
@@ -41,6 +41,13 @@ router.get("/time-entries", requireAuth, requireCompany, requireOwnerOrForeman, 
     })
     .from(timeEntriesTable)
     .leftJoin(usersTable, eq(timeEntriesTable.userId, usersTable.id))
+    .leftJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, timeEntriesTable.userId),
+        eq(userMembershipsTable.companyId, req.companyId!),
+      ),
+    )
     .leftJoin(projectsTable, eq(timeEntriesTable.projectId, projectsTable.id))
     .where(and(...conditions))
     .orderBy(desc(timeEntriesTable.date), desc(timeEntriesTable.createdAt));

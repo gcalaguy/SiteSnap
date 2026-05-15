@@ -7,7 +7,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setTenantIdGetter, useGetMe } from "@workspace/api-client-react";
 
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
@@ -171,6 +171,22 @@ function ClerkAuthTokenSetter() {
   return null;
 }
 
+function TenantIdSetter() {
+  const { data: me } = useGetMe();
+  const activeCompanyId = me?.activeCompanyId;
+
+  useLayoutEffect(() => {
+    if (activeCompanyId != null) {
+      setTenantIdGetter(() => activeCompanyId);
+    } else {
+      setTenantIdGetter(null);
+    }
+    return () => setTenantIdGetter(null);
+  }, [activeCompanyId]);
+
+  return null;
+}
+
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const queryClient = useQueryClient();
@@ -320,6 +336,7 @@ function ClerkProviderWithRoutes() {
     >
       <QueryClientProvider client={queryClient}>
         <ClerkAuthTokenSetter />
+        <TenantIdSetter />
         <ClerkQueryClientCacheInvalidator />
         <Switch>
           <Route path="/" component={HomeRedirect} />

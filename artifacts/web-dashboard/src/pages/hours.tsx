@@ -88,8 +88,8 @@ export default function HoursPage() {
   const { data: me } = useGetMe();
   const { data: projects } = useListProjects();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: members } = useListCompanyMembers(me?.companyId ?? 0, {
-    query: { enabled: !!me?.companyId } as any,
+  const { data: members } = useListCompanyMembers(me?.activeCompanyId ?? 0, {
+    query: { enabled: !!me?.activeCompanyId } as any,
   });
 
   const [range, setRange] = useState("this_week");

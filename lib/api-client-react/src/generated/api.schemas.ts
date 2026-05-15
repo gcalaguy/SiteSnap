@@ -101,8 +101,7 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  companyId?: number | null;
-  role: UserRole;
+  activeCompanyId?: number | null;
   /** 'super_admin' for global admins, null for regular users */
   systemRole?: string | null;
   termsAcceptedAt?: string | null;
@@ -145,6 +144,8 @@ export type UserWithCompany = User & {
   company?: Company | null;
   memberships?: UserMembership[];
   activeCompanyId?: number | null;
+  /** Computed from the active (or first available) membership */
+  role?: UserRole;
 };
 
 export interface SyncUserBody {

@@ -20,14 +20,14 @@ async function autoAcceptPendingInvitation(userId: number, email: string) {
     )
     .limit(1);
   if (!invite) return null;
-  // Phase 0: insert into memberships + update legacy columns + set active company
+  // Phase 4: write only to memberships; legacy columns removed
   await db
     .insert(userMembershipsTable)
     .values({ userId, companyId: invite.companyId, role: invite.role, isActive: true })
     .onConflictDoNothing();
   await db
     .update(usersTable)
-    .set({ companyId: invite.companyId, role: invite.role, activeCompanyId: invite.companyId })
+    .set({ activeCompanyId: invite.companyId })
     .where(eq(usersTable.id, userId));
   await db
     .update(invitationsTable)
@@ -64,8 +64,13 @@ router.post("/users/sync", async (req, res) => {
       .set(updates)
       .where(eq(usersTable.clerkUserId, clerkUserId))
       .returning();
-    // Auto-accept any pending invitation for this email if user has no company yet
-    if (updated && !updated.companyId) {
+    // Auto-accept any pending invitation for this email if user has no memberships yet
+    const hasMemberships = await db
+      .select({ userId: userMembershipsTable.userId })
+      .from(userMembershipsTable)
+      .where(eq(userMembershipsTable.userId, updated.id))
+      .limit(1);
+    if (updated && hasMemberships.length === 0) {
       await autoAcceptPendingInvitation(updated.id, updated.email);
       const [refreshed] = await db
         .select()
@@ -129,11 +134,18 @@ router.get("/users/me", requireAuth, async (req, res) => {
     company = c ?? null;
   }
 
+  // Compute effective role from the active (or first available) membership
+  const activeMembership = activeCompanyId
+    ? memberships.find((m) => m.companyId === activeCompanyId)
+    : memberships[0] ?? null;
+  const role = activeMembership?.role ?? "worker";
+
   res.json({
     ...user,
     company,
     memberships,
     activeCompanyId,
+    role,
   });
 });
 
