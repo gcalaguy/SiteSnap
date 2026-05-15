@@ -377,6 +377,23 @@ router.patch(
       return;
     }
 
+    // Verify target user is a member of this company (tenant scoping)
+    const membership = await db
+      .select()
+      .from(userMembershipsTable)
+      .where(
+        and(
+          eq(userMembershipsTable.userId, targetUserId),
+          eq(userMembershipsTable.companyId, companyId),
+        ),
+      )
+      .limit(1);
+
+    if (membership.length === 0) {
+      res.status(404).json({ error: "Member not found in this company" });
+      return;
+    }
+
     const { firstName, lastName } = req.body;
     if (typeof firstName !== "string" || typeof lastName !== "string") {
       res.status(400).json({ error: "firstName and lastName are required" });

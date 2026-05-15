@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   UserPlus, Loader2, MoreHorizontal, Mail, Copy, Check,
-  Link2, Pencil, Trash2, AlertTriangle,
+  Link2, Pencil, Trash2, AlertTriangle, Users,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
