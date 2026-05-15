@@ -207,14 +207,13 @@ function CreateCompanyCard() {
           <div className="space-y-1">
             <div className="flex items-center gap-2"><Gift className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Share Sign-up Link</span></div>
             <h3 className="text-lg font-semibold text-[#121212]">Invite a new subscriber</h3>
-            <p className="text-sm text-gray-500 max-w-2xl">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
+            <p className="text-sm text-gray-500 max-w-2xl font-semibold">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" className="border-white/20 text-[#121212] font-bold hover:bg-gray-50 bg-[#d4af37]" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "" }); }}>Create New Company</Button>
           </div>
         </div>
       </div>
-
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
@@ -465,7 +464,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
         <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, plans: !collapsed.plans })}>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-[#D4AF37]">Plans</CardTitle>
+              <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Plans</CardTitle>
               <CardDescription className="text-gray-500">Create and manage plan tiers.</CardDescription>
             </div>
             <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.plans ? "" : "rotate-180"}`} />
@@ -491,7 +490,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
         <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, features: !collapsed.features })}>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-[#D4AF37]">Features</CardTitle>
+              <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Features</CardTitle>
               <CardDescription className="text-gray-500">Create feature flags and assign them to plans.</CardDescription>
             </div>
             <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.features ? "" : "rotate-180"}`} />
@@ -517,7 +516,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
         <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, tenants: !collapsed.tenants })}>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-[#D4AF37]">Tenants</CardTitle>
+              <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Tenants</CardTitle>
               <CardDescription className="text-gray-500">View tenants, subscription status, and clickable user emails.</CardDescription>
             </div>
             <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.tenants ? "" : "rotate-180"}`} />
