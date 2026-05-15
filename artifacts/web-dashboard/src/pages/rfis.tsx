@@ -61,14 +61,17 @@ export default function RFIsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">RFIs</h1>
-        <p className="text-muted-foreground">All Requests for Information across your projects.</p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+          <MessageSquareWarning className="h-6 w-6" style={{ color: "#D4AF37" }} />
+          RFIs
+        </h1>
+        <p className="text-sm text-[#121212]/60 font-medium">All Requests for Information across your projects.</p>
       </div>
 
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#D4AF37]" />
         <Input
-          className="pl-9"
+          className="pl-9 border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
           placeholder="Search RFIs…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -76,23 +79,23 @@ export default function RFIsPage() {
       </div>
 
       {isLoading ? (
-        <div className="py-16 text-center text-muted-foreground animate-pulse">Loading RFIs…</div>
+        <div className="py-16 text-center text-[#121212]/60 animate-pulse font-medium">Loading RFIs…</div>
       ) : sorted.length === 0 ? (
-        <Card>
+        <Card className="border-[#D4AF37]/20">
           <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
-            <MessageSquareWarning className="h-10 w-10 text-muted-foreground/40" />
-            <p className="text-muted-foreground">{search ? "No RFIs match your search." : "No RFIs yet. Submit one from a project."}</p>
+            <MessageSquareWarning className="h-10 w-10 text-[#D4AF37]/40" />
+            <p className="text-[#121212]/60 font-medium">{search ? "No RFIs match your search." : "No RFIs yet. Submit one from a project."}</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
           {sorted.map((rfi) => (
-            <Card key={rfi.id} className="hover:border-primary/40 transition-colors">
+            <Card key={rfi.id} className="hover:border-[#D4AF37]/40 transition-colors border-[#D4AF37]/20">
               <CardContent className="py-4 px-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-xs font-mono text-muted-foreground">{rfi.rfiNumber}</span>
+                      <span className="text-xs font-mono text-[#121212]/50">{rfi.rfiNumber}</span>
                       <Badge variant="outline" className={`text-xs ${statusColor[rfi.status] ?? ""}`}>
                         {rfi.status.replace("_", " ")}
                       </Badge>
@@ -100,10 +103,10 @@ export default function RFIsPage() {
                         {rfi.priority}
                       </Badge>
                     </div>
-                    <p className="font-semibold text-sm truncate">{rfi.subject}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="font-semibold text-sm truncate text-[#121212]">{rfi.subject}</p>
+                    <p className="text-xs text-[#121212]/60 mt-1 font-medium">
                       {rfi.projectName && (
-                        <span className="font-medium text-foreground">{rfi.projectName} · </span>
+                        <span className="font-semibold text-[#121212]">{rfi.projectName} · </span>
                       )}
                       Submitted by {rfi.submittedByName} · {format(new Date(rfi.createdAt), "MMM d, yyyy")}
                       {rfi.dueDate && ` · Due ${format(new Date(rfi.dueDate), "MMM d, yyyy")}`}
@@ -111,7 +114,7 @@ export default function RFIsPage() {
                   </div>
                   <Link
                     href={`/projects/${rfi.projectId}`}
-                    className="shrink-0 flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                    className="shrink-0 flex items-center gap-1 text-xs text-[#D4AF37] hover:underline mt-1 font-medium"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ExternalLink className="h-3.5 w-3.5" />

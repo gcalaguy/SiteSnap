@@ -325,20 +325,23 @@ function FinancialsInner() {
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Financials</h1>
-          <p className="text-muted-foreground text-sm">Payments, change orders, and revenue tracking</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+            <DollarSign className="h-6 w-6" style={{ color: "#D4AF37" }} />
+            Financials
+          </h1>
+          <p className="text-sm text-[#121212]/60 font-medium">Payments, change orders, and revenue tracking</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => { loadSummary(); loadPayments(); loadChangeOrders(); }}>
-            <RefreshCw size={14} className="mr-1" /> Refresh
+          <Button variant="outline" size="sm" onClick={() => { loadSummary(); loadPayments(); loadChangeOrders(); }} className="border-[#D4AF37]/20 hover:border-[#D4AF37]/40">
+            <RefreshCw size={14} className="mr-1" style={{ color: "#D4AF37" }} /> Refresh
           </Button>
           {tab === "payments" && (
-            <Button onClick={() => setRecordPaymentOpen(true)} style={{ background: GOLD, color: BLACK }} className="font-semibold">
+            <Button onClick={() => setRecordPaymentOpen(true)} className="font-semibold bg-[#D4AF37] text-white hover:bg-[#b5922e]">
               <Plus className="mr-2 h-4 w-4" /> Record Payment
             </Button>
           )}
           {tab === "change-orders" && (
-            <Button onClick={() => setCreateCOOpen(true)} style={{ background: GOLD, color: BLACK }} className="font-semibold">
+            <Button onClick={() => setCreateCOOpen(true)} className="font-semibold bg-[#D4AF37] text-white hover:bg-[#b5922e]">
               <Plus className="mr-2 h-4 w-4" /> Change Order
             </Button>
           )}
@@ -350,30 +353,29 @@ function FinancialsInner() {
         {summaryLoading ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
         ) : ([
-          { label: "Outstanding", value: summary?.outstanding, icon: TrendingDown, color: "#F59E0B", note: `${summary?.invoiceCount ?? 0} invoices`,   targetTab: "payments"      as const },
+          { label: "Outstanding", value: summary?.outstanding, icon: TrendingDown, color: "#D4AF37", note: `${summary?.invoiceCount ?? 0} invoices`,   targetTab: "payments"      as const },
           { label: "Overdue",     value: summary?.overdue,     icon: AlertCircle,  color: "#EF4444", note: "needs attention",                           targetTab: "payments"      as const },
           { label: "Collected",   value: summary?.collected,   icon: TrendingUp,   color: "#22C55E", note: "fully paid invoices",                       targetTab: "payments"      as const },
-          { label: "Pending COs", value: summary?.pendingChangeOrders !== undefined ? String(summary.pendingChangeOrders) : "0", icon: ClipboardList, color: GOLD, note: `+${cad(summary?.approvedChangeOrdersValue)} approved`, isCnt: true, targetTab: "change-orders" as const },
+          { label: "Pending COs", value: summary?.pendingChangeOrders !== undefined ? String(summary.pendingChangeOrders) : "0", icon: ClipboardList, color: "#D4AF37", note: `+${cad(summary?.approvedChangeOrdersValue)} approved`, isCnt: true, targetTab: "change-orders" as const },
         ].map(({ label, value, icon: Icon, color, note, isCnt, targetTab }) => {
           const isActive = tab === targetTab;
           return (
             <button
               key={label}
               onClick={() => setTab(targetTab)}
-              className="rounded-xl p-4 space-y-1 text-left w-full transition-all hover:opacity-90 active:scale-[0.98]"
+              className="rounded-xl p-4 space-y-1 text-left w-full transition-all hover:opacity-90 active:scale-[0.98] bg-white"
               style={{
-                background: BLACK,
-                border: `1px solid ${isActive ? color : "#222"}`,
-                boxShadow: isActive ? `0 0 0 1px ${color}33, 0 4px 16px ${color}22` : undefined,
+                border: `2px solid ${isActive ? color : "rgba(212,175,55,0.20)"}`,
+                boxShadow: isActive ? `0 0 0 1px ${color}22, 0 4px 12px rgba(0,0,0,0.06)` : "0 2px 8px rgba(0,0,0,0.04)",
                 cursor: "pointer",
               }}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>{label}</span>
+                <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color }}>{label}</span>
                 <Icon size={14} style={{ color }} />
               </div>
-              <p className="text-2xl font-bold text-white">{isCnt ? value : cad(value)}</p>
-              <p className="text-xs" style={{ color: "#666" }}>{note}</p>
+              <p className="text-2xl font-extrabold text-[#121212]">{isCnt ? value : cad(value)}</p>
+              <p className="text-xs font-medium" style={{ color: "#888888" }}>{note}</p>
             </button>
           );
         }))}
@@ -381,10 +383,10 @@ function FinancialsInner() {
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="flex-shrink-0 w-fit">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="change-orders">Change Orders</TabsTrigger>
+        <TabsList className="flex-shrink-0 w-fit bg-white border border-[#D4AF37]/20">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white">Overview</TabsTrigger>
+          <TabsTrigger value="payments" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white">Payments</TabsTrigger>
+          <TabsTrigger value="change-orders" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white">Change Orders</TabsTrigger>
         </TabsList>
 
         {/* ── Overview Tab ── */}

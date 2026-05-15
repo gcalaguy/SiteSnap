@@ -241,13 +241,16 @@ export default function Team() {
       {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Team Members</h1>
-          <p className="text-muted-foreground">Manage your crew and their access levels.</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+            <Users className="h-6 w-6" style={{ color: "#D4AF37" }} />
+            Team Members
+          </h1>
+          <p className="text-sm text-[#121212]/60 font-medium">Manage your crew and their access levels.</p>
         </div>
         {isOwner && (
           <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e] font-semibold">
                 <UserPlus className="mr-2 h-4 w-4" />
                 Invite Member
               </Button>

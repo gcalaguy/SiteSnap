@@ -194,8 +194,11 @@ export default function HoursPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Hours Tracker</h1>
-        <p className="text-muted-foreground text-sm mt-1">Company-wide time entries across all projects</p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+          <Clock className="h-6 w-6" style={{ color: "#D4AF37" }} />
+          Hours Tracker
+        </h1>
+        <p className="text-sm text-[#121212]/60 font-medium mt-1">Company-wide time entries across all projects</p>
       </div>
 
       {/* Filter bar */}
@@ -333,35 +336,35 @@ export default function HoursPage() {
         <div className="space-y-4">
           {/* Worker identity header */}
           <div
-            className="rounded-xl p-5"
-            style={{ background: BLACK, border: `1px solid rgba(201,168,76,0.25)`, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}
+            className="rounded-xl p-5 bg-white"
+            style={{ border: `2px solid rgba(212,175,55,0.20)`, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
           >
             <div className="flex items-center gap-4 flex-wrap">
-              <Avatar className="h-14 w-14 border-2" style={{ borderColor: GOLD }}>
-                <AvatarFallback className="text-lg font-bold" style={{ background: "rgba(201,168,76,0.12)", color: GOLD }}>
+              <Avatar className="h-14 w-14 border-2" style={{ borderColor: "#D4AF37" }}>
+                <AvatarFallback className="text-lg font-extrabold" style={{ background: "rgba(212,175,55,0.12)", color: "#D4AF37" }}>
                   {initials(selectedMember)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-bold text-white">{displayName(selectedMember)}</h2>
-                <p className="text-sm capitalize" style={{ color: "rgba(255,255,255,0.45)" }}>
+                <h2 className="text-xl font-extrabold text-[#121212]">{displayName(selectedMember)}</h2>
+                <p className="text-sm capitalize font-medium" style={{ color: "#888888" }}>
                   {selectedMember.role} · {selectedMember.email}
                 </p>
               </div>
               <div className="flex gap-6 text-center">
                 <div>
-                  <p className="text-2xl font-bold" style={{ color: GOLD }}>{selectedWorker.hours.toFixed(1)}h</p>
-                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>{formatRangeLabel(range, from, to)}</p>
+                  <p className="text-2xl font-extrabold" style={{ color: "#D4AF37" }}>{selectedWorker.hours.toFixed(1)}h</p>
+                  <p className="text-xs font-medium" style={{ color: "#888888" }}>{formatRangeLabel(range, from, to)}</p>
                 </div>
                 <Separator orientation="vertical" className="h-10 self-center opacity-20" />
                 <div>
-                  <p className="text-2xl font-bold text-white">{selectedWorker.entries.length}</p>
-                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>entries</p>
+                  <p className="text-2xl font-extrabold text-[#121212]">{selectedWorker.entries.length}</p>
+                  <p className="text-xs font-medium" style={{ color: "#888888" }}>entries</p>
                 </div>
                 <Separator orientation="vertical" className="h-10 self-center opacity-20" />
                 <div>
-                  <p className="text-2xl font-bold text-white">{workerProjectData.length}</p>
-                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>projects</p>
+                  <p className="text-2xl font-extrabold text-[#121212]">{workerProjectData.length}</p>
+                  <p className="text-xs font-medium" style={{ color: "#888888" }}>projects</p>
                 </div>
               </div>
             </div>
@@ -501,19 +504,18 @@ export default function HoursPage() {
               <button
                 key={label}
                 onClick={onClick}
-                className="rounded-xl p-4 text-left w-full transition-all hover:opacity-90 active:scale-[0.98]"
+                className="rounded-xl p-4 text-left w-full transition-all hover:opacity-90 active:scale-[0.98] bg-white"
                 style={{
-                  background: BLACK,
-                  border: `1px solid ${isActive ? GOLD : "transparent"}`,
-                  boxShadow: isActive ? `0 0 0 1px ${GOLD}44, 0 4px 16px rgba(0,0,0,0.28)` : "0 4px 16px rgba(0,0,0,0.18)",
+                  border: `2px solid ${isActive ? "#D4AF37" : "rgba(212,175,55,0.20)"}`,
+                  boxShadow: isActive ? `0 0 0 1px #D4AF3722, 0 4px 12px rgba(0,0,0,0.06)` : "0 2px 8px rgba(0,0,0,0.04)",
                   cursor: "pointer",
                 }}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
-                  <Icon size={15} style={{ color: GOLD }} />
+                  <span className="text-xs font-extrabold uppercase tracking-wider" style={{ color: "#D4AF37" }}>{label}</span>
+                  <Icon size={15} style={{ color: "#D4AF37" }} />
                 </div>
-                <p className="text-2xl font-bold text-white">{value}</p>
+                <p className="text-2xl font-extrabold text-[#121212]">{value}</p>
               </button>
             ))}
           </div>

@@ -69,7 +69,7 @@ function TeamSeatsCard() {
                 </div>
               </div>
             )}
-            <Button className="gap-2" onClick={() => navigate("/team")} style={{ background: BLACK, color: "white" }}>
+            <Button className="gap-2 bg-[#D4AF37] text-white hover:bg-[#b5922e] font-semibold" onClick={() => navigate("/team")}>
               <UserPlus className="h-4 w-4" />
               Manage Team
             </Button>
@@ -844,8 +844,11 @@ export default function Settings() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Manage your company information and preferences.</p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+          <Globe className="h-6 w-6" style={{ color: "#D4AF37" }} />
+          Settings
+        </h1>
+        <p className="text-sm text-[#121212]/60 font-medium">Manage your company information and preferences.</p>
       </div>
 
       <Card>

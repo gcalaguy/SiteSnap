@@ -47,14 +47,17 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Daily Reports</h1>
-        <p className="text-muted-foreground">All daily site reports submitted across your projects.</p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+          <FileText className="h-6 w-6" style={{ color: "#D4AF37" }} />
+          Daily Reports
+        </h1>
+        <p className="text-sm text-[#121212]/60 font-medium">All daily site reports submitted across your projects.</p>
       </div>
 
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#D4AF37]" />
         <Input
-          className="pl-9"
+          className="pl-9 border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
           placeholder="Search reports…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -62,44 +65,44 @@ export default function ReportsPage() {
       </div>
 
       {isLoading ? (
-        <div className="py-16 text-center text-muted-foreground animate-pulse">Loading reports…</div>
+        <div className="py-16 text-center text-[#121212]/60 animate-pulse font-medium">Loading reports…</div>
       ) : sorted.length === 0 ? (
-        <Card>
+        <Card className="border-[#D4AF37]/20">
           <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
-            <FileText className="h-10 w-10 text-muted-foreground/40" />
-            <p className="text-muted-foreground">{search ? "No reports match your search." : "No daily reports yet. Submit one from a project."}</p>
+            <FileText className="h-10 w-10 text-[#D4AF37]/40" />
+            <p className="text-[#121212]/60 font-medium">{search ? "No reports match your search." : "No daily reports yet. Submit one from a project."}</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
           {sorted.map((report) => (
-            <Card key={report.id} className="hover:border-primary/40 transition-colors">
+            <Card key={report.id} className="hover:border-[#D4AF37]/40 transition-colors border-[#D4AF37]/20">
               <CardContent className="py-4 px-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
-                      <p className="font-semibold text-sm">
+                      <p className="font-extrabold text-sm text-[#121212]">
                         {format(new Date(report.reportDate), "MMMM d, yyyy")}
                       </p>
                       {report.weather && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Cloud className="h-3.5 w-3.5" />
+                        <span className="flex items-center gap-1 text-xs text-[#121212]/60 font-medium">
+                          <Cloud className="h-3.5 w-3.5" style={{ color: "#D4AF37" }} />
                           {report.weather}
                           {report.temperature ? ` · ${report.temperature}` : ""}
                         </span>
                       )}
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Users className="h-3.5 w-3.5" />
+                      <span className="flex items-center gap-1 text-xs text-[#121212]/60 font-medium">
+                        <Users className="h-3.5 w-3.5" style={{ color: "#D4AF37" }} />
                         {report.crewCount} crew
                       </span>
                     </div>
-                    <p className="text-sm text-foreground/80 line-clamp-2">{report.workPerformed}</p>
+                    <p className="text-sm text-[#121212]/80 line-clamp-2">{report.workPerformed}</p>
                     {report.issues && (
-                      <p className="text-xs text-destructive mt-1 line-clamp-1">⚠ {report.issues}</p>
+                      <p className="text-xs text-red-600 mt-1 line-clamp-1 font-medium">⚠ {report.issues}</p>
                     )}
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-[#121212]/60 mt-1 font-medium">
                       {report.projectName && (
-                        <span className="font-medium text-foreground">{report.projectName} · </span>
+                        <span className="font-semibold text-[#121212]">{report.projectName} · </span>
                       )}
                       {report.submittedByName}
                       <span className="ml-2 opacity-60">· Submitted {format(new Date(report.createdAt), "MMM d 'at' h:mm a")}</span>
@@ -107,7 +110,7 @@ export default function ReportsPage() {
                   </div>
                   <Link
                     href={`/projects/${report.projectId}`}
-                    className="shrink-0 flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                    className="shrink-0 flex items-center gap-1 text-xs text-[#D4AF37] hover:underline mt-1 font-medium"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
