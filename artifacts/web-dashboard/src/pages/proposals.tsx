@@ -57,6 +57,10 @@ import {
   Percent,
   Package,
   ArrowRight,
+  Search,
+  Filter,
+  Users,
+  TrendingUp,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -390,196 +394,206 @@ export default function Proposals() {
     pending: proposals.filter((p) => p.status === "sent").length,
   };
 
+  // KPI data
+  const pipelineValue = proposals.reduce((sum, p) => {
+    const items = p.estimate?.items ?? [];
+    return sum + items.reduce((acc, item) => acc + (n(item.quantity) * n(item.unitCost) * (1 + n(item.margin) / 100)), 0);
+  }, 0);
+  const uniqueClients = new Set(proposals.filter((p) => p.clientName).map((p) => p.clientName)).size;
+
+  // Unified list filter/search
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<string>("all");
+
+  const allRows = [
+    ...estimates.map((e) => ({ id: `est-${e.id}`, type: "estimate" as const, title: e.title, status: "draft" as const, client: "", amount: (e.items ?? []).reduce((acc, item) => acc + n(item.quantity) * n(item.unitCost) * (1 + n(item.margin) / 100), 0), date: e.createdAt, raw: e })),
+    ...proposals.map((p) => {
+      const items = p.estimate?.items ?? [];
+      const amount = items.reduce((acc, item) => acc + n(item.quantity) * n(item.unitCost) * (1 + n(item.margin) / 100), 0);
+      return { id: `prop-${p.id}`, type: "proposal" as const, title: p.title, status: p.status, client: p.clientName ?? "", amount, date: p.createdAt, raw: p };
+    }),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const filteredRows = allRows.filter((r) => {
+    if (tab === "estimates" && r.type !== "estimate") return false;
+    if (tab === "proposals" && r.type !== "proposal") return false;
+    if (filter !== "all" && r.status !== filter) return false;
+    if (search && !r.title.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
   return (
     <div className="space-y-4 h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Proposals</h1>
-          <p className="text-muted-foreground text-sm">Build estimates and send professional proposals</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#121212]">Command Center</h1>
+          <p className="text-sm text-gray-500 mt-1 font-semibold">All proposals and estimates at a glance</p>
         </div>
         <div className="flex gap-2">
-          {tab === "estimates" && (
-            <Button onClick={() => setCreateEstimateOpen(true)} style={{ background: GOLD, color: BLACK }} className="font-semibold">
-              <Plus className="mr-2 h-4 w-4" /> New Estimate
-            </Button>
-          )}
+          <Button onClick={() => setCreateEstimateOpen(true)} style={{ background: GOLD, color: BLACK }} className="font-semibold">
+            <Plus className="mr-2 h-4 w-4" /> New Estimate
+          </Button>
         </div>
       </div>
 
-      {/* Summary pills */}
-      <div className="flex gap-2 flex-wrap flex-shrink-0">
+      {/* KPI row */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 flex-shrink-0">
         {[
-          { label: "Estimates", value: String(estimates.length),       onClick: () => { setTab("estimates"); setProposalStatusFilter(null); } },
-          { label: "Proposals", value: String(proposalStats.total),    onClick: () => { setTab("proposals"); setProposalStatusFilter(null); } },
-          { label: "Approved",  value: String(proposalStats.approved), onClick: () => { setTab("proposals"); setProposalStatusFilter("approved"); } },
-          { label: "Awaiting",  value: String(proposalStats.pending),  onClick: () => { setTab("proposals"); setProposalStatusFilter("sent"); } },
-        ].map((s) => {
-          const isActive =
-            (s.label === "Estimates" && tab === "estimates" && proposalStatusFilter === null) ||
-            (s.label === "Proposals" && tab === "proposals" && proposalStatusFilter === null) ||
-            (s.label === "Approved"  && tab === "proposals" && proposalStatusFilter === "approved") ||
-            (s.label === "Awaiting"  && tab === "proposals" && proposalStatusFilter === "sent");
-          return (
-            <button
-              key={s.label}
-              onClick={s.onClick}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-all hover:opacity-80 active:scale-95"
-              style={{ background: isActive ? GOLD : BLACK, cursor: "pointer" }}
-            >
-              <span className="font-medium" style={{ color: isActive ? BLACK : "#a1a1aa" }}>{s.label}</span>
-              <span className="font-bold" style={{ color: isActive ? BLACK : "#ffffff" }}>{s.value}</span>
-            </button>
-          );
-        })}
+          { label: "Pipeline Value", value: cad(pipelineValue), icon: <DollarSign size={16} />, trend: proposals.length > 0 ? `+${proposals.filter((p) => p.status === "sent").length} active` : undefined },
+          { label: "Active Proposals", value: String(proposals.filter((p) => p.status === "sent").length), icon: <Send size={16} /> },
+          { label: "Approved", value: String(proposalStats.approved), icon: <CheckCircle2 size={16} />, trend: proposals.length > 0 ? `${Math.round((proposalStats.approved / proposals.length) * 100)}%` : undefined },
+          { label: "Draft Estimates", value: String(estimates.length), icon: <FileSignature size={16} /> },
+          { label: "Clients", value: String(uniqueClients || proposals.filter((p) => p.clientName).length), icon: <Users size={16} /> },
+        ].map((kpi) => (
+          <div key={kpi.label} className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded flex items-center justify-center" style={{ background: `${GOLD}15` }}>
+                <span style={{ color: GOLD }}>{kpi.icon}</span>
+              </div>
+              {kpi.trend && (
+                <span className="text-[10px] font-semibold text-green-600 flex items-center gap-0.5">
+                  <TrendingUp size={10} /> {kpi.trend}
+                </span>
+              )}
+            </div>
+            <p className="text-xl font-bold text-[#121212]">{kpi.value}</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-1">{kpi.label}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Tabs */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="flex-shrink-0 w-fit" style={{ background: BLACK }}>
-          <TabsTrigger
-            value="estimates"
-            className="text-zinc-400 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-[#111111] data-[state=active]:font-semibold"
-          >
-            Estimate Builder
-          </TabsTrigger>
-          <TabsTrigger
-            value="proposals"
-            className="text-zinc-400 data-[state=active]:bg-[#C9A84C] data-[state=active]:text-[#111111] data-[state=active]:font-semibold"
-          >
-            Proposals
-          </TabsTrigger>
-        </TabsList>
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-shrink-0 flex-wrap">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search proposals and estimates..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm bg-white text-[#121212] focus:border-[#D4AF37] outline-none" />
+        </div>
+        <Tabs value={tab} onValueChange={(v) => { setTab(v as any); setFilter("all"); }} className="w-fit">
+          <TabsList className="border border-gray-200 bg-white">
+            <TabsTrigger value="estimates" className="text-gray-500 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold text-xs">Estimate Builder</TabsTrigger>
+            <TabsTrigger value="proposals" className="text-gray-500 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold text-xs">Proposals</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="flex items-center gap-1 bg-white rounded-lg border border-gray-200 p-1">
+          {["all", "draft", "sent", "approved", "rejected"].map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${filter === f ? "text-[#121212] font-semibold" : "text-gray-500 hover:text-gray-700"}`}
+              style={filter === f ? { background: GOLD } : {}}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        <button className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs text-gray-500 hover:text-gray-700">
+          <Filter size={14} /> More
+        </button>
+      </div>
 
-        {/* ── Estimates tab ── */}
-        <TabsContent value="estimates" className="flex-1 flex gap-4 min-h-0 mt-3">
-          {/* Left: list */}
-          <div className="w-72 flex-shrink-0 overflow-y-auto space-y-2">
-            {estimatesLoading ? (
-              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-            ) : estimates.length === 0 ? (
-              <div className="text-center py-10 text-sm text-muted-foreground">
-                <FileSignature className="mx-auto mb-2 opacity-30" size={32} />
-                No estimates yet
-              </div>
-            ) : estimates.map((est) => (
-              <div
-                key={est.id}
-                onClick={() => openEstimate(est)}
-                className="rounded-xl p-3 cursor-pointer transition-all hover:shadow-md"
-                style={{
-                  background: selectedEstimate?.id === est.id ? BLACK : "#fff",
-                  border: `1px solid ${selectedEstimate?.id === est.id ? BLACK : "#E5E5E5"}`,
-                }}
-              >
-                <p className="text-sm font-semibold truncate" style={{ color: selectedEstimate?.id === est.id ? "#fff" : BLACK }}>{est.title}</p>
-                <p className="text-xs mt-0.5" style={{ color: selectedEstimate?.id === est.id ? "#aaa" : "#999" }}>
-                  {format(new Date(est.createdAt), "MMM d, yyyy")}
-                </p>
-              </div>
-            ))}
-          </div>
+      {/* Unified data table */}
+      <div className="flex-1 min-h-0 bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col">
+        <div className="overflow-auto flex-1">
+          <table className="w-full">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-gray-100 bg-white">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Title</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Type</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Client</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {tab === "estimates" && estimatesLoading ? (
+                <tr><td colSpan={7} className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
+              ) : tab === "proposals" && proposalsLoading ? (
+                <tr><td colSpan={7} className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
+              ) : filteredRows.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-12 text-sm text-gray-400">
+                  {tab === "estimates" ? (
+                    <div><FileSignature className="mx-auto mb-2 opacity-30" size={32} /><p>No estimates yet</p></div>
+                  ) : (
+                    <div><Send className="mx-auto mb-2 opacity-30" size={32} /><p>No proposals match your filters</p></div>
+                  )}
+                </td></tr>
+              ) : filteredRows.map((row) => {
+                const s = STATUS_CONFIG[row.status] ?? STATUS_CONFIG.draft;
+                return (
+                  <tr
+                    key={row.id}
+                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer group"
+                    onClick={() => row.type === "estimate" ? openEstimate(row.raw as BuilderEstimate) : openProposal(row.raw as Proposal)}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-md flex items-center justify-center" style={{ background: row.type === "estimate" ? "#F3F4F6" : `${GOLD}15` }}>
+                          {row.type === "estimate" ? <FileSignature size={13} className="text-gray-500" /> : <Send size={13} style={{ color: GOLD }} />}
+                        </div>
+                        <span className="text-sm font-medium text-[#121212]">{row.title}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-gray-500 capitalize">{row.type}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-1 rounded-full" style={{ background: s.bg, color: s.color }}>
+                        {s.icon} {s.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{row.client || "—"}</td>
+                    <td className="px-4 py-3 text-right text-sm font-semibold text-[#121212]">{row.amount > 0 ? cad(row.amount) : "—"}</td>
+                    <td className="px-4 py-3 text-right text-xs text-gray-400">{format(new Date(row.date), "MMM d, yyyy")}</td>
+                    <td className="px-4 py-3">
+                      <ChevronRight size={14} className="text-gray-300 group-hover:text-gray-500 transition-colors" />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-          {/* Right: builder */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {selectedEstimate ? (
-              <EstimateBuilder
-                estimate={selectedEstimate}
-                onUpdate={(updated) => {
-                  setSelectedEstimate(updated);
-                  setEstimates((prev) => prev.map((e) => e.id === updated.id ? { ...e, title: updated.title, notes: updated.notes } : e));
-                }}
-                onDelete={() => setDeleteEstimateId(selectedEstimate.id)}
-                onConvert={() => setConvertOpen(true)}
-                onSaveTemplate={() => setSaveTemplateOpen(true)}
-                onLoadTemplate={() => setTemplateOpen(true)}
-                toast={toast}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground select-none">
-                <FileSignature size={48} className="mb-3 opacity-20" />
-                <p className="text-sm">Select an estimate to build it</p>
-                <p className="text-xs mt-1 opacity-60">or create a new one</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* ── Proposals tab ── */}
-        <TabsContent value="proposals" className="flex-1 flex gap-4 min-h-0 mt-3">
-          {/* Left: list */}
-          <div className="w-72 flex-shrink-0 overflow-y-auto space-y-2">
-            {proposalStatusFilter && (
-              <div className="flex items-center justify-between px-1 pb-1">
-                <span className="text-xs text-muted-foreground capitalize">
-                  Filtering: <strong>{proposalStatusFilter}</strong>
-                </span>
-                <button
-                  onClick={() => setProposalStatusFilter(null)}
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-            {proposalsLoading ? (
-              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-            ) : proposals.filter((p) => !proposalStatusFilter || p.status === proposalStatusFilter).length === 0 ? (
-              <div className="text-center py-10 text-sm text-muted-foreground">
-                <Send className="mx-auto mb-2 opacity-30" size={32} />
-                {proposalStatusFilter ? `No ${proposalStatusFilter} proposals` : "No proposals yet"}
-                {!proposalStatusFilter && <p className="text-xs mt-1 opacity-60">Convert an estimate to get started</p>}
-              </div>
-            ) : proposals.filter((p) => !proposalStatusFilter || p.status === proposalStatusFilter).map((p) => {
-              const s = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.draft;
-              return (
-                <div
-                  key={p.id}
-                  onClick={() => openProposal(p)}
-                  className="rounded-xl p-3 cursor-pointer transition-all hover:shadow-md"
-                  style={{
-                    background: selectedProposal?.id === p.id ? BLACK : "#fff",
-                    border: `1px solid ${selectedProposal?.id === p.id ? BLACK : "#E5E5E5"}`,
-                  }}
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="text-sm font-semibold truncate" style={{ color: selectedProposal?.id === p.id ? "#fff" : BLACK }}>{p.title}</p>
-                    <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5 flex items-center gap-0.5 flex-shrink-0" style={{ background: s.bg, color: s.color }}>
-                      {s.icon} {s.label}
-                    </span>
-                  </div>
-                  {p.clientName && <p className="text-xs" style={{ color: selectedProposal?.id === p.id ? "#aaa" : "#999" }}>{p.clientName}</p>}
-                  <p className="text-xs mt-0.5" style={{ color: selectedProposal?.id === p.id ? "#888" : "#bbb" }}>
-                    {format(new Date(p.createdAt), "MMM d, yyyy")}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Right: proposal view */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {selectedProposal ? (
-              <ProposalView
-                proposal={selectedProposal}
-                onStatusChange={(status) => handleProposalStatus(selectedProposal.id, status)}
-                onApprove={() => setApproveOpen(true)}
-                onDelete={() => setDeleteProposalId(selectedProposal.id)}
-                toast={toast}
-                onUpdate={(updated) => {
-                  setProposals((prev) => prev.map((p) => p.id === updated.id ? { ...p, ...updated } : p));
-                  setSelectedProposal((p) => p ? { ...p, ...updated } : p);
-                }}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground select-none">
-                <Send size={48} className="mb-3 opacity-20" />
-                <p className="text-sm">Select a proposal to view it</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* Selected detail panel (right side overlay when active) */}
+      {selectedEstimate && (
+        <Sheet open={!!selectedEstimate} onOpenChange={() => setSelectedEstimate(null)}>
+          <SheetContent className="w-[520px] sm:max-w-[520px] overflow-y-auto">
+            <EstimateBuilder
+              estimate={selectedEstimate}
+              onUpdate={(updated) => {
+                setSelectedEstimate(updated);
+                setEstimates((prev) => prev.map((e) => e.id === updated.id ? { ...e, title: updated.title, notes: updated.notes } : e));
+              }}
+              onDelete={() => setDeleteEstimateId(selectedEstimate.id)}
+              onConvert={() => setConvertOpen(true)}
+              onSaveTemplate={() => setSaveTemplateOpen(true)}
+              onLoadTemplate={() => setTemplateOpen(true)}
+              toast={toast}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
+      {selectedProposal && (
+        <Sheet open={!!selectedProposal} onOpenChange={() => setSelectedProposal(null)}>
+          <SheetContent className="w-[520px] sm:max-w-[520px] overflow-y-auto">
+            <ProposalView
+              proposal={selectedProposal}
+              onStatusChange={(status) => handleProposalStatus(selectedProposal.id, status)}
+              onApprove={() => setApproveOpen(true)}
+              onDelete={() => setDeleteProposalId(selectedProposal.id)}
+              toast={toast}
+              onUpdate={(updated) => {
+                setProposals((prev) => prev.map((p) => p.id === updated.id ? { ...p, ...updated } : p));
+                setSelectedProposal((p) => p ? { ...p, ...updated } : p);
+              }}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Create estimate dialog */}
       <Dialog open={createEstimateOpen} onOpenChange={setCreateEstimateOpen}>
