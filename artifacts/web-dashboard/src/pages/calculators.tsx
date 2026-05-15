@@ -357,7 +357,7 @@ function CalcCard({ calc, onOpen, isFav }: { calc: CalcDef; onOpen: (c: CalcDef)
   return (
     <button
       onClick={() => onOpen(calc)}
-      className="group relative text-left rounded-2xl transition-all p-4 space-y-2"
+      className="group relative text-left rounded-2xl transition-all p-4 space-y-2 bg-[#11111163]"
       style={{
         background: BLACK,
         border: "1px solid rgba(201,168,76,0.18)",
@@ -369,14 +369,14 @@ function CalcCard({ calc, onOpen, isFav }: { calc: CalcDef; onOpen: (c: CalcDef)
       {isFav && (
         <Star className="absolute top-3 right-3 h-3.5 w-3.5 text-yellow-400" fill="currentColor" />
       )}
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(201,168,76,0.12)" }}>
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#c9a84c85]" style={{ background: "rgba(201,168,76,0.12)" }}>
         <Icon className="h-4 w-4" style={{ color: GOLD }} />
       </div>
       <div>
-        <p className="font-semibold text-sm text-white leading-tight">{calc.name}</p>
-        <p className="text-xs mt-0.5 leading-snug line-clamp-2" style={{ color: "rgba(255,255,255,0.45)" }}>{calc.description}</p>
+        <p className="font-semibold text-sm leading-tight text-[#121212]">{calc.name}</p>
+        <p className="text-xs mt-0.5 leading-snug line-clamp-2 text-[#121212]" style={{ color: "rgba(255,255,255,0.45)" }}>{calc.description}</p>
       </div>
-      <Badge variant="outline" className="text-xs border-0 px-2 py-0.5" style={{ background: "rgba(201,168,76,0.12)", color: GOLD }}>
+      <Badge variant="outline" className="text-xs border-0 px-2 py-0.5 font-extrabold" style={{ background: "rgba(201,168,76,0.12)", color: GOLD }}>
         {calc.category}
       </Badge>
     </button>
