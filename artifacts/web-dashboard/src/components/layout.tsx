@@ -471,7 +471,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </DropdownMenu>
         </div>
       </div>
-
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Mobile header */}
@@ -633,13 +632,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </SheetContent>
         </Sheet>
-        <main className="flex-1 overflow-y-auto p-3 md:p-5">
+        <main className="flex-1 overflow-y-auto p-3 md:p-5 rounded-tl-[0px] rounded-tr-[0px] rounded-br-[0px] rounded-bl-[0px]">
           <div className="mx-auto max-w-6xl">
             {children}
           </div>
         </main>
       </div>
-
       {/* Floating Help Chat Widget — available on every page */}
       <HelpChatWidget />
     </div>

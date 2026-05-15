@@ -202,8 +202,8 @@ function CreateCompanyCard() {
 
   return (
     <>
-      <div className="rounded-xl p-5 border border-gray-200 bg-white shadow-lg">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="rounded-xl p-5 border border-gray-200 bg-white shadow-lg border-t-[#e5e7eb] border-r-[#e5e7eb] border-b-[#e5e7eb] border-l-[#e5e7eb]">
+        <div className="flex items-start justify-between gap-4 flex-wrap border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-t-[#e5e7eb] border-r-[#e5e7eb] border-b-[#e5e7eb] border-l-[#e5e7eb]">
           <div className="space-y-1">
             <div className="flex items-center gap-2"><Gift className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Share Sign-up Link</span></div>
             <h3 className="text-lg font-semibold text-[#121212]">Invite a new subscriber</h3>
@@ -337,17 +337,17 @@ function ManageTab() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
-        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb]" onClick={() => setPlanOpen(true)}>
+        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-t-[#e5e7eb] border-r-[#e5e7eb] border-b-[#e5e7eb] border-l-[#e5e7eb]" onClick={() => setPlanOpen(true)}>
           <div className="flex items-center gap-2"><DatabaseZap className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Plan Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Plans</h3>
           <p className="mt-1 text-sm text-gray-500 font-semibold">Create, edit, activate, or delete plan tiers.</p>
         </button>
-        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb]" onClick={() => setFeatureOpen(true)}>
+        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]" onClick={() => setFeatureOpen(true)}>
           <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Feature Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Features</h3>
           <p className="mt-1 text-sm text-gray-500 font-semibold">Create enabled/disabled features and assign them to plans.</p>
         </button>
-        <button className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:bg-gray-50 shadow-sm" onClick={() => setTenantOpen(true)}>
+        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]" onClick={() => setTenantOpen(true)}>
           <div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Tenant Administration</span></div>
           <h3 className="mt-2 text-lg font-semibold">Tenants</h3>
           <p className="mt-1 text-sm text-gray-500 font-semibold">View tenant users, subscription state, and plan assignment.</p>
@@ -461,7 +461,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
   return (
     <div className="space-y-6">
       <Card className="border-gray-200 bg-white text-[#121212]">
-        <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, plans: !collapsed.plans })}>
+        <CardHeader className="cursor-pointer select-none border-[3px] border-gray-200" onClick={() => setCollapsed({ ...collapsed, plans: !collapsed.plans })}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Plans</CardTitle>
@@ -487,7 +487,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
       </Card>
 
       <Card className="border-gray-200 bg-white text-[#121212]">
-        <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, features: !collapsed.features })}>
+        <CardHeader className="cursor-pointer select-none border-[3px] border-gray-200" onClick={() => setCollapsed({ ...collapsed, features: !collapsed.features })}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Features</CardTitle>
@@ -513,7 +513,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
       </Card>
 
       <Card className="border-gray-200 bg-white text-[#121212]">
-        <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, tenants: !collapsed.tenants })}>
+        <CardHeader className="cursor-pointer select-none border-[3px] border-gray-200" onClick={() => setCollapsed({ ...collapsed, tenants: !collapsed.tenants })}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Tenants</CardTitle>
