@@ -461,7 +461,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
   return (
     <div className="space-y-6">
       <Card className="border-gray-200 bg-white text-[#121212]">
-        <CardHeader className="cursor-pointer select-none border-[3px] border-gray-200" onClick={() => setCollapsed({ ...collapsed, plans: !collapsed.plans })}>
+        <CardHeader className="cursor-pointer select-none border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-t-gray-200 border-r-gray-200 border-b-gray-200 border-l-gray-200" onClick={() => setCollapsed({ ...collapsed, plans: !collapsed.plans })}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Plans</CardTitle>
@@ -487,7 +487,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
       </Card>
 
       <Card className="border-gray-200 bg-white text-[#121212]">
-        <CardHeader className="cursor-pointer select-none border-[3px] border-gray-200" onClick={() => setCollapsed({ ...collapsed, features: !collapsed.features })}>
+        <CardHeader className="cursor-pointer select-none border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-t-gray-200 border-r-gray-200 border-b-gray-200 border-l-gray-200" onClick={() => setCollapsed({ ...collapsed, features: !collapsed.features })}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Features</CardTitle>
@@ -513,7 +513,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
       </Card>
 
       <Card className="border-gray-200 bg-white text-[#121212]">
-        <CardHeader className="cursor-pointer select-none border-[3px] border-gray-200" onClick={() => setCollapsed({ ...collapsed, tenants: !collapsed.tenants })}>
+        <CardHeader className="cursor-pointer select-none border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-t-gray-200 border-r-gray-200 border-b-gray-200 border-l-gray-200" onClick={() => setCollapsed({ ...collapsed, tenants: !collapsed.tenants })}>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Tenants</CardTitle>
