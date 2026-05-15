@@ -43,7 +43,7 @@ export default function OnboardingPage() {
     query: { queryKey: getGetMeQueryKey(), enabled: !!clerkUser },
   });
   // Phase 2: prefer activeCompanyId for determining if user is already in a company
-  const hasCompany = !!(dbUser?.activeCompanyId ?? dbUser?.companyId);
+  const hasCompany = !!dbUser?.activeCompanyId;
   const isWorker = dbUser?.role === "worker";
 
   const [activeTab, setActiveTab] = useState(resolvedToken || isWorker ? "join" : "create");

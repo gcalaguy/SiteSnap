@@ -123,7 +123,16 @@ router.get("/users/me", requireAuth, async (req, res) => {
     .leftJoin(companiesTable, eq(companiesTable.id, userMembershipsTable.companyId))
     .where(eq(userMembershipsTable.userId, user.id));
 
-  const activeCompanyId = user.activeCompanyId;
+  let activeCompanyId = user.activeCompanyId;
+  // Auto-populate activeCompanyId from first membership if it's missing
+  if (!activeCompanyId && memberships.length > 0) {
+    activeCompanyId = memberships[0].companyId;
+    await db
+      .update(usersTable)
+      .set({ activeCompanyId })
+      .where(eq(usersTable.id, user.id));
+  }
+
   let company = null;
   if (activeCompanyId) {
     const [c] = await db

@@ -90,7 +90,7 @@ type Invite = { id: number; email: string; role: string; token: string; expiresA
 
 export default function Team() {
   const { data: user } = useGetMe();
-  const companyId = user?.companyId;
+  const companyId = user?.activeCompanyId;
 
   const { data: members, isLoading: membersLoading } = useListCompanyMembers(companyId || 0);
   const { data: invitations, isLoading: invitationsLoading } = useListInvitations({

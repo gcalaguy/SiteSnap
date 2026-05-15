@@ -34,7 +34,7 @@ interface FeatureGuardProps {
  */
 export function FeatureGuard({ feature, children, fallback, silent }: FeatureGuardProps) {
   const { data: me } = useGetMe();
-  const companyId = (me as any)?.companyId as number | null | undefined;
+  const companyId = (me as any)?.activeCompanyId as number | null | undefined;
   const { data, isLoading } = useCompanyFeatures(companyId);
 
   if ((me as any)?.systemRole === "super_admin") return <>{children}</>;
@@ -81,7 +81,7 @@ export function FeatureToastGuard({
 }) {
   const { data: me } = useGetMe();
   const { toast } = useToast();
-  const companyId = (me as any)?.companyId as number | null | undefined;
+  const companyId = (me as any)?.activeCompanyId as number | null | undefined;
   const { data } = useCompanyFeatures(companyId);
 
   if ((me as any)?.systemRole === "super_admin") return <>{children}</>;

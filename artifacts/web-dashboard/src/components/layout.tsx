@@ -133,7 +133,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: featuresData } = useQuery<{ features: string[] }>({
     queryKey: ["me-features"],
     queryFn: () => customFetch<{ features: string[] }>("/api/users/me/features"),
-    enabled: !!user?.companyId,
+    enabled: !!user?.activeCompanyId,
     staleTime: 60_000,
   });
   const planFeatures = featuresData?.features ?? null;

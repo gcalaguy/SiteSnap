@@ -54,7 +54,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   // Phase 2: use activeCompanyId as the source of truth; fall back to legacy companyId
   useEffect(() => {
     if (!dbUser) return;
-    const hasCompany = !!(dbUser.activeCompanyId ?? dbUser.companyId);
+    const hasCompany = !!dbUser.activeCompanyId;
     if (!hasCompany && location !== "/onboarding") {
       setLocation("/onboarding");
     } else if (hasCompany && location === "/onboarding") {

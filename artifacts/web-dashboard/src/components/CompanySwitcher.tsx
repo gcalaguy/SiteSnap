@@ -25,7 +25,7 @@ export function CompanySwitcher({ user }: Props) {
   const [open, setOpen] = useState(false);
 
   const memberships = user?.memberships ?? [];
-  const activeCompanyId = user?.activeCompanyId ?? user?.companyId ?? null;
+  const activeCompanyId = user?.activeCompanyId ?? null;
 
   const activeMembership = memberships.find((m) => m.companyId === activeCompanyId);
   const companyName = activeMembership?.companyName ?? user?.company?.name ?? "No Company";
