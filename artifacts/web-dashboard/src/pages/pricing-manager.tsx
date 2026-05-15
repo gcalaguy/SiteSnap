@@ -60,7 +60,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 
-const GOLD = "#C9A84C";
+const GOLD = "#D4AF37";
 const BLACK = "#111111";
 
 /** Hardcoded fallback defaults — merged with server-returned custom labels at runtime. */
