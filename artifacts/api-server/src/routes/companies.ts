@@ -200,7 +200,19 @@ router.get(
     }
 
     const members = await db
-      .select()
+      .select({
+        id: usersTable.id,
+        clerkUserId: usersTable.clerkUserId,
+        email: usersTable.email,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        createdAt: usersTable.createdAt,
+        pushToken: usersTable.pushToken,
+        termsAcceptedAt: usersTable.termsAcceptedAt,
+        systemRole: usersTable.systemRole,
+        activeCompanyId: usersTable.activeCompanyId,
+        role: userMembershipsTable.role,
+      })
       .from(usersTable)
       .innerJoin(
         userMembershipsTable,
@@ -210,7 +222,10 @@ router.get(
         ),
       );
 
-    const result = members.map((m) => ({ ...m.users, company: null }));
+    const result = members.map((m) => ({ ...m, company: null }));
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
     res.json(result);
   },
 );

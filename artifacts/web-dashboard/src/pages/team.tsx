@@ -482,7 +482,7 @@ export default function Team() {
                     <div className="flex items-center gap-4">
                       <span className="text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md"
                         style={{ background: GOLD, color: BLACK }}>
-                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                        {(member.role ?? "worker").charAt(0).toUpperCase() + (member.role ?? "worker").slice(1)}
                       </span>
                       {isOwner && member.id !== user?.id && (
                         <DropdownMenu>
@@ -546,7 +546,7 @@ export default function Team() {
                       <div className="min-w-0">
                         <p className="font-medium truncate">{invite.email}</p>
                         <p className="text-xs text-muted-foreground">
-                          {invite.role.charAt(0).toUpperCase() + invite.role.slice(1)} ·{" "}
+                          {(invite.role ?? "worker").charAt(0).toUpperCase() + (invite.role ?? "worker").slice(1)} ·{" "}
                           Expires {invite.expiresAt ? format(new Date(invite.expiresAt), "MMM d, yyyy") : "—"}
                         </p>
                       </div>

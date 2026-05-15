@@ -149,6 +149,9 @@ router.get("/users/me", requireAuth, async (req, res) => {
     : memberships[0] ?? null;
   const role = activeMembership?.role ?? "worker";
 
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
   res.json({
     ...user,
     company,
