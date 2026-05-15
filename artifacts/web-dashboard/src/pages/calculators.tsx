@@ -357,7 +357,7 @@ function CalcCard({ calc, onOpen, isFav }: { calc: CalcDef; onOpen: (c: CalcDef)
   return (
     <button
       onClick={() => onOpen(calc)}
-      className="group relative text-left rounded-2xl transition-all p-4 space-y-2 bg-[#11111163]"
+      className="group relative text-left rounded-2xl transition-all p-4 space-y-2 bg-[#11111114] text-[#121212] border-t-[#121212] border-r-[#121212] border-b-[#121212] border-l-[#121212] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]"
       style={{
         background: BLACK,
         border: "1px solid rgba(201,168,76,0.18)",
