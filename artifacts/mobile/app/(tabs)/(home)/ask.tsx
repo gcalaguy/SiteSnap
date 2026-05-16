@@ -143,6 +143,14 @@ export default function AskScreen() {
     return () => { show.remove(); hide.remove(); };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+      }
+    };
+  }, []);
+
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const { data: summary } = useGetDashboardSummary();

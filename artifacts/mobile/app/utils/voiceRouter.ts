@@ -21,9 +21,11 @@ export function interpretVoiceCommand(transcript: string): VoiceIntent {
     return { intent: "UNKNOWN", transcript: raw, confidence: "low" };
   }
 
-  const noteMatch = raw.match(NOTE_TRIGGER);
+  const normalized = raw.toLowerCase();
+
+  const noteMatch = normalized.match(NOTE_TRIGGER);
   if (noteMatch) {
-    const payload = (noteMatch[1] ?? "").trim().slice(0, 500);
+    const payload = raw.slice(noteMatch[0].length - (noteMatch[1] ?? "").length).trim().slice(0, 500);
     return {
       intent: "DATA_ENTRY",
       action: "ADD_NOTE",
@@ -33,7 +35,7 @@ export function interpretVoiceCommand(transcript: string): VoiceIntent {
   }
 
   for (const { pattern, target } of ROUTE_PATTERNS) {
-    if (pattern.test(raw)) {
+    if (pattern.test(normalized)) {
       return { intent: "NAVIGATE", target, confidence: "high" };
     }
   }
