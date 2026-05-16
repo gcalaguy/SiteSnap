@@ -9,9 +9,11 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   FlatList,
   Keyboard,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -128,8 +130,10 @@ export default function AskScreen() {
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -220,60 +224,87 @@ export default function AskScreen() {
     [messages, loading, buildContext],
   );
 
+  const stopRecording = useCallback(async () => {
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
+    setIsRecording(false);
+    setIsTranscribing(true);
+    setTranscriptionError(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      await recorder.stop();
+      const uri = recorder.uri;
+      if (!uri) return;
+
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: "base64",
+      });
+
+      const domain = process.env.EXPO_PUBLIC_DOMAIN;
+      const result = await customFetch<{ text: string }>(
+        `https://${domain}/api/ai/transcribe`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audio: base64, format: "m4a" }),
+        },
+      );
+
+      if (result.text) {
+        setInput((prev) => (prev ? `${prev} ${result.text}` : result.text));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setTranscriptionError("Transcription failed. Please try again.");
+    } finally {
+      setIsTranscribing(false);
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: false });
+    }
+  }, [recorder]);
+
   const toggleRecording = useCallback(async () => {
     if (Platform.OS === "web") return;
 
     if (isRecording) {
-      // Stop and transcribe
-      setIsRecording(false);
-      setIsTranscribing(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      try {
-        await recorder.stop();
-        const uri = recorder.uri;
-        if (!uri) return;
-
-        const base64 = await FileSystem.readAsStringAsync(uri, {
-          encoding: "base64",
-        });
-
-        const domain = process.env.EXPO_PUBLIC_DOMAIN;
-        const result = await customFetch<{ text: string }>(
-          `https://${domain}/api/ai/transcribe`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ audio: base64, format: "m4a" }),
-          },
-        );
-
-        if (result.text) {
-          setInput((prev) => (prev ? `${prev} ${result.text}` : result.text));
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
-      } catch {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      } finally {
-        setIsTranscribing(false);
-      }
+      await stopRecording();
       return;
     }
 
     // Start recording
+    setTranscriptionError(null);
     try {
-      const { granted } = await requestRecordingPermissionsAsync();
-      if (!granted) return;
+      const { granted, canAskAgain } = await requestRecordingPermissionsAsync();
+      if (!granted) {
+        if (!canAskAgain) {
+          Alert.alert(
+            "Microphone Access Required",
+            "Site Snap needs microphone access for voice input. Please enable it in Settings.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Open Settings", onPress: () => Linking.openSettings() },
+            ],
+          );
+        }
+        return;
+      }
 
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
       setIsRecording(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      autoStopTimerRef.current = setTimeout(() => {
+        stopRecording();
+      }, 60_000);
     } catch {
-      // permission denied or hardware not available
+      setTranscriptionError("Could not start recording. Please try again.");
     }
-  }, [isRecording, recorder]);
+  }, [isRecording, recorder, stopRecording]);
 
   const TAB_BAR_HEIGHT = 49;
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
@@ -387,6 +418,14 @@ export default function AskScreen() {
           )}
           style={{ flexShrink: 0, marginBottom: 8 }}
         />
+      )}
+
+      {/* Transcription error banner */}
+      {transcriptionError && (
+        <View style={[styles.errorBanner, { backgroundColor: "rgba(239,68,68,0.10)" }]}>
+          <Feather name="alert-circle" size={13} color="#EF4444" />
+          <Text style={styles.errorBannerText}>{transcriptionError}</Text>
+        </View>
       )}
 
       {/* Input bar */}
@@ -578,4 +617,20 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   clearButton: { padding: 6 },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 12,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  errorBannerText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "#EF4444",
+    flex: 1,
+  },
 });
