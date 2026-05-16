@@ -6,8 +6,12 @@ const config = getDefaultConfig(__dirname);
 config.resolver = config.resolver ?? {};
 
 // Block Metro from watching pdf-parse tmp test directories (server-only package)
+// Also block Vite/Vitest node_modules and all test files from the RN bundle
 config.resolver.blockList = [
   /node_modules\/pdf-parse[^/]*\/.*_tmp_.*/,
+  /node_modules\/.pnpm\/vite@.*/,
+  /node_modules\/.pnpm\/vitest@.*/,
+  /.*\.test\.(ts|tsx|js|jsx)$/,
 ];
 
 const workspacePackages = {
