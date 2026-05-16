@@ -277,18 +277,16 @@ export default function AskScreen() {
     // Start recording
     setTranscriptionError(null);
     try {
-      const { granted, canAskAgain } = await requestRecordingPermissionsAsync();
+      const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
-        if (!canAskAgain) {
-          Alert.alert(
-            "Microphone Access Required",
-            "Site Snap needs microphone access for voice input. Please enable it in Settings.",
-            [
-              { text: "Cancel", style: "cancel" },
-              { text: "Open Settings", onPress: () => Linking.openSettings() },
-            ],
-          );
-        }
+        Alert.alert(
+          "Microphone Access Required",
+          "Site Snap needs microphone access for voice input. Please enable it in Settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ],
+        );
         return;
       }
 
