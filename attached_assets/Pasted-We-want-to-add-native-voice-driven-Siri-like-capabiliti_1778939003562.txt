@@ -1,0 +1,21 @@
+We want to add native voice-driven (Siri-like) capabilities to our mobile app located in `artifacts/mobile/app`, while keeping the manual free-text input options completely intact. To prevent breaking any existing code, layouts, or component states, we must follow a strict, phased, incremental implementation. Do not edit global navigation routers yet.
+
+Please execute Phase 1 and Phase 2 safely:
+
+### Phase 1: Native Voice Dictation (Zero-Break Risk)
+1. Locate the primary chat/text input field component used across the mobile app views.
+2. Modify the layout slightly to add a clean Microphone button icon directly next to or inside the text input bar.
+3. Introduce a local state `isListening` (boolean) to track when the microphone is recording, updating the button UI (e.g., changing colors or adding a subtle pulsing effect) when active.
+4. Integrate the device's native speech recognition library (such as `@react-native-voice/voice` or the platform-equivalent framework native speech listener). 
+5. Hook the speech results up so that spoken text is dynamically inserted straight into the existing message/text input state variable. The user must still be able to manually type, backspace, or edit this text after speaking.
+
+### Phase 2: Isolated Native Intent Interpreter
+1. Create a brand new, completely isolated utility file: `artifacts/mobile/app/utils/voiceRouter.ts`. Do not import this into the main screen components yet.
+2. Inside this file, build a lightweight Regex-based text interpreter function `interpretVoiceCommand(transcript: string)`.
+3. Map out basic construction app intents based on common phrasing matches:
+   - "Open the concrete calculator" or "Go to calculators" -> returns { intent: 'NAVIGATE', target: 'Calculators' }
+   - "Show the schedule" or "View schedule" -> returns { intent: 'NAVIGATE', target: 'Schedule' }
+   - "Add a note [text]" -> returns { intent: 'DATA_ENTRY', action: 'ADD_NOTE', payload: '[text]' }
+4. Export this handler cleanly so we can test it before wiring it up to live global navigation context.
+
+Provide a clear summary of the exact files changed and show me the new `voiceRouter.ts` file structure before moving to deep automation.
