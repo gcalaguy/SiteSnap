@@ -243,7 +243,7 @@ function CostModelsTab({
   const [editModel, setEditModel] = useState<CostModelRecord | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<CostModelRecord | null>(null);
   const [addingType, setAddingType] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set(Object.keys(projectTypes)));
 
   const grouped = models.reduce<Record<string, CostModelRecord[]>>((acc, m) => {
     if (!acc[m.projectType]) acc[m.projectType] = [];
