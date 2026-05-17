@@ -11,12 +11,13 @@ import {
   customFetch,
   useGetMe,
 } from "@workspace/api-client-react";
-import type { FormSubmissionRecord, FormTemplateRecord } from "@workspace/api-client-react";
+import type { FormSubmissionRecord } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 
 import { styles, COLORS } from "@/components/pdf/theme";
 import SafetySubmissionsSection from "@/components/pdf/SafetySubmissionsSection";
+import type { SubmissionPhoto } from "@/components/pdf/SafetySubmissionsSection";
 
 function PDFHeader({ companyName }: { companyName: string }) {
   return (
@@ -77,52 +78,34 @@ function SafetyNotesSection({ submissions }: SafetyNotesSectionProps) {
   );
 }
 
-function TemplatesSection({ templates }: { templates: FormTemplateRecord[] }) {
-  if (!templates || templates.length === 0) {
-    return (
-      <View>
-        <Text style={styles.sectionTitle}>Available Form Templates</Text>
-        <View style={styles.sectionDivider} />
-        <Text style={styles.emptyState}>No form templates configured.</Text>
-      </View>
-    );
+function buildPhotosMap(submissions: FormSubmissionRecord[]): Record<number, SubmissionPhoto[]> {
+  const map: Record<number, SubmissionPhoto[]> = {};
+  for (const sub of submissions) {
+    const photos = (sub as any).photos;
+    if (Array.isArray(photos) && photos.length > 0) {
+      map[sub.id] = photos.map((p: any) => ({
+        id: p.id,
+        url: p.url,
+        filename: p.filename,
+      }));
+    }
   }
-
-  return (
-    <View>
-      <Text style={styles.sectionTitle}>Available Form Templates</Text>
-      <View style={styles.sectionDivider} />
-      {templates.map((t) => (
-        <View key={t.id} style={[styles.card, { flexDirection: "row", justifyContent: "space-between" }]}>
-          <View>
-            <Text style={styles.cardTitle}>{t.name}</Text>
-            <Text style={styles.smallText}>Category: {t.category}</Text>
-          </View>
-          <Text
-            style={[
-              styles.badge,
-              {
-                backgroundColor: t.isActive ? `${COLORS.green}15` : `${COLORS.mutedText}15`,
-                color: t.isActive ? COLORS.green : COLORS.mutedText,
-              },
-            ]}
-          >
-            {t.isActive ? "Active" : "Inactive"}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
+  return map;
 }
 
 interface PDFDocumentProps {
   submissions: FormSubmissionRecord[];
-  templates: FormTemplateRecord[];
   companyName: string;
   sections: Record<string, boolean>;
 }
 
-function PDFDocument({ submissions, templates, companyName, sections }: PDFDocumentProps) {
+function PDFDocument({ submissions, companyName, sections }: PDFDocumentProps) {
+  const ppeSubmissions = submissions.filter(
+    (s) => s.templateCategory === "safety" && /ppe|equipment|gear|hard.?hat|vest|gloves|boots|harness|goggle|mask/i.test(s.templateName ?? "")
+  );
+
+  const photosMap = buildPhotosMap(submissions);
+
   return (
     <Document>
       {/* Overview / Stats */}
@@ -138,7 +121,7 @@ function PDFDocument({ submissions, templates, companyName, sections }: PDFDocum
               { label: "Hazard Reports", value: String(submissions.filter((s) => s.templateCategory === "hazard").length) },
               { label: "Incidents", value: String(submissions.filter((s) => s.templateCategory === "injury").length) },
               { label: "Toolbox Talks", value: String(submissions.filter((s) => s.templateCategory === "toolbox").length) },
-              { label: "Form Templates", value: String(templates.length) },
+              { label: "PPE Checks", value: String(ppeSubmissions.length) },
             ].map(({ label, value }) => (
               <View key={label} style={[styles.gridItem, styles.card]}>
                 <Text style={styles.label}>{label}</Text>
@@ -154,7 +137,12 @@ function PDFDocument({ submissions, templates, companyName, sections }: PDFDocum
       {sections.inspections && (
         <Page size="A4" style={styles.page}>
           <PDFHeader companyName={companyName} />
-          <SafetySubmissionsSection submissions={submissions} category="safety" title="Inspections" />
+          <SafetySubmissionsSection
+            submissions={submissions}
+            category="safety"
+            title="Inspections"
+            photosMap={photosMap}
+          />
           <PDFFooter />
         </Page>
       )}
@@ -163,7 +151,12 @@ function PDFDocument({ submissions, templates, companyName, sections }: PDFDocum
       {sections.hazard && (
         <Page size="A4" style={styles.page}>
           <PDFHeader companyName={companyName} />
-          <SafetySubmissionsSection submissions={submissions} category="hazard" title="Hazard Log" />
+          <SafetySubmissionsSection
+            submissions={submissions}
+            category="hazard"
+            title="Hazard Log"
+            photosMap={photosMap}
+          />
           <PDFFooter />
         </Page>
       )}
@@ -172,7 +165,13 @@ function PDFDocument({ submissions, templates, companyName, sections }: PDFDocum
       {sections.incidents && (
         <Page size="A4" style={styles.page}>
           <PDFHeader companyName={companyName} />
-          <SafetySubmissionsSection submissions={submissions} category="injury" title="Incident Reports" />
+          <SafetySubmissionsSection
+            submissions={submissions}
+            category="injury"
+            title="Incident Reports"
+            photosMap={photosMap}
+            showSeverity
+          />
           <PDFFooter />
         </Page>
       )}
@@ -181,16 +180,25 @@ function PDFDocument({ submissions, templates, companyName, sections }: PDFDocum
       {sections.toolbox && (
         <Page size="A4" style={styles.page}>
           <PDFHeader companyName={companyName} />
-          <SafetySubmissionsSection submissions={submissions} category="toolbox" title="Toolbox Talks" />
+          <SafetySubmissionsSection
+            submissions={submissions}
+            category="toolbox"
+            title="Toolbox Talks"
+            photosMap={photosMap}
+          />
           <PDFFooter />
         </Page>
       )}
 
-      {/* PPE Compliance (uses safety category with PPE-specific title) */}
+      {/* PPE Compliance */}
       {sections.ppe && (
         <Page size="A4" style={styles.page}>
           <PDFHeader companyName={companyName} />
-          <SafetySubmissionsSection submissions={submissions} category="safety" title="PPE Compliance" />
+          <SafetySubmissionsSection
+            submissions={ppeSubmissions}
+            title="PPE Compliance"
+            photosMap={photosMap}
+          />
           <PDFFooter />
         </Page>
       )}
@@ -200,15 +208,6 @@ function PDFDocument({ submissions, templates, companyName, sections }: PDFDocum
         <Page size="A4" style={styles.page}>
           <PDFHeader companyName={companyName} />
           <SafetyNotesSection submissions={submissions} />
-          <PDFFooter />
-        </Page>
-      )}
-
-      {/* Templates */}
-      {sections.templates && (
-        <Page size="A4" style={styles.page}>
-          <PDFHeader companyName={companyName} />
-          <TemplatesSection templates={templates} />
           <PDFFooter />
         </Page>
       )}
@@ -227,7 +226,6 @@ export default function SafetyPrintPage() {
     toolbox: paramsObj.get("toolbox") === "true",
     ppe: paramsObj.get("ppe") === "true",
     notes: paramsObj.get("notes") === "true",
-    templates: paramsObj.get("templates") === "true",
   };
 
   const { data: me } = useGetMe();
@@ -238,12 +236,7 @@ export default function SafetyPrintPage() {
     queryFn: () => customFetch(`/api/safety/submissions`),
   });
 
-  const { data: templates = [], isLoading: tplLoading } = useQuery<FormTemplateRecord[]>({
-    queryKey: ["safety-templates-print"],
-    queryFn: () => customFetch(`/api/safety/templates`),
-  });
-
-  if (subsLoading || tplLoading) {
+  if (subsLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-muted-foreground">Loading safety data...</p>
@@ -264,7 +257,6 @@ export default function SafetyPrintPage() {
           document={
             <PDFDocument
               submissions={submissions}
-              templates={templates}
               companyName={companyName}
               sections={sections}
             />
@@ -279,7 +271,6 @@ export default function SafetyPrintPage() {
         <PDFViewer width="100%" height="100%" className="border-0">
           <PDFDocument
             submissions={submissions}
-            templates={templates}
             companyName={companyName}
             sections={sections}
           />

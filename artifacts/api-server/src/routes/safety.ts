@@ -62,6 +62,22 @@ router.get("/safety/submissions", requireAuth, requireCompany, async (req, res) 
       .where(and(...conditions))
       .orderBy(desc(formSubmissionsTable.createdAt));
 
+    const submissionIds = rows.map((r) => r.submission.id);
+    const allPhotos = submissionIds.length
+      ? await db
+          .select()
+          .from(submissionPhotosTable)
+          .where(inArray(submissionPhotosTable.submissionId, submissionIds))
+      : [];
+
+    const photosBySubmissionId: Record<number, typeof allPhotos> = {};
+    for (const photo of allPhotos) {
+      if (!photosBySubmissionId[photo.submissionId]) {
+        photosBySubmissionId[photo.submissionId] = [];
+      }
+      photosBySubmissionId[photo.submissionId].push(photo);
+    }
+
     res.json(
       rows.map((r) => ({
         ...r.submission,
@@ -69,6 +85,7 @@ router.get("/safety/submissions", requireAuth, requireCompany, async (req, res) 
         templateCategory: r.templateCategory,
         workerName: `${r.workerFirstName ?? ""} ${r.workerLastName ?? ""}`.trim(),
         workerEmail: r.workerEmail,
+        photos: photosBySubmissionId[r.submission.id] ?? [],
       }))
     );
   } catch (err: any) {

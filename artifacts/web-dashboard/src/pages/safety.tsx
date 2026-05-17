@@ -99,7 +99,6 @@ export default function SafetyPage() {
     toolbox: false,
     ppe: false,
     notes: false,
-    templates: false,
   });
 
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
@@ -414,7 +413,6 @@ export default function SafetyPage() {
               { key: "toolbox", label: "Toolbox Talks" },
               { key: "ppe", label: "PPE Compliance" },
               { key: "notes", label: "Safety Notes & AI Summaries" },
-              { key: "templates", label: "Form Templates" },
             ].map(({ key, label, disabled }) => (
               <div key={key} className="flex items-center space-x-3">
                 <Checkbox
