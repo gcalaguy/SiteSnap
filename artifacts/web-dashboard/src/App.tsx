@@ -49,6 +49,7 @@ import SafetyPage from "@/pages/safety";
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
 import SafetyCompliancePage from "@/pages/safety-compliance";
+import SafetyPrintPage from "@/pages/safety-print";
 import WorkerPortalPage from "@/pages/worker-portal";
 import WorkerPortalSubmitPage from "@/pages/worker-portal-submit";
 import WorkerPortalDetailPage from "@/pages/worker-portal-detail";
@@ -352,6 +353,11 @@ function ClerkProviderWithRoutes() {
           <Route path="/projects/:id/print">
             <AuthGuard>
               <ProjectPrintPage />
+            </AuthGuard>
+          </Route>
+          <Route path="/safety/print">
+            <AuthGuard>
+              <SafetyPrintPage />
             </AuthGuard>
           </Route>
           <Route path="/worker-portal/*?">

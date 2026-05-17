@@ -16,6 +16,7 @@ import {
   Eye,
   ClipboardList,
   ArrowRight,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -87,6 +91,16 @@ export default function SafetyPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [tab, setTab] = useState("submissions");
+  const [showPrintSheet, setShowPrintSheet] = useState(false);
+  const [printSections, setPrintSections] = useState<Record<string, boolean>>({
+    inspections: true,
+    hazard: false,
+    incidents: false,
+    toolbox: false,
+    ppe: false,
+    notes: false,
+    templates: false,
+  });
 
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
@@ -133,12 +147,23 @@ export default function SafetyPage() {
             </p>
           </div>
         </div>
-        <Link href="/safety/submit">
-          <Button style={{ background: GOLD, color: BLACK }} className="gap-2 font-semibold">
-            <Plus className="h-4 w-4" />
-            New Form
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-2"
+            onClick={() => setShowPrintSheet(true)}
+          >
+            <Printer className="h-4 w-4" />
+            Export PDF
           </Button>
-        </Link>
+          <Link href="/safety/submit">
+            <Button style={{ background: GOLD, color: BLACK }} className="gap-2 font-semibold">
+              <Plus className="h-4 w-4" />
+              New Form
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
@@ -371,6 +396,60 @@ export default function SafetyPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Export PDF Sheet */}
+      <Sheet open={showPrintSheet} onOpenChange={setShowPrintSheet}>
+        <SheetContent side="right" className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Export Safety PDF</SheetTitle>
+            <SheetDescription>
+              Choose which sections to include in the report.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 py-4">
+            {[
+              { key: "inspections", label: "Inspections", disabled: true },
+              { key: "hazard", label: "Hazard Log" },
+              { key: "incidents", label: "Incident Reports" },
+              { key: "toolbox", label: "Toolbox Talks" },
+              { key: "ppe", label: "PPE Compliance" },
+              { key: "notes", label: "Safety Notes & AI Summaries" },
+              { key: "templates", label: "Form Templates" },
+            ].map(({ key, label, disabled }) => (
+              <div key={key} className="flex items-center space-x-3">
+                <Checkbox
+                  id={`print-${key}`}
+                  checked={printSections[key]}
+                  disabled={disabled}
+                  onCheckedChange={(checked) =>
+                    setPrintSections((prev) => ({ ...prev, [key]: checked === true }))
+                  }
+                />
+                <Label htmlFor={`print-${key}`} className={disabled ? "text-muted-foreground" : ""}>
+                  {label}
+                  {disabled && <span className="text-xs text-muted-foreground ml-1">(required)</span>}
+                </Label>
+              </div>
+            ))}
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setShowPrintSheet(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const qs = new URLSearchParams();
+                Object.entries(printSections).forEach(([k, v]) => qs.set(k, String(v)));
+                const url = `${window.location.origin}/safety/print?${qs.toString()}`;
+                window.open(url, "_blank");
+                setShowPrintSheet(false);
+              }}
+            >
+              Open Print Preview
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
