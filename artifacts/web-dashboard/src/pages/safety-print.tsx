@@ -19,6 +19,10 @@ import { styles, COLORS } from "@/components/pdf/theme";
 import SafetySubmissionsSection from "@/components/pdf/SafetySubmissionsSection";
 import type { SubmissionPhoto } from "@/components/pdf/SafetySubmissionsSection";
 
+interface SafetySubmissionPrintRecord extends FormSubmissionRecord {
+  photos?: SubmissionPhoto[];
+}
+
 function PDFHeader({ companyName }: { companyName: string }) {
   return (
     <View style={styles.header} fixed>
@@ -78,23 +82,18 @@ function SafetyNotesSection({ submissions }: SafetyNotesSectionProps) {
   );
 }
 
-function buildPhotosMap(submissions: FormSubmissionRecord[]): Record<number, SubmissionPhoto[]> {
+function buildPhotosMap(submissions: SafetySubmissionPrintRecord[]): Record<number, SubmissionPhoto[]> {
   const map: Record<number, SubmissionPhoto[]> = {};
   for (const sub of submissions) {
-    const photos = (sub as any).photos;
-    if (Array.isArray(photos) && photos.length > 0) {
-      map[sub.id] = photos.map((p: any) => ({
-        id: p.id,
-        url: p.url,
-        filename: p.filename,
-      }));
+    if (Array.isArray(sub.photos) && sub.photos.length > 0) {
+      map[sub.id] = sub.photos;
     }
   }
   return map;
 }
 
 interface PDFDocumentProps {
-  submissions: FormSubmissionRecord[];
+  submissions: SafetySubmissionPrintRecord[];
   companyName: string;
   sections: Record<string, boolean>;
 }
@@ -231,8 +230,8 @@ export default function SafetyPrintPage() {
   const { data: me } = useGetMe();
   const companyName = me?.company?.name ?? "";
 
-  const { data: submissions = [], isLoading: subsLoading } = useQuery<FormSubmissionRecord[]>({
-    queryKey: ["safety-submissions-print"],
+  const { data: submissions = [], isLoading: subsLoading } = useQuery<SafetySubmissionPrintRecord[]>({
+    queryKey: ["safety-submissions", "all"],
     queryFn: () => customFetch(`/api/safety/submissions`),
   });
 
