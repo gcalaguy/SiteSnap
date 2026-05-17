@@ -306,7 +306,7 @@ export default function Schedule() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["schedule-events"] }); setShowEventDialog(false); toast({ title: "Event created" }); },
     onError: async (err: any) => {
       if (err?.status === 409) {
-        const data = await err.json?.() ?? {};
+        const data = (await err.json?.()) ?? {};
         setEvtConflicts(data.conflicts ?? []);
         toast({ title: "Conflict detected — review below", variant: "destructive" });
       } else {
@@ -324,7 +324,7 @@ export default function Schedule() {
     },
     onError: async (err: any) => {
       if (err?.status === 409) {
-        const data = await err.json?.() ?? {};
+        const data = (await err.json?.()) ?? {};
         setEvtConflicts(data.conflicts ?? []);
         toast({ title: "Conflict detected — review below", variant: "destructive" });
       } else {
@@ -604,7 +604,7 @@ export default function Schedule() {
                   <button
                     key={id}
                     onClick={() => setView(id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === id ? "text-[#111111] font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-all text-[#111111] font-semibold bg-[#f2f1ed]"
                     style={view === id ? { background: "#C9A84C" } : {}}
                   >
                     <Icon className="h-4 w-4" /> {label}
@@ -621,7 +621,7 @@ export default function Schedule() {
                         <button
                           key={z}
                           onClick={() => { setZoom(z); ganttToday(); }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${zoom === z ? "text-[#111111] font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
+                          className="px-2.5 py-1 rounded-md text-xs transition-all text-[#111111] bg-[#f2efe6] font-bold"
                           style={zoom === z ? { background: "#C9A84C" } : {}}
                         >
                           {z === "2w" ? "2 Wks" : z === "1m" ? "1 Mo" : "3 Mo"}
