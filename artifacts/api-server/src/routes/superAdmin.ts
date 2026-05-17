@@ -541,8 +541,8 @@ router.delete("/admin/tenants/:id", ...guard, async (req, res) => {
   await db.execute(sql`DELETE FROM projects WHERE company_id = ${companyId}`);
 
   // ── Step 4: Delete company-level rows without cascade ────────────────────────
-  // Detach users first (nullable FK)
-  await db.execute(sql`UPDATE users SET company_id = NULL WHERE company_id = ${companyId}`);
+  // Detach users' active company reference before deleting the company
+  await db.execute(sql`UPDATE users SET active_company_id = NULL WHERE active_company_id = ${companyId}`);
 
   // Payments reference invoices — delete before invoices
   await db.execute(sql`DELETE FROM payments WHERE company_id = ${companyId}`);
