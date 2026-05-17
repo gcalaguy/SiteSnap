@@ -83,6 +83,7 @@
   "dependencies": {
     "@clerk/react": "^6.5.0",
     "@clerk/themes": "^2.4.57",
+    "@react-pdf/renderer": "^4.5.1",
     "docx": "^9.6.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",

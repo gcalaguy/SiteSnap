@@ -13,6 +13,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/project-detail";
+import ProjectPrintPage from "@/pages/project-print";
 import NewReport from "@/pages/new-report";
 import NewCost from "@/pages/new-cost";
 import NewRFI from "@/pages/new-rfi";
@@ -348,6 +349,11 @@ function ClerkProviderWithRoutes() {
           <Route path="/portal/:token" component={ClientPortal} />
           <Route path="/q/:token" component={PublicQuotePage} />
           <Route path="/i/:token" component={PublicInvoicePage} />
+          <Route path="/projects/:id/print">
+            <AuthGuard>
+              <ProjectPrintPage />
+            </AuthGuard>
+          </Route>
           <Route path="/worker-portal/*?">
             <WorkerPortalApp />
           </Route>
