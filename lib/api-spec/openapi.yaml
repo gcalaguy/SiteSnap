@@ -4725,6 +4725,21 @@ components:
         contactName:
           type: string
           nullable: true
+        photos:
+          type: array
+          items:
+            type: object
+            required: [id, url, filename]
+            properties:
+              id:
+                type: integer
+              url:
+                type: string
+              filename:
+                type: string
+              objectPath:
+                type: string
+                nullable: true
         createdAt:
           type: string
           format: date-time

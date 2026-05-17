@@ -17,11 +17,6 @@ import { format } from "date-fns";
 
 import { styles, COLORS } from "@/components/pdf/theme";
 import SafetySubmissionsSection from "@/components/pdf/SafetySubmissionsSection";
-import type { SubmissionPhoto } from "@/components/pdf/SafetySubmissionsSection";
-
-interface SafetySubmissionPrintRecord extends FormSubmissionRecord {
-  photos?: SubmissionPhoto[];
-}
 
 function PDFHeader({ companyName }: { companyName: string }) {
   return (
@@ -82,18 +77,18 @@ function SafetyNotesSection({ submissions }: SafetyNotesSectionProps) {
   );
 }
 
-function buildPhotosMap(submissions: SafetySubmissionPrintRecord[]): Record<number, SubmissionPhoto[]> {
-  const map: Record<number, SubmissionPhoto[]> = {};
+function buildPhotosMap(submissions: FormSubmissionRecord[]): Record<number, { id: number; url: string }[]> {
+  const map: Record<number, { id: number; url: string }[]> = {};
   for (const sub of submissions) {
     if (Array.isArray(sub.photos) && sub.photos.length > 0) {
-      map[sub.id] = sub.photos;
+      map[sub.id] = sub.photos.map((p) => ({ id: p.id, url: p.url }));
     }
   }
   return map;
 }
 
 interface PDFDocumentProps {
-  submissions: SafetySubmissionPrintRecord[];
+  submissions: FormSubmissionRecord[];
   companyName: string;
   sections: Record<string, boolean>;
 }
@@ -219,7 +214,7 @@ export default function SafetyPrintPage() {
   const paramsObj = new URLSearchParams(search);
 
   const sections: Record<string, boolean> = {
-    inspections: paramsObj.get("inspections") === "true",
+    inspections: paramsObj.get("inspections") !== "false",
     hazard: paramsObj.get("hazard") === "true",
     incidents: paramsObj.get("incidents") === "true",
     toolbox: paramsObj.get("toolbox") === "true",
@@ -230,7 +225,7 @@ export default function SafetyPrintPage() {
   const { data: me } = useGetMe();
   const companyName = me?.company?.name ?? "";
 
-  const { data: submissions = [], isLoading: subsLoading } = useQuery<SafetySubmissionPrintRecord[]>({
+  const { data: submissions = [], isLoading: subsLoading } = useQuery<FormSubmissionRecord[]>({
     queryKey: ["safety-submissions", "all"],
     queryFn: () => customFetch(`/api/safety/submissions`),
   });

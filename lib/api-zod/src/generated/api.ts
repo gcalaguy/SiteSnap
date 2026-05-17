@@ -97,6 +97,16 @@ export const ListFormSubmissionsResponseItem = zod.object({
   templateCategory: zod.string().nullish(),
   workerName: zod.string().nullish(),
   contactName: zod.string().nullish(),
+  photos: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        url: zod.string(),
+        filename: zod.string(),
+        objectPath: zod.string().nullish(),
+      }),
+    )
+    .optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -150,6 +160,16 @@ export const UpdateFormSubmissionStatusResponse = zod.object({
   templateCategory: zod.string().nullish(),
   workerName: zod.string().nullish(),
   contactName: zod.string().nullish(),
+  photos: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        url: zod.string(),
+        filename: zod.string(),
+        objectPath: zod.string().nullish(),
+      }),
+    )
+    .optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });

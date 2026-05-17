@@ -885,6 +885,13 @@ export const FormSubmissionRecordStatus = {
 
 export type FormSubmissionRecordData = { [key: string]: unknown };
 
+export type FormSubmissionRecordPhotosItem = {
+  id: number;
+  url: string;
+  filename: string;
+  objectPath?: string | null;
+};
+
 export interface FormSubmissionRecord {
   id: number;
   templateId: number;
@@ -899,6 +906,7 @@ export interface FormSubmissionRecord {
   templateCategory?: string | null;
   workerName?: string | null;
   contactName?: string | null;
+  photos?: FormSubmissionRecordPhotosItem[];
   createdAt: string;
   updatedAt?: string;
 }
