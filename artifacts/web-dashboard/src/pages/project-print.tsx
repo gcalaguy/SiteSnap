@@ -16,13 +16,24 @@ import {
   useListTasks,
   useListCompanyMembers,
   useGetMe,
+  getListChangeOrdersQueryOptions,
   customFetch,
-  listChangeOrders,
+} from "@workspace/api-client-react";
+import type {
+  Project,
+  ProjectSummary,
+  DailyReport,
+  Task,
+  Rfi,
+  CostAnalysis,
+  ChangeOrderRecord,
+  UserWithCompany,
+  FormSubmissionRecord,
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 
-import { styles, COLORS, FONTS, SIZES } from "@/components/pdf/theme";
+import { styles, COLORS, SIZES } from "@/components/pdf/theme";
 import ProjectInfoSection from "@/components/pdf/ProjectInfoSection";
 import NotesSection from "@/components/pdf/NotesSection";
 import DailyReportsSection from "@/components/pdf/DailyReportsSection";
@@ -32,6 +43,27 @@ import ScheduleSection from "@/components/pdf/ScheduleSection";
 import CostSummarySection from "@/components/pdf/CostSummarySection";
 import ChangeOrdersSection from "@/components/pdf/ChangeOrdersSection";
 import SafetySection from "@/components/pdf/SafetySection";
+
+interface ProjectNote {
+  id: number;
+  content: string;
+  createdAt: string;
+  author?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  } | null;
+}
+
+interface ScheduleAssignment {
+  id: number;
+  userFirstName?: string | null;
+  userLastName?: string | null;
+  userRole?: string | null;
+  startDate: string;
+  endDate: string;
+  notes?: string | null;
+}
 
 function PDFHeader({ projectName }: { projectName: string }) {
   return (
@@ -55,6 +87,21 @@ function PDFFooter() {
   );
 }
 
+interface PDFDocumentProps {
+  project: Project;
+  summary: ProjectSummary | undefined;
+  notes: ProjectNote[];
+  reports: DailyReport[];
+  tasks: Task[];
+  members: UserWithCompany[];
+  rfis: Rfi[];
+  assignments: ScheduleAssignment[];
+  costAnalyses: CostAnalysis[];
+  changeOrders: ChangeOrderRecord[];
+  safetySubmissions: FormSubmissionRecord[];
+  sections: Record<string, boolean>;
+}
+
 function PDFDocument({
   project,
   summary,
@@ -68,58 +115,87 @@ function PDFDocument({
   changeOrders,
   safetySubmissions,
   sections,
-}: {
-  project: any;
-  summary: any;
-  notes: any[];
-  reports: any[];
-  tasks: any[];
-  members: any[];
-  rfis: any[];
-  assignments: any[];
-  costAnalyses: any[];
-  changeOrders: any[];
-  safetySubmissions: any[];
-  sections: Record<string, boolean>;
-}) {
+}: PDFDocumentProps) {
   return (
     <Document>
+      {/* Project Info — always included */}
       <Page size="A4" style={styles.page}>
         <PDFHeader projectName={project.name} />
-
-        {sections.info !== false && (
-          <ProjectInfoSection project={project} summary={summary} />
-        )}
-
-        {sections.info !== false && (
-          <View style={{ marginTop: SIZES.sectionGap }} />
-        )}
-
-        {sections.notes && <NotesSection notes={notes} />}
-        {sections.notes && <View style={{ marginTop: SIZES.sectionGap }} />}
-
-        {sections.reports && <DailyReportsSection reports={reports} />}
-        {sections.reports && <View style={{ marginTop: SIZES.sectionGap }} />}
-
-        {sections.tasks && <TasksSection tasks={tasks} members={members} />}
-        {sections.tasks && <View style={{ marginTop: SIZES.sectionGap }} />}
-
-        {sections.rfis && <RFIsSection rfis={rfis} />}
-        {sections.rfis && <View style={{ marginTop: SIZES.sectionGap }} />}
-
-        {sections.schedule && <ScheduleSection assignments={assignments} />}
-        {sections.schedule && <View style={{ marginTop: SIZES.sectionGap }} />}
-
-        {sections.cost && <CostSummarySection costAnalyses={costAnalyses} />}
-        {sections.cost && <View style={{ marginTop: SIZES.sectionGap }} />}
-
-        {sections.changeOrders && <ChangeOrdersSection changeOrders={changeOrders} />}
-        {sections.changeOrders && <View style={{ marginTop: SIZES.sectionGap }} />}
-
-        {sections.safety && <SafetySection submissions={safetySubmissions} />}
-
+        <ProjectInfoSection project={project} summary={summary} />
         <PDFFooter />
       </Page>
+
+      {/* Notes */}
+      {sections.notes && (
+        <Page size="A4" style={styles.page}>
+          <PDFHeader projectName={project.name} />
+          <NotesSection notes={notes} />
+          <PDFFooter />
+        </Page>
+      )}
+
+      {/* Daily Reports */}
+      {sections.reports && (
+        <Page size="A4" style={styles.page}>
+          <PDFHeader projectName={project.name} />
+          <DailyReportsSection reports={reports} />
+          <PDFFooter />
+        </Page>
+      )}
+
+      {/* Tasks */}
+      {sections.tasks && (
+        <Page size="A4" style={styles.page}>
+          <PDFHeader projectName={project.name} />
+          <TasksSection tasks={tasks} members={members} />
+          <PDFFooter />
+        </Page>
+      )}
+
+      {/* RFIs */}
+      {sections.rfis && (
+        <Page size="A4" style={styles.page}>
+          <PDFHeader projectName={project.name} />
+          <RFIsSection rfis={rfis} />
+          <PDFFooter />
+        </Page>
+      )}
+
+      {/* Schedule */}
+      {sections.schedule && (
+        <Page size="A4" style={styles.page}>
+          <PDFHeader projectName={project.name} />
+          <ScheduleSection assignments={assignments} />
+          <PDFFooter />
+        </Page>
+      )}
+
+      {/* Cost Analysis */}
+      {sections.cost && (
+        <Page size="A4" style={styles.page}>
+          <PDFHeader projectName={project.name} />
+          <CostSummarySection costAnalyses={costAnalyses} />
+          <PDFFooter />
+        </Page>
+      )}
+
+      {/* Change Orders */}
+      {sections.changeOrders && (
+        <Page size="A4" style={styles.page}>
+          <PDFHeader projectName={project.name} />
+          <ChangeOrdersSection changeOrders={changeOrders} />
+          <PDFFooter />
+        </Page>
+      )}
+
+      {/* Safety */}
+      {sections.safety && (
+        <Page size="A4" style={styles.page}>
+          <PDFHeader projectName={project.name} />
+          <SafetySection submissions={safetySubmissions} />
+          <PDFFooter />
+        </Page>
+      )}
     </Document>
   );
 }
@@ -151,36 +227,33 @@ export default function ProjectPrintPage() {
   const { data: costAnalyses } = useListCostAnalyses(projectId);
   const { data: rfis } = useListRFIs(projectId);
   const { data: allTasks = [] } = useListTasks(projectId);
-  const { data: members = [] } = useListCompanyMembers(
-    companyId ?? 0,
-    { query: { enabled: !!companyId } as any }
-  );
+  const { data: members = [] } = useListCompanyMembers(companyId ?? 0);
 
-  const { data: notes = [] } = useQuery({
+  const { data: notes = [] } = useQuery<ProjectNote[]>({
     queryKey: ["project-notes", projectId],
-    queryFn: () => customFetch(`/api/projects/${projectId}/notes`) as Promise<any[]>,
+    queryFn: () => customFetch(`/api/projects/${projectId}/notes`),
     enabled: sections.notes,
   });
 
-  const { data: assignments = [] } = useQuery({
+  const { data: assignments = [] } = useQuery<ScheduleAssignment[]>({
     queryKey: ["project-schedule", projectId],
-    queryFn: () => customFetch(`/api/projects/${projectId}/schedule`) as Promise<any[]>,
+    queryFn: () => customFetch(`/api/projects/${projectId}/schedule`),
     enabled: sections.schedule,
   });
 
   const { data: changeOrders = [] } = useQuery({
-    queryKey: ["change-orders", projectId],
-    queryFn: () => listChangeOrders({ projectId }) as Promise<any[]>,
+    ...getListChangeOrdersQueryOptions({ projectId }),
     enabled: sections.changeOrders,
   });
 
-  const { data: allSafetySubmissions = [] } = useQuery({
+  const { data: allSafetySubmissions = [] } = useQuery<FormSubmissionRecord[]>({
     queryKey: ["safety-submissions", projectId],
-    queryFn: () =>
-      customFetch(`/api/safety/submissions`) as Promise<any[]>,
+    queryFn: () => customFetch(`/api/safety/submissions`),
     enabled: sections.safety,
   });
-  const safetySubmissions = allSafetySubmissions.filter((s: any) => s.projectId === projectId);
+  const safetySubmissions = allSafetySubmissions.filter(
+    (s) => s.projectId === projectId
+  );
 
   if (!project) {
     return (
@@ -190,10 +263,9 @@ export default function ProjectPrintPage() {
     );
   }
 
-  // Enrich reports with photos
-  const enrichedReports = (reports ?? []).map((report: any) => ({
+  const enrichedReports = (reports ?? []).map((report) => ({
     ...report,
-    photos: report.photos ?? [],
+    photos: (report as DailyReport & { photos?: { id: number; objectPath: string; caption?: string | null }[] }).photos ?? [],
   }));
 
   const fileName = `${project.name.replace(/[^a-zA-Z0-9]/g, "_")}_Report.pdf`;
@@ -213,7 +285,7 @@ export default function ProjectPrintPage() {
               notes={notes}
               reports={enrichedReports}
               tasks={allTasks}
-              members={members as any[]}
+              members={members}
               rfis={rfis ?? []}
               assignments={assignments}
               costAnalyses={costAnalyses ?? []}
@@ -236,7 +308,7 @@ export default function ProjectPrintPage() {
             notes={notes}
             reports={enrichedReports}
             tasks={allTasks}
-            members={members as any[]}
+            members={members}
             rfis={rfis ?? []}
             assignments={assignments}
             costAnalyses={costAnalyses ?? []}
