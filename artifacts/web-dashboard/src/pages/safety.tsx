@@ -438,8 +438,8 @@ export default function SafetyPage() {
               onClick={() => {
                 const qs = new URLSearchParams();
                 Object.entries(printSections).forEach(([k, v]) => qs.set(k, String(v)));
-                const url = `${window.location.origin}/safety/print?${qs.toString()}`;
-                window.open(url, "_blank");
+                const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+                window.open(`${base}/safety/print?${qs.toString()}`, "_blank");
                 setShowPrintSheet(false);
               }}
             >
