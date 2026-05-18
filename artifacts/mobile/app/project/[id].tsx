@@ -12,6 +12,8 @@ import {
   getGetScanUrlQueryKey,
   customFetch,
 } from "@workspace/api-client-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useVoiceIntentExecutor } from "@/hooks/useVoiceIntentExecutor";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -699,10 +701,12 @@ function RFIRow({ rfi, onPress }: { rfi: any; onPress: () => void }) {
 
 function ReportsTabSection({
   projectId,
+  projectName,
   reports,
   onReportAdded,
 }: {
   projectId: number;
+  projectName: string | null;
   reports: any[];
   onReportAdded: () => void;
 }) {
@@ -711,10 +715,50 @@ function ReportsTabSection({
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const createReport = useCreateDailyReport();
+  const qc = useQueryClient();
+
+  const logHoursMutation = useMutation({
+    mutationFn: (body: { date: string; hours: number; description?: string }) =>
+      customFetch(`/api/projects/${projectId}/time-entries`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+    },
+    onError: () => Alert.alert("Error", "Failed to log hours. Please try again."),
+  });
+
+  const voiceExecutor = useVoiceIntentExecutor({
+    onAddNote: (payload) => {
+      setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${payload}` : payload));
+    },
+    onLogHours: ({ worker, hours }) => {
+      logHoursMutation.mutate({
+        date: new Date().toISOString().split("T")[0],
+        hours,
+        description: `${worker} — via voice`,
+      });
+    },
+    onAddDailyLog: ({ notes: logNotes }) => {
+      setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${logNotes}` : logNotes));
+    },
+    onMaterialAlert: ({ item }) => {
+      Alert.alert("Material Alert", `Flagged shortage: ${item}`);
+    },
+    onTriggerCamera: () => {
+      // Handled by caller if camera is available; otherwise no-op
+    },
+    onSafetyLog: ({ issue }) => {
+      Alert.alert("Safety Flag", `Flagged: ${issue}`);
+    },
+    onUnknown: (transcript) => {
+      setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${transcript}` : transcript));
+    },
+  });
 
   const voice = useVoiceRecorder((transcript) => {
-    setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${transcript}` : transcript));
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    voiceExecutor.execute(transcript, projectName);
   });
 
   const today = new Date().toISOString().split("T")[0];
@@ -1385,7 +1429,7 @@ export default function ProjectDetailScreen() {
 
       {/* Reports tab */}
       {activeTab === "Reports" && (
-        <ReportsTabSection projectId={projectId} reports={reports ?? []} onReportAdded={refetchReports} />
+        <ReportsTabSection projectId={projectId} projectName={project?.name ?? null} reports={reports ?? []} onReportAdded={refetchReports} />
       )}
 
       {/* Tasks tab */}
