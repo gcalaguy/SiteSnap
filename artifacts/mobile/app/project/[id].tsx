@@ -13,7 +13,6 @@ import {
   customFetch,
 } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useVoiceIntentExecutor } from "@/hooks/useVoiceIntentExecutor";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -24,7 +23,6 @@ import { HoursTab } from "@/components/HoursTab";
 import { QuotesTab } from "@/components/QuotesTab";
 import { TimesheetsTab } from "@/components/TimesheetsTab";
 import { ClientMessagesTab } from "@/components/ClientMessagesTab";
-import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import {
   ActivityIndicator,
   Alert,
@@ -717,50 +715,6 @@ function ReportsTabSection({
   const createReport = useCreateDailyReport();
   const qc = useQueryClient();
 
-  const logHoursMutation = useMutation({
-    mutationFn: (body: { date: string; hours: number; description?: string }) =>
-      customFetch(`/api/projects/${projectId}/time-entries`, {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
-    },
-    onError: () => Alert.alert("Error", "Failed to log hours. Please try again."),
-  });
-
-  const voiceExecutor = useVoiceIntentExecutor({
-    onAddNote: (payload) => {
-      setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${payload}` : payload));
-    },
-    onLogHours: ({ worker, hours }) => {
-      logHoursMutation.mutate({
-        date: new Date().toISOString().split("T")[0],
-        hours,
-        description: `${worker} — via voice`,
-      });
-    },
-    onAddDailyLog: ({ notes: logNotes }) => {
-      setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${logNotes}` : logNotes));
-    },
-    onMaterialAlert: ({ item }) => {
-      Alert.alert("Material Alert", `Flagged shortage: ${item}`);
-    },
-    onTriggerCamera: () => {
-      // Handled by caller if camera is available; otherwise no-op
-    },
-    onSafetyLog: ({ issue }) => {
-      Alert.alert("Safety Flag", `Flagged: ${issue}`);
-    },
-    onUnknown: (transcript) => {
-      setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${transcript}` : transcript));
-    },
-  });
-
-  const voice = useVoiceRecorder((transcript) => {
-    voiceExecutor.execute(transcript, projectName);
-  });
-
   const today = new Date().toISOString().split("T")[0];
   const nowLabel = new Date().toLocaleString("en-CA", {
     weekday: "short", month: "short", day: "numeric",
@@ -839,38 +793,13 @@ function ReportsTabSection({
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0, fontSize: 11 }]}>
               WHAT HAPPENED TODAY?
             </Text>
-            <TouchableOpacity
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); voice.toggle(); }}
-              disabled={voice.state === "transcribing"}
-              style={{
-                width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center",
-                backgroundColor: voice.state === "recording" ? "#EF4444" : voice.state === "transcribing" ? colors.muted : `${colors.primary}18`,
-              }}
-            >
-              {voice.state === "transcribing" ? (
-                <ActivityIndicator size="small" color={colors.mutedForeground} />
-              ) : (
-                <Feather name={voice.state === "recording" ? "mic-off" : "mic"} size={16}
-                  color={voice.state === "recording" ? "#FFFFFF" : colors.primary} />
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Recording indicator */}
-          {voice.state === "recording" && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF2F2", borderRadius: 8, borderWidth: 1, borderColor: "#FECACA", paddingHorizontal: 10, paddingVertical: 7, marginBottom: 8 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#DC2626" }} />
-              <Text style={{ color: "#DC2626", fontFamily: "Inter_500Medium", fontSize: 13 }}>
-                Recording… tap mic to stop & transcribe
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Feather name="mic" size={12} color={colors.mutedForeground} />
+              <Text style={{ fontSize: 11, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                Use the global mic button below
               </Text>
             </View>
-          )}
-
-          {voice.error && (
-            <Text style={{ color: colors.destructive, fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 6 }}>
-              {voice.error}
-            </Text>
-          )}
+          </View>
 
           {/* Notes textarea */}
           <TextInput
@@ -885,7 +814,7 @@ function ReportsTabSection({
             placeholder="Speak or type your site notes…"
             placeholderTextColor={colors.mutedForeground}
             multiline
-            editable={voice.state !== "recording"}
+            editable={true}
           />
 
           {/* Submit / success */}
@@ -897,10 +826,10 @@ function ReportsTabSection({
           ) : (
             <TouchableOpacity
               onPress={handleSubmit}
-              disabled={createReport.isPending || voice.state !== "idle"}
+              disabled={createReport.isPending}
               style={{
                 marginTop: 10, borderRadius: 10, paddingVertical: 12, alignItems: "center",
-                backgroundColor: (createReport.isPending || voice.state !== "idle") ? colors.muted : colors.primary,
+                backgroundColor: createReport.isPending ? colors.muted : colors.primary,
               }}
             >
               {createReport.isPending ? (

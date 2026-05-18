@@ -69,6 +69,30 @@ describe("interpretVoiceCommand", () => {
     }
   });
 
+  it("navigates to Tasks", () => {
+    const result = interpretVoiceCommand("open my tasks");
+    expect(result.intent).toBe("NAVIGATE");
+    if (result.intent === "NAVIGATE") {
+      expect(result.target).toBe("Tasks");
+    }
+  });
+
+  it("navigates to Invoices", () => {
+    const result = interpretVoiceCommand("go to invoices");
+    expect(result.intent).toBe("NAVIGATE");
+    if (result.intent === "NAVIGATE") {
+      expect(result.target).toBe("Invoices");
+    }
+  });
+
+  it("navigates to Reports", () => {
+    const result = interpretVoiceCommand("show today's reports");
+    expect(result.intent).toBe("NAVIGATE");
+    if (result.intent === "NAVIGATE") {
+      expect(result.target).toBe("Reports");
+    }
+  });
+
   it("returns DATA_ENTRY with sanitized payload for a note", () => {
     const result = interpretVoiceCommand("add a note concrete pour went well today");
     expect(result.intent).toBe("DATA_ENTRY");
@@ -110,13 +134,76 @@ describe("interpretVoiceCommand", () => {
     expect(result.intent).toBe("DATA_ENTRY");
   });
 
-  /* ─── Dirty Hands single-action tests ──────────────────────────────────── */
+  /* ─── New command tests ─────────────────────────────────────────────────────────────────────── */
+
+  it("parses LOG_OWN_HOURS with project", () => {
+    const result = interpretVoiceCommand("I worked 5 hours on Oak Street today");
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_OWN_HOURS") {
+      expect(result.action.hours).toBe(5);
+      expect(result.action.project).toBe("Oak Street today");
+    }
+  });
+
+  it("parses LOG_OWN_HOURS with 'for myself'", () => {
+    const result = interpretVoiceCommand("log 3 hours for myself on Main Street");
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_OWN_HOURS") {
+      expect(result.action.hours).toBe(3);
+      expect(result.action.project).toBe("Main Street");
+    }
+  });
+
+  it("parses MARK_TASK_DONE", () => {
+    const result = interpretVoiceCommand("mark the framing inspection as complete");
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "MARK_TASK_DONE") {
+      expect(result.action.taskName).toBe("framing inspection");
+    }
+  });
+
+  it("parses MARK_TASK_DONE via 'complete'", () => {
+    const result = interpretVoiceCommand("complete the drywall");
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "MARK_TASK_DONE") {
+      expect(result.action.taskName).toBe("drywall");
+    }
+  });
+
+  it("parses LOG_DELAY with weather", () => {
+    const result = interpretVoiceCommand("log a 2-hour weather delay on Oak Street");
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_DELAY") {
+      expect(result.action.hours).toBe(2);
+      expect(result.action.reason).toBe("weather delay");
+      expect(result.action.project).toBe("Oak Street");
+    }
+  });
+
+  it("parses LOG_EXPENSE with vendor", () => {
+    const result = interpretVoiceCommand("expense $250 for lumber at Home Depot on Oak Street");
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_EXPENSE") {
+      expect(result.action.amount).toBe(250);
+      expect(result.action.description).toBe("lumber");
+      expect(result.action.vendor).toBe("Home Depot on Oak Street");
+    }
+  });
+
+  it("parses CREATE_RFI", () => {
+    const result = interpretVoiceCommand("create an RFI about the beam size on Oak Street");
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "CREATE_RFI") {
+      expect(result.action.subject).toBe("the beam size on Oak Street");
+    }
+  });
+
+  /* ─── Existing Dirty Hands tests ────────────────────────────────────────────── */
 
   it("parses LOG_HOURS with worker, hours, and project", () => {
     const result = interpretVoiceCommand("Log 4 hours for Guy on the 123 Basement project");
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
-      expect(result.action.type).toBe("LOG_HOURS");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_HOURS") {
       expect(result.action).toMatchObject({
         worker: "Guy",
         hours: 4,
@@ -129,8 +216,7 @@ describe("interpretVoiceCommand", () => {
   it("parses LOG_HOURS with 'worked' phrasing", () => {
     const result = interpretVoiceCommand("Sarah worked 8 hours at the Main Street build");
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
-      expect(result.action.type).toBe("LOG_HOURS");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_HOURS") {
       expect(result.action).toMatchObject({
         worker: "Sarah",
         hours: 8,
@@ -142,8 +228,7 @@ describe("interpretVoiceCommand", () => {
   it("parses LOG_HOURS with low confidence when project is missing", () => {
     const result = interpretVoiceCommand("log 6 hours for Mike");
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
-      expect(result.action.type).toBe("LOG_HOURS");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_HOURS") {
       expect(result.action.project).toBeNull();
       expect(result.confidence).toBe("low");
     }
@@ -152,8 +237,7 @@ describe("interpretVoiceCommand", () => {
   it("parses ADD_DAILY_LOG via 'note that'", () => {
     const result = interpretVoiceCommand("note that the sub-grade is wet");
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
-      expect(result.action.type).toBe("ADD_DAILY_LOG");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "ADD_DAILY_LOG") {
       expect(result.action).toMatchObject({
         notes: "the sub-grade is wet",
         project: null,
@@ -164,8 +248,7 @@ describe("interpretVoiceCommand", () => {
   it("parses MATERIAL_ALERT for 'short on'", () => {
     const result = interpretVoiceCommand("We are short on 2x4 studs");
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
-      expect(result.action.type).toBe("MATERIAL_ALERT");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "MATERIAL_ALERT") {
       expect(result.action).toMatchObject({
         item: "2x4 studs",
         project: null,
@@ -184,8 +267,7 @@ describe("interpretVoiceCommand", () => {
   it("parses TRIGGER_CAMERA with context", () => {
     const result = interpretVoiceCommand("Take a photo of the foundation crack");
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
-      expect(result.action.type).toBe("TRIGGER_CAMERA");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "TRIGGER_CAMERA") {
       expect(result.action).toMatchObject({
         context: "the foundation crack",
       });
@@ -203,8 +285,7 @@ describe("interpretVoiceCommand", () => {
   it("parses SAFETY_LOG with project", () => {
     const result = interpretVoiceCommand("Subcontractor missing PPE at 123 Basement");
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
-      expect(result.action.type).toBe("SAFETY_LOG");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "SAFETY_LOG") {
       expect(result.action).toMatchObject({
         project: "123 Basement",
         issue: "missing PPE",
@@ -259,9 +340,8 @@ describe("interpretVoiceCommand", () => {
 
   it("falls back to SINGLE_ACTION when only one part of compound matches", () => {
     const result = interpretVoiceCommand("log 3 hours for Alex and the weather is nice");
-    // "the weather is nice" does not match any action parser
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_HOURS") {
       expect(result.action.type).toBe("LOG_HOURS");
     }
   });
@@ -272,6 +352,14 @@ describe("interpretVoiceCommand", () => {
     const intent = interpretVoiceCommand("log 5 hours for Joe");
     const enriched = withActiveProject(intent, "Maple Heights");
     if (enriched.intent === "SINGLE_ACTION" && enriched.action.type === "LOG_HOURS") {
+      expect(enriched.action.project).toBe("Maple Heights");
+    }
+  });
+
+  it("injects active project into LOG_OWN_HOURS missing project", () => {
+    const intent = interpretVoiceCommand("I worked 4 hours");
+    const enriched = withActiveProject(intent, "Maple Heights");
+    if (enriched.intent === "SINGLE_ACTION" && enriched.action.type === "LOG_OWN_HOURS") {
       expect(enriched.action.project).toBe("Maple Heights");
     }
   });

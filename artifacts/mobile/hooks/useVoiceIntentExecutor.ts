@@ -17,30 +17,18 @@ export interface UseVoiceIntentExecutorReturn {
   reset: () => void;
 }
 
-/**
- * Execute a parsed voice intent by firing screen-level callbacks.
- *
- * Usage in a screen component:
- *
- *   const { execute } = useVoiceIntentExecutor({
- *     onLogHours: ({ worker, hours, project }) => { ... },
- *     onAddDailyLog: ({ notes, project }) => { ... },
- *     onMaterialAlert: ({ item, project }) => { ... },
- *     onTriggerCamera: ({ context }) => { ... },
- *     onSafetyLog: ({ project, issue }) => { ... },
- *     onNavigate: (target) => router.push(target),
- *     onAddNote: (payload) => setNotes((p) => (p ? p + " " + payload : payload)),
- *   });
- *
- *   const voice = useVoiceRecorder((text) => execute(text, activeProjectName));
- */
 export interface ExecutorCallbacks {
   onLogHours?: (action: Extract<SingleAction, { type: "LOG_HOURS" }>) => Promise<void> | void;
+  onLogOwnHours?: (action: Extract<SingleAction, { type: "LOG_OWN_HOURS" }>) => Promise<void> | void;
   onAddDailyLog?: (action: Extract<SingleAction, { type: "ADD_DAILY_LOG" }>) => Promise<void> | void;
+  onMarkTaskDone?: (action: Extract<SingleAction, { type: "MARK_TASK_DONE" }>) => Promise<void> | void;
+  onLogDelay?: (action: Extract<SingleAction, { type: "LOG_DELAY" }>) => Promise<void> | void;
+  onLogExpense?: (action: Extract<SingleAction, { type: "LOG_EXPENSE" }>) => Promise<void> | void;
+  onCreateRFI?: (action: Extract<SingleAction, { type: "CREATE_RFI" }>) => Promise<void> | void;
   onMaterialAlert?: (action: Extract<SingleAction, { type: "MATERIAL_ALERT" }>) => Promise<void> | void;
   onTriggerCamera?: (action: Extract<SingleAction, { type: "TRIGGER_CAMERA" }>) => Promise<void> | void;
   onSafetyLog?: (action: Extract<SingleAction, { type: "SAFETY_LOG" }>) => Promise<void> | void;
-  onNavigate?: (target: "Calculators" | "Schedule" | "Projects" | "Ask") => void;
+  onNavigate?: (target: string) => void;
   onAddNote?: (payload: string) => void;
   onUnknown?: (transcript: string) => void;
 }
@@ -126,8 +114,28 @@ async function runSingleAction(
       await callbacks.onLogHours?.(action);
       break;
     }
+    case "LOG_OWN_HOURS": {
+      await callbacks.onLogOwnHours?.(action);
+      break;
+    }
     case "ADD_DAILY_LOG": {
       await callbacks.onAddDailyLog?.(action);
+      break;
+    }
+    case "MARK_TASK_DONE": {
+      await callbacks.onMarkTaskDone?.(action);
+      break;
+    }
+    case "LOG_DELAY": {
+      await callbacks.onLogDelay?.(action);
+      break;
+    }
+    case "LOG_EXPENSE": {
+      await callbacks.onLogExpense?.(action);
+      break;
+    }
+    case "CREATE_RFI": {
+      await callbacks.onCreateRFI?.(action);
       break;
     }
     case "MATERIAL_ALERT": {

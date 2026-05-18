@@ -9,31 +9,35 @@ import { Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { useOfflineQueue } from "@/context/OfflineQueueContext";
+import { GlobalVoiceCommandFAB } from "@/components/GlobalVoiceCommandFAB";
 
 function NativeTabLayout() {
   return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="(home)">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="risk">
-        <Icon sf={{ default: "exclamationmark.triangle", selected: "exclamationmark.triangle.fill" }} />
-        <Label>Risk</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="inspect">
-        <Icon sf={{ default: "checkmark.shield", selected: "checkmark.shield.fill" }} />
-        <Label>Inspections</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="safety">
-        <Icon sf={{ default: "cross.case", selected: "cross.case.fill" }} />
-        <Label>Safety</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="profile">
-        <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>Profile</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <View style={{ flex: 1 }}>
+      <NativeTabs>
+        <NativeTabs.Trigger name="(home)">
+          <Icon sf={{ default: "house", selected: "house.fill" }} />
+          <Label>Home</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="risk">
+          <Icon sf={{ default: "exclamationmark.triangle", selected: "exclamationmark.triangle.fill" }} />
+          <Label>Risk</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="inspect">
+          <Icon sf={{ default: "checkmark.shield", selected: "checkmark.shield.fill" }} />
+          <Label>Inspections</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="safety">
+          <Icon sf={{ default: "cross.case", selected: "cross.case.fill" }} />
+          <Label>Safety</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="profile">
+          <Icon sf={{ default: "person", selected: "person.fill" }} />
+          <Label>Profile</Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+      <GlobalVoiceCommandFAB />
+    </View>
   );
 }
 
@@ -55,9 +59,10 @@ function ClassicTabLayout() {
   const { pendingCount } = useOfflineQueue();
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.primary,
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         headerShown: false,
         tabBarHideOnKeyboard: true,
@@ -128,6 +133,8 @@ function ClassicTabLayout() {
       />
 
     </Tabs>
+    <GlobalVoiceCommandFAB />
+    </View>
   );
 }
 

@@ -1,4 +1,11 @@
-export type RouteTarget = "Calculators" | "Schedule" | "Projects" | "Ask";
+export type RouteTarget =
+  | "Calculators"
+  | "Schedule"
+  | "Projects"
+  | "Ask"
+  | "Tasks"
+  | "Invoices"
+  | "Reports";
 
 export type LogHoursAction = {
   type: "LOG_HOURS";
@@ -7,10 +14,43 @@ export type LogHoursAction = {
   project: string | null;
 };
 
+export type LogOwnHoursAction = {
+  type: "LOG_OWN_HOURS";
+  hours: number;
+  project: string | null;
+};
+
 export type AddDailyLogAction = {
   type: "ADD_DAILY_LOG";
   project: string | null;
   notes: string;
+};
+
+export type MarkTaskDoneAction = {
+  type: "MARK_TASK_DONE";
+  taskName: string;
+  project: string | null;
+};
+
+export type LogDelayAction = {
+  type: "LOG_DELAY";
+  hours: number;
+  reason: string;
+  project: string | null;
+};
+
+export type LogExpenseAction = {
+  type: "LOG_EXPENSE";
+  amount: number;
+  description: string;
+  vendor: string | null;
+  project: string | null;
+};
+
+export type CreateRFIAction = {
+  type: "CREATE_RFI";
+  subject: string;
+  project: string | null;
 };
 
 export type MaterialAlertAction = {
@@ -33,7 +73,12 @@ export type SafetyLogAction = {
 
 export type SingleAction =
   | LogHoursAction
+  | LogOwnHoursAction
   | AddDailyLogAction
+  | MarkTaskDoneAction
+  | LogDelayAction
+  | LogExpenseAction
+  | CreateRFIAction
   | MaterialAlertAction
   | TriggerCameraAction
   | SafetyLogAction;
@@ -52,6 +97,9 @@ const ROUTE_PATTERNS: Array<{ pattern: RegExp; target: RouteTarget }> = [
   { pattern: /schedule|calendar/i, target: "Schedule" },
   { pattern: /\bprojects?\b/i, target: "Projects" },
   { pattern: /\b(chat|ask|assistant)\b/i, target: "Ask" },
+  { pattern: /\bmy\s+tasks?\b|\btasks?\b.*\b(list|page)\b/i, target: "Tasks" },
+  { pattern: /\binvoices?\b/i, target: "Invoices" },
+  { pattern: /\breports?\b|\btoday'?s\s+reports?\b/i, target: "Reports" },
 ];
 
 const NOTE_TRIGGER = /^(?:add|create|write)\s+a?\s*note\s*(.*)/is;
@@ -75,6 +123,39 @@ const HOURS_PATTERNS = [
   /record\s+(\d+(?:\.\d+)?)\s+hours?\s+for\s+(.+)/i,
 ];
 
+const OWN_HOURS_PATTERNS = [
+  // "I worked 5 hours on Oak Street today"
+  /i\s+worked\s+(\d+(?:\.\d+)?)\s+hours?\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
+  // "log 5 hours for myself on Oak Street"
+  /log\s+(\d+(?:\.\d+)?)\s+hours?\s+(?:for\s+myself|for\s+me)\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
+  // "my hours today are 5 on Oak Street"
+  /my\s+hours\s+(?:today\s+)?(?:are\s+)?(\d+(?:\.\d+)?)\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
+];
+
+const MARK_TASK_DONE_PATTERNS = [
+  /mark\s+(?:the\s+)?(.+?)\s+as\s+(?:complete|done|finished)/i,
+  /complete\s+(?:the\s+)?(.+)/i,
+  /finish\s+(?:the\s+)?(.+)/i,
+];
+
+const DELAY_PATTERNS = [
+  /log\s+a?\s*(\d+(?:\.\d+)?)\s*-?\s*hour\s+(.+?)\s+(?:delay|holdup)\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
+  /(.+?)\s+delay\s+(?:of\s+)?(\d+(?:\.\d+)?)\s+hours?\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
+  /weather\s+delay\s+(?:of\s+)?(\d+(?:\.\d+)?)\s+hours?\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
+];
+
+const EXPENSE_PATTERNS = [
+  /expense\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:for\s+)?(.+?)\s+(?:at|from)\s+(.+)/i,
+  /spent\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:on\s+)?(.+?)\s+(?:at|from)\s+(.+)/i,
+  /log\s+(?:an?\s+)?expense\s+(?:of\s+)?\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:for\s+)?(.+)/i,
+];
+
+const RFI_PATTERNS = [
+  /create\s+(?:an?\s+)?RFI\s+(?:about|regarding|for)\s+(?:the\s+)?(.+)/i,
+  /new\s+RFI\s+(?:about|regarding|for)\s+(?:the\s+)?(.+)/i,
+  /RFI\s+(?:about|regarding)\s+(?:the\s+)?(.+)/i,
+];
+
 const DAILY_LOG_PATTERNS = [
   /(?:note|log|report)\s+that\s+(.+)/i,
   /(?:daily\s+log|daily\s+report)\s*(?:that\s+)?(.+)/i,
@@ -95,7 +176,7 @@ const SAFETY_PATTERNS = [
   /(?:missing\s+PPE|no\s+PPE|without\s+PPE)\s+(?:at|on)\s+(?:the\s+)?(.+)/i,
   /(?:safety\s+issue|hazard|unsafe\s+condition)\s+(?:at|on)\s+(?:the\s+)?(.+)/i,
   /(.+?)\s+(?:missing\s+PPE|no\s+PPE|without\s+PPE)/i,
-  /(?:safety\s+issue|hazard)\s*[:\-]?\s*(.+)/i,
+  /(?:safety\s+issue|hazard)\s*[\:\-]?\s*(.+)/i,
 ];
 
 function tryParseLogHours(text: string): LogHoursAction | null {
@@ -120,6 +201,92 @@ function tryParseLogHours(text: string): LogHoursAction | null {
 
     if (!isNaN(hours) && worker) {
       return { type: "LOG_HOURS", worker, hours, project };
+    }
+  }
+  return null;
+}
+
+function tryParseOwnHours(text: string): LogOwnHoursAction | null {
+  for (const pattern of OWN_HOURS_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      const hours = parseFloat(match[1]);
+      const project = match[2]?.trim() ?? null;
+      if (!isNaN(hours)) {
+        return { type: "LOG_OWN_HOURS", hours, project };
+      }
+    }
+  }
+  return null;
+}
+
+function tryParseMarkTaskDone(text: string): MarkTaskDoneAction | null {
+  for (const pattern of MARK_TASK_DONE_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      const taskName = match[1].trim();
+      if (taskName) {
+        return { type: "MARK_TASK_DONE", taskName, project: null };
+      }
+    }
+  }
+  return null;
+}
+
+function tryParseLogDelay(text: string): LogDelayAction | null {
+  for (const pattern of DELAY_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      const raw = match[0].toLowerCase();
+      let hours: number;
+      let reason: string;
+      let project: string | null = null;
+
+      if (raw.includes("weather delay")) {
+        hours = parseFloat(match[1]);
+        reason = "weather delay";
+        project = match[2]?.trim() ?? null;
+      } else if (raw.startsWith("log")) {
+        hours = parseFloat(match[1]);
+        reason = match[2].trim();
+        project = match[3]?.trim() ?? null;
+      } else {
+        reason = match[1].trim();
+        hours = parseFloat(match[2]);
+        project = match[3]?.trim() ?? null;
+      }
+
+      if (!isNaN(hours) && reason) {
+        return { type: "LOG_DELAY", hours, reason, project };
+      }
+    }
+  }
+  return null;
+}
+
+function tryParseLogExpense(text: string): LogExpenseAction | null {
+  for (const pattern of EXPENSE_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      const amount = parseFloat(match[1].replace(/,/g, ""));
+      const description = match[2].trim();
+      const vendor = match[3]?.trim() ?? null;
+      if (!isNaN(amount) && description) {
+        return { type: "LOG_EXPENSE", amount, description, vendor, project: null };
+      }
+    }
+  }
+  return null;
+}
+
+function tryParseCreateRFI(text: string): CreateRFIAction | null {
+  for (const pattern of RFI_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      const subject = match[1].trim();
+      if (subject) {
+        return { type: "CREATE_RFI", subject, project: null };
+      }
     }
   }
   return null;
@@ -166,9 +333,6 @@ function tryParseSafetyLog(text: string): SafetyLogAction | null {
   for (const pattern of SAFETY_PATTERNS) {
     const match = text.match(pattern);
     if (match) {
-      // Pattern 1 & 2: "missing PPE at 123 Basement" -> project=match[1], issue=missing PPE
-      // Pattern 3: "123 Basement missing PPE" -> project=match[1], issue=missing PPE
-      // Pattern 4: "hazard: wet floor" -> issue=match[1], project=null
       const raw = match[0].toLowerCase();
       if (raw.includes("missing ppe") || raw.includes("no ppe") || raw.includes("without ppe")) {
         const issue = "missing PPE";
@@ -177,7 +341,6 @@ function tryParseSafetyLog(text: string): SafetyLogAction | null {
       }
       if (raw.includes("safety issue") || raw.includes("hazard") || raw.includes("unsafe")) {
         const issue = match[1]?.trim() ?? "safety issue";
-        // For "hazard at 123 Basement" extract project from second group
         const project = match[2]?.trim() ?? null;
         return { type: "SAFETY_LOG", project, issue };
       }
@@ -194,8 +357,23 @@ function parseSingleAction(text: string): SingleAction | null {
   const safety = tryParseSafetyLog(text);
   if (safety) return safety;
 
+  const ownHours = tryParseOwnHours(text);
+  if (ownHours) return ownHours;
+
   const hours = tryParseLogHours(text);
   if (hours) return hours;
+
+  const taskDone = tryParseMarkTaskDone(text);
+  if (taskDone) return taskDone;
+
+  const delay = tryParseLogDelay(text);
+  if (delay) return delay;
+
+  const expense = tryParseLogExpense(text);
+  if (expense) return expense;
+
+  const rfi = tryParseCreateRFI(text);
+  if (rfi) return rfi;
 
   const material = tryParseMaterialAlert(text);
   if (material) return material;
@@ -256,6 +434,11 @@ export function interpretVoiceCommand(transcript: string): VoiceIntent {
   if (single) {
     const hasAllFields =
       (single.type === "LOG_HOURS" && single.project !== null) ||
+      (single.type === "LOG_OWN_HOURS" && single.project !== null) ||
+      (single.type === "MARK_TASK_DONE" && single.taskName.length > 0) ||
+      (single.type === "LOG_DELAY" && single.reason.length > 0) ||
+      (single.type === "LOG_EXPENSE" && single.description.length > 0) ||
+      (single.type === "CREATE_RFI" && single.subject.length > 0) ||
       (single.type === "ADD_DAILY_LOG" && single.notes.length > 0) ||
       (single.type === "MATERIAL_ALERT" && single.item.length > 0) ||
       (single.type === "TRIGGER_CAMERA") ||
