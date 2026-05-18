@@ -145,15 +145,15 @@ const DELAY_PATTERNS = [
 ];
 
 const EXPENSE_PATTERNS = [
-  /expense\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:for\s+)?(.+?)\s+(?:at|from)\s+(.+)/i,
-  /spent\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:on\s+)?(.+?)\s+(?:at|from)\s+(.+)/i,
-  /log\s+(?:an?\s+)?expense\s+(?:of\s+)?\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:for\s+)?(.+)/i,
+  /expense\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:for\s+)?(.+?)\s+(?:at|from)\s+(.+?)(?:\s+(?:on|at)\s+(?:the\s+)?(.+))?$/i,
+  /spent\s+\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:on\s+)?(.+?)\s+(?:at|from)\s+(.+?)(?:\s+(?:on|at)\s+(?:the\s+)?(.+))?$/i,
+  /log\s+(?:an?\s+)?expense\s+(?:of\s+)?\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s+(?:for\s+)?(.+?)(?:\s+(?:on|at)\s+(?:the\s+)?(.+))?$/i,
 ];
 
 const RFI_PATTERNS = [
-  /create\s+(?:an?\s+)?RFI\s+(?:about|regarding|for)\s+(?:the\s+)?(.+)/i,
-  /new\s+RFI\s+(?:about|regarding|for)\s+(?:the\s+)?(.+)/i,
-  /RFI\s+(?:about|regarding)\s+(?:the\s+)?(.+)/i,
+  /create\s+(?:an?\s+)?RFI\s+(?:about|regarding|for)\s+(?:the\s+)?(.+?)(?:\s+(?:on|at)\s+(?:the\s+)?(.+))?$/i,
+  /new\s+RFI\s+(?:about|regarding|for)\s+(?:the\s+)?(.+?)(?:\s+(?:on|at)\s+(?:the\s+)?(.+))?$/i,
+  /RFI\s+(?:about|regarding)\s+(?:the\s+)?(.+?)(?:\s+(?:on|at)\s+(?:the\s+)?(.+))?$/i,
 ];
 
 const DAILY_LOG_PATTERNS = [
@@ -271,8 +271,9 @@ function tryParseLogExpense(text: string): LogExpenseAction | null {
       const amount = parseFloat(match[1].replace(/,/g, ""));
       const description = match[2].trim();
       const vendor = match[3]?.trim() ?? null;
+      const project = match[4]?.trim() ?? null;
       if (!isNaN(amount) && description) {
-        return { type: "LOG_EXPENSE", amount, description, vendor, project: null };
+        return { type: "LOG_EXPENSE", amount, description, vendor, project };
       }
     }
   }
@@ -284,8 +285,9 @@ function tryParseCreateRFI(text: string): CreateRFIAction | null {
     const match = text.match(pattern);
     if (match) {
       const subject = match[1].trim();
+      const project = match[2]?.trim() ?? null;
       if (subject) {
-        return { type: "CREATE_RFI", subject, project: null };
+        return { type: "CREATE_RFI", subject, project };
       }
     }
   }
