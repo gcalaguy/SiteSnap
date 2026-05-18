@@ -54,7 +54,6 @@ export function GlobalVoiceCommandFAB() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { isSignedIn } = useAuth();
-  if (!isSignedIn) return null;
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const { data: projects } = useListProjects();
@@ -418,6 +417,8 @@ export function GlobalVoiceCommandFAB() {
   }, [executor, pulseAnim]);
 
   const bottomOffset = Platform.OS === "ios" ? insets.bottom + 70 : insets.bottom + 80;
+
+  if (!isSignedIn) return null;
 
   return (
     <>
