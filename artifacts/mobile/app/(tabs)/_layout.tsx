@@ -9,7 +9,6 @@ import { Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { useOfflineQueue } from "@/context/OfflineQueueContext";
-import { GlobalVoiceCommandFAB } from "@/components/GlobalVoiceCommandFAB";
 
 function NativeTabLayout() {
   return (
@@ -36,7 +35,6 @@ function NativeTabLayout() {
           <Label>Profile</Label>
         </NativeTabs.Trigger>
       </NativeTabs>
-      <GlobalVoiceCommandFAB />
     </View>
   );
 }
@@ -133,7 +131,6 @@ function ClassicTabLayout() {
       />
 
     </Tabs>
-    <GlobalVoiceCommandFAB />
     </View>
   );
 }

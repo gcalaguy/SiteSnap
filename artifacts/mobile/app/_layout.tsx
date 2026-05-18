@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
+import { View } from "react-native";
 import { ClerkProvider, useAuth, useUser } from "@clerk/clerk-expo";
 import { useGetMe, useSyncUser, getGetMeQueryKey, setAuthTokenGetter, setBaseUrl, setTenantIdGetter } from "@workspace/api-client-react";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import * as SplashScreen from "expo-splash-screen";
 import { TermsModal } from "@/components/TermsModal";
+import { GlobalVoiceCommandFAB } from "@/components/GlobalVoiceCommandFAB";
 import * as SecureStore from "expo-secure-store";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
@@ -173,7 +175,8 @@ function RootLayoutNav() {
   return (
     <>
       <TermsModal visible={needsTerms} />
-      <Stack screenOptions={{ headerBackTitle: "Back" }}>
+      <View style={{ flex: 1 }}>
+        <Stack screenOptions={{ headerBackTitle: "Back" }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
@@ -195,6 +198,8 @@ function RootLayoutNav() {
         <Stack.Screen name="site-vision" options={{ headerShown: false }} />
         <Stack.Screen name="safety" options={{ headerShown: false }} />
       </Stack>
+      <GlobalVoiceCommandFAB />
+    </View>
     </>
   );
 }

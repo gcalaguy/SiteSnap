@@ -22,7 +22,7 @@ import {
 } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
@@ -51,7 +51,7 @@ export function GlobalVoiceCommandFAB() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const segments = useSegments();
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const { data: projects } = useListProjects();
@@ -66,15 +66,14 @@ export function GlobalVoiceCommandFAB() {
     [projects]
   );
 
-  // Infer active project from route when on a project screen
+  // Infer active project from route segments when on a project screen
   const activeProjectName = useMemo(() => {
-    const idParam = params.id;
-    if (idParam == null) return null;
-    const id = Number(idParam);
+    if (segments[0] !== "project") return null;
+    const id = Number(segments[1]);
     if (Number.isNaN(id)) return null;
     const match = projectList.find((p) => p.id === id);
     return match?.name ?? null;
-  }, [params.id, projectList]);
+  }, [segments, projectList]);
 
   // ── API mutations ──
   const updateTask = useUpdateTask();
@@ -345,7 +344,7 @@ export function GlobalVoiceCommandFAB() {
       const pathMap: Record<string, string> = {
         Calculators: "/calculators",
         Schedule: "/schedule",
-        Projects: "/",
+        Projects: "/projects",
         Ask: "/(tabs)/(home)/ask",
         Tasks: "/(tabs)/(home)/tasks",
         Invoices: "/finance",
