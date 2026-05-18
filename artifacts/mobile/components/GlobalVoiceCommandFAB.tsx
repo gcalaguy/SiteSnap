@@ -564,7 +564,7 @@ export function GlobalVoiceCommandFAB() {
                     onPress={() => {
                       setTranscript(h.text);
                       setResults([]);
-                      executor.execute(h.text, activeProjectName);
+                      executor.execute(h.text, activeProjectName, projectList.map((p) => p.name));
                     }}
                     style={[styles.hintChip, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}30` }]}
                   >

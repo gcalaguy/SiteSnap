@@ -168,8 +168,8 @@ type DailyLogPattern = {
 const DAILY_LOG_PATTERNS: DailyLogPattern[] = [
   // "update the 123 Basement project with/that [notes]"
   { pattern: /^update\s+(?:the\s+)?(.+?)\s+(?:project\s+)?(?:with|that|,)\s+(.+)/i, notesGroup: 2, projectGroup: 1 },
-  // "update [project]" (no notes — will default)
-  { pattern: /^update\s+(?:the\s+)?(.+?)(?:\s+project)?$/i, notesGroup: null, projectGroup: 1 },
+  // "update [project]" (no notes — require ≥4 chars to reduce false matches on generic words)
+  { pattern: /^update\s+(?:the\s+)?(.{4,}?)(?:\s+project)?$/i, notesGroup: null, projectGroup: 1 },
   // "add notes to [project] that/about/with [notes]"
   { pattern: /add\s+(?:a\s+)?notes?\s+to\s+(?:the\s+)?(.+?)\s+(?:that|about|with|:|,)\s+(.+)/i, notesGroup: 2, projectGroup: 1 },
   // "add notes to [project]" (no notes — will default)
@@ -547,8 +547,11 @@ async function classifyWithLLM(
           };
         }
         break;
-      case "NAVIGATE":
-        if (result.target) {
+      case "NAVIGATE": {
+        const VALID_TARGETS: RouteTarget[] = [
+          "Calculators", "Schedule", "Projects", "Ask", "Tasks", "Invoices", "Reports",
+        ];
+        if (result.target && VALID_TARGETS.includes(result.target as RouteTarget)) {
           return {
             intent: "NAVIGATE",
             target: result.target as RouteTarget,
@@ -556,6 +559,7 @@ async function classifyWithLLM(
           };
         }
         break;
+      }
     }
   } catch {
     // Network or parse error — fall through to UNKNOWN
