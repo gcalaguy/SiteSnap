@@ -22,6 +22,7 @@ export type MaterialAlertAction = {
 export type TriggerCameraAction = {
   type: "TRIGGER_CAMERA";
   context: string | null;
+  project: string | null;
 };
 
 export type SafetyLogAction = {
@@ -155,7 +156,7 @@ function tryParseCamera(text: string): TriggerCameraAction | null {
     const match = text.match(pattern);
     if (match) {
       const context = match[1]?.trim() ?? null;
-      return { type: "TRIGGER_CAMERA", context };
+      return { type: "TRIGGER_CAMERA", context, project: null };
     }
   }
   return null;

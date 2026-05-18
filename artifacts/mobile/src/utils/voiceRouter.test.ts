@@ -176,8 +176,7 @@ describe("interpretVoiceCommand", () => {
   it("parses MATERIAL_ALERT for 'need' phrasing", () => {
     const result = interpretVoiceCommand("need more concrete");
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
-      expect(result.action.type).toBe("MATERIAL_ALERT");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "MATERIAL_ALERT") {
       expect(result.action.item).toBe("more concrete");
     }
   });
@@ -196,8 +195,7 @@ describe("interpretVoiceCommand", () => {
   it("parses TRIGGER_CAMERA without context", () => {
     const result = interpretVoiceCommand("Take a photo");
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
-      expect(result.action.type).toBe("TRIGGER_CAMERA");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "TRIGGER_CAMERA") {
       expect(result.action.context).toBeNull();
     }
   });
@@ -217,8 +215,7 @@ describe("interpretVoiceCommand", () => {
   it("parses SAFETY_LOG without project", () => {
     const result = interpretVoiceCommand("missing PPE");
     expect(result.intent).toBe("SINGLE_ACTION");
-    if (result.intent === "SINGLE_ACTION") {
-      expect(result.action.type).toBe("SAFETY_LOG");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "SAFETY_LOG") {
       expect(result.action.project).toBeNull();
       expect(result.action.issue).toBe("missing PPE");
     }
