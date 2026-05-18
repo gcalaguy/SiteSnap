@@ -364,7 +364,7 @@ export function GlobalVoiceCommandFAB() {
   const voice = useVoiceRecorder((text) => {
     setTranscript(text);
     setResults([]);
-    executor.execute(text, activeProjectName);
+    executor.execute(text, activeProjectName, projectList.map((p) => p.name));
   });
 
   useEffect(() => {

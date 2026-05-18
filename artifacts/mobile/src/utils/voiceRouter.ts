@@ -159,9 +159,31 @@ const RFI_PATTERNS = [
   /RFI\s+(?:about|regarding)\s+(?:the\s+)?(.+?)(?:\s+(?:on|at)\s+(?:the\s+)?(.+))?$/i,
 ];
 
-const DAILY_LOG_PATTERNS = [
-  /(?:note|log|report)\s+that\s+(.+)/i,
-  /(?:daily\s+log|daily\s+report)\s*(?:that\s+)?(.+)/i,
+type DailyLogPattern = {
+  pattern: RegExp;
+  notesGroup: number | null;
+  projectGroup: number | null;
+};
+
+const DAILY_LOG_PATTERNS: DailyLogPattern[] = [
+  // "update the 123 Basement project with/that [notes]"
+  { pattern: /^update\s+(?:the\s+)?(.+?)\s+(?:project\s+)?(?:with|that|,)\s+(.+)/i, notesGroup: 2, projectGroup: 1 },
+  // "update [project]" (no notes — will default)
+  { pattern: /^update\s+(?:the\s+)?(.+?)(?:\s+project)?$/i, notesGroup: null, projectGroup: 1 },
+  // "add notes to [project] that/about/with [notes]"
+  { pattern: /add\s+(?:a\s+)?notes?\s+to\s+(?:the\s+)?(.+?)\s+(?:that|about|with|:|,)\s+(.+)/i, notesGroup: 2, projectGroup: 1 },
+  // "add notes to [project]" (no notes — will default)
+  { pattern: /add\s+(?:a\s+)?notes?\s+to\s+(?:the\s+)?(.+)$/i, notesGroup: null, projectGroup: 1 },
+  // "log for/to [project] that/about [notes]"
+  { pattern: /log\s+(?:for|to)\s+(?:the\s+)?(.+?)\s+(?:that|about)\s+(.+)/i, notesGroup: 2, projectGroup: 1 },
+  // "note/report that [notes] on/at [project]"
+  { pattern: /(?:note|report)\s+that\s+(.+?)\s+(?:on|at)\s+(?:the\s+)?(.+)/i, notesGroup: 1, projectGroup: 2 },
+  // "note/log/report that [notes]" (no project)
+  { pattern: /(?:note|log|report)\s+that\s+(.+)/i, notesGroup: 1, projectGroup: null },
+  // "daily log/report [notes] on/at [project]"
+  { pattern: /(?:daily\s+log|daily\s+report)\s*(?:that\s+)?(.+?)\s+(?:on|at)\s+(?:the\s+)?(.+)/i, notesGroup: 1, projectGroup: 2 },
+  // "daily log/report [notes]" (no project)
+  { pattern: /(?:daily\s+log|daily\s+report)\s*(?:that\s+)?(.+)/i, notesGroup: 1, projectGroup: null },
 ];
 
 const MATERIAL_PATTERNS = [
@@ -301,13 +323,21 @@ function tryParseCreateRFI(text: string): CreateRFIAction | null {
 }
 
 function tryParseDailyLog(text: string): AddDailyLogAction | null {
-  for (const pattern of DAILY_LOG_PATTERNS) {
+  for (const { pattern, notesGroup, projectGroup } of DAILY_LOG_PATTERNS) {
     const match = text.match(pattern);
-    if (match) {
-      const notes = match[1].trim();
-      if (notes) {
-        return { type: "ADD_DAILY_LOG", project: null, notes };
-      }
+    if (!match) continue;
+    const notes =
+      notesGroup !== null
+        ? (match[notesGroup]?.trim() ?? "")
+        : "Update logged via voice";
+    const project =
+      projectGroup !== null ? (match[projectGroup]?.trim() ?? null) : null;
+    if (notes || project) {
+      return {
+        type: "ADD_DAILY_LOG",
+        project: project || null,
+        notes: notes || "Update logged via voice",
+      };
     }
   }
   return null;

@@ -676,4 +676,76 @@ Keep total output under 200 words. Only include sections that have relevant data
   }),
 );
 
+// ── Voice Command Classification ─────────────────────────────────────────────
+const VoiceClassifyInput = z.object({
+  transcript: z.string().min(1).max(500),
+  projectNames: z.array(z.string()).optional().default([]),
+});
+
+router.post(
+  "/ai/voice-classify",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const parsed = VoiceClassifyInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+      return;
+    }
+
+    const { transcript, projectNames } = parsed.data;
+
+    const projectList =
+      projectNames.length > 0
+        ? `Known project names: ${projectNames.map((n) => `"${n}"`).join(", ")}`
+        : "No project names provided.";
+
+    const prompt = `You are a voice command classifier for a Canadian construction project management app.
+
+Classify the following voice transcript into a structured intent.
+
+${projectList}
+
+Return ONLY a valid JSON object. Do NOT include markdown or explanation.
+
+Intent types and their required fields:
+- ADD_DAILY_LOG: { "intent": "ADD_DAILY_LOG", "project": string|null, "notes": string }
+- LOG_HOURS: { "intent": "LOG_HOURS", "worker": string, "hours": number, "project": string|null }
+- LOG_OWN_HOURS: { "intent": "LOG_OWN_HOURS", "hours": number, "project": string|null }
+- MARK_TASK_DONE: { "intent": "MARK_TASK_DONE", "taskName": string, "project": string|null }
+- LOG_DELAY: { "intent": "LOG_DELAY", "hours": number, "reason": string, "project": string|null }
+- LOG_EXPENSE: { "intent": "LOG_EXPENSE", "amount": number, "description": string, "vendor": string|null, "project": string|null }
+- CREATE_RFI: { "intent": "CREATE_RFI", "subject": string, "project": string|null }
+- MATERIAL_ALERT: { "intent": "MATERIAL_ALERT", "item": string, "project": string|null }
+- NAVIGATE: { "intent": "NAVIGATE", "target": "Calculators"|"Schedule"|"Projects"|"Ask"|"Tasks"|"Invoices"|"Reports" }
+- UNKNOWN: { "intent": "UNKNOWN" }
+
+Rules:
+- For ADD_DAILY_LOG with no notes content, use "Update logged via voice" as the notes value.
+- If a project name is mentioned, extract it as closely as possible to the known project list. Set to null if uncertain.
+- "I" or "me" as the worker means LOG_OWN_HOURS.
+- If no intent can be confidently determined, return UNKNOWN.
+
+Transcript: "${transcript}"`;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4.1-mini",
+        max_completion_tokens: 256,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const content = response.choices[0]?.message?.content?.trim() ?? "";
+      try {
+        const result = JSON.parse(content);
+        res.json(result);
+      } catch {
+        res.json({ intent: "UNKNOWN" });
+      }
+    } catch (err: unknown) {
+      req.log?.error({ err }, "Voice classify failed");
+      res.json({ intent: "UNKNOWN" });
+    }
+  }),
+);
+
 export default router;
