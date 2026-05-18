@@ -12,12 +12,12 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import {
   useGetMe,
   useListProjects,
   useUpdateTask,
   useCreateRFI,
+  useCreateDailyReport,
   customFetch,
 } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
@@ -79,6 +79,7 @@ export function GlobalVoiceCommandFAB() {
   // ── API mutations ──
   const updateTask = useUpdateTask();
   const createRFI = useCreateRFI();
+  const createDailyReport = useCreateDailyReport();
 
   const logHoursMutation = useMutation({
     mutationFn: async (body: { projectId: number; date: string; hours: number; description: string }) => {
@@ -301,6 +302,31 @@ export function GlobalVoiceCommandFAB() {
     [resolveProject, askPickProject, createRFI, addResult]
   );
 
+  const handleAddDailyLog = useCallback(
+    async (action: Extract<SingleAction, { type: "ADD_DAILY_LOG" }>) => {
+      let proj = resolveProject(action.project);
+      if (!proj) {
+        addResult("file-text", "Daily log", "Need project — pick below", "pending");
+        try {
+          proj = await askPickProject();
+        } catch {
+          addResult("x", "Daily log", "Cancelled", "error");
+          throw new Error("User cancelled project selection");
+        }
+      }
+      await createDailyReport.mutateAsync({
+        projectId: proj.id,
+        data: {
+          reportDate: new Date().toISOString().split("T")[0],
+          crewCount: 1,
+          workPerformed: action.notes,
+        },
+      });
+      addResult("check", "Daily log", `Logged on ${proj.name}`, "ok");
+    },
+    [resolveProject, askPickProject, createDailyReport, addResult]
+  );
+
   const executor = useVoiceIntentExecutor({
     onLogHours: handleLogHours,
     onLogOwnHours: handleLogOwnHours,
@@ -308,8 +334,12 @@ export function GlobalVoiceCommandFAB() {
     onLogDelay: handleLogDelay,
     onLogExpense: handleLogExpense,
     onCreateRFI: handleCreateRFI,
+    onAddDailyLog: handleAddDailyLog,
     onMaterialAlert: ({ item }) => addResult("package", "Material alert", `Flagged: ${item}`, "ok"),
-    onTriggerCamera: () => addResult("camera", "Photo", "Camera triggered", "ok"),
+    onTriggerCamera: () => {
+      addResult("camera", "Photo", "Opening camera...", "ok");
+      router.push("/(tabs)/(home)/scan-camera" as Parameters<typeof router.push>[0]);
+    },
     onSafetyLog: ({ issue }) => addResult("alert-octagon", "Safety", issue, "ok"),
     onNavigate: (target) => {
       const pathMap: Record<string, string> = {
@@ -387,7 +417,6 @@ export function GlobalVoiceCommandFAB() {
   }, [executor, pulseAnim]);
 
   const bottomOffset = Platform.OS === "ios" ? insets.bottom + 70 : insets.bottom + 80;
-  const isWeb = Platform.OS === "web";
 
   return (
     <>
