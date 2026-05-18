@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
 import * as Haptics from "expo-haptics";
-import { customFetch } from "@workspace/api-client-react";
 import {
   interpretVoiceCommand,
   withActiveProject,
@@ -34,132 +33,6 @@ export interface ExecutorCallbacks {
   onUnknown?: (transcript: string) => void;
 }
 
-type LLMResult = {
-  intent: string;
-  project?: string | null;
-  notes?: string;
-  hours?: number;
-  worker?: string;
-  taskName?: string;
-  reason?: string;
-  amount?: number;
-  description?: string;
-  vendor?: string | null;
-  subject?: string;
-  item?: string;
-  target?: string;
-};
-
-async function classifyWithLLM(
-  transcript: string,
-  projectNames: string[],
-): Promise<VoiceIntent> {
-  try {
-    const result = await customFetch<LLMResult>("/api/ai/voice-classify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transcript, projectNames }),
-    });
-
-    const project = result.project ?? null;
-
-    switch (result.intent) {
-      case "ADD_DAILY_LOG":
-        return {
-          intent: "SINGLE_ACTION",
-          action: {
-            type: "ADD_DAILY_LOG",
-            project,
-            notes: result.notes || "Update logged via voice",
-          },
-          confidence: "low",
-        };
-      case "LOG_HOURS":
-        if (result.worker && result.hours != null) {
-          return {
-            intent: "SINGLE_ACTION",
-            action: { type: "LOG_HOURS", worker: result.worker, hours: result.hours, project },
-            confidence: "low",
-          };
-        }
-        break;
-      case "LOG_OWN_HOURS":
-        if (result.hours != null) {
-          return {
-            intent: "SINGLE_ACTION",
-            action: { type: "LOG_OWN_HOURS", hours: result.hours, project },
-            confidence: "low",
-          };
-        }
-        break;
-      case "MARK_TASK_DONE":
-        if (result.taskName) {
-          return {
-            intent: "SINGLE_ACTION",
-            action: { type: "MARK_TASK_DONE", taskName: result.taskName, project },
-            confidence: "low",
-          };
-        }
-        break;
-      case "LOG_DELAY":
-        if (result.hours != null && result.reason) {
-          return {
-            intent: "SINGLE_ACTION",
-            action: { type: "LOG_DELAY", hours: result.hours, reason: result.reason, project },
-            confidence: "low",
-          };
-        }
-        break;
-      case "LOG_EXPENSE":
-        if (result.amount != null && result.description) {
-          return {
-            intent: "SINGLE_ACTION",
-            action: {
-              type: "LOG_EXPENSE",
-              amount: result.amount,
-              description: result.description,
-              vendor: result.vendor ?? null,
-              project,
-            },
-            confidence: "low",
-          };
-        }
-        break;
-      case "CREATE_RFI":
-        if (result.subject) {
-          return {
-            intent: "SINGLE_ACTION",
-            action: { type: "CREATE_RFI", subject: result.subject, project },
-            confidence: "low",
-          };
-        }
-        break;
-      case "MATERIAL_ALERT":
-        if (result.item) {
-          return {
-            intent: "SINGLE_ACTION",
-            action: { type: "MATERIAL_ALERT", item: result.item, project },
-            confidence: "low",
-          };
-        }
-        break;
-      case "NAVIGATE":
-        if (result.target) {
-          return {
-            intent: "NAVIGATE",
-            target: result.target as VoiceIntent extends { intent: "NAVIGATE"; target: infer T } ? T : string,
-            confidence: "low",
-          };
-        }
-        break;
-    }
-  } catch {
-    // Network or parse error — fall through to UNKNOWN
-  }
-
-  return { intent: "UNKNOWN", transcript, confidence: "low" };
-}
-
 export function useVoiceIntentExecutor(
   callbacks: ExecutorCallbacks
 ): UseVoiceIntentExecutorReturn {
@@ -172,15 +45,8 @@ export function useVoiceIntentExecutor(
       setLastIntent(null);
 
       try {
-        const rawIntent = interpretVoiceCommand(transcript);
-
-        // LLM fallback: if regex couldn't classify, ask the AI
-        const resolvedRaw =
-          rawIntent.intent === "UNKNOWN"
-            ? await classifyWithLLM(transcript, projectNames ?? [])
-            : rawIntent;
-
-        const intent = withActiveProject(resolvedRaw, activeProject ?? null);
+        const rawIntent = await interpretVoiceCommand(transcript, projectNames ?? []);
+        const intent = withActiveProject(rawIntent, activeProject ?? null);
         setLastIntent(intent);
 
         if (intent.intent === "UNKNOWN") {

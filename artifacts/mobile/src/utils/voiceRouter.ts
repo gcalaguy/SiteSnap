@@ -176,8 +176,8 @@ const DAILY_LOG_PATTERNS: DailyLogPattern[] = [
   { pattern: /add\s+(?:a\s+)?notes?\s+to\s+(?:the\s+)?(.+)$/i, notesGroup: null, projectGroup: 1 },
   // "log for/to [project] that/about [notes]"
   { pattern: /log\s+(?:for|to)\s+(?:the\s+)?(.+?)\s+(?:that|about)\s+(.+)/i, notesGroup: 2, projectGroup: 1 },
-  // "note/report that [notes] on/at [project]"
-  { pattern: /(?:note|report)\s+that\s+(.+?)\s+(?:on|at)\s+(?:the\s+)?(.+)/i, notesGroup: 1, projectGroup: 2 },
+  // "note/log/report that [notes] on/at [project]"
+  { pattern: /(?:note|log|report)\s+that\s+(.+?)\s+(?:on|at)\s+(?:the\s+)?(.+)/i, notesGroup: 1, projectGroup: 2 },
   // "note/log/report that [notes]" (no project)
   { pattern: /(?:note|log|report)\s+that\s+(.+)/i, notesGroup: 1, projectGroup: null },
   // "daily log/report [notes] on/at [project]"
@@ -188,7 +188,7 @@ const DAILY_LOG_PATTERNS: DailyLogPattern[] = [
 
 const MATERIAL_PATTERNS = [
   /(?:we\s+(?:are|'re)\s+)?(?:short\s+on|out\s+of|missing|running\s+low\s+on)\s+(.+)/i,
-  /(?:need|require)\s+(?:more\s+)?(.+)/i,
+  /(?:need|require)\s+(.+)/i,
 ];
 
 const CAMERA_PATTERNS = [
@@ -435,9 +435,141 @@ function tryParseCompound(text: string): SingleAction[] | null {
   return actions.length >= 2 ? actions : null;
 }
 
+/* ─── LLM classify (fallback when regex fails) ───────────────────────────── */
+
+type LLMResult = {
+  intent: string;
+  project?: string | null;
+  notes?: string;
+  hours?: number;
+  worker?: string;
+  taskName?: string;
+  reason?: string;
+  amount?: number;
+  description?: string;
+  vendor?: string | null;
+  subject?: string;
+  item?: string;
+  target?: string;
+};
+
+async function classifyWithLLM(
+  transcript: string,
+  projectNames: string[],
+): Promise<VoiceIntent> {
+  try {
+    const { customFetch } = await import("@workspace/api-client-react");
+    const result = await customFetch<LLMResult>("/api/ai/voice-classify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcript, projectNames }),
+    });
+
+    const project = result.project ?? null;
+
+    switch (result.intent) {
+      case "ADD_DAILY_LOG":
+        return {
+          intent: "SINGLE_ACTION",
+          action: {
+            type: "ADD_DAILY_LOG",
+            project,
+            notes: result.notes || "Update logged via voice",
+          },
+          confidence: "low",
+        };
+      case "LOG_HOURS":
+        if (result.worker && result.hours != null) {
+          return {
+            intent: "SINGLE_ACTION",
+            action: { type: "LOG_HOURS", worker: result.worker, hours: result.hours, project },
+            confidence: "low",
+          };
+        }
+        break;
+      case "LOG_OWN_HOURS":
+        if (result.hours != null) {
+          return {
+            intent: "SINGLE_ACTION",
+            action: { type: "LOG_OWN_HOURS", hours: result.hours, project },
+            confidence: "low",
+          };
+        }
+        break;
+      case "MARK_TASK_DONE":
+        if (result.taskName) {
+          return {
+            intent: "SINGLE_ACTION",
+            action: { type: "MARK_TASK_DONE", taskName: result.taskName, project },
+            confidence: "low",
+          };
+        }
+        break;
+      case "LOG_DELAY":
+        if (result.hours != null && result.reason) {
+          return {
+            intent: "SINGLE_ACTION",
+            action: { type: "LOG_DELAY", hours: result.hours, reason: result.reason, project },
+            confidence: "low",
+          };
+        }
+        break;
+      case "LOG_EXPENSE":
+        if (result.amount != null && result.description) {
+          return {
+            intent: "SINGLE_ACTION",
+            action: {
+              type: "LOG_EXPENSE",
+              amount: result.amount,
+              description: result.description,
+              vendor: result.vendor ?? null,
+              project,
+            },
+            confidence: "low",
+          };
+        }
+        break;
+      case "CREATE_RFI":
+        if (result.subject) {
+          return {
+            intent: "SINGLE_ACTION",
+            action: { type: "CREATE_RFI", subject: result.subject, project },
+            confidence: "low",
+          };
+        }
+        break;
+      case "MATERIAL_ALERT":
+        if (result.item) {
+          return {
+            intent: "SINGLE_ACTION",
+            action: { type: "MATERIAL_ALERT", item: result.item, project },
+            confidence: "low",
+          };
+        }
+        break;
+      case "NAVIGATE":
+        if (result.target) {
+          return {
+            intent: "NAVIGATE",
+            target: result.target as RouteTarget,
+            confidence: "low",
+          };
+        }
+        break;
+    }
+  } catch {
+    // Network or parse error — fall through to UNKNOWN
+  }
+
+  return { intent: "UNKNOWN", transcript, confidence: "low" };
+}
+
 /* ─── Main router ─────────────────────────────────────────────────────────── */
 
-export function interpretVoiceCommand(transcript: string): VoiceIntent {
+export async function interpretVoiceCommand(
+  transcript: string,
+  projectNames: string[] = [],
+): Promise<VoiceIntent> {
   const raw = transcript?.trim() ?? "";
 
   if (!raw) {
@@ -445,6 +577,16 @@ export function interpretVoiceCommand(transcript: string): VoiceIntent {
   }
 
   const normalized = raw.toLowerCase();
+
+  // 1a. "add notes to [project]..." — must be checked before NOTE_TRIGGER to avoid false DATA_ENTRY match
+  const earlyLog = tryParseDailyLog(raw);
+  if (earlyLog && earlyLog.project !== null) {
+    return {
+      intent: "SINGLE_ACTION",
+      action: earlyLog,
+      confidence: "high",
+    };
+  }
 
   // 1. Note trigger (existing behaviour — most specific)
   const noteMatch = normalized.match(NOTE_TRIGGER);
@@ -495,8 +637,8 @@ export function interpretVoiceCommand(transcript: string): VoiceIntent {
     }
   }
 
-  // 5. Fallback
-  return { intent: "UNKNOWN", transcript: raw, confidence: "low" };
+  // 5. LLM fallback — handles any phrasing the regex couldn't classify
+  return classifyWithLLM(raw, projectNames);
 }
 
 /* ─── Active-project context injection ───────────────────────────────────── */
