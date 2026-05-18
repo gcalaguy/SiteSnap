@@ -1,3 +1,5 @@
+import { z } from "zod/v4";
+
 export type RouteTarget =
   | "Calculators"
   | "Schedule"
@@ -102,7 +104,9 @@ const ROUTE_PATTERNS: Array<{ pattern: RegExp; target: RouteTarget }> = [
   { pattern: /\breports?\b|\btoday'?s\s+reports?\b/i, target: "Reports" },
 ];
 
-const NOTE_TRIGGER = /^(?:add|create|write)\s+a?\s*note\s*(.*)/is;
+// \b after notes? prevents backtracking from "notes" to "note", ensuring the full word is matched.
+// (?!\s+to\b) then rejects "add notes to [project]..." so it falls through to daily-log parsing.
+const NOTE_TRIGGER = /^(?:add|create|write)\s+(?:a\s+)?notes?\b(?!\s+to\b)\s*(.*)/is;
 
 /* ─── Compound splitting ──────────────────────────────────────────────────── */
 
@@ -437,21 +441,23 @@ function tryParseCompound(text: string): SingleAction[] | null {
 
 /* ─── LLM classify (fallback when regex fails) ───────────────────────────── */
 
-type LLMResult = {
-  intent: string;
-  project?: string | null;
-  notes?: string;
-  hours?: number;
-  worker?: string;
-  taskName?: string;
-  reason?: string;
-  amount?: number;
-  description?: string;
-  vendor?: string | null;
-  subject?: string;
-  item?: string;
-  target?: string;
-};
+const LLMResultSchema = z.object({
+  intent: z.string(),
+  project: z.string().nullable().optional(),
+  notes: z.string().optional(),
+  hours: z.number().optional(),
+  worker: z.string().optional(),
+  taskName: z.string().optional(),
+  reason: z.string().optional(),
+  amount: z.number().optional(),
+  description: z.string().optional(),
+  vendor: z.string().nullable().optional(),
+  subject: z.string().optional(),
+  item: z.string().optional(),
+  target: z.string().optional(),
+});
+
+type LLMResult = z.infer<typeof LLMResultSchema>;
 
 async function classifyWithLLM(
   transcript: string,
@@ -459,12 +465,17 @@ async function classifyWithLLM(
 ): Promise<VoiceIntent> {
   try {
     const { customFetch } = await import("@workspace/api-client-react");
-    const result = await customFetch<LLMResult>("/api/ai/voice-classify", {
+    const raw = await customFetch<unknown>("/api/ai/voice-classify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ transcript, projectNames }),
     });
 
+    const parsed = LLMResultSchema.safeParse(raw);
+    if (!parsed.success) {
+      return { intent: "UNKNOWN", transcript, confidence: "low" };
+    }
+    const result: LLMResult = parsed.data;
     const project = result.project ?? null;
 
     switch (result.intent) {
@@ -582,17 +593,8 @@ export async function interpretVoiceCommand(
 
   const normalized = raw.toLowerCase();
 
-  // 1a. "add notes to [project]..." — must be checked before NOTE_TRIGGER to avoid false DATA_ENTRY match
-  const earlyLog = tryParseDailyLog(raw);
-  if (earlyLog && earlyLog.project !== null) {
-    return {
-      intent: "SINGLE_ACTION",
-      action: earlyLog,
-      confidence: "high",
-    };
-  }
-
   // 1. Note trigger (existing behaviour — most specific)
+  // The negative lookahead in NOTE_TRIGGER ensures "add notes to [project]..." falls through correctly.
   const noteMatch = normalized.match(NOTE_TRIGGER);
   if (noteMatch) {
     const payload = raw

@@ -464,4 +464,39 @@ describe("interpretVoiceCommand", () => {
       expect(enriched.action.project).toBe("123 Basement");
     }
   });
+
+  /* ─── Compound + project regression tests ───────────────────────────────── */
+
+  it("compound with project daily-log still produces COMPOUND_ACTION not SINGLE_ACTION", async () => {
+    const result = await interpretVoiceCommand(
+      "log that framing is done on 123 Basement and mark drywall as complete"
+    );
+    expect(result.intent).toBe("COMPOUND_ACTION");
+    if (result.intent === "COMPOUND_ACTION") {
+      expect(result.actions).toHaveLength(2);
+      expect(result.actions[0].type).toBe("ADD_DAILY_LOG");
+      expect(result.actions[1].type).toBe("MARK_TASK_DONE");
+    }
+  });
+
+  it("compound LOG_HOURS + daily-log with project is still COMPOUND_ACTION", async () => {
+    const result = await interpretVoiceCommand(
+      "log 4 hours for Guy on 123 Basement and note that the concrete pour finished on Oak Street"
+    );
+    expect(result.intent).toBe("COMPOUND_ACTION");
+    if (result.intent === "COMPOUND_ACTION") {
+      expect(result.actions.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("'add notes to [project] that [notes]' as standalone is SINGLE_ACTION daily-log", async () => {
+    const result = await interpretVoiceCommand(
+      "add notes to Oak Street that the retaining wall is done"
+    );
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "ADD_DAILY_LOG") {
+      expect(result.action.project).toBe("Oak Street");
+      expect(result.action.notes).toBe("the retaining wall is done");
+    }
+  });
 });
