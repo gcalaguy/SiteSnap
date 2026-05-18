@@ -1,10 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
+import * as apiClient from "@workspace/api-client-react";
 import { interpretVoiceCommand, withActiveProject } from "./voiceRouter";
 
 // Prevent real network calls — LLM fallback is only reached when regex returns UNKNOWN
 vi.mock("@workspace/api-client-react", () => ({
   customFetch: vi.fn().mockResolvedValue({ intent: "UNKNOWN" }),
 }));
+
+const mockCustomFetch = () => vi.mocked(apiClient.customFetch);
 
 describe("interpretVoiceCommand", () => {
   it("returns UNKNOWN for empty string", async () => {
@@ -498,5 +501,86 @@ describe("interpretVoiceCommand", () => {
       expect(result.action.project).toBe("Oak Street");
       expect(result.action.notes).toBe("the retaining wall is done");
     }
+  });
+});
+
+/* ─── LLM fallback mapping tests ────────────────────────────────────────────
+ * These tests verify that each LLM response shape is correctly mapped to a
+ * VoiceIntent. The `customFetch` mock is overridden per-test to simulate
+ * specific model responses. Only unrecognized transcripts reach the LLM.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+describe("classifyWithLLM mapping (via interpretVoiceCommand fallback)", () => {
+  it("maps ADD_DAILY_LOG response to SINGLE_ACTION daily log", async () => {
+    mockCustomFetch().mockResolvedValueOnce({
+      intent: "ADD_DAILY_LOG",
+      notes: "weather check done",
+      project: "123 Basement",
+    });
+    const result = await interpretVoiceCommand("jot down that weather check is done");
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "ADD_DAILY_LOG") {
+      expect(result.action.notes).toBe("weather check done");
+      expect(result.action.project).toBe("123 Basement");
+      expect(result.confidence).toBe("low");
+    }
+  });
+
+  it("maps LOG_HOURS response to SINGLE_ACTION log hours", async () => {
+    mockCustomFetch().mockResolvedValueOnce({
+      intent: "LOG_HOURS",
+      worker: "Marcus",
+      hours: 6,
+      project: "Oak Street",
+    });
+    const result = await interpretVoiceCommand("Marcus put in a full day yesterday on Oak Street");
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_HOURS") {
+      expect(result.action.worker).toBe("Marcus");
+      expect(result.action.hours).toBe(6);
+      expect(result.action.project).toBe("Oak Street");
+    }
+  });
+
+  it("maps MARK_TASK_DONE response to SINGLE_ACTION mark task done", async () => {
+    mockCustomFetch().mockResolvedValueOnce({
+      intent: "MARK_TASK_DONE",
+      taskName: "electrical rough-in",
+      project: null,
+    });
+    const result = await interpretVoiceCommand("the electrical rough-in is wrapped up");
+    expect(result.intent).toBe("SINGLE_ACTION");
+    if (result.intent === "SINGLE_ACTION" && result.action.type === "MARK_TASK_DONE") {
+      expect(result.action.taskName).toBe("electrical rough-in");
+      expect(result.action.project).toBeNull();
+    }
+  });
+
+  it("maps NAVIGATE response to NAVIGATE intent (valid target)", async () => {
+    mockCustomFetch().mockResolvedValueOnce({ intent: "NAVIGATE", target: "Tasks" });
+    const result = await interpretVoiceCommand("show me what needs to be done");
+    expect(result.intent).toBe("NAVIGATE");
+    if (result.intent === "NAVIGATE") {
+      expect(result.target).toBe("Tasks");
+      expect(result.confidence).toBe("low");
+    }
+  });
+
+  it("rejects NAVIGATE with invalid target and returns UNKNOWN", async () => {
+    mockCustomFetch().mockResolvedValueOnce({ intent: "NAVIGATE", target: "Dashboard" });
+    const result = await interpretVoiceCommand("open the dashboard");
+    expect(result.intent).toBe("UNKNOWN");
+  });
+
+  it("returns UNKNOWN when LLM response fails Zod schema", async () => {
+    mockCustomFetch().mockResolvedValueOnce({ hours: "not-a-number", intent: "LOG_HOURS" });
+    const result = await interpretVoiceCommand("some unrecognized phrase about hours");
+    expect(result.intent).toBe("UNKNOWN");
+  });
+
+  it("returns UNKNOWN when customFetch throws", async () => {
+    mockCustomFetch().mockRejectedValueOnce(new Error("network error"));
+    const result = await interpretVoiceCommand("completely unrecognized utterance xyz");
+    expect(result.intent).toBe("UNKNOWN");
   });
 });
