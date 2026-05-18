@@ -439,6 +439,12 @@ function tryParseCompound(text: string): SingleAction[] | null {
   return actions.length >= 2 ? actions : null;
 }
 
+function isValidRouteTarget(target: string): target is RouteTarget {
+  return (["Calculators", "Schedule", "Projects", "Ask", "Tasks", "Invoices", "Reports"] as const).includes(
+    target as RouteTarget
+  );
+}
+
 /* ─── LLM classify (fallback when regex fails) ───────────────────────────── */
 
 const LLMResultSchema = z.object({
@@ -558,19 +564,11 @@ async function classifyWithLLM(
           };
         }
         break;
-      case "NAVIGATE": {
-        const VALID_TARGETS: RouteTarget[] = [
-          "Calculators", "Schedule", "Projects", "Ask", "Tasks", "Invoices", "Reports",
-        ];
-        if (result.target && VALID_TARGETS.includes(result.target as RouteTarget)) {
-          return {
-            intent: "NAVIGATE",
-            target: result.target as RouteTarget,
-            confidence: "low",
-          };
+      case "NAVIGATE":
+        if (result.target && isValidRouteTarget(result.target)) {
+          return { intent: "NAVIGATE", target: result.target, confidence: "low" };
         }
         break;
-      }
     }
   } catch {
     // Network or parse error — fall through to UNKNOWN

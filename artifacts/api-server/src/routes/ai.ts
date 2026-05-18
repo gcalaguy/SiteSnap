@@ -737,8 +737,24 @@ Transcript: "${transcript}"`;
 
       const content = response.choices[0]?.message?.content?.trim() ?? "";
       try {
-        const result = JSON.parse(content);
-        res.json(result);
+        const raw = JSON.parse(content);
+        const VoiceClassifyOutputSchema = z.object({
+          intent: z.string(),
+          project: z.string().nullable().optional(),
+          notes: z.string().optional(),
+          hours: z.number().optional(),
+          worker: z.string().optional(),
+          taskName: z.string().optional(),
+          reason: z.string().optional(),
+          amount: z.number().optional(),
+          description: z.string().optional(),
+          vendor: z.string().nullable().optional(),
+          subject: z.string().optional(),
+          item: z.string().optional(),
+          target: z.string().optional(),
+        });
+        const validated = VoiceClassifyOutputSchema.safeParse(raw);
+        res.json(validated.success ? validated.data : { intent: "UNKNOWN" });
       } catch {
         res.json({ intent: "UNKNOWN" });
       }
