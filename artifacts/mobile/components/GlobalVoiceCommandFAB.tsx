@@ -22,7 +22,7 @@ import {
 } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter, useSegments } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
@@ -51,7 +51,7 @@ export function GlobalVoiceCommandFAB() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const segments = useSegments();
+  const params = useLocalSearchParams();
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const { data: projects } = useListProjects();
@@ -59,6 +59,9 @@ export function GlobalVoiceCommandFAB() {
   const [fabState, setFabState] = useState<FabState>("idle");
   const [transcript, setTranscript] = useState<string>("");
   const [results, setResults] = useState<ResultLine[]>([]);
+  const [pickProjectOpen, setPickProjectOpen] = useState(false);
+  const pickResolveRef = useRef<((p: { id: number; name: string }) => void) | null>(null);
+  const pickRejectRef = useRef<(() => void) | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const projectList = useMemo(
@@ -66,14 +69,15 @@ export function GlobalVoiceCommandFAB() {
     [projects]
   );
 
-  // Infer active project from route segments when on a project screen
+  // Infer active project when on a project/[id] screen
   const activeProjectName = useMemo(() => {
-    if (segments[0] !== "project") return null;
-    const id = Number(segments[1]);
+    const idParam = params.id;
+    if (idParam == null) return null;
+    const id = Number(idParam);
     if (Number.isNaN(id)) return null;
     const match = projectList.find((p) => p.id === id);
     return match?.name ?? null;
-  }, [segments, projectList]);
+  }, [params.id, projectList]);
 
   // ── API mutations ──
   const updateTask = useUpdateTask();
@@ -127,14 +131,9 @@ export function GlobalVoiceCommandFAB() {
           reject(new Error("No projects available"));
           return;
         }
-        const options = projectList.map((p) => ({
-          text: p.name,
-          onPress: () => resolve(p),
-        }));
-        Alert.alert("Pick a project", "Which project is this for?", [
-          ...options,
-          { text: "Cancel", style: "cancel", onPress: () => reject(new Error("User cancelled")) },
-        ]);
+        pickResolveRef.current = resolve;
+        pickRejectRef.current = reject;
+        setPickProjectOpen(true);
       });
     },
     [projectList]
@@ -596,6 +595,57 @@ export function GlobalVoiceCommandFAB() {
                     : "Tap to speak again"}
                 </Text>
               </TouchableOpacity>
+            )}
+
+            {/* In-app project picker (replaces Alert.alert for Android + scalability) */}
+            {pickProjectOpen && (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <Text style={[styles.sheetTitle, { color: colors.foreground, fontSize: 14 }]}>
+                  Pick a project
+                </Text>
+                <View style={{ maxHeight: 220 }}>
+                  {projectList.map((p) => (
+                    <TouchableOpacity
+                      key={p.id}
+                      onPress={() => {
+                        setPickProjectOpen(false);
+                        pickResolveRef.current?.(p);
+                        pickResolveRef.current = null;
+                        pickRejectRef.current = null;
+                      }}
+                      style={{
+                        paddingVertical: 12,
+                        paddingHorizontal: 14,
+                        borderRadius: 10,
+                        backgroundColor: colors.card,
+                        marginBottom: 6,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14 }}>
+                        {p.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setPickProjectOpen(false);
+                    pickRejectRef.current?.();
+                    pickResolveRef.current = null;
+                    pickRejectRef.current = null;
+                  }}
+                  style={{
+                    paddingVertical: 10,
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 14 }}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             {voice.error && (
