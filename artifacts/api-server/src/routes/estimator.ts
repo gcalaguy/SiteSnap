@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import { eq, and, desc, count, inArray } from "drizzle-orm";
+import { eq, and, desc, count, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   db,
@@ -19,7 +19,7 @@ import { requireAuth, requireCompany, requireOwner, requireOwnerOrForeman } from
 import { requireFeature } from "../lib/featureGate";
 
 import { asyncHandler } from "../lib/asyncHandler";
-import { BadRequestError, NotFoundError } from "../lib/errors";
+import { BadRequestError, NotFoundError, ConflictError } from "../lib/errors";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
 const DEFAULT_PROJECT_TYPE_LABELS: Record<string, string> = {
@@ -413,6 +413,42 @@ router.put(
   }),
 );
 
+// Helper: count saved smart/scan estimates that reference a given cost model
+async function countCostModelReferences(modelId: number, companyId: number): Promise<number> {
+  const rows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(estimatesTable)
+    .where(
+      and(
+        eq(estimatesTable.companyId, companyId),
+        inArray(estimatesTable.sourceType, ["smart", "scan"]),
+        sql`${estimatesTable.result}->'costModelUsed'->>'id' = ${String(modelId)}`
+      )
+    );
+  return rows[0]?.count ?? 0;
+}
+
+// Helper: count saved smart/scan estimates that reference a given add-on
+async function countAddonReferences(addonId: number, companyId: number): Promise<number> {
+  const [addon] = await db
+    .select({ addonKey: estimatorAddonsTable.addonKey })
+    .from(estimatorAddonsTable)
+    .where(eq(estimatorAddonsTable.id, addonId))
+    .limit(1);
+  if (!addon) return 0;
+  const rows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(estimatesTable)
+    .where(
+      and(
+        eq(estimatesTable.companyId, companyId),
+        inArray(estimatesTable.sourceType, ["smart", "scan"]),
+        sql`${estimatesTable.result}->'params'->'addons' @> ${JSON.stringify([addon.addonKey])}::jsonb`
+      )
+    );
+  return rows[0]?.count ?? 0;
+}
+
 // DELETE /api/estimator/cost-models/:id — delete a cost model
 router.delete(
   "/estimator/cost-models/:id",
@@ -422,6 +458,18 @@ router.delete(
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) throw new BadRequestError("Invalid ID");
+    const force = String(req.query.force) === "true";
+
+    if (!force) {
+      const refCount = await countCostModelReferences(id, req.companyId!);
+      if (refCount > 0) {
+        throw new ConflictError(
+          `This cost model was used in ${refCount} saved estimate${refCount === 1 ? "" : "s"}. Delete anyway?`,
+          { usedInEstimates: refCount }
+        );
+      }
+    }
+
     const [deleted] = await db
       .delete(estimatorCostModelsTable)
       .where(eq(estimatorCostModelsTable.id, id))
@@ -493,6 +541,18 @@ router.delete(
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) throw new BadRequestError("Invalid ID");
+    const force = String(req.query.force) === "true";
+
+    if (!force) {
+      const refCount = await countAddonReferences(id, req.companyId!);
+      if (refCount > 0) {
+        throw new ConflictError(
+          `This add-on was used in ${refCount} saved estimate${refCount === 1 ? "" : "s"}. Delete anyway?`,
+          { usedInEstimates: refCount }
+        );
+      }
+    }
+
     const [deleted] = await db
       .delete(estimatorAddonsTable)
       .where(eq(estimatorAddonsTable.id, id))

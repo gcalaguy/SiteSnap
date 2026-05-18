@@ -45,6 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ApiError } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -242,6 +243,8 @@ function CostModelsTab({
 
   const [editModel, setEditModel] = useState<CostModelRecord | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<CostModelRecord | null>(null);
+  const [deleteWarning, setDeleteWarning] = useState<{ item: CostModelRecord; count: number } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [addingType, setAddingType] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set(Object.keys(projectTypes)));
 
@@ -456,21 +459,69 @@ function CostModelsTab({
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-red-600 text-white hover:bg-red-700"
-                onClick={() =>
+                disabled={isDeleting}
+                onClick={() => {
+                  setIsDeleting(true);
                   deleteMutation.mutate(
                     { id: deleteConfirm.id },
                     {
                       onSuccess: () => {
+                        setIsDeleting(false);
                         void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
                         toast({ title: "Deleted" });
                         setDeleteConfirm(null);
                       },
-                      onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+                      onError: (err: unknown) => {
+                        setIsDeleting(false);
+                        if (err instanceof ApiError && err.status === 409) {
+                          const count = (err.data as { details?: { usedInEstimates?: number } })?.details?.usedInEstimates ?? 0;
+                          setDeleteConfirm(null);
+                          setDeleteWarning({ item: deleteConfirm, count });
+                          return;
+                        }
+                        toast({ title: "Failed to delete", variant: "destructive" });
+                      },
                     },
-                  )
-                }
+                  );
+                }}
               >
-                Delete
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {deleteWarning && (
+        <AlertDialog open onOpenChange={o => !o && setDeleteWarning(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-amber-700">Warning: used in {deleteWarning.count} estimate{deleteWarning.count === 1 ? "" : "s"}</AlertDialogTitle>
+              <AlertDialogDescription>
+                <strong>{deleteWarning.item.name}</strong> has been used in {deleteWarning.count} saved estimate{deleteWarning.count === 1 ? "" : "s"}. Deleting it may cause confusion when viewing old estimate breakdowns.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteWarning(null)}>Keep it</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 text-white hover:bg-red-700"
+                disabled={isDeleting}
+                onClick={() => {
+                  setIsDeleting(true);
+                  customFetch(`/api/estimator/cost-models/${deleteWarning.item.id}?force=true`, { method: "DELETE" })
+                    .then(() => {
+                      setIsDeleting(false);
+                      void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+                      toast({ title: "Deleted" });
+                      setDeleteWarning(null);
+                    })
+                    .catch(() => {
+                      setIsDeleting(false);
+                      toast({ title: "Failed to delete", variant: "destructive" });
+                    });
+                }}
+              >
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete anyway"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -771,6 +822,8 @@ function AddonsTab({ addons, projectTypes }: { addons: AddonRecord[]; projectTyp
 
   const [editAddon, setEditAddon] = useState<AddonRecord | "new" | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<AddonRecord | null>(null);
+  const [deleteWarning, setDeleteWarning] = useState<{ item: AddonRecord; count: number } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -880,21 +933,69 @@ function AddonsTab({ addons, projectTypes }: { addons: AddonRecord[]; projectTyp
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-red-600 text-white hover:bg-red-700"
-                onClick={() =>
+                disabled={isDeleting}
+                onClick={() => {
+                  setIsDeleting(true);
                   deleteMutation.mutate(
                     { id: deleteConfirm.id },
                     {
                       onSuccess: () => {
+                        setIsDeleting(false);
                         void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
                         toast({ title: "Add-on deleted" });
                         setDeleteConfirm(null);
                       },
-                      onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+                      onError: (err: unknown) => {
+                        setIsDeleting(false);
+                        if (err instanceof ApiError && err.status === 409) {
+                          const count = (err.data as { details?: { usedInEstimates?: number } })?.details?.usedInEstimates ?? 0;
+                          setDeleteConfirm(null);
+                          setDeleteWarning({ item: deleteConfirm, count });
+                          return;
+                        }
+                        toast({ title: "Failed to delete", variant: "destructive" });
+                      },
                     },
-                  )
-                }
+                  );
+                }}
               >
-                Delete
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {deleteWarning && (
+        <AlertDialog open onOpenChange={o => !o && setDeleteWarning(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-amber-700">Warning: used in {deleteWarning.count} estimate{deleteWarning.count === 1 ? "" : "s"}</AlertDialogTitle>
+              <AlertDialogDescription>
+                <strong>{deleteWarning.item.name}</strong> has been used in {deleteWarning.count} saved estimate{deleteWarning.count === 1 ? "" : "s"}. Deleting it may cause confusion when viewing old estimate breakdowns.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteWarning(null)}>Keep it</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 text-white hover:bg-red-700"
+                disabled={isDeleting}
+                onClick={() => {
+                  setIsDeleting(true);
+                  customFetch(`/api/estimator/addons/${deleteWarning.item.id}?force=true`, { method: "DELETE" })
+                    .then(() => {
+                      setIsDeleting(false);
+                      void queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+                      toast({ title: "Add-on deleted" });
+                      setDeleteWarning(null);
+                    })
+                    .catch(() => {
+                      setIsDeleting(false);
+                      toast({ title: "Failed to delete", variant: "destructive" });
+                    });
+                }}
+              >
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete anyway"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
