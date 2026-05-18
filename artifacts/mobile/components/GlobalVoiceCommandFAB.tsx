@@ -23,6 +23,7 @@ import {
 import type { Task } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useAuth } from "@clerk/clerk-expo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
@@ -52,6 +53,8 @@ export function GlobalVoiceCommandFAB() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { isSignedIn } = useAuth();
+  if (!isSignedIn) return null;
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const { data: projects } = useListProjects();
