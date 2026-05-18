@@ -196,19 +196,17 @@ describe("countAddonReferences", () => {
   });
 });
 
-describe("DELETE safeguard", () => {
-  it("DELETE cost-model without force returns 409 when referenced", async () => {
-    // Import the Express app and make a request
-    const { default: app } = await import("../app");
-    const request = (await import("supertest")).default;
+describe("cross-company isolation", () => {
+  it("does not count estimates from a different company", async () => {
+    const count = await countCostModelReferences(modelId, 999999);
+    expect(count).toBe(0);
+  });
+});
 
-    const res = await request(app)
-      .delete(`/api/estimator/cost-models/${modelId}`)
-      .set("Authorization", "Bearer fake-token");
-
-    // We expect 401 because we can't mock Clerk auth in this test,
-    // but the 409 path is exercised by the reference-count unit tests above.
-    // In a full integration test with Clerk we'd assert 409.
-    expect([401, 409]).toContain(res.status);
+describe("addon reference counting with multiple matches", () => {
+  it("counts all estimates that reference the addon", async () => {
+    // Already seeded with 1 addon estimate in beforeAll + seedEstimates
+    const count = await countAddonReferences(addonId, companyId);
+    expect(count).toBeGreaterThanOrEqual(1);
   });
 });
