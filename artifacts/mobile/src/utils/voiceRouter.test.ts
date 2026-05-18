@@ -175,26 +175,28 @@ describe("interpretVoiceCommand", () => {
     expect(result.intent).toBe("SINGLE_ACTION");
     if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_DELAY") {
       expect(result.action.hours).toBe(2);
-      expect(result.action.reason).toBe("weather delay");
+      expect(result.action.reason).toBe("weather");
       expect(result.action.project).toBe("Oak Street");
     }
   });
 
-  it("parses LOG_EXPENSE with vendor", () => {
+  it("parses LOG_EXPENSE with vendor and project", () => {
     const result = interpretVoiceCommand("expense $250 for lumber at Home Depot on Oak Street");
     expect(result.intent).toBe("SINGLE_ACTION");
     if (result.intent === "SINGLE_ACTION" && result.action.type === "LOG_EXPENSE") {
       expect(result.action.amount).toBe(250);
       expect(result.action.description).toBe("lumber");
-      expect(result.action.vendor).toBe("Home Depot on Oak Street");
+      expect(result.action.vendor).toBe("Home Depot");
+      expect(result.action.project).toBe("Oak Street");
     }
   });
 
-  it("parses CREATE_RFI", () => {
+  it("parses CREATE_RFI with project", () => {
     const result = interpretVoiceCommand("create an RFI about the beam size on Oak Street");
     expect(result.intent).toBe("SINGLE_ACTION");
     if (result.intent === "SINGLE_ACTION" && result.action.type === "CREATE_RFI") {
-      expect(result.action.subject).toBe("the beam size on Oak Street");
+      expect(result.action.subject).toBe("beam size");
+      expect(result.action.project).toBe("Oak Street");
     }
   });
 

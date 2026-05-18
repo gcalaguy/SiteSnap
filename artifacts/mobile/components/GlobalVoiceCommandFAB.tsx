@@ -20,8 +20,9 @@ import {
   useCreateRFI,
   customFetch,
 } from "@workspace/api-client-react";
+import type { Task } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
@@ -50,6 +51,7 @@ export function GlobalVoiceCommandFAB() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const { data: projects } = useListProjects();
@@ -60,9 +62,19 @@ export function GlobalVoiceCommandFAB() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const projectList = useMemo(
-    () => (projects ?? []).map((p: any) => ({ id: p.id, name: p.name })),
+    () => (projects ?? []).map((p) => ({ id: p.id, name: p.name })),
     [projects]
   );
+
+  // Infer active project from route when on a project screen
+  const activeProjectName = useMemo(() => {
+    const idParam = params.id;
+    if (idParam == null) return null;
+    const id = Number(idParam);
+    if (Number.isNaN(id)) return null;
+    const match = projectList.find((p) => p.id === id);
+    return match?.name ?? null;
+  }, [params.id, projectList]);
 
   // ── API mutations ──
   const updateTask = useUpdateTask();
@@ -108,16 +120,22 @@ export function GlobalVoiceCommandFAB() {
   );
 
   const askPickProject = useCallback(
-    (onPick: (p: { id: number; name: string }) => void) => {
-      if (!projectList.length) {
-        Alert.alert("No projects", "You have no active projects to associate this command with.");
-        return;
-      }
-      const options = projectList.map((p) => ({
-        text: p.name,
-        onPress: () => onPick(p),
-      }));
-      Alert.alert("Pick a project", "Which project is this for?", [...options, { text: "Cancel", style: "cancel" }]);
+    (): Promise<{ id: number; name: string }> => {
+      return new Promise((resolve, reject) => {
+        if (!projectList.length) {
+          Alert.alert("No projects", "You have no active projects to associate this command with.");
+          reject(new Error("No projects available"));
+          return;
+        }
+        const options = projectList.map((p) => ({
+          text: p.name,
+          onPress: () => resolve(p),
+        }));
+        Alert.alert("Pick a project", "Which project is this for?", [
+          ...options,
+          { text: "Cancel", style: "cancel", onPress: () => reject(new Error("User cancelled")) },
+        ]);
+      });
     },
     [projectList]
   );
@@ -130,85 +148,57 @@ export function GlobalVoiceCommandFAB() {
   const handleLogOwnHours = useCallback(
     async (action: Extract<SingleAction, { type: "LOG_OWN_HOURS" }>) => {
       const workerName = `${me?.firstName ?? ""} ${me?.lastName ?? ""}`.trim() || "Me";
-      const proj = resolveProject(action.project);
+      let proj = resolveProject(action.project);
       if (!proj) {
         addResult("clock", "Log hours", "Need project — pick below", "pending");
-        askPickProject(async (p) => {
-          try {
-            await logHoursMutation.mutateAsync(
-              { projectId: p.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${workerName} — via voice` }
-            );
-            addResult("check", "Log hours", `${action.hours}h logged`, "ok");
-          } catch {
-            addResult("x", "Log hours", "Failed", "error");
-            throw new Error("Failed to log hours");
-          }
-        });
-        return;
+        try {
+          proj = await askPickProject();
+        } catch {
+          addResult("x", "Log hours", "Cancelled", "error");
+          throw new Error("User cancelled project selection");
+        }
       }
-      try {
-        await logHoursMutation.mutateAsync(
-          { projectId: proj.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${workerName} — via voice` }
-        );
-        addResult("check", "Log hours", `${action.hours}h on ${proj.name}`, "ok");
-      } catch {
-        addResult("x", "Log hours", "Failed", "error");
-        throw new Error("Failed to log hours");
-      }
+      await logHoursMutation.mutateAsync(
+        { projectId: proj.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${workerName} — via voice` }
+      );
+      addResult("check", "Log hours", `${action.hours}h on ${proj.name}`, "ok");
     },
     [resolveProject, askPickProject, logHoursMutation, me, addResult]
   );
 
   const handleLogHours = useCallback(
     async (action: Extract<SingleAction, { type: "LOG_HOURS" }>) => {
-      const proj = resolveProject(action.project);
+      let proj = resolveProject(action.project);
       if (!proj) {
         addResult("clock", "Log hours", "Need project — pick below", "pending");
-        askPickProject(async (p) => {
-          try {
-            await logHoursMutation.mutateAsync(
-              { projectId: p.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${action.worker} — via voice` }
-            );
-            addResult("check", "Log hours", `${action.hours}h for ${action.worker}`, "ok");
-          } catch {
-            addResult("x", "Log hours", "Failed", "error");
-            throw new Error("Failed to log hours");
-          }
-        });
-        return;
+        try {
+          proj = await askPickProject();
+        } catch {
+          addResult("x", "Log hours", "Cancelled", "error");
+          throw new Error("User cancelled project selection");
+        }
       }
-      try {
-        await logHoursMutation.mutateAsync(
-          { projectId: proj.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${action.worker} — via voice` }
-        );
-        addResult("check", "Log hours", `${action.hours}h for ${action.worker}`, "ok");
-      } catch {
-        addResult("x", "Log hours", "Failed", "error");
-        throw new Error("Failed to log hours");
-      }
+      await logHoursMutation.mutateAsync(
+        { projectId: proj.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${action.worker} — via voice` }
+      );
+      addResult("check", "Log hours", `${action.hours}h for ${action.worker}`, "ok");
     },
     [resolveProject, askPickProject, logHoursMutation, addResult]
   );
 
   const handleMarkTaskDone = useCallback(
     async (action: Extract<SingleAction, { type: "MARK_TASK_DONE" }>) => {
-      const proj = resolveProject(action.project);
+      let proj = resolveProject(action.project);
       if (!proj) {
         addResult("check-square", "Complete task", "Need project — pick below", "pending");
-        askPickProject(async (p) => {
-          try {
-            await markTaskDoneOnProject(p.id, action.taskName);
-          } catch (err) {
-            throw err instanceof Error ? err : new Error("Failed to complete task");
-          }
-        });
-        return;
+        try {
+          proj = await askPickProject();
+        } catch {
+          addResult("x", "Complete task", "Cancelled", "error");
+          throw new Error("User cancelled project selection");
+        }
       }
-      try {
-        await markTaskDoneOnProject(proj.id, action.taskName);
-      } catch (err) {
-        throw err instanceof Error ? err : new Error("Failed to complete task");
-      }
+      await markTaskDoneOnProject(proj.id, action.taskName);
     },
     [resolveProject, askPickProject, addResult]
   );
@@ -217,15 +207,15 @@ export function GlobalVoiceCommandFAB() {
   async function markTaskDoneOnProject(projectId: number, taskName: string) {
     const tasksData = await qc.fetchQuery({
       queryKey: ["/api/projects", projectId, "tasks"],
-      queryFn: () => customFetch<any[]>(`/api/projects/${projectId}/tasks`),
+      queryFn: () => customFetch<Task[]>(`/api/projects/${projectId}/tasks`),
     });
-    const tasks = Array.isArray(tasksData) ? tasksData : (tasksData as any)?.data ?? [];
+    const tasks = Array.isArray(tasksData) ? tasksData : [];
     if (!tasks.length) {
       addResult("x", "Complete task", "No tasks found", "error");
       throw new Error("No tasks found");
     }
-    const match = fuzzyMatch(taskName, tasks.map((t: any) => t.title));
-    const task = match ? tasks.find((t: any) => t.title === match) : null;
+    const match = fuzzyMatch(taskName, tasks.map((t) => t.title));
+    const task = match ? tasks.find((t) => t.title === match) : null;
     if (!task) {
       addResult("x", "Complete task", `No task matching "${taskName}"`, "error");
       throw new Error(`No task matching "${taskName}"`);
@@ -244,111 +234,69 @@ export function GlobalVoiceCommandFAB() {
 
   const handleLogDelay = useCallback(
     async (action: Extract<SingleAction, { type: "LOG_DELAY" }>) => {
-      const proj = resolveProject(action.project);
+      let proj = resolveProject(action.project);
       if (!proj) {
         addResult("alert-triangle", "Log delay", "Need project — pick below", "pending");
-        askPickProject(async (p) => {
-          try {
-            await logDelayMutation.mutateAsync(
-              { projectId: p.id, workPerformed: `${action.hours}h delay: ${action.reason}`, reportDate: new Date().toISOString().split("T")[0] }
-            );
-            addResult("check", "Log delay", `${action.hours}h delay logged`, "ok");
-          } catch {
-            addResult("x", "Log delay", "Failed", "error");
-            throw new Error("Failed to log delay");
-          }
-        });
-        return;
+        try {
+          proj = await askPickProject();
+        } catch {
+          addResult("x", "Log delay", "Cancelled", "error");
+          throw new Error("User cancelled project selection");
+        }
       }
-      try {
-        await logDelayMutation.mutateAsync(
-          { projectId: proj.id, workPerformed: `${action.hours}h delay: ${action.reason}`, reportDate: new Date().toISOString().split("T")[0] }
-        );
-        addResult("check", "Log delay", `${action.hours}h delay on ${proj.name}`, "ok");
-      } catch {
-        addResult("x", "Log delay", "Failed", "error");
-        throw new Error("Failed to log delay");
-      }
+      await logDelayMutation.mutateAsync(
+        { projectId: proj.id, workPerformed: `${action.hours}h delay: ${action.reason}`, reportDate: new Date().toISOString().split("T")[0] }
+      );
+      addResult("check", "Log delay", `${action.hours}h delay on ${proj.name}`, "ok");
     },
     [resolveProject, askPickProject, logDelayMutation, addResult]
   );
 
   const handleLogExpense = useCallback(
     async (action: Extract<SingleAction, { type: "LOG_EXPENSE" }>) => {
-      const proj = resolveProject(action.project);
+      let proj = resolveProject(action.project);
       if (!proj) {
         addResult("dollar-sign", "Log expense", "Need project — pick below", "pending");
-        askPickProject(async (p) => {
-          try {
-            await customFetch(`/api/projects/${p.id}/cost-analyses`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                periodLabel: `Voice expense: ${action.description}`,
-                labourCost: 0,
-                materialsCost: action.amount,
-                equipmentCost: 0,
-                otherCost: 0,
-                notes: `Vendor: ${action.vendor ?? "unknown"} — logged via voice`,
-              }),
-            });
-            addResult("check", "Log expense", `$${action.amount} for ${action.description}`, "ok");
-          } catch {
-            addResult("x", "Log expense", "Failed", "error");
-            throw new Error("Failed to log expense");
-          }
-        });
-        return;
+        try {
+          proj = await askPickProject();
+        } catch {
+          addResult("x", "Log expense", "Cancelled", "error");
+          throw new Error("User cancelled project selection");
+        }
       }
-      try {
-        await customFetch(`/api/projects/${proj.id}/cost-analyses`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            periodLabel: `Voice expense: ${action.description}`,
-            labourCost: 0,
-            materialsCost: action.amount,
-            equipmentCost: 0,
-            otherCost: 0,
-            notes: `Vendor: ${action.vendor ?? "unknown"} — logged via voice`,
-          }),
-        });
-        addResult("check", "Log expense", `$${action.amount} for ${action.description} on ${proj.name}`, "ok");
-      } catch {
-        addResult("x", "Log expense", "Failed", "error");
-        throw new Error("Failed to log expense");
-      }
+      await customFetch(`/api/projects/${proj.id}/cost-analyses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          periodLabel: `Voice expense: ${action.description}`,
+          labourCost: 0,
+          materialsCost: action.amount,
+          equipmentCost: 0,
+          otherCost: 0,
+          notes: `Vendor: ${action.vendor ?? "unknown"} — logged via voice`,
+        }),
+      });
+      addResult("check", "Log expense", `$${action.amount} for ${action.description} on ${proj.name}`, "ok");
     },
     [resolveProject, askPickProject, addResult]
   );
 
   const handleCreateRFI = useCallback(
     async (action: Extract<SingleAction, { type: "CREATE_RFI" }>) => {
-      const proj = resolveProject(action.project);
+      let proj = resolveProject(action.project);
       if (!proj) {
         addResult("message-square", "Create RFI", "Need project — pick below", "pending");
-        askPickProject(async (p) => {
-          try {
-            await createRFI.mutateAsync(
-              { projectId: p.id, data: { subject: action.subject, description: `Created via voice: ${action.subject}`, priority: "medium" } }
-            );
-            addResult("check", "Create RFI", `RFI created on ${p.name}`, "ok");
-          } catch {
-            addResult("x", "Create RFI", "Failed", "error");
-            throw new Error("Failed to create RFI");
-          }
-        });
-        return;
+        try {
+          proj = await askPickProject();
+        } catch {
+          addResult("x", "Create RFI", "Cancelled", "error");
+          throw new Error("User cancelled project selection");
+        }
       }
-      try {
-        await createRFI.mutateAsync(
-          { projectId: proj.id, data: { subject: action.subject, description: `Created via voice: ${action.subject}`, priority: "medium" } }
-        );
-        addResult("check", "Create RFI", `RFI created on ${proj.name}`, "ok");
-      } catch {
-        addResult("x", "Create RFI", "Failed", "error");
-        throw new Error("Failed to create RFI");
-      }
+      await createRFI.mutateAsync(
+        { projectId: proj.id, data: { subject: action.subject, description: `Created via voice: ${action.subject}`, priority: "medium" } }
+      );
+      addResult("check", "Create RFI", `RFI created on ${proj.name}`, "ok");
     },
     [resolveProject, askPickProject, createRFI, addResult]
   );
@@ -375,7 +323,7 @@ export function GlobalVoiceCommandFAB() {
       };
       if (pathMap[target]) {
         addResult("navigation", "Navigate", `Go to ${target}`, "ok");
-        router.push(pathMap[target] as any);
+        router.push(pathMap[target] as Parameters<typeof router.push>[0]);
       }
     },
     onAddNote: (payload) => addResult("file-text", "Note", payload.slice(0, 60), "ok"),
@@ -386,7 +334,7 @@ export function GlobalVoiceCommandFAB() {
   const voice = useVoiceRecorder((text) => {
     setTranscript(text);
     setResults([]);
-    executor.execute(text, null);
+    executor.execute(text, activeProjectName);
   });
 
   useEffect(() => {
@@ -446,7 +394,7 @@ export function GlobalVoiceCommandFAB() {
       {/* ── Floating Action Button ── */}
       <View
         pointerEvents="box-none"
-        style={[StyleSheet.absoluteFill, { justifyContent: "flex-end", alignItems: "center", zIndex: 50 }]}
+        style={[StyleSheet.absoluteFill, { justifyContent: "flex-end", alignItems: "flex-end", zIndex: 50 }]}
       >
         <TouchableOpacity
           onPress={handleToggle}
@@ -454,7 +402,7 @@ export function GlobalVoiceCommandFAB() {
           style={{
             position: "absolute",
             bottom: bottomOffset,
-            alignSelf: "center",
+            right: 20,
             width: 56,
             height: 56,
             borderRadius: 28,
@@ -560,7 +508,7 @@ export function GlobalVoiceCommandFAB() {
                     ]}
                   >
                     <Feather
-                      name={r.icon as any}
+                      name={r.icon as React.ComponentProps<typeof Feather>["name"]}
                       size={16}
                       color={r.status === "ok" ? "#22C55E" : r.status === "error" ? "#EF4444" : colors.primary}
                       style={{ marginRight: 10 }}
@@ -585,11 +533,11 @@ export function GlobalVoiceCommandFAB() {
                     onPress={() => {
                       setTranscript(h.text);
                       setResults([]);
-                      executor.execute(h.text, null);
+                      executor.execute(h.text, activeProjectName);
                     }}
                     style={[styles.hintChip, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}30` }]}
                   >
-                    <Feather name={h.icon as any} size={12} color={colors.primary} style={{ marginRight: 6 }} />
+                    <Feather name={h.icon as React.ComponentProps<typeof Feather>["name"]} size={12} color={colors.primary} style={{ marginRight: 6 }} />
                     <Text style={[styles.hintText, { color: colors.primary }]}>{h.text}</Text>
                   </TouchableOpacity>
                 ))}

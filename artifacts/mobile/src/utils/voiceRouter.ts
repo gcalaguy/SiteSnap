@@ -139,9 +139,12 @@ const MARK_TASK_DONE_PATTERNS = [
 ];
 
 const DELAY_PATTERNS = [
-  /log\s+a?\s*(\d+(?:\.\d+)?)\s*-?\s*hour\s+(.+?)\s+(?:delay|holdup)\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
-  /(.+?)\s+delay\s+(?:of\s+)?(\d+(?:\.\d+)?)\s+hours?\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
-  /weather\s+delay\s+(?:of\s+)?(\d+(?:\.\d+)?)\s+hours?\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
+  // Pattern A: weather-specific (most specific, checked first)
+  { pattern: /weather\s+delay\s+(?:of\s+)?(\d+(?:\.\d+)?)\s+hours?\s+(?:on|at)\s+(?:the\s+)?(.+)/i, kind: "weather" as const },
+  // Pattern B: "log X hours [reason] delay on ..."
+  { pattern: /log\s+a?\s*(\d+(?:\.\d+)?)\s*-?\s*hour\s+(.+?)\s+(?:delay|holdup)\s+(?:on|at)\s+(?:the\s+)?(.+)/i, kind: "log" as const },
+  // Pattern C: "[reason] delay of X hours on ..."
+  { pattern: /(.+?)\s+delay\s+(?:of\s+)?(\d+(?:\.\d+)?)\s+hours?\s+(?:on|at)\s+(?:the\s+)?(.+)/i, kind: "generic" as const },
 ];
 
 const EXPENSE_PATTERNS = [
@@ -234,31 +237,34 @@ function tryParseMarkTaskDone(text: string): MarkTaskDoneAction | null {
 }
 
 function tryParseLogDelay(text: string): LogDelayAction | null {
-  for (const pattern of DELAY_PATTERNS) {
+  for (const { pattern, kind } of DELAY_PATTERNS) {
     const match = text.match(pattern);
-    if (match) {
-      const raw = match[0].toLowerCase();
-      let hours: number;
-      let reason: string;
-      let project: string | null = null;
+    if (!match) continue;
 
-      if (raw.includes("weather delay")) {
+    let hours: number;
+    let reason: string;
+    let project: string | null = null;
+
+    switch (kind) {
+      case "weather":
         hours = parseFloat(match[1]);
         reason = "weather delay";
         project = match[2]?.trim() ?? null;
-      } else if (raw.startsWith("log")) {
+        break;
+      case "log":
         hours = parseFloat(match[1]);
         reason = match[2].trim();
         project = match[3]?.trim() ?? null;
-      } else {
+        break;
+      case "generic":
         reason = match[1].trim();
         hours = parseFloat(match[2]);
         project = match[3]?.trim() ?? null;
-      }
+        break;
+    }
 
-      if (!isNaN(hours) && reason) {
-        return { type: "LOG_DELAY", hours, reason, project };
-      }
+    if (!isNaN(hours) && reason) {
+      return { type: "LOG_DELAY", hours, reason, project };
     }
   }
   return null;
