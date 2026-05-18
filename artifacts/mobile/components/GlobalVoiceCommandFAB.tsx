@@ -314,12 +314,17 @@ export function GlobalVoiceCommandFAB() {
           throw new Error("User cancelled project selection");
         }
       }
+      // When no specific notes were extracted, preserve the raw voice transcript
+      // so crews can see exactly what they said instead of a generic placeholder.
+      const workPerformed = action.notes === "Update logged via voice"
+        ? action.transcript
+        : action.notes;
       await createDailyReport.mutateAsync({
         projectId: proj.id,
         data: {
           reportDate: new Date().toISOString().split("T")[0],
           crewCount: 1,
-          workPerformed: action.notes,
+          workPerformed,
         },
       });
       addResult("check", "Daily log", `Logged on ${proj.name}`, "ok");

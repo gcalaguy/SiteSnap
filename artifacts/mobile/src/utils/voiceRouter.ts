@@ -26,6 +26,7 @@ export type AddDailyLogAction = {
   type: "ADD_DAILY_LOG";
   project: string | null;
   notes: string;
+  transcript: string;
 };
 
 export type MarkTaskDoneAction = {
@@ -341,6 +342,7 @@ function tryParseDailyLog(text: string): AddDailyLogAction | null {
         type: "ADD_DAILY_LOG",
         project: project || null,
         notes: notes || "Update logged via voice",
+        transcript: text,
       };
     }
   }
@@ -492,6 +494,7 @@ async function classifyWithLLM(
             type: "ADD_DAILY_LOG",
             project,
             notes: result.notes || "Update logged via voice",
+            transcript,
           },
           confidence: "low",
         };

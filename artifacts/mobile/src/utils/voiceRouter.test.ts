@@ -216,6 +216,7 @@ describe("interpretVoiceCommand", () => {
     if (result.intent === "SINGLE_ACTION" && result.action.type === "ADD_DAILY_LOG") {
       expect(result.action.project).toBe("123 Basement");
       expect(result.action.notes).toBe("Update logged via voice");
+      expect(result.action.transcript).toBe("update 123 Basement");
     }
   });
 
@@ -224,6 +225,7 @@ describe("interpretVoiceCommand", () => {
     expect(result.intent).toBe("SINGLE_ACTION");
     if (result.intent === "SINGLE_ACTION" && result.action.type === "ADD_DAILY_LOG") {
       expect(result.action.project).toBe("Oak Street");
+      expect(result.action.transcript).toBe("update the Oak Street project");
     }
   });
 
@@ -233,6 +235,7 @@ describe("interpretVoiceCommand", () => {
     if (result.intent === "SINGLE_ACTION" && result.action.type === "ADD_DAILY_LOG") {
       expect(result.action.project).toBe("123 Basement");
       expect(result.action.notes).toBe("the concrete pour finished");
+      expect(result.action.transcript).toBe("update 123 Basement that the concrete pour finished");
     }
   });
 
@@ -242,6 +245,7 @@ describe("interpretVoiceCommand", () => {
     if (result.intent === "SINGLE_ACTION" && result.action.type === "ADD_DAILY_LOG") {
       expect(result.action.project).toBe("123 Basement");
       expect(result.action.notes).toBe("the concrete pour finished");
+      expect(result.action.transcript).toBe("add notes to 123 Basement that the concrete pour finished");
     }
   });
 
@@ -251,6 +255,7 @@ describe("interpretVoiceCommand", () => {
     if (result.intent === "SINGLE_ACTION" && result.action.type === "ADD_DAILY_LOG") {
       expect(result.action.project).toBe("123 Basement");
       expect(result.action.notes).toBe("framing is done");
+      expect(result.action.transcript).toBe("log that framing is done on 123 Basement");
     }
   });
 
@@ -260,6 +265,7 @@ describe("interpretVoiceCommand", () => {
     if (result.intent === "SINGLE_ACTION" && result.action.type === "ADD_DAILY_LOG") {
       expect(result.action.project).toBeNull();
       expect(result.action.notes).toBe("workers arrived late");
+      expect(result.action.transcript).toBe("note that workers arrived late");
     }
   });
 
@@ -270,6 +276,7 @@ describe("interpretVoiceCommand", () => {
       expect(result.action).toMatchObject({
         notes: "the sub-grade is wet",
         project: null,
+        transcript: "note that the sub-grade is wet",
       });
     }
   });
@@ -386,6 +393,7 @@ describe("interpretVoiceCommand", () => {
         type: "ADD_DAILY_LOG",
         notes: "the sub-grade is wet",
         project: null,
+        transcript: "note that the sub-grade is wet",
       });
       expect(result.confidence).toBe("high");
     }
@@ -442,6 +450,7 @@ describe("interpretVoiceCommand", () => {
       expect(enriched.actions[1]).toMatchObject({
         type: "ADD_DAILY_LOG",
         project: "Riverside Condo",
+        transcript: "note that drywall is delayed",
       });
     }
   });
@@ -522,6 +531,7 @@ describe("classifyWithLLM mapping (via interpretVoiceCommand fallback)", () => {
     if (result.intent === "SINGLE_ACTION" && result.action.type === "ADD_DAILY_LOG") {
       expect(result.action.notes).toBe("weather check done");
       expect(result.action.project).toBe("123 Basement");
+      expect(result.action.transcript).toBe("jot down that weather check is done");
       expect(result.confidence).toBe("low");
     }
   });
