@@ -685,6 +685,7 @@ const VoiceClassifyInput = z.object({
 router.post(
   "/ai/voice-classify",
   requireAuth,
+  requireCompany,
   asyncHandler(async (req, res) => {
     const parsed = VoiceClassifyInput.safeParse(req.body);
     if (!parsed.success) {
