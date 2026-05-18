@@ -6,6 +6,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,6 +20,12 @@ import {
   useCreateRFI,
   useCreateDailyReport,
   customFetch,
+  getGetDashboardSummaryQueryKey,
+  getGetRecentActivityQueryKey,
+  getListDailyReportsQueryKey,
+  getListRFIsQueryKey,
+  getListCostAnalysesQueryKey,
+  getListProjectsQueryKey,
 } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -86,6 +93,12 @@ export function GlobalVoiceCommandFAB() {
   const createRFI = useCreateRFI();
   const createDailyReport = useCreateDailyReport();
 
+  const invalidateDashboard = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+    void qc.invalidateQueries({ queryKey: getGetRecentActivityQueryKey() });
+    void qc.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+  }, [qc]);
+
   const logHoursMutation = useMutation({
     mutationFn: async (body: { projectId: number; date: string; hours: number; description: string }) => {
       return customFetch(`/api/projects/${body.projectId}/time-entries`, {
@@ -94,8 +107,10 @@ export function GlobalVoiceCommandFAB() {
         body: JSON.stringify({ date: body.date, hours: body.hours, description: body.description }),
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+      qc.invalidateQueries({ queryKey: [`/api/projects/${vars.projectId}/time-entries`] });
+      invalidateDashboard();
     },
   });
 
@@ -108,7 +123,8 @@ export function GlobalVoiceCommandFAB() {
       });
     },
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["/api/projects", vars.projectId, "daily-reports"] });
+      qc.invalidateQueries({ queryKey: getListDailyReportsQueryKey(vars.projectId) });
+      invalidateDashboard();
     },
   });
 
@@ -227,6 +243,7 @@ export function GlobalVoiceCommandFAB() {
       );
       addResult("check", "Complete task", `"${task.title}" marked done`, "ok");
       qc.invalidateQueries({ queryKey: ["/api/projects", projectId, "tasks"] });
+      invalidateDashboard();
     } catch {
       addResult("x", "Complete task", "Failed to update", "error");
       throw new Error("Failed to update task");
@@ -277,9 +294,11 @@ export function GlobalVoiceCommandFAB() {
           notes: `Vendor: ${action.vendor ?? "unknown"} — logged via voice`,
         }),
       });
+      qc.invalidateQueries({ queryKey: getListCostAnalysesQueryKey(proj.id) });
+      invalidateDashboard();
       addResult("check", "Log expense", `$${action.amount} for ${action.description} on ${proj.name}`, "ok");
     },
-    [resolveProject, askPickProject, addResult]
+    [resolveProject, askPickProject, addResult, qc, invalidateDashboard]
   );
 
   const handleCreateRFI = useCallback(
@@ -297,9 +316,11 @@ export function GlobalVoiceCommandFAB() {
       await createRFI.mutateAsync(
         { projectId: proj.id, data: { subject: action.subject, description: `Created via voice: ${action.subject}`, priority: "medium" } }
       );
+      qc.invalidateQueries({ queryKey: getListRFIsQueryKey(proj.id) });
+      invalidateDashboard();
       addResult("check", "Create RFI", `RFI created on ${proj.name}`, "ok");
     },
-    [resolveProject, askPickProject, createRFI, addResult]
+    [resolveProject, askPickProject, createRFI, addResult, qc, invalidateDashboard]
   );
 
   const handleAddDailyLog = useCallback(
@@ -327,9 +348,11 @@ export function GlobalVoiceCommandFAB() {
           workPerformed,
         },
       });
+      qc.invalidateQueries({ queryKey: getListDailyReportsQueryKey(proj.id) });
+      invalidateDashboard();
       addResult("check", "Daily log", `Logged on ${proj.name}`, "ok");
     },
-    [resolveProject, askPickProject, createDailyReport, addResult]
+    [resolveProject, askPickProject, createDailyReport, addResult, qc, invalidateDashboard]
   );
 
   const executor = useVoiceIntentExecutor({
@@ -612,7 +635,7 @@ export function GlobalVoiceCommandFAB() {
                 <Text style={[styles.sheetTitle, { color: colors.foreground, fontSize: 14 }]}>
                   Pick a project
                 </Text>
-                <View style={{ maxHeight: 220 }}>
+                <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
                   {projectList.map((p) => (
                     <TouchableOpacity
                       key={p.id}
@@ -637,7 +660,7 @@ export function GlobalVoiceCommandFAB() {
                       </Text>
                     </TouchableOpacity>
                   ))}
-                </View>
+                </ScrollView>
                 <TouchableOpacity
                   onPress={() => {
                     setPickProjectOpen(false);
