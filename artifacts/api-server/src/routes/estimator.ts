@@ -414,7 +414,7 @@ router.put(
 );
 
 // Helper: count saved smart/scan estimates that reference a given cost model
-async function countCostModelReferences(modelId: number, companyId: number): Promise<number> {
+export async function countCostModelReferences(modelId: number, companyId: number): Promise<number> {
   const rows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(estimatesTable)
@@ -422,14 +422,14 @@ async function countCostModelReferences(modelId: number, companyId: number): Pro
       and(
         eq(estimatesTable.companyId, companyId),
         inArray(estimatesTable.sourceType, ["smart", "scan"]),
-        sql`${estimatesTable.result}->'costModelUsed'->>'id' = ${String(modelId)}`
+        sql`${estimatesTable.result}::jsonb->'costModelUsed'->>'id' = ${String(modelId)}`
       )
     );
   return rows[0]?.count ?? 0;
 }
 
 // Helper: count saved smart/scan estimates that reference a given add-on
-async function countAddonReferences(addonId: number, companyId: number): Promise<number> {
+export async function countAddonReferences(addonId: number, companyId: number): Promise<number> {
   const [addon] = await db
     .select({ addonKey: estimatorAddonsTable.addonKey })
     .from(estimatorAddonsTable)
@@ -443,7 +443,7 @@ async function countAddonReferences(addonId: number, companyId: number): Promise
       and(
         eq(estimatesTable.companyId, companyId),
         inArray(estimatesTable.sourceType, ["smart", "scan"]),
-        sql`${estimatesTable.result}->'params'->'addons' @> ${JSON.stringify([addon.addonKey])}::jsonb`
+        sql`${estimatesTable.result}::jsonb->'_params'->'addons' @> ${JSON.stringify([addon.addonKey])}::jsonb`
       )
     );
   return rows[0]?.count ?? 0;
