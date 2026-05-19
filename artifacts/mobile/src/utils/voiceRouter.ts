@@ -578,8 +578,9 @@ async function classifyWithLLM(
         }
         break;
     }
-  } catch {
-    // Network or parse error — fall through to UNKNOWN
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[voiceRouter] classifyWithLLM error:", msg);
   }
 
   return { intent: "UNKNOWN", transcript, confidence: "low" };
@@ -592,8 +593,10 @@ export async function interpretVoiceCommand(
   projectNames: string[] = [],
 ): Promise<VoiceIntent> {
   const raw = transcript?.trim() ?? "";
+  console.log("[voiceRouter] interpretVoiceCommand called:", JSON.stringify(raw));
 
   if (!raw) {
+    console.log("[voiceRouter] empty transcript -> UNKNOWN");
     return { intent: "UNKNOWN", transcript: raw, confidence: "low" };
   }
 
@@ -607,6 +610,7 @@ export async function interpretVoiceCommand(
       .slice(noteMatch[0].length - (noteMatch[1] ?? "").length)
       .trim()
       .slice(0, 500);
+    console.log("[voiceRouter] NOTE_TRIGGER matched -> ADD_NOTE:", payload.slice(0, 50));
     return {
       intent: "DATA_ENTRY",
       action: "ADD_NOTE",
@@ -618,12 +622,14 @@ export async function interpretVoiceCommand(
   // 2. Compound action detection (split on "and" / "also" / "then")
   const compound = tryParseCompound(raw);
   if (compound) {
+    console.log("[voiceRouter] compound matched:", compound.map((a) => a.type).join(", "));
     return { intent: "COMPOUND_ACTION", actions: compound, confidence: "high" };
   }
 
   // 3. Single action detection
   const single = parseSingleAction(raw);
   if (single) {
+    console.log("[voiceRouter] single matched:", single.type, "project:", single.project);
     const hasAllFields =
       (single.type === "LOG_HOURS" && single.project !== null) ||
       (single.type === "LOG_OWN_HOURS" && single.project !== null) ||
@@ -645,11 +651,13 @@ export async function interpretVoiceCommand(
   // 4. Navigation (existing behaviour)
   for (const { pattern, target } of ROUTE_PATTERNS) {
     if (pattern.test(normalized)) {
+      console.log("[voiceRouter] navigation matched ->", target);
       return { intent: "NAVIGATE", target, confidence: "high" };
     }
   }
 
   // 5. LLM fallback — handles any phrasing the regex couldn't classify
+  console.log("[voiceRouter] falling through to LLM fallback");
   return classifyWithLLM(raw, projectNames);
 }
 

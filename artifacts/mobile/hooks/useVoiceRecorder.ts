@@ -26,8 +26,10 @@ export function useVoiceRecorder(
 
   const startRecording = useCallback(async () => {
     setError(null);
+    console.log("[voiceRecorder] startRecording called");
 
     const { granted } = await requestRecordingPermissionsAsync();
+    console.log("[voiceRecorder] permission granted:", granted);
     if (!granted) {
       setError("Microphone permission denied. Enable it in device settings.");
       return;
@@ -37,33 +39,40 @@ export function useVoiceRecorder(
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
+      console.log("[voiceRecorder] recording started, uri:", recorder.uri);
       setState("recording");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not start recording";
+      console.error("[voiceRecorder] startRecording error:", msg);
       setError(msg);
     }
   }, [recorder]);
 
   const stopAndTranscribe = useCallback(async () => {
     setState("transcribing");
+    console.log("[voiceRecorder] stopAndTranscribe called");
 
     try {
       await recorder.stop();
       const uri = recorder.uri;
+      console.log("[voiceRecorder] stopped, uri:", uri);
       if (!uri) throw new Error("No recording captured");
 
       // Read audio file as base64
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: "base64",
       });
+      console.log("[voiceRecorder] base64 length:", base64.length);
 
       // customFetch returns the parsed JSON body directly (not a Response).
       // It throws an ApiError on non-2xx responses.
+      console.log("[voiceRecorder] sending to /api/ai/transcribe");
       const result = await customFetch<{ text?: string }>("/api/ai/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audio: base64, format: "m4a" }),
       });
+      console.log("[voiceRecorder] transcribe result:", result);
 
       const transcript = result.text?.trim() ?? "";
       if (!transcript) {
@@ -74,6 +83,7 @@ export function useVoiceRecorder(
       onTranscript(transcript);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Transcription failed";
+      console.error("[voiceRecorder] transcribe error:", msg);
       setError(msg);
       // Notify upstream so the FAB can show the error instead of hanging
       onTranscript("");

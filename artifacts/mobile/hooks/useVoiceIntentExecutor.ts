@@ -71,24 +71,29 @@ export function useVoiceIntentExecutor(
         }
 
         if (intent.intent === "SINGLE_ACTION") {
+          console.log("[voiceExecutor] SINGLE_ACTION:", intent.action.type);
           setState("executing");
           await runSingleAction(intent.action, callbacks);
+          console.log("[voiceExecutor] SINGLE_ACTION done");
           setState("done");
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           return;
         }
 
         if (intent.intent === "COMPOUND_ACTION") {
+          console.log("[voiceExecutor] COMPOUND_ACTION:", intent.actions.map((a) => a.type).join(", "));
           setState("executing");
           for (const action of intent.actions) {
             await runSingleAction(action, callbacks);
           }
+          console.log("[voiceExecutor] COMPOUND_ACTION done");
           setState("done");
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           return;
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Voice command failed";
+        console.error("[voiceExecutor] error:", msg);
         setState("error");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert("Command Failed", msg);
@@ -109,6 +114,7 @@ async function runSingleAction(
   action: SingleAction,
   callbacks: ExecutorCallbacks
 ): Promise<void> {
+  console.log("[voiceExecutor] runSingleAction:", action.type);
   switch (action.type) {
     case "LOG_HOURS": {
       await callbacks.onLogHours?.(action);
@@ -151,4 +157,5 @@ async function runSingleAction(
       break;
     }
   }
+  console.log("[voiceExecutor] runSingleAction done:", action.type);
 }

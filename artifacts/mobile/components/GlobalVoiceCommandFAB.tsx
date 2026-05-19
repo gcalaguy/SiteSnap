@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -120,7 +121,7 @@ export function GlobalVoiceCommandFAB() {
       return customFetch(`/api/projects/${body.projectId}/daily-reports`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workPerformed: body.workPerformed, reportDate: body.reportDate }),
+        body: JSON.stringify({ workPerformed: body.workPerformed, reportDate: body.reportDate, crewCount: 1 }),
       });
     },
     onSuccess: (_, vars) => {
@@ -569,6 +570,34 @@ export function GlobalVoiceCommandFAB() {
                 <Feather name="x" size={22} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
+
+            {/* Manual text input — allows testing commands without voice recording */}
+            {fabState === "idle" && (
+              <TextInput
+                value={transcript}
+                onChangeText={setTranscript}
+                placeholder="Type a command or tap the mic"
+                placeholderTextColor={colors.mutedForeground}
+                style={{
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  fontSize: 15,
+                  color: colors.foreground,
+                  backgroundColor: colors.card,
+                  marginTop: 8,
+                }}
+                onSubmitEditing={() => {
+                  if (transcript.trim()) {
+                    setResults([]);
+                    executor.execute(transcript.trim(), activeProjectName, projectList.map((p) => p.name));
+                  }
+                }}
+                returnKeyType="go"
+              />
+            )}
 
             {/* Recording indicator */}
             {fabState === "recording" && (
