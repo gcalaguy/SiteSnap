@@ -297,42 +297,6 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Quick Create</Text>
 
-            {/* Voice Quote banner */}
-            <TouchableOpacity
-              style={[styles.featureBanner, { backgroundColor: colors.sidebar, marginBottom: 8 }]}
-              onPress={() => openVoiceModal("quote")}
-              activeOpacity={0.85}
-            >
-              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="file-text" size={22} color="#D4AF37" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.featureBannerTitle}>Voice Quote</Text>
-                <Text style={styles.featureBannerSub}>Record on-site · AI fills pricing instantly</Text>
-              </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
-                <Feather name="mic" size={14} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
-
-            {/* Voice Invoice banner */}
-            <TouchableOpacity
-              style={[styles.featureBanner, { backgroundColor: colors.sidebar, marginBottom: 8 }]}
-              onPress={() => openVoiceModal("invoice")}
-              activeOpacity={0.85}
-            >
-              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="dollar-sign" size={22} color="#D4AF37" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.featureBannerTitle}>Voice Invoice</Text>
-                <Text style={styles.featureBannerSub}>Speak it · AI builds it · Send & get paid</Text>
-              </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
-                <Feather name="mic" size={14} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
-
             {/* Finance hub banner */}
             <TouchableOpacity
               style={[styles.featureBanner, { backgroundColor: colors.sidebar }]}
