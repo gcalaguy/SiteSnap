@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, FileText, ChevronRight } from "lucide-react";
+import SearchBar from "@/components/SearchBar";
 import { formatDistanceToNow } from "date-fns";
 
 const GOLD = "#C9A84C";
@@ -41,6 +42,7 @@ const TABS: { label: string; value: QuoteStatus | "all"; pill?: string }[] = [
 
 export default function Quotes() {
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | "all">("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch filtered list for display
   const { data: quotes, isLoading } = useListAllQuotes(
@@ -75,6 +77,13 @@ export default function Quotes() {
           </Link>
         </Button>
       </div>
+
+      <SearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search by client, quote number, or cost …"
+        className="w-full sm:w-80"
+      />
 
       <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as QuoteStatus | "all")}>
         <TabsList
@@ -125,7 +134,18 @@ export default function Quotes() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {quotes.map((q) => (
+          {(searchQuery
+            ? quotes.filter((q) => {
+                const s = searchQuery.toLowerCase();
+                return (
+                  (q.clientName ?? "").toLowerCase().includes(s) ||
+                  (q.quoteNumber ?? "").toLowerCase().includes(s) ||
+                  (q.title ?? "").toLowerCase().includes(s) ||
+                  fmtCAD(q.total).toLowerCase().includes(s)
+                );
+              })
+            : quotes
+          ).map((q) => (
             <Link key={q.id} href={`/quotes/${q.id}`}>
               <Card className="hover:border-[#D4AF37]/40 hover:shadow-sm transition-all cursor-pointer border-[#D4AF37]/20 bg-white">
                 <CardContent className="flex items-center justify-between p-4">
