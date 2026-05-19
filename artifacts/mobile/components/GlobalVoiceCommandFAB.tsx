@@ -501,7 +501,7 @@ export function GlobalVoiceCommandFAB() {
       {/* ── Floating Action Button ── */}
       <View
         pointerEvents="box-none"
-        style={[StyleSheet.absoluteFill, { justifyContent: "flex-end", alignItems: "flex-end", zIndex: 50 }]}
+        style={[StyleSheet.absoluteFill, { justifyContent: "flex-end", alignItems: "center", zIndex: 50 }]}
       >
         <TouchableOpacity
           onPress={handleToggle}
@@ -509,7 +509,6 @@ export function GlobalVoiceCommandFAB() {
           style={{
             position: "absolute",
             bottom: bottomOffset,
-            right: 20,
             width: 56,
             height: 56,
             borderRadius: 28,
