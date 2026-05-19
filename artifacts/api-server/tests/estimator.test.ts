@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { db, companiesTable, usersTable, estimatorCostModelsTable, estimatorAddonsTable, estimatesTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
-import { countCostModelReferences, countAddonReferences } from "./estimator";
+import { countCostModelReferences, countAddonReferences } from "../src/routes/estimator";
 
 /**
  * Integration tests for cost-model / add-on deletion safeguard.

@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Agent scratchpad / workspace artifacts
+/attached_assets/
+/.canvas/assets/
