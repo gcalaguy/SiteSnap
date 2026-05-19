@@ -112,6 +112,7 @@ export function GlobalVoiceCommandFAB() {
       qc.invalidateQueries({ queryKey: [`/api/projects/${vars.projectId}/time-entries`] });
       invalidateDashboard();
     },
+    onError: (err) => console.warn("[voice] logHours error:", err),
   });
 
   const logDelayMutation = useMutation({
@@ -126,6 +127,7 @@ export function GlobalVoiceCommandFAB() {
       qc.invalidateQueries({ queryKey: getListDailyReportsQueryKey(vars.projectId) });
       invalidateDashboard();
     },
+    onError: (err) => console.warn("[voice] logDelay error:", err),
   });
 
   // ── Project resolution helpers ──
@@ -175,10 +177,16 @@ export function GlobalVoiceCommandFAB() {
           throw new Error("User cancelled project selection");
         }
       }
-      await logHoursMutation.mutateAsync(
-        { projectId: proj.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${workerName} — via voice` }
-      );
-      addResult("check", "Log hours", `${action.hours}h on ${proj.name}`, "ok");
+      try {
+        await logHoursMutation.mutateAsync(
+          { projectId: proj.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${workerName} — via voice` }
+        );
+        addResult("check", "Log hours", `${action.hours}h on ${proj.name}`, "ok");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to log hours";
+        addResult("x", "Log hours", msg, "error");
+        throw err;
+      }
     },
     [resolveProject, askPickProject, logHoursMutation, me, addResult]
   );
@@ -195,10 +203,16 @@ export function GlobalVoiceCommandFAB() {
           throw new Error("User cancelled project selection");
         }
       }
-      await logHoursMutation.mutateAsync(
-        { projectId: proj.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${action.worker} — via voice` }
-      );
-      addResult("check", "Log hours", `${action.hours}h for ${action.worker}`, "ok");
+      try {
+        await logHoursMutation.mutateAsync(
+          { projectId: proj.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${action.worker} — via voice` }
+        );
+        addResult("check", "Log hours", `${action.hours}h for ${action.worker}`, "ok");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to log hours";
+        addResult("x", "Log hours", msg, "error");
+        throw err;
+      }
     },
     [resolveProject, askPickProject, logHoursMutation, addResult]
   );
@@ -262,10 +276,16 @@ export function GlobalVoiceCommandFAB() {
           throw new Error("User cancelled project selection");
         }
       }
-      await logDelayMutation.mutateAsync(
-        { projectId: proj.id, workPerformed: `${action.hours}h delay: ${action.reason}`, reportDate: new Date().toISOString().split("T")[0] }
-      );
-      addResult("check", "Log delay", `${action.hours}h delay on ${proj.name}`, "ok");
+      try {
+        await logDelayMutation.mutateAsync(
+          { projectId: proj.id, workPerformed: `${action.hours}h delay: ${action.reason}`, reportDate: new Date().toISOString().split("T")[0] }
+        );
+        addResult("check", "Log delay", `${action.hours}h delay on ${proj.name}`, "ok");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to log delay";
+        addResult("x", "Log delay", msg, "error");
+        throw err;
+      }
     },
     [resolveProject, askPickProject, logDelayMutation, addResult]
   );
@@ -282,21 +302,27 @@ export function GlobalVoiceCommandFAB() {
           throw new Error("User cancelled project selection");
         }
       }
-      await customFetch(`/api/projects/${proj.id}/cost-analyses`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          periodLabel: `Voice expense: ${action.description}`,
-          labourCost: 0,
-          materialsCost: action.amount,
-          equipmentCost: 0,
-          otherCost: 0,
-          notes: `Vendor: ${action.vendor ?? "unknown"} — logged via voice`,
-        }),
-      });
-      qc.invalidateQueries({ queryKey: getListCostAnalysesQueryKey(proj.id) });
-      invalidateDashboard();
-      addResult("check", "Log expense", `$${action.amount} for ${action.description} on ${proj.name}`, "ok");
+      try {
+        await customFetch(`/api/projects/${proj.id}/cost-analyses`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            periodLabel: `Voice expense: ${action.description}`,
+            labourCost: 0,
+            materialsCost: action.amount,
+            equipmentCost: 0,
+            otherCost: 0,
+            notes: `Vendor: ${action.vendor ?? "unknown"} — logged via voice`,
+          }),
+        });
+        qc.invalidateQueries({ queryKey: getListCostAnalysesQueryKey(proj.id) });
+        invalidateDashboard();
+        addResult("check", "Log expense", `$${action.amount} for ${action.description} on ${proj.name}`, "ok");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to log expense";
+        addResult("x", "Log expense", msg, "error");
+        throw err;
+      }
     },
     [resolveProject, askPickProject, addResult, qc, invalidateDashboard]
   );
@@ -313,12 +339,18 @@ export function GlobalVoiceCommandFAB() {
           throw new Error("User cancelled project selection");
         }
       }
-      await createRFI.mutateAsync(
-        { projectId: proj.id, data: { subject: action.subject, description: `Created via voice: ${action.subject}`, priority: "medium" } }
-      );
-      qc.invalidateQueries({ queryKey: getListRFIsQueryKey(proj.id) });
-      invalidateDashboard();
-      addResult("check", "Create RFI", `RFI created on ${proj.name}`, "ok");
+      try {
+        await createRFI.mutateAsync(
+          { projectId: proj.id, data: { subject: action.subject, description: `Created via voice: ${action.subject}`, priority: "medium" } }
+        );
+        qc.invalidateQueries({ queryKey: getListRFIsQueryKey(proj.id) });
+        invalidateDashboard();
+        addResult("check", "Create RFI", `RFI created on ${proj.name}`, "ok");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to create RFI";
+        addResult("x", "Create RFI", msg, "error");
+        throw err;
+      }
     },
     [resolveProject, askPickProject, createRFI, addResult, qc, invalidateDashboard]
   );
@@ -340,17 +372,23 @@ export function GlobalVoiceCommandFAB() {
       const workPerformed = action.notes === "Update logged via voice"
         ? action.transcript
         : action.notes;
-      await createDailyReport.mutateAsync({
-        projectId: proj.id,
-        data: {
-          reportDate: new Date().toISOString().split("T")[0],
-          crewCount: 1,
-          workPerformed,
-        },
-      });
-      qc.invalidateQueries({ queryKey: getListDailyReportsQueryKey(proj.id) });
-      invalidateDashboard();
-      addResult("check", "Daily log", `Logged on ${proj.name}`, "ok");
+      try {
+        await createDailyReport.mutateAsync({
+          projectId: proj.id,
+          data: {
+            reportDate: new Date().toISOString().split("T")[0],
+            crewCount: 1,
+            workPerformed,
+          },
+        });
+        qc.invalidateQueries({ queryKey: getListDailyReportsQueryKey(proj.id) });
+        invalidateDashboard();
+        addResult("check", "Daily log", `Logged on ${proj.name}`, "ok");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to create daily report";
+        addResult("x", "Daily log", msg, "error");
+        throw err;
+      }
     },
     [resolveProject, askPickProject, createDailyReport, addResult, qc, invalidateDashboard]
   );
@@ -396,6 +434,10 @@ export function GlobalVoiceCommandFAB() {
   });
 
   useEffect(() => {
+    if (voice.error) {
+      setFabState("error");
+      return;
+    }
     if (voice.state === "recording") {
       setFabState("recording");
       Animated.loop(
@@ -410,7 +452,7 @@ export function GlobalVoiceCommandFAB() {
     } else {
       pulseAnim.setValue(1);
     }
-  }, [voice.state, pulseAnim]);
+  }, [voice.state, voice.error, pulseAnim]);
 
   useEffect(() => {
     if (executor.state === "executing" || executor.state === "done" || executor.state === "error") {
@@ -440,6 +482,11 @@ export function GlobalVoiceCommandFAB() {
     setFabState("idle");
     setTranscript("");
     setResults([]);
+    setPickProjectOpen(false);
+    // Reject any pending project picker so the action doesn't hang
+    pickRejectRef.current?.();
+    pickResolveRef.current = null;
+    pickRejectRef.current = null;
     executor.reset();
     pulseAnim.setValue(1);
   }, [executor, pulseAnim]);

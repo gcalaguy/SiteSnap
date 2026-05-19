@@ -135,12 +135,16 @@ const OWN_HOURS_PATTERNS = [
   /log\s+(\d+(?:\.\d+)?)\s+hours?\s+(?:for\s+myself|for\s+me)\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
   // "my hours today are 5 on Oak Street"
   /my\s+hours\s+(?:today\s+)?(?:are\s+)?(\d+(?:\.\d+)?)\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
+  // "log 5 hours on Oak Street" — own hours when no worker name given
+  /log\s+(\d+(?:\.\d+)?)\s+hours?\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
+  // "record 5 hours on Oak Street"
+  /record\s+(\d+(?:\.\d+)?)\s+hours?\s+(?:on|at)\s+(?:the\s+)?(.+)/i,
 ];
 
 const MARK_TASK_DONE_PATTERNS = [
   /mark\s+(?:the\s+)?(.+?)\s+as\s+(?:complete|done|finished)/i,
-  /complete\s+(?:the\s+)?(.+)/i,
-  /finish\s+(?:the\s+)?(.+)/i,
+  /^\s*(?:please\s+)?complete\s+(?:the\s+)?(.+)/i,
+  /^\s*(?:please\s+)?finish\s+(?:the\s+)?(.+)/i,
 ];
 
 const DELAY_PATTERNS = [
@@ -481,6 +485,7 @@ async function classifyWithLLM(
 
     const parsed = LLMResultSchema.safeParse(raw);
     if (!parsed.success) {
+      console.warn("[voiceRouter] LLM response schema mismatch:", parsed.error.issues);
       return { intent: "UNKNOWN", transcript, confidence: "low" };
     }
     const result: LLMResult = parsed.data;

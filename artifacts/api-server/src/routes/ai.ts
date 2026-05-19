@@ -685,15 +685,16 @@ const VoiceClassifyInput = z.object({
 router.post(
   "/ai/voice-classify",
   requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const parsed = VoiceClassifyInput.safeParse(req.body);
     if (!parsed.success) {
+      req.log?.warn({ issues: parsed.error.issues }, "voice-classify: invalid body");
       res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
       return;
     }
 
     const { transcript, projectNames } = parsed.data;
+    req.log?.info({ transcriptPreview: transcript.slice(0, 40) }, "voice-classify: processing");
 
     const projectList =
       projectNames.length > 0

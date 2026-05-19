@@ -65,12 +65,18 @@ export function useVoiceRecorder(
         body: JSON.stringify({ audio: base64, format: "m4a" }),
       });
 
-      if (result.text?.trim()) {
-        onTranscript(result.text.trim());
+      const transcript = result.text?.trim() ?? "";
+      if (!transcript) {
+        setError("No speech detected. Try speaking closer to the microphone.");
       }
+      // Always call onTranscript so the executor can handle empty strings
+      // and surface feedback instead of leaving the sheet stuck on "Working on it…"
+      onTranscript(transcript);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Transcription failed";
       setError(msg);
+      // Notify upstream so the FAB can show the error instead of hanging
+      onTranscript("");
     } finally {
       setState("idle");
     }
