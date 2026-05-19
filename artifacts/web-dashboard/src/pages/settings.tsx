@@ -866,13 +866,24 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
 
   const setPerms = useSetMemberPermissions({
     mutation: {
-      onSuccess: () => {
-        toast({ title: "Permissions saved", description: "Changes are active immediately." });
-        queryClient.invalidateQueries({ queryKey: ["memberPermissions", companyId, selectedUserId] });
-        queryClient.invalidateQueries({ queryKey: ["getMemberPermissions"] });
+      onMutate: async ({ data }) => {
+        if (!selectedUserId) return;
+        const queryKey = getGetMemberPermissionsQueryKey(companyId, selectedUserId);
+        await queryClient.cancelQueries({ queryKey });
+        const previous = queryClient.getQueryData<MemberPermissions>(queryKey);
+        queryClient.setQueryData<MemberPermissions>(queryKey, data);
+        return { previous, queryKey };
       },
-      onError: () => {
+      onError: (_err, _vars, context) => {
+        if (context?.previous && context.queryKey) {
+          queryClient.setQueryData(context.queryKey, context.previous);
+        }
         toast({ title: "Error", description: "Failed to save permissions.", variant: "destructive" });
+      },
+      onSettled: (_data, _err, _vars, context) => {
+        if (context?.queryKey) {
+          queryClient.invalidateQueries({ queryKey: context.queryKey });
+        }
       },
     },
   });
