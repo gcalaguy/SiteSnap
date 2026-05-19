@@ -410,9 +410,8 @@ function ActualCard({ actual }: { actual: { estimatedCost: string; actualCost: s
   const overBudget = variance > 5;
   const underBudget = variance < -5;
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
-      <div className={cn("h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0",
-        overBudget ? "bg-red-50" : underBudget ? "bg-green-50" : "bg-muted/40")}>
+    <div className="flex items-center gap-3 p-3 rounded-lg border border-border opacity-[1] bg-[#700d0d05] text-left">
+      <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 bg-[#f0fdf4]">
         {overBudget ? <TrendingUp className="h-4 w-4 text-red-500" /> :
          underBudget ? <TrendingDown className="h-4 w-4 text-green-600" /> :
          <Minus className="h-4 w-4 text-muted-foreground" />}
@@ -420,7 +419,7 @@ function ActualCard({ actual }: { actual: { estimatedCost: string; actualCost: s
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 text-sm">
           <span className="font-medium">{fmt(parseFloat(actual.actualCost))}</span>
-          <span className="text-muted-foreground text-xs">actual vs {fmt(parseFloat(actual.estimatedCost))} est.</span>
+          <span className="text-xs text-[#f0fdf4]">actual vs {fmt(parseFloat(actual.estimatedCost))} est.</span>
         </div>
         {actual.notes && <p className="text-xs text-muted-foreground truncate mt-0.5">{actual.notes}</p>}
         <p className="text-[10px] text-muted-foreground">{format(new Date(actual.recordedAt), "MMM d, yyyy")}</p>
