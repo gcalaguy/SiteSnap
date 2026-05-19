@@ -1210,6 +1210,8 @@ export const estimatorCostModelsTable = pgTable("estimator_cost_models", {
   overheadPct: numeric("overhead_pct", { precision: 5, scale: 2 }).notNull().default("10"),
   contingencyPct: numeric("contingency_pct", { precision: 5, scale: 2 }).notNull().default("10"),
   notes: text("notes"),
+  sourceType: text("source_type").notNull().default("manual"),
+  sourceId: text("source_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -82,6 +82,7 @@ import type {
   GetFormSubmission200,
   GetScanThumbnailUrl200,
   HealthStatus,
+  ImportItemBody,
   Invitation,
   Invoice,
   InvoicePaymentSummary,
@@ -13360,6 +13361,92 @@ export const useDeleteCostModel = <
   TContext
 > => {
   return useMutation(getDeleteCostModelMutationOptions(options));
+};
+
+/**
+ * @summary Import a line item from a quote or invoice into the Pricing DB
+ */
+export const getImportCostModelItemUrl = () => {
+  return `/api/estimator/cost-models/import-item`;
+};
+
+export const importCostModelItem = async (
+  importItemBody: ImportItemBody,
+  options?: RequestInit,
+): Promise<CostModelRecord> => {
+  return customFetch<CostModelRecord>(getImportCostModelItemUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(importItemBody),
+  });
+};
+
+export const getImportCostModelItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importCostModelItem>>,
+    TError,
+    { data: BodyType<ImportItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importCostModelItem>>,
+  TError,
+  { data: BodyType<ImportItemBody> },
+  TContext
+> => {
+  const mutationKey = ["importCostModelItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importCostModelItem>>,
+    { data: BodyType<ImportItemBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return importCostModelItem(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportCostModelItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importCostModelItem>>
+>;
+export type ImportCostModelItemMutationBody = BodyType<ImportItemBody>;
+export type ImportCostModelItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Import a line item from a quote or invoice into the Pricing DB
+ */
+export const useImportCostModelItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importCostModelItem>>,
+    TError,
+    { data: BodyType<ImportItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importCostModelItem>>,
+  TError,
+  { data: BodyType<ImportItemBody> },
+  TContext
+> => {
+  return useMutation(getImportCostModelItemMutationOptions(options));
 };
 
 /**

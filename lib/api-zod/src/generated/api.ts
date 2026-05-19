@@ -4017,6 +4017,8 @@ export const SendInvoiceReminderResponse = zod.object({
 /**
  * @summary List all cost models and add-ons
  */
+export const listCostModelsResponseModelsItemSourceTypeDefault = `manual`;
+
 export const ListCostModelsResponse = zod.object({
   models: zod.array(
     zod.object({
@@ -4030,6 +4032,10 @@ export const ListCostModelsResponse = zod.object({
       overheadPct: zod.string(),
       contingencyPct: zod.string(),
       notes: zod.string().nullish(),
+      sourceType: zod
+        .enum(["manual", "quote", "invoice"])
+        .default(listCostModelsResponseModelsItemSourceTypeDefault),
+      sourceId: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     }),
@@ -4056,6 +4062,8 @@ export const ListCostModelsResponse = zod.object({
 /**
  * @summary Create a new cost model
  */
+export const createCostModelBodySourceTypeDefault = `manual`;
+
 export const CreateCostModelBody = zod.object({
   projectType: zod.string().optional(),
   finishLevel: zod.enum(["basic", "standard", "premium", "luxury"]).optional(),
@@ -4066,6 +4074,10 @@ export const CreateCostModelBody = zod.object({
   overheadPct: zod.string().optional(),
   contingencyPct: zod.string().optional(),
   notes: zod.string().nullish(),
+  sourceType: zod
+    .enum(["manual", "quote", "invoice"])
+    .default(createCostModelBodySourceTypeDefault),
+  sourceId: zod.string().nullish(),
 });
 
 /**
@@ -4074,6 +4086,8 @@ export const CreateCostModelBody = zod.object({
 export const UpdateCostModelParams = zod.object({
   id: zod.coerce.number(),
 });
+
+export const updateCostModelBodySourceTypeDefault = `manual`;
 
 export const UpdateCostModelBody = zod.object({
   projectType: zod.string().optional(),
@@ -4085,7 +4099,13 @@ export const UpdateCostModelBody = zod.object({
   overheadPct: zod.string().optional(),
   contingencyPct: zod.string().optional(),
   notes: zod.string().nullish(),
+  sourceType: zod
+    .enum(["manual", "quote", "invoice"])
+    .default(updateCostModelBodySourceTypeDefault),
+  sourceId: zod.string().nullish(),
 });
+
+export const updateCostModelResponseSourceTypeDefault = `manual`;
 
 export const UpdateCostModelResponse = zod.object({
   id: zod.number(),
@@ -4098,6 +4118,10 @@ export const UpdateCostModelResponse = zod.object({
   overheadPct: zod.string(),
   contingencyPct: zod.string(),
   notes: zod.string().nullish(),
+  sourceType: zod
+    .enum(["manual", "quote", "invoice"])
+    .default(updateCostModelResponseSourceTypeDefault),
+  sourceId: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4111,6 +4135,27 @@ export const DeleteCostModelParams = zod.object({
 
 export const DeleteCostModelResponse = zod.object({
   success: zod.boolean().optional(),
+});
+
+/**
+ * @summary Import a line item from a quote or invoice into the Pricing DB
+ */
+export const importCostModelItemBodySourceTypeDefault = `manual`;
+
+export const ImportCostModelItemBody = zod.object({
+  projectType: zod.string().optional(),
+  finishLevel: zod.enum(["basic", "standard", "premium", "luxury"]).optional(),
+  name: zod.string().optional(),
+  baseCostPerSqft: zod.string().optional(),
+  laborCostPerSqft: zod.string().optional(),
+  materialCostPerSqft: zod.string().optional(),
+  overheadPct: zod.string().optional(),
+  contingencyPct: zod.string().optional(),
+  notes: zod.string().nullish(),
+  sourceType: zod
+    .enum(["manual", "quote", "invoice"])
+    .default(importCostModelItemBodySourceTypeDefault),
+  sourceId: zod.string().nullish(),
 });
 
 /**

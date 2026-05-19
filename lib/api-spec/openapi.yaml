@@ -3130,6 +3130,25 @@ paths:
                   success:
                     type: boolean
 
+  /estimator/cost-models/import-item:
+    post:
+      operationId: importCostModelItem
+      tags: [estimator]
+      summary: Import a line item from a quote or invoice into the Pricing DB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportItemBody"
+      responses:
+        "201":
+          description: Imported cost model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostModelRecord"
+
   /estimator/addons:
     post:
       operationId: createAddon
@@ -5479,6 +5498,13 @@ components:
         notes:
           type: string
           nullable: true
+        sourceType:
+          type: string
+          enum: [manual, quote, invoice]
+          default: manual
+        sourceId:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -5507,6 +5533,44 @@ components:
         contingencyPct:
           type: string
         notes:
+          type: string
+          nullable: true
+        sourceType:
+          type: string
+          enum: [manual, quote, invoice]
+          default: manual
+        sourceId:
+          type: string
+          nullable: true
+
+    ImportItemBody:
+      type: object
+      properties:
+        projectType:
+          type: string
+        finishLevel:
+          type: string
+          enum: [basic, standard, premium, luxury]
+        name:
+          type: string
+        baseCostPerSqft:
+          type: string
+        laborCostPerSqft:
+          type: string
+        materialCostPerSqft:
+          type: string
+        overheadPct:
+          type: string
+        contingencyPct:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sourceType:
+          type: string
+          enum: [manual, quote, invoice]
+          default: manual
+        sourceId:
           type: string
           nullable: true
 

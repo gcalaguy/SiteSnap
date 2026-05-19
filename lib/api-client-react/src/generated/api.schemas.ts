@@ -1384,6 +1384,15 @@ export interface CreateContactBody {
   notes?: string | null;
 }
 
+export type CostModelRecordSourceType =
+  (typeof CostModelRecordSourceType)[keyof typeof CostModelRecordSourceType];
+
+export const CostModelRecordSourceType = {
+  manual: "manual",
+  quote: "quote",
+  invoice: "invoice",
+} as const;
+
 export interface CostModelRecord {
   id: number;
   projectType: string;
@@ -1395,6 +1404,8 @@ export interface CostModelRecord {
   overheadPct: string;
   contingencyPct: string;
   notes?: string | null;
+  sourceType?: CostModelRecordSourceType;
+  sourceId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1409,6 +1420,15 @@ export const CostModelBodyFinishLevel = {
   luxury: "luxury",
 } as const;
 
+export type CostModelBodySourceType =
+  (typeof CostModelBodySourceType)[keyof typeof CostModelBodySourceType];
+
+export const CostModelBodySourceType = {
+  manual: "manual",
+  quote: "quote",
+  invoice: "invoice",
+} as const;
+
 export interface CostModelBody {
   projectType?: string;
   finishLevel?: CostModelBodyFinishLevel;
@@ -1419,6 +1439,41 @@ export interface CostModelBody {
   overheadPct?: string;
   contingencyPct?: string;
   notes?: string | null;
+  sourceType?: CostModelBodySourceType;
+  sourceId?: string | null;
+}
+
+export type ImportItemBodyFinishLevel =
+  (typeof ImportItemBodyFinishLevel)[keyof typeof ImportItemBodyFinishLevel];
+
+export const ImportItemBodyFinishLevel = {
+  basic: "basic",
+  standard: "standard",
+  premium: "premium",
+  luxury: "luxury",
+} as const;
+
+export type ImportItemBodySourceType =
+  (typeof ImportItemBodySourceType)[keyof typeof ImportItemBodySourceType];
+
+export const ImportItemBodySourceType = {
+  manual: "manual",
+  quote: "quote",
+  invoice: "invoice",
+} as const;
+
+export interface ImportItemBody {
+  projectType?: string;
+  finishLevel?: ImportItemBodyFinishLevel;
+  name?: string;
+  baseCostPerSqft?: string;
+  laborCostPerSqft?: string;
+  materialCostPerSqft?: string;
+  overheadPct?: string;
+  contingencyPct?: string;
+  notes?: string | null;
+  sourceType?: ImportItemBodySourceType;
+  sourceId?: string | null;
 }
 
 export type AddonRecordCostType =

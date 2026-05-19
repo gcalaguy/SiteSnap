@@ -411,6 +411,20 @@ const CostModelBody = z.object({
   notes:               z.string().optional(),
 });
 
+const ImportItemBody = z.object({
+  projectType:         z.string().min(1, "projectType is required"),
+  finishLevel:         z.enum(["basic", "standard", "premium", "luxury"]),
+  name:                z.string().min(1, "name is required"),
+  baseCostPerSqft:     z.string(),
+  laborCostPerSqft:    z.string(),
+  materialCostPerSqft: z.string(),
+  overheadPct:         z.string().default("10"),
+  contingencyPct:      z.string().default("10"),
+  notes:               z.string().optional(),
+  sourceType:          z.enum(["manual", "quote", "invoice"]).default("manual"),
+  sourceId:            z.string().optional(),
+});
+
 router.post(
   "/estimator/cost-models",
   requireAuth,
@@ -423,6 +437,32 @@ router.post(
     const [model] = await db
       .insert(estimatorCostModelsTable)
       .values({ ...rest, companyId: req.companyId!, notes: notes ?? null, createdAt: new Date(), updatedAt: new Date() })
+      .returning();
+    res.status(201).json(model);
+  }),
+);
+
+// POST /api/estimator/cost-models/import-item — import a line item from quote/invoice into Pricing DB
+router.post(
+  "/estimator/cost-models/import-item",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const parsed = ImportItemBody.safeParse(req.body);
+    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    const { notes, sourceType, sourceId, ...rest } = parsed.data;
+    const [model] = await db
+      .insert(estimatorCostModelsTable)
+      .values({
+        ...rest,
+        companyId: req.companyId!,
+        notes: notes ?? null,
+        sourceType,
+        sourceId: sourceId ?? null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
       .returning();
     res.status(201).json(model);
   }),
