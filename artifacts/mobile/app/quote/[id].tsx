@@ -140,7 +140,9 @@ export default function QuoteDetailScreen() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: quote, isLoading } = useGetQuote(projectId, quoteId);
+  const { data: quote, isLoading } = useGetQuote(projectId, quoteId, {
+    query: { enabled: quoteId > 0 },
+  });
   const submitQuote = useSubmitQuoteForApproval();
   const unsubmitQuote = useUnsubmitQuote();
   const convertQuote = useConvertQuoteToInvoice();

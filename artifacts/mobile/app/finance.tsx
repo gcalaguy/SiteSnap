@@ -346,11 +346,15 @@ export default function FinanceScreen() {
             />
 
             <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 16 }]}>Job Description</Text>
-            <View style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.transcriptText, { color: voiceTranscript ? colors.foreground : colors.mutedForeground }]}>
-                {isTranscribing ? "Transcribing…" : (voiceTranscript || "Tap the mic to describe the work, or type below...")}
-              </Text>
-            </View>
+            <TextInput
+              style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              placeholder={isTranscribing ? "Transcribing…" : "Tap the mic to record, or type the job description here…"}
+              placeholderTextColor={colors.mutedForeground}
+              value={voiceTranscript}
+              onChangeText={setVoiceTranscript}
+              multiline
+              editable={!isTranscribing}
+            />
 
             {/* Record button */}
             <Pressable
@@ -455,8 +459,7 @@ const styles = StyleSheet.create({
   modalContent: { padding: 20, gap: 4 },
   label: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 },
   input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: "Inter_400Regular" },
-  transcriptBox: { borderWidth: 1, borderRadius: 10, padding: 14, minHeight: 90 },
-  transcriptText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  transcriptBox: { borderWidth: 1, borderRadius: 10, padding: 14, minHeight: 90, fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22, textAlignVertical: "top" },
   recordBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, padding: 14, borderRadius: 12, marginTop: 12 },
   recordBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Inter_600SemiBold" },
   generateBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, marginTop: 10 },
