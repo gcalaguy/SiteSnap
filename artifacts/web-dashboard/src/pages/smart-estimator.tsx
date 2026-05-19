@@ -1238,7 +1238,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
           <CardHeader>
             <CardTitle className="text-base">Describe your project</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="p-6 pt-0 space-y-5 border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]">
             {/* Mode toggle */}
             <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border w-fit flex-wrap">
               {([
