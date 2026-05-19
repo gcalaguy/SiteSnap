@@ -286,9 +286,6 @@ export default function ProfileScreen() {
                 <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
               )}
             </TouchableOpacity>
-            {!!me?.company?.province && (
-              <MenuItem icon="map-pin" label="Province" value={me.company.province} />
-            )}
           </View>
         )}
 
