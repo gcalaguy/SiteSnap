@@ -633,7 +633,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </SheetContent>
         </Sheet>
-        <main className="flex-1 overflow-y-auto p-3 md:p-5 rounded-tl-[0px] rounded-tr-[0px] rounded-br-[0px] rounded-bl-[0px]">
+        <main className="flex-1 overflow-y-auto p-3 md:p-5 rounded-tl-[0px] rounded-tr-[0px] rounded-br-[0px] rounded-bl-[0px] text-[#d0a539]">
           <div className="mx-auto max-w-6xl">
             {children}
           </div>

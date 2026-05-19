@@ -1235,7 +1235,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
       {/* Step 1 — Input */}
       {step === 1 && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-col space-y-1.5 p-6 text-[#d0a539] bg-[#000000d9]">
             <CardTitle className="text-base">Describe your project</CardTitle>
           </CardHeader>
           <CardContent className="p-6 pt-0 space-y-5 border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]">
@@ -1504,7 +1504,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
             <Button
               onClick={handleParseAndNext}
               disabled={isLoading || scanUploading}
-              className="w-full gap-2"
+              className="w-full gap-2 bg-[#d0a539]"
               size="lg"
             >
               {(parseMutation.isPending || parseFromFileMutation.isPending) ? (
