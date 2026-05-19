@@ -27,7 +27,7 @@ async function getNextRFINumber(projectId: number): Promise<string> {
 
 // GET /projects/:projectId/rfis
 router.get("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -48,7 +48,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 
 // POST /projects/:projectId/rfis
 router.post("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -60,14 +60,16 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 
   const rfiNumber = await getNextRFINumber(projectId);
 
+  const { dueDate: rfsDueDate, ...rfisData } = parsed.data;
   const [rfi] = await db
     .insert(rfisTable)
     .values({
-      ...parsed.data,
+      ...rfisData,
       projectId,
       rfiNumber,
       submittedByUserId: req.userId!,
       priority: parsed.data.priority ?? "medium",
+      ...(rfsDueDate !== undefined && { dueDate: rfsDueDate instanceof Date ? rfsDueDate.toISOString().split("T")[0] : rfsDueDate }),
     })
     .returning();
 
@@ -96,8 +98,8 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 
 // GET /projects/:projectId/rfis/:rfiId
 router.get("/:rfiId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const rfiId = parseInt(req.params.rfiId);
+  const projectId = parseInt(req.params.projectId as string);
+  const rfiId = parseInt(req.params.rfiId as string);
 
   const [rfi] = await db
     .select()
@@ -118,8 +120,8 @@ router.get("/:rfiId", requireAuth, requireCompany, async (req, res) => {
 
 // PUT /projects/:projectId/rfis/:rfiId
 router.put("/:rfiId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const rfiId = parseInt(req.params.rfiId);
+  const projectId = parseInt(req.params.projectId as string);
+  const rfiId = parseInt(req.params.rfiId as string);
 
   const parsed = UpdateRFIBody.safeParse(req.body);
   if (!parsed.success) {

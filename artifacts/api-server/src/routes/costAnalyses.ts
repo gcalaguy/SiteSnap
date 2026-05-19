@@ -17,7 +17,7 @@ async function verifyProjectAccess(projectId: number, companyId: number) {
 
 // GET /projects/:projectId/cost-analyses
 router.get("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -31,7 +31,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 
 // POST /projects/:projectId/cost-analyses
 router.post("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -62,8 +62,8 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 
 // GET /projects/:projectId/cost-analyses/:analysisId
 router.get("/:analysisId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const analysisId = parseInt(req.params.analysisId);
+  const projectId = parseInt(req.params.projectId as string);
+  const analysisId = parseInt(req.params.analysisId as string);
 
   const [analysis] = await db
     .select()

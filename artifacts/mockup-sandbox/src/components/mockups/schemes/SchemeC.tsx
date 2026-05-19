@@ -50,7 +50,7 @@ export function SchemeC() {
                 <Icon size={16} color="#16a34a" />
               </div>
               <div style={{ fontSize: 28, fontWeight: 700, color: "#14532d" }}>{value}</div>
-              <div style={{ fontSize: 11, color: "#86efac", marginTop: 4, color: "#4b7c59" }}>{sub}</div>
+              <div style={{ fontSize: 11, marginTop: 4, color: "#4b7c59" }}>{sub}</div>
             </div>
           ))}
         </div>

@@ -488,7 +488,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
   const colors = useColors();
   const queryClient = useQueryClient();
   const { data: documents } = useListDocuments(projectId);
-  const docs: ProjectDoc[] = (documents as ProjectDoc[]) ?? [];
+  const docs: ProjectDoc[] = (documents as unknown as ProjectDoc[]) ?? [];
 
   const [uploading, setUploading] = useState(false);
   const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());

@@ -703,7 +703,8 @@ function LeadDetail({
   const { toast } = useToast();
   const { data: activities = [], isLoading: loadingActivities } = useListLeadActivities(
     lead.id,
-    { query: { enabled: !!lead.id } },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { query: { enabled: !!lead.id } as any },
   );
 
   const createActivity = useCreateLeadActivity({

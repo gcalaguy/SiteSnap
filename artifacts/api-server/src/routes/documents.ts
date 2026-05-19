@@ -161,7 +161,7 @@ const OCR_DPI = 200;
 
 // GET /projects/:projectId/documents
 router.get("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
   const docs = await db
@@ -183,7 +183,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 
 // POST /projects/:projectId/documents
 router.post("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
   const parsed = RegisterDocumentBody.safeParse(req.body);
@@ -207,8 +207,8 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 
 // DELETE /projects/:projectId/documents/:docId
 router.delete("/:docId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const docId = parseInt(req.params.docId);
+  const projectId = parseInt(req.params.projectId as string);
+  const docId = parseInt(req.params.docId as string);
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
 
   await pool.query("DELETE FROM document_chunks WHERE doc_id=$1", [docId]);
@@ -220,8 +220,8 @@ router.delete("/:docId", requireAuth, requireCompany, async (req, res) => {
 
 // POST /projects/:projectId/documents/:docId/embed — manual re-embed
 router.post("/:docId/embed", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const docId = parseInt(req.params.docId);
+  const projectId = parseInt(req.params.projectId as string);
+  const docId = parseInt(req.params.docId as string);
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
 
   const [doc] = await db.select().from(projectDocumentsTable).where(
@@ -237,8 +237,8 @@ router.post("/:docId/embed", requireAuth, requireCompany, async (req, res) => {
 
 // POST /projects/:projectId/documents/:docId/extract (legacy)
 router.post("/:docId/extract", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const docId = parseInt(req.params.docId);
+  const projectId = parseInt(req.params.projectId as string);
+  const docId = parseInt(req.params.docId as string);
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
 
   const [doc] = await db.select().from(projectDocumentsTable).where(
@@ -259,8 +259,8 @@ router.post("/:docId/extract", requireAuth, requireCompany, async (req, res) => 
 
 // POST /projects/:projectId/documents/:docId/analyze
 router.post("/:docId/analyze", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const docId = parseInt(req.params.docId);
+  const projectId = parseInt(req.params.projectId as string);
+  const docId = parseInt(req.params.docId as string);
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
 
   const [doc] = await db.select().from(projectDocumentsTable).where(
@@ -284,7 +284,7 @@ router.post("/:docId/analyze", requireAuth, requireCompany, async (req, res) => 
 
 // POST /projects/:projectId/documents/search
 router.post("/search", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
   const { query } = req.body;
@@ -363,7 +363,7 @@ router.post("/search", requireAuth, requireCompany, async (req, res) => {
 
 // POST /projects/:projectId/documents/qa — RAG-powered Q&A with multi-turn
 router.post("/qa", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
   const { question, history = [] } = req.body;
@@ -838,8 +838,8 @@ Respond with ONLY the JSON object, no markdown.`;
 
 // POST /projects/:projectId/documents/:docId/push-to-costs
 router.post("/:docId/push-to-costs", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const docId = parseInt(req.params.docId);
+  const projectId = parseInt(req.params.projectId as string);
+  const docId = parseInt(req.params.docId as string);
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
 
   const { category } = req.body as { category?: string };

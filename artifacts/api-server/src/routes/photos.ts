@@ -13,7 +13,7 @@ const AddPhotoBody = z.object({
 
 // GET /projects/:projectId/daily-reports/:reportId/photos
 router.get("/", requireAuth, requireCompany, async (req, res) => {
-  const reportId = parseInt(req.params.reportId);
+  const reportId = parseInt(req.params.reportId as string);
   if (isNaN(reportId)) {
     res.status(400).json({ error: "Invalid reportId" });
     return;
@@ -30,7 +30,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 
 // POST /projects/:projectId/daily-reports/:reportId/photos
 router.post("/", requireAuth, requireCompany, async (req, res) => {
-  const reportId = parseInt(req.params.reportId);
+  const reportId = parseInt(req.params.reportId as string);
   if (isNaN(reportId)) {
     res.status(400).json({ error: "Invalid reportId" });
     return;
@@ -56,8 +56,8 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 
 // DELETE /projects/:projectId/daily-reports/:reportId/photos/:photoId
 router.delete("/:photoId", requireAuth, requireCompany, async (req, res) => {
-  const reportId = parseInt(req.params.reportId);
-  const photoId = parseInt(req.params.photoId);
+  const reportId = parseInt(req.params.reportId as string);
+  const photoId = parseInt(req.params.photoId as string);
   if (isNaN(reportId) || isNaN(photoId)) {
     res.status(400).json({ error: "Invalid IDs" });
     return;

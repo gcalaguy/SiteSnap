@@ -26,7 +26,7 @@ const UpdateTaskBody = z.object({
 
 // GET /projects/:projectId/tasks
 router.get("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) {
     res.status(400).json({ error: "Invalid projectId" });
     return;
@@ -49,7 +49,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 
 // POST /projects/:projectId/tasks
 router.post("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) {
     res.status(400).json({ error: "Invalid projectId" });
     return;
@@ -94,8 +94,8 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 
 // PATCH /projects/:projectId/tasks/:taskId
 router.patch("/:taskId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const taskId = parseInt(req.params.taskId);
+  const projectId = parseInt(req.params.projectId as string);
+  const taskId = parseInt(req.params.taskId as string);
   if (isNaN(projectId) || isNaN(taskId)) {
     res.status(400).json({ error: "Invalid IDs" });
     return;
@@ -145,8 +145,8 @@ router.patch("/:taskId", requireAuth, requireCompany, async (req, res) => {
 
 // DELETE /projects/:projectId/tasks/:taskId
 router.delete("/:taskId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const taskId = parseInt(req.params.taskId);
+  const projectId = parseInt(req.params.projectId as string);
+  const taskId = parseInt(req.params.taskId as string);
   if (isNaN(projectId) || isNaN(taskId)) {
     res.status(400).json({ error: "Invalid IDs" });
     return;

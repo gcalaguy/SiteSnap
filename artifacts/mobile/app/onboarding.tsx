@@ -35,7 +35,8 @@ export default function OnboardingScreen() {
   const { user: clerkUser } = useUser();
   const queryClient = useQueryClient();
 
-  const { data: me } = useGetMe({ query: { enabled: !!clerkUser } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: me } = useGetMe({ query: { enabled: !!clerkUser } as any });
   const isWorker = me?.role === "worker";
 
   const [tab, setTab] = useState<"create" | "join">("create");
@@ -71,7 +72,7 @@ export default function OnboardingScreen() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-          router.replace("/(tabs)");
+          router.replace("/(tabs)" as any);
         },
         onError: (err: any) => {
           Alert.alert("Error", err?.message || "Failed to create company. Please try again.");
@@ -91,7 +92,7 @@ export default function OnboardingScreen() {
         {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-            router.replace("/(tabs)");
+            router.replace("/(tabs)" as any);
           },
           onError: (err: any) => {
             Alert.alert("Invalid token", err?.message || "The token is invalid or has expired.");

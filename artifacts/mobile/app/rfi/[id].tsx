@@ -72,7 +72,7 @@ export default function RFIDetailScreen() {
       {
         projectId: projId,
         rfiId,
-        data: { status: selectedStatus, response: response.trim() || undefined },
+        data: { status: selectedStatus as unknown as "open" | "in_review" | "answered" | "closed", response: response.trim() || undefined },
       },
       {
         onSuccess: () => {

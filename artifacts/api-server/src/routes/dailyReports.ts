@@ -18,7 +18,7 @@ async function verifyProjectAccess(projectId: number, companyId: number) {
 
 // GET /projects/:projectId/daily-reports
 router.get("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -59,7 +59,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 
 // POST /projects/:projectId/daily-reports
 router.post("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -69,9 +69,15 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     return;
   }
 
+  const { reportDate, ...restInsert } = parsed.data;
   const [report] = await db
     .insert(dailyReportsTable)
-    .values({ ...parsed.data, projectId, submittedByUserId: req.userId! })
+    .values({
+      ...restInsert,
+      projectId,
+      submittedByUserId: req.userId!,
+      reportDate: reportDate instanceof Date ? reportDate.toISOString().split("T")[0] : reportDate,
+    })
     .returning();
 
   const [submittedBy] = await db
@@ -85,8 +91,8 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 
 // GET /projects/:projectId/daily-reports/:reportId
 router.get("/:reportId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const reportId = parseInt(req.params.reportId);
+  const projectId = parseInt(req.params.projectId as string);
+  const reportId = parseInt(req.params.reportId as string);
 
   const [report] = await db
     .select()
@@ -107,8 +113,8 @@ router.get("/:reportId", requireAuth, requireCompany, async (req, res) => {
 
 // PUT /projects/:projectId/daily-reports/:reportId
 router.put("/:reportId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const reportId = parseInt(req.params.reportId);
+  const projectId = parseInt(req.params.projectId as string);
+  const reportId = parseInt(req.params.reportId as string);
 
   const parsed = UpdateDailyReportBody.safeParse(req.body);
   if (!parsed.success) {
@@ -116,9 +122,15 @@ router.put("/:reportId", requireAuth, requireCompany, async (req, res) => {
     return;
   }
 
+  const { reportDate: updReportDate, ...restUpdate } = parsed.data;
   const [report] = await db
     .update(dailyReportsTable)
-    .set(parsed.data)
+    .set({
+      ...restUpdate,
+      ...(updReportDate !== undefined && {
+        reportDate: updReportDate instanceof Date ? updReportDate.toISOString().split("T")[0] : updReportDate,
+      }),
+    })
     .where(and(eq(dailyReportsTable.id, reportId), eq(dailyReportsTable.projectId, projectId)))
     .returning();
 

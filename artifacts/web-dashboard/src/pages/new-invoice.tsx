@@ -53,7 +53,7 @@ export default function NewInvoice() {
 
   function updateItem(idx: number, field: keyof LineItem, value: string | number) {
     const items = [...lineItems];
-    (items[idx] as Record<string, unknown>)[field] = value;
+    (items[idx] as unknown as Record<string, unknown>)[field] = value;
     items[idx].total = Math.round(items[idx].quantity * items[idx].unitPrice * 100) / 100;
     setLineItems(items);
   }

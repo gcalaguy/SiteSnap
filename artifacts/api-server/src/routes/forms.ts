@@ -27,7 +27,7 @@ router.get("/forms", requireAuth, requireCompany, async (req, res) => {
 
 // GET /forms/:id — get a single template
 router.get("/forms/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [template] = await db
@@ -73,7 +73,7 @@ router.post("/forms", requireAuth, requireCompany, requireOwnerOrForeman, async 
 
 // PUT /forms/:id — update form template
 router.put("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const parsed = CreateFormBody.partial().safeParse(req.body);
@@ -91,7 +91,7 @@ router.put("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, asy
 
 // DELETE /forms/:id — deactivate form template
 router.delete("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [updated] = await db
@@ -126,8 +126,7 @@ router.get("/form-submissions", requireAuth, requireCompany, async (req, res) =>
         workerFirstName: usersTable.firstName,
         workerLastName: usersTable.lastName,
         workerEmail: usersTable.email,
-        contactFirstName: contactsTable.firstName,
-        contactLastName: contactsTable.lastName,
+        contactName: contactsTable.name,
       })
       .from(formSubmissionsTable)
       .leftJoin(formTemplatesTable, eq(formSubmissionsTable.templateId, formTemplatesTable.id))
@@ -142,9 +141,7 @@ router.get("/form-submissions", requireAuth, requireCompany, async (req, res) =>
       templateCategory: r.templateCategory,
       workerName: `${r.workerFirstName ?? ""} ${r.workerLastName ?? ""}`.trim(),
       workerEmail: r.workerEmail,
-      contactName: r.contactFirstName
-        ? `${r.contactFirstName} ${r.contactLastName ?? ""}`.trim()
-        : null,
+      contactName: r.contactName ?? null,
     })));
   } catch (err: any) {
     req.log.error({ err }, "/form-submissions list error");
@@ -189,7 +186,7 @@ router.post("/form-submissions", requireAuth, requireCompany, async (req, res) =
 
 // GET /form-submissions/:id
 router.get("/form-submissions/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [row] = await db
@@ -217,7 +214,7 @@ router.get("/form-submissions/:id", requireAuth, requireCompany, async (req, res
 
 // PATCH /form-submissions/:id/status — review/approve
 router.patch("/form-submissions/:id/status", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const { status, notes } = req.body as { status: "reviewed" | "approved"; notes?: string };

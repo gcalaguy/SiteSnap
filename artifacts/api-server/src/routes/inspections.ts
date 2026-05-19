@@ -208,7 +208,7 @@ router.get(
   requireCompany,
   requireFeature("INSPECTIONS"),
   asyncHandler(async (req, res) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
     const [row] = await db
@@ -293,7 +293,7 @@ router.post(
   requireCompany,
   requireFeature("INSPECTIONS"),
   asyncHandler(async (req, res) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
     const [inspection] = await db
@@ -352,7 +352,7 @@ router.patch(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     await db.update(inspectionAlertsTable).set({ isRead: true }).where(and(eq(inspectionAlertsTable.id, id), eq(inspectionAlertsTable.companyId, req.companyId!)));
     res.json({ success: true });

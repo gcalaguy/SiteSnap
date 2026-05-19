@@ -141,7 +141,8 @@ export default function QuoteDetailScreen() {
   const qc = useQueryClient();
 
   const { data: quote, isLoading } = useGetQuote(projectId, quoteId, {
-    query: { enabled: quoteId > 0 },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { enabled: quoteId > 0 } as any,
   });
   const submitQuote = useSubmitQuoteForApproval();
   const unsubmitQuote = useUnsubmitQuote();

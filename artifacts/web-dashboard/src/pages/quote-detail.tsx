@@ -417,7 +417,7 @@ export default function QuoteDetail() {
     queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
   }
 
-  const rawDbItems = ((quote?.lineItems ?? []) as Record<string, unknown>[]).map((item) => ({
+  const rawDbItems = ((quote?.lineItems ?? []) as unknown as Record<string, unknown>[]).map((item) => ({
     description: String(item.description || ""),
     quantity: Number(item.quantity ?? 1),
     unit: String(item.unit || "ea").trim() || "ea",
@@ -479,7 +479,7 @@ export default function QuoteDetail() {
         data: { voiceInput: voiceText, projectName: undefined, clientName: quote?.clientName ?? undefined },
       });
       if (result.lineItems) {
-        const normalized: LineItem[] = (result.lineItems as Record<string, unknown>[]).map((item) => {
+        const normalized: LineItem[] = (result.lineItems as unknown as Record<string, unknown>[]).map((item) => {
           const rawUnit = item.unit || item.unit_type || item.uom || item.measure || "ea";
           const rawUnitPrice = item.unitPrice ?? item.unit_price ?? item.unitCost ?? item.unit_cost ?? 0;
           const qty = Number(item.quantity ?? 1);

@@ -62,7 +62,7 @@ router.get("/builder-estimates", requireAuth, requireCompany, async (req, res) =
 
 // GET /builder-estimates/:id
 router.get("/builder-estimates/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const data = await getEstimateWithItems(id, req.companyId!);
   if (!data) { res.status(404).json({ error: "Not found" }); return; }
@@ -107,7 +107,7 @@ router.post("/builder-estimates", requireAuth, requireCompany, async (req, res) 
 
 // PATCH /builder-estimates/:id
 router.patch("/builder-estimates/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const Body = z.object({
@@ -131,7 +131,7 @@ router.patch("/builder-estimates/:id", requireAuth, requireCompany, async (req, 
 
 // DELETE /builder-estimates/:id
 router.delete("/builder-estimates/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   await db.delete(builderEstimateItemsTable).where(eq(builderEstimateItemsTable.estimateId, id));
@@ -149,7 +149,7 @@ router.delete("/builder-estimates/:id", requireAuth, requireCompany, async (req,
 
 // POST /builder-estimates/:id/items
 router.post("/builder-estimates/:id/items", requireAuth, requireCompany, async (req, res) => {
-  const estimateId = parseInt(req.params.id);
+  const estimateId = parseInt(req.params.id as string);
   if (isNaN(estimateId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [estimate] = await db
@@ -179,8 +179,8 @@ router.post("/builder-estimates/:id/items", requireAuth, requireCompany, async (
 
 // PATCH /builder-estimates/:id/items/:itemId
 router.patch("/builder-estimates/:id/items/:itemId", requireAuth, requireCompany, async (req, res) => {
-  const estimateId = parseInt(req.params.id);
-  const itemId = parseInt(req.params.itemId);
+  const estimateId = parseInt(req.params.id as string);
+  const itemId = parseInt(req.params.itemId as string);
   if (isNaN(estimateId) || isNaN(itemId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const parsed = ItemShape.partial().safeParse(req.body);
@@ -206,8 +206,8 @@ router.patch("/builder-estimates/:id/items/:itemId", requireAuth, requireCompany
 
 // DELETE /builder-estimates/:id/items/:itemId
 router.delete("/builder-estimates/:id/items/:itemId", requireAuth, requireCompany, async (req, res) => {
-  const estimateId = parseInt(req.params.id);
-  const itemId = parseInt(req.params.itemId);
+  const estimateId = parseInt(req.params.id as string);
+  const itemId = parseInt(req.params.itemId as string);
   if (isNaN(estimateId) || isNaN(itemId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [deleted] = await db
@@ -221,7 +221,7 @@ router.delete("/builder-estimates/:id/items/:itemId", requireAuth, requireCompan
 
 // POST /builder-estimates/:id/convert — create proposal from estimate
 router.post("/builder-estimates/:id/convert", requireAuth, requireCompany, async (req, res) => {
-  const estimateId = parseInt(req.params.id);
+  const estimateId = parseInt(req.params.id as string);
   if (isNaN(estimateId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [estimate] = await db
@@ -304,7 +304,7 @@ router.post("/estimate-templates", requireAuth, requireCompany, async (req, res)
 
 // GET /estimate-templates/:id/items
 router.get("/estimate-templates/:id/items", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [template] = await db
@@ -324,7 +324,7 @@ router.get("/estimate-templates/:id/items", requireAuth, requireCompany, async (
 
 // DELETE /estimate-templates/:id
 router.delete("/estimate-templates/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   await db.delete(estimateTemplateItemsTable).where(eq(estimateTemplateItemsTable.templateId, id));
@@ -351,7 +351,7 @@ router.get("/proposals", requireAuth, requireCompany, async (req, res) => {
 
 // GET /proposals/:id
 router.get("/proposals/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [proposal] = await db
@@ -366,7 +366,7 @@ router.get("/proposals/:id", requireAuth, requireCompany, async (req, res) => {
 
 // PATCH /proposals/:id
 router.patch("/proposals/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const Body = z.object({
@@ -391,7 +391,7 @@ router.patch("/proposals/:id", requireAuth, requireCompany, async (req, res) => 
 
 // POST /proposals/:id/approve — simulate e-signature approval
 router.post("/proposals/:id/approve", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const Body = z.object({
@@ -417,7 +417,7 @@ router.post("/proposals/:id/approve", requireAuth, requireCompany, async (req, r
 
 // DELETE /proposals/:id
 router.delete("/proposals/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [deleted] = await db

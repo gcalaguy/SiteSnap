@@ -190,7 +190,7 @@ export default function Proposals() {
   const loadEstimates = useCallback(async () => {
     try {
       setEstimatesLoading(true);
-      const data = await apiFetch("/builder-estimates");
+      const data = await apiFetch("/builder-estimates") as BuilderEstimate[];
       setEstimates(data ?? []);
     } catch { /* ignore */ }
     finally { setEstimatesLoading(false); }
@@ -200,7 +200,7 @@ export default function Proposals() {
   const loadProposals = useCallback(async () => {
     try {
       setProposalsLoading(true);
-      const data = await apiFetch("/proposals");
+      const data = await apiFetch("/proposals") as Proposal[];
       setProposals(data ?? []);
     } catch { /* ignore */ }
     finally { setProposalsLoading(false); }
@@ -209,7 +209,7 @@ export default function Proposals() {
   // Load templates
   const loadTemplates = useCallback(async () => {
     try {
-      const data = await apiFetch("/estimate-templates");
+      const data = await apiFetch("/estimate-templates") as Template[];
       setTemplates(data ?? []);
     } catch { /* ignore */ }
   }, []);
@@ -220,7 +220,7 @@ export default function Proposals() {
   // Open estimate builder
   async function openEstimate(estimate: BuilderEstimate) {
     try {
-      const data = await apiFetch(`/builder-estimates/${estimate.id}`);
+      const data = await apiFetch(`/builder-estimates/${estimate.id}`) as BuilderEstimate;
       setSelectedEstimate(data);
     } catch { toast({ title: "Failed to load estimate", variant: "destructive" }); }
   }
@@ -228,7 +228,7 @@ export default function Proposals() {
   // Open proposal
   async function openProposal(proposal: Proposal) {
     try {
-      const data = await apiFetch(`/proposals/${proposal.id}`);
+      const data = await apiFetch(`/proposals/${proposal.id}`) as Proposal;
       setSelectedProposal(data);
     } catch { toast({ title: "Failed to load proposal", variant: "destructive" }); }
   }
@@ -241,7 +241,7 @@ export default function Proposals() {
       const data = await apiFetch("/builder-estimates", {
         method: "POST",
         body: JSON.stringify({ title: createEstimateTitle.trim(), notes: createEstimateNotes.trim() || null }),
-      });
+      }) as BuilderEstimate;
       setEstimates((prev) => [data, ...prev]);
       setCreateEstimateOpen(false);
       setCreateEstimateTitle("");
@@ -278,7 +278,7 @@ export default function Proposals() {
           clientEmail: convertForm.clientEmail.trim() || null,
           notes: convertForm.notes.trim() || null,
         }),
-      });
+      }) as Proposal;
       setProposals((prev) => [data, ...prev]);
       setConvertOpen(false);
       setConvertForm({ clientName: "", clientEmail: "", notes: "" });
@@ -294,7 +294,7 @@ export default function Proposals() {
       const data = await apiFetch(`/proposals/${id}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
-      });
+      }) as Proposal;
       setProposals((prev) => prev.map((p) => (p.id === id ? data : p)));
       if (selectedProposal?.id === id) setSelectedProposal((p) => p ? { ...p, status: data.status } : p);
       toast({ title: `Marked as ${status}` });
@@ -309,7 +309,7 @@ export default function Proposals() {
       const data = await apiFetch(`/proposals/${selectedProposal.id}/approve`, {
         method: "POST",
         body: JSON.stringify({ approvedByName: approveSignature.trim() }),
-      });
+      }) as Proposal;
       setProposals((prev) => prev.map((p) => (p.id === data.id ? data : p)));
       setSelectedProposal((p) => p ? { ...p, ...data } : p);
       setApproveOpen(false);
@@ -363,14 +363,14 @@ export default function Proposals() {
     if (!selectedEstimate) return;
     setIsSubmitting(true);
     try {
-      const tpl = await apiFetch(`/estimate-templates/${template.id}/items`);
+      const tpl = await apiFetch(`/estimate-templates/${template.id}/items`) as { items?: any[] };
       for (const item of tpl.items ?? []) {
         await apiFetch(`/builder-estimates/${selectedEstimate.id}/items`, {
           method: "POST",
           body: JSON.stringify({ name: item.name, description: item.description, quantity: n(item.quantity), unitCost: n(item.unitCost), margin: n(item.margin) }),
         });
       }
-      const updated = await apiFetch(`/builder-estimates/${selectedEstimate.id}`);
+      const updated = await apiFetch(`/builder-estimates/${selectedEstimate.id}`) as BuilderEstimate;
       setSelectedEstimate(updated);
       setTemplateOpen(false);
       toast({ title: `Loaded "${template.name}" template` });
@@ -785,7 +785,7 @@ function EstimateBuilder({
       const data = await apiFetch(`/builder-estimates/${estimate.id}`, {
         method: "PATCH",
         body: JSON.stringify({ title: titleVal.trim() }),
-      });
+      }) as BuilderEstimate;
       onUpdate({ ...data, items: estimate.items });
       setEditingTitle(false);
     } catch { toast({ title: "Failed to update title", variant: "destructive" }); }
@@ -805,7 +805,7 @@ function EstimateBuilder({
           unitCost: parseFloat(addRow.unitCost) || 0,
           margin: parseFloat(addRow.margin) || 0,
         }),
-      });
+      }) as Item;
       onUpdate({ ...estimate, items: [...items, data] });
       setAddRow({ name: "", description: "", quantity: "1", unitCost: "0", margin: "20" });
     } catch { toast({ title: "Failed to add item", variant: "destructive" }); }
@@ -824,7 +824,7 @@ function EstimateBuilder({
       const updated = await apiFetch(`/builder-estimates/${estimate.id}/items/${item.id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      });
+      }) as Item;
       onUpdate({ ...estimate, items: items.map((i) => (i.id === item.id ? updated : i)) });
     } catch { toast({ title: "Failed to update item", variant: "destructive" }); }
     setEditRow(null);
@@ -1038,7 +1038,7 @@ function ProposalView({
       const data = await apiFetch(`/proposals/${proposal.id}`, {
         method: "PATCH",
         body: JSON.stringify({ clientName: clientName.trim() || null, clientEmail: clientEmail.trim() || null }),
-      });
+      }) as Proposal;
       onUpdate({ clientName: data.clientName, clientEmail: data.clientEmail });
       setEditClientOpen(false);
       toast({ title: "Client info updated" });

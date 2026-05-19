@@ -54,7 +54,8 @@ router.get('/billing/subscription', requireAuth, requireCompany, async (req, res
       .where(eq(companiesTable.id, req.companyId!));
 
     if (!company?.stripeSubscriptionId) {
-      return res.json({ subscription: null, company });
+      res.json({ subscription: null, company });
+      return;
     }
 
     const subscription = await getStripeSubscription(company.stripeSubscriptionId);
@@ -68,7 +69,7 @@ router.get('/billing/subscription', requireAuth, requireCompany, async (req, res
 router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, async (req, res) => {
   try {
     const { priceId, seats = 1 } = req.body as { priceId: string; seats?: number };
-    if (!priceId) return res.status(400).json({ error: 'priceId is required' });
+    if (!priceId) { res.status(400).json({ error: 'priceId is required' }); return; }
 
     const [company] = await db
       .select()
@@ -143,7 +144,8 @@ router.post('/billing/portal', requireAuth, requireCompany, requireOwner, async 
       .where(eq(companiesTable.id, req.companyId!));
 
     if (!company?.stripeCustomerId) {
-      return res.status(400).json({ error: 'No billing account found. Subscribe first.' });
+      res.status(400).json({ error: 'No billing account found. Subscribe first.' });
+      return;
     }
 
     const stripe = await getUncachableStripeClient();

@@ -196,7 +196,7 @@ router.post("/tradehub/posts", requireAuth, async (req, res) => {
 // GET /tradehub/posts/:id
 router.get("/tradehub/posts/:id", requireAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, id)).limit(1);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
@@ -245,7 +245,7 @@ router.get("/tradehub/posts/:id", requireAuth, async (req, res) => {
 // DELETE /tradehub/posts/:id
 router.delete("/tradehub/posts/:id", requireAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, id)).limit(1);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
     if (post.userId !== req.userId && req.systemRole !== "super_admin") {
@@ -264,7 +264,7 @@ router.delete("/tradehub/posts/:id", requireAuth, async (req, res) => {
 // POST /tradehub/posts/:id/comments
 router.post("/tradehub/posts/:id/comments", requireAuth, async (req, res) => {
   try {
-    const postId = parseInt(req.params.id);
+    const postId = parseInt(req.params.id as string);
     const { content } = req.body as { content: string };
     if (!content?.trim()) { res.status(400).json({ error: "content required" }); return; }
 
@@ -302,7 +302,7 @@ router.post("/tradehub/posts/:id/comments", requireAuth, async (req, res) => {
 // POST /tradehub/posts/:id/react — toggle like
 router.post("/tradehub/posts/:id/react", requireAuth, async (req, res) => {
   try {
-    const postId = parseInt(req.params.id);
+    const postId = parseInt(req.params.id as string);
     const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, postId)).limit(1);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
@@ -373,7 +373,7 @@ router.get("/tradehub/jobs", requireAuth, async (req, res) => {
 // POST /tradehub/jobs/:id/apply
 router.post("/tradehub/jobs/:id/apply", requireAuth, async (req, res) => {
   try {
-    const postId = parseInt(req.params.id);
+    const postId = parseInt(req.params.id as string);
     const { message } = req.body as { message?: string };
 
     const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, postId)).limit(1);
@@ -413,7 +413,7 @@ router.post("/tradehub/jobs/:id/apply", requireAuth, async (req, res) => {
 // PATCH /tradehub/applications/:id — update application status
 router.patch("/tradehub/applications/:id", requireAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const { status } = req.body as { status: string };
     if (!["reviewed", "accepted", "rejected"].includes(status)) {
       res.status(400).json({ error: "Invalid status" }); return;
@@ -466,7 +466,7 @@ router.get("/tradehub/profile/me", requireAuth, async (req, res) => {
 // GET /tradehub/profile/:userId
 router.get("/tradehub/profile/:userId", requireAuth, async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseInt(req.params.userId as string);
     const [profile] = await db
       .select()
       .from(tradehubProfilesTable)
@@ -683,7 +683,7 @@ router.get("/tradehub/profile/me/calculations", requireAuth, async (req, res) =>
 // GET /tradehub/profile/:userId/calculations — public calculations for another user
 router.get("/tradehub/profile/:userId/calculations", requireAuth, async (req, res) => {
   try {
-    const profileUserId = parseInt(req.params.userId);
+    const profileUserId = parseInt(req.params.userId as string);
     if (isNaN(profileUserId)) { res.status(400).json({ error: "Invalid userId" }); return; }
     const calcs = await db
       .select()
@@ -701,7 +701,7 @@ router.get("/tradehub/profile/:userId/calculations", requireAuth, async (req, re
 // PATCH /tradehub/profile/calculations/:id/pin — toggle pin
 router.patch("/tradehub/profile/calculations/:id/pin", requireAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     const [calc] = await db.select().from(tradehubSavedCalculationsTable)
       .where(and(eq(tradehubSavedCalculationsTable.id, id), eq(tradehubSavedCalculationsTable.userId, req.userId!)));
@@ -720,7 +720,7 @@ router.patch("/tradehub/profile/calculations/:id/pin", requireAuth, async (req, 
 // DELETE /tradehub/profile/calculations/:id
 router.delete("/tradehub/profile/calculations/:id", requireAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     await db.delete(tradehubSavedCalculationsTable)
       .where(and(eq(tradehubSavedCalculationsTable.id, id), eq(tradehubSavedCalculationsTable.userId, req.userId!)));
@@ -965,7 +965,7 @@ router.get("/tradehub/conversations", requireAuth, async (req, res) => {
 // GET /tradehub/conversations/:id/messages
 router.get("/tradehub/conversations/:id/messages", requireAuth, async (req, res) => {
   try {
-    const convId = parseInt(req.params.id);
+    const convId = parseInt(req.params.id as string);
 
     // Verify participant
     const [part] = await db
@@ -997,7 +997,7 @@ router.get("/tradehub/conversations/:id/messages", requireAuth, async (req, res)
 // POST /tradehub/conversations/:id/messages — send a message
 router.post("/tradehub/conversations/:id/messages", requireAuth, async (req, res) => {
   try {
-    const convId = parseInt(req.params.id);
+    const convId = parseInt(req.params.id as string);
     const { content } = req.body as { content: string };
     if (!content?.trim()) { res.status(400).json({ error: "content required" }); return; }
 
@@ -1045,7 +1045,7 @@ router.post("/tradehub/conversations/:id/messages", requireAuth, async (req, res
 // POST /tradehub/conversations/:id/read — mark as read
 router.post("/tradehub/conversations/:id/read", requireAuth, async (req, res) => {
   try {
-    const convId = parseInt(req.params.id);
+    const convId = parseInt(req.params.id as string);
     await db
       .update(tradehubConversationParticipantsTable)
       .set({ lastReadAt: new Date() })

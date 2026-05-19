@@ -106,7 +106,7 @@ router.get("/leads", requireAuth, requireCompany, async (req, res) => {
 
 // GET /leads/:leadId
 router.get("/leads/:leadId", requireAuth, requireCompany, async (req, res) => {
-  const leadId = parseInt(req.params.leadId);
+  const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
   const lead = await getLeadWithContact(leadId, req.companyId!);
@@ -137,7 +137,7 @@ router.post("/leads", requireAuth, requireCompany, async (req, res) => {
 
 // PATCH /leads/:leadId
 router.patch("/leads/:leadId", requireAuth, requireCompany, async (req, res) => {
-  const leadId = parseInt(req.params.leadId);
+  const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
   const parsed = UpdateLeadBody.safeParse(req.body);
@@ -163,7 +163,7 @@ router.patch("/leads/:leadId", requireAuth, requireCompany, async (req, res) => 
 
 // DELETE /leads/:leadId
 router.delete("/leads/:leadId", requireAuth, requireCompany, async (req, res) => {
-  const leadId = parseInt(req.params.leadId);
+  const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
   // Delete activities first
@@ -181,7 +181,7 @@ router.delete("/leads/:leadId", requireAuth, requireCompany, async (req, res) =>
 
 // POST /leads/:leadId/convert — convert a Won lead into a Project
 router.post("/leads/:leadId/convert", requireAuth, requireCompany, async (req, res) => {
-  const leadId = parseInt(req.params.leadId);
+  const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
   const [lead] = await db
@@ -226,7 +226,7 @@ router.post("/leads/:leadId/convert", requireAuth, requireCompany, async (req, r
 
 // GET /leads/:leadId/activities
 router.get("/leads/:leadId/activities", requireAuth, requireCompany, async (req, res) => {
-  const leadId = parseInt(req.params.leadId);
+  const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
   const activities = await db
@@ -268,7 +268,7 @@ router.get("/leads/:leadId/activities", requireAuth, requireCompany, async (req,
 
 // POST /leads/:leadId/activities
 router.post("/leads/:leadId/activities", requireAuth, requireCompany, async (req, res) => {
-  const leadId = parseInt(req.params.leadId);
+  const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
   const [lead] = await db

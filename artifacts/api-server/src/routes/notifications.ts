@@ -44,7 +44,7 @@ router.patch("/notifications/read-all", requireAuth, async (req, res) => {
 
 // PATCH /notifications/:id/read
 router.patch("/notifications/:id/read", requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });
     return;

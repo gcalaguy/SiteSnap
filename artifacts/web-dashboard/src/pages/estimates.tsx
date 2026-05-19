@@ -1021,7 +1021,7 @@ export default function EstimatesPage() {
                     setExportingPdf(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await downloadEstimatePDF(activeEstimate, false, logo, (me?.company as any) ?? undefined);
+                      await downloadEstimatePDF(activeEstimate as any, false, logo, (me?.company as any) ?? undefined);
                     } catch { toast({ title: "PDF export failed", variant: "destructive" }); }
                     finally { setExportingPdf(false); }
                   }}
@@ -1036,7 +1036,7 @@ export default function EstimatesPage() {
                     setExportingDocx(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await downloadEstimateDocx(activeEstimate, logo, (me?.company as any) ?? undefined);
+                      await downloadEstimateDocx(activeEstimate as any, logo, (me?.company as any) ?? undefined);
                     } catch { toast({ title: "Word export failed", variant: "destructive" }); }
                     finally { setExportingDocx(false); }
                   }}
@@ -1051,7 +1051,7 @@ export default function EstimatesPage() {
                     setPrinting(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await printEstimate(activeEstimate, logo, (me?.company as any) ?? undefined);
+                      await printEstimate(activeEstimate as any, logo, (me?.company as any) ?? undefined);
                     } catch { toast({ title: "Print failed", variant: "destructive" }); }
                     finally { setPrinting(false); }
                   }}

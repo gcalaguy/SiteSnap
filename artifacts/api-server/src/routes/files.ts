@@ -68,7 +68,7 @@ router.post("/files", requireAuth, requireCompany, async (req, res) => {
 
 // DELETE /files/:id
 router.delete("/files/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [deleted] = await db

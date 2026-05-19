@@ -585,7 +585,7 @@ router.post("/conversations", requireAuth, requireCompany, async (req, res) => {
 
 // GET /conversations/:conversationId
 router.get("/conversations/:conversationId", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.conversationId, 10);
+  const id = parseInt(req.params.conversationId as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid conversation ID" });
     return;
@@ -622,7 +622,7 @@ router.post(
   requireAuth,
   requireCompany,
   async (req, res) => {
-    const id = parseInt(req.params.conversationId, 10);
+    const id = parseInt(req.params.conversationId as string, 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid conversation ID" });
       return;
@@ -697,7 +697,7 @@ router.post(
 
 // DELETE /conversations/:conversationId
 router.delete("/conversations/:conversationId", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.conversationId, 10);
+  const id = parseInt(req.params.conversationId as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid conversation ID" });
     return;

@@ -67,7 +67,7 @@ router.get("/contacts", requireAuth, requireCompany, async (req, res) => {
 
 // GET /contacts/:contactId
 router.get("/contacts/:contactId", requireAuth, requireCompany, async (req, res) => {
-  const contactId = parseInt(req.params.contactId);
+  const contactId = parseInt(req.params.contactId as string);
   if (isNaN(contactId)) {
     res.status(400).json({ error: "Invalid contactId" });
     return;
@@ -110,7 +110,7 @@ router.post("/contacts", requireAuth, requireCompany, async (req, res) => {
 
 // PUT /contacts/:contactId
 router.put("/contacts/:contactId", requireAuth, requireCompany, async (req, res) => {
-  const contactId = parseInt(req.params.contactId);
+  const contactId = parseInt(req.params.contactId as string);
   if (isNaN(contactId)) {
     res.status(400).json({ error: "Invalid contactId" });
     return;
@@ -142,7 +142,7 @@ router.put("/contacts/:contactId", requireAuth, requireCompany, async (req, res)
 
 // DELETE /contacts/:contactId
 router.delete("/contacts/:contactId", requireAuth, requireCompany, async (req, res) => {
-  const contactId = parseInt(req.params.contactId);
+  const contactId = parseInt(req.params.contactId as string);
   if (isNaN(contactId)) {
     res.status(400).json({ error: "Invalid contactId" });
     return;

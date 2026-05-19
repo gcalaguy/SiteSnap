@@ -223,7 +223,7 @@ export default function ProjectsScreen() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const filtered = (projects ?? []).filter(p => {
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.location ?? "").toLowerCase().includes(search.toLowerCase());
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || ((p as any).location ?? "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all"
       || p.status === statusFilter
       || (statusFilter === "active" && p.status === "planning");

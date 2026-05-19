@@ -50,7 +50,8 @@ export default function SiteScanScreen() {
   const params = useLocalSearchParams<{ videoUri?: string; videoName?: string; projectId?: string }>();
   const projectId = params.projectId ? parseInt(params.projectId, 10) : undefined;
 
-  const { data: linkedProject } = useGetProject(projectId ?? 0, { query: { enabled: projectId != null && !isNaN(projectId) } });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: linkedProject } = useGetProject(projectId ?? 0, { query: { enabled: projectId != null && !isNaN(projectId) } as any });
 
   const [mode, setMode] = useState<ScanMode>("choose");
   const [step, setStep] = useState<UploadStep>("idle");

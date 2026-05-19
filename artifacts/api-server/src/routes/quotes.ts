@@ -118,7 +118,7 @@ function workerVisibility(userId: number) {
 
 // GET / — list quotes for a project
 router.get("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
@@ -136,7 +136,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 
 // POST / — create quote
 router.post("/", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
+  const projectId = parseInt(req.params.projectId as string);
 
   if (projectId > 0) {
     const project = await verifyProjectAccess(projectId, req.companyId!);
@@ -168,7 +168,7 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     taxAmount,
     total,
     notes: notes ?? null,
-    validUntil: validUntil ?? null,
+    validUntil: validUntil instanceof Date ? validUntil.toISOString().split("T")[0] : (validUntil ?? null),
     createdByUserId: req.userId!,
     status: "draft",
     publicToken: randomUUID(),
@@ -179,8 +179,8 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 
 // GET /:quoteId
 router.get("/:quoteId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const quoteId = parseInt(req.params.quoteId);
+  const projectId = parseInt(req.params.projectId as string);
+  const quoteId = parseInt(req.params.quoteId as string);
   const isWorker = req.userRole === "worker";
 
   const baseCondition = and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))!;
@@ -196,8 +196,8 @@ router.get("/:quoteId", requireAuth, requireCompany, async (req, res) => {
 
 // PUT /:quoteId
 router.put("/:quoteId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const quoteId = parseInt(req.params.quoteId);
+  const projectId = parseInt(req.params.projectId as string);
+  const quoteId = parseInt(req.params.quoteId as string);
   const isWorker = req.userRole === "worker";
 
   const [existing] = await db.select().from(quotesTable)
@@ -245,8 +245,8 @@ router.put("/:quoteId", requireAuth, requireCompany, async (req, res) => {
 
 // DELETE /:quoteId
 router.delete("/:quoteId", requireAuth, requireCompany, async (req, res) => {
-  const projectId = parseInt(req.params.projectId);
-  const quoteId = parseInt(req.params.quoteId);
+  const projectId = parseInt(req.params.projectId as string);
+  const quoteId = parseInt(req.params.quoteId as string);
   const isWorker = req.userRole === "worker";
 
   const [existing] = await db.select().from(quotesTable)
@@ -264,7 +264,7 @@ router.delete("/:quoteId", requireAuth, requireCompany, async (req, res) => {
 
 // POST /:quoteId/submit
 router.post("/:quoteId/submit", requireAuth, requireCompany, async (req, res) => {
-  const quoteId = parseInt(req.params.quoteId);
+  const quoteId = parseInt(req.params.quoteId as string);
   const isWorker = req.userRole === "worker";
 
   const baseCondition = and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))!;
@@ -292,7 +292,7 @@ router.post("/:quoteId/submit", requireAuth, requireCompany, async (req, res) =>
 
 // POST /:quoteId/unsubmit
 router.post("/:quoteId/unsubmit", requireAuth, requireCompany, async (req, res) => {
-  const quoteId = parseInt(req.params.quoteId);
+  const quoteId = parseInt(req.params.quoteId as string);
   const [existing] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
   if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
@@ -308,7 +308,7 @@ router.post("/:quoteId/unsubmit", requireAuth, requireCompany, async (req, res) 
 // POST /:quoteId/approve
 router.post("/:quoteId/approve", requireAuth, requireCompany, async (req, res) => {
   if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
-  const quoteId = parseInt(req.params.quoteId);
+  const quoteId = parseInt(req.params.quoteId as string);
   const [existing] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
   if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
@@ -325,7 +325,7 @@ router.post("/:quoteId/approve", requireAuth, requireCompany, async (req, res) =
 // POST /:quoteId/reject
 router.post("/:quoteId/reject", requireAuth, requireCompany, async (req, res) => {
   if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
-  const quoteId = parseInt(req.params.quoteId);
+  const quoteId = parseInt(req.params.quoteId as string);
   const [existing] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
   if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
@@ -344,7 +344,7 @@ router.post("/:quoteId/reject", requireAuth, requireCompany, async (req, res) =>
 router.patch("/:quoteId/assign", requireAuth, requireCompany, async (req, res) => {
   if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
 
-  const quoteId = parseInt(req.params.quoteId);
+  const quoteId = parseInt(req.params.quoteId as string);
   const { assignedToUserId } = req.body ?? {};
 
   const [existing] = await db.select().from(quotesTable)
@@ -362,7 +362,7 @@ router.patch("/:quoteId/assign", requireAuth, requireCompany, async (req, res) =
 router.post("/:quoteId/convert-to-invoice", requireAuth, requireCompany, async (req, res) => {
   if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
 
-  const quoteId = parseInt(req.params.quoteId);
+  const quoteId = parseInt(req.params.quoteId as string);
   const [quote] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
   if (!quote) { res.status(404).json({ error: "Quote not found" }); return; }
@@ -394,7 +394,7 @@ router.post("/:quoteId/convert-to-invoice", requireAuth, requireCompany, async (
     taxAmount: quote.taxAmount,
     total: quote.total,
     notes: quote.notes ?? null,
-    dueDate: dueDate ?? null,
+    dueDate: dueDate ? dueDate.toISOString().split("T")[0] : null,
     createdByUserId: req.userId!,
     publicToken: randomUUID(),
   }).returning();

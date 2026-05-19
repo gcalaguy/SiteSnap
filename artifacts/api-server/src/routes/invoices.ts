@@ -104,7 +104,7 @@ router.get("/invoices", requireAuth, requireCompany, async (req, res) => {
 
 // GET /invoices/:invoiceId
 router.get("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res) => {
-  const invoiceId = parseInt(req.params.invoiceId);
+  const invoiceId = parseInt(req.params.invoiceId as string);
   const isWorker = req.userRole === "worker";
 
   const baseCondition = and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!))!;
@@ -123,7 +123,7 @@ router.get("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res)
 
 // PUT /invoices/:invoiceId
 router.put("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res) => {
-  const invoiceId = parseInt(req.params.invoiceId);
+  const invoiceId = parseInt(req.params.invoiceId as string);
   const isWorker = req.userRole === "worker";
 
   const [existing] = await db
@@ -166,7 +166,7 @@ router.put("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res)
 router.patch("/invoices/:invoiceId/assign", requireAuth, requireCompany, async (req, res) => {
   if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
 
-  const invoiceId = parseInt(req.params.invoiceId);
+  const invoiceId = parseInt(req.params.invoiceId as string);
   const { assignedToUserId } = req.body ?? {};
 
   const [existing] = await db
@@ -186,7 +186,7 @@ router.patch("/invoices/:invoiceId/assign", requireAuth, requireCompany, async (
 
 // POST /invoices/:invoiceId/mark-sent
 router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, async (req, res) => {
-  const invoiceId = parseInt(req.params.invoiceId);
+  const invoiceId = parseInt(req.params.invoiceId as string);
   const [existing] = await db
     .select()
     .from(invoicesTable)
@@ -205,7 +205,7 @@ router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, async
 
 // POST /invoices/:invoiceId/send-email
 router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, async (req, res) => {
-  const invoiceId = parseInt(req.params.invoiceId);
+  const invoiceId = parseInt(req.params.invoiceId as string);
   const { pdfBase64 } = req.body as { pdfBase64?: string };
 
   if (!pdfBase64) {
@@ -291,7 +291,7 @@ router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyn
 
 // POST /invoices/:invoiceId/send-reminder
 router.post("/invoices/:invoiceId/send-reminder", requireAuth, requireCompany, async (req, res) => {
-  const invoiceId = parseInt(req.params.invoiceId);
+  const invoiceId = parseInt(req.params.invoiceId as string);
 
   const [invoice] = await db
     .select()
@@ -332,7 +332,7 @@ router.post("/invoices/:invoiceId/send-reminder", requireAuth, requireCompany, a
 
 // DELETE /invoices/:invoiceId — only draft invoices; workers may only delete their own
 router.delete("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res) => {
-  const invoiceId = parseInt(req.params.invoiceId);
+  const invoiceId = parseInt(req.params.invoiceId as string);
   const [existing] = await db
     .select()
     .from(invoicesTable)
@@ -353,7 +353,7 @@ router.delete("/invoices/:invoiceId", requireAuth, requireCompany, async (req, r
 
 // POST /invoices/:invoiceId/mark-paid
 router.post("/invoices/:invoiceId/mark-paid", requireAuth, requireCompany, async (req, res) => {
-  const invoiceId = parseInt(req.params.invoiceId);
+  const invoiceId = parseInt(req.params.invoiceId as string);
   const [existing] = await db
     .select()
     .from(invoicesTable)

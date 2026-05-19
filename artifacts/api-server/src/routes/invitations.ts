@@ -143,7 +143,7 @@ router.patch(
   requireCompany,
   requireOwnerOrForeman,
   async (req, res) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
     const { email, role } = req.body as { email?: string; role?: string };
@@ -179,7 +179,7 @@ router.delete(
   requireCompany,
   requireOwnerOrForeman,
   async (req, res) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
     const [existing] = await db
@@ -276,7 +276,7 @@ router.post("/invitations/:token/accept", async (req, res) => {
 
   if (!dbUser) {
     try {
-      const clerkUser = await clerkClient().users.getUser(clerkUserId);
+      const clerkUser = await clerkClient.users.getUser(clerkUserId);
       const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
       const [created] = await db
         .insert(usersTable)

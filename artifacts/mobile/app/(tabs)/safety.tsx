@@ -66,10 +66,10 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: string }>
 // ── Category quick buttons ─────────────────────────────────────────────────────
 
 const QUICK_CATS = [
-  { key: "injury",  label: "Injury Report",   icon: "alert-circle",   ...CAT_COLORS.injury },
-  { key: "hazard",  label: "Hazard Report",   icon: "alert-triangle", ...CAT_COLORS.hazard },
-  { key: "safety",  label: "Safety Check",    icon: "shield",         ...CAT_COLORS.safety },
-  { key: "toolbox", label: "Toolbox Talk",    icon: "tool",           ...CAT_COLORS.toolbox },
+  { key: "injury",  label: "Injury Report",   ...CAT_COLORS.injury,   icon: "alert-circle" },
+  { key: "hazard",  label: "Hazard Report",   ...CAT_COLORS.hazard,   icon: "alert-triangle" },
+  { key: "safety",  label: "Safety Check",    ...CAT_COLORS.safety,   icon: "shield" },
+  { key: "toolbox", label: "Toolbox Talk",    ...CAT_COLORS.toolbox,  icon: "tool" },
 ];
 
 // ── Field renderer ─────────────────────────────────────────────────────────────
@@ -225,7 +225,7 @@ function FieldRenderer({ field, value, onChange, colors }: {
     <TextInput
       style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
       keyboardType={field.type === "number" ? "decimal-pad" : "default"}
-      placeholder={field.type === "date" ? "YYYY-MM-DD" : field.required ? "Required" : "Optional"}
+      placeholder={(field.type as string) === "date" ? "YYYY-MM-DD" : field.required ? "Required" : "Optional"}
       placeholderTextColor={colors.mutedForeground}
       value={value ?? ""}
       onChangeText={onChange}
@@ -793,4 +793,13 @@ const styles = StyleSheet.create({
   emptyBox: { borderRadius: 12, borderWidth: 1, padding: 32, alignItems: "center", gap: 10, marginTop: 8 },
   emptyTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   emptyDesc: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 18 },
+
+  dateField: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  dateFieldText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular" },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+  modalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32 },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14 },
+  modalCancel: { fontSize: 15, fontFamily: "Inter_400Regular" },
+  modalTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  modalDone: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });

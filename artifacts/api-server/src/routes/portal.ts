@@ -48,7 +48,7 @@ router.post(
   requireAuth,
   requireCompany,
   async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
     const [project] = await db.select().from(projectsTable)
@@ -74,7 +74,7 @@ router.delete(
   requireAuth,
   requireCompany,
   async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
     const [project] = await db.select().from(projectsTable)
@@ -97,7 +97,7 @@ router.get(
   requireAuth,
   requireCompany,
   async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
     const [project] = await db.select().from(projectsTable)
@@ -120,7 +120,7 @@ router.get(
   requireAuth,
   requireCompany,
   async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
     const [project] = await db.select().from(projectsTable)
@@ -157,7 +157,7 @@ router.post(
   requireAuth,
   requireCompany,
   async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
     const [project] = await db.select().from(projectsTable)

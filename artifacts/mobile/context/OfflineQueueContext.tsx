@@ -117,7 +117,7 @@ async function persistHistory(history: SyncedReport[]): Promise<void> {
 
 async function uploadPhoto(photo: QueuePhoto): Promise<string | null> {
   try {
-    const res = await customFetch("/api/storage/uploads/request-url", {
+    const res = await fetch("/api/storage/uploads/request-url", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

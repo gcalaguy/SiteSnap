@@ -97,7 +97,7 @@ router.get("/safety/submissions", requireAuth, requireCompany, async (req, res) 
 // GET /safety/submissions/:id
 router.get("/safety/submissions/:id", requireAuth, requireCompany, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
 
     const [row] = await db
       .select()
@@ -185,7 +185,7 @@ router.post("/safety/submissions", requireAuth, requireCompany, async (req, res)
 // PUT /safety/submissions/:id — update draft
 router.put("/safety/submissions/:id", requireAuth, requireCompany, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const { data, status } = req.body as { data?: Record<string, any>; status?: string };
 
     const [existing] = await db
@@ -233,7 +233,7 @@ router.put("/safety/submissions/:id", requireAuth, requireCompany, async (req, r
 // POST /safety/submissions/:id/review
 router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const { status, notes } = req.body as { status: "reviewed" | "approved"; notes?: string };
 
     if (!status || !["reviewed", "approved"].includes(status)) {
@@ -270,7 +270,7 @@ router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requi
 // POST /safety/submissions/:id/comments
 router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const { comment } = req.body as { comment: string };
 
     if (!comment?.trim()) { res.status(400).json({ error: "comment required" }); return; }
@@ -303,7 +303,7 @@ router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, asy
 // POST /safety/submissions/:id/photos
 router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const { url, filename, objectPath } = req.body as { url: string; filename: string; objectPath?: string };
 
     if (!url || !filename) { res.status(400).json({ error: "url and filename required" }); return; }
@@ -337,7 +337,7 @@ router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, async
 
 router.post("/safety/submissions/:id/incident-summary", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
 
     const [row] = await db
       .select()
@@ -350,7 +350,7 @@ router.post("/safety/submissions/:id/incident-summary", requireAuth, requireComp
     const [template] = await db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, row.templateId));
     const [worker] = await db.select().from(usersTable).where(eq(usersTable.id, row.userId));
     const data = row.data as Record<string, any>;
-    const fields = (template?.schema?.fields ?? []) as Array<{ id: string; label: string }>;
+    const fields = ((template?.schema as { fields?: Array<{ id: string; label: string }> })?.fields ?? []);
 
     const formData = [
       `Form Type: ${template?.name ?? "Safety Form"}`,

@@ -454,7 +454,8 @@ export default function DashboardScreen() {
   const { data: activity, isLoading: activityLoading, refetch: refetchActivity } = useGetRecentActivity();
   const { data: projects, isLoading: projectsLoading, refetch: refetchProjects } = useListProjects();
   const { data: members } = useListCompanyMembers(me?.activeCompanyId ?? 0, {
-    query: { enabled: !!me?.activeCompanyId },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { enabled: !!me?.activeCompanyId } as any,
   });
 
   const { data: unreadData } = useQuery<{ count: number }>({
@@ -565,7 +566,7 @@ export default function DashboardScreen() {
             <View style={styles.financeCardText}>
               <Text style={styles.financeCardTitle}>Finance</Text>
               <Text style={styles.financeCardSub}>
-                Budget {formatCurrency(summary?.totalBudget)} · Spend {formatCurrency(summary?.totalSpend)}
+                Budget {formatCurrency(summary?.totalBudgetAllProjects)} · Spend {formatCurrency(summary?.totalSpentThisMonth)}
               </Text>
             </View>
             <Feather name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />

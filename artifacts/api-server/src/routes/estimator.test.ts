@@ -22,7 +22,6 @@ beforeAll(async () => {
     .insert(companiesTable)
     .values({
       name: "Test Estimator Safeguard Co",
-      email: "test-estimator-safeguard@example.com",
       province: "ON",
       city: "Toronto",
     })

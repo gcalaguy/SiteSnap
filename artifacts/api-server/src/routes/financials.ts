@@ -93,7 +93,7 @@ router.get("/payments", requireAuth, requireCompany, async (req, res) => {
 
 // GET /invoices/:id/payments — payments + balance for one invoice
 router.get("/invoices/:id/payments", requireAuth, requireCompany, async (req, res) => {
-  const invoiceId = parseInt(req.params.id);
+  const invoiceId = parseInt(req.params.id as string);
   if (isNaN(invoiceId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [invoice] = await db
@@ -131,7 +131,7 @@ const RecordPaymentBody = z.object({
 });
 
 router.post("/invoices/:id/payments", requireAuth, requireCompany, async (req, res) => {
-  const invoiceId = parseInt(req.params.id);
+  const invoiceId = parseInt(req.params.id as string);
   if (isNaN(invoiceId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const parsed = RecordPaymentBody.safeParse(req.body);
@@ -178,7 +178,7 @@ router.post("/invoices/:id/payments", requireAuth, requireCompany, async (req, r
 
 // DELETE /payments/:id
 router.delete("/payments/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [deleted] = await db
@@ -210,7 +210,7 @@ router.get("/change-orders", requireAuth, requireCompany, async (req, res) => {
 
 // GET /change-orders/:id
 router.get("/change-orders/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [order] = await db
@@ -267,7 +267,7 @@ const UpdateChangeOrderBody = z.object({
 });
 
 router.patch("/change-orders/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const parsed = UpdateChangeOrderBody.safeParse(req.body);
@@ -295,7 +295,7 @@ router.post("/change-orders/:id/approve", requireAuth, requireCompany, async (re
     res.status(403).json({ error: "Owner or foreman required to approve" }); return;
   }
 
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [updated] = await db
@@ -314,7 +314,7 @@ router.post("/change-orders/:id/reject", requireAuth, requireCompany, async (req
     res.status(403).json({ error: "Owner or foreman required to reject" }); return;
   }
 
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [updated] = await db
@@ -329,7 +329,7 @@ router.post("/change-orders/:id/reject", requireAuth, requireCompany, async (req
 
 // DELETE /change-orders/:id
 router.delete("/change-orders/:id", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [deleted] = await db
@@ -344,7 +344,7 @@ router.delete("/change-orders/:id", requireAuth, requireCompany, async (req, res
 // ── Invoice from Proposal ─────────────────────────────────────────────────────
 
 router.post("/invoices/from-proposal/:proposalId", requireAuth, requireCompany, async (req, res) => {
-  const proposalId = parseInt(req.params.proposalId);
+  const proposalId = parseInt(req.params.proposalId as string);
   if (isNaN(proposalId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [proposal] = await db

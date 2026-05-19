@@ -55,7 +55,7 @@ router.post("/companies", requireAuth, async (req, res) => {
 
 // GET /companies/:companyId
 router.get("/companies/:companyId", requireAuth, requireCompany, async (req, res) => {
-  const companyId = parseInt(req.params.companyId);
+  const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
     return;
@@ -77,7 +77,7 @@ router.get("/companies/:companyId", requireAuth, requireCompany, async (req, res
 
 // GET /companies/:companyId/settings
 router.get("/companies/:companyId/settings", requireAuth, requireCompany, async (req, res) => {
-  const companyId = parseInt(req.params.companyId);
+  const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
     return;
@@ -128,7 +128,7 @@ router.patch("/companies/:companyId", requireAuth, requireCompany, async (req, r
 
 // PATCH /companies/:companyId/logo — update company logo path
 router.patch("/companies/:companyId/logo", requireAuth, requireCompany, async (req, res) => {
-  const companyId = parseInt(req.params.companyId);
+  const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
     return;
@@ -151,7 +151,7 @@ router.patch("/companies/:companyId/logo", requireAuth, requireCompany, async (r
 
 // PATCH /companies/:companyId/quote-template — set or clear quote template path
 router.patch("/companies/:companyId/quote-template", requireAuth, requireCompany, async (req, res) => {
-  const companyId = parseInt(req.params.companyId);
+  const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
     return;
@@ -170,7 +170,7 @@ router.patch("/companies/:companyId/quote-template", requireAuth, requireCompany
 
 // PATCH /companies/:companyId/invoice-template — set or clear invoice template path
 router.patch("/companies/:companyId/invoice-template", requireAuth, requireCompany, async (req, res) => {
-  const companyId = parseInt(req.params.companyId);
+  const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
     return;
@@ -193,7 +193,7 @@ router.get(
   requireAuth,
   requireCompany,
   async (req, res) => {
-    const companyId = parseInt(req.params.companyId);
+    const companyId = parseInt(req.params.companyId as string);
     if (companyId !== req.companyId) {
       res.status(403).json({ error: "Access denied" });
       return;
@@ -237,8 +237,8 @@ router.delete(
   requireCompany,
   requireOwner,
   async (req, res) => {
-    const companyId = parseInt(req.params.companyId);
-    const targetUserId = parseInt(req.params.userId);
+    const companyId = parseInt(req.params.companyId as string);
+    const targetUserId = parseInt(req.params.userId as string);
 
     if (companyId !== req.companyId) {
       res.status(403).json({ error: "Access denied" });
@@ -328,8 +328,8 @@ router.patch(
   requireCompany,
   requireOwner,
   async (req, res) => {
-    const companyId = parseInt(req.params.companyId);
-    const targetUserId = parseInt(req.params.userId);
+    const companyId = parseInt(req.params.companyId as string);
+    const targetUserId = parseInt(req.params.userId as string);
 
     if (companyId !== req.companyId) {
       res.status(403).json({ error: "Access denied" });
@@ -369,8 +369,8 @@ router.patch(
   requireCompany,
   requireOwner,
   async (req, res) => {
-    const companyId = parseInt(req.params.companyId);
-    const targetUserId = parseInt(req.params.userId);
+    const companyId = parseInt(req.params.companyId as string);
+    const targetUserId = parseInt(req.params.userId as string);
 
     if (companyId !== req.companyId) {
       res.status(403).json({ error: "Access denied" });
@@ -422,7 +422,7 @@ router.get(
   requireAuth,
   requireCompany,
   async (req, res) => {
-    const companyId = parseInt(req.params.companyId);
+    const companyId = parseInt(req.params.companyId as string);
     if (companyId !== req.companyId) {
       res.status(403).json({ error: "Access denied" });
       return;
@@ -436,7 +436,7 @@ router.get(
 
 // POST /companies/:companyId/claim — claim a pre-created company as owner
 router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
-  const companyId = parseInt(req.params.companyId);
+  const companyId = parseInt(req.params.companyId as string);
   if (isNaN(companyId)) {
     res.status(400).json({ error: "Invalid companyId" });
     return;

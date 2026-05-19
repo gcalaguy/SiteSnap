@@ -79,7 +79,8 @@ function RootLayoutNav() {
   // Always fetch once Clerk is loaded and user is signed in so the query
   // observer is active and invalidateQueries/refetchQueries can actually fire.
   const { data: me, isLoading: meLoading, isFetching: meFetching } = useGetMe({
-    query: { enabled: isLoaded && !!isSignedIn },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { enabled: isLoaded && !!isSignedIn } as any,
   });
 
   // Phase 3: Set tenant id getter for x-tenant-id header on API requests

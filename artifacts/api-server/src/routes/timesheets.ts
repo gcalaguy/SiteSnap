@@ -144,7 +144,7 @@ router.post("/timesheets", requireAuth, requireCompany, async (req, res) => {
 
 // GET /timesheets/:timesheetId
 router.get("/timesheets/:timesheetId", requireAuth, requireCompany, async (req, res) => {
-  const id = parseInt(req.params.timesheetId);
+  const id = parseInt(req.params.timesheetId as string);
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 
   const [ts] = await db.select().from(timesheetsTable)
@@ -159,7 +159,7 @@ router.get("/timesheets/:timesheetId", requireAuth, requireCompany, async (req, 
 
 // POST /timesheets/:timesheetId/approve
 router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
-  const id = parseInt(req.params.timesheetId);
+  const id = parseInt(req.params.timesheetId as string);
   const parsed = ApproveBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "A signature is required to approve a timesheet", details: parsed.error.flatten() });
@@ -195,7 +195,7 @@ router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, req
 
 // POST /timesheets/:timesheetId/deny
 router.post("/timesheets/:timesheetId/deny", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
-  const id = parseInt(req.params.timesheetId);
+  const id = parseInt(req.params.timesheetId as string);
   const parsed = ReviewBody.safeParse(req.body);
   const notes = parsed.success ? (parsed.data.notes ?? null) : null;
 
@@ -228,7 +228,7 @@ router.patch(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const id = parseInt(req.params.timesheetId);
+    const id = parseInt(req.params.timesheetId as string);
     const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 
     const [ts] = await db
@@ -272,7 +272,7 @@ router.post(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const id = parseInt(req.params.timesheetId);
+    const id = parseInt(req.params.timesheetId as string);
     const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 
     const [ts] = await db

@@ -1062,6 +1062,38 @@ const scanSt = StyleSheet.create({
     marginBottom: 8,
   },
   emptyScansText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
+
+  videoDeleteFab: {
+    position: "absolute",
+    bottom: 32,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(220,38,38,0.9)",
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    zIndex: 30,
+  },
+  videoDeleteFabText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    zIndex: 20,
+  },
+  overlayBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });
 
 export default function ProjectDetailScreen() {
@@ -1086,6 +1118,10 @@ export default function ProjectDetailScreen() {
   function closeScanViewer() {
     setScanViewerVisible(false);
     setViewingScanId(null);
+  }
+
+  function deleteViewerScan() {
+    closeScanViewer();
   }
 
   const { data: me } = useGetMe();
@@ -1171,10 +1207,10 @@ export default function ProjectDetailScreen() {
       {/* Project header */}
       <View style={[styles.headerBg, { backgroundColor: colors.sidebar, paddingTop: topInsets + 20 }]}>
         <Text style={styles.projectName}>{project?.name ?? "Project"}</Text>
-        {!!project?.location && (
+        {!!(project as any)?.location && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 }}>
             <Feather name="map-pin" size={13} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.projectLoc}>{project.location}</Text>
+            <Text style={styles.projectLoc}>{(project as any).location}</Text>
           </View>
         )}
         <View style={styles.statusRow}>
@@ -1187,8 +1223,8 @@ export default function ProjectDetailScreen() {
       {summary && (
         <View style={styles.statsRow}>
           <StatPill label="Reports" value={String(summary.reportCount ?? 0)} icon="file-text" />
-          {!isWorker && <StatPill label="RFIs" value={String(summary.openRFIs ?? 0)} icon="alert-circle" />}
-          {!isWorker && <StatPill label="Spend" value={formatCurrency(summary.totalSpend)} icon="dollar-sign" />}
+          {!isWorker && <StatPill label="RFIs" value={String(summary.openRFICount ?? 0)} icon="alert-circle" />}
+          {!isWorker && <StatPill label="Spend" value={formatCurrency(summary.totalSpent)} icon="dollar-sign" />}
         </View>
       )}
 
@@ -1231,23 +1267,23 @@ export default function ProjectDetailScreen() {
               <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Activity</Text>
               <View style={[styles.overviewGrid, { borderColor: colors.border }]}>
                 <View style={[styles.overviewCell, { borderRightColor: colors.border, borderBottomColor: isWorker ? undefined : colors.border }]}>
-                  <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.taskCount ?? 0}</Text>
-                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Tasks</Text>
-                </View>
-                <View style={[styles.overviewCell, { borderBottomColor: isWorker ? undefined : colors.border }]}>
                   <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.reportCount ?? 0}</Text>
                   <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Reports</Text>
                 </View>
+                <View style={[styles.overviewCell, { borderBottomColor: isWorker ? undefined : colors.border }]}>
+                  <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.openRFICount ?? 0}</Text>
+                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Open RFIs</Text>
+                </View>
                 {!isWorker && (
                   <View style={[styles.overviewCell, { borderRightColor: colors.border }]}>
-                    <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.openRFIs ?? 0}</Text>
-                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Open RFIs</Text>
+                    <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.closedRFICount ?? 0}</Text>
+                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Closed RFIs</Text>
                   </View>
                 )}
                 {!isWorker && (
                   <View style={styles.overviewCell}>
-                    <Text style={[styles.overviewValue, { color: colors.primary }]}>{formatCurrency(summary.totalSpend)}</Text>
-                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Total Spend</Text>
+                    <Text style={[styles.overviewValue, { color: colors.primary }]}>{formatCurrency(summary.totalSpent)}</Text>
+                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Total Spent</Text>
                   </View>
                 )}
               </View>

@@ -142,7 +142,7 @@ router.get(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
     const [project] = await db
@@ -183,7 +183,7 @@ router.put(
   requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
     const parsed = UpdateProjectBody.safeParse(req.body);
@@ -227,7 +227,7 @@ router.delete(
   requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
     await db
@@ -244,7 +244,7 @@ router.get(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
     const [project] = await db
@@ -293,7 +293,7 @@ router.get(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
     const rows = await db
@@ -327,7 +327,7 @@ router.post(
   requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
     const { userId } = req.body as { userId?: number };
@@ -378,8 +378,8 @@ router.delete(
   requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
-    const memberId = parseInt(req.params.memberId);
+    const projectId = parseInt(req.params.projectId as string);
+    const memberId = parseInt(req.params.memberId as string);
     if (isNaN(projectId) || isNaN(memberId)) throw new BadRequestError("Invalid IDs");
 
     await db
@@ -402,7 +402,7 @@ router.get(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("Invalid project ID");
 
     const notes = await db
@@ -436,7 +436,7 @@ router.post(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("Invalid project ID");
 
     const { content } = req.body as { content?: string };
@@ -462,8 +462,8 @@ router.delete(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const projectId = parseInt(req.params.projectId);
-    const noteId = parseInt(req.params.noteId);
+    const projectId = parseInt(req.params.projectId as string);
+    const noteId = parseInt(req.params.noteId as string);
     if (isNaN(projectId) || isNaN(noteId)) throw new BadRequestError("Invalid IDs");
 
     await db
