@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, estimatesTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth.js";
+import { requirePermission } from "../lib/permissionGate.js";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import multer from "multer";
 import { z } from "zod";
@@ -162,7 +163,7 @@ ${buildEstimatePrompt("Based on the attached plan/image")}`,
 
 // ── GET /api/estimates ────────────────────────────────────────────────────────
 
-router.get("/estimates", requireAuth, requireCompany, async (req, res) => {
+router.get("/estimates", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -184,7 +185,7 @@ const GenerateTextBody = z.object({
   scope: z.string().min(20, "Please provide at least 20 characters of scope description"),
 });
 
-router.post("/estimates/generate", requireAuth, requireCompany, async (req, res) => {
+router.post("/estimates/generate", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -236,6 +237,7 @@ router.post(
   "/estimates/generate-from-file",
   requireAuth,
   requireCompany,
+  requirePermission("manageQuotes"),
   upload.single("file"),
   async (req, res) => {
     const role = req.userRole;
@@ -304,7 +306,7 @@ const EmailEstimateBody = z.object({
   message: z.string().optional(),
 });
 
-router.post("/estimates/:id/email", requireAuth, requireCompany, async (req, res) => {
+router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -478,7 +480,7 @@ const PatchEstimateBody = z.object({
   result: z.record(z.unknown()).optional(),
 });
 
-router.patch("/estimates/:id", requireAuth, requireCompany, async (req, res) => {
+router.patch("/estimates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -512,7 +514,7 @@ router.patch("/estimates/:id", requireAuth, requireCompany, async (req, res) => 
 
 // ── DELETE /api/estimates/:id ─────────────────────────────────────────────────
 
-router.delete("/estimates/:id", requireAuth, requireCompany, async (req, res) => {
+router.delete("/estimates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });

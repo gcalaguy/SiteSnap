@@ -1324,6 +1324,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/UserWithCompany"
 
+  /companies/{companyId}/members/{userId}/permissions:
+    get:
+      operationId: getMemberPermissions
+      tags: [companies]
+      summary: Get a member's custom permissions
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+        - $ref: "#/components/parameters/userId"
+      responses:
+        "200":
+          description: Member permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberPermissions"
+        "403":
+          description: Owner access required
+        "404":
+          description: Member not found
+    put:
+      operationId: setMemberPermissions
+      tags: [companies]
+      summary: Update a member's custom permissions (owner only)
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+        - $ref: "#/components/parameters/userId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberPermissions"
+      responses:
+        "200":
+          description: Permissions updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberPermissions"
+        "403":
+          description: Owner access required
+        "404":
+          description: Member not found
+
   # ── Invitations ────────────────────────────────────────────────────────────
   /invitations:
     post:
@@ -3366,6 +3410,34 @@ components:
           nullable: true
       required: [userId, companyId, role, isActive, createdAt]
 
+    MemberPermissions:
+      type: object
+      properties:
+        viewQuotes:
+          type: boolean
+        viewTimesheets:
+          type: boolean
+        viewFinancials:
+          type: boolean
+        viewDocuments:
+          type: boolean
+        viewSchedules:
+          type: boolean
+        viewClientMessages:
+          type: boolean
+        viewRiskTab:
+          type: boolean
+        viewSafetyTab:
+          type: boolean
+        viewInspectTab:
+          type: boolean
+        manageQuotes:
+          type: boolean
+        submitExpenses:
+          type: boolean
+        viewAllProjects:
+          type: boolean
+
     UserWithCompany:
       allOf:
         - $ref: "#/components/schemas/User"
@@ -3383,7 +3455,10 @@ components:
               nullable: true
             role:
               $ref: "#/components/schemas/UserRole"
-              description: "Computed from the active (or first available) membership"   
+              description: "Computed from the active (or first available) membership"
+            permissions:
+              $ref: "#/components/schemas/MemberPermissions"
+              description: "Resolved role-based permissions for the active company"   
 
     UserRole:
       type: string

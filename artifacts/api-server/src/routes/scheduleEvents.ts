@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import { eq, and, or, lt, gt, ne, inArray, gte, lte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
@@ -24,6 +25,7 @@ router.get(
   "/equipment",
   requireAuth,
   requireCompany,
+  requirePermission("viewSchedules"),
   asyncHandler(async (req, res) => {
     const rows = await db
       .select()
@@ -39,6 +41,7 @@ router.post(
   "/equipment",
   requireAuth,
   requireCompany,
+  requirePermission("viewSchedules"),
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const { name, type, status, notes } = req.body;
@@ -125,6 +128,7 @@ router.get(
   "/schedule/events",
   requireAuth,
   requireCompany,
+  requirePermission("viewSchedules"),
   asyncHandler(async (req, res) => {
     const { from, to, projectId, type } = req.query as Record<string, string | undefined>;
 
@@ -184,6 +188,7 @@ router.post(
   "/schedule/events",
   requireAuth,
   requireCompany,
+  requirePermission("viewSchedules"),
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const { title, type, projectId, startTime, endTime, location, notes, assignees, allowConflict, recipientEmails, meetingPlatform, meetingLink: providedMeetingLink } = req.body;

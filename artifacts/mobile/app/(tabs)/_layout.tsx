@@ -9,8 +9,10 @@ import { Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { useOfflineQueue } from "@/context/OfflineQueueContext";
+import { usePermissions } from "@/hooks/usePermissions";
 
 function NativeTabLayout() {
+  const perms = usePermissions();
   return (
     <View style={{ flex: 1 }}>
       <NativeTabs>
@@ -18,18 +20,24 @@ function NativeTabLayout() {
           <Icon sf={{ default: "house", selected: "house.fill" }} />
           <Label>Home</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="risk">
-          <Icon sf={{ default: "exclamationmark.triangle", selected: "exclamationmark.triangle.fill" }} />
-          <Label>Risk</Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="inspect">
-          <Icon sf={{ default: "checkmark.shield", selected: "checkmark.shield.fill" }} />
-          <Label>Inspections</Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="safety">
-          <Icon sf={{ default: "cross.case", selected: "cross.case.fill" }} />
-          <Label>Safety</Label>
-        </NativeTabs.Trigger>
+        {perms.viewRiskTab && (
+          <NativeTabs.Trigger name="risk">
+            <Icon sf={{ default: "exclamationmark.triangle", selected: "exclamationmark.triangle.fill" }} />
+            <Label>Risk</Label>
+          </NativeTabs.Trigger>
+        )}
+        {perms.viewInspectTab && (
+          <NativeTabs.Trigger name="inspect">
+            <Icon sf={{ default: "checkmark.shield", selected: "checkmark.shield.fill" }} />
+            <Label>Inspections</Label>
+          </NativeTabs.Trigger>
+        )}
+        {perms.viewSafetyTab && (
+          <NativeTabs.Trigger name="safety">
+            <Icon sf={{ default: "cross.case", selected: "cross.case.fill" }} />
+            <Label>Safety</Label>
+          </NativeTabs.Trigger>
+        )}
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
@@ -55,6 +63,7 @@ function ClassicTabLayout() {
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
   const { pendingCount } = useOfflineQueue();
+  const perms = usePermissions();
 
   return (
     <View style={{ flex: 1 }}>
@@ -96,6 +105,8 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="risk"
         options={{
+          href: perms.viewRiskTab ? undefined : null,
+          tabBarItemStyle: perms.viewRiskTab ? {} : { display: "none" },
           title: "Risk",
           tabBarIcon: ({ color }) =>
             isIOS ? <SymbolView name="exclamationmark.triangle" tintColor={color} size={24} /> : <Feather name="alert-triangle" size={22} color={color} />,
@@ -104,6 +115,8 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="inspect"
         options={{
+          href: perms.viewInspectTab ? undefined : null,
+          tabBarItemStyle: perms.viewInspectTab ? {} : { display: "none" },
           title: "Inspections",
           tabBarIcon: ({ color, focused }) => (
             <View style={{ position: "relative" }}>
@@ -116,6 +129,8 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="safety"
         options={{
+          href: perms.viewSafetyTab ? undefined : null,
+          tabBarItemStyle: perms.viewSafetyTab ? {} : { display: "none" },
           title: "Safety",
           tabBarIcon: ({ color }) =>
             isIOS ? <SymbolView name="cross.case" tintColor={color} size={24} /> : <Feather name="alert-circle" size={22} color={color} />,

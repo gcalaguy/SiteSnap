@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, workerSchedulesTable, usersTable, userMembershipsTable, projectsTable, companiesTable } from "@workspace/db";
 import { eq, and, lte, gte, or } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 
 const router = Router();
 
@@ -87,7 +88,7 @@ router.get("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asyn
 
 // GET /api/projects/:projectId/schedule
 // Returns all assignments for a specific project
-router.get("/projects/:projectId/schedule", requireAuth, requireCompany, async (req, res) => {
+router.get("/projects/:projectId/schedule", requireAuth, requireCompany, requirePermission("viewSchedules"), async (req, res) => {
   const projectId = Number(req.params.projectId);
 
   const assignments = await db

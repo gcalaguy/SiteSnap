@@ -8,6 +8,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
@@ -16,6 +17,7 @@ router.get(
   "/risk-dashboard",
   requireAuth,
   requireCompany,
+  requirePermission("viewRiskTab"),
   asyncHandler(async (req, res) => {
     const companyId = req.companyId!;
 

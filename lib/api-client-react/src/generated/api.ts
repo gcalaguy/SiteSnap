@@ -97,6 +97,7 @@ import type {
   ListTimesheetsParams,
   MarkAllNotificationsRead200,
   MarkNotificationRead200,
+  MemberPermissions,
   Notification,
   NotificationUnreadCount,
   PaymentRecord,
@@ -5760,6 +5761,206 @@ export const useUpdateMemberRole = <
   TContext
 > => {
   return useMutation(getUpdateMemberRoleMutationOptions(options));
+};
+
+/**
+ * @summary Get a member's custom permissions
+ */
+export const getGetMemberPermissionsUrl = (
+  companyId: number,
+  userId: number,
+) => {
+  return `/api/companies/${companyId}/members/${userId}/permissions`;
+};
+
+export const getMemberPermissions = async (
+  companyId: number,
+  userId: number,
+  options?: RequestInit,
+): Promise<MemberPermissions> => {
+  return customFetch<MemberPermissions>(
+    getGetMemberPermissionsUrl(companyId, userId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMemberPermissionsQueryKey = (
+  companyId: number,
+  userId: number,
+) => {
+  return [`/api/companies/${companyId}/members/${userId}/permissions`] as const;
+};
+
+export const getGetMemberPermissionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMemberPermissions>>,
+  TError = ErrorType<void>,
+>(
+  companyId: number,
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMemberPermissions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetMemberPermissionsQueryKey(companyId, userId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMemberPermissions>>
+  > = ({ signal }) =>
+    getMemberPermissions(companyId, userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(companyId && userId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMemberPermissions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMemberPermissionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMemberPermissions>>
+>;
+export type GetMemberPermissionsQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a member's custom permissions
+ */
+
+export function useGetMemberPermissions<
+  TData = Awaited<ReturnType<typeof getMemberPermissions>>,
+  TError = ErrorType<void>,
+>(
+  companyId: number,
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMemberPermissions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMemberPermissionsQueryOptions(
+    companyId,
+    userId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a member's custom permissions (owner only)
+ */
+export const getSetMemberPermissionsUrl = (
+  companyId: number,
+  userId: number,
+) => {
+  return `/api/companies/${companyId}/members/${userId}/permissions`;
+};
+
+export const setMemberPermissions = async (
+  companyId: number,
+  userId: number,
+  memberPermissions: MemberPermissions,
+  options?: RequestInit,
+): Promise<MemberPermissions> => {
+  return customFetch<MemberPermissions>(
+    getSetMemberPermissionsUrl(companyId, userId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(memberPermissions),
+    },
+  );
+};
+
+export const getSetMemberPermissionsMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setMemberPermissions>>,
+    TError,
+    { companyId: number; userId: number; data: BodyType<MemberPermissions> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setMemberPermissions>>,
+  TError,
+  { companyId: number; userId: number; data: BodyType<MemberPermissions> },
+  TContext
+> => {
+  const mutationKey = ["setMemberPermissions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setMemberPermissions>>,
+    { companyId: number; userId: number; data: BodyType<MemberPermissions> }
+  > = (props) => {
+    const { companyId, userId, data } = props ?? {};
+
+    return setMemberPermissions(companyId, userId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetMemberPermissionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setMemberPermissions>>
+>;
+export type SetMemberPermissionsMutationBody = BodyType<MemberPermissions>;
+export type SetMemberPermissionsMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a member's custom permissions (owner only)
+ */
+export const useSetMemberPermissions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setMemberPermissions>>,
+    TError,
+    { companyId: number; userId: number; data: BodyType<MemberPermissions> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setMemberPermissions>>,
+  TError,
+  { companyId: number; userId: number; data: BodyType<MemberPermissions> },
+  TContext
+> => {
+  return useMutation(getSetMemberPermissionsMutationOptions(options));
 };
 
 /**

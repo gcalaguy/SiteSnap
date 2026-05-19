@@ -12,6 +12,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
 
 import { z } from "zod";
@@ -21,7 +22,7 @@ router.use(requireFeature("Financials"));
 
 // ── Financial Summary ─────────────────────────────────────────────────────────
 
-router.get("/financials/summary", requireAuth, requireCompany, async (req, res) => {
+router.get("/financials/summary", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
   const companyId = req.companyId!;
 
   const invoices = await db
@@ -82,7 +83,7 @@ router.get("/financials/summary", requireAuth, requireCompany, async (req, res) 
 // ── Payments ──────────────────────────────────────────────────────────────────
 
 // GET /payments — all payments for company
-router.get("/payments", requireAuth, requireCompany, async (req, res) => {
+router.get("/payments", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
   const payments = await db
     .select()
     .from(paymentsTable)
@@ -92,7 +93,7 @@ router.get("/payments", requireAuth, requireCompany, async (req, res) => {
 });
 
 // GET /invoices/:id/payments — payments + balance for one invoice
-router.get("/invoices/:id/payments", requireAuth, requireCompany, async (req, res) => {
+router.get("/invoices/:id/payments", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
   const invoiceId = parseInt(req.params.id as string);
   if (isNaN(invoiceId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -130,7 +131,7 @@ const RecordPaymentBody = z.object({
   notes: z.string().optional().nullable(),
 });
 
-router.post("/invoices/:id/payments", requireAuth, requireCompany, async (req, res) => {
+router.post("/invoices/:id/payments", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
   const invoiceId = parseInt(req.params.id as string);
   if (isNaN(invoiceId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -177,7 +178,7 @@ router.post("/invoices/:id/payments", requireAuth, requireCompany, async (req, r
 });
 
 // DELETE /payments/:id
-router.delete("/payments/:id", requireAuth, requireCompany, async (req, res) => {
+router.delete("/payments/:id", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 

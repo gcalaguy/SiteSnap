@@ -20,6 +20,7 @@ import {
 } from "@workspace/db";
 import { eq, desc, and, asc, ne, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { notify } from "../lib/notify";
 
@@ -512,7 +513,7 @@ function generateTitle(firstMessage: string): string {
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 // GET /conversations
-router.get("/conversations", requireAuth, requireCompany, async (req, res) => {
+router.get("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), async (req, res) => {
   try {
     const convos = await db
       .select()
@@ -532,7 +533,7 @@ router.get("/conversations", requireAuth, requireCompany, async (req, res) => {
 });
 
 // POST /conversations — create conversation + first message
-router.post("/conversations", requireAuth, requireCompany, async (req, res) => {
+router.post("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), async (req, res) => {
   const { message } = req.body as { message?: string };
 
   if (!message || typeof message !== "string" || !message.trim()) {
@@ -584,7 +585,7 @@ router.post("/conversations", requireAuth, requireCompany, async (req, res) => {
 });
 
 // GET /conversations/:conversationId
-router.get("/conversations/:conversationId", requireAuth, requireCompany, async (req, res) => {
+router.get("/conversations/:conversationId", requireAuth, requireCompany, requirePermission("viewClientMessages"), async (req, res) => {
   const id = parseInt(req.params.conversationId as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid conversation ID" });
@@ -621,6 +622,7 @@ router.post(
   "/conversations/:conversationId/messages",
   requireAuth,
   requireCompany,
+  requirePermission("viewClientMessages"),
   async (req, res) => {
     const id = parseInt(req.params.conversationId as string, 10);
     if (isNaN(id)) {
@@ -696,7 +698,7 @@ router.post(
 );
 
 // DELETE /conversations/:conversationId
-router.delete("/conversations/:conversationId", requireAuth, requireCompany, async (req, res) => {
+router.delete("/conversations/:conversationId", requireAuth, requireCompany, requirePermission("viewClientMessages"), async (req, res) => {
   const id = parseInt(req.params.conversationId as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid conversation ID" });

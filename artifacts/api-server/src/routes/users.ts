@@ -97,7 +97,7 @@ router.post("/users/sync", async (req, res) => {
   }
 });
 
-// GET /users/me — get current user with memberships and active company
+// GET /users/me — get current user with memberships, active company, and resolved permissions
 router.get("/users/me", requireAuth, async (req, res) => {
   const [user] = await db
     .select()
@@ -149,6 +149,29 @@ router.get("/users/me", requireAuth, async (req, res) => {
     : memberships[0] ?? null;
   const role = activeMembership?.role ?? "worker";
 
+  // Resolve permissions for the response so the client never has to apply defaults
+  const permKeys = [
+    "viewQuotes","viewTimesheets","viewFinancials","viewDocuments","viewSchedules",
+    "viewClientMessages","viewRiskTab","viewSafetyTab","viewInspectTab",
+    "manageQuotes","submitExpenses","viewAllProjects",
+  ] as const;
+  const resolvedPerms = role === "owner" || role === "foreman"
+    ? undefined
+    : Object.fromEntries(
+        permKeys.map((k) => {
+          const explicit = activeMembership
+            ? (req.userPermissions as any)?.[k]
+            : undefined;
+          const defaults: Record<string,boolean> = {
+            viewQuotes:false, viewTimesheets:true, viewFinancials:false,
+            viewDocuments:true, viewSchedules:true, viewClientMessages:false,
+            viewRiskTab:true, viewSafetyTab:true, viewInspectTab:true,
+            manageQuotes:false, submitExpenses:true, viewAllProjects:false,
+          };
+          return [k, explicit !== undefined ? explicit : defaults[k]];
+        }),
+      );
+
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.set("Pragma", "no-cache");
   res.set("Expires", "0");
@@ -158,6 +181,7 @@ router.get("/users/me", requireAuth, async (req, res) => {
     memberships,
     activeCompanyId,
     role,
+    permissions: resolvedPerms,
   });
 });
 

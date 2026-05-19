@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, projectDocumentsTable, projectsTable, costAnalysesTable, pool } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth.js";
+import { requirePermission } from "../lib/permissionGate.js";
 import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../lib/objectStorage.js";
@@ -160,7 +161,7 @@ const OCR_DPI = 200;
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 // GET /projects/:projectId/documents
-router.get("/", requireAuth, requireCompany, async (req, res) => {
+router.get("/", requireAuth, requireCompany, requirePermission("viewDocuments"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 

@@ -102,6 +102,22 @@ export type User = typeof usersTable.$inferSelect;
 
 // ── User Memberships (multi-tenancy) ──────────────────────────────────────────
 
+export const memberPermissionsSchema = z.object({
+  viewQuotes: z.boolean().optional(),
+  viewTimesheets: z.boolean().optional(),
+  viewFinancials: z.boolean().optional(),
+  viewDocuments: z.boolean().optional(),
+  viewSchedules: z.boolean().optional(),
+  viewClientMessages: z.boolean().optional(),
+  viewRiskTab: z.boolean().optional(),
+  viewSafetyTab: z.boolean().optional(),
+  viewInspectTab: z.boolean().optional(),
+  manageQuotes: z.boolean().optional(),
+  submitExpenses: z.boolean().optional(),
+  viewAllProjects: z.boolean().optional(),
+});
+export type MemberPermissions = z.infer<typeof memberPermissionsSchema>;
+
 export const userMembershipsTable = pgTable(
   "user_memberships",
   {
@@ -113,6 +129,7 @@ export const userMembershipsTable = pgTable(
       .references(() => companiesTable.id, { onDelete: "cascade" }),
     role: userRoleEnum("role").notNull().default("worker"),
     isActive: boolean("is_active").notNull().default(true),
+    permissions: jsonb("permissions").$type<MemberPermissions>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.companyId] })],

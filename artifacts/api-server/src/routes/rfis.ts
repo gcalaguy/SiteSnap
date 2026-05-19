@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, rfisTable, usersTable, projectsTable } from "@workspace/db";
 import { eq, and, count } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
 import { notify } from "../lib/notify";
 
@@ -26,7 +27,7 @@ async function getNextRFINumber(projectId: number): Promise<string> {
 }
 
 // GET /projects/:projectId/rfis
-router.get("/", requireAuth, requireCompany, async (req, res) => {
+router.get("/", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -47,7 +48,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 });
 
 // POST /projects/:projectId/rfis
-router.post("/", requireAuth, requireCompany, async (req, res) => {
+router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -97,7 +98,7 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 });
 
 // GET /projects/:projectId/rfis/:rfiId
-router.get("/:rfiId", requireAuth, requireCompany, async (req, res) => {
+router.get("/:rfiId", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const rfiId = parseInt(req.params.rfiId as string);
 
@@ -119,7 +120,7 @@ router.get("/:rfiId", requireAuth, requireCompany, async (req, res) => {
 });
 
 // PUT /projects/:projectId/rfis/:rfiId
-router.put("/:rfiId", requireAuth, requireCompany, async (req, res) => {
+router.put("/:rfiId", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const rfiId = parseInt(req.params.rfiId as string);
 

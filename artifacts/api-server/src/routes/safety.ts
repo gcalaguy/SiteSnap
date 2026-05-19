@@ -10,6 +10,7 @@ import {
   userMembershipsTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
@@ -19,7 +20,7 @@ const router = Router();
 // ── Templates ─────────────────────────────────────────────────────────────────
 
 // GET /safety/templates
-router.get("/safety/templates", requireAuth, requireCompany, async (req, res) => {
+router.get("/safety/templates", requireAuth, requireCompany, requirePermission("viewSafetyTab"), async (req, res) => {
   const templates = await db
     .select()
     .from(formTemplatesTable)
@@ -31,7 +32,7 @@ router.get("/safety/templates", requireAuth, requireCompany, async (req, res) =>
 // ── Submissions ───────────────────────────────────────────────────────────────
 
 // GET /safety/submissions
-router.get("/safety/submissions", requireAuth, requireCompany, async (req, res) => {
+router.get("/safety/submissions", requireAuth, requireCompany, requirePermission("viewSafetyTab"), async (req, res) => {
   try {
     const { status, workerId } = req.query as Record<string, string>;
 
@@ -95,7 +96,7 @@ router.get("/safety/submissions", requireAuth, requireCompany, async (req, res) 
 });
 
 // GET /safety/submissions/:id
-router.get("/safety/submissions/:id", requireAuth, requireCompany, async (req, res) => {
+router.get("/safety/submissions/:id", requireAuth, requireCompany, requirePermission("viewSafetyTab"), async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
 

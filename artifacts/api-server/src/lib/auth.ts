@@ -1,5 +1,6 @@
 import { getAuth } from "@clerk/express";
 import { db, usersTable, userMembershipsTable } from "@workspace/db";
+import type { MemberPermissions } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
 
@@ -11,6 +12,7 @@ declare global {
       userRole?: "owner" | "foreman" | "worker";
       systemRole?: string | null;
       memberships?: Array<{ companyId: number; role: "owner" | "foreman" | "worker" }>;
+      userPermissions?: MemberPermissions | null;
     }
   }
 }
@@ -39,7 +41,7 @@ export const requireAuth = async (
     return;
   }
 
-  // Load memberships from the new multi-tenancy table
+  // Load memberships from the new multi-tenancy table (including permissions)
   const memberships = await db
     .select()
     .from(userMembershipsTable)
@@ -75,6 +77,12 @@ export const requireAuth = async (
     return;
   }
 
+  // Attach permissions from the active membership row (zero extra query)
+  const activeMembershipRow = memberships.find(
+    (m) => m.companyId === req.companyId,
+  );
+  req.userPermissions = activeMembershipRow?.permissions ?? null;
+
   // Phase 3: Validate x-tenant-id header if present.
   // Clients send this header to explicitly declare which company context
   // they intend to operate in. We verify the user actually belongs to it.
@@ -92,9 +100,11 @@ export const requireAuth = async (
       // propagated yet, or they explicitly want this context).
       if (tenantId !== req.companyId) {
         const headerMembership = memList.find((m) => m.companyId === tenantId);
+        const headerRow = memberships.find((m) => m.companyId === tenantId);
         if (headerMembership) {
           req.companyId = headerMembership.companyId;
           req.userRole = headerMembership.role;
+          req.userPermissions = headerRow?.permissions ?? null;
         }
       }
     }

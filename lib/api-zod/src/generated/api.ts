@@ -1257,6 +1257,23 @@ export const GetMeResponse = zod
         .enum(["owner", "foreman", "worker"])
         .optional()
         .describe("Computed from the active (or first available) membership"),
+      permissions: zod
+        .object({
+          viewQuotes: zod.boolean().optional(),
+          viewTimesheets: zod.boolean().optional(),
+          viewFinancials: zod.boolean().optional(),
+          viewDocuments: zod.boolean().optional(),
+          viewSchedules: zod.boolean().optional(),
+          viewClientMessages: zod.boolean().optional(),
+          viewRiskTab: zod.boolean().optional(),
+          viewSafetyTab: zod.boolean().optional(),
+          viewInspectTab: zod.boolean().optional(),
+          manageQuotes: zod.boolean().optional(),
+          submitExpenses: zod.boolean().optional(),
+          viewAllProjects: zod.boolean().optional(),
+        })
+        .optional()
+        .describe("Resolved role-based permissions for the active company"),
     }),
   );
 
@@ -1322,6 +1339,23 @@ export const SetActiveCompanyResponse = zod
         .enum(["owner", "foreman", "worker"])
         .optional()
         .describe("Computed from the active (or first available) membership"),
+      permissions: zod
+        .object({
+          viewQuotes: zod.boolean().optional(),
+          viewTimesheets: zod.boolean().optional(),
+          viewFinancials: zod.boolean().optional(),
+          viewDocuments: zod.boolean().optional(),
+          viewSchedules: zod.boolean().optional(),
+          viewClientMessages: zod.boolean().optional(),
+          viewRiskTab: zod.boolean().optional(),
+          viewSafetyTab: zod.boolean().optional(),
+          viewInspectTab: zod.boolean().optional(),
+          manageQuotes: zod.boolean().optional(),
+          submitExpenses: zod.boolean().optional(),
+          viewAllProjects: zod.boolean().optional(),
+        })
+        .optional()
+        .describe("Resolved role-based permissions for the active company"),
     }),
   );
 
@@ -1383,6 +1417,23 @@ export const AcceptTermsResponse = zod
         .enum(["owner", "foreman", "worker"])
         .optional()
         .describe("Computed from the active (or first available) membership"),
+      permissions: zod
+        .object({
+          viewQuotes: zod.boolean().optional(),
+          viewTimesheets: zod.boolean().optional(),
+          viewFinancials: zod.boolean().optional(),
+          viewDocuments: zod.boolean().optional(),
+          viewSchedules: zod.boolean().optional(),
+          viewClientMessages: zod.boolean().optional(),
+          viewRiskTab: zod.boolean().optional(),
+          viewSafetyTab: zod.boolean().optional(),
+          viewInspectTab: zod.boolean().optional(),
+          manageQuotes: zod.boolean().optional(),
+          submitExpenses: zod.boolean().optional(),
+          viewAllProjects: zod.boolean().optional(),
+        })
+        .optional()
+        .describe("Resolved role-based permissions for the active company"),
     }),
   );
 
@@ -1508,6 +1559,23 @@ export const ListCompanyMembersResponseItem = zod
         .enum(["owner", "foreman", "worker"])
         .optional()
         .describe("Computed from the active (or first available) membership"),
+      permissions: zod
+        .object({
+          viewQuotes: zod.boolean().optional(),
+          viewTimesheets: zod.boolean().optional(),
+          viewFinancials: zod.boolean().optional(),
+          viewDocuments: zod.boolean().optional(),
+          viewSchedules: zod.boolean().optional(),
+          viewClientMessages: zod.boolean().optional(),
+          viewRiskTab: zod.boolean().optional(),
+          viewSafetyTab: zod.boolean().optional(),
+          viewInspectTab: zod.boolean().optional(),
+          manageQuotes: zod.boolean().optional(),
+          submitExpenses: zod.boolean().optional(),
+          viewAllProjects: zod.boolean().optional(),
+        })
+        .optional()
+        .describe("Resolved role-based permissions for the active company"),
     }),
   );
 export const ListCompanyMembersResponse = zod.array(
@@ -1589,8 +1657,86 @@ export const UpdateMemberRoleResponse = zod
         .enum(["owner", "foreman", "worker"])
         .optional()
         .describe("Computed from the active (or first available) membership"),
+      permissions: zod
+        .object({
+          viewQuotes: zod.boolean().optional(),
+          viewTimesheets: zod.boolean().optional(),
+          viewFinancials: zod.boolean().optional(),
+          viewDocuments: zod.boolean().optional(),
+          viewSchedules: zod.boolean().optional(),
+          viewClientMessages: zod.boolean().optional(),
+          viewRiskTab: zod.boolean().optional(),
+          viewSafetyTab: zod.boolean().optional(),
+          viewInspectTab: zod.boolean().optional(),
+          manageQuotes: zod.boolean().optional(),
+          submitExpenses: zod.boolean().optional(),
+          viewAllProjects: zod.boolean().optional(),
+        })
+        .optional()
+        .describe("Resolved role-based permissions for the active company"),
     }),
   );
+
+/**
+ * @summary Get a member's custom permissions
+ */
+export const GetMemberPermissionsParams = zod.object({
+  companyId: zod.coerce.number(),
+  userId: zod.coerce.number(),
+});
+
+export const GetMemberPermissionsResponse = zod.object({
+  viewQuotes: zod.boolean().optional(),
+  viewTimesheets: zod.boolean().optional(),
+  viewFinancials: zod.boolean().optional(),
+  viewDocuments: zod.boolean().optional(),
+  viewSchedules: zod.boolean().optional(),
+  viewClientMessages: zod.boolean().optional(),
+  viewRiskTab: zod.boolean().optional(),
+  viewSafetyTab: zod.boolean().optional(),
+  viewInspectTab: zod.boolean().optional(),
+  manageQuotes: zod.boolean().optional(),
+  submitExpenses: zod.boolean().optional(),
+  viewAllProjects: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a member's custom permissions (owner only)
+ */
+export const SetMemberPermissionsParams = zod.object({
+  companyId: zod.coerce.number(),
+  userId: zod.coerce.number(),
+});
+
+export const SetMemberPermissionsBody = zod.object({
+  viewQuotes: zod.boolean().optional(),
+  viewTimesheets: zod.boolean().optional(),
+  viewFinancials: zod.boolean().optional(),
+  viewDocuments: zod.boolean().optional(),
+  viewSchedules: zod.boolean().optional(),
+  viewClientMessages: zod.boolean().optional(),
+  viewRiskTab: zod.boolean().optional(),
+  viewSafetyTab: zod.boolean().optional(),
+  viewInspectTab: zod.boolean().optional(),
+  manageQuotes: zod.boolean().optional(),
+  submitExpenses: zod.boolean().optional(),
+  viewAllProjects: zod.boolean().optional(),
+});
+
+export const SetMemberPermissionsResponse = zod.object({
+  viewQuotes: zod.boolean().optional(),
+  viewTimesheets: zod.boolean().optional(),
+  viewFinancials: zod.boolean().optional(),
+  viewDocuments: zod.boolean().optional(),
+  viewSchedules: zod.boolean().optional(),
+  viewClientMessages: zod.boolean().optional(),
+  viewRiskTab: zod.boolean().optional(),
+  viewSafetyTab: zod.boolean().optional(),
+  viewInspectTab: zod.boolean().optional(),
+  manageQuotes: zod.boolean().optional(),
+  submitExpenses: zod.boolean().optional(),
+  viewAllProjects: zod.boolean().optional(),
+});
 
 /**
  * @summary Invite a team member via email
@@ -1782,6 +1928,23 @@ export const AcceptInvitationResponse = zod
         .enum(["owner", "foreman", "worker"])
         .optional()
         .describe("Computed from the active (or first available) membership"),
+      permissions: zod
+        .object({
+          viewQuotes: zod.boolean().optional(),
+          viewTimesheets: zod.boolean().optional(),
+          viewFinancials: zod.boolean().optional(),
+          viewDocuments: zod.boolean().optional(),
+          viewSchedules: zod.boolean().optional(),
+          viewClientMessages: zod.boolean().optional(),
+          viewRiskTab: zod.boolean().optional(),
+          viewSafetyTab: zod.boolean().optional(),
+          viewInspectTab: zod.boolean().optional(),
+          manageQuotes: zod.boolean().optional(),
+          submitExpenses: zod.boolean().optional(),
+          viewAllProjects: zod.boolean().optional(),
+        })
+        .optional()
+        .describe("Resolved role-based permissions for the active company"),
     }),
   );
 

@@ -1,4 +1,5 @@
-import { useGetMe, customFetch } from "@workspace/api-client-react";
+import { useGetMe, customFetch, useListCompanyMembers, useGetMemberPermissions, useSetMemberPermissions, getListCompanyMembersQueryKey, getGetMemberPermissionsQueryKey } from "@workspace/api-client-react";
+import type { MemberPermissions, UserWithCompany } from "@workspace/api-client-react";
 import { PricingSettingsBody } from "@/pages/pricing-manager";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -7,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -833,6 +836,200 @@ function PricingManagerCard() {
   );
 }
 
+// ── Member Permissions Card ────────────────────────────────────────────────────
+
+function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; ownerId: number }) {
+  const [collapsed, setCollapsed] = useState(true);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: members = [] } = useListCompanyMembers(companyId, {
+    query: { queryKey: getListCompanyMembersQueryKey(companyId), enabled: !collapsed },
+  });
+
+  const editableMembers = members.filter(
+    (m: UserWithCompany) =>
+      m.id !== ownerId && (m.role === "worker" || m.role === "foreman")
+  );
+
+  const { data: rawPerms, isLoading: permsLoading } = useGetMemberPermissions(
+    companyId,
+    selectedUserId ?? 0,
+    {
+      query: {
+        queryKey: getGetMemberPermissionsQueryKey(companyId, selectedUserId ?? 0),
+        enabled: !!selectedUserId && !collapsed,
+      },
+    }
+  );
+
+  const setPerms = useSetMemberPermissions({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Permissions saved", description: "Changes are active immediately." });
+        queryClient.invalidateQueries({ queryKey: ["memberPermissions", companyId, selectedUserId] });
+        queryClient.invalidateQueries({ queryKey: ["getMemberPermissions"] });
+      },
+      onError: () => {
+        toast({ title: "Error", description: "Failed to save permissions.", variant: "destructive" });
+      },
+    },
+  });
+
+  const defaultPermissions: MemberPermissions = {
+    viewQuotes: false,
+    viewTimesheets: true,
+    viewFinancials: false,
+    viewDocuments: true,
+    viewSchedules: true,
+    viewClientMessages: true,
+    viewRiskTab: true,
+    viewSafetyTab: true,
+    viewInspectTab: true,
+    manageQuotes: false,
+    submitExpenses: true,
+    viewAllProjects: false,
+  };
+
+  const resolved = (rawPerms ?? defaultPermissions) as MemberPermissions;
+
+  function toggle(key: keyof MemberPermissions) {
+    if (!selectedUserId) return;
+    const next: MemberPermissions = { ...resolved, [key]: !resolved[key] };
+    setPerms.mutate({ companyId, userId: selectedUserId, data: next });
+  }
+
+  function resetToDefaults() {
+    if (!selectedUserId) return;
+    setPerms.mutate({ companyId, userId: selectedUserId, data: defaultPermissions });
+  }
+
+  return (
+    <Card>
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-accent/30 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-md bg-amber-100">
+            <ShieldCheck className="h-5 w-5 text-amber-700" />
+          </div>
+          <div>
+            <CardTitle className="text-sm font-semibold">Member Permissions</CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Choose which tabs and features workers can access.
+            </CardDescription>
+          </div>
+        </div>
+        {collapsed ? (
+          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        )}
+      </button>
+      {!collapsed && (
+        <CardContent className="pt-0 pb-5">
+          <Separator className="mb-4" />
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Member list */}
+            <div className="sm:w-56 shrink-0 space-y-1">
+              {editableMembers.length === 0 && (
+                <p className="text-sm text-muted-foreground">No workers or foremen to manage.</p>
+              )}
+              {editableMembers.map((m: UserWithCompany) => (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedUserId(m.id)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                    selectedUserId === m.id
+                      ? "bg-amber-100 text-amber-900"
+                      : "hover:bg-accent/50 text-foreground"
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>{m.firstName} {m.lastName}</span>
+                    <Badge variant="outline" className="text-[10px] uppercase">
+                      {m.role}
+                    </Badge>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Permission toggles */}
+            <div className="flex-1 space-y-4">
+              {!selectedUserId && (
+                <p className="text-sm text-muted-foreground">Select a team member to edit their permissions.</p>
+              )}
+              {selectedUserId && permsLoading && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading permissions…
+                </div>
+              )}
+              {selectedUserId && !permsLoading && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">
+                      {editableMembers.find((m) => m.id === selectedUserId)?.firstName}{" "}
+                      {editableMembers.find((m) => m.id === selectedUserId)?.lastName}
+                    </h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs h-8"
+                      onClick={resetToDefaults}
+                      disabled={setPerms.isPending}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Reset to Defaults
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {PERMISSION_FIELDS.map(({ key, label, desc }) => (
+                      <label
+                        key={key}
+                        className="flex items-start gap-3 rounded-lg border p-3 hover:bg-accent/30 transition-colors cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={!!resolved[key]}
+                          onCheckedChange={() => toggle(key)}
+                          disabled={setPerms.isPending}
+                        />
+                        <div className="space-y-0.5 leading-none">
+                          <span className="text-sm font-medium">{label}</span>
+                          <p className="text-xs text-muted-foreground">{desc}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+const PERMISSION_FIELDS: { key: keyof MemberPermissions; label: string; desc: string }[] = [
+  { key: "viewQuotes", label: "View Quotes", desc: "Quotes tab inside projects." },
+  { key: "manageQuotes", label: "Manage Quotes", desc: "Create and edit quotes." },
+  { key: "viewTimesheets", label: "View Timesheets", desc: "Timesheets and Hours tabs." },
+  { key: "viewFinancials", label: "View Financials", desc: "Invoices and cost tracking." },
+  { key: "submitExpenses", label: "Submit Expenses", desc: "Add expenses to daily reports." },
+  { key: "viewDocuments", label: "View Documents", desc: "Documents and uploads tab." },
+  { key: "viewSchedules", label: "View Schedules", desc: "Project schedule tab." },
+  { key: "viewClientMessages", label: "View Messages", desc: "Client messages tab." },
+  { key: "viewRiskTab", label: "Risk Tab", desc: "Top-level Risk tab (mobile)." },
+  { key: "viewSafetyTab", label: "Safety Tab", desc: "Top-level Safety tab (mobile)." },
+  { key: "viewInspectTab", label: "Inspect Tab", desc: "Top-level Inspection tab (mobile)." },
+  { key: "viewAllProjects", label: "All Projects", desc: "See every project, not just assigned ones (mobile)." },
+];
+
 // ── Settings Page ──────────────────────────────────────────────────────────────
 
 export default function Settings() {
@@ -911,6 +1108,7 @@ export default function Settings() {
       </Card>
 
       <TeamSeatsCard />
+      {user?.role === "owner" && <MemberPermissionsCard companyId={company.id} ownerId={user.id} />}
       <CompanyLogoCard company={company} />
       <DocumentTemplatesCard company={company} />
       {user?.role === "owner" && <PricingManagerCard />}

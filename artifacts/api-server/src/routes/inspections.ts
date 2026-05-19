@@ -11,6 +11,7 @@ import {
   companiesTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
 import { notify } from "../lib/notify";
 import { sendEmail } from "../lib/mailer";
@@ -164,6 +165,7 @@ router.get(
   "/inspections",
   requireAuth,
   requireCompany,
+  requirePermission("viewInspectTab"),
   requireFeature("INSPECTIONS"),
   asyncHandler(async (req, res) => {
     const myMembership = await db

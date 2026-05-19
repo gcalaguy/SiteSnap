@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, timesheetsTable, timeEntriesTable, usersTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { getClientInfo } from "../lib/clientInfo";
@@ -55,7 +56,7 @@ async function withSubmitter(timesheet: Record<string, unknown>, userId: number)
 }
 
 // GET /timesheets — list (owner/foreman: all; worker: own)
-router.get("/timesheets", requireAuth, requireCompany, async (req, res) => {
+router.get("/timesheets", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
   const { status, userId, from, to } = req.query;
 
@@ -143,7 +144,7 @@ router.post("/timesheets", requireAuth, requireCompany, async (req, res) => {
 });
 
 // GET /timesheets/:timesheetId
-router.get("/timesheets/:timesheetId", requireAuth, requireCompany, async (req, res) => {
+router.get("/timesheets/:timesheetId", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
   const id = parseInt(req.params.timesheetId as string);
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 

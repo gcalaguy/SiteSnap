@@ -14,6 +14,7 @@ import {
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { CreateProjectBody, UpdateProjectBody } from "@workspace/api-zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import {
@@ -32,7 +33,7 @@ router.get(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    if (req.userRole === "worker") {
+    if (req.userRole === "worker" && !req.userPermissions?.viewAllProjects) {
       const userId = req.userId!;
       const companyId = req.companyId!;
 

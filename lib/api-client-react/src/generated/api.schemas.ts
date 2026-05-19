@@ -117,6 +117,21 @@ export interface UserMembership {
   companyName?: string | null;
 }
 
+export interface MemberPermissions {
+  viewQuotes?: boolean;
+  viewTimesheets?: boolean;
+  viewFinancials?: boolean;
+  viewDocuments?: boolean;
+  viewSchedules?: boolean;
+  viewClientMessages?: boolean;
+  viewRiskTab?: boolean;
+  viewSafetyTab?: boolean;
+  viewInspectTab?: boolean;
+  manageQuotes?: boolean;
+  submitExpenses?: boolean;
+  viewAllProjects?: boolean;
+}
+
 export type CompanyEstimatorConfigProjectTypeLabels = { [key: string]: string };
 
 /**
@@ -146,6 +161,8 @@ export type UserWithCompany = User & {
   activeCompanyId?: number | null;
   /** Computed from the active (or first available) membership */
   role?: UserRole;
+  /** Resolved role-based permissions for the active company */
+  permissions?: MemberPermissions;
 };
 
 export interface SyncUserBody {

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db, invoicesTable, quotesTable, companiesTable } from "@workspace/db";
 import { eq, and, desc, count, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { UpdateInvoiceBody } from "@workspace/api-zod";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
 import { sendReminderForInvoice } from "../lib/invoiceReminders.js";
@@ -25,7 +26,7 @@ function workerVisibilityInvoices(userId: number) {
 }
 
 // POST /invoices — create a standalone invoice directly
-router.post("/invoices", requireAuth, requireCompany, async (req, res) => {
+router.post("/invoices", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
   const { title, clientName, clientEmail, lineItems = [], notes, dueDate } = req.body ?? {};
   if (!title || !clientName) { res.status(400).json({ error: "title and clientName are required" }); return; }
 
@@ -59,7 +60,7 @@ router.post("/invoices", requireAuth, requireCompany, async (req, res) => {
 });
 
 // GET /quotes — list all company quotes (flat, with optional status filter)
-router.get("/quotes", requireAuth, requireCompany, async (req, res) => {
+router.get("/quotes", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
   const { status } = req.query;
   const isWorker = req.userRole === "worker";
 
@@ -81,7 +82,7 @@ router.get("/quotes", requireAuth, requireCompany, async (req, res) => {
 });
 
 // GET /invoices — list all invoices for company
-router.get("/invoices", requireAuth, requireCompany, async (req, res) => {
+router.get("/invoices", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
   const { status } = req.query;
   const isWorker = req.userRole === "worker";
 
@@ -103,7 +104,7 @@ router.get("/invoices", requireAuth, requireCompany, async (req, res) => {
 });
 
 // GET /invoices/:invoiceId
-router.get("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res) => {
+router.get("/invoices/:invoiceId", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
   const isWorker = req.userRole === "worker";
 
@@ -122,7 +123,7 @@ router.get("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res)
 });
 
 // PUT /invoices/:invoiceId
-router.put("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res) => {
+router.put("/invoices/:invoiceId", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
   const isWorker = req.userRole === "worker";
 

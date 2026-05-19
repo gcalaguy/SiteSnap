@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, dailyReportPhotosTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";
 
 const router = Router({ mergeParams: true });
@@ -12,7 +13,7 @@ const AddPhotoBody = z.object({
 });
 
 // GET /projects/:projectId/daily-reports/:reportId/photos
-router.get("/", requireAuth, requireCompany, async (req, res) => {
+router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
   const reportId = parseInt(req.params.reportId as string);
   if (isNaN(reportId)) {
     res.status(400).json({ error: "Invalid reportId" });
@@ -29,7 +30,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 });
 
 // POST /projects/:projectId/daily-reports/:reportId/photos
-router.post("/", requireAuth, requireCompany, async (req, res) => {
+router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
   const reportId = parseInt(req.params.reportId as string);
   if (isNaN(reportId)) {
     res.status(400).json({ error: "Invalid reportId" });
@@ -55,7 +56,7 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 });
 
 // DELETE /projects/:projectId/daily-reports/:reportId/photos/:photoId
-router.delete("/:photoId", requireAuth, requireCompany, async (req, res) => {
+router.delete("/:photoId", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
   const reportId = parseInt(req.params.reportId as string);
   const photoId = parseInt(req.params.photoId as string);
   if (isNaN(reportId) || isNaN(photoId)) {

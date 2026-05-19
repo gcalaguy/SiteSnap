@@ -43,6 +43,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 
 function photoUrl(objectPath: string): string {
@@ -1126,8 +1127,30 @@ export default function ProjectDetailScreen() {
 
   const { data: me } = useGetMe();
   const isWorker = me?.role === "worker";
+  const perms = usePermissions();
 
-  const visibleTabs = TABS.filter(t => isWorker ? (t !== "RFIs" && t !== "Quotes") : true);
+  const TAB_PERMISSION_MAP: Partial<Record<Tab, keyof typeof perms>> = {
+    Quotes: "viewQuotes",
+    Timesheets: "viewTimesheets",
+    Documents: "viewDocuments",
+    Schedules: "viewSchedules",
+    Messages: "viewClientMessages",
+  };
+
+  const visibleTabs = TABS.filter((tab) => {
+    const key = TAB_PERMISSION_MAP[tab];
+    if (key) return perms[key];
+    // Workers never see RFIs (existing behaviour)
+    if (isWorker && tab === "RFIs") return false;
+    return true;
+  });
+
+  // If the currently selected tab gets hidden by permissions, default back to Overview
+  useEffect(() => {
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab("Overview");
+    }
+  }, [visibleTabs, activeTab]);
 
   const { data: project, isLoading } = useGetProject(projectId);
   const { data: summary } = useGetProjectSummary(projectId);

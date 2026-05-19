@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, dailyReportsTable, usersTable, projectsTable, dailyReportPhotosTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { CreateDailyReportBody, UpdateDailyReportBody } from "@workspace/api-zod";
 
 const router = Router({ mergeParams: true });
@@ -17,7 +18,7 @@ async function verifyProjectAccess(projectId: number, companyId: number) {
 }
 
 // GET /projects/:projectId/daily-reports
-router.get("/", requireAuth, requireCompany, async (req, res) => {
+router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -58,7 +59,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 });
 
 // POST /projects/:projectId/daily-reports
-router.post("/", requireAuth, requireCompany, async (req, res) => {
+router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -90,7 +91,7 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 });
 
 // GET /projects/:projectId/daily-reports/:reportId
-router.get("/:reportId", requireAuth, requireCompany, async (req, res) => {
+router.get("/:reportId", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
 
@@ -112,7 +113,7 @@ router.get("/:reportId", requireAuth, requireCompany, async (req, res) => {
 });
 
 // PUT /projects/:projectId/daily-reports/:reportId
-router.put("/:reportId", requireAuth, requireCompany, async (req, res) => {
+router.put("/:reportId", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
 

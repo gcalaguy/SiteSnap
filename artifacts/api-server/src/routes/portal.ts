@@ -14,6 +14,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth.js";
+import { requirePermission } from "../lib/permissionGate.js";
 import { ObjectStorageService } from "../lib/objectStorage.js";
 import { z } from "zod";
 import crypto from "crypto";
@@ -47,6 +48,7 @@ router.post(
   "/projects/:projectId/portal/token",
   requireAuth,
   requireCompany,
+  requirePermission("viewClientMessages"),
   async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
@@ -73,6 +75,7 @@ router.delete(
   "/projects/:projectId/portal/token",
   requireAuth,
   requireCompany,
+  requirePermission("viewClientMessages"),
   async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
@@ -96,6 +99,7 @@ router.get(
   "/projects/:projectId/portal/uploads",
   requireAuth,
   requireCompany,
+  requirePermission("viewClientMessages"),
   async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
@@ -119,6 +123,7 @@ router.get(
   "/projects/:projectId/portal/messages",
   requireAuth,
   requireCompany,
+  requirePermission("viewClientMessages"),
   async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
@@ -156,6 +161,7 @@ router.post(
   "/projects/:projectId/portal/messages",
   requireAuth,
   requireCompany,
+  requirePermission("viewClientMessages"),
   async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }

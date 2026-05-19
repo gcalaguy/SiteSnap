@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import { eq, and, count, desc, inArray, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { CreateQuoteBody, UpdateQuoteBody, RejectQuoteBody, ConvertQuoteToInvoiceBody } from "@workspace/api-zod";
 import { Resend } from "resend";
 
@@ -117,7 +118,7 @@ function workerVisibility(userId: number) {
 }
 
 // GET / — list quotes for a project
-router.get("/", requireAuth, requireCompany, async (req, res) => {
+router.get("/", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -135,7 +136,7 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 });
 
 // POST / — create quote
-router.post("/", requireAuth, requireCompany, async (req, res) => {
+router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
 
   if (projectId > 0) {
@@ -178,7 +179,7 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
 });
 
 // GET /:quoteId
-router.get("/:quoteId", requireAuth, requireCompany, async (req, res) => {
+router.get("/:quoteId", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const quoteId = parseInt(req.params.quoteId as string);
   const isWorker = req.userRole === "worker";
@@ -195,7 +196,7 @@ router.get("/:quoteId", requireAuth, requireCompany, async (req, res) => {
 });
 
 // PUT /:quoteId
-router.put("/:quoteId", requireAuth, requireCompany, async (req, res) => {
+router.put("/:quoteId", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const quoteId = parseInt(req.params.quoteId as string);
   const isWorker = req.userRole === "worker";
@@ -244,7 +245,7 @@ router.put("/:quoteId", requireAuth, requireCompany, async (req, res) => {
 });
 
 // DELETE /:quoteId
-router.delete("/:quoteId", requireAuth, requireCompany, async (req, res) => {
+router.delete("/:quoteId", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const quoteId = parseInt(req.params.quoteId as string);
   const isWorker = req.userRole === "worker";
@@ -341,7 +342,7 @@ router.post("/:quoteId/reject", requireAuth, requireCompany, async (req, res) =>
 });
 
 // PATCH /:quoteId/assign — owners/foremen assign a quote to a worker
-router.patch("/:quoteId/assign", requireAuth, requireCompany, async (req, res) => {
+router.patch("/:quoteId/assign", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
   if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
 
   const quoteId = parseInt(req.params.quoteId as string);

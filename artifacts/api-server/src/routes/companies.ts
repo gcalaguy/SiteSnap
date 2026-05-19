@@ -415,6 +415,108 @@ router.patch(
   },
 );
 
+// GET /companies/:companyId/members/:userId/permissions — get member's custom permissions
+router.get(
+  "/companies/:companyId/members/:userId/permissions",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  async (req, res) => {
+    const companyId = parseInt(req.params.companyId as string);
+    const targetUserId = parseInt(req.params.userId as string);
+
+    if (companyId !== req.companyId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    // Owners cannot edit their own permissions
+    if (targetUserId === req.userId) {
+      res.status(400).json({ error: "Cannot modify your own permissions" });
+      return;
+    }
+
+    const [membership] = await db
+      .select({ permissions: userMembershipsTable.permissions, role: userMembershipsTable.role })
+      .from(userMembershipsTable)
+      .where(
+        and(
+          eq(userMembershipsTable.userId, targetUserId),
+          eq(userMembershipsTable.companyId, companyId),
+        ),
+      )
+      .limit(1);
+
+    if (!membership) {
+      res.status(404).json({ error: "Member not found" });
+      return;
+    }
+
+    res.json(membership.permissions ?? {});
+  },
+);
+
+// PUT /companies/:companyId/members/:userId/permissions — update member's custom permissions
+router.put(
+  "/companies/:companyId/members/:userId/permissions",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  async (req, res) => {
+    const companyId = parseInt(req.params.companyId as string);
+    const targetUserId = parseInt(req.params.userId as string);
+
+    if (companyId !== req.companyId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    // Owners cannot edit their own permissions
+    if (targetUserId === req.userId) {
+      res.status(400).json({ error: "Cannot modify your own permissions" });
+      return;
+    }
+
+    // Verify target user is a member of this company
+    const [membership] = await db
+      .select({ role: userMembershipsTable.role })
+      .from(userMembershipsTable)
+      .where(
+        and(
+          eq(userMembershipsTable.userId, targetUserId),
+          eq(userMembershipsTable.companyId, companyId),
+        ),
+      )
+      .limit(1);
+
+    if (!membership) {
+      res.status(404).json({ error: "Member not found" });
+      return;
+    }
+
+    // Accept any subset of MemberPermissions keys; merge into existing JSONB
+    const { memberPermissionsSchema } = await import("@workspace/db");
+    const parsed = memberPermissionsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid permissions body", details: parsed.error });
+      return;
+    }
+
+    const [updated] = await db
+      .update(userMembershipsTable)
+      .set({ permissions: parsed.data })
+      .where(
+        and(
+          eq(userMembershipsTable.userId, targetUserId),
+          eq(userMembershipsTable.companyId, companyId),
+        ),
+      )
+      .returning();
+
+    res.json(updated?.permissions ?? {});
+  },
+);
+
 // GET /companies/:companyId/features
 // Returns the effective feature keys for a tenant (custom package or plan-based)
 router.get(
