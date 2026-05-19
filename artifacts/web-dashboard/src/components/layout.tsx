@@ -342,7 +342,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </span>
                   )}
                 </div>
-                <span className="flex-1 text-sm" style={{ color: unreadCount > 0 ? GOLD : "#666" }}>Notifications</span>
+                <span className="flex-1 text-sm text-[#d4af37]" style={{ color: unreadCount > 0 ? GOLD : "#666" }}>Notifications</span>
                 {unreadCount > 0 && (
                   <span
                     className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"

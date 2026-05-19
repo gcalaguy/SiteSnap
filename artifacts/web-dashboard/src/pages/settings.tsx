@@ -744,20 +744,18 @@ function DocumentTemplatesCard({ company }: { company: any }) {
             </button>
           )}
         </div>
-
         {currentUrl ? (
           <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
             <img src={currentUrl} alt={`${label} preview`} className="w-full max-h-28 object-cover object-top" />
           </div>
         ) : (
-          <div className="rounded-lg border-2 border-dashed border-border bg-muted/20 p-5 flex items-center justify-center h-20">
+          <div className="rounded-lg border-2 border-dashed border-border bg-muted/20 p-5 flex items-center justify-center h-20 border-t-[1px] border-r-[1px] border-b-[1px] border-l-[1px]">
             <div className="text-center">
               <FileText className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">No template uploaded</p>
             </div>
           </div>
         )}
-
         <input
           ref={inputRef}
           type="file"
@@ -880,6 +878,9 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
         }
         toast({ title: "Error", description: "Failed to save permissions.", variant: "destructive" });
       },
+      onSuccess: () => {
+        toast({ title: "Permissions saved", description: "Changes take effect on next app refresh." });
+      },
       onSettled: (_data, _err, _vars, context) => {
         if (context?.queryKey) {
           queryClient.invalidateQueries({ queryKey: context.queryKey });
@@ -894,7 +895,7 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
     viewFinancials: false,
     viewDocuments: true,
     viewSchedules: true,
-    viewClientMessages: true,
+    viewClientMessages: false,
     viewRiskTab: true,
     viewSafetyTab: true,
     viewInspectTab: true,
@@ -903,7 +904,8 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
     viewAllProjects: false,
   };
 
-  const resolved = (rawPerms ?? defaultPermissions) as MemberPermissions;
+  const hasCustomPerms = rawPerms != null && Object.keys(rawPerms).length > 0;
+  const resolved = (hasCustomPerms ? rawPerms : defaultPermissions) as MemberPermissions;
 
   function toggle(key: keyof MemberPermissions) {
     if (!selectedUserId) return;
@@ -920,7 +922,7 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
     <Card>
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="w-full flex items-center justify-between px-6 py-4 hover:bg-accent/30 transition-colors text-left"
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-accent/30 transition-colors text-left border-t-[1px] border-r-[1px] border-b-[1px] border-l-[1px]"
       >
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-md bg-amber-100">

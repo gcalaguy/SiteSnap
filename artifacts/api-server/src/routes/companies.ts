@@ -452,7 +452,7 @@ router.get(
       return;
     }
 
-    res.json(membership.permissions ?? {});
+    res.json(membership.permissions ?? null);
   },
 );
 
