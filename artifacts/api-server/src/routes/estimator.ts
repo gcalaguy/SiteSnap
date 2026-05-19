@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import { eq, and, desc, count, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, count, inArray, sql, isNull } from "drizzle-orm";
 import { z } from "zod";
 import {
   db,
@@ -42,7 +42,7 @@ router.use(requireFeature("Smart_Estimator"));
 
 // ── Seed pricing data (runs once, idempotent) ─────────────────────────────────
 
-const COST_MODEL_SEED: Omit<EstimatorCostModel, "id" | "createdAt" | "updatedAt">[] = [
+const COST_MODEL_SEED: Omit<EstimatorCostModel, "id" | "createdAt" | "updatedAt" | "companyId">[] = [
   // Residential New Build
   { projectType: "residential_new_build", finishLevel: "basic",    name: "Residential New Build — Basic",    baseCostPerSqft: "185", laborCostPerSqft: "75",  materialCostPerSqft: "85",  overheadPct: "10", contingencyPct: "10", notes: "Builder-grade finishes, standard fixtures, vinyl flooring" },
   { projectType: "residential_new_build", finishLevel: "standard", name: "Residential New Build — Standard", baseCostPerSqft: "225", laborCostPerSqft: "90",  materialCostPerSqft: "110", overheadPct: "10", contingencyPct: "10", notes: "Mid-range finishes, laminate/hardwood mix, quality fixtures" },
@@ -105,7 +105,7 @@ const COST_MODEL_SEED: Omit<EstimatorCostModel, "id" | "createdAt" | "updatedAt"
   { projectType: "landscaping", finishLevel: "luxury",   name: "Landscaping — Luxury",   baseCostPerSqft: "85", laborCostPerSqft: "38", materialCostPerSqft: "42", overheadPct: "10", contingencyPct: "12", notes: "Custom stone, water feature, pergola, outdoor kitchen, landscape lighting" },
 ];
 
-const ADDON_SEED: Omit<EstimatorAddon, "id" | "createdAt">[] = [
+const ADDON_SEED: Omit<EstimatorAddon, "id" | "createdAt" | "companyId">[] = [
   { name: "HVAC System",               addonKey: "hvac_system",              description: "Full heating/cooling system supply & install",        costType: "flat",     amount: "15000", applicableTypes: null },
   { name: "Plumbing Rough-In",          addonKey: "plumbing_rough",           description: "Rough-in plumbing for bathroom or kitchen",           costType: "flat",     amount: "12000", applicableTypes: null },
   { name: "Electrical Panel Upgrade",   addonKey: "electrical_panel",         description: "200A panel upgrade + ESA permit",                     costType: "flat",     amount: "3500",  applicableTypes: null },
@@ -126,19 +126,58 @@ const ADDON_SEED: Omit<EstimatorAddon, "id" | "createdAt">[] = [
   { name: "Basement Waterproofing",     addonKey: "basement_waterproofing",   description: "Interior drain tile system, sump pump, membrane",     costType: "flat",     amount: "9000",  applicableTypes: "basement_finish,renovation_residential" },
 ];
 
-async function seedPricingData() {
-  const existing = await db.select({ id: estimatorCostModelsTable.id }).from(estimatorCostModelsTable).limit(1);
-  if (existing.length > 0) return; // already seeded
-
-  await db.insert(estimatorCostModelsTable).values(
-    COST_MODEL_SEED.map((m) => ({ ...m, createdAt: new Date(), updatedAt: new Date() }))
-  );
-
-  const existingAddons = await db.select({ id: estimatorAddonsTable.id }).from(estimatorAddonsTable).limit(1);
-  if (existingAddons.length === 0) {
-    await db.insert(estimatorAddonsTable).values(
-      ADDON_SEED.map((a) => ({ ...a, createdAt: new Date() }))
+async function seedPricingData(companyId: number) {
+  // Ensure global templates exist (run once ever)
+  const templates = await db.select({ id: estimatorCostModelsTable.id }).from(estimatorCostModelsTable).where(isNull(estimatorCostModelsTable.companyId)).limit(1);
+  if (templates.length === 0) {
+    await db.insert(estimatorCostModelsTable).values(
+      COST_MODEL_SEED.map((m) => ({ ...m, companyId: null, createdAt: new Date(), updatedAt: new Date() }))
     );
+    const templateAddons = await db.select({ id: estimatorAddonsTable.id }).from(estimatorAddonsTable).where(isNull(estimatorAddonsTable.companyId)).limit(1);
+    if (templateAddons.length === 0) {
+      await db.insert(estimatorAddonsTable).values(
+        ADDON_SEED.map((a) => ({ ...a, companyId: null, createdAt: new Date() }))
+      );
+    }
+  }
+
+  // Clone templates for this company if they don't have any yet
+  const companyModels = await db.select({ id: estimatorCostModelsTable.id }).from(estimatorCostModelsTable).where(eq(estimatorCostModelsTable.companyId, companyId)).limit(1);
+  if (companyModels.length === 0) {
+    const allTemplates = await db.select().from(estimatorCostModelsTable).where(isNull(estimatorCostModelsTable.companyId));
+    for (const t of allTemplates) {
+      await db.insert(estimatorCostModelsTable).values({
+        companyId,
+        projectType: t.projectType,
+        finishLevel: t.finishLevel,
+        name: t.name,
+        baseCostPerSqft: t.baseCostPerSqft,
+        laborCostPerSqft: t.laborCostPerSqft,
+        materialCostPerSqft: t.materialCostPerSqft,
+        overheadPct: t.overheadPct,
+        contingencyPct: t.contingencyPct,
+        notes: t.notes,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+  }
+
+  const companyAddons = await db.select({ id: estimatorAddonsTable.id }).from(estimatorAddonsTable).where(eq(estimatorAddonsTable.companyId, companyId)).limit(1);
+  if (companyAddons.length === 0) {
+    const allAddons = await db.select().from(estimatorAddonsTable).where(isNull(estimatorAddonsTable.companyId));
+    for (const a of allAddons) {
+      await db.insert(estimatorAddonsTable).values({
+        companyId,
+        name: a.name,
+        addonKey: a.addonKey,
+        description: a.description,
+        costType: a.costType,
+        amount: a.amount,
+        applicableTypes: a.applicableTypes,
+        createdAt: new Date(),
+      });
+    }
   }
 }
 
@@ -338,13 +377,13 @@ router.get(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    await seedPricingData();
+    await seedPricingData(req.companyId!);
     const [models, addons] = await Promise.all([
-      db.select().from(estimatorCostModelsTable).orderBy(
+      db.select().from(estimatorCostModelsTable).where(eq(estimatorCostModelsTable.companyId, req.companyId!)).orderBy(
         estimatorCostModelsTable.projectType,
         estimatorCostModelsTable.finishLevel,
       ),
-      db.select().from(estimatorAddonsTable),
+      db.select().from(estimatorAddonsTable).where(eq(estimatorAddonsTable.companyId, req.companyId!)),
     ]);
     // Merge default labels with company-specific overrides
     const companyId = req.companyId!;
@@ -383,7 +422,7 @@ router.post(
     const { notes, ...rest } = parsed.data;
     const [model] = await db
       .insert(estimatorCostModelsTable)
-      .values({ ...rest, notes: notes ?? null, createdAt: new Date(), updatedAt: new Date() })
+      .values({ ...rest, companyId: req.companyId!, notes: notes ?? null, createdAt: new Date(), updatedAt: new Date() })
       .returning();
     res.status(201).json(model);
   }),
@@ -406,7 +445,7 @@ router.put(
     const [model] = await db
       .update(estimatorCostModelsTable)
       .set(updateData)
-      .where(eq(estimatorCostModelsTable.id, id))
+      .where(and(eq(estimatorCostModelsTable.id, id), eq(estimatorCostModelsTable.companyId, req.companyId!)))
       .returning();
     if (!model) throw new NotFoundError("Cost model not found");
     res.json(model);
@@ -472,7 +511,7 @@ router.delete(
 
     const [deleted] = await db
       .delete(estimatorCostModelsTable)
-      .where(eq(estimatorCostModelsTable.id, id))
+      .where(and(eq(estimatorCostModelsTable.id, id), eq(estimatorCostModelsTable.companyId, req.companyId!)))
       .returning({ id: estimatorCostModelsTable.id });
     if (!deleted) throw new NotFoundError("Cost model not found");
     res.json({ success: true });
@@ -495,13 +534,13 @@ router.post(
   requireCompany,
   requireOwner,
   asyncHandler(async (req, res) => {
-    await seedPricingData();
+    await seedPricingData(req.companyId!);
     const parsed = AddonBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
     const { description, applicableTypes, ...rest } = parsed.data;
     const [addon] = await db
       .insert(estimatorAddonsTable)
-      .values({ ...rest, description: description ?? null, applicableTypes: applicableTypes ?? null, createdAt: new Date() })
+      .values({ ...rest, companyId: req.companyId!, description: description ?? null, applicableTypes: applicableTypes ?? null, createdAt: new Date() })
       .returning();
     res.status(201).json(addon);
   }),
@@ -525,7 +564,7 @@ router.put(
     const [addon] = await db
       .update(estimatorAddonsTable)
       .set(updateData)
-      .where(eq(estimatorAddonsTable.id, id))
+      .where(and(eq(estimatorAddonsTable.id, id), eq(estimatorAddonsTable.companyId, req.companyId!)))
       .returning();
     if (!addon) throw new NotFoundError("Add-on not found");
     res.json(addon);
@@ -555,7 +594,7 @@ router.delete(
 
     const [deleted] = await db
       .delete(estimatorAddonsTable)
-      .where(eq(estimatorAddonsTable.id, id))
+      .where(and(eq(estimatorAddonsTable.id, id), eq(estimatorAddonsTable.companyId, req.companyId!)))
       .returning({ id: estimatorAddonsTable.id });
     if (!deleted) throw new NotFoundError("Add-on not found");
     res.json({ success: true });
@@ -575,7 +614,7 @@ router.post(
     const parsed = ParseBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
 
-    await seedPricingData();
+    await seedPricingData(req.companyId!);
     const params = await parsePromptToParams(parsed.data.prompt);
     res.json(params);
   }),
@@ -674,7 +713,7 @@ router.post(
 
     const hint = typeof req.body.hint === "string" ? req.body.hint.trim() : "";
     const fullPrompt = hint ? `${extractedText}\n\nAdditional context: ${hint}` : extractedText;
-    await seedPricingData();
+    await seedPricingData(req.companyId!);
     const params = await parsePromptToParams(fullPrompt);
     res.json(params);
   }),
@@ -697,15 +736,16 @@ router.post(
     const parsed = CalculateBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
 
-    await seedPricingData();
+    await seedPricingData(req.companyId!);
     const { project_type, square_feet, finish_level, addons, margin_pct } = parsed.data;
 
-    // Look up cost model from DB — AI cannot invent this
+    // Look up cost model from DB — scoped to this company
     const [costModel] = await db
       .select()
       .from(estimatorCostModelsTable)
       .where(
         and(
+          eq(estimatorCostModelsTable.companyId, req.companyId!),
           eq(estimatorCostModelsTable.projectType, project_type),
           eq(estimatorCostModelsTable.finishLevel, finish_level),
         ),
@@ -718,9 +758,9 @@ router.post(
 
     const selectedAddons = addons.length > 0
       ? await db.select().from(estimatorAddonsTable).where(
-          eq(estimatorAddonsTable.addonKey, addons[0]!) // basic — handle all addons below
+          and(eq(estimatorAddonsTable.companyId, req.companyId!), eq(estimatorAddonsTable.addonKey, addons[0]!))
         ).then(() =>
-          db.select().from(estimatorAddonsTable)
+          db.select().from(estimatorAddonsTable).where(eq(estimatorAddonsTable.companyId, req.companyId!))
         ).then((all) => all.filter((a) => addons.includes(a.addonKey)))
       : [];
 

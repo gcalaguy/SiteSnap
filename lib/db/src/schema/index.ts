@@ -1200,6 +1200,7 @@ export type TradehubMessage = typeof tradehubMessagesTable.$inferSelect;
 
 export const estimatorCostModelsTable = pgTable("estimator_cost_models", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companiesTable.id, { onDelete: "cascade" }),
   projectType: text("project_type").notNull(),
   finishLevel: text("finish_level").notNull(), // basic | standard | premium | luxury
   name: text("name").notNull(),
@@ -1216,8 +1217,9 @@ export type EstimatorCostModel = typeof estimatorCostModelsTable.$inferSelect;
 
 export const estimatorAddonsTable = pgTable("estimator_addons", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companiesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  addonKey: text("addon_key").notNull().unique(),
+  addonKey: text("addon_key").notNull(),
   description: text("description"),
   costType: text("cost_type").notNull().default("flat"), // flat | per_sqft
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
