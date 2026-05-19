@@ -418,7 +418,7 @@ function ActualCard({ actual }: { actual: { estimatedCost: string; actualCost: s
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-medium">{fmt(parseFloat(actual.actualCost))}</span>
+          <span className="font-medium text-[#f2e9e9]">{fmt(parseFloat(actual.actualCost))}</span>
           <span className="text-xs text-[#f0fdf4]">actual vs {fmt(parseFloat(actual.estimatedCost))} est.</span>
         </div>
         {actual.notes && <p className="text-xs text-muted-foreground truncate mt-0.5">{actual.notes}</p>}
