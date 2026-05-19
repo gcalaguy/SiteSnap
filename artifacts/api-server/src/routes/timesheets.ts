@@ -260,6 +260,30 @@ router.patch(
   }),
 );
 
+// DELETE /timesheets/:timesheetId — delete own timesheet (owner/foreman can delete any)
+router.delete(
+  "/timesheets/:timesheetId",
+  requireAuth,
+  requireCompany,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.timesheetId as string);
+    const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+
+    const [ts] = await db
+      .select()
+      .from(timesheetsTable)
+      .where(and(eq(timesheetsTable.id, id), eq(timesheetsTable.companyId, req.companyId!)))
+      .limit(1);
+    if (!ts) { res.status(404).json({ error: "Timesheet not found" }); return; }
+    if (!isPrivileged && ts.userId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
+    // Prevent deletion of approved timesheets (financial record)
+    if (ts.status === "approved") { res.status(409).json({ error: "Approved timesheets cannot be deleted" }); return; }
+
+    await db.delete(timesheetsTable).where(eq(timesheetsTable.id, id));
+    res.json({ ok: true });
+  }),
+);
+
 // POST /timesheets/:timesheetId/email — send timesheet summary via Resend
 const EmailTimesheetBody = z.object({
   to: z.string().email(),

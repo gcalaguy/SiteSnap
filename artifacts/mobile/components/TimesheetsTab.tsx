@@ -181,6 +181,16 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
     onError: () => Alert.alert("Error", "Failed to update timesheet. Please try again."),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) =>
+      customFetch(`/api/timesheets/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+      Alert.alert("Deleted!", "Your timesheet has been deleted.");
+    },
+    onError: () => Alert.alert("Error", "Failed to delete timesheet. Please try again."),
+  });
+
   const navigateWeek = useCallback((dir: -1 | 1) => {
     setSelectedMonday((prev) => {
       const d = new Date(prev);
@@ -222,7 +232,22 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
   }, [totalHours, hourlyRate, description, weekISO, projectId, editingTimesheet]);
 
   const existingForWeek = timesheets.find((t) => t.weekStart === weekISO);
-  const isPending = submitMutation.isPending || editMutation.isPending;
+  const isPending = submitMutation.isPending || editMutation.isPending || deleteMutation.isPending;
+
+  const handleDelete = useCallback((ts: Timesheet) => {
+    Alert.alert(
+      "Delete Timesheet?",
+      `This will permanently remove your timesheet for ${weekLabel(ts.weekStart)}.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteMutation.mutate(ts.id),
+        },
+      ],
+    );
+  }, [deleteMutation]);
 
   return (
     <KeyboardAvoidingView
@@ -450,16 +475,31 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                       <Feather name={cfg.icon as any} size={11} color={cfg.color} />
                       <Text style={[s.statusText, { color: cfg.color }]}>{cfg.label}</Text>
                     </View>
-                    {/* Edit button — only on submitted (not approved) */}
-                    {ts.status === "submitted" && (
-                      <Pressable
-                        style={[s.editCardBtn, { borderColor: colors.border }]}
-                        onPress={() => openEdit(ts)}
-                        hitSlop={6}
-                      >
-                        <Feather name="edit-2" size={12} color={colors.primary} />
-                        <Text style={[s.editCardBtnText, { color: colors.primary }]}>Edit</Text>
-                      </Pressable>
+                    {/* Edit / Delete actions — on submitted or denied (not approved) */}
+                    {(ts.status === "submitted" || ts.status === "denied") && (
+                      <View style={{ flexDirection: "row", gap: 6 }}>
+                        <Pressable
+                          style={[s.editCardBtn, { borderColor: colors.border }]}
+                          onPress={() => openEdit(ts)}
+                          hitSlop={6}
+                        >
+                          <Feather name="edit-2" size={12} color={colors.primary} />
+                          <Text style={[s.editCardBtnText, { color: colors.primary }]}>Edit</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[s.editCardBtn, { borderColor: "#FECACA", backgroundColor: "#FEF2F2" }]}
+                          onPress={() => handleDelete(ts)}
+                          hitSlop={6}
+                          disabled={deleteMutation.isPending}
+                        >
+                          {deleteMutation.isPending && deleteMutation.variables === ts.id ? (
+                            <ActivityIndicator size="small" color="#DC2626" />
+                          ) : (
+                            <Feather name="trash-2" size={12} color="#DC2626" />
+                          )}
+                          <Text style={[s.editCardBtnText, { color: "#DC2626" }]}>Delete</Text>
+                        </Pressable>
+                      </View>
                     )}
                   </View>
                 </View>
