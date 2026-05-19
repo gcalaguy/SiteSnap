@@ -48,12 +48,63 @@ interface ResultLine {
   status: "ok" | "error" | "pending";
 }
 
+const ABBREV_MAP: Record<string, string> = {
+  st: "street", ave: "avenue", blvd: "boulevard", dr: "drive",
+  rd: "road", ln: "lane", ct: "court", pl: "place", hwy: "highway",
+  pkwy: "parkway", cres: "crescent", terr: "terrace", cir: "circle",
+  n: "north", s: "south", e: "east", w: "west",
+};
+
+function normalizeProjectToken(token: string): string {
+  const t = token.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return ABBREV_MAP[t] ?? t;
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .split(/[\s,\-\/]+/)
+    .map(normalizeProjectToken)
+    .filter((t) => t.length > 0);
+}
+
+function wordOverlapScore(queryTokens: string[], candidateTokens: string[]): number {
+  const qSet = new Set(queryTokens);
+  const cSet = new Set(candidateTokens);
+  let matches = 0;
+  for (const t of qSet) if (cSet.has(t)) matches++;
+  const union = new Set([...qSet, ...cSet]).size;
+  return union === 0 ? 0 : matches / union;
+}
+
 function fuzzyMatch(query: string, candidates: string[]): string | null {
-  const q = query.toLowerCase();
+  if (!candidates.length) return null;
+
+  const qTokens = tokenize(query);
+  const qNorm = qTokens.join(" ");
+
+  let bestCandidate: string | null = null;
+  let bestScore = 0;
+
   for (const c of candidates) {
-    if (c.toLowerCase().includes(q)) return c;
+    // Strip leading number codes like "123 " or "A-1 " from project name for matching
+    const stripped = c.replace(/^[\d\s#-]+/, "").trim();
+    const cTokens = tokenize(stripped.length > 0 ? stripped : c);
+    const cNorm = cTokens.join(" ");
+
+    // Exact substring checks (fast path)
+    if (cNorm === qNorm) return c;
+    if (cNorm.includes(qNorm) || qNorm.includes(cNorm)) return c;
+
+    // Word overlap scoring
+    const score = wordOverlapScore(qTokens, cTokens);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCandidate = c;
+    }
   }
-  return candidates.find((c) => q.includes(c.toLowerCase())) ?? null;
+
+  // Return best overlap match if at least 50% of the words align
+  return bestScore >= 0.5 ? bestCandidate : null;
 }
 
 export function GlobalVoiceCommandFAB() {
