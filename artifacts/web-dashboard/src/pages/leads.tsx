@@ -65,6 +65,7 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
+import SearchBar from "@/components/SearchBar";
 import { format } from "date-fns";
 
 const GOLD = "#C9A84C";
@@ -183,6 +184,7 @@ export default function Leads() {
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<LeadWithContact | null>(null);
   const [stageGroupFilter, setStageGroupFilter] = useState<"pipeline" | "won" | "closed" | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [convertOpen, setConvertOpen] = useState(false);
   const [convertAddress, setConvertAddress] = useState("");
@@ -292,7 +294,19 @@ export default function Leads() {
     });
   }
 
-  const allLeads = leads as LeadWithContact[];
+  const allLeads = (searchQuery
+    ? (leads as LeadWithContact[]).filter((l) => {
+        const s = searchQuery.toLowerCase();
+        return (
+          (l.title ?? "").toLowerCase().includes(s) ||
+          (l.contact?.name ?? "").toLowerCase().includes(s) ||
+          (l.contact?.company ?? "").toLowerCase().includes(s) ||
+          (l.contact?.phone ?? "").toLowerCase().includes(s) ||
+          (l.contact?.email ?? "").toLowerCase().includes(s)
+        );
+      })
+    : leads
+  ) as LeadWithContact[];
 
   // Totals
   const totalValue = allLeads.reduce((s, l) => s + (l.estimatedValue ? parseFloat(l.estimatedValue) : 0), 0);
@@ -325,6 +339,13 @@ export default function Leads() {
           <Plus className="mr-2 h-4 w-4" /> New Lead
         </Button>
       </div>
+
+      <SearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search by name, company, phone, or email …"
+        className="w-full sm:w-80 flex-shrink-0"
+      />
 
       {/* Summary pills */}
       <div className="flex gap-3 flex-wrap flex-shrink-0">

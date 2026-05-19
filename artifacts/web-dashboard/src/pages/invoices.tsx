@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Receipt, ChevronRight, TrendingDown, TrendingUp, Plus } from "lucide-react";
+import SearchBar from "@/components/SearchBar";
 import { formatDistanceToNow, format } from "date-fns";
 
 const GOLD = "#C9A84C";
@@ -41,6 +42,7 @@ const TABS: { label: string; value: InvoiceStatus | "all"; pill?: string }[] = [
 
 export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "all">("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Filtered list for display
   const { data: invoices, isLoading } = useListAllInvoices(
@@ -100,6 +102,13 @@ export default function Invoices() {
         ))}
       </div>
 
+      <SearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search by client, invoice number, status, or amount …"
+        className="w-full sm:w-80"
+      />
+
       <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as InvoiceStatus | "all")}>
         <TabsList
           className="flex gap-1 flex-wrap h-auto border border-[#D4AF37]/20 bg-white rounded-lg p-1"
@@ -149,7 +158,19 @@ export default function Invoices() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {invoices.map((inv) => (
+          {(searchQuery
+            ? invoices.filter((inv) => {
+                const s = searchQuery.toLowerCase();
+                return (
+                  (inv.clientName ?? "").toLowerCase().includes(s) ||
+                  (inv.invoiceNumber ?? "").toLowerCase().includes(s) ||
+                  (inv.title ?? "").toLowerCase().includes(s) ||
+                  (STATUS_LABELS[inv.status] ?? "").toLowerCase().includes(s) ||
+                  fmtCAD(inv.total).toLowerCase().includes(s)
+                );
+              })
+            : invoices
+          ).map((inv) => (
             <Link key={inv.id} href={`/invoices/${inv.id}`}>
               <Card className="hover:border-[#D4AF37]/40 hover:shadow-sm transition-all cursor-pointer border-[#D4AF37]/20 bg-white">
                 <CardContent className="flex items-center justify-between p-4">

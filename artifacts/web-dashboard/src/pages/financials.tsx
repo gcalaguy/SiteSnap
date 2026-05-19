@@ -55,6 +55,7 @@ import {
   BarChart3,
   CreditCard,
 } from "lucide-react";
+import SearchBar from "@/components/SearchBar";
 import { format } from "date-fns";
 import { Link } from "wouter";
 
@@ -148,6 +149,7 @@ import { FeatureGuard } from "@/components/FeatureGuard";
 function FinancialsInner() {
   const { toast } = useToast();
   const [tab, setTab] = useState<"overview" | "payments" | "change-orders">("overview");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -348,6 +350,13 @@ function FinancialsInner() {
         </div>
       </div>
 
+      <SearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search by description, project, or amount …"
+        className="w-full sm:w-80 flex-shrink-0"
+      />
+
       {/* Summary stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 flex-shrink-0">
         {summaryLoading ? (
@@ -492,7 +501,18 @@ function FinancialsInner() {
                 <span className="text-right">Amount</span>
                 <span />
               </div>
-              {payments.map((payment, i) => (
+              {(searchQuery
+                ? payments.filter((p) => {
+                    const s = searchQuery.toLowerCase();
+                    return (
+                      (p.notes ?? "").toLowerCase().includes(s) ||
+                      String(p.invoiceId).includes(s) ||
+                      (METHOD_LABELS[p.method] ?? p.method).toLowerCase().includes(s) ||
+                      cad(p.amount).toLowerCase().includes(s)
+                    );
+                  })
+                : payments
+              ).map((payment, i) => (
                 <div
                   key={payment.id}
                   className="grid items-center px-4 py-3"
@@ -533,7 +553,18 @@ function FinancialsInner() {
             </div>
           ) : (
             <div className="space-y-3">
-              {changeOrders.map((co) => {
+              {(searchQuery
+                ? changeOrders.filter((co) => {
+                    const s = searchQuery.toLowerCase();
+                    return (
+                      (co.title ?? "").toLowerCase().includes(s) ||
+                      (co.description ?? "").toLowerCase().includes(s) ||
+                      String(co.projectId).includes(s) ||
+                      cad(co.amount).toLowerCase().includes(s)
+                    );
+                  })
+                : changeOrders
+              ).map((co) => {
                 const s = CO_STATUS_CONFIG[co.status] ?? CO_STATUS_CONFIG.pending;
                 return (
                   <div key={co.id} className="rounded-xl p-4" style={{ background: "#fff", border: "1px solid #E5E5E5" }}>
