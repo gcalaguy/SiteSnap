@@ -155,7 +155,7 @@ router.get("/users/me", requireAuth, async (req, res) => {
     "viewClientMessages","viewRiskTab","viewSafetyTab","viewInspectTab",
     "manageQuotes","submitExpenses","viewAllProjects",
   ] as const;
-  const resolvedPerms = role === "owner" || role === "foreman"
+  const resolvedPerms = role === "owner"
     ? undefined
     : Object.fromEntries(
         permKeys.map((k) => {

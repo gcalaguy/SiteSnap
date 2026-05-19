@@ -19,8 +19,9 @@ export type PermissionKey = keyof typeof ALL_TRUE;
 
 export function usePermissions(): Record<PermissionKey, boolean> {
   const { data: me } = useGetMe();
-  // Owners always get full access (server also enforces this, guarding here
-  // prevents flash-of-hidden-tab during initial load)
-  if (!me || me.role === "owner") return ALL_TRUE;
-  return { ...ALL_TRUE, ...(me.permissions ?? {}) };
+  // Loading state — show everything to prevent flash-of-hidden-tab
+  if (!me) return ALL_TRUE;
+  // Server resolves permissions for all non-owners (workers + foremen)
+  if (me.role === "owner" || !me.permissions) return ALL_TRUE;
+  return { ...ALL_TRUE, ...me.permissions };
 }
