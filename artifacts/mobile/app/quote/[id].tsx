@@ -22,6 +22,7 @@ import {
   useSubmitQuoteForApproval,
   useUnsubmitQuote,
   useConvertQuoteToInvoice,
+  useDeleteQuote,
   getGetQuoteQueryKey,
   getListAllQuotesQueryKey,
   getListQuotesQueryKey,
@@ -147,6 +148,7 @@ export default function QuoteDetailScreen() {
   const submitQuote = useSubmitQuoteForApproval();
   const unsubmitQuote = useUnsubmitQuote();
   const convertQuote = useConvertQuoteToInvoice();
+  const deleteQuote = useDeleteQuote();
 
   const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
 
@@ -281,6 +283,31 @@ export default function QuoteDetailScreen() {
       },
     ]);
   }, [quote, quoteId, convertQuote, router]);
+
+  const handleDelete = useCallback(() => {
+    Alert.alert(
+      "Delete Quote?",
+      "This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteQuote.mutate({ projectId: quote?.projectId ?? 0, quoteId }, {
+              onSuccess: () => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                qc.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
+                qc.invalidateQueries({ queryKey: getListQuotesQueryKey(projectId) });
+                router.replace("/finance");
+              },
+              onError: () => Alert.alert("Failed to delete quote"),
+            });
+          },
+        },
+      ]
+    );
+  }, [quote, quoteId, deleteQuote, projectId, qc, router]);
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
   const isEditable = quote?.status === "draft" || quote?.status === "rejected";
@@ -522,6 +549,20 @@ export default function QuoteDetailScreen() {
                     : <Feather name="file-plus" size={18} color={colors.primary} />
                   }
                   <Text style={[styles.actionBtnText, { color: colors.primary }]}>Convert to Invoice</Text>
+                </Pressable>
+              )}
+              {/* Delete (draft or needs revision) */}
+              {isEditable && (
+                <Pressable
+                  style={[styles.actionBtnFull, { backgroundColor: "#FEF2F2", borderColor: "#FECACA", borderTopWidth: 1 }]}
+                  onPress={handleDelete}
+                  disabled={deleteQuote.isPending}
+                >
+                  {deleteQuote.isPending
+                    ? <ActivityIndicator color="#DC2626" size="small" />
+                    : <Feather name="trash-2" size={18} color="#DC2626" />
+                  }
+                  <Text style={[styles.actionBtnText, { color: "#DC2626" }]}>Delete Quote</Text>
                 </Pressable>
               )}
             </View>
