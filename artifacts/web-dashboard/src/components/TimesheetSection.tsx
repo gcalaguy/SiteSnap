@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch, useApproveTimesheet, useDenyTimesheet } from "@workspace/api-client-react";
+import { customFetch, useApproveTimesheet, useDenyTimesheet, getListTimesheetsQueryKey } from "@workspace/api-client-react";
 import { format, addDays } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -414,7 +414,7 @@ function TimesheetRow({
   const approveTs = useApproveTimesheet({
     mutation: {
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
         setApproveOpen(false);
         setApproveSig("");
         setApproveSigner("");
@@ -444,7 +444,7 @@ function TimesheetRow({
   const denyTs = useDenyTimesheet({
     mutation: {
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
         setDenying(false);
         setDenyNotes("");
         toast({ title: "Timesheet denied" });

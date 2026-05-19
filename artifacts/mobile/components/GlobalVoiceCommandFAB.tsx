@@ -27,6 +27,7 @@ import {
   getListRFIsQueryKey,
   getListCostAnalysesQueryKey,
   getListProjectsQueryKey,
+  getListTimesheetsQueryKey,
 } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -160,7 +161,7 @@ export function GlobalVoiceCommandFAB() {
       });
     },
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
       qc.invalidateQueries({ queryKey: [`/api/projects/${vars.projectId}/time-entries`] });
       invalidateDashboard();
     },

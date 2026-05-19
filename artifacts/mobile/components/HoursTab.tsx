@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Feather } from "@expo/vector-icons";
-import { customFetch, useGetMe, useListQuotes } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListQuotes, getListTimesheetsQueryKey } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useRouter } from "expo-router";
@@ -150,7 +150,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY });
-      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
       resetForm();
     },
     onError: () => Alert.alert("Error", "Failed to log hours. Please try again."),
@@ -164,7 +164,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY });
-      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
       resetForm();
     },
     onError: () => Alert.alert("Error", "Failed to update entry. Please try again."),
@@ -175,7 +175,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
       customFetch(`/api/projects/${projectId}/time-entries/${entryId}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY });
-      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
     },
     onError: () => Alert.alert("Error", "Failed to delete entry."),
   });

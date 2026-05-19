@@ -12,7 +12,7 @@ import {
   Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { customFetch, useGetMe, useListTimesheets, useSubmitTimesheet } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListTimesheets, useSubmitTimesheet, getListTimesheetsQueryKey } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 
@@ -159,7 +159,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
   const submitMutation = useSubmitTimesheet({
     mutation: {
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
         resetForm();
         Alert.alert("Submitted!", "Your timesheet has been sent for review.");
       },
@@ -174,7 +174,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/timesheets"] });
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
       resetForm();
       Alert.alert("Updated!", "Your timesheet has been updated.");
     },

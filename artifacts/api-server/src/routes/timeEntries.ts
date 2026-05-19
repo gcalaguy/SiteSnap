@@ -17,6 +17,7 @@ function getMonday(isoDate: string): string {
 /**
  * After any time-entry change (create, edit, delete), recalculate the
  * total hours for that week and upsert the corresponding timesheet row.
+ * Uses ON CONFLICT DO UPDATE to avoid race conditions.
  */
 async function syncTimesheetFromEntries(companyId: number, userId: number, weekStart: string, projectId?: number | null) {
   const entries = await db
@@ -31,37 +32,25 @@ async function syncTimesheetFromEntries(companyId: number, userId: number, weekS
 
   const total = entries.reduce((s, e) => s + parseFloat(e.hours), 0);
 
-  const [existing] = await db
-    .select()
-    .from(timesheetsTable)
-    .where(and(
-      eq(timesheetsTable.companyId, companyId),
-      eq(timesheetsTable.userId, userId),
-      eq(timesheetsTable.weekStart, weekStart)
-    ))
-    .limit(1);
-
-  if (existing) {
-    // Update existing timesheet with new total; keep submitted status
-    await db.update(timesheetsTable)
-      .set({
+  // Atomic upsert via ON CONFLICT — avoids race conditions when
+  // two entries are created simultaneously for the same week.
+  await db.insert(timesheetsTable)
+    .values({
+      companyId,
+      userId,
+      weekStart,
+      status: "submitted",
+      totalHours: total.toFixed(2),
+      projectId: projectId ?? null,
+    })
+    .onConflictDoUpdate({
+      target: [timesheetsTable.companyId, timesheetsTable.userId, timesheetsTable.weekStart],
+      set: {
         totalHours: total.toFixed(2),
         updatedAt: new Date(),
-        projectId: projectId ?? existing.projectId,
-      })
-      .where(eq(timesheetsTable.id, existing.id));
-    return;
-  }
-
-  // Create a new timesheet
-  await db.insert(timesheetsTable).values({
-    companyId,
-    userId,
-    weekStart,
-    status: "submitted",
-    totalHours: total.toFixed(2),
-    projectId: projectId ?? null,
-  });
+        projectId: projectId ?? null,
+      },
+    });
 }
 
 const CreateTimeEntryBody = z.object({
