@@ -1256,10 +1256,10 @@ export function PricingSettingsBody() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2.5">
-        <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-        <p className="text-xs text-amber-800">
-          These rates are shared across all company users. The AI only identifies project parameters — it does not change these rates.
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-start gap-2.5">
+        <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+        <p className="text-xs text-blue-800">
+          These rates are specific to your company. The AI only identifies project parameters — it does not change these rates.
           Editing a rate will affect all new estimates immediately.
         </p>
       </div>
