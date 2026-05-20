@@ -109,6 +109,10 @@ import type {
   ListTimesheetsParams,
   MarkAllNotificationsRead200,
   MarkNotificationRead200,
+  MediaHubPhoto,
+  MediaHubPresignedUrlRequest,
+  MediaHubPresignedUrlResponse,
+  MediaHubSavePhotoRequest,
   MemberPermissions,
   Notification,
   NotificationUnreadCount,
@@ -10134,6 +10138,182 @@ export const useExtractDocument = <
   TContext
 > => {
   return useMutation(getExtractDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Request a presigned upload URL for a media-hub asset
+ */
+export const getMediaHubPresignedUrlUrl = () => {
+  return `/api/media/presigned-url`;
+};
+
+export const mediaHubPresignedUrl = async (
+  mediaHubPresignedUrlRequest: MediaHubPresignedUrlRequest,
+  options?: RequestInit,
+): Promise<MediaHubPresignedUrlResponse> => {
+  return customFetch<MediaHubPresignedUrlResponse>(
+    getMediaHubPresignedUrlUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(mediaHubPresignedUrlRequest),
+    },
+  );
+};
+
+export const getMediaHubPresignedUrlMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mediaHubPresignedUrl>>,
+    TError,
+    { data: BodyType<MediaHubPresignedUrlRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof mediaHubPresignedUrl>>,
+  TError,
+  { data: BodyType<MediaHubPresignedUrlRequest> },
+  TContext
+> => {
+  const mutationKey = ["mediaHubPresignedUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof mediaHubPresignedUrl>>,
+    { data: BodyType<MediaHubPresignedUrlRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return mediaHubPresignedUrl(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MediaHubPresignedUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof mediaHubPresignedUrl>>
+>;
+export type MediaHubPresignedUrlMutationBody =
+  BodyType<MediaHubPresignedUrlRequest>;
+export type MediaHubPresignedUrlMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Request a presigned upload URL for a media-hub asset
+ */
+export const useMediaHubPresignedUrl = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mediaHubPresignedUrl>>,
+    TError,
+    { data: BodyType<MediaHubPresignedUrlRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof mediaHubPresignedUrl>>,
+  TError,
+  { data: BodyType<MediaHubPresignedUrlRequest> },
+  TContext
+> => {
+  return useMutation(getMediaHubPresignedUrlMutationOptions(options));
+};
+
+/**
+ * @summary Persist a media-hub photo with optional markup data
+ */
+export const getMediaHubSavePhotoUrl = () => {
+  return `/api/media/save-photo`;
+};
+
+export const mediaHubSavePhoto = async (
+  mediaHubSavePhotoRequest: MediaHubSavePhotoRequest,
+  options?: RequestInit,
+): Promise<MediaHubPhoto> => {
+  return customFetch<MediaHubPhoto>(getMediaHubSavePhotoUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mediaHubSavePhotoRequest),
+  });
+};
+
+export const getMediaHubSavePhotoMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mediaHubSavePhoto>>,
+    TError,
+    { data: BodyType<MediaHubSavePhotoRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof mediaHubSavePhoto>>,
+  TError,
+  { data: BodyType<MediaHubSavePhotoRequest> },
+  TContext
+> => {
+  const mutationKey = ["mediaHubSavePhoto"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof mediaHubSavePhoto>>,
+    { data: BodyType<MediaHubSavePhotoRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return mediaHubSavePhoto(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MediaHubSavePhotoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof mediaHubSavePhoto>>
+>;
+export type MediaHubSavePhotoMutationBody = BodyType<MediaHubSavePhotoRequest>;
+export type MediaHubSavePhotoMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Persist a media-hub photo with optional markup data
+ */
+export const useMediaHubSavePhoto = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mediaHubSavePhoto>>,
+    TError,
+    { data: BodyType<MediaHubSavePhotoRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof mediaHubSavePhoto>>,
+  TError,
+  { data: BodyType<MediaHubSavePhotoRequest> },
+  TContext
+> => {
+  return useMutation(getMediaHubSavePhotoMutationOptions(options));
 };
 
 /**

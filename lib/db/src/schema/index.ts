@@ -1450,3 +1450,24 @@ export const insertProviderTokenSchema = createInsertSchema(providerTokensTable)
   createdAt: true,
   updatedAt: true,
 });
+
+// ── Media Hub (additive, isolated visual annotation engine) ───────────────────
+export const mediaHubPhotosTable = pgTable("media_hub_photos", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
+  uploadedById: integer("uploaded_by_id")
+    .references(() => usersTable.id, { onDelete: "set null" }),
+  imageUrl: text("image_url").notNull(),
+  roomLocation: text("room_location"),
+  markupData: jsonb("markup_data"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertMediaHubPhotoSchema = createInsertSchema(mediaHubPhotosTable).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertMediaHubPhoto = z.infer<typeof insertMediaHubPhotoSchema>;
+export type MediaHubPhoto = typeof mediaHubPhotosTable.$inferSelect;

@@ -2811,6 +2811,36 @@ export const ExtractDocumentResponse = zod.object({
 });
 
 /**
+ * @summary Request a presigned upload URL for a media-hub asset
+ */
+
+export const MediaHubPresignedUrlBody = zod.object({
+  fileType: zod.string().min(1),
+  fileName: zod.string().min(1).optional(),
+});
+
+export const MediaHubPresignedUrlResponse = zod.object({
+  uploadURL: zod.string().url(),
+  objectPath: zod.string(),
+  fileType: zod.string(),
+  fileName: zod.string().nullish(),
+});
+
+/**
+ * @summary Persist a media-hub photo with optional markup data
+ */
+
+export const MediaHubSavePhotoBody = zod.object({
+  projectId: zod.number(),
+  imageUrl: zod.string().min(1),
+  roomLocation: zod.string().nullish(),
+  markupData: zod
+    .unknown()
+    .nullish()
+    .describe("Arbitrary annotation\/sketch vector payload"),
+});
+
+/**
  * @summary Request a presigned URL for file upload
  */
 

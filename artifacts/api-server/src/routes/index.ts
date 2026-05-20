@@ -46,6 +46,7 @@ import publicRouter from "./public";
 import scansRouter from "./scans";
 import fieldAutomationRouter from "./fieldAutomation";
 import productivityIntegrationsRouter from "./integrations/productivity";
+import mediaHubRouter from "./mediaHub";
 
 const router: IRouter = Router();
 
@@ -98,5 +99,6 @@ router.use(scheduleEventsRouter);
 router.use(scansRouter);
 router.use(fieldAutomationRouter);
 router.use(productivityIntegrationsRouter);
+router.use(mediaHubRouter);
 
 export default router;

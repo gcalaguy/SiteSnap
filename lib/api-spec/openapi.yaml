@@ -2280,6 +2280,57 @@ paths:
                 $ref: "#/components/schemas/ProjectDocument"
 
   # ── Storage ────────────────────────────────────────────────────────────────────
+  # ── Media Hub (visual annotation engine) ─────────────────────────────────────
+  /media/presigned-url:
+    post:
+      tags: [Storage]
+      operationId: mediaHubPresignedUrl
+      summary: Request a presigned upload URL for a media-hub asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaHubPresignedUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaHubPresignedUrlResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /media/save-photo:
+    post:
+      tags: [Storage]
+      operationId: mediaHubSavePhoto
+      summary: Persist a media-hub photo with optional markup data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaHubSavePhotoRequest"
+      responses:
+        "201":
+          description: Photo saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaHubPhoto"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -4513,6 +4564,70 @@ components:
           format: uri
         objectPath:
           type: string
+
+    MediaHubPresignedUrlRequest:
+      type: object
+      required: [fileType]
+      properties:
+        fileType:
+          type: string
+          minLength: 1
+        fileName:
+          type: string
+          minLength: 1
+
+    MediaHubPresignedUrlResponse:
+      type: object
+      required: [uploadURL, objectPath, fileType]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        fileType:
+          type: string
+        fileName:
+          type: string
+          nullable: true
+
+    MediaHubSavePhotoRequest:
+      type: object
+      required: [projectId, imageUrl]
+      properties:
+        projectId:
+          type: integer
+        imageUrl:
+          type: string
+          minLength: 1
+        roomLocation:
+          type: string
+          nullable: true
+        markupData:
+          nullable: true
+          description: Arbitrary annotation/sketch vector payload
+
+    MediaHubPhoto:
+      type: object
+      required: [id, projectId, imageUrl, createdAt]
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        uploadedById:
+          type: integer
+          nullable: true
+        imageUrl:
+          type: string
+        roomLocation:
+          type: string
+          nullable: true
+        markupData:
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
 
     ErrorEnvelope:
       type: object

@@ -582,6 +582,39 @@ export interface UploadUrlResponse {
   objectPath: string;
 }
 
+export interface MediaHubPresignedUrlRequest {
+  /** @minLength 1 */
+  fileType: string;
+  /** @minLength 1 */
+  fileName?: string;
+}
+
+export interface MediaHubPresignedUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  fileType: string;
+  fileName?: string | null;
+}
+
+export interface MediaHubSavePhotoRequest {
+  projectId: number;
+  /** @minLength 1 */
+  imageUrl: string;
+  roomLocation?: string | null;
+  /** Arbitrary annotation/sketch vector payload */
+  markupData?: unknown | null;
+}
+
+export interface MediaHubPhoto {
+  id: number;
+  projectId: number;
+  uploadedById?: number | null;
+  imageUrl: string;
+  roomLocation?: string | null;
+  markupData?: unknown | null;
+  createdAt: string;
+}
+
 export interface ErrorEnvelope {
   error: string;
 }
