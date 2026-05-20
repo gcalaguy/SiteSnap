@@ -52,6 +52,7 @@ import type {
   CreateCompanyBody,
   CreateContactBody,
   CreateCostAnalysisBody,
+  CreateDailyLogBody,
   CreateDailyReportBody,
   CreateEstimateTemplateBody,
   CreateFormBody,
@@ -63,8 +64,11 @@ import type {
   CreateProjectBody,
   CreateQuoteBody,
   CreateRFIBody,
+  CreateSafetySignoffBody,
   CreateScanBody,
+  CreateSitePhotoBody,
   CreateTaskBody,
+  DailyLogRecord,
   DailyReport,
   DailyReportPhoto,
   DashboardSummary,
@@ -92,9 +96,12 @@ import type {
   ListAllQuotesParams,
   ListChangeOrdersParams,
   ListContactsParams,
+  ListDailyLogsParams,
   ListFilesParams,
   ListFormSubmissionsParams,
+  ListSafetySignoffsParams,
   ListScansParams,
+  ListSitePhotosParams,
   ListTimesheetsParams,
   MarkAllNotificationsRead200,
   MarkNotificationRead200,
@@ -117,12 +124,14 @@ import type {
   RegisterFileBody,
   RejectQuoteBody,
   Rfi,
+  SafetySignoffRecord,
   ScanRecord,
   ScanUrlResponse,
   SendInvoiceEmail200,
   SendInvoiceEmailBody,
   SendInvoiceReminder200,
   SetActiveCompanyBody,
+  SitePhotoRecord,
   SmartSummary,
   SubmitTimesheetBody,
   SyncUserBody,
@@ -13705,3 +13714,546 @@ export const useDeleteAddon = <
 > => {
   return useMutation(getDeleteAddonMutationOptions(options));
 };
+
+/**
+ * @summary Create a daily field log
+ */
+export const getCreateDailyLogUrl = () => {
+  return `/api/field/daily-log`;
+};
+
+export const createDailyLog = async (
+  createDailyLogBody: CreateDailyLogBody,
+  options?: RequestInit,
+): Promise<DailyLogRecord> => {
+  return customFetch<DailyLogRecord>(getCreateDailyLogUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createDailyLogBody),
+  });
+};
+
+export const getCreateDailyLogMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDailyLog>>,
+    TError,
+    { data: BodyType<CreateDailyLogBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createDailyLog>>,
+  TError,
+  { data: BodyType<CreateDailyLogBody> },
+  TContext
+> => {
+  const mutationKey = ["createDailyLog"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createDailyLog>>,
+    { data: BodyType<CreateDailyLogBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createDailyLog(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateDailyLogMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDailyLog>>
+>;
+export type CreateDailyLogMutationBody = BodyType<CreateDailyLogBody>;
+export type CreateDailyLogMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a daily field log
+ */
+export const useCreateDailyLog = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDailyLog>>,
+    TError,
+    { data: BodyType<CreateDailyLogBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createDailyLog>>,
+  TError,
+  { data: BodyType<CreateDailyLogBody> },
+  TContext
+> => {
+  return useMutation(getCreateDailyLogMutationOptions(options));
+};
+
+/**
+ * @summary List daily logs for a project
+ */
+export const getListDailyLogsUrl = (params: ListDailyLogsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/field/daily-log?${stringifiedParams}`
+    : `/api/field/daily-log`;
+};
+
+export const listDailyLogs = async (
+  params: ListDailyLogsParams,
+  options?: RequestInit,
+): Promise<DailyLogRecord[]> => {
+  return customFetch<DailyLogRecord[]>(getListDailyLogsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDailyLogsQueryKey = (params?: ListDailyLogsParams) => {
+  return [`/api/field/daily-log`, ...(params ? [params] : [])] as const;
+};
+
+export const getListDailyLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDailyLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListDailyLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDailyLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDailyLogsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDailyLogs>>> = ({
+    signal,
+  }) => listDailyLogs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDailyLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDailyLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDailyLogs>>
+>;
+export type ListDailyLogsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List daily logs for a project
+ */
+
+export function useListDailyLogs<
+  TData = Awaited<ReturnType<typeof listDailyLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListDailyLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDailyLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDailyLogsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upload a site photo with markup
+ */
+export const getCreateSitePhotoUrl = () => {
+  return `/api/field/photo-upload`;
+};
+
+export const createSitePhoto = async (
+  createSitePhotoBody: CreateSitePhotoBody,
+  options?: RequestInit,
+): Promise<SitePhotoRecord> => {
+  return customFetch<SitePhotoRecord>(getCreateSitePhotoUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSitePhotoBody),
+  });
+};
+
+export const getCreateSitePhotoMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSitePhoto>>,
+    TError,
+    { data: BodyType<CreateSitePhotoBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSitePhoto>>,
+  TError,
+  { data: BodyType<CreateSitePhotoBody> },
+  TContext
+> => {
+  const mutationKey = ["createSitePhoto"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSitePhoto>>,
+    { data: BodyType<CreateSitePhotoBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSitePhoto(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSitePhotoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSitePhoto>>
+>;
+export type CreateSitePhotoMutationBody = BodyType<CreateSitePhotoBody>;
+export type CreateSitePhotoMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upload a site photo with markup
+ */
+export const useCreateSitePhoto = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSitePhoto>>,
+    TError,
+    { data: BodyType<CreateSitePhotoBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSitePhoto>>,
+  TError,
+  { data: BodyType<CreateSitePhotoBody> },
+  TContext
+> => {
+  return useMutation(getCreateSitePhotoMutationOptions(options));
+};
+
+/**
+ * @summary List site photos for a project
+ */
+export const getListSitePhotosUrl = (params: ListSitePhotosParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/field/photo-upload?${stringifiedParams}`
+    : `/api/field/photo-upload`;
+};
+
+export const listSitePhotos = async (
+  params: ListSitePhotosParams,
+  options?: RequestInit,
+): Promise<SitePhotoRecord[]> => {
+  return customFetch<SitePhotoRecord[]>(getListSitePhotosUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSitePhotosQueryKey = (params?: ListSitePhotosParams) => {
+  return [`/api/field/photo-upload`, ...(params ? [params] : [])] as const;
+};
+
+export const getListSitePhotosQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSitePhotos>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListSitePhotosParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSitePhotos>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSitePhotosQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSitePhotos>>> = ({
+    signal,
+  }) => listSitePhotos(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSitePhotos>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSitePhotosQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSitePhotos>>
+>;
+export type ListSitePhotosQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List site photos for a project
+ */
+
+export function useListSitePhotos<
+  TData = Awaited<ReturnType<typeof listSitePhotos>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListSitePhotosParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSitePhotos>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSitePhotosQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a daily safety signoff
+ */
+export const getCreateSafetySignoffUrl = () => {
+  return `/api/field/safety-check`;
+};
+
+export const createSafetySignoff = async (
+  createSafetySignoffBody: CreateSafetySignoffBody,
+  options?: RequestInit,
+): Promise<SafetySignoffRecord> => {
+  return customFetch<SafetySignoffRecord>(getCreateSafetySignoffUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSafetySignoffBody),
+  });
+};
+
+export const getCreateSafetySignoffMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSafetySignoff>>,
+    TError,
+    { data: BodyType<CreateSafetySignoffBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSafetySignoff>>,
+  TError,
+  { data: BodyType<CreateSafetySignoffBody> },
+  TContext
+> => {
+  const mutationKey = ["createSafetySignoff"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSafetySignoff>>,
+    { data: BodyType<CreateSafetySignoffBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSafetySignoff(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSafetySignoffMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSafetySignoff>>
+>;
+export type CreateSafetySignoffMutationBody = BodyType<CreateSafetySignoffBody>;
+export type CreateSafetySignoffMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Submit a daily safety signoff
+ */
+export const useCreateSafetySignoff = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSafetySignoff>>,
+    TError,
+    { data: BodyType<CreateSafetySignoffBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSafetySignoff>>,
+  TError,
+  { data: BodyType<CreateSafetySignoffBody> },
+  TContext
+> => {
+  return useMutation(getCreateSafetySignoffMutationOptions(options));
+};
+
+/**
+ * @summary List safety signoffs for a project
+ */
+export const getListSafetySignoffsUrl = (params: ListSafetySignoffsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/field/safety-check?${stringifiedParams}`
+    : `/api/field/safety-check`;
+};
+
+export const listSafetySignoffs = async (
+  params: ListSafetySignoffsParams,
+  options?: RequestInit,
+): Promise<SafetySignoffRecord[]> => {
+  return customFetch<SafetySignoffRecord[]>(getListSafetySignoffsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSafetySignoffsQueryKey = (
+  params?: ListSafetySignoffsParams,
+) => {
+  return [`/api/field/safety-check`, ...(params ? [params] : [])] as const;
+};
+
+export const getListSafetySignoffsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSafetySignoffs>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListSafetySignoffsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSafetySignoffs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSafetySignoffsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSafetySignoffs>>
+  > = ({ signal }) => listSafetySignoffs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSafetySignoffs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSafetySignoffsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSafetySignoffs>>
+>;
+export type ListSafetySignoffsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List safety signoffs for a project
+ */
+
+export function useListSafetySignoffs<
+  TData = Awaited<ReturnType<typeof listSafetySignoffs>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListSafetySignoffsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSafetySignoffs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSafetySignoffsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

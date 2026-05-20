@@ -1546,6 +1546,62 @@ export interface UpdateInvoiceBody {
   dueDate?: string | null;
 }
 
+export interface DailyLogRecord {
+  id: number;
+  projectId: number;
+  foremanId: number;
+  notes?: string | null;
+  weatherTemp?: string | null;
+  weatherCondition?: string | null;
+  createdAt: string;
+}
+
+export interface CreateDailyLogBody {
+  projectId: number;
+  notes?: string | null;
+  weatherTemp?: string | null;
+  weatherCondition?: string | null;
+}
+
+export type SitePhotoRecordMarkupData = { [key: string]: unknown } | null;
+
+export interface SitePhotoRecord {
+  id: number;
+  projectId: number;
+  imageUrl: string;
+  markupData?: SitePhotoRecordMarkupData;
+  roomLocation?: string | null;
+  createdAt: string;
+}
+
+export type CreateSitePhotoBodyMarkupData = { [key: string]: unknown } | null;
+
+export interface CreateSitePhotoBody {
+  projectId: number;
+  imageUrl: string;
+  markupData?: CreateSitePhotoBodyMarkupData;
+  roomLocation?: string | null;
+}
+
+export type SafetySignoffRecordResponses = { [key: string]: unknown };
+
+export interface SafetySignoffRecord {
+  id: number;
+  projectId: number;
+  workerId: number;
+  responses: SafetySignoffRecordResponses;
+  signatureUrl?: string | null;
+  createdAt: string;
+}
+
+export type CreateSafetySignoffBodyResponses = { [key: string]: unknown };
+
+export interface CreateSafetySignoffBody {
+  projectId: number;
+  responses: CreateSafetySignoffBodyResponses;
+  signatureUrl?: string | null;
+}
+
 export type ListFormSubmissionsParams = {
   status?: string;
   projectId?: number;
@@ -1690,4 +1746,16 @@ export type DeleteCostModel200 = {
 
 export type DeleteAddon200 = {
   success?: boolean;
+};
+
+export type ListDailyLogsParams = {
+  projectId: number;
+};
+
+export type ListSitePhotosParams = {
+  projectId: number;
+};
+
+export type ListSafetySignoffsParams = {
+  projectId: number;
 };

@@ -44,6 +44,7 @@ import riskDashboardRouter from "./riskDashboard";
 import scheduleEventsRouter from "./scheduleEvents";
 import publicRouter from "./public";
 import scansRouter from "./scans";
+import fieldAutomationRouter from "./fieldAutomation";
 
 const router: IRouter = Router();
 
@@ -94,5 +95,6 @@ router.use(inspectionsRouter);
 router.use(riskDashboardRouter);
 router.use(scheduleEventsRouter);
 router.use(scansRouter);
+router.use(fieldAutomationRouter);
 
 export default router;

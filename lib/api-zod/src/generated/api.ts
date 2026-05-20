@@ -4207,3 +4207,86 @@ export const DeleteAddonParams = zod.object({
 export const DeleteAddonResponse = zod.object({
   success: zod.boolean().optional(),
 });
+
+/**
+ * @summary Create a daily field log
+ */
+export const CreateDailyLogBody = zod.object({
+  projectId: zod.number(),
+  notes: zod.string().nullish(),
+  weatherTemp: zod.string().nullish(),
+  weatherCondition: zod.string().nullish(),
+});
+
+/**
+ * @summary List daily logs for a project
+ */
+export const ListDailyLogsQueryParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListDailyLogsResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  foremanId: zod.number(),
+  notes: zod.string().nullish(),
+  weatherTemp: zod.string().nullish(),
+  weatherCondition: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListDailyLogsResponse = zod.array(ListDailyLogsResponseItem);
+
+/**
+ * @summary Upload a site photo with markup
+ */
+export const CreateSitePhotoBody = zod.object({
+  projectId: zod.number(),
+  imageUrl: zod.string(),
+  markupData: zod.object({}).passthrough().nullish(),
+  roomLocation: zod.string().nullish(),
+});
+
+/**
+ * @summary List site photos for a project
+ */
+export const ListSitePhotosQueryParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListSitePhotosResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  imageUrl: zod.string(),
+  markupData: zod.object({}).passthrough().nullish(),
+  roomLocation: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListSitePhotosResponse = zod.array(ListSitePhotosResponseItem);
+
+/**
+ * @summary Submit a daily safety signoff
+ */
+export const CreateSafetySignoffBody = zod.object({
+  projectId: zod.number(),
+  responses: zod.object({}).passthrough(),
+  signatureUrl: zod.string().nullish(),
+});
+
+/**
+ * @summary List safety signoffs for a project
+ */
+export const ListSafetySignoffsQueryParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListSafetySignoffsResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  workerId: zod.number(),
+  responses: zod.object({}).passthrough(),
+  signatureUrl: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListSafetySignoffsResponse = zod.array(
+  ListSafetySignoffsResponseItem,
+);

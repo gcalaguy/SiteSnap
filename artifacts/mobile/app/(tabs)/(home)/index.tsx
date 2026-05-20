@@ -143,19 +143,23 @@ function AiBriefingCard({ colors }: { colors: any }) {
 
 const QUICK_ACTIONS_WORKER = [
   { label: "My Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
+  { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6" },
+  { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4" },
+  { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
   { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
   { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
-  { label: "Site Vision", icon: "camera", path: "/site-vision", color: "#C9A84C" },
 ];
 
 const QUICK_ACTIONS_OWNER = [
   { label: "Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
   { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
+  { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6" },
+  { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4" },
+  { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
   { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
   { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
-  { label: "Site Vision", icon: "camera", path: "/site-vision", color: "#C9A84C" },
 ];
 
 function QuickActionsGrid({ isWorker, colors, router }: { isWorker: boolean; colors: any; router: any }) {

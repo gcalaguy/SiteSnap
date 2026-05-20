@@ -43,6 +43,7 @@ import TradehubMessagesPage from "@/pages/tradehub-messages";
 import CalculatorsPage from "@/pages/calculators";
 import RFIsPage from "@/pages/rfis";
 import ReportsPage from "@/pages/reports";
+import FieldLogsPage from "@/pages/field-logs";
 import InspectionsPage from "@/pages/inspections";
 import RiskDashboardPage from "@/pages/risk-dashboard";
 import SafetyPage from "@/pages/safety";
@@ -300,6 +301,7 @@ function AuthApp() {
           <Route path="/calculators" component={CalculatorsPage} />
           <Route path="/rfis" component={RFIsPage} />
           <Route path="/reports" component={ReportsPage} />
+          <Route path="/field-logs" component={FieldLogsPage} />
           <Route path="/tradehub/messages/:conversationId" component={TradehubMessagesPage} />
           <Route path="/tradehub/messages" component={TradehubMessagesPage} />
           <Route path="/tradehub/notifications" component={TradehubNotificationsPage} />

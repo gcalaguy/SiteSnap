@@ -1364,3 +1364,55 @@ export const projectNotesTable = pgTable("project_notes", {
 });
 export type ProjectNote = typeof projectNotesTable.$inferSelect;
 export type InspectionAlert = typeof inspectionAlertsTable.$inferSelect;
+
+// ── Field Automation ────────────────────────────────────────────────────────────
+
+export const dailyLogsTable = pgTable("daily_logs", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
+  foremanId: integer("foreman_id")
+    .notNull()
+    .references(() => usersTable.id),
+  notes: text("notes"),
+  weatherTemp: text("weather_temp"),
+  weatherCondition: text("weather_condition"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDailyLogSchema = createInsertSchema(dailyLogsTable).omit({ id: true, createdAt: true });
+export type InsertDailyLog = z.infer<typeof insertDailyLogSchema>;
+export type DailyLog = typeof dailyLogsTable.$inferSelect;
+
+export const sitePhotosTable = pgTable("site_photos", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
+  imageUrl: text("image_url").notNull(),
+  markupData: jsonb("markup_data"),
+  roomLocation: text("room_location"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSitePhotoSchema = createInsertSchema(sitePhotosTable).omit({ id: true, createdAt: true });
+export type InsertSitePhoto = z.infer<typeof insertSitePhotoSchema>;
+export type SitePhoto = typeof sitePhotosTable.$inferSelect;
+
+export const safetySignoffsTable = pgTable("safety_signoffs", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
+  workerId: integer("worker_id")
+    .notNull()
+    .references(() => usersTable.id),
+  responses: jsonb("responses").notNull(),
+  signatureUrl: text("signature_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSafetySignoffSchema = createInsertSchema(safetySignoffsTable).omit({ id: true, createdAt: true });
+export type InsertSafetySignoff = z.infer<typeof insertSafetySignoffSchema>;
+export type SafetySignoff = typeof safetySignoffsTable.$inferSelect;

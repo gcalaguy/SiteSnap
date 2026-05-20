@@ -58,6 +58,8 @@ tags:
     description: Lead activity logging
   - name: estimator
     description: Smart Estimator pricing models and add-ons
+  - name: field-automation
+    description: Field logs, site photos, and safety signoffs
 
 paths:
   # ── Forms ────────────────────────────────────────────────────────────────────
@@ -3213,6 +3215,121 @@ paths:
                   success:
                     type: boolean
 
+  # ── Field Automation ────────────────────────────────────────────────────────────
+  /field/daily-log:
+    post:
+      operationId: createDailyLog
+      tags: [field-automation]
+      summary: Create a daily field log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDailyLogBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyLogRecord"
+    get:
+      operationId: listDailyLogs
+      tags: [field-automation]
+      summary: List daily logs for a project
+      parameters:
+        - in: query
+          name: projectId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyLogRecord"
+
+  /field/photo-upload:
+    post:
+      operationId: createSitePhoto
+      tags: [field-automation]
+      summary: Upload a site photo with markup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSitePhotoBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SitePhotoRecord"
+    get:
+      operationId: listSitePhotos
+      tags: [field-automation]
+      summary: List site photos for a project
+      parameters:
+        - in: query
+          name: projectId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Photos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SitePhotoRecord"
+
+  /field/safety-check:
+    post:
+      operationId: createSafetySignoff
+      tags: [field-automation]
+      summary: Submit a daily safety signoff
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSafetySignoffBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetySignoffRecord"
+    get:
+      operationId: listSafetySignoffs
+      tags: [field-automation]
+      summary: List safety signoffs for a project
+      parameters:
+        - in: query
+          name: projectId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Signoffs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SafetySignoffRecord"
+
 components:
   parameters:
     companyId:
@@ -5687,4 +5804,109 @@ components:
         dueDate:
           type: string
           format: date
+          nullable: true
+
+    DailyLogRecord:
+      type: object
+      required: [id, projectId, foremanId, createdAt]
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        foremanId:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        weatherTemp:
+          type: string
+          nullable: true
+        weatherCondition:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateDailyLogBody:
+      type: object
+      required: [projectId]
+      properties:
+        projectId:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        weatherTemp:
+          type: string
+          nullable: true
+        weatherCondition:
+          type: string
+          nullable: true
+
+    SitePhotoRecord:
+      type: object
+      required: [id, projectId, imageUrl, createdAt]
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        imageUrl:
+          type: string
+        markupData:
+          type: object
+          nullable: true
+        roomLocation:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateSitePhotoBody:
+      type: object
+      required: [projectId, imageUrl]
+      properties:
+        projectId:
+          type: integer
+        imageUrl:
+          type: string
+        markupData:
+          type: object
+          nullable: true
+        roomLocation:
+          type: string
+          nullable: true
+
+    SafetySignoffRecord:
+      type: object
+      required: [id, projectId, workerId, responses, createdAt]
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        workerId:
+          type: integer
+        responses:
+          type: object
+        signatureUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateSafetySignoffBody:
+      type: object
+      required: [projectId, responses]
+      properties:
+        projectId:
+          type: integer
+        responses:
+          type: object
+        signatureUrl:
+          type: string
           nullable: true
