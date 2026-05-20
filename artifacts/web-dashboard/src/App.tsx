@@ -40,6 +40,7 @@ import TradehubProfilePage from "@/pages/tradehub-profile";
 import TradehubNotificationsPage from "@/pages/tradehub-notifications";
 import TradehubMessagesPage from "@/pages/tradehub-messages";
 import CalculatorsPage from "@/pages/calculators";
+import MediaHubTestPage from "@/pages/media-hub-test";
 import RFIsPage from "@/pages/rfis";
 import ReportsPage from "@/pages/reports";
 import FieldLogsPage from "@/pages/field-logs";
@@ -308,6 +309,7 @@ function AuthApp() {
           <Route path="/tradehub/profile/:userId" component={TradehubProfilePage} />
           <Route path="/tradehub" component={TradehubFeedPage} />
           <Route path="/risk-dashboard" component={RiskDashboardPage} />
+          <Route path="/media-hub" component={MediaHubTestPage} />
           <Route path="/safety-compliance" component={SafetyCompliancePage} />
           <Route path="/inspections">
             <Redirect to="/safety-compliance" />

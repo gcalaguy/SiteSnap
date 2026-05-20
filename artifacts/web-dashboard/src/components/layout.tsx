@@ -17,6 +17,7 @@ import {
   CalendarDays,
   Clock,
   Calculator,
+  Camera,
   Crown,
   Bell,
   MessageSquare,
@@ -140,6 +141,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0 },
+    ...(isOwnerOrForeman ? [{ name: "Media Hub", href: "/media-hub", icon: Camera, badge: 0 }] : []),
     ...(isOwnerOrForeman ? [{ name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "INSPECTIONS" }] : []),
     { name: "Projects", href: "/projects", icon: Building2, badge: 0 },
     { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge },
