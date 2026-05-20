@@ -74,7 +74,10 @@ import type {
   DailyReportPhoto,
   DashboardSummary,
   DeleteAddon200,
+  DeleteCostAnalysis200,
   DeleteCostModel200,
+  DeleteDailyReport200,
+  DeleteRFI200,
   DenyTimesheetBody,
   ErrorEnvelope,
   EstimateItemBody,
@@ -7649,6 +7652,97 @@ export const useUpdateDailyReport = <
 };
 
 /**
+ * @summary Delete a daily report
+ */
+export const getDeleteDailyReportUrl = (
+  projectId: number,
+  reportId: number,
+) => {
+  return `/api/projects/${projectId}/daily-reports/${reportId}`;
+};
+
+export const deleteDailyReport = async (
+  projectId: number,
+  reportId: number,
+  options?: RequestInit,
+): Promise<DeleteDailyReport200> => {
+  return customFetch<DeleteDailyReport200>(
+    getDeleteDailyReportUrl(projectId, reportId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteDailyReportMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDailyReport>>,
+    TError,
+    { projectId: number; reportId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteDailyReport>>,
+  TError,
+  { projectId: number; reportId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteDailyReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteDailyReport>>,
+    { projectId: number; reportId: number }
+  > = (props) => {
+    const { projectId, reportId } = props ?? {};
+
+    return deleteDailyReport(projectId, reportId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteDailyReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteDailyReport>>
+>;
+
+export type DeleteDailyReportMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a daily report
+ */
+export const useDeleteDailyReport = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDailyReport>>,
+    TError,
+    { projectId: number; reportId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteDailyReport>>,
+  TError,
+  { projectId: number; reportId: number },
+  TContext
+> => {
+  return useMutation(getDeleteDailyReportMutationOptions(options));
+};
+
+/**
  * @summary List cost analyses for a project
  */
 export const getListCostAnalysesUrl = (projectId: number) => {
@@ -7927,6 +8021,211 @@ export function useGetCostAnalysis<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update a cost analysis
+ */
+export const getUpdateCostAnalysisUrl = (
+  projectId: number,
+  analysisId: number,
+) => {
+  return `/api/projects/${projectId}/cost-analyses/${analysisId}`;
+};
+
+export const updateCostAnalysis = async (
+  projectId: number,
+  analysisId: number,
+  createCostAnalysisBody: CreateCostAnalysisBody,
+  options?: RequestInit,
+): Promise<CostAnalysis> => {
+  return customFetch<CostAnalysis>(
+    getUpdateCostAnalysisUrl(projectId, analysisId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCostAnalysisBody),
+    },
+  );
+};
+
+export const getUpdateCostAnalysisMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCostAnalysis>>,
+    TError,
+    {
+      projectId: number;
+      analysisId: number;
+      data: BodyType<CreateCostAnalysisBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCostAnalysis>>,
+  TError,
+  {
+    projectId: number;
+    analysisId: number;
+    data: BodyType<CreateCostAnalysisBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateCostAnalysis"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCostAnalysis>>,
+    {
+      projectId: number;
+      analysisId: number;
+      data: BodyType<CreateCostAnalysisBody>;
+    }
+  > = (props) => {
+    const { projectId, analysisId, data } = props ?? {};
+
+    return updateCostAnalysis(projectId, analysisId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCostAnalysisMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCostAnalysis>>
+>;
+export type UpdateCostAnalysisMutationBody = BodyType<CreateCostAnalysisBody>;
+export type UpdateCostAnalysisMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a cost analysis
+ */
+export const useUpdateCostAnalysis = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCostAnalysis>>,
+    TError,
+    {
+      projectId: number;
+      analysisId: number;
+      data: BodyType<CreateCostAnalysisBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCostAnalysis>>,
+  TError,
+  {
+    projectId: number;
+    analysisId: number;
+    data: BodyType<CreateCostAnalysisBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateCostAnalysisMutationOptions(options));
+};
+
+/**
+ * @summary Delete a cost analysis
+ */
+export const getDeleteCostAnalysisUrl = (
+  projectId: number,
+  analysisId: number,
+) => {
+  return `/api/projects/${projectId}/cost-analyses/${analysisId}`;
+};
+
+export const deleteCostAnalysis = async (
+  projectId: number,
+  analysisId: number,
+  options?: RequestInit,
+): Promise<DeleteCostAnalysis200> => {
+  return customFetch<DeleteCostAnalysis200>(
+    getDeleteCostAnalysisUrl(projectId, analysisId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteCostAnalysisMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCostAnalysis>>,
+    TError,
+    { projectId: number; analysisId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCostAnalysis>>,
+  TError,
+  { projectId: number; analysisId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCostAnalysis"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCostAnalysis>>,
+    { projectId: number; analysisId: number }
+  > = (props) => {
+    const { projectId, analysisId } = props ?? {};
+
+    return deleteCostAnalysis(projectId, analysisId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCostAnalysisMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCostAnalysis>>
+>;
+
+export type DeleteCostAnalysisMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a cost analysis
+ */
+export const useDeleteCostAnalysis = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCostAnalysis>>,
+    TError,
+    { projectId: number; analysisId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCostAnalysis>>,
+  TError,
+  { projectId: number; analysisId: number },
+  TContext
+> => {
+  return useMutation(getDeleteCostAnalysisMutationOptions(options));
+};
 
 /**
  * @summary List RFIs for a project
@@ -8265,6 +8564,91 @@ export const useUpdateRFI = <
   TContext
 > => {
   return useMutation(getUpdateRFIMutationOptions(options));
+};
+
+/**
+ * @summary Delete an RFI
+ */
+export const getDeleteRFIUrl = (projectId: number, rfiId: number) => {
+  return `/api/projects/${projectId}/rfis/${rfiId}`;
+};
+
+export const deleteRFI = async (
+  projectId: number,
+  rfiId: number,
+  options?: RequestInit,
+): Promise<DeleteRFI200> => {
+  return customFetch<DeleteRFI200>(getDeleteRFIUrl(projectId, rfiId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteRFIMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRFI>>,
+    TError,
+    { projectId: number; rfiId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteRFI>>,
+  TError,
+  { projectId: number; rfiId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteRFI"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteRFI>>,
+    { projectId: number; rfiId: number }
+  > = (props) => {
+    const { projectId, rfiId } = props ?? {};
+
+    return deleteRFI(projectId, rfiId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteRFIMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteRFI>>
+>;
+
+export type DeleteRFIMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete an RFI
+ */
+export const useDeleteRFI = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRFI>>,
+    TError,
+    { projectId: number; rfiId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteRFI>>,
+  TError,
+  { projectId: number; rfiId: number },
+  TContext
+> => {
+  return useMutation(getDeleteRFIMutationOptions(options));
 };
 
 /**

@@ -6,7 +6,9 @@ import {
   useSubmitQuoteForApproval,
   useConvertQuoteToInvoice,
   useGenerateQuoteAI,
+  useDeleteQuote,
   getListQuotesQueryKey,
+  useGetMe,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +48,7 @@ import {
   Receipt,
   ArrowRight,
   Eye,
+  Trash2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -81,6 +84,9 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
   const submitQuote = useSubmitQuoteForApproval();
   const convertQuote = useConvertQuoteToInvoice();
   const generateAI = useGenerateQuoteAI();
+  const deleteQuote = useDeleteQuote();
+  const { data: me } = useGetMe();
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"input" | "preview" | "done">("input");
@@ -409,6 +415,27 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
                       <span className="text-xs text-purple-600 font-medium flex items-center gap-1">
                         <Receipt className="h-3 w-3" /> Invoice created
                       </span>
+                    )}
+
+                    {isOwnerOrForeman && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs gap-1.5 h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={deleteQuote.isPending}
+                        onClick={() => {
+                          deleteQuote.mutate({ projectId, quoteId: q.id }, {
+                            onSuccess: () => {
+                              invalidate();
+                              toast({ title: "Quote deleted" });
+                            },
+                            onError: () => toast({ title: "Failed to delete quote", variant: "destructive" }),
+                          });
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete
+                      </Button>
                     )}
                   </div>
                 </CardContent>

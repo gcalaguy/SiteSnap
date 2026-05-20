@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, dailyReportsTable, usersTable, projectsTable, dailyReportPhotosTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { CreateDailyReportBody, UpdateDailyReportBody } from "@workspace/api-zod";
 
@@ -144,6 +144,16 @@ router.put("/:reportId", requireAuth, requireCompany, requirePermission("submitE
     .limit(1);
 
   res.json({ ...report, submittedBy: submittedBy ?? null });
+});
+
+// DELETE /projects/:projectId/daily-reports/:reportId
+router.delete("/:reportId", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
+  const reportId = parseInt(req.params.reportId as string);
+  await db
+    .delete(dailyReportsTable)
+    .where(and(eq(dailyReportsTable.id, reportId), eq(dailyReportsTable.projectId, projectId)));
+  res.json({ ok: true });
 });
 
 export default router;

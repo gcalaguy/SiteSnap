@@ -2259,6 +2259,18 @@ export const UpdateDailyReportResponse = zod.object({
 });
 
 /**
+ * @summary Delete a daily report
+ */
+export const DeleteDailyReportParams = zod.object({
+  projectId: zod.coerce.number(),
+  reportId: zod.coerce.number(),
+});
+
+export const DeleteDailyReportResponse = zod.object({
+  ok: zod.boolean().optional(),
+});
+
+/**
  * @summary List cost analyses for a project
  */
 export const ListCostAnalysesParams = zod.object({
@@ -2317,6 +2329,50 @@ export const GetCostAnalysisResponse = zod.object({
   notes: zod.string().nullish(),
   aiAnalysis: zod.string().nullish(),
   createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a cost analysis
+ */
+export const UpdateCostAnalysisParams = zod.object({
+  projectId: zod.coerce.number(),
+  analysisId: zod.coerce.number(),
+});
+
+export const UpdateCostAnalysisBody = zod.object({
+  periodLabel: zod.string(),
+  labourCost: zod.number(),
+  materialsCost: zod.number(),
+  equipmentCost: zod.number(),
+  otherCost: zod.number(),
+  notes: zod.string().optional(),
+  aiAnalysis: zod.string().optional(),
+});
+
+export const UpdateCostAnalysisResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  periodLabel: zod.string(),
+  labourCost: zod.number(),
+  materialsCost: zod.number(),
+  equipmentCost: zod.number(),
+  otherCost: zod.number(),
+  totalCost: zod.number(),
+  notes: zod.string().nullish(),
+  aiAnalysis: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a cost analysis
+ */
+export const DeleteCostAnalysisParams = zod.object({
+  projectId: zod.coerce.number(),
+  analysisId: zod.coerce.number(),
+});
+
+export const DeleteCostAnalysisResponse = zod.object({
+  ok: zod.boolean().optional(),
 });
 
 /**
@@ -2464,6 +2520,18 @@ export const UpdateRFIResponse = zod.object({
       createdAt: zod.coerce.date(),
     })
     .nullish(),
+});
+
+/**
+ * @summary Delete an RFI
+ */
+export const DeleteRFIParams = zod.object({
+  projectId: zod.coerce.number(),
+  rfiId: zod.coerce.number(),
+});
+
+export const DeleteRFIResponse = zod.object({
+  ok: zod.boolean().optional(),
 });
 
 /**

@@ -1766,6 +1766,18 @@ export type SetActiveCompanyBody = {
   companyId: number;
 };
 
+export type DeleteDailyReport200 = {
+  ok?: boolean;
+};
+
+export type DeleteCostAnalysis200 = {
+  ok?: boolean;
+};
+
+export type DeleteRFI200 = {
+  ok?: boolean;
+};
+
 export type MarkAllNotificationsRead200 = {
   ok?: boolean;
 };

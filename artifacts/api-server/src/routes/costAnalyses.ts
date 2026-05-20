@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, costAnalysesTable, projectsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { CreateCostAnalysisBody } from "@workspace/api-zod";
 
 const router = Router({ mergeParams: true });
@@ -58,6 +58,30 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     .returning();
 
   res.status(201).json(analysis);
+});
+
+// PUT /projects/:projectId/cost-analyses/:analysisId
+router.put("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
+  const analysisId = parseInt(req.params.analysisId as string);
+  const body = req.body;
+  const [analysis] = await db
+    .update(costAnalysesTable)
+    .set(body)
+    .where(and(eq(costAnalysesTable.id, analysisId), eq(costAnalysesTable.projectId, projectId)))
+    .returning();
+  if (!analysis) { res.status(404).json({ error: "Cost analysis not found" }); return; }
+  res.json(analysis);
+});
+
+// DELETE /projects/:projectId/cost-analyses/:analysisId
+router.delete("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
+  const analysisId = parseInt(req.params.analysisId as string);
+  await db
+    .delete(costAnalysesTable)
+    .where(and(eq(costAnalysesTable.id, analysisId), eq(costAnalysesTable.projectId, projectId)));
+  res.json({ ok: true });
 });
 
 // GET /projects/:projectId/cost-analyses/:analysisId

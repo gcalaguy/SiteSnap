@@ -10,12 +10,18 @@ import {
   useCreateTask,
   useUpdateTask,
   useDeleteTask,
+  useDeleteDailyReport,
+  useDeleteCostAnalysis,
+  useDeleteRFI,
   useGetMe,
   useListCompanyMembers,
   useListProjectMembers,
   useAddProjectMember,
   useRemoveProjectMember,
   getListProjectMembersQueryKey,
+  getListDailyReportsQueryKey,
+  getListCostAnalysesQueryKey,
+  getListRFIsQueryKey,
   customFetch,
 } from "@workspace/api-client-react";
 import { getListTasksQueryKey } from "@workspace/api-client-react";
@@ -528,6 +534,36 @@ export default function ProjectDetail() {
     },
   });
 
+  const deleteDailyReport = useDeleteDailyReport({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListDailyReportsQueryKey(projectId) });
+        toast({ title: "Daily report deleted" });
+      },
+      onError: (err: any) => toast({ title: err?.message ?? "Failed to delete report", variant: "destructive" }),
+    },
+  });
+
+  const deleteCostAnalysis = useDeleteCostAnalysis({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCostAnalysesQueryKey(projectId) });
+        toast({ title: "Cost analysis deleted" });
+      },
+      onError: (err: any) => toast({ title: err?.message ?? "Failed to delete cost record", variant: "destructive" }),
+    },
+  });
+
+  const deleteRFI = useDeleteRFI({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListRFIsQueryKey(projectId) });
+        toast({ title: "RFI deleted" });
+      },
+      onError: (err: any) => toast({ title: err?.message ?? "Failed to delete RFI", variant: "destructive" }),
+    },
+  });
+
   const { data: projectAssignments = [], refetch: refetchAssignments } = useQuery<ProjectAssignment[]>({
     queryKey: ["project-schedule", projectId],
     queryFn: () => customFetch(`/api/projects/${projectId}/schedule`),
@@ -975,6 +1011,18 @@ export default function ProjectDetail() {
                           {isExpanded
                             ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
                             : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          {isOwnerOrForeman && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title="Delete report"
+                              onClick={(e) => { e.stopPropagation(); deleteDailyReport.mutate({ projectId, reportId: report.id }); }}
+                              disabled={deleteDailyReport.isPending}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
 
@@ -1177,6 +1225,18 @@ export default function ProjectDetail() {
                         <div className="flex items-center gap-3">
                           <span className="font-bold text-lg text-destructive">${cost.totalCost.toLocaleString()}</span>
                           {isCostExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          {isOwnerOrForeman && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title="Delete cost record"
+                              onClick={(e) => { e.stopPropagation(); deleteCostAnalysis.mutate({ projectId, analysisId: cost.id }); }}
+                              disabled={deleteCostAnalysis.isPending}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardHeader>
@@ -1252,6 +1312,18 @@ export default function ProjectDetail() {
                               {rfi.status.replace("_", " ").toUpperCase()}
                             </Badge>
                             {isRfiExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                            {isOwnerOrForeman && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Delete RFI"
+                                onClick={(e) => { e.stopPropagation(); deleteRFI.mutate({ projectId, rfiId: rfi.id }); }}
+                                disabled={deleteRFI.isPending}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                           </div>
                           {getPriorityBadge(rfi.priority)}
                         </div>

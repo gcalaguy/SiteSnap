@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, rfisTable, usersTable, projectsTable } from "@workspace/db";
 import { eq, and, count } from "drizzle-orm";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
 import { notify } from "../lib/notify";
@@ -150,6 +150,16 @@ router.put("/:rfiId", requireAuth, requireCompany, requirePermission("manageQuot
     .limit(1);
 
   res.json({ ...rfi, submittedBy: submittedBy ?? null });
+});
+
+// DELETE /projects/:projectId/rfis/:rfiId
+router.delete("/:rfiId", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
+  const rfiId = parseInt(req.params.rfiId as string);
+  await db
+    .delete(rfisTable)
+    .where(and(eq(rfisTable.id, rfiId), eq(rfisTable.projectId, projectId)));
+  res.json({ ok: true });
 });
 
 export default router;

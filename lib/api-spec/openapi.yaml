@@ -1702,6 +1702,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DailyReport"
+    delete:
+      operationId: deleteDailyReport
+      tags: [daily-reports]
+      summary: Delete a daily report
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/reportId"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "404":
+          description: Not found
 
   # ── Cost Analyses ──────────────────────────────────────────────────────────
   /projects/{projectId}/cost-analyses:
@@ -1756,6 +1775,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CostAnalysis"
+    put:
+      operationId: updateCostAnalysis
+      tags: [cost-analyses]
+      summary: Update a cost analysis
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/analysisId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCostAnalysisBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostAnalysis"
+    delete:
+      operationId: deleteCostAnalysis
+      tags: [cost-analyses]
+      summary: Delete a cost analysis
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/analysisId"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "404":
+          description: Not found
 
   # ── RFIs ───────────────────────────────────────────────────────────────────
   /projects/{projectId}/rfis:
@@ -1831,6 +1889,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RFI"
+    delete:
+      operationId: deleteRFI
+      tags: [rfis]
+      summary: Delete an RFI
+      parameters:
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/rfiId"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "404":
+          description: Not found
 
   # ── AI Agents ──────────────────────────────────────────────────────────────
   /ai/daily-report/generate:
