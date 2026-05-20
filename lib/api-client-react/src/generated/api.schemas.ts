@@ -1635,6 +1635,46 @@ export interface ExportSheetsResponse {
   updates?: ExportSheetsResponseUpdates;
 }
 
+export type CalendarEventBodyStart = {
+  /** ISO 8601 datetime (e.g. "2026-06-01T09:00:00") */
+  dateTime: string;
+  /** IANA timezone name (e.g. "America/Toronto") */
+  timeZone?: string;
+};
+
+export type CalendarEventBodyEnd = {
+  dateTime: string;
+  timeZone?: string;
+};
+
+export type CalendarEventBodyAttendeesItem = {
+  email: string;
+};
+
+export interface CalendarEventBody {
+  /** Event title */
+  summary: string;
+  description?: string | null;
+  start: CalendarEventBodyStart;
+  end: CalendarEventBodyEnd;
+  location?: string | null;
+  attendees?: CalendarEventBodyAttendeesItem[];
+}
+
+export interface GoogleCalendarEventResponse {
+  success: boolean;
+  eventId: string;
+  /** URL to open the event in Google Calendar */
+  htmlLink: string;
+}
+
+export interface OutlookCalendarEventResponse {
+  success: boolean;
+  eventId: string;
+  /** URL to open the event in Outlook */
+  webLink: string;
+}
+
 export type ListFormSubmissionsParams = {
   status?: string;
   projectId?: number;

@@ -4397,3 +4397,79 @@ export const ExportSheetsResponse = zod.object({
   spreadsheetId: zod.string(),
   updates: zod.object({}).passthrough().optional(),
 });
+
+/**
+ * Creates a new event in the authenticated user's primary Google Calendar.
+Requires the user to have linked their Google account via OAuth.
+
+ * @summary Create a Google Calendar event
+ */
+export const CreateGoogleCalendarEventBody = zod.object({
+  summary: zod.string().describe("Event title"),
+  description: zod.string().nullish(),
+  start: zod.object({
+    dateTime: zod
+      .string()
+      .describe('ISO 8601 datetime (e.g. \"2026-06-01T09:00:00\")'),
+    timeZone: zod
+      .string()
+      .optional()
+      .describe('IANA timezone name (e.g. \"America\/Toronto\")'),
+  }),
+  end: zod.object({
+    dateTime: zod.string(),
+    timeZone: zod.string().optional(),
+  }),
+  location: zod.string().nullish(),
+  attendees: zod
+    .array(
+      zod.object({
+        email: zod.string().email(),
+      }),
+    )
+    .optional(),
+});
+
+export const CreateGoogleCalendarEventResponse = zod.object({
+  success: zod.boolean(),
+  eventId: zod.string(),
+  htmlLink: zod.string().describe("URL to open the event in Google Calendar"),
+});
+
+/**
+ * Creates a new event in the authenticated user's Outlook Calendar via
+Microsoft Graph. Requires the user to have linked their Microsoft account.
+
+ * @summary Create an Outlook Calendar event
+ */
+export const CreateOutlookEventBody = zod.object({
+  summary: zod.string().describe("Event title"),
+  description: zod.string().nullish(),
+  start: zod.object({
+    dateTime: zod
+      .string()
+      .describe('ISO 8601 datetime (e.g. \"2026-06-01T09:00:00\")'),
+    timeZone: zod
+      .string()
+      .optional()
+      .describe('IANA timezone name (e.g. \"America\/Toronto\")'),
+  }),
+  end: zod.object({
+    dateTime: zod.string(),
+    timeZone: zod.string().optional(),
+  }),
+  location: zod.string().nullish(),
+  attendees: zod
+    .array(
+      zod.object({
+        email: zod.string().email(),
+      }),
+    )
+    .optional(),
+});
+
+export const CreateOutlookEventResponse = zod.object({
+  success: zod.boolean(),
+  eventId: zod.string(),
+  webLink: zod.string().describe("URL to open the event in Outlook"),
+});

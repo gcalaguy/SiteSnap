@@ -3472,6 +3472,58 @@ paths:
         "502":
           description: Failed to write to Google Sheets
 
+  /integrations/create-google-calendar-event:
+    post:
+      operationId: createGoogleCalendarEvent
+      tags: [integrations]
+      summary: Create a Google Calendar event
+      description: |
+        Creates a new event in the authenticated user's primary Google Calendar.
+        Requires the user to have linked their Google account via OAuth.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarEventBody"
+      responses:
+        "200":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoogleCalendarEventResponse"
+        "400":
+          description: Bad request or Google account not linked
+        "502":
+          description: Failed to create Google Calendar event
+
+  /integrations/create-outlook-event:
+    post:
+      operationId: createOutlookEvent
+      tags: [integrations]
+      summary: Create an Outlook Calendar event
+      description: |
+        Creates a new event in the authenticated user's Outlook Calendar via
+        Microsoft Graph. Requires the user to have linked their Microsoft account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarEventBody"
+      responses:
+        "200":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutlookCalendarEventResponse"
+        "400":
+          description: Bad request or Outlook account not linked
+        "502":
+          description: Failed to create Outlook Calendar event
+
 components:
   parameters:
     companyId:
@@ -6105,3 +6157,68 @@ components:
           type: string
         updates:
           type: object
+
+    CalendarEventBody:
+      type: object
+      required: [summary, start, end]
+      properties:
+        summary:
+          type: string
+          description: Event title
+        description:
+          type: string
+          nullable: true
+        start:
+          type: object
+          required: [dateTime]
+          properties:
+            dateTime:
+              type: string
+              description: ISO 8601 datetime (e.g. "2026-06-01T09:00:00")
+            timeZone:
+              type: string
+              description: IANA timezone name (e.g. "America/Toronto")
+        end:
+          type: object
+          required: [dateTime]
+          properties:
+            dateTime:
+              type: string
+            timeZone:
+              type: string
+        location:
+          type: string
+          nullable: true
+        attendees:
+          type: array
+          items:
+            type: object
+            required: [email]
+            properties:
+              email:
+                type: string
+                format: email
+
+    GoogleCalendarEventResponse:
+      type: object
+      required: [success, eventId, htmlLink]
+      properties:
+        success:
+          type: boolean
+        eventId:
+          type: string
+        htmlLink:
+          type: string
+          description: URL to open the event in Google Calendar
+
+    OutlookCalendarEventResponse:
+      type: object
+      required: [success, eventId, webLink]
+      properties:
+        success:
+          type: boolean
+        eventId:
+          type: string
+        webLink:
+          type: string
+          description: URL to open the event in Outlook

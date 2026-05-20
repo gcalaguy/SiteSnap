@@ -5,6 +5,12 @@
  *  - POST /api/integrations/export-sheets
  *      Export financials (invoices, payments, change orders) to Google Sheets.
  *      Body: { spreadsheetId: string, range?: string }
+ *  - POST /api/integrations/create-google-calendar-event
+ *      Create a Google Calendar event from the user's linked Google account.
+ *      Body: CalendarEventInput
+ *  - POST /api/integrations/create-outlook-event
+ *      Create an Outlook Calendar event via Microsoft Graph.
+ *      Body: CalendarEventInput
  *
  *  All routes are authenticated and company-scoped.
  */
@@ -21,7 +27,11 @@ import {
 import { requireAuth, requireCompany } from "../../lib/auth";
 import { requirePermission } from "../../lib/permissionGate";
 import { z } from "zod";
-import { appendToGoogleSheet } from "../../services/externalSyncService";
+import {
+  appendToGoogleSheet,
+  createGoogleCalendarEvent,
+  createOutlookEvent,
+} from "../../services/externalSyncService";
 
 const router = Router();
 
@@ -142,6 +152,126 @@ router.post(
       res.status(502).json({
         error: "Failed to write to Google Sheets. Check permissions and sheet ID.",
         code: "SHEETS_WRITE_FAILED",
+      });
+    }
+  },
+);
+
+// ── Shared calendar event body schema ──────────────────────────────────────
+
+const CalendarEventBody = z.object({
+  summary: z.string().min(1),
+  description: z.string().optional(),
+  start: z.object({
+    dateTime: z.string().min(1),
+    timeZone: z.string().optional(),
+  }),
+  end: z.object({
+    dateTime: z.string().min(1),
+    timeZone: z.string().optional(),
+  }),
+  location: z.string().optional(),
+  attendees: z.array(z.object({ email: z.string().email() })).optional(),
+});
+
+// ── POST /integrations/create-google-calendar-event ────────────────────────
+
+router.post(
+  "/integrations/create-google-calendar-event",
+  requireAuth,
+  requireCompany,
+  async (req, res) => {
+    const userId = req.userId!;
+    const companyId = req.companyId!;
+
+    const parsed = CalendarEventBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+
+    const [tokenRow] = await db
+      .select()
+      .from(providerTokensTable)
+      .where(
+        and(
+          eq(providerTokensTable.userId, userId),
+          eq(providerTokensTable.companyId, companyId),
+          eq(providerTokensTable.provider, "google"),
+        ),
+      );
+
+    if (!tokenRow?.accessToken) {
+      res.status(400).json({
+        error:
+          "Google account not linked. Connect your Google account in Settings first.",
+        code: "GOOGLE_NOT_LINKED",
+      });
+      return;
+    }
+
+    try {
+      const result = await createGoogleCalendarEvent(
+        tokenRow.accessToken,
+        parsed.data,
+      );
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      req.log?.error?.({ err }, "Google Calendar event creation failed");
+      res.status(502).json({
+        error:
+          "Failed to create Google Calendar event. Check permissions and try again.",
+        code: "GOOGLE_CALENDAR_FAILED",
+      });
+    }
+  },
+);
+
+// ── POST /integrations/create-outlook-event ────────────────────────────────
+
+router.post(
+  "/integrations/create-outlook-event",
+  requireAuth,
+  requireCompany,
+  async (req, res) => {
+    const userId = req.userId!;
+    const companyId = req.companyId!;
+
+    const parsed = CalendarEventBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+
+    const [tokenRow] = await db
+      .select()
+      .from(providerTokensTable)
+      .where(
+        and(
+          eq(providerTokensTable.userId, userId),
+          eq(providerTokensTable.companyId, companyId),
+          eq(providerTokensTable.provider, "outlook"),
+        ),
+      );
+
+    if (!tokenRow?.accessToken) {
+      res.status(400).json({
+        error:
+          "Outlook account not linked. Connect your Microsoft account in Settings first.",
+        code: "OUTLOOK_NOT_LINKED",
+      });
+      return;
+    }
+
+    try {
+      const result = await createOutlookEvent(tokenRow.accessToken, parsed.data);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      req.log?.error?.({ err }, "Outlook Calendar event creation failed");
+      res.status(502).json({
+        error:
+          "Failed to create Outlook Calendar event. Check permissions and try again.",
+        code: "OUTLOOK_CALENDAR_FAILED",
       });
     }
   },

@@ -35,6 +35,7 @@ import type {
   BuilderEstimate,
   BuilderEstimateItem,
   BuilderEstimateWithItems,
+  CalendarEventBody,
   ChangeOrderRecord,
   Company,
   Contact,
@@ -87,6 +88,7 @@ import type {
   FormTemplateRecord,
   GetFormSubmission200,
   GetScanThumbnailUrl200,
+  GoogleCalendarEventResponse,
   HealthStatus,
   ImportItemBody,
   Invitation,
@@ -110,6 +112,7 @@ import type {
   MemberPermissions,
   Notification,
   NotificationUnreadCount,
+  OutlookCalendarEventResponse,
   PaymentRecord,
   Project,
   ProjectDocument,
@@ -14864,4 +14867,185 @@ export const useExportSheets = <
   TContext
 > => {
   return useMutation(getExportSheetsMutationOptions(options));
+};
+
+/**
+ * Creates a new event in the authenticated user's primary Google Calendar.
+Requires the user to have linked their Google account via OAuth.
+
+ * @summary Create a Google Calendar event
+ */
+export const getCreateGoogleCalendarEventUrl = () => {
+  return `/api/integrations/create-google-calendar-event`;
+};
+
+export const createGoogleCalendarEvent = async (
+  calendarEventBody: CalendarEventBody,
+  options?: RequestInit,
+): Promise<GoogleCalendarEventResponse> => {
+  return customFetch<GoogleCalendarEventResponse>(
+    getCreateGoogleCalendarEventUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(calendarEventBody),
+    },
+  );
+};
+
+export const getCreateGoogleCalendarEventMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createGoogleCalendarEvent>>,
+    TError,
+    { data: BodyType<CalendarEventBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createGoogleCalendarEvent>>,
+  TError,
+  { data: BodyType<CalendarEventBody> },
+  TContext
+> => {
+  const mutationKey = ["createGoogleCalendarEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createGoogleCalendarEvent>>,
+    { data: BodyType<CalendarEventBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createGoogleCalendarEvent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateGoogleCalendarEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createGoogleCalendarEvent>>
+>;
+export type CreateGoogleCalendarEventMutationBody = BodyType<CalendarEventBody>;
+export type CreateGoogleCalendarEventMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a Google Calendar event
+ */
+export const useCreateGoogleCalendarEvent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createGoogleCalendarEvent>>,
+    TError,
+    { data: BodyType<CalendarEventBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createGoogleCalendarEvent>>,
+  TError,
+  { data: BodyType<CalendarEventBody> },
+  TContext
+> => {
+  return useMutation(getCreateGoogleCalendarEventMutationOptions(options));
+};
+
+/**
+ * Creates a new event in the authenticated user's Outlook Calendar via
+Microsoft Graph. Requires the user to have linked their Microsoft account.
+
+ * @summary Create an Outlook Calendar event
+ */
+export const getCreateOutlookEventUrl = () => {
+  return `/api/integrations/create-outlook-event`;
+};
+
+export const createOutlookEvent = async (
+  calendarEventBody: CalendarEventBody,
+  options?: RequestInit,
+): Promise<OutlookCalendarEventResponse> => {
+  return customFetch<OutlookCalendarEventResponse>(getCreateOutlookEventUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(calendarEventBody),
+  });
+};
+
+export const getCreateOutlookEventMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOutlookEvent>>,
+    TError,
+    { data: BodyType<CalendarEventBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOutlookEvent>>,
+  TError,
+  { data: BodyType<CalendarEventBody> },
+  TContext
+> => {
+  const mutationKey = ["createOutlookEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOutlookEvent>>,
+    { data: BodyType<CalendarEventBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createOutlookEvent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOutlookEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOutlookEvent>>
+>;
+export type CreateOutlookEventMutationBody = BodyType<CalendarEventBody>;
+export type CreateOutlookEventMutationError = ErrorType<void>;
+
+/**
+ * @summary Create an Outlook Calendar event
+ */
+export const useCreateOutlookEvent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOutlookEvent>>,
+    TError,
+    { data: BodyType<CalendarEventBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOutlookEvent>>,
+  TError,
+  { data: BodyType<CalendarEventBody> },
+  TContext
+> => {
+  return useMutation(getCreateOutlookEventMutationOptions(options));
 };
