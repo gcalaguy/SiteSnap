@@ -21,7 +21,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system/legacy";
 
 export default function FieldPhotoScreen() {
   const colors = useColors();
@@ -52,27 +51,16 @@ export default function FieldPhotoScreen() {
 
   async function uploadToStorage(uri: string): Promise<string | null> {
     try {
-      // 1) Get presigned URL
-      const { uploadURL, objectPath } = await customFetch<{
-        uploadURL: string;
-        objectPath: string;
-      }>("/api/storage/uploads/request-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: `site-photo-${Date.now()}.jpg`,
-          size: 0,
-          contentType: "image/jpeg",
-        }),
-      });
-
-      // 2) Upload binary via expo-file-system (works with file:// URIs)
-      const uploadRes = await FileSystem.uploadAsync(uploadURL, uri, {
-        httpMethod: "PUT",
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: { "Content-Type": "image/jpeg" },
-      });
-      if (uploadRes.status >= 400) throw new Error("Upload failed");
+      const formData = new FormData();
+      formData.append("file", {
+        uri,
+        name: `site-photo-${Date.now()}.jpg`,
+        type: "image/jpeg",
+      } as unknown as Blob);
+      const { objectPath } = await customFetch<{ objectPath: string }>(
+        "/api/storage/uploads/file",
+        { method: "POST", body: formData },
+      );
       return objectPath;
     } catch {
       return null;

@@ -97,32 +97,22 @@ export default function FieldSafetyScreen() {
 
   async function uploadSignatureSvg(svg: string): Promise<string | null> {
     try {
-      const { uploadURL, objectPath } = await customFetch<{
-        uploadURL: string;
-        objectPath: string;
-      }>("/api/storage/uploads/request-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: `signature-${Date.now()}.svg`,
-          size: svg.length,
-          contentType: "image/svg+xml",
-        }),
-      });
-
-      // Write SVG to a temp file then upload via expo-file-system
+      // Write SVG to a temp file so we can POST it as multipart/form-data
       const tmpFile = `${FileSystem.cacheDirectory}sig_${Date.now()}.svg`;
       await FileSystem.writeAsStringAsync(tmpFile, svg, {
         encoding: FileSystem.EncodingType.UTF8,
       });
-      const uploadRes = await FileSystem.uploadAsync(uploadURL, tmpFile, {
-        httpMethod: "PUT",
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: { "Content-Type": "image/svg+xml" },
-      });
-      // Clean up temp file
+      const formData = new FormData();
+      formData.append("file", {
+        uri: tmpFile,
+        name: `signature-${Date.now()}.svg`,
+        type: "image/svg+xml",
+      } as unknown as Blob);
+      const { objectPath } = await customFetch<{ objectPath: string }>(
+        "/api/storage/uploads/file",
+        { method: "POST", body: formData },
+      );
       await FileSystem.deleteAsync(tmpFile, { idempotent: true }).catch(() => {});
-      if (uploadRes.status >= 400) throw new Error("Upload failed");
       return objectPath;
     } catch {
       return null;

@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
+import multer from "multer";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -9,6 +10,36 @@ import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+/**
+ * POST /storage/uploads/file
+ *
+ * Accept a multipart/form-data file upload (field name: "file") from the
+ * mobile client, upload it to private object storage server-side, and return
+ * the canonical /objects/... path.
+ *
+ * This is preferred over client-side presigned-URL uploads because Expo Go
+ * cannot reliably perform binary PUT requests to external GCS URLs.
+ */
+router.post(
+  "/storage/uploads/file",
+  upload.single("file"),
+  async (req: Request, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+    try {
+      const contentType = req.file.mimetype || "application/octet-stream";
+      const objectPath = await objectStorageService.uploadBuffer(req.file.buffer, contentType);
+      res.json({ objectPath });
+    } catch (error) {
+      req.log.error({ err: error }, "Error uploading file to storage");
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  },
+);
 
 /**
  * POST /storage/uploads/request-url
