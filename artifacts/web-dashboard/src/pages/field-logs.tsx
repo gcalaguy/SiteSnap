@@ -336,7 +336,7 @@ export default function FieldLogsPage() {
                             variant="outline"
                             className="text-[10px]"
                           >
-                            Foreman #{log.foremanId}
+                            {log.createdByName ?? `User #${log.foremanId}`}
                           </Badge>
                           {isOwner && (
                             <div className="flex items-center gap-1">

@@ -4229,6 +4229,10 @@ export const ListDailyLogsResponseItem = zod.object({
   id: zod.number(),
   projectId: zod.number(),
   foremanId: zod.number(),
+  createdByName: zod
+    .string()
+    .nullish()
+    .describe("Full name of the user who created the log"),
   notes: zod.string().nullish(),
   weatherTemp: zod.string().nullish(),
   weatherCondition: zod.string().nullish(),
@@ -4253,6 +4257,10 @@ export const UpdateDailyLogResponse = zod.object({
   id: zod.number(),
   projectId: zod.number(),
   foremanId: zod.number(),
+  createdByName: zod
+    .string()
+    .nullish()
+    .describe("Full name of the user who created the log"),
   notes: zod.string().nullish(),
   weatherTemp: zod.string().nullish(),
   weatherCondition: zod.string().nullish(),

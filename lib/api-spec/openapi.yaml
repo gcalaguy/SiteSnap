@@ -6010,6 +6010,10 @@ components:
           type: integer
         foremanId:
           type: integer
+        createdByName:
+          type: string
+          nullable: true
+          description: Full name of the user who created the log
         notes:
           type: string
           nullable: true

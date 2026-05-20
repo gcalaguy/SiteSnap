@@ -5,6 +5,7 @@ import {
   sitePhotosTable,
   safetySignoffsTable,
   projectsTable,
+  usersTable,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
@@ -90,12 +91,22 @@ router.get(
       return;
     }
 
-    const logs = await db
-      .select()
+    const rows = await db
+      .select({
+        id: dailyLogsTable.id,
+        projectId: dailyLogsTable.projectId,
+        foremanId: dailyLogsTable.foremanId,
+        notes: dailyLogsTable.notes,
+        weatherTemp: dailyLogsTable.weatherTemp,
+        weatherCondition: dailyLogsTable.weatherCondition,
+        createdAt: dailyLogsTable.createdAt,
+        createdByName: usersTable.firstName,
+      })
       .from(dailyLogsTable)
+      .leftJoin(usersTable, eq(dailyLogsTable.foremanId, usersTable.id))
       .where(eq(dailyLogsTable.projectId, projectId));
 
-    res.json(logs);
+    res.json(rows);
   },
 );
 

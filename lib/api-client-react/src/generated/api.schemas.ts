@@ -1550,6 +1550,8 @@ export interface DailyLogRecord {
   id: number;
   projectId: number;
   foremanId: number;
+  /** Full name of the user who created the log */
+  createdByName?: string | null;
   notes?: string | null;
   weatherTemp?: string | null;
   weatherCondition?: string | null;
