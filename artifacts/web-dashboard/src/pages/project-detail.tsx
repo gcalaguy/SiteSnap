@@ -13,6 +13,9 @@ import {
   useDeleteDailyReport,
   useDeleteCostAnalysis,
   useDeleteRFI,
+  useUpdateDailyReport,
+  useUpdateCostAnalysis,
+  useUpdateRFI,
   useGetMe,
   useListCompanyMembers,
   useListProjectMembers,
@@ -46,7 +49,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert, MessageCircle, ScanLine, Printer } from "lucide-react";
+import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Pencil, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert, MessageCircle, ScanLine, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -498,6 +501,10 @@ export default function ProjectDetail() {
   const [expandedCostId, setExpandedCostId] = useState<number | null>(null);
   const [expandedRfiId, setExpandedRfiId] = useState<number | null>(null);
 
+  const [editingReportId, setEditingReportId] = useState<number | null>(null);
+  const [editingCostId, setEditingCostId] = useState<number | null>(null);
+  const [editingRfiId, setEditingRfiId] = useState<number | null>(null);
+
   const { data: me } = useGetMe();
   const companyId = me?.company?.id;
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
@@ -561,6 +568,39 @@ export default function ProjectDetail() {
         toast({ title: "RFI deleted" });
       },
       onError: (err: any) => toast({ title: err?.message ?? "Failed to delete RFI", variant: "destructive" }),
+    },
+  });
+
+  const updateDailyReport = useUpdateDailyReport({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListDailyReportsQueryKey(projectId) });
+        setEditingReportId(null);
+        toast({ title: "Daily report updated" });
+      },
+      onError: (err: any) => toast({ title: err?.message ?? "Failed to update report", variant: "destructive" }),
+    },
+  });
+
+  const updateCostAnalysis = useUpdateCostAnalysis({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCostAnalysesQueryKey(projectId) });
+        setEditingCostId(null);
+        toast({ title: "Cost analysis updated" });
+      },
+      onError: (err: any) => toast({ title: err?.message ?? "Failed to update cost record", variant: "destructive" }),
+    },
+  });
+
+  const updateRFI = useUpdateRFI({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListRFIsQueryKey(projectId) });
+        setEditingRfiId(null);
+        toast({ title: "RFI updated" });
+      },
+      onError: (err: any) => toast({ title: err?.message ?? "Failed to update RFI", variant: "destructive" }),
     },
   });
 
@@ -1012,16 +1052,27 @@ export default function ProjectDetail() {
                             ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
                             : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                           {isOwnerOrForeman && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              title="Delete report"
-                              onClick={(e) => { e.stopPropagation(); deleteDailyReport.mutate({ projectId, reportId: report.id }); }}
-                              disabled={deleteDailyReport.isPending}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 hover:bg-muted"
+                                title="Edit report"
+                                onClick={(e) => { e.stopPropagation(); setEditingReportId(report.id); }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Delete report"
+                                onClick={(e) => { e.stopPropagation(); deleteDailyReport.mutate({ projectId, reportId: report.id }); }}
+                                disabled={deleteDailyReport.isPending}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -1164,6 +1215,69 @@ export default function ProjectDetail() {
               })}
             </div>
           )}
+
+          {/* Edit Daily Report Dialog */}
+          {(() => {
+            const report = filteredReports.find((r: any) => r.id === editingReportId);
+            if (!report) return null;
+            return (
+              <Dialog open={!!editingReportId} onOpenChange={() => setEditingReportId(null)}>
+                <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+                  <DialogHeader><DialogTitle>Edit Daily Report</DialogTitle></DialogHeader>
+                  <div className="space-y-3 py-2">
+                    <Label>Date</Label>
+                    <Input type="date" defaultValue={report.reportDate.split("T")[0]} id={`edit-report-date-${report.id}`} />
+                    <Label>Work Performed</Label>
+                    <Textarea defaultValue={report.workPerformed} id={`edit-report-work-${report.id}`} rows={3} />
+                    <Label>Weather</Label>
+                    <Input defaultValue={report.weather ?? ""} id={`edit-report-weather-${report.id}`} />
+                    <Label>Temperature</Label>
+                    <Input defaultValue={report.temperature ?? ""} id={`edit-report-temp-${report.id}`} />
+                    <Label>Materials Used</Label>
+                    <Textarea defaultValue={report.materialsUsed ?? ""} id={`edit-report-materials-${report.id}`} rows={2} />
+                    <Label>Equipment</Label>
+                    <Input defaultValue={report.equipment ?? ""} id={`edit-report-equipment-${report.id}`} />
+                    <Label>Issues / Delays</Label>
+                    <Textarea defaultValue={report.issues ?? ""} id={`edit-report-issues-${report.id}`} rows={2} />
+                    <Label>Crew Count</Label>
+                    <Input type="number" defaultValue={report.crewCount ?? ""} id={`edit-report-crew-${report.id}`} />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setEditingReportId(null)}>Cancel</Button>
+                    <Button
+                      onClick={() => {
+                        const dateVal = (document.getElementById(`edit-report-date-${report.id}`) as HTMLInputElement)?.value;
+                        const workVal = (document.getElementById(`edit-report-work-${report.id}`) as HTMLTextAreaElement)?.value;
+                        const weatherVal = (document.getElementById(`edit-report-weather-${report.id}`) as HTMLInputElement)?.value;
+                        const tempVal = (document.getElementById(`edit-report-temp-${report.id}`) as HTMLInputElement)?.value;
+                        const materialsVal = (document.getElementById(`edit-report-materials-${report.id}`) as HTMLTextAreaElement)?.value;
+                        const equipmentVal = (document.getElementById(`edit-report-equipment-${report.id}`) as HTMLInputElement)?.value;
+                        const issuesVal = (document.getElementById(`edit-report-issues-${report.id}`) as HTMLTextAreaElement)?.value;
+                        const crewVal = (document.getElementById(`edit-report-crew-${report.id}`) as HTMLInputElement)?.value;
+                        updateDailyReport.mutate({
+                          projectId,
+                          reportId: report.id,
+                          data: {
+                            reportDate: dateVal ? new Date(dateVal).toISOString() : report.reportDate,
+                            workPerformed: workVal,
+                            weather: weatherVal || undefined,
+                            temperature: tempVal || undefined,
+                            materialsUsed: materialsVal || undefined,
+                            equipment: equipmentVal || undefined,
+                            issues: issuesVal || undefined,
+                            crewCount: crewVal ? Number(crewVal) : undefined,
+                          } as any,
+                        });
+                      }}
+                      disabled={updateDailyReport.isPending}
+                    >
+                      {updateDailyReport.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="cost" className="mt-6">
@@ -1226,16 +1340,27 @@ export default function ProjectDetail() {
                           <span className="font-bold text-lg text-destructive">${cost.totalCost.toLocaleString()}</span>
                           {isCostExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                           {isOwnerOrForeman && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              title="Delete cost record"
-                              onClick={(e) => { e.stopPropagation(); deleteCostAnalysis.mutate({ projectId, analysisId: cost.id }); }}
-                              disabled={deleteCostAnalysis.isPending}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 hover:bg-muted"
+                                title="Edit cost record"
+                                onClick={(e) => { e.stopPropagation(); setEditingCostId(cost.id); }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Delete cost record"
+                                onClick={(e) => { e.stopPropagation(); deleteCostAnalysis.mutate({ projectId, analysisId: cost.id }); }}
+                                disabled={deleteCostAnalysis.isPending}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -1271,6 +1396,55 @@ export default function ProjectDetail() {
               })}
             </div>
           )}
+
+          {/* Edit Cost Analysis Dialog */}
+          {(() => {
+            const cost = costAnalyses?.find((c: any) => c.id === editingCostId);
+            if (!cost) return null;
+            return (
+              <Dialog open={!!editingCostId} onOpenChange={() => setEditingCostId(null)}>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader><DialogTitle>Edit Cost Record</DialogTitle></DialogHeader>
+                  <div className="space-y-3 py-2">
+                    <Label>Period Label</Label>
+                    <Input defaultValue={cost.periodLabel} id={`edit-cost-label-${cost.id}`} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><Label>Labour</Label><Input type="number" defaultValue={cost.labourCost} id={`edit-cost-labour-${cost.id}`} /></div>
+                      <div><Label>Materials</Label><Input type="number" defaultValue={cost.materialsCost} id={`edit-cost-materials-${cost.id}`} /></div>
+                      <div><Label>Equipment</Label><Input type="number" defaultValue={cost.equipmentCost} id={`edit-cost-equipment-${cost.id}`} /></div>
+                      <div><Label>Other</Label><Input type="number" defaultValue={cost.otherCost} id={`edit-cost-other-${cost.id}`} /></div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setEditingCostId(null)}>Cancel</Button>
+                    <Button
+                      onClick={() => {
+                        const label = (document.getElementById(`edit-cost-label-${cost.id}`) as HTMLInputElement)?.value;
+                        const labour = Number((document.getElementById(`edit-cost-labour-${cost.id}`) as HTMLInputElement)?.value);
+                        const materials = Number((document.getElementById(`edit-cost-materials-${cost.id}`) as HTMLInputElement)?.value);
+                        const equipment = Number((document.getElementById(`edit-cost-equipment-${cost.id}`) as HTMLInputElement)?.value);
+                        const other = Number((document.getElementById(`edit-cost-other-${cost.id}`) as HTMLInputElement)?.value);
+                        updateCostAnalysis.mutate({
+                          projectId,
+                          analysisId: cost.id,
+                          data: {
+                            periodLabel: label,
+                            labourCost: isNaN(labour) ? cost.labourCost : labour,
+                            materialsCost: isNaN(materials) ? cost.materialsCost : materials,
+                            equipmentCost: isNaN(equipment) ? cost.equipmentCost : equipment,
+                            otherCost: isNaN(other) ? cost.otherCost : other,
+                          } as any,
+                        });
+                      }}
+                      disabled={updateCostAnalysis.isPending}
+                    >
+                      {updateCostAnalysis.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="rfis" className="mt-6">
@@ -1313,16 +1487,27 @@ export default function ProjectDetail() {
                             </Badge>
                             {isRfiExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                             {isOwnerOrForeman && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                title="Delete RFI"
-                                onClick={(e) => { e.stopPropagation(); deleteRFI.mutate({ projectId, rfiId: rfi.id }); }}
-                                disabled={deleteRFI.isPending}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 hover:bg-muted"
+                                  title="Edit RFI"
+                                  onClick={(e) => { e.stopPropagation(); setEditingRfiId(rfi.id); }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  title="Delete RFI"
+                                  onClick={(e) => { e.stopPropagation(); deleteRFI.mutate({ projectId, rfiId: rfi.id }); }}
+                                  disabled={deleteRFI.isPending}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
                             )}
                           </div>
                           {getPriorityBadge(rfi.priority)}
@@ -1360,6 +1545,77 @@ export default function ProjectDetail() {
               })}
             </div>
           )}
+
+          {/* Edit RFI Dialog */}
+          {(() => {
+            const rfi = rfis?.find((r: any) => r.id === editingRfiId);
+            if (!rfi) return null;
+            return (
+              <Dialog open={!!editingRfiId} onOpenChange={() => setEditingRfiId(null)}>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader><DialogTitle>Edit RFI</DialogTitle></DialogHeader>
+                  <div className="space-y-3 py-2">
+                    <Label>Subject</Label>
+                    <Input defaultValue={rfi.subject} id={`edit-rfi-subject-${rfi.id}`} />
+                    <Label>Description</Label>
+                    <Textarea defaultValue={rfi.description} id={`edit-rfi-desc-${rfi.id}`} rows={3} />
+                    <Label>Priority</Label>
+                    <Select defaultValue={rfi.priority}>
+                      <SelectTrigger id={`edit-rfi-priority-${rfi.id}`}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Label>Status</Label>
+                    <Select defaultValue={rfi.status}>
+                      <SelectTrigger id={`edit-rfi-status-${rfi.id}`}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="in_review">In Review</SelectItem>
+                        <SelectItem value="answered">Answered</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Label>Due Date</Label>
+                    <Input type="date" defaultValue={rfi.dueDate ? rfi.dueDate.split("T")[0] : ""} id={`edit-rfi-due-${rfi.id}`} />
+                    <Label>Response</Label>
+                    <Textarea defaultValue={rfi.response ?? ""} id={`edit-rfi-response-${rfi.id}`} rows={3} />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setEditingRfiId(null)}>Cancel</Button>
+                    <Button
+                      onClick={() => {
+                        const subject = (document.getElementById(`edit-rfi-subject-${rfi.id}`) as HTMLInputElement)?.value;
+                        const description = (document.getElementById(`edit-rfi-desc-${rfi.id}`) as HTMLTextAreaElement)?.value;
+                        const priority = (document.getElementById(`edit-rfi-priority-${rfi.id}`) as HTMLInputElement)?.value;
+                        const status = (document.getElementById(`edit-rfi-status-${rfi.id}`) as HTMLInputElement)?.value;
+                        const due = (document.getElementById(`edit-rfi-due-${rfi.id}`) as HTMLInputElement)?.value;
+                        const response = (document.getElementById(`edit-rfi-response-${rfi.id}`) as HTMLTextAreaElement)?.value;
+                        updateRFI.mutate({
+                          projectId,
+                          rfiId: rfi.id,
+                          data: {
+                            subject,
+                            description,
+                            priority: priority || rfi.priority,
+                            status: status || rfi.status,
+                            dueDate: due ? new Date(due).toISOString() : undefined,
+                            response: response || undefined,
+                          } as any,
+                        });
+                      }}
+                      disabled={updateRFI.isPending}
+                    >
+                      {updateRFI.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="team" className="mt-6">
