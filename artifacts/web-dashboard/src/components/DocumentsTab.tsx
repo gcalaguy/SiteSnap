@@ -11,7 +11,7 @@ import {
   Upload, FileText, Image, Trash2, Sparkles, Download,
   Loader2, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
   Clock, UserCircle, Search, MessageSquare, X, Send, BookOpen,
-  DollarSign, ArrowRight, CheckCheck,
+  DollarSign, ArrowRight, CheckCheck, RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -46,7 +46,7 @@ type ExtractedFields = {
 type SearchResult = ProjectDoc & { relevance: "high" | "medium" | "low"; reason: string; semantic?: boolean };
 type SearchResponse = { results: SearchResult[]; answer: string; semantic?: boolean };
 type QACitation = { id: number; filename: string; excerpt?: string };
-type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolean };
+type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/heic"];
@@ -329,7 +329,7 @@ function SearchPanel({ projectId }: { projectId: number }) {
           <p className="text-xs text-muted-foreground italic">{result.answer}</p>
           {result.semantic && (
             <Badge variant="outline" className="text-[10px] gap-1 border-primary/30 text-primary">
-              <Sparkles className="h-2.5 w-2.5" />Semantic match
+              <Sparkles className="h-2.5 w-2.5" />Full-text match
             </Badge>
           )}
           {result.results.map((r, i) => (
@@ -353,7 +353,7 @@ function QAPanel({ projectId }: { projectId: number }) {
   const { toast } = useToast();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<{ role: "user" | "ai"; text: string; citations?: QACitation[]; ragEnabled?: boolean }[]>([]);
+  const [history, setHistory] = useState<{ role: "user" | "ai"; text: string; citations?: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean }[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   async function ask() {
@@ -369,7 +369,7 @@ function QAPanel({ projectId }: { projectId: number }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q, history: history.slice(-6).map(h => ({ role: h.role, text: h.text })) }),
       }) as QAResponse;
-      setHistory([...next, { role: "ai", text: res.answer, citations: res.citations, ragEnabled: res.ragEnabled }]);
+      setHistory([...next, { role: "ai", text: res.answer, citations: res.citations, ragEnabled: res.ragEnabled, hasChunks: res.hasChunks }]);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch {
       toast({ title: "Q&A failed", variant: "destructive" });
@@ -390,7 +390,11 @@ function QAPanel({ projectId }: { projectId: number }) {
             <div key={i} className={`text-xs rounded-md p-2.5 ${h.role === "user" ? "bg-primary/10 ml-4" : "bg-muted/40 mr-4"}`}>
               <p className="leading-relaxed">{h.text}</p>
               {h.ragEnabled === false && h.role === "ai" && (
-                <p className="text-[10px] text-muted-foreground mt-1 italic">Note: Full semantic search unavailable — using document summaries.</p>
+                <p className="text-[10px] text-muted-foreground mt-1 italic">
+                  {h.hasChunks === false
+                    ? "Content search not yet active — click \"Re-index for AI\" on analyzed documents to enable it."
+                    : "No matching sections found — answered from document summaries."}
+                </p>
               )}
               {h.citations && h.citations.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1">
@@ -484,6 +488,30 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
     onError: () => toast({ title: "Delete failed", variant: "destructive" }),
   });
+
+  const [reindexingIds, setReindexingIds] = useState<Set<number>>(new Set());
+
+  async function handleReindex(doc: ProjectDoc) {
+    setReindexingIds(prev => new Set(prev).add(doc.id));
+    try {
+      const result = await customFetch(`/api/projects/${projectId}/documents/${doc.id}/reindex`, {
+        method: "POST",
+      }) as { chunkCount: number; message?: string };
+      queryClient.setQueryData<ProjectDoc[]>(queryKey, (old = []) =>
+        old.map(d => d.id === doc.id ? { ...d, chunkCount: result.chunkCount } : d)
+      );
+      toast({
+        title: result.chunkCount > 0 ? "Re-indexed successfully" : "Re-index complete",
+        description: result.chunkCount > 0
+          ? `${result.chunkCount} sections indexed for AI search.`
+          : (result.message ?? "No text found. Try re-analyzing the document."),
+      });
+    } catch {
+      toast({ title: "Re-index failed", variant: "destructive" });
+    } finally {
+      setReindexingIds(prev => { const s = new Set(prev); s.delete(doc.id); return s; });
+    }
+  }
 
   async function handleAnalyze(doc: ProjectDoc) {
     setAnalyzingIds(prev => new Set(prev).add(doc.id));
@@ -583,7 +611,7 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Search className="h-4 w-4 text-primary" />
-                <h4 className="font-semibold text-sm">Semantic Search</h4>
+                <h4 className="font-semibold text-sm">Document Search</h4>
                 <Badge variant="outline" className="text-[10px] gap-1 border-primary/30 text-primary"><Sparkles className="h-2.5 w-2.5" />AI</Badge>
               </div>
               <button onClick={() => setShowSearch(false)} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -683,6 +711,19 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
                         >
                           <Sparkles className="h-3 w-3" />
                           Analyze
+                        </Button>
+                      )}
+                      {isOwnerOrForeman && doc.status === "ready" && (doc as any).chunkCount === 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1 border-blue-400/60 text-blue-700 hover:bg-blue-50"
+                          onClick={() => handleReindex(doc)}
+                          disabled={reindexingIds.has(doc.id)}
+                          title="Index document content for AI search"
+                        >
+                          {reindexingIds.has(doc.id) ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                          {reindexingIds.has(doc.id) ? "Indexing…" : "Re-index for AI"}
                         </Button>
                       )}
                       <a href={downloadPath} target="_blank" rel="noopener noreferrer">

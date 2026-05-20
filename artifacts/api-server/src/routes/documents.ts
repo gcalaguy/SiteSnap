@@ -69,8 +69,8 @@ function chunkText(text: string, maxChars = 900, overlap = 150): string[] {
   return chunks;
 }
 
-// ── Embedding & Storage ───────────────────────────────────────────────────────
-async function embedAndStoreChunks(
+// ── Chunk Storage (full-text search — no vector embeddings needed) ────────────
+async function storeChunks(
   docId: number, projectId: number, companyId: number, text: string
 ): Promise<number> {
   await pool.query("DELETE FROM document_chunks WHERE doc_id = $1", [docId]);
@@ -78,56 +78,87 @@ async function embedAndStoreChunks(
   const chunks = chunkText(text);
   if (chunks.length === 0) return 0;
 
-  const BATCH = 20;
   let stored = 0;
-  for (let b = 0; b < chunks.length; b += BATCH) {
-    const batch = chunks.slice(b, b + BATCH);
+  for (let i = 0; i < chunks.length; i++) {
     try {
-      const embRes = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: batch.map(c => c.slice(0, 8000)),
-      });
-      for (let i = 0; i < batch.length; i++) {
-        const vec = embRes.data[i].embedding;
-        await pool.query(
-          "INSERT INTO document_chunks (project_id, company_id, doc_id, chunk_index, content, embedding) VALUES ($1,$2,$3,$4,$5,$6::vector)",
-          [projectId, companyId, docId, b + i, batch[i], JSON.stringify(vec)]
-        );
-        stored++;
-      }
+      await pool.query(
+        "INSERT INTO document_chunks (project_id, company_id, doc_id, chunk_index, content) VALUES ($1,$2,$3,$4,$5)",
+        [projectId, companyId, docId, i, chunks[i]]
+      );
+      stored++;
     } catch (err) {
-      logger.error({ err }, "Embedding batch failed");
+      logger.error({ err, docId, chunkIndex: i }, "Chunk storage failed");
     }
   }
+  logger.info({ docId, stored }, "Stored document chunks for full-text search");
   return stored;
 }
 
-// ── Semantic Search ───────────────────────────────────────────────────────────
+// ── Full-Text Search ──────────────────────────────────────────────────────────
 type ChunkResult = {
   doc_id: number; chunk_index: number; content: string;
   similarity: number; filename: string; file_type: string;
 };
 
-async function semanticSearch(projectId: number, queryText: string, limit = 8): Promise<ChunkResult[]> {
-  const embRes = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: queryText.slice(0, 8000),
-  });
-  const vec = embRes.data[0].embedding;
+async function fullTextSearch(projectId: number, queryText: string, limit = 8): Promise<ChunkResult[]> {
+  const trimmed = queryText.trim();
+  if (!trimmed) return [];
 
-  const result = await pool.query<ChunkResult>(
-    `SELECT dc.doc_id, dc.chunk_index, dc.content,
-       1 - (dc.embedding <=> $1::vector) AS similarity,
-       pd.filename, pd.file_type
-     FROM document_chunks dc
-     JOIN project_documents pd ON dc.doc_id = pd.id
-     WHERE dc.project_id = $2
-       AND 1 - (dc.embedding <=> $1::vector) > 0.15
-     ORDER BY dc.embedding <=> $1::vector
-     LIMIT $3`,
-    [JSON.stringify(vec), projectId, limit]
-  );
-  return result.rows;
+  // Try websearch_to_tsquery first (handles phrases, boolean operators)
+  try {
+    const result = await pool.query<ChunkResult>(
+      `SELECT dc.doc_id, dc.chunk_index, dc.content,
+         ts_rank(to_tsvector('english', dc.content), websearch_to_tsquery('english', $1))::float AS similarity,
+         pd.filename, pd.file_type
+       FROM document_chunks dc
+       JOIN project_documents pd ON dc.doc_id = pd.id
+       WHERE dc.project_id = $2
+         AND to_tsvector('english', dc.content) @@ websearch_to_tsquery('english', $1)
+       ORDER BY similarity DESC
+       LIMIT $3`,
+      [trimmed, projectId, limit]
+    );
+    if (result.rows.length > 0) return result.rows;
+  } catch (err) {
+    logger.warn({ err }, "FTS websearch query failed, trying plainto_tsquery");
+  }
+
+  // Fallback: plainto_tsquery (simpler, no operators — better for short queries)
+  try {
+    const result = await pool.query<ChunkResult>(
+      `SELECT dc.doc_id, dc.chunk_index, dc.content,
+         ts_rank(to_tsvector('english', dc.content), plainto_tsquery('english', $1))::float AS similarity,
+         pd.filename, pd.file_type
+       FROM document_chunks dc
+       JOIN project_documents pd ON dc.doc_id = pd.id
+       WHERE dc.project_id = $2
+         AND to_tsvector('english', dc.content) @@ plainto_tsquery('english', $1)
+       ORDER BY similarity DESC
+       LIMIT $3`,
+      [trimmed, projectId, limit]
+    );
+    if (result.rows.length > 0) return result.rows;
+  } catch (err) {
+    logger.warn({ err }, "FTS plainto query failed, falling back to ILIKE");
+  }
+
+  // Last resort: ILIKE for exact term matches (handles proper nouns, codes, amounts)
+  try {
+    const result = await pool.query<ChunkResult>(
+      `SELECT dc.doc_id, dc.chunk_index, dc.content,
+         0.1::float AS similarity,
+         pd.filename, pd.file_type
+       FROM document_chunks dc
+       JOIN project_documents pd ON dc.doc_id = pd.id
+       WHERE dc.project_id = $2
+         AND dc.content ILIKE $3
+       LIMIT $4`,
+      [projectId, `%${trimmed}%`, limit]
+    );
+    return result.rows;
+  } catch {
+    return [];
+  }
 }
 
 // ── PDF / Word Text Extraction ────────────────────────────────────────────────
@@ -155,8 +186,8 @@ async function extractWordText(buffer: Buffer): Promise<string> {
 }
 
 const MIN_EXTRACTED_CHARS = 80;   // threshold to trigger OCR
-const OCR_MAX_PAGES = 3;
-const OCR_DPI = 200;
+const OCR_MAX_PAGES = 10;
+const OCR_DPI = 250;
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -219,7 +250,7 @@ router.delete("/:docId", requireAuth, requireCompany, async (req, res) => {
   res.status(204).send();
 });
 
-// POST /projects/:projectId/documents/:docId/embed — manual re-embed
+// POST /projects/:projectId/documents/:docId/embed — manual re-chunk (kept for back-compat)
 router.post("/:docId/embed", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const docId = parseInt(req.params.docId as string);
@@ -232,7 +263,7 @@ router.post("/:docId/embed", requireAuth, requireCompany, async (req, res) => {
   if (!doc.extractedText) { res.status(400).json({ error: "Document has no extracted text yet. Analyze it first." }); return; }
 
   const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId));
-  const count = await embedAndStoreChunks(docId, projectId, project.companyId, doc.extractedText);
+  const count = await storeChunks(docId, projectId, project.companyId!, doc.extractedText);
   res.json({ ok: true, chunks: count });
 });
 
@@ -294,9 +325,9 @@ router.post("/search", requireAuth, requireCompany, async (req, res) => {
     return;
   }
 
-  // Try semantic search with embeddings first
+  // Try full-text search on document chunks
   try {
-    const chunks = await semanticSearch(projectId, query.trim(), 10);
+    const chunks = await fullTextSearch(projectId, query.trim(), 10);
     if (chunks.length > 0) {
       // Group by doc and return unique doc results
       const byDoc = new Map<number, { doc_id: number; filename: string; file_type: string; maxSim: number; excerpt: string }>();
@@ -317,14 +348,14 @@ router.post("/search", requireAuth, requireCompany, async (req, res) => {
       }).filter(Boolean);
 
       const answer = enriched.length > 0
-        ? `Found ${enriched.length} relevant document${enriched.length > 1 ? "s" : ""} using semantic search.`
+        ? `Found ${enriched.length} relevant document${enriched.length > 1 ? "s" : ""} using full-text search.`
         : "No closely matching documents found.";
 
       res.json({ results: enriched, answer, semantic: true });
       return;
     }
   } catch (err) {
-    logger.warn({ err }, "Semantic search failed, falling back to LLM search");
+    logger.warn({ err }, "Full-text search failed, falling back to LLM search");
   }
 
   // Fallback: LLM-based search on extracted text
@@ -387,9 +418,9 @@ Answer questions based ONLY on the provided document sections. When citing a doc
 Be concise, professional, and construction-industry aware. Use CAD for currency unless stated otherwise.
 If the answer is not in the provided material, say so honestly. Do not guess or hallucinate.`;
 
-  // ── Attempt semantic RAG ───────────────────────────────────────────────────
+  // ── Attempt full-text RAG ──────────────────────────────────────────────────
   try {
-    const chunks = await semanticSearch(projectId, question.trim(), 8);
+    const chunks = await fullTextSearch(projectId, question.trim(), 8);
 
     if (chunks.length > 0) {
       const context = chunks.map((c, i) =>
@@ -425,7 +456,7 @@ If the answer is not in the provided material, say so honestly. Do not guess or 
       return;
     }
   } catch (err) {
-    logger.warn({ err }, "Semantic RAG failed, falling back");
+    logger.warn({ err }, "Full-text RAG failed, falling back to summaries");
   }
 
   // ── Fallback: extractedText stuffing ──────────────────────────────────────
@@ -472,7 +503,14 @@ If the answer is not in the provided material, say so honestly. Do not guess or 
       answer.toLowerCase().includes(d.filename.toLowerCase())
     ).map(d => ({ id: d.id, filename: d.filename, excerpt: "" }));
 
-    res.json({ answer, citations, ragEnabled: false });
+    // Check if any chunks exist so the frontend can show an actionable message
+    const chunkCountRow = await pool.query<{ cnt: string }>(
+      "SELECT COUNT(*)::text AS cnt FROM document_chunks WHERE project_id = $1",
+      [projectId]
+    );
+    const hasChunks = parseInt(chunkCountRow.rows[0]?.cnt ?? "0") > 0;
+
+    res.json({ answer, citations, ragEnabled: false, hasChunks });
   } catch (err) {
     logger.error({ err }, "Document Q&A failed");
     res.status(500).json({ error: "Q&A failed" });
@@ -536,15 +574,14 @@ Respond with ONLY the JSON object. No markdown. No explanation.`;
       status: "ready", aiSummary: summary, extractedData: parsed, extractedText,
     }).where(eq(projectDocumentsTable.id, docId));
 
-    // Auto-embed
+    // Store chunks for full-text search (synchronous so chunkCount is accurate)
+    let chunkCount = 0;
     if (extractedText && extractedText.length > 50) {
-      embedAndStoreChunks(docId, projectId, companyId, extractedText).catch(err =>
-        logger.error({ err }, "Auto-embed after image analysis failed")
-      );
+      chunkCount = await storeChunks(docId, projectId, companyId, extractedText);
     }
 
     const [updated] = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.id, docId));
-    res.json({ ...updated, chunkCount: 0 });
+    res.json({ ...updated, chunkCount });
   } catch (err) {
     logger.error({ err }, "Image AI analysis failed");
     await db.update(projectDocumentsTable).set({ status: "failed", aiSummary: "Analysis failed." }).where(eq(projectDocumentsTable.id, docId));
@@ -659,14 +696,13 @@ Respond with ONLY the JSON object. No markdown.`;
             status: "ready", aiSummary: summary, extractedData: classifyParsed, extractedText: rawText,
           }).where(eq(projectDocumentsTable.id, docId));
 
+          let chunkCount = 0;
           if (rawText.length > 50) {
-            embedAndStoreChunks(docId, projectId, companyId, rawText).catch(err =>
-              logger.error({ err }, "Auto-embed after PDF OCR analysis failed")
-            );
+            chunkCount = await storeChunks(docId, projectId, companyId, rawText);
           }
 
           const [updated] = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.id, docId));
-          res.json({ ...updated, chunkCount: 0 });
+          res.json({ ...updated, chunkCount });
           return;
         }
         // OCR produced text but not enough for classification; fall through to normal flow with what we have
@@ -718,14 +754,13 @@ Respond with ONLY the JSON object. No markdown.`;
       status: "ready", aiSummary: summary, extractedData: parsed, extractedText,
     }).where(eq(projectDocumentsTable.id, docId));
 
+    let chunkCount = 0;
     if (extractedText.length > 50) {
-      embedAndStoreChunks(docId, projectId, companyId, extractedText).catch(err =>
-        logger.error({ err }, "Auto-embed after PDF analysis failed")
-      );
+      chunkCount = await storeChunks(docId, projectId, companyId, extractedText);
     }
 
     const [updated] = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.id, docId));
-    res.json({ ...updated, chunkCount: 0 });
+    res.json({ ...updated, chunkCount });
   } catch (err) {
     logger.error({ err }, "PDF analysis failed");
     await db.update(projectDocumentsTable).set({ status: "failed" }).where(eq(projectDocumentsTable.id, docId));
@@ -778,14 +813,13 @@ Respond with ONLY the JSON object. No markdown.`;
       status: "ready", aiSummary: summary, extractedData: parsed, extractedText,
     }).where(eq(projectDocumentsTable.id, docId));
 
+    let chunkCount = 0;
     if (extractedText.length > 50) {
-      embedAndStoreChunks(docId, projectId, companyId, extractedText).catch(err =>
-        logger.error({ err }, "Auto-embed after Word analysis failed")
-      );
+      chunkCount = await storeChunks(docId, projectId, companyId, extractedText);
     }
 
     const [updated] = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.id, docId));
-    res.json({ ...updated, chunkCount: 0 });
+    res.json({ ...updated, chunkCount });
   } catch (err) {
     logger.error({ err }, "Word analysis failed");
     await db.update(projectDocumentsTable).set({ status: "failed" }).where(eq(projectDocumentsTable.id, docId));
@@ -836,6 +870,73 @@ Respond with ONLY the JSON object, no markdown.`;
     res.status(500).json({ error: "Analysis failed" });
   }
 }
+
+// POST /projects/:projectId/documents/:docId/reindex — re-run OCR + chunk for full-text search
+router.post("/:docId/reindex", requireAuth, requireCompany, async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
+  const docId = parseInt(req.params.docId as string);
+  if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
+
+  const role = req.userRole;
+  if (role !== "owner" && role !== "foreman") {
+    res.status(403).json({ error: "Only owners and foremen can re-index documents." }); return;
+  }
+
+  const [doc] = await db.select().from(projectDocumentsTable).where(
+    and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId))
+  );
+  if (!doc) { res.status(404).json({ error: "Document not found" }); return; }
+  if (doc.status !== "ready") {
+    res.status(400).json({ error: "Document must be fully analyzed before re-indexing." }); return;
+  }
+
+  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId));
+  let textToChunk = doc.extractedText ?? "";
+
+  // If stored text is insufficient and it's a PDF, attempt OCR re-run
+  if (textToChunk.trim().length < MIN_EXTRACTED_CHARS && (isPDF(doc.fileType) || doc.filename.toLowerCase().endsWith(".pdf"))) {
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(doc.objectPath);
+      const [fileContent] = await objectFile.download();
+
+      let rawText = await extractPDFText(fileContent);
+      if (rawText.trim().length < MIN_EXTRACTED_CHARS) {
+        const images = await convertPDFPagesToImages(fileContent, OCR_MAX_PAGES, OCR_DPI);
+        if (images.length > 0) {
+          const ocrPrompt = `Extract ALL visible text from these scanned PDF pages verbatim. Return ONLY the raw text, no JSON, no explanations.`;
+          const visionContent: Parameters<typeof openai.chat.completions.create>[0]["messages"][number]["content"] = [
+            { type: "text", text: ocrPrompt },
+            ...images.map(img => ({
+              type: "image_url" as const,
+              image_url: { url: `data:${img.mimeType};base64,${img.base64}`, detail: "high" as const },
+            })),
+          ];
+          const ocrResponse = await openai.chat.completions.create({
+            model: "gpt-5.4",
+            max_completion_tokens: 8192,
+            messages: [{ role: "user", content: visionContent }],
+          });
+          rawText = ocrResponse.choices[0]?.message?.content ?? "";
+        }
+      }
+
+      if (rawText.trim().length > 50) {
+        textToChunk = rawText;
+        await db.update(projectDocumentsTable).set({ extractedText: rawText }).where(eq(projectDocumentsTable.id, docId));
+      }
+    } catch (err) {
+      logger.error({ err, docId }, "Reindex OCR failed");
+    }
+  }
+
+  if (textToChunk.trim().length < 50) {
+    res.json({ chunkCount: 0, message: "Not enough text to index. Try re-analyzing the document first." });
+    return;
+  }
+
+  const chunkCount = await storeChunks(docId, projectId, project.companyId!, textToChunk);
+  res.json({ chunkCount });
+});
 
 // POST /projects/:projectId/documents/:docId/push-to-costs
 router.post("/:docId/push-to-costs", requireAuth, requireCompany, async (req, res) => {

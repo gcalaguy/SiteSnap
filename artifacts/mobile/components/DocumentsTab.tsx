@@ -14,7 +14,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import { customFetch, useListDocuments } from "@workspace/api-client-react";
+import { customFetch, useListDocuments, useGetMe } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
@@ -28,6 +28,7 @@ type ProjectDoc = {
   objectPath: string; fileSize: number | null; status: DocStatus;
   extractedData: Record<string, unknown> | null;
   aiSummary: string | null; extractedText: string | null; createdAt: string;
+  chunkCount?: number;
 };
 
 type ExtractedFields = {
@@ -43,8 +44,8 @@ type ExtractedFields = {
 type SearchResult = ProjectDoc & { relevance: "high" | "medium" | "low"; reason: string };
 type SearchResponse = { results: SearchResult[]; answer: string };
 type QACitation = { id: number; filename: string; excerpt?: string };
-type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolean };
-type QAMessage = { role: "user" | "assistant"; text: string; citations?: QACitation[]; ragEnabled?: boolean };
+type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean };
+type QAMessage = { role: "user" | "assistant"; text: string; citations?: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -377,7 +378,7 @@ function QAPanel({ projectId }: { projectId: number }) {
         body: JSON.stringify({ question: q, history }),
       }) as QAResponse;
       if (data.ragEnabled) setRagActive(true);
-      setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations, ragEnabled: data.ragEnabled }]);
+      setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations, ragEnabled: data.ragEnabled, hasChunks: data.hasChunks }]);
     } catch {
       setMessages(m => [...m, { role: "assistant", text: "Sorry, Q&A failed. Please try again." }]);
     } finally {
@@ -391,8 +392,8 @@ function QAPanel({ projectId }: { projectId: number }) {
       {ragActive && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: `${colors.primary}10`, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5 }}>
           <Feather name="zap" size={11} color={colors.primary} />
-          <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.primary }}>Semantic RAG active</Text>
-          <Text style={{ fontSize: 10, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>— grounded in document embeddings</Text>
+          <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.primary }}>Full-text search active</Text>
+          <Text style={{ fontSize: 10, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>— grounded in document content</Text>
         </View>
       )}
       {messages.length === 0 ? (
@@ -445,6 +446,13 @@ function QAPanel({ projectId }: { projectId: number }) {
                       ))}
                     </View>
                   )}
+                  {m.ragEnabled === false && (
+                    <Text style={{ fontSize: 10, color: colors.mutedForeground, marginTop: 4, fontStyle: "italic" }}>
+                      {m.hasChunks === false
+                        ? 'Use "Re-index for AI" on analyzed documents to enable content search.'
+                        : "No matching sections — answered from document summaries."}
+                    </Text>
+                  )}
                 </View>
               </View>
             ))}
@@ -490,8 +498,12 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
   const { data: documents } = useListDocuments(projectId);
   const docs: ProjectDoc[] = (documents as unknown as ProjectDoc[]) ?? [];
 
+  const { data: me } = useGetMe();
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+
   const [uploading, setUploading] = useState(false);
   const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
+  const [reindexingIds, setReindexingIds] = useState<Set<number>>(new Set());
   const [mode, setMode] = useState<"list" | "search" | "qa">("list");
 
   const docQueryKey = ["documents", projectId];
@@ -635,6 +647,29 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
     }
   }, [projectId, queryClient]);
 
+  const handleReindex = useCallback(async (doc: ProjectDoc) => {
+    setReindexingIds(prev => new Set(prev).add(doc.id));
+    try {
+      const result = await customFetch(`/api/projects/${projectId}/documents/${doc.id}/reindex`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }) as { chunkCount: number; message?: string };
+      queryClient.setQueryData<ProjectDoc[]>(docQueryKey, (old = []) =>
+        old.map(d => d.id === doc.id ? { ...d, chunkCount: result.chunkCount } : d)
+      );
+      Alert.alert(
+        result.chunkCount > 0 ? "Re-indexed" : "Re-index complete",
+        result.chunkCount > 0
+          ? `${result.chunkCount} sections indexed for AI search.`
+          : (result.message ?? "No text found. Try re-analyzing the document.")
+      );
+    } catch {
+      Alert.alert("Failed", "Could not re-index. Please try again.");
+    } finally {
+      setReindexingIds(prev => { const s = new Set(prev); s.delete(doc.id); return s; });
+    }
+  }, [projectId, queryClient]);
+
   const analyzedCount = docs.filter(d => d.status === "ready").length;
 
   return (
@@ -692,7 +727,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
           <View style={[docStyles.panel, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={docStyles.panelHeader}>
               <Feather name="search" size={14} color={colors.primary} />
-              <Text style={[docStyles.panelTitle, { color: colors.foreground }]}>Semantic Search</Text>
+              <Text style={[docStyles.panelTitle, { color: colors.foreground }]}>Document Search</Text>
               <View style={[docStyles.aiBadge, { backgroundColor: `${colors.primary}15` }]}>
                 <Feather name="zap" size={9} color={colors.primary} />
                 <Text style={[docStyles.aiBadgeText, { color: colors.primary }]}>AI</Text>
@@ -779,6 +814,20 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                             >
                               <Feather name="zap" size={11} color={colors.primary} />
                               <Text style={[docStyles.analyzeBtnText, { color: colors.primary }]}>Analyze</Text>
+                            </Pressable>
+                          )}
+                          {isOwnerOrForeman && doc.status === "ready" && !doc.chunkCount && (
+                            <Pressable
+                              onPress={() => handleReindex(doc)}
+                              disabled={reindexingIds.has(doc.id)}
+                              style={[docStyles.analyzeBtn, { borderColor: "#3B82F6", backgroundColor: "#3B82F610", opacity: reindexingIds.has(doc.id) ? 0.6 : 1 }]}
+                            >
+                              {reindexingIds.has(doc.id)
+                                ? <ActivityIndicator size={11} color="#3B82F6" />
+                                : <Feather name="refresh-cw" size={11} color="#3B82F6" />}
+                              <Text style={[docStyles.analyzeBtnText, { color: "#3B82F6" }]}>
+                                {reindexingIds.has(doc.id) ? "Indexing…" : "Re-index"}
+                              </Text>
                             </Pressable>
                           )}
                           <Pressable
