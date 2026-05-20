@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw } from "lucide-react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1043,6 +1043,35 @@ const PERMISSION_FIELDS: { key: keyof MemberPermissions; label: string; desc: st
   { key: "viewAllProjects", label: "All Projects", desc: "See every project, not just assigned ones (mobile)." },
 ];
 
+// ── Media Hub Test Card ──────────────────────────────────────────────────────
+
+function MediaHubTestCard() {
+  const [_, navigate] = useLocation();
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Camera className="h-5 w-5 text-primary" />
+          Media Hub Test
+        </CardTitle>
+        <CardDescription>
+          End-to-end photo upload pipeline test page.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => navigate("/media-hub")}
+        >
+          <Camera className="mr-2 h-4 w-4" />
+          Open Media Hub Test
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Settings Page ──────────────────────────────────────────────────────────────
 
 export default function Settings() {
@@ -1121,6 +1150,7 @@ export default function Settings() {
       </Card>
 
       <TeamSeatsCard />
+      <MediaHubTestCard />
       {user?.role === "owner" && <MemberPermissionsCard companyId={company.id} ownerId={user.id} />}
       <CompanyLogoCard company={company} />
       <DocumentTemplatesCard company={company} />
