@@ -1563,6 +1563,12 @@ export interface CreateDailyLogBody {
   weatherCondition?: string | null;
 }
 
+export interface UpdateDailyLogBody {
+  notes?: string | null;
+  weatherTemp?: string | null;
+  weatherCondition?: string | null;
+}
+
 export type SitePhotoRecordMarkupData = { [key: string]: unknown } | null;
 
 export interface SitePhotoRecord {
@@ -1583,6 +1589,10 @@ export interface CreateSitePhotoBody {
   roomLocation?: string | null;
 }
 
+export interface UpdateSitePhotoBody {
+  roomLocation?: string | null;
+}
+
 export type SafetySignoffRecordResponses = { [key: string]: unknown };
 
 export interface SafetySignoffRecord {
@@ -1599,6 +1609,13 @@ export type CreateSafetySignoffBodyResponses = { [key: string]: unknown };
 export interface CreateSafetySignoffBody {
   projectId: number;
   responses: CreateSafetySignoffBodyResponses;
+  signatureUrl?: string | null;
+}
+
+export type UpdateSafetySignoffBodyResponses = { [key: string]: unknown };
+
+export interface UpdateSafetySignoffBody {
+  responses?: UpdateSafetySignoffBodyResponses;
   signatureUrl?: string | null;
 }
 

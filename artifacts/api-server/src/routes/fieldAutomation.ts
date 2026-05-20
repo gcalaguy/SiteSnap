@@ -7,7 +7,7 @@ import {
   projectsTable,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import {
   CreateDailyLogBody,
@@ -99,6 +99,87 @@ router.get(
   },
 );
 
+// PUT /api/field/daily-log/:id (owner only)
+router.put(
+  "/field/daily-log/:id",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(dailyLogsTable)
+      .where(eq(dailyLogsTable.id, id))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const project = await verifyProjectAccess(existing.projectId, req.companyId!);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const updates: Record<string, unknown> = {};
+    if ("notes" in body) updates.notes = body.notes ?? null;
+    if ("weatherTemp" in body) updates.weatherTemp = body.weatherTemp ?? null;
+    if ("weatherCondition" in body) updates.weatherCondition = body.weatherCondition ?? null;
+
+    const [updated] = await db
+      .update(dailyLogsTable)
+      .set(updates)
+      .where(eq(dailyLogsTable.id, id))
+      .returning();
+
+    res.json(updated);
+  },
+);
+
+// DELETE /api/field/daily-log/:id (owner only)
+router.delete(
+  "/field/daily-log/:id",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(dailyLogsTable)
+      .where(eq(dailyLogsTable.id, id))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const project = await verifyProjectAccess(existing.projectId, req.companyId!);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    await db.delete(dailyLogsTable).where(eq(dailyLogsTable.id, id));
+    res.status(204).send();
+  },
+);
+
 // ── Site Photos ────────────────────────────────────────────────────────────
 
 // POST /api/field/photo-upload
@@ -165,6 +246,85 @@ router.get(
   },
 );
 
+// PUT /api/field/photo-upload/:id (owner only)
+router.put(
+  "/field/photo-upload/:id",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(sitePhotosTable)
+      .where(eq(sitePhotosTable.id, id))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const project = await verifyProjectAccess(existing.projectId, req.companyId!);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const updates: Record<string, unknown> = {};
+    if ("roomLocation" in body) updates.roomLocation = body.roomLocation ?? null;
+
+    const [updated] = await db
+      .update(sitePhotosTable)
+      .set(updates)
+      .where(eq(sitePhotosTable.id, id))
+      .returning();
+
+    res.json(updated);
+  },
+);
+
+// DELETE /api/field/photo-upload/:id (owner only)
+router.delete(
+  "/field/photo-upload/:id",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(sitePhotosTable)
+      .where(eq(sitePhotosTable.id, id))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const project = await verifyProjectAccess(existing.projectId, req.companyId!);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    await db.delete(sitePhotosTable).where(eq(sitePhotosTable.id, id));
+    res.status(204).send();
+  },
+);
+
 // ── Safety Signoffs ───────────────────────────────────────────────────────────
 
 // POST /api/field/safety-check
@@ -228,6 +388,88 @@ router.get(
       .where(eq(safetySignoffsTable.projectId, projectId));
 
     res.json(signoffs);
+  },
+);
+
+// PUT /api/field/safety-check/:id (owner only)
+router.put(
+  "/field/safety-check/:id",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(safetySignoffsTable)
+      .where(eq(safetySignoffsTable.id, id))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const project = await verifyProjectAccess(existing.projectId, req.companyId!);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const updates: Record<string, unknown> = {};
+    if ("responses" in body && typeof body.responses === "object" && body.responses !== null) {
+      updates.responses = body.responses;
+    }
+    if ("signatureUrl" in body) updates.signatureUrl = body.signatureUrl ?? null;
+
+    const [updated] = await db
+      .update(safetySignoffsTable)
+      .set(updates)
+      .where(eq(safetySignoffsTable.id, id))
+      .returning();
+
+    res.json(updated);
+  },
+);
+
+// DELETE /api/field/safety-check/:id (owner only)
+router.delete(
+  "/field/safety-check/:id",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(safetySignoffsTable)
+      .where(eq(safetySignoffsTable.id, id))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const project = await verifyProjectAccess(existing.projectId, req.companyId!);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    await db.delete(safetySignoffsTable).where(eq(safetySignoffsTable.id, id));
+    res.status(204).send();
   },
 );
 

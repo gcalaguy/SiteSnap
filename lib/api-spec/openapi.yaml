@@ -3254,6 +3254,44 @@ paths:
                 items:
                   $ref: "#/components/schemas/DailyLogRecord"
 
+  /field/daily-log/{id}:
+    put:
+      operationId: updateDailyLog
+      tags: [field-automation]
+      summary: Update a daily log (owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDailyLogBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyLogRecord"
+    delete:
+      operationId: deleteDailyLog
+      tags: [field-automation]
+      summary: Delete a daily log (owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /field/photo-upload:
     post:
       operationId: createSitePhoto
@@ -3292,6 +3330,44 @@ paths:
                 items:
                   $ref: "#/components/schemas/SitePhotoRecord"
 
+  /field/photo-upload/{id}:
+    put:
+      operationId: updateSitePhoto
+      tags: [field-automation]
+      summary: Update a site photo (owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSitePhotoBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SitePhotoRecord"
+    delete:
+      operationId: deleteSitePhoto
+      tags: [field-automation]
+      summary: Delete a site photo (owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /field/safety-check:
     post:
       operationId: createSafetySignoff
@@ -3329,6 +3405,44 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SafetySignoffRecord"
+
+  /field/safety-check/{id}:
+    put:
+      operationId: updateSafetySignoff
+      tags: [field-automation]
+      summary: Update a safety signoff (owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSafetySignoffBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetySignoffRecord"
+    delete:
+      operationId: deleteSafetySignoff
+      tags: [field-automation]
+      summary: Delete a safety signoff (owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
 components:
   parameters:
@@ -5845,6 +5959,19 @@ components:
           type: string
           nullable: true
 
+    UpdateDailyLogBody:
+      type: object
+      properties:
+        notes:
+          type: string
+          nullable: true
+        weatherTemp:
+          type: string
+          nullable: true
+        weatherCondition:
+          type: string
+          nullable: true
+
     SitePhotoRecord:
       type: object
       required: [id, projectId, imageUrl, createdAt]
@@ -5880,6 +6007,13 @@ components:
           type: string
           nullable: true
 
+    UpdateSitePhotoBody:
+      type: object
+      properties:
+        roomLocation:
+          type: string
+          nullable: true
+
     SafetySignoffRecord:
       type: object
       required: [id, projectId, workerId, responses, createdAt]
@@ -5905,6 +6039,15 @@ components:
       properties:
         projectId:
           type: integer
+        responses:
+          type: object
+        signatureUrl:
+          type: string
+          nullable: true
+
+    UpdateSafetySignoffBody:
+      type: object
+      properties:
         responses:
           type: object
         signatureUrl:

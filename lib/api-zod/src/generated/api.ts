@@ -4237,6 +4237,36 @@ export const ListDailyLogsResponseItem = zod.object({
 export const ListDailyLogsResponse = zod.array(ListDailyLogsResponseItem);
 
 /**
+ * @summary Update a daily log (owner only)
+ */
+export const UpdateDailyLogParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateDailyLogBody = zod.object({
+  notes: zod.string().nullish(),
+  weatherTemp: zod.string().nullish(),
+  weatherCondition: zod.string().nullish(),
+});
+
+export const UpdateDailyLogResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  foremanId: zod.number(),
+  notes: zod.string().nullish(),
+  weatherTemp: zod.string().nullish(),
+  weatherCondition: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a daily log (owner only)
+ */
+export const DeleteDailyLogParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Upload a site photo with markup
  */
 export const CreateSitePhotoBody = zod.object({
@@ -4262,6 +4292,33 @@ export const ListSitePhotosResponseItem = zod.object({
   createdAt: zod.coerce.date(),
 });
 export const ListSitePhotosResponse = zod.array(ListSitePhotosResponseItem);
+
+/**
+ * @summary Update a site photo (owner only)
+ */
+export const UpdateSitePhotoParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSitePhotoBody = zod.object({
+  roomLocation: zod.string().nullish(),
+});
+
+export const UpdateSitePhotoResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  imageUrl: zod.string(),
+  markupData: zod.object({}).passthrough().nullish(),
+  roomLocation: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a site photo (owner only)
+ */
+export const DeleteSitePhotoParams = zod.object({
+  id: zod.coerce.number(),
+});
 
 /**
  * @summary Submit a daily safety signoff
@@ -4290,3 +4347,31 @@ export const ListSafetySignoffsResponseItem = zod.object({
 export const ListSafetySignoffsResponse = zod.array(
   ListSafetySignoffsResponseItem,
 );
+
+/**
+ * @summary Update a safety signoff (owner only)
+ */
+export const UpdateSafetySignoffParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSafetySignoffBody = zod.object({
+  responses: zod.object({}).passthrough().optional(),
+  signatureUrl: zod.string().nullish(),
+});
+
+export const UpdateSafetySignoffResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  workerId: zod.number(),
+  responses: zod.object({}).passthrough(),
+  signatureUrl: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a safety signoff (owner only)
+ */
+export const DeleteSafetySignoffParams = zod.object({
+  id: zod.coerce.number(),
+});

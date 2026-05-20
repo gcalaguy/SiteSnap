@@ -195,6 +195,47 @@ describe("GET /api/field/daily-log", () => {
   });
 });
 
+describe("PUT /api/field/daily-log/:id (owner only)", () => {
+  it("updates a daily log", async () => {
+    const create = await request(testApp)
+      .post("/api/field/daily-log")
+      .send({ projectId, notes: "Before" });
+    const id = create.body.id;
+
+    const res = await request(testApp)
+      .put(`/api/field/daily-log/${id}`)
+      .send({ notes: "After edit", weatherTemp: "30" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.notes).toBe("After edit");
+    expect(res.body.weatherTemp).toBe("30");
+  });
+
+  it("returns 404 for non-existent log", async () => {
+    const res = await request(testApp)
+      .put("/api/field/daily-log/999999")
+      .send({ notes: "Ghost" });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("DELETE /api/field/daily-log/:id (owner only)", () => {
+  it("deletes a daily log", async () => {
+    const create = await request(testApp)
+      .post("/api/field/daily-log")
+      .send({ projectId, notes: "To delete" });
+    const id = create.body.id;
+
+    const del = await request(testApp).delete(`/api/field/daily-log/${id}`);
+    expect(del.status).toBe(204);
+
+    const list = await request(testApp)
+      .get("/api/field/daily-log")
+      .query({ projectId: String(projectId) });
+    expect(list.body.find((l: any) => l.id === id)).toBeUndefined();
+  });
+});
+
 /* ── Site Photos ──────────────────────────────────────────────────────── */
 
 describe("POST /api/field/photo-upload", () => {
@@ -246,6 +287,34 @@ describe("GET /api/field/photo-upload", () => {
     expect(res.body.length).toBeGreaterThanOrEqual(1);
     expect(res.body[0]).toHaveProperty("imageUrl");
     expect(res.body[0]).toHaveProperty("markupData");
+  });
+});
+
+describe("PUT /api/field/photo-upload/:id (owner only)", () => {
+  it("updates a site photo location", async () => {
+    const create = await request(testApp)
+      .post("/api/field/photo-upload")
+      .send({ projectId, imageUrl: "https://example.com/before.jpg", roomLocation: "Before" });
+    const id = create.body.id;
+
+    const res = await request(testApp)
+      .put(`/api/field/photo-upload/${id}`)
+      .send({ roomLocation: "Foundation — north wall" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.roomLocation).toBe("Foundation — north wall");
+  });
+});
+
+describe("DELETE /api/field/photo-upload/:id (owner only)", () => {
+  it("deletes a site photo", async () => {
+    const create = await request(testApp)
+      .post("/api/field/photo-upload")
+      .send({ projectId, imageUrl: "https://example.com/delete.jpg" });
+    const id = create.body.id;
+
+    const del = await request(testApp).delete(`/api/field/photo-upload/${id}`);
+    expect(del.status).toBe(204);
   });
 });
 
@@ -316,6 +385,39 @@ describe("GET /api/field/safety-check", () => {
     expect(res.body.length).toBeGreaterThanOrEqual(1);
     expect(res.body[0]).toHaveProperty("responses");
     expect(res.body[0]).toHaveProperty("signatureUrl");
+  });
+});
+
+describe("PUT /api/field/safety-check/:id (owner only)", () => {
+  it("updates a safety signoff responses", async () => {
+    const create = await request(testApp)
+      .post("/api/field/safety-check")
+      .send({
+        projectId,
+        responses: { question1: "yes", question2: "no" },
+        signatureUrl: "https://example.com/sig.png",
+      });
+    const id = create.body.id;
+
+    const res = await request(testApp)
+      .put(`/api/field/safety-check/${id}`)
+      .send({ responses: { question1: "no", question2: "yes" }, signatureUrl: "https://example.com/new-sig.png" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.responses).toEqual({ question1: "no", question2: "yes" });
+    expect(res.body.signatureUrl).toBe("https://example.com/new-sig.png");
+  });
+});
+
+describe("DELETE /api/field/safety-check/:id (owner only)", () => {
+  it("deletes a safety signoff", async () => {
+    const create = await request(testApp)
+      .post("/api/field/safety-check")
+      .send({ projectId, responses: { q: "yes" } });
+    const id = create.body.id;
+
+    const del = await request(testApp).delete(`/api/field/safety-check/${id}`);
+    expect(del.status).toBe(204);
   });
 });
 

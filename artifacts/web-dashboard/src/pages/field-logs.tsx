@@ -35,35 +35,89 @@ import {
   CheckCircle2,
   PenLine,
   X,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-/**
- * Turn a storage objectPath into a viewable/downloadable URL.
- * e.g. /objects/uploads/uuid  ->  /api/storage/objects/uploads/uuid
- */
 function storageViewUrl(raw: string | null | undefined): string {
   if (!raw) return "";
   if (raw.startsWith("/objects/")) {
     return `${BASE}${raw.replace(/^\/objects\//, "/api/storage/objects/")}`;
   }
-  // Fallback for raw external URLs or local file URIs
   return raw;
 }
 
-/** True if the value is the legacy placeholder (not a real image). */
 function isLegacySignature(url: string | null | undefined): boolean {
   return !url || url === "signed://digital" || url.startsWith("file://");
 }
 
+/** Owner-only inline edit form for a daily log. */
+function LogEditForm({
+  log,
+  onCancel,
+  onSave,
+  isSaving,
+}: {
+  log: any;
+  onCancel: () => void;
+  onSave: (data: { notes?: string; weatherTemp?: string; weatherCondition?: string }) => void;
+  isSaving: boolean;
+}) {
+  const [notes, setNotes] = useState(log.notes || "");
+  const [weatherTemp, setWeatherTemp] = useState(log.weatherTemp || "");
+  const [weatherCondition, setWeatherCondition] = useState(log.weatherCondition || "");
+
+  return (
+    <div className="space-y-3">
+      <Input
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Notes"
+        className="border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
+      />
+      <div className="flex gap-2">
+        <Input
+          value={weatherTemp}
+          onChange={(e) => setWeatherTemp(e.target.value)}
+          placeholder="Temp"
+          className="border-[#D4AF37]/20 focus-visible:ring-[#D4AF37] w-28"
+        />
+        <Input
+          value={weatherCondition}
+          onChange={(e) => setWeatherCondition(e.target.value)}
+          placeholder="Condition"
+          className="border-[#D4AF37]/20 focus-visible:ring-[#D4AF37] flex-1"
+        />
+      </div>
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-3 py-1.5 text-xs font-medium rounded-md border border-[#D4AF37]/20 hover:bg-[#D4AF37]/5"
+          disabled={isSaving}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onSave({ notes, weatherTemp, weatherCondition })}
+          className="px-3 py-1.5 text-xs font-medium rounded-md bg-[#D4AF37] text-white hover:bg-[#C9A02F]"
+          disabled={isSaving}
+        >
+          {isSaving ? "Saving..." : "Save"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function FieldLogsPage() {
   const { data: user } = useGetMe();
+  const isOwner = user?.role === "owner";
   const { data: projects = [] } = useListProjects();
   const [search, setSearch] = useState("");
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
-
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const projectId = activeProjectId ?? (projects[0]?.id ?? null);
@@ -85,6 +139,11 @@ export default function FieldLogsPage() {
     { query: { queryKey: getListSafetySignoffsQueryKey(safetyParams), enabled: !!projectId } },
   );
 
+  const [editingLogId, setEditingLogId] = useState<number | null>(null);
+  const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
+  const [editingSafetyId, setEditingSafetyId] = useState<number | null>(null);
+  const [savingId, setSavingId] = useState<number | null>(null);
+
   const filteredLogs = logs.filter((l) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -93,6 +152,80 @@ export default function FieldLogsPage() {
       (l.weatherCondition ?? "").toLowerCase().includes(q)
     );
   });
+
+  async function handleDelete(type: "log" | "photo" | "safety", id: number) {
+    if (!confirm("Delete this item? This cannot be undone.")) return;
+    const url =
+      type === "log"
+        ? `${BASE}/api/field/daily-log/${id}`
+        : type === "photo"
+          ? `${BASE}/api/field/photo-upload/${id}`
+          : `${BASE}/api/field/safety-check/${id}`;
+    try {
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Delete failed");
+      window.location.reload();
+    } catch {
+      alert("Failed to delete. Only owners can remove items.");
+    }
+  }
+
+  async function handleUpdateLog(id: number, data: { notes?: string; weatherTemp?: string; weatherCondition?: string }) {
+    setSavingId(id);
+    try {
+      const res = await fetch(`${BASE}/api/field/daily-log/${id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Update failed");
+      setEditingLogId(null);
+      window.location.reload();
+    } catch {
+      alert("Failed to update. Only owners can edit items.");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function handleUpdatePhoto(id: number, data: { roomLocation?: string }) {
+    setSavingId(id);
+    try {
+      const res = await fetch(`${BASE}/api/field/photo-upload/${id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Update failed");
+      setEditingPhotoId(null);
+      window.location.reload();
+    } catch {
+      alert("Failed to update. Only owners can edit items.");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function handleUpdateSafety(id: number, data: { responses?: Record<string, string>; signatureUrl?: string | null }) {
+    setSavingId(id);
+    try {
+      const res = await fetch(`${BASE}/api/field/safety-check/${id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Update failed");
+      setEditingSafetyId(null);
+      window.location.reload();
+    } catch {
+      alert("Failed to update. Only owners can edit items.");
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -106,7 +239,6 @@ export default function FieldLogsPage() {
         </p>
       </div>
 
-      {/* Project selector + search */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#D4AF37]" />
@@ -167,37 +299,66 @@ export default function FieldLogsPage() {
               {filteredLogs.map((log) => (
                 <Card key={log.id} className="border-[#D4AF37]/10">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-[#121212]">
-                          {log.notes || "No notes"}
-                        </p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {format(new Date(log.createdAt), "MMM d, h:mm a")}
-                          </span>
-                          {log.weatherTemp && (
+                    {editingLogId === log.id ? (
+                      <LogEditForm
+                        log={log}
+                        onCancel={() => setEditingLogId(null)}
+                        onSave={(data) => handleUpdateLog(log.id, data)}
+                        isSaving={savingId === log.id}
+                      />
+                    ) : (
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#121212]">
+                            {log.notes || "No notes"}
+                          </p>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
-                              <Thermometer className="h-3 w-3" />
-                              {log.weatherTemp}
+                              <Clock className="h-3 w-3" />
+                              {format(new Date(log.createdAt), "MMM d, h:mm a")}
                             </span>
-                          )}
-                          {log.weatherCondition && (
-                            <span className="flex items-center gap-1">
-                              <Cloud className="h-3 w-3" />
-                              {log.weatherCondition}
-                            </span>
+                            {log.weatherTemp && (
+                              <span className="flex items-center gap-1">
+                                <Thermometer className="h-3 w-3" />
+                                {log.weatherTemp}
+                              </span>
+                            )}
+                            {log.weatherCondition && (
+                              <span className="flex items-center gap-1">
+                                <Cloud className="h-3 w-3" />
+                                {log.weatherCondition}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px]"
+                          >
+                            Foreman #{log.foremanId}
+                          </Badge>
+                          {isOwner && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setEditingLogId(log.id)}
+                                className="p-1 rounded hover:bg-[#D4AF37]/10 text-[#D4AF37]"
+                                title="Edit"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete("log", log.id)}
+                                className="p-1 rounded hover:bg-red-50 text-red-500"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className="shrink-0 text-[10px]"
-                      >
-                        Foreman #{log.foremanId}
-                      </Badge>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -256,15 +417,75 @@ export default function FieldLogsPage() {
                           Marked up
                         </Badge>
                       )}
+                      {isOwner && (
+                        <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingPhotoId(photo.id);
+                            }}
+                            className="p-1 rounded bg-white/90 hover:bg-white shadow text-[#D4AF37]"
+                            title="Edit"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete("photo", photo.id);
+                            }}
+                            className="p-1 rounded bg-white/90 hover:bg-white shadow text-red-500"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <CardContent className="p-3">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3" />
-                        {photo.roomLocation || "No location"}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        {format(new Date(photo.createdAt), "MMM d, h:mm a")}
-                      </p>
+                      {editingPhotoId === photo.id ? (
+                        <div className="space-y-2">
+                          <Input
+                            defaultValue={photo.roomLocation || ""}
+                            placeholder="Room / Location"
+                            className="text-xs border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
+                            data-photo-id={photo.id}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const val = (e.target as HTMLInputElement).value;
+                                handleUpdatePhoto(photo.id, { roomLocation: val });
+                              }
+                            }}
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => setEditingPhotoId(null)}
+                              className="px-2 py-1 text-[10px] rounded border border-[#D4AF37]/20"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => {
+                                const input = document.querySelector(`[data-photo-id="${photo.id}"]`) as HTMLInputElement;
+                                handleUpdatePhoto(photo.id, { roomLocation: input?.value || "" });
+                              }}
+                              className="px-2 py-1 text-[10px] rounded bg-[#D4AF37] text-white"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3" />
+                            {photo.roomLocation || "No location"}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {format(new Date(photo.createdAt), "MMM d, h:mm a")}
+                          </p>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 );
@@ -287,75 +508,136 @@ export default function FieldLogsPage() {
               {signoffs.map((s) => (
                 <Card key={s.id} className="border-[#D4AF37]/10">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-2 flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="h-4 w-4 text-green-600" />
-                          <span className="text-sm font-semibold text-[#121212]">
-                            Safety Check — Worker #{s.workerId}
-                          </span>
-                        </div>
+                    {editingSafetyId === s.id ? (
+                      <div className="space-y-3">
                         <div className="text-xs text-muted-foreground space-y-1">
-                          {Object.entries(
-                            s.responses as Record<string, string>,
-                          ).map(([question, answer]) => (
-                            <div
-                              key={question}
-                              className="flex items-center gap-2"
-                            >
-                              <span className="font-medium">
-                                {question}:
-                              </span>
-                              <Badge
-                                variant={answer === "yes" ? "default" : "secondary"}
-                                className="text-[10px] h-5"
+                          {Object.entries(s.responses as Record<string, string>).map(([question, answer]) => (
+                            <div key={question} className="flex items-center gap-2">
+                              <span className="font-medium">{question}:</span>
+                              <select
+                                className="text-xs rounded border border-[#D4AF37]/20 px-1 py-0.5"
+                                defaultValue={answer}
+                                data-question={question}
+                                data-safety-id={s.id}
                               >
-                                {answer}
-                              </Badge>
+                                <option value="yes">yes</option>
+                                <option value="no">no</option>
+                              </select>
                             </div>
                           ))}
                         </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          <Clock className="h-3 w-3 inline mr-1" />
-                          {format(new Date(s.createdAt), "MMM d, h:mm a")}
-                        </p>
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => setEditingSafetyId(null)}
+                            className="px-3 py-1.5 text-xs font-medium rounded-md border border-[#D4AF37]/20"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              const selects = document.querySelectorAll(`[data-safety-id="${s.id}"]`) as NodeListOf<HTMLSelectElement>;
+                              const responses: Record<string, string> = {};
+                              selects.forEach((sel) => {
+                                responses[sel.dataset.question!] = sel.value;
+                              });
+                              handleUpdateSafety(s.id, { responses });
+                            }}
+                            className="px-3 py-1.5 text-xs font-medium rounded-md bg-[#D4AF37] text-white"
+                            disabled={savingId === s.id}
+                          >
+                            {savingId === s.id ? "Saving..." : "Save"}
+                          </button>
+                        </div>
                       </div>
-                      <div className="shrink-0">
-                        {isLegacySignature(s.signatureUrl) ? (
-                          <div className="flex flex-col items-center justify-center gap-1 h-20 w-28 border rounded-md bg-green-50">
-                            <CheckCircle2 className="h-6 w-6 text-green-600" />
-                            <span className="text-[10px] text-green-700 font-medium">
-                              Signed
+                    ) : (
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-2 flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-semibold text-[#121212]">
+                              Safety Check — Worker #{s.workerId}
                             </span>
                           </div>
-                        ) : s.signatureUrl && s.signatureUrl.endsWith(".svg") ? (
-                          <div
-                            className="h-20 w-28 border rounded-md bg-white flex items-center justify-center overflow-hidden"
-                            dangerouslySetInnerHTML={{
-                              __html: `<img src="${storageViewUrl(s.signatureUrl)}" alt="Signature" style="max-height:100%;max-width:100%;object-fit:contain;" onerror="this.parentElement.innerHTML='<div class=\\'flex flex-col items-center justify-center gap-1 h-full w-full text-green-700\\'><svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'24\\' height=\\'24\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' class=\\'text-green-600\\'><path d=\\'M22 11.08V12a10 10 0 1 1-5.93-9.14\\'/><polyline points=\\'22 4 12 14.01 9 11.01\\'/></svg><span class=\\'text-[10px] font-medium\\'>Signed</span></div>';this.style.display='none'"/>`,
-                            }}
-                          />
-                        ) : s.signatureUrl ? (
-                          <img
-                            src={storageViewUrl(s.signatureUrl)}
-                            alt="Signature"
-                            className="h-20 w-28 object-contain border rounded-md bg-white"
-                            onError={(e) => {
-                              const el = e.target as HTMLImageElement;
-                              el.style.display = "none";
-                              const parent = el.parentElement;
-                              if (parent) {
-                                parent.innerHTML = `
-                                  <div class="flex flex-col items-center justify-center gap-1 h-20 w-28 text-green-700">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                                    <span class="text-[10px] font-medium">Signed</span>
-                                  </div>`;
-                              }
-                            }}
-                          />
-                        ) : null}
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            {Object.entries(
+                              s.responses as Record<string, string>,
+                            ).map(([question, answer]) => (
+                              <div
+                                key={question}
+                                className="flex items-center gap-2"
+                              >
+                                <span className="font-medium">
+                                  {question}:
+                                </span>
+                                <Badge
+                                  variant={answer === "yes" ? "default" : "secondary"}
+                                  className="text-[10px] h-5"
+                                >
+                                  {answer}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            <Clock className="h-3 w-3 inline mr-1" />
+                            {format(new Date(s.createdAt), "MMM d, h:mm a")}
+                          </p>
+                        </div>
+                        <div className="shrink-0 flex flex-col items-end gap-2">
+                          {isLegacySignature(s.signatureUrl) ? (
+                            <div className="flex flex-col items-center justify-center gap-1 h-20 w-28 border rounded-md bg-green-50">
+                              <CheckCircle2 className="h-6 w-6 text-green-600" />
+                              <span className="text-[10px] text-green-700 font-medium">
+                                Signed
+                              </span>
+                            </div>
+                          ) : s.signatureUrl && s.signatureUrl.endsWith(".svg") ? (
+                            <div
+                              className="h-20 w-28 border rounded-md bg-white flex items-center justify-center overflow-hidden"
+                              dangerouslySetInnerHTML={{
+                                __html: `<img src="${storageViewUrl(s.signatureUrl)}" alt="Signature" style="max-height:100%;max-width:100%;object-fit:contain;" onerror="this.parentElement.innerHTML='<div class=\\'flex flex-col items-center justify-center gap-1 h-full w-full text-green-700\\'><svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'24\\' height=\\'24\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' class=\\'text-green-600\\'><path d=\\'M22 11.08V12a10 10 0 1 1-5.93-9.14\\'/><polyline points=\\'22 4 12 14.01 9 11.01\\'/></svg><span class=\\'text-[10px] font-medium\\'>Signed</span></div>';this.style.display='none'"/>`,
+                              }}
+                            />
+                          ) : s.signatureUrl ? (
+                            <img
+                              src={storageViewUrl(s.signatureUrl)}
+                              alt="Signature"
+                              className="h-20 w-28 object-contain border rounded-md bg-white"
+                              onError={(e) => {
+                                const el = e.target as HTMLImageElement;
+                                el.style.display = "none";
+                                const parent = el.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `
+                                    <div class="flex flex-col items-center justify-center gap-1 h-20 w-28 text-green-700">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                      <span class="text-[10px] font-medium">Signed</span>
+                                    </div>`;
+                                }
+                              }}
+                            />
+                          ) : null}
+                          {isOwner && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setEditingSafetyId(s.id)}
+                                className="p-1 rounded hover:bg-[#D4AF37]/10 text-[#D4AF37]"
+                                title="Edit"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete("safety", s.id)}
+                                className="p-1 rounded hover:bg-red-50 text-red-500"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -364,7 +646,6 @@ export default function FieldLogsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Lightbox Dialog */}
       <Dialog open={!!lightboxUrl} onOpenChange={() => setLightboxUrl(null)}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-none">
           <DialogTitle className="sr-only">Photo preview</DialogTitle>

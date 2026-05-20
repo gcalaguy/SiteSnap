@@ -139,6 +139,7 @@ import type {
   Timesheet,
   UpdateBuilderEstimateBody,
   UpdateChangeOrderBody,
+  UpdateDailyLogBody,
   UpdateFormSubmissionStatusBody,
   UpdateInvitationBody,
   UpdateInvoiceBody,
@@ -148,7 +149,9 @@ import type {
   UpdateProposalBody,
   UpdateQuoteBody,
   UpdateRFIBody,
+  UpdateSafetySignoffBody,
   UpdateScanBody,
+  UpdateSitePhotoBody,
   UpdateTaskBody,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -13896,6 +13899,177 @@ export function useListDailyLogs<
 }
 
 /**
+ * @summary Update a daily log (owner only)
+ */
+export const getUpdateDailyLogUrl = (id: number) => {
+  return `/api/field/daily-log/${id}`;
+};
+
+export const updateDailyLog = async (
+  id: number,
+  updateDailyLogBody: UpdateDailyLogBody,
+  options?: RequestInit,
+): Promise<DailyLogRecord> => {
+  return customFetch<DailyLogRecord>(getUpdateDailyLogUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateDailyLogBody),
+  });
+};
+
+export const getUpdateDailyLogMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDailyLog>>,
+    TError,
+    { id: number; data: BodyType<UpdateDailyLogBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDailyLog>>,
+  TError,
+  { id: number; data: BodyType<UpdateDailyLogBody> },
+  TContext
+> => {
+  const mutationKey = ["updateDailyLog"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDailyLog>>,
+    { id: number; data: BodyType<UpdateDailyLogBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateDailyLog(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDailyLogMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDailyLog>>
+>;
+export type UpdateDailyLogMutationBody = BodyType<UpdateDailyLogBody>;
+export type UpdateDailyLogMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a daily log (owner only)
+ */
+export const useUpdateDailyLog = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDailyLog>>,
+    TError,
+    { id: number; data: BodyType<UpdateDailyLogBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateDailyLog>>,
+  TError,
+  { id: number; data: BodyType<UpdateDailyLogBody> },
+  TContext
+> => {
+  return useMutation(getUpdateDailyLogMutationOptions(options));
+};
+
+/**
+ * @summary Delete a daily log (owner only)
+ */
+export const getDeleteDailyLogUrl = (id: number) => {
+  return `/api/field/daily-log/${id}`;
+};
+
+export const deleteDailyLog = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteDailyLogUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteDailyLogMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDailyLog>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteDailyLog>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteDailyLog"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteDailyLog>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteDailyLog(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteDailyLogMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteDailyLog>>
+>;
+
+export type DeleteDailyLogMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a daily log (owner only)
+ */
+export const useDeleteDailyLog = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDailyLog>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteDailyLog>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteDailyLogMutationOptions(options));
+};
+
+/**
  * @summary Upload a site photo with markup
  */
 export const getCreateSitePhotoUrl = () => {
@@ -14074,6 +14248,177 @@ export function useListSitePhotos<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update a site photo (owner only)
+ */
+export const getUpdateSitePhotoUrl = (id: number) => {
+  return `/api/field/photo-upload/${id}`;
+};
+
+export const updateSitePhoto = async (
+  id: number,
+  updateSitePhotoBody: UpdateSitePhotoBody,
+  options?: RequestInit,
+): Promise<SitePhotoRecord> => {
+  return customFetch<SitePhotoRecord>(getUpdateSitePhotoUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSitePhotoBody),
+  });
+};
+
+export const getUpdateSitePhotoMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSitePhoto>>,
+    TError,
+    { id: number; data: BodyType<UpdateSitePhotoBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSitePhoto>>,
+  TError,
+  { id: number; data: BodyType<UpdateSitePhotoBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSitePhoto"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSitePhoto>>,
+    { id: number; data: BodyType<UpdateSitePhotoBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSitePhoto(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSitePhotoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSitePhoto>>
+>;
+export type UpdateSitePhotoMutationBody = BodyType<UpdateSitePhotoBody>;
+export type UpdateSitePhotoMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a site photo (owner only)
+ */
+export const useUpdateSitePhoto = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSitePhoto>>,
+    TError,
+    { id: number; data: BodyType<UpdateSitePhotoBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSitePhoto>>,
+  TError,
+  { id: number; data: BodyType<UpdateSitePhotoBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSitePhotoMutationOptions(options));
+};
+
+/**
+ * @summary Delete a site photo (owner only)
+ */
+export const getDeleteSitePhotoUrl = (id: number) => {
+  return `/api/field/photo-upload/${id}`;
+};
+
+export const deleteSitePhoto = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSitePhotoUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSitePhotoMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSitePhoto>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSitePhoto>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSitePhoto"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSitePhoto>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSitePhoto(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSitePhotoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSitePhoto>>
+>;
+
+export type DeleteSitePhotoMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a site photo (owner only)
+ */
+export const useDeleteSitePhoto = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSitePhoto>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSitePhoto>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteSitePhotoMutationOptions(options));
+};
 
 /**
  * @summary Submit a daily safety signoff
@@ -14257,3 +14602,174 @@ export function useListSafetySignoffs<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update a safety signoff (owner only)
+ */
+export const getUpdateSafetySignoffUrl = (id: number) => {
+  return `/api/field/safety-check/${id}`;
+};
+
+export const updateSafetySignoff = async (
+  id: number,
+  updateSafetySignoffBody: UpdateSafetySignoffBody,
+  options?: RequestInit,
+): Promise<SafetySignoffRecord> => {
+  return customFetch<SafetySignoffRecord>(getUpdateSafetySignoffUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSafetySignoffBody),
+  });
+};
+
+export const getUpdateSafetySignoffMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetySignoff>>,
+    TError,
+    { id: number; data: BodyType<UpdateSafetySignoffBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSafetySignoff>>,
+  TError,
+  { id: number; data: BodyType<UpdateSafetySignoffBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSafetySignoff"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSafetySignoff>>,
+    { id: number; data: BodyType<UpdateSafetySignoffBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSafetySignoff(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSafetySignoffMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSafetySignoff>>
+>;
+export type UpdateSafetySignoffMutationBody = BodyType<UpdateSafetySignoffBody>;
+export type UpdateSafetySignoffMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a safety signoff (owner only)
+ */
+export const useUpdateSafetySignoff = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetySignoff>>,
+    TError,
+    { id: number; data: BodyType<UpdateSafetySignoffBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSafetySignoff>>,
+  TError,
+  { id: number; data: BodyType<UpdateSafetySignoffBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSafetySignoffMutationOptions(options));
+};
+
+/**
+ * @summary Delete a safety signoff (owner only)
+ */
+export const getDeleteSafetySignoffUrl = (id: number) => {
+  return `/api/field/safety-check/${id}`;
+};
+
+export const deleteSafetySignoff = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSafetySignoffUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSafetySignoffMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSafetySignoff>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSafetySignoff>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSafetySignoff"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSafetySignoff>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSafetySignoff(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSafetySignoffMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSafetySignoff>>
+>;
+
+export type DeleteSafetySignoffMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a safety signoff (owner only)
+ */
+export const useDeleteSafetySignoff = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSafetySignoff>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSafetySignoff>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteSafetySignoffMutationOptions(options));
+};
