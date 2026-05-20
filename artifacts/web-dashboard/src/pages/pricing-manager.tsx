@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 import {
   useGetMe,
   useListCostModels,
@@ -49,7 +48,6 @@ import { ApiError } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
-  DollarSign,
   Edit3,
   Trash2,
   Plus,
@@ -1382,30 +1380,6 @@ export function PricingSettingsBody() {
       ) : (
         <AddonsTab addons={addons} projectTypes={projectTypes} />
       )}
-    </div>
-  );
-}
-
-export default function PricingManagerPage() {
-  const [, navigate] = useLocation();
-  const { data: me } = useGetMe();
-  if (me && me.role !== "owner") {
-    navigate("/dashboard");
-    return null;
-  }
-  return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <DollarSign className="h-6 w-6" style={{ color: GOLD }} />
-          Pricing Manager
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Customize the $/sqft rates, overhead, and contingency used by the Smart Estimator.
-          Changes apply immediately to all new estimates.
-        </p>
-      </div>
-      <PricingSettingsBody />
     </div>
   );
 }
