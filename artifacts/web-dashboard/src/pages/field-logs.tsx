@@ -17,6 +17,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText,
@@ -27,15 +32,39 @@ import {
   Thermometer,
   MapPin,
   Clock,
-  User,
+  CheckCircle2,
+  PenLine,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+/**
+ * Turn a storage objectPath into a viewable/downloadable URL.
+ * e.g. /objects/uploads/uuid  ->  /api/storage/objects/uploads/uuid
+ */
+function storageViewUrl(raw: string | null | undefined): string {
+  if (!raw) return "";
+  if (raw.startsWith("/objects/")) {
+    return `${BASE}${raw.replace(/^\/objects\//, "/api/storage/objects/")}`;
+  }
+  // Fallback for raw external URLs or local file URIs
+  return raw;
+}
+
+/** True if the value is the legacy placeholder (not a real image). */
+function isLegacySignature(url: string | null | undefined): boolean {
+  return !url || url === "signed://digital" || url.startsWith("file://");
+}
 
 export default function FieldLogsPage() {
   const { data: user } = useGetMe();
   const { data: projects = [] } = useListProjects();
   const [search, setSearch] = useState("");
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const projectId = activeProjectId ?? (projects[0]?.id ?? null);
 
@@ -103,22 +132,36 @@ export default function FieldLogsPage() {
 
       <Tabs defaultValue="logs">
         <TabsList className="bg-white border border-[#D4AF37]/20">
-          <TabsTrigger value="logs" className="data-[state=active]:bg-[#D4AF37]/10 data-[state=active]:text-[#121212]">
+          <TabsTrigger
+            value="logs"
+            className="data-[state=active]:bg-[#D4AF37]/10 data-[state=active]:text-[#121212]"
+          >
             <FileText className="h-4 w-4 mr-1.5" /> Daily Logs ({logs.length})
           </TabsTrigger>
-          <TabsTrigger value="photos" className="data-[state=active]:bg-[#D4AF37]/10 data-[state=active]:text-[#121212]">
+          <TabsTrigger
+            value="photos"
+            className="data-[state=active]:bg-[#D4AF37]/10 data-[state=active]:text-[#121212]"
+          >
             <Camera className="h-4 w-4 mr-1.5" /> Photos ({photos.length})
           </TabsTrigger>
-          <TabsTrigger value="safety" className="data-[state=active]:bg-[#D4AF37]/10 data-[state=active]:text-[#121212]">
-            <ShieldCheck className="h-4 w-4 mr-1.5" /> Safety ({signoffs.length})
+          <TabsTrigger
+            value="safety"
+            className="data-[state=active]:bg-[#D4AF37]/10 data-[state=active]:text-[#121212]"
+          >
+            <ShieldCheck className="h-4 w-4 mr-1.5" /> Safety (
+            {signoffs.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="logs" className="mt-4">
           {logsLoading ? (
-            <div className="text-sm text-muted-foreground">Loading logs...</div>
+            <div className="text-sm text-muted-foreground">
+              Loading logs...
+            </div>
           ) : filteredLogs.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No daily logs yet.</div>
+            <div className="text-sm text-muted-foreground">
+              No daily logs yet.
+            </div>
           ) : (
             <div className="space-y-3">
               {filteredLogs.map((log) => (
@@ -148,7 +191,10 @@ export default function FieldLogsPage() {
                           )}
                         </div>
                       </div>
-                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 text-[10px]"
+                      >
                         Foreman #{log.foremanId}
                       </Badge>
                     </div>
@@ -161,53 +207,88 @@ export default function FieldLogsPage() {
 
         <TabsContent value="photos" className="mt-4">
           {photosLoading ? (
-            <div className="text-sm text-muted-foreground">Loading photos...</div>
+            <div className="text-sm text-muted-foreground">
+              Loading photos...
+            </div>
           ) : photos.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No site photos yet.</div>
+            <div className="text-sm text-muted-foreground">
+              No site photos yet.
+            </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {photos.map((photo) => (
-                <Card key={photo.id} className="border-[#D4AF37]/10 overflow-hidden">
-                  <div className="aspect-square bg-gray-100 relative">
-                    <img
-                      src={photo.imageUrl}
-                      alt="Site photo"
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                    {photo.markupData && (
-                      <Badge className="absolute top-2 right-2 bg-[#D4AF37] text-white text-[10px]">
-                        Marked up
-                      </Badge>
-                    )}
-                  </div>
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3" />
-                      {photo.roomLocation || "No location"}
+              {photos.map((photo) => {
+                const imgUrl = storageViewUrl(photo.imageUrl);
+                return (
+                  <Card
+                    key={photo.id}
+                    className="border-[#D4AF37]/10 overflow-hidden cursor-pointer group"
+                    onClick={() => imgUrl && setLightboxUrl(imgUrl)}
+                  >
+                    <div className="aspect-square bg-gray-100 relative overflow-hidden">
+                      {imgUrl ? (
+                        <img
+                          src={imgUrl}
+                          alt="Site photo"
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                            const parent = (e.target as HTMLImageElement)
+                              .parentElement;
+                            if (parent) {
+                              parent.innerHTML = `
+                                <div class="flex flex-col items-center justify-center h-full w-full text-muted-foreground text-xs gap-1">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                  Photo unavailable
+                                </div>`;
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full w-full text-muted-foreground text-xs gap-1">
+                          <Camera className="h-6 w-6" />
+                          <span>No image URL</span>
+                        </div>
+                      )}
+                      {photo.markupData && (
+                        <Badge className="absolute top-2 right-2 bg-[#D4AF37] text-white text-[10px]">
+                          Marked up
+                        </Badge>
+                      )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      {format(new Date(photo.createdAt), "MMM d, h:mm a")}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {photo.roomLocation || "No location"}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {format(new Date(photo.createdAt), "MMM d, h:mm a")}
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
 
         <TabsContent value="safety" className="mt-4">
           {signoffsLoading ? (
-            <div className="text-sm text-muted-foreground">Loading signoffs...</div>
+            <div className="text-sm text-muted-foreground">
+              Loading signoffs...
+            </div>
           ) : signoffs.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No safety signoffs yet.</div>
+            <div className="text-sm text-muted-foreground">
+              No safety signoffs yet.
+            </div>
           ) : (
             <div className="space-y-3">
               {signoffs.map((s) => (
                 <Card key={s.id} className="border-[#D4AF37]/10">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-2">
+                      <div className="space-y-2 flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <ShieldCheck className="h-4 w-4 text-green-600" />
                           <span className="text-sm font-semibold text-[#121212]">
@@ -215,32 +296,65 @@ export default function FieldLogsPage() {
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground space-y-1">
-                          {Object.entries(s.responses as Record<string, string>).map(
-                            ([question, answer]) => (
-                              <div key={question} className="flex items-center gap-2">
-                                <span className="font-medium">{question}:</span>
-                                <Badge
-                                  variant={answer === "yes" ? "default" : "secondary"}
-                                  className="text-[10px] h-5"
-                                >
-                                  {answer}
-                                </Badge>
-                              </div>
-                            ),
-                          )}
+                          {Object.entries(
+                            s.responses as Record<string, string>,
+                          ).map(([question, answer]) => (
+                            <div
+                              key={question}
+                              className="flex items-center gap-2"
+                            >
+                              <span className="font-medium">
+                                {question}:
+                              </span>
+                              <Badge
+                                variant={answer === "yes" ? "default" : "secondary"}
+                                className="text-[10px] h-5"
+                              >
+                                {answer}
+                              </Badge>
+                            </div>
+                          ))}
                         </div>
                         <p className="text-[10px] text-muted-foreground">
                           <Clock className="h-3 w-3 inline mr-1" />
                           {format(new Date(s.createdAt), "MMM d, h:mm a")}
                         </p>
                       </div>
-                      {s.signatureUrl && (
-                        <img
-                          src={s.signatureUrl}
-                          alt="Signature"
-                          className="h-16 w-32 object-contain border rounded"
-                        />
-                      )}
+                      <div className="shrink-0">
+                        {isLegacySignature(s.signatureUrl) ? (
+                          <div className="flex flex-col items-center justify-center gap-1 h-20 w-28 border rounded-md bg-green-50">
+                            <CheckCircle2 className="h-6 w-6 text-green-600" />
+                            <span className="text-[10px] text-green-700 font-medium">
+                              Signed
+                            </span>
+                          </div>
+                        ) : s.signatureUrl && s.signatureUrl.endsWith(".svg") ? (
+                          <div
+                            className="h-20 w-28 border rounded-md bg-white flex items-center justify-center overflow-hidden"
+                            dangerouslySetInnerHTML={{
+                              __html: `<img src="${storageViewUrl(s.signatureUrl)}" alt="Signature" style="max-height:100%;max-width:100%;object-fit:contain;" onerror="this.parentElement.innerHTML='<div class=\\'flex flex-col items-center justify-center gap-1 h-full w-full text-green-700\\'><svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'24\\' height=\\'24\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' class=\\'text-green-600\\'><path d=\\'M22 11.08V12a10 10 0 1 1-5.93-9.14\\'/><polyline points=\\'22 4 12 14.01 9 11.01\\'/></svg><span class=\\'text-[10px] font-medium\\'>Signed</span></div>';this.style.display='none'"/>`,
+                            }}
+                          />
+                        ) : s.signatureUrl ? (
+                          <img
+                            src={storageViewUrl(s.signatureUrl)}
+                            alt="Signature"
+                            className="h-20 w-28 object-contain border rounded-md bg-white"
+                            onError={(e) => {
+                              const el = e.target as HTMLImageElement;
+                              el.style.display = "none";
+                              const parent = el.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `
+                                  <div class="flex flex-col items-center justify-center gap-1 h-20 w-28 text-green-700">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                    <span class="text-[10px] font-medium">Signed</span>
+                                  </div>`;
+                              }
+                            }}
+                          />
+                        ) : null}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -249,6 +363,28 @@ export default function FieldLogsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Lightbox Dialog */}
+      <Dialog open={!!lightboxUrl} onOpenChange={() => setLightboxUrl(null)}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-none">
+          <DialogTitle className="sr-only">Photo preview</DialogTitle>
+          <div className="relative">
+            <button
+              onClick={() => setLightboxUrl(null)}
+              className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {lightboxUrl && (
+              <img
+                src={lightboxUrl}
+                alt="Full size preview"
+                className="w-full max-h-[80vh] object-contain"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
