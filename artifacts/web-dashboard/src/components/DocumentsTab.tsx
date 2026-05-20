@@ -349,7 +349,7 @@ function SearchPanel({ projectId }: { projectId: number }) {
 }
 
 // ─── Q&A Panel ────────────────────────────────────────────────────────────────
-function QAPanel({ projectId }: { projectId: number }) {
+function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; indexedCount: number; totalCount: number }) {
   const { toast } = useToast();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -382,7 +382,21 @@ function QAPanel({ projectId }: { projectId: number }) {
   return (
     <div className="space-y-3">
       {history.length === 0 && (
-        <p className="text-xs text-muted-foreground italic">Ask anything about your project documents. I'll search across all analyzed files.</p>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground italic">Ask anything about your project documents. I'll search across all analyzed files.</p>
+          {totalCount > 0 && (
+            <div className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1.5 w-fit ${indexedCount > 0 ? "bg-green-50 text-green-700 border border-green-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
+              {indexedCount > 0
+                ? <CheckCircle className="h-3 w-3 shrink-0" />
+                : <AlertCircle className="h-3 w-3 shrink-0" />}
+              <span>
+                {indexedCount > 0
+                  ? `${indexedCount} of ${totalCount} document${totalCount !== 1 ? "s" : ""} indexed for AI search`
+                  : `No documents indexed yet — click "Re-index for AI" on analyzed documents`}
+              </span>
+            </div>
+          )}
+        </div>
       )}
       {history.length > 0 && (
         <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -561,6 +575,7 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
   }, [projectId, queryClient, queryKey, toast]);
 
   const analyzedCount = docs.filter(d => d.status === "ready").length;
+  const indexedCount = docs.filter(d => (d.chunkCount ?? 0) > 0).length;
 
   return (
     <div className="space-y-4">
@@ -570,7 +585,7 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
           <h3 className="text-xl font-bold">Documents</h3>
           {docs.length > 0 && (
             <p className="text-xs text-muted-foreground mt-0.5">
-              {analyzedCount}/{docs.length} analyzed · {clientUploads.length} client uploads
+              {analyzedCount}/{docs.length} analyzed · {indexedCount}/{docs.length} indexed for AI search{clientUploads.length > 0 ? ` · ${clientUploads.length} client uploads` : ""}
             </p>
           )}
         </div>
@@ -637,7 +652,7 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <QAPanel projectId={projectId} />
+            <QAPanel projectId={projectId} indexedCount={indexedCount} totalCount={docs.length} />
           </CardContent>
         </Card>
       )}
@@ -683,9 +698,9 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm truncate max-w-xs">{doc.filename}</span>
                         {statusBadge(displayStatus)}
-                        {(doc as any).chunkCount > 0 && (
-                          <Badge variant="outline" className="text-[10px] gap-1 border-primary/30 text-primary px-1.5">
-                            <Sparkles className="h-2.5 w-2.5" />RAG
+                        {doc.chunkCount != null && doc.chunkCount > 0 && (
+                          <Badge variant="outline" className="text-[10px] gap-1 border-green-400/60 text-green-700 bg-green-50 px-1.5">
+                            <CheckCircle className="h-2.5 w-2.5" />AI Ready
                           </Badge>
                         )}
                         {formatSize(doc.fileSize) && (

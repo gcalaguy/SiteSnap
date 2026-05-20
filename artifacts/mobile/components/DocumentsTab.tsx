@@ -64,7 +64,7 @@ const STATUS_COLORS: Record<DocStatus, string> = {
   pending: "#6B7280", processing: "#F59E0B", ready: "#22C55E", failed: "#EF4444",
 };
 const STATUS_LABELS: Record<DocStatus, string> = {
-  pending: "Pending", processing: "Analyzing…", ready: "AI Ready", failed: "Failed",
+  pending: "Pending", processing: "Analyzing…", ready: "Analyzed", failed: "Failed",
 };
 const RELEVANCE_COLORS: Record<string, string> = {
   high: "#22C55E", medium: "#F59E0B", low: "#6B7280",
@@ -355,7 +355,7 @@ const MOBILE_QA_STARTERS = [
   "Any outstanding change orders?",
 ];
 
-function QAPanel({ projectId }: { projectId: number }) {
+function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; indexedCount: number; totalCount: number }) {
   const colors = useColors();
   const [messages, setMessages] = useState<QAMessage[]>([]);
   const [input, setInput] = useState("");
@@ -404,6 +404,22 @@ function QAPanel({ projectId }: { projectId: number }) {
               Ask anything about your project documents. Analyze files first for best results.
             </Text>
           </View>
+          {totalCount > 0 && (
+            <View style={{
+              flexDirection: "row", alignItems: "center", gap: 6,
+              borderRadius: 6, paddingHorizontal: 9, paddingVertical: 6,
+              backgroundColor: indexedCount > 0 ? "#16a34a12" : "#d9770612",
+              borderWidth: 1, borderColor: indexedCount > 0 ? "#16a34a30" : "#d9770630",
+              alignSelf: "flex-start",
+            }}>
+              <Feather name={indexedCount > 0 ? "check-circle" : "alert-circle"} size={11} color={indexedCount > 0 ? "#16a34a" : "#d97706"} />
+              <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: indexedCount > 0 ? "#16a34a" : "#d97706" }}>
+                {indexedCount > 0
+                  ? `${indexedCount} of ${totalCount} document${totalCount !== 1 ? "s" : ""} indexed for AI search`
+                  : `No documents indexed yet — tap Re-index on analyzed files`}
+              </Text>
+            </View>
+          )}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {MOBILE_QA_STARTERS.slice(0, 3).map(s => (
               <Pressable
@@ -671,6 +687,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
   }, [projectId, queryClient]);
 
   const analyzedCount = docs.filter(d => d.status === "ready").length;
+  const indexedCount = docs.filter(d => (d.chunkCount ?? 0) > 0).length;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
@@ -682,7 +699,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
             <Text style={[docStyles.heading, { color: colors.foreground }]}>Documents</Text>
             {docs.length > 0 && (
               <Text style={[docStyles.subheading, { color: colors.mutedForeground }]}>
-                {analyzedCount}/{docs.length} analyzed{clientUploads.length > 0 ? ` · ${clientUploads.length} client` : ""}
+                {analyzedCount}/{docs.length} analyzed · {indexedCount}/{docs.length} indexed for AI{clientUploads.length > 0 ? ` · ${clientUploads.length} client` : ""}
               </Text>
             )}
           </View>
@@ -748,7 +765,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                 <Text style={[docStyles.aiBadgeText, { color: colors.primary }]}>AI</Text>
               </View>
             </View>
-            <QAPanel projectId={projectId} />
+            <QAPanel projectId={projectId} indexedCount={indexedCount} totalCount={docs.length} />
           </View>
         )}
 
@@ -801,6 +818,12 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                                 {STATUS_LABELS[effectiveStatus]}
                               </Text>
                             </View>
+                            {doc.chunkCount != null && doc.chunkCount > 0 && (
+                              <View style={[docStyles.statusChip, { backgroundColor: "#16a34a15", flexDirection: "row", alignItems: "center", gap: 3 }]}>
+                                <Feather name="check-circle" size={9} color="#16a34a" />
+                                <Text style={[docStyles.statusText, { color: "#16a34a" }]}>AI Ready</Text>
+                              </View>
+                            )}
                           </View>
                           <Text style={[docStyles.docMeta, { color: colors.mutedForeground, marginTop: 2 }]}>
                             {formatDate(doc.createdAt)}
