@@ -1,1 +1,1 @@
-ALTER TABLE companies ADD COLUMN estimator_config jsonb;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS estimator_config jsonb;
