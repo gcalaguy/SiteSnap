@@ -897,13 +897,43 @@ function AddonsTab({ addons, projectTypes }: { addons: AddonRecord[]; projectTyp
   const [deleteConfirm, setDeleteConfirm] = useState<AddonRecord | null>(null);
   const [deleteWarning, setDeleteWarning] = useState<{ item: AddonRecord; count: number } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const query = searchQuery.trim().toLowerCase();
+  const filteredAddons = addons.filter(a => {
+    if (!query) return true;
+    const haystack = [
+      a.name.toLowerCase(),
+      a.addonKey.toLowerCase(),
+      (a.description ?? "").toLowerCase(),
+      a.costType.toLowerCase(),
+      a.amount,
+      (a.applicableTypes ?? "").toLowerCase().split(",").map(t => (projectTypes[t.trim()] ?? t.trim()).toLowerCase()).join(" "),
+    ].join(" ");
+    return haystack.includes(query);
+  });
 
   return (
     <div className="space-y-3">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search add-ons by name, key, type, amount, or description..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="pl-9 pr-9 text-sm"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {addons.length} add-on{addons.length !== 1 ? "s" : ""} configured
-        </p>
         <Button
           size="sm"
           style={{ background: BLACK, color: "white" }}
@@ -914,6 +944,12 @@ function AddonsTab({ addons, projectTypes }: { addons: AddonRecord[]; projectTyp
           New Add-on
         </Button>
       </div>
+
+      {filteredAddons.length === 0 && query && (
+        <div className="text-center py-8 text-sm text-muted-foreground">
+          No add-ons match "<span className="font-medium text-foreground">{searchQuery}</span>".
+        </div>
+      )}
 
       <div className="rounded-xl border border-border overflow-hidden">
         {addons.length === 0 ? (
@@ -932,7 +968,7 @@ function AddonsTab({ addons, projectTypes }: { addons: AddonRecord[]; projectTyp
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              {addons.map(a => (
+              {filteredAddons.map(a => (
                 <tr key={a.id} className="hover:bg-muted/10 group">
                   <td className="px-4 py-3">
                     <div className="font-medium text-sm">{a.name}</div>
@@ -1167,11 +1203,38 @@ function ProjectTypesTab({
 
   const sorted = Object.entries(projectTypes).sort((a, b) => a[1].localeCompare(b[1]));
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const query = searchQuery.trim().toLowerCase();
+  const filteredSorted = sorted.filter(([key, label]) => {
+    if (!query) return true;
+    const haystack = [key.toLowerCase(), label.toLowerCase()].join(" ");
+    return haystack.includes(query);
+  });
+
   return (
     <div className="space-y-3">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search project types by name or key..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="pl-9 pr-9 text-sm"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {sorted.length} project type{sorted.length !== 1 ? "s" : ""}
+          {filteredSorted.length} project type{filteredSorted.length !== 1 ? "s" : ""}
+          {query && <span className="ml-1 text-xs">({sorted.length} total)</span>}
         </p>
         <Button
           size="sm"
@@ -1184,6 +1247,12 @@ function ProjectTypesTab({
         </Button>
       </div>
 
+      {filteredSorted.length === 0 && query && (
+        <div className="text-center py-8 text-sm text-muted-foreground">
+          No project types match "<span className="font-medium text-foreground">{searchQuery}</span>".
+        </div>
+      )}
+
       <div className="rounded-xl border border-border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/30 border-b border-border">
@@ -1195,7 +1264,7 @@ function ProjectTypesTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-border/40">
-            {sorted.map(([key, label]) => (
+            {filteredSorted.map(([key, label]) => (
               <tr key={key} className="group">
                 <td className="px-4 py-3">
                   <code className="text-[11px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{key}</code>
