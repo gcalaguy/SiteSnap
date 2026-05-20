@@ -87,6 +87,7 @@ export const usersTable = pgTable("users", {
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   activeCompanyId: integer("active_company_id").references(() => companiesTable.id),
+  preferredLanguage: text("preferred_language").notNull().default("en"),
   systemRole: text("system_role"), // null = regular user, 'super_admin' = global admin
   pushToken: text("push_token"),
   termsAcceptedAt: timestamp("terms_accepted_at"),
@@ -152,6 +153,7 @@ export const invitationsTable = pgTable("invitations", {
     .references(() => companiesTable.id),
   email: text("email").notNull(),
   role: userRoleEnum("role").notNull().default("worker"),
+  preferredLanguage: text("preferred_language").notNull().default("en"),
   token: text("token").notNull().unique(),
   status: invitationStatusEnum("status").notNull().default("pending"),
   expiresAt: timestamp("expires_at").notNull(),

@@ -1,3 +1,4 @@
+import "@/src/i18n";
 import React, { useEffect, useRef, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { View } from "react-native";
@@ -9,6 +10,8 @@ import { TermsModal } from "@/components/TermsModal";
 import { GlobalVoiceCommandFAB } from "@/components/GlobalVoiceCommandFAB";
 import * as SecureStore from "expo-secure-store";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { I18nextProvider } from "react-i18next";
+import i18n, { setAppLanguage } from "@/src/i18n";
 import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
 import { setTokenGetter, setSignOut } from "@/utils/auth";
 
@@ -93,6 +96,12 @@ function RootLayoutNav() {
     }
     return () => setTenantIdGetter(null);
   }, [me?.activeCompanyId]);
+
+  // Phase 4: Switch mobile language to user's preferred language from API profile
+  useEffect(() => {
+    const lang = me?.preferredLanguage;
+    if (lang) setAppLanguage(lang);
+  }, [me?.preferredLanguage]);
 
   const router = useRouter();
   const segments = useSegments();
@@ -224,7 +233,9 @@ export default function RootLayout() {
       tokenCache={tokenCache as any}
     >
       <QueryClientProvider client={queryClient}>
-        <RootLayoutNav />
+        <I18nextProvider i18n={i18n}>
+          <RootLayoutNav />
+        </I18nextProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );

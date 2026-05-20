@@ -1,0 +1,128 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "done": "Done",
+    "submit": "Submit",
+    "close": "Close",
+    "loading": "Loading\u2026",
+    "error": "Error",
+    "success": "Success",
+    "retry": "Retry",
+    "back": "Back",
+    "next": "Next",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "tabs": {
+    "home": "Home",
+    "risk": "Risk",
+    "inspect": "Inspections",
+    "safety": "Safety",
+    "profile": "Profile"
+  },
+  "home": {
+    "myProjects": "My Projects",
+    "activeProjects": "Active Projects",
+    "tasks": "Tasks",
+    "dailyLog": "Daily Log",
+    "fieldPhoto": "Field Photo",
+    "fieldSafety": "Field Safety",
+    "siteScan": "Site Scan",
+    "askAI": "Ask AI",
+    "schedule": "Schedule",
+    "hours": "Hours",
+    "clockIn": "Clock In",
+    "clockOut": "Clock Out"
+  },
+  "tasks": {
+    "title": "Tasks",
+    "assigned": "Assigned",
+    "completed": "Completed",
+    "overdue": "Overdue",
+    "noTasks": "No tasks yet.",
+    "markDone": "Mark Done",
+    "addNote": "Add Note"
+  },
+  "dailyLog": {
+    "title": "Daily Log",
+    "workersOnSite": "Workers on Site",
+    "hoursWorked": "Hours Worked",
+    "weather": "Weather",
+    "notes": "Notes",
+    "photos": "Photos",
+    "submitReport": "Submit Report",
+    "reportSaved": "Report saved!"
+  },
+  "safety": {
+    "title": "Safety & Incidents",
+    "checklist": "Checklist",
+    "fileReport": "File a New Report",
+    "incidents": "Incidents",
+    "hazard": "Hazard",
+    "nearMiss": "Near Miss",
+    "ppe": "PPE",
+    "noReports": "No safety reports yet."
+  },
+  "documents": {
+    "title": "Documents",
+    "upload": "Upload",
+    "analyze": "Analyze",
+    "search": "Search",
+    "askAI": "Ask AI",
+    "noDocuments": "No documents yet."
+  },
+  "quotes": {
+    "title": "Quotes",
+    "newQuote": "New Quote",
+    "editQuote": "Edit Quote",
+    "convertToInvoice": "Convert to Invoice",
+    "quoteNotFound": "Quote not found"
+  },
+  "invoices": {
+    "title": "Invoices",
+    "newInvoice": "New Invoice",
+    "editInvoice": "Edit Invoice",
+    "paid": "Paid",
+    "overdue": "Overdue",
+    "invoiceNotFound": "Invoice not found"
+  },
+  "rfi": {
+    "title": "RFI",
+    "open": "Open",
+    "closed": "Closed",
+    "rfiNotFound": "RFI not found"
+  },
+  "schedule": {
+    "title": "Assigned Schedule",
+    "today": "Today",
+    "upcoming": "Upcoming",
+    "noEvents": "No scheduled events."
+  },
+  "profile": {
+    "title": "Profile",
+    "settings": "Settings",
+    "notifications": "Notifications",
+    "signOut": "Sign Out",
+    "terms": "Terms of Service"
+  },
+  "onboarding": {
+    "welcome": "Welcome to Site Snap",
+    "createCompany": "Create Company",
+    "joinCompany": "Join Company",
+    "companyName": "Company Name",
+    "city": "City",
+    "province": "Province",
+    "phone": "Phone",
+    "invitationToken": "Invitation Token",
+    "workerHint": "Enter the invite token your owner or foreman sent you to join your team."
+  },
+  "voice": {
+    "title": "Voice Estimator",
+    "startRecording": "Start Recording",
+    "stopRecording": "Stop Recording",
+    "quoteSaved": "Quote saved!"
+  }
+}

@@ -3836,6 +3836,10 @@ components:
         activeCompanyId:
           type: integer
           nullable: true
+        preferredLanguage:
+          type: string
+          enum: [en, it, pt, es]
+          default: en
         systemRole:
           type: string
           nullable: true
@@ -3847,7 +3851,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, clerkUserId, email, firstName, lastName, createdAt]
+      required: [id, clerkUserId, email, firstName, lastName, preferredLanguage, createdAt]
 
     UserMembership:
       type: object
@@ -3933,6 +3937,10 @@ components:
           type: string
         lastName:
           type: string
+        preferredLanguage:
+          type: string
+          enum: [en, it, pt, es]
+          default: en
       required: [clerkUserId, email, firstName, lastName]
 
     # ── Companies ────────────────────────────────────────────────────────────
@@ -4005,6 +4013,10 @@ components:
           type: string
         role:
           $ref: "#/components/schemas/UserRole"
+        preferredLanguage:
+          type: string
+          enum: [en, it, pt, es]
+          default: en
         token:
           type: string
         status:
@@ -4019,7 +4031,7 @@ components:
         company:
           $ref: "#/components/schemas/Company"
           nullable: true
-      required: [id, companyId, email, role, token, status, expiresAt, createdAt]
+      required: [id, companyId, email, role, preferredLanguage, token, status, expiresAt, createdAt]
 
     CreateInvitationBody:
       type: object
@@ -4028,6 +4040,10 @@ components:
           type: string
         role:
           $ref: "#/components/schemas/UserRole"
+        preferredLanguage:
+          type: string
+          enum: [en, it, pt, es]
+          default: en
       required: [email, role]
 
     UpdateInvitationBody:
@@ -4037,6 +4053,9 @@ components:
           type: string
         role:
           $ref: "#/components/schemas/UserRole"
+        preferredLanguage:
+          type: string
+          enum: [en, it, pt, es]
 
     # ── Projects ─────────────────────────────────────────────────────────────
     Project:

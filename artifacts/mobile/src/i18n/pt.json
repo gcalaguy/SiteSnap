@@ -1,0 +1,128 @@
+{
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "done": "Conclu\u00eddo",
+    "submit": "Enviar",
+    "close": "Fechar",
+    "loading": "Carregando\u2026",
+    "error": "Erro",
+    "success": "Sucesso",
+    "retry": "Tentar Novamente",
+    "back": "Voltar",
+    "next": "Pr\u00f3ximo",
+    "yes": "Sim",
+    "no": "N\u00e3o"
+  },
+  "tabs": {
+    "home": "In\u00edcio",
+    "risk": "Risco",
+    "inspect": "Inspe\u00e7\u00f5es",
+    "safety": "Seguran\u00e7a",
+    "profile": "Perfil"
+  },
+  "home": {
+    "myProjects": "Meus Projetos",
+    "activeProjects": "Projetos Ativos",
+    "tasks": "Tarefas",
+    "dailyLog": "Registro Di\u00e1rio",
+    "fieldPhoto": "Foto da Obra",
+    "fieldSafety": "Seguran\u00e7a da Obra",
+    "siteScan": "Varredura da Obra",
+    "askAI": "Perguntar \u00e0 IA",
+    "schedule": "Agenda",
+    "hours": "Horas",
+    "clockIn": "Entrar",
+    "clockOut": "Sair"
+  },
+  "tasks": {
+    "title": "Tarefas",
+    "assigned": "Atribu\u00eddas",
+    "completed": "Conclu\u00eddas",
+    "overdue": "Atrasadas",
+    "noTasks": "Nenhuma tarefa.",
+    "markDone": "Marcar Conclu\u00edda",
+    "addNote": "Adicionar Nota"
+  },
+  "dailyLog": {
+    "title": "Registro Di\u00e1rio",
+    "workersOnSite": "Trabalhadores na Obra",
+    "hoursWorked": "Horas Trabalhadas",
+    "weather": "Clima",
+    "notes": "Anota\u00e7\u00f5es",
+    "photos": "Fotos",
+    "submitReport": "Enviar Relat\u00f3rio",
+    "reportSaved": "Relat\u00f3rio salvo!"
+  },
+  "safety": {
+    "title": "Seguran\u00e7a e Incidentes",
+    "checklist": "Checklist",
+    "fileReport": "Registrar Novo Ocorr\u00eancia",
+    "incidents": "Incidentes",
+    "hazard": "Perigo",
+    "nearMiss": "Quase Acidente",
+    "ppe": "EPI",
+    "noReports": "Nenhum relat\u00f3rio de seguran\u00e7a."
+  },
+  "documents": {
+    "title": "Documentos",
+    "upload": "Enviar",
+    "analyze": "Analisar",
+    "search": "Pesquisar",
+    "askAI": "Perguntar \u00e0 IA",
+    "noDocuments": "Nenhum documento."
+  },
+  "quotes": {
+    "title": "Or\u00e7amentos",
+    "newQuote": "Novo Or\u00e7amento",
+    "editQuote": "Editar Or\u00e7amento",
+    "convertToInvoice": "Converter em Fatura",
+    "quoteNotFound": "Or\u00e7amento n\u00e3o encontrado"
+  },
+  "invoices": {
+    "title": "Faturas",
+    "newInvoice": "Nova Fatura",
+    "editInvoice": "Editar Fatura",
+    "paid": "Paga",
+    "overdue": "Atrasada",
+    "invoiceNotFound": "Fatura n\u00e3o encontrada"
+  },
+  "rfi": {
+    "title": "RFI",
+    "open": "Aberto",
+    "closed": "Fechado",
+    "rfiNotFound": "RFI n\u00e3o encontrado"
+  },
+  "schedule": {
+    "title": "Agenda Atribu\u00edda",
+    "today": "Hoje",
+    "upcoming": "Pr\u00f3ximos",
+    "noEvents": "Nenhum evento agendado."
+  },
+  "profile": {
+    "title": "Perfil",
+    "settings": "Configura\u00e7\u00f5es",
+    "notifications": "Notifica\u00e7\u00f5es",
+    "signOut": "Sair",
+    "terms": "Termos de Servi\u00e7o"
+  },
+  "onboarding": {
+    "welcome": "Bem-vindo ao Site Snap",
+    "createCompany": "Criar Empresa",
+    "joinCompany": "Entrar na Empresa",
+    "companyName": "Nome da Empresa",
+    "city": "Cidade",
+    "province": "Prov\u00edncia",
+    "phone": "Telefone",
+    "invitationToken": "Token de Convite",
+    "workerHint": "Insira o token enviado pelo propriet\u00e1rio ou mestre de obras para entrar na equipe."
+  },
+  "voice": {
+    "title": "Estimativa por Voz",
+    "startRecording": "Iniciar Grava\u00e7\u00e3o",
+    "stopRecording": "Parar Grava\u00e7\u00e3o",
+    "quoteSaved": "Or\u00e7amento salvo!"
+  }
+}

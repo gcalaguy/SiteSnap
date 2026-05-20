@@ -27,7 +27,7 @@ async function autoAcceptPendingInvitation(userId: number, email: string) {
     .onConflictDoNothing();
   await db
     .update(usersTable)
-    .set({ activeCompanyId: invite.companyId })
+    .set({ activeCompanyId: invite.companyId, preferredLanguage: invite.preferredLanguage ?? "en" })
     .where(eq(usersTable.id, userId));
   await db
     .update(invitationsTable)

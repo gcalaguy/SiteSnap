@@ -20,6 +20,7 @@
     "@workspace/db": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
     "cookie-parser": "^1.4.7",
+    "openai": "^6.27.0",
     "cors": "^2",
     "date-fns": "^3.6.0",
     "drizzle-orm": "catalog:",

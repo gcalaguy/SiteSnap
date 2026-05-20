@@ -95,6 +95,16 @@ export interface AddProjectMemberBody {
   userId: number;
 }
 
+export type UserPreferredLanguage =
+  (typeof UserPreferredLanguage)[keyof typeof UserPreferredLanguage];
+
+export const UserPreferredLanguage = {
+  en: "en",
+  it: "it",
+  pt: "pt",
+  es: "es",
+} as const;
+
 export interface User {
   id: number;
   clerkUserId: string;
@@ -102,6 +112,7 @@ export interface User {
   firstName: string;
   lastName: string;
   activeCompanyId?: number | null;
+  preferredLanguage: UserPreferredLanguage;
   /** 'super_admin' for global admins, null for regular users */
   systemRole?: string | null;
   termsAcceptedAt?: string | null;
@@ -165,11 +176,22 @@ export type UserWithCompany = User & {
   permissions?: MemberPermissions;
 };
 
+export type SyncUserBodyPreferredLanguage =
+  (typeof SyncUserBodyPreferredLanguage)[keyof typeof SyncUserBodyPreferredLanguage];
+
+export const SyncUserBodyPreferredLanguage = {
+  en: "en",
+  it: "it",
+  pt: "pt",
+  es: "es",
+} as const;
+
 export interface SyncUserBody {
   clerkUserId: string;
   email: string;
   firstName: string;
   lastName: string;
+  preferredLanguage?: SyncUserBodyPreferredLanguage;
 }
 
 export interface CreateCompanyBody {
@@ -182,6 +204,16 @@ export interface CreateCompanyBody {
 export interface UpdateMemberRoleBody {
   role: UserRole;
 }
+
+export type InvitationPreferredLanguage =
+  (typeof InvitationPreferredLanguage)[keyof typeof InvitationPreferredLanguage];
+
+export const InvitationPreferredLanguage = {
+  en: "en",
+  it: "it",
+  pt: "pt",
+  es: "es",
+} as const;
 
 export type InvitationStatus =
   (typeof InvitationStatus)[keyof typeof InvitationStatus];
@@ -197,6 +229,7 @@ export interface Invitation {
   companyId: number;
   email: string;
   role: UserRole;
+  preferredLanguage: InvitationPreferredLanguage;
   token: string;
   status: InvitationStatus;
   expiresAt: string;
@@ -204,14 +237,36 @@ export interface Invitation {
   company?: Company | null;
 }
 
+export type CreateInvitationBodyPreferredLanguage =
+  (typeof CreateInvitationBodyPreferredLanguage)[keyof typeof CreateInvitationBodyPreferredLanguage];
+
+export const CreateInvitationBodyPreferredLanguage = {
+  en: "en",
+  it: "it",
+  pt: "pt",
+  es: "es",
+} as const;
+
 export interface CreateInvitationBody {
   email: string;
   role: UserRole;
+  preferredLanguage?: CreateInvitationBodyPreferredLanguage;
 }
+
+export type UpdateInvitationBodyPreferredLanguage =
+  (typeof UpdateInvitationBodyPreferredLanguage)[keyof typeof UpdateInvitationBodyPreferredLanguage];
+
+export const UpdateInvitationBodyPreferredLanguage = {
+  en: "en",
+  it: "it",
+  pt: "pt",
+  es: "es",
+} as const;
 
 export interface UpdateInvitationBody {
   email?: string;
   role?: UserRole;
+  preferredLanguage?: UpdateInvitationBodyPreferredLanguage;
 }
 
 export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus];

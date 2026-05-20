@@ -1,0 +1,128 @@
+{
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "done": "Hecho",
+    "submit": "Enviar",
+    "close": "Cerrar",
+    "loading": "Cargando\u2026",
+    "error": "Error",
+    "success": "\u00c9xito",
+    "retry": "Reintentar",
+    "back": "Atr\u00e1s",
+    "next": "Siguiente",
+    "yes": "S\u00ed",
+    "no": "No"
+  },
+  "tabs": {
+    "home": "Inicio",
+    "risk": "Riesgo",
+    "inspect": "Inspecciones",
+    "safety": "Seguridad",
+    "profile": "Perfil"
+  },
+  "home": {
+    "myProjects": "Mis Proyectos",
+    "activeProjects": "Proyectos Activos",
+    "tasks": "Tareas",
+    "dailyLog": "Registro Diario",
+    "fieldPhoto": "Foto de Obra",
+    "fieldSafety": "Seguridad de Obra",
+    "siteScan": "Escaneo de Obra",
+    "askAI": "Preguntar a IA",
+    "schedule": "Horario",
+    "hours": "Horas",
+    "clockIn": "Entrada",
+    "clockOut": "Salida"
+  },
+  "tasks": {
+    "title": "Tareas",
+    "assigned": "Asignadas",
+    "completed": "Completadas",
+    "overdue": "Atrasadas",
+    "noTasks": "No hay tareas.",
+    "markDone": "Marcar Hecha",
+    "addNote": "Agregar Nota"
+  },
+  "dailyLog": {
+    "title": "Registro Diario",
+    "workersOnSite": "Trabajadores en Obra",
+    "hoursWorked": "Horas Trabajadas",
+    "weather": "Clima",
+    "notes": "Notas",
+    "photos": "Fotos",
+    "submitReport": "Enviar Reporte",
+    "reportSaved": "\u00a1Reporte guardado!"
+  },
+  "safety": {
+    "title": "Seguridad e Incidentes",
+    "checklist": "Lista de Verificaci\u00f3n",
+    "fileReport": "Presentar Nuevo Reporte",
+    "incidents": "Incidentes",
+    "hazard": "Peligro",
+    "nearMiss": "Casi Accidente",
+    "ppe": "EPP",
+    "noReports": "No hay reportes de seguridad."
+  },
+  "documents": {
+    "title": "Documentos",
+    "upload": "Subir",
+    "analyze": "Analizar",
+    "search": "Buscar",
+    "askAI": "Preguntar a IA",
+    "noDocuments": "No hay documentos."
+  },
+  "quotes": {
+    "title": "Cotizaciones",
+    "newQuote": "Nueva Cotizaci\u00f3n",
+    "editQuote": "Editar Cotizaci\u00f3n",
+    "convertToInvoice": "Convertir a Factura",
+    "quoteNotFound": "Cotizaci\u00f3n no encontrada"
+  },
+  "invoices": {
+    "title": "Facturas",
+    "newInvoice": "Nueva Factura",
+    "editInvoice": "Editar Factura",
+    "paid": "Pagada",
+    "overdue": "Vencida",
+    "invoiceNotFound": "Factura no encontrada"
+  },
+  "rfi": {
+    "title": "RFI",
+    "open": "Abierto",
+    "closed": "Cerrado",
+    "rfiNotFound": "RFI no encontrado"
+  },
+  "schedule": {
+    "title": "Horario Asignado",
+    "today": "Hoy",
+    "upcoming": "Pr\u00f3ximos",
+    "noEvents": "No hay eventos programados."
+  },
+  "profile": {
+    "title": "Perfil",
+    "settings": "Configuraci\u00f3n",
+    "notifications": "Notificaciones",
+    "signOut": "Cerrar Sesi\u00f3n",
+    "terms": "T\u00e9rminos de Servicio"
+  },
+  "onboarding": {
+    "welcome": "Bienvenido a Site Snap",
+    "createCompany": "Crear Empresa",
+    "joinCompany": "Unirse a la Empresa",
+    "companyName": "Nombre de la Empresa",
+    "city": "Ciudad",
+    "province": "Provincia",
+    "phone": "Tel\u00e9fono",
+    "invitationToken": "Token de Invitaci\u00f3n",
+    "workerHint": "Ingresa el token que tu propietario o capataz te envi\u00f3 para unirte al equipo."
+  },
+  "voice": {
+    "title": "Estimador por Voz",
+    "startRecording": "Iniciar Grabaci\u00f3n",
+    "stopRecording": "Detener Grabaci\u00f3n",
+    "quoteSaved": "\u00a1Cotizaci\u00f3n guardada!"
+  }
+}

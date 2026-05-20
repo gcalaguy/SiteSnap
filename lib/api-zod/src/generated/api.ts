@@ -1202,6 +1202,8 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Get current authenticated user with company and role
  */
+export const getMeResponseOnePreferredLanguageDefault = `en`;
+
 export const GetMeResponse = zod
   .object({
     id: zod.number(),
@@ -1210,6 +1212,9 @@ export const GetMeResponse = zod
     firstName: zod.string(),
     lastName: zod.string(),
     activeCompanyId: zod.number().nullish(),
+    preferredLanguage: zod
+      .enum(["en", "it", "pt", "es"])
+      .default(getMeResponseOnePreferredLanguageDefault),
     systemRole: zod
       .string()
       .nullish()
@@ -1284,6 +1289,8 @@ export const SetActiveCompanyBody = zod.object({
   companyId: zod.number(),
 });
 
+export const setActiveCompanyResponseOnePreferredLanguageDefault = `en`;
+
 export const SetActiveCompanyResponse = zod
   .object({
     id: zod.number(),
@@ -1292,6 +1299,9 @@ export const SetActiveCompanyResponse = zod
     firstName: zod.string(),
     lastName: zod.string(),
     activeCompanyId: zod.number().nullish(),
+    preferredLanguage: zod
+      .enum(["en", "it", "pt", "es"])
+      .default(setActiveCompanyResponseOnePreferredLanguageDefault),
     systemRole: zod
       .string()
       .nullish()
@@ -1362,6 +1372,8 @@ export const SetActiveCompanyResponse = zod
 /**
  * @summary Record that the current user accepted the Terms and Conditions
  */
+export const acceptTermsResponseOnePreferredLanguageDefault = `en`;
+
 export const AcceptTermsResponse = zod
   .object({
     id: zod.number(),
@@ -1370,6 +1382,9 @@ export const AcceptTermsResponse = zod
     firstName: zod.string(),
     lastName: zod.string(),
     activeCompanyId: zod.number().nullish(),
+    preferredLanguage: zod
+      .enum(["en", "it", "pt", "es"])
+      .default(acceptTermsResponseOnePreferredLanguageDefault),
     systemRole: zod
       .string()
       .nullish()
@@ -1440,12 +1455,19 @@ export const AcceptTermsResponse = zod
 /**
  * @summary Sync Clerk user to database (called after sign-in/sign-up)
  */
+export const syncUserBodyPreferredLanguageDefault = `en`;
+
 export const SyncUserBody = zod.object({
   clerkUserId: zod.string(),
   email: zod.string(),
   firstName: zod.string(),
   lastName: zod.string(),
+  preferredLanguage: zod
+    .enum(["en", "it", "pt", "es"])
+    .default(syncUserBodyPreferredLanguageDefault),
 });
+
+export const syncUserResponsePreferredLanguageDefault = `en`;
 
 export const SyncUserResponse = zod.object({
   id: zod.number(),
@@ -1454,6 +1476,9 @@ export const SyncUserResponse = zod.object({
   firstName: zod.string(),
   lastName: zod.string(),
   activeCompanyId: zod.number().nullish(),
+  preferredLanguage: zod
+    .enum(["en", "it", "pt", "es"])
+    .default(syncUserResponsePreferredLanguageDefault),
   systemRole: zod
     .string()
     .nullish()
@@ -1504,6 +1529,8 @@ export const ListCompanyMembersParams = zod.object({
   companyId: zod.coerce.number(),
 });
 
+export const listCompanyMembersResponseOnePreferredLanguageDefault = `en`;
+
 export const ListCompanyMembersResponseItem = zod
   .object({
     id: zod.number(),
@@ -1512,6 +1539,9 @@ export const ListCompanyMembersResponseItem = zod
     firstName: zod.string(),
     lastName: zod.string(),
     activeCompanyId: zod.number().nullish(),
+    preferredLanguage: zod
+      .enum(["en", "it", "pt", "es"])
+      .default(listCompanyMembersResponseOnePreferredLanguageDefault),
     systemRole: zod
       .string()
       .nullish()
@@ -1602,6 +1632,8 @@ export const UpdateMemberRoleBody = zod.object({
   role: zod.enum(["owner", "foreman", "worker"]),
 });
 
+export const updateMemberRoleResponseOnePreferredLanguageDefault = `en`;
+
 export const UpdateMemberRoleResponse = zod
   .object({
     id: zod.number(),
@@ -1610,6 +1642,9 @@ export const UpdateMemberRoleResponse = zod
     firstName: zod.string(),
     lastName: zod.string(),
     activeCompanyId: zod.number().nullish(),
+    preferredLanguage: zod
+      .enum(["en", "it", "pt", "es"])
+      .default(updateMemberRoleResponseOnePreferredLanguageDefault),
     systemRole: zod
       .string()
       .nullish()
@@ -1741,19 +1776,29 @@ export const SetMemberPermissionsResponse = zod.object({
 /**
  * @summary Invite a team member via email
  */
+export const createInvitationBodyPreferredLanguageDefault = `en`;
+
 export const CreateInvitationBody = zod.object({
   email: zod.string(),
   role: zod.enum(["owner", "foreman", "worker"]),
+  preferredLanguage: zod
+    .enum(["en", "it", "pt", "es"])
+    .default(createInvitationBodyPreferredLanguageDefault),
 });
 
 /**
  * @summary List all pending invitations for the current user's company
  */
+export const listInvitationsResponsePreferredLanguageDefault = `en`;
+
 export const ListInvitationsResponseItem = zod.object({
   id: zod.number(),
   companyId: zod.number(),
   email: zod.string(),
   role: zod.enum(["owner", "foreman", "worker"]),
+  preferredLanguage: zod
+    .enum(["en", "it", "pt", "es"])
+    .default(listInvitationsResponsePreferredLanguageDefault),
   token: zod.string(),
   status: zod.enum(["pending", "accepted", "expired"]),
   expiresAt: zod.coerce.date(),
@@ -1790,13 +1835,19 @@ export const UpdateInvitationParams = zod.object({
 export const UpdateInvitationBody = zod.object({
   email: zod.string().optional(),
   role: zod.enum(["owner", "foreman", "worker"]).optional(),
+  preferredLanguage: zod.enum(["en", "it", "pt", "es"]).optional(),
 });
+
+export const updateInvitationResponsePreferredLanguageDefault = `en`;
 
 export const UpdateInvitationResponse = zod.object({
   id: zod.number(),
   companyId: zod.number(),
   email: zod.string(),
   role: zod.enum(["owner", "foreman", "worker"]),
+  preferredLanguage: zod
+    .enum(["en", "it", "pt", "es"])
+    .default(updateInvitationResponsePreferredLanguageDefault),
   token: zod.string(),
   status: zod.enum(["pending", "accepted", "expired"]),
   expiresAt: zod.coerce.date(),
@@ -1836,11 +1887,16 @@ export const GetInvitationParams = zod.object({
   token: zod.coerce.string(),
 });
 
+export const getInvitationResponsePreferredLanguageDefault = `en`;
+
 export const GetInvitationResponse = zod.object({
   id: zod.number(),
   companyId: zod.number(),
   email: zod.string(),
   role: zod.enum(["owner", "foreman", "worker"]),
+  preferredLanguage: zod
+    .enum(["en", "it", "pt", "es"])
+    .default(getInvitationResponsePreferredLanguageDefault),
   token: zod.string(),
   status: zod.enum(["pending", "accepted", "expired"]),
   expiresAt: zod.coerce.date(),
@@ -1873,6 +1929,8 @@ export const AcceptInvitationParams = zod.object({
   token: zod.coerce.string(),
 });
 
+export const acceptInvitationResponseOnePreferredLanguageDefault = `en`;
+
 export const AcceptInvitationResponse = zod
   .object({
     id: zod.number(),
@@ -1881,6 +1939,9 @@ export const AcceptInvitationResponse = zod
     firstName: zod.string(),
     lastName: zod.string(),
     activeCompanyId: zod.number().nullish(),
+    preferredLanguage: zod
+      .enum(["en", "it", "pt", "es"])
+      .default(acceptInvitationResponseOnePreferredLanguageDefault),
     systemRole: zod
       .string()
       .nullish()
@@ -2114,6 +2175,8 @@ export const ListDailyReportsParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const listDailyReportsResponseSubmittedByPreferredLanguageDefault = `en`;
+
 export const ListDailyReportsResponseItem = zod.object({
   id: zod.number(),
   projectId: zod.number(),
@@ -2136,6 +2199,9 @@ export const ListDailyReportsResponseItem = zod.object({
       firstName: zod.string(),
       lastName: zod.string(),
       activeCompanyId: zod.number().nullish(),
+      preferredLanguage: zod
+        .enum(["en", "it", "pt", "es"])
+        .default(listDailyReportsResponseSubmittedByPreferredLanguageDefault),
       systemRole: zod
         .string()
         .nullish()
@@ -2174,6 +2240,8 @@ export const GetDailyReportParams = zod.object({
   reportId: zod.coerce.number(),
 });
 
+export const getDailyReportResponseSubmittedByPreferredLanguageDefault = `en`;
+
 export const GetDailyReportResponse = zod.object({
   id: zod.number(),
   projectId: zod.number(),
@@ -2196,6 +2264,9 @@ export const GetDailyReportResponse = zod.object({
       firstName: zod.string(),
       lastName: zod.string(),
       activeCompanyId: zod.number().nullish(),
+      preferredLanguage: zod
+        .enum(["en", "it", "pt", "es"])
+        .default(getDailyReportResponseSubmittedByPreferredLanguageDefault),
       systemRole: zod
         .string()
         .nullish()
@@ -2226,6 +2297,8 @@ export const UpdateDailyReportBody = zod.object({
   aiSummary: zod.string().optional(),
 });
 
+export const updateDailyReportResponseSubmittedByPreferredLanguageDefault = `en`;
+
 export const UpdateDailyReportResponse = zod.object({
   id: zod.number(),
   projectId: zod.number(),
@@ -2248,6 +2321,9 @@ export const UpdateDailyReportResponse = zod.object({
       firstName: zod.string(),
       lastName: zod.string(),
       activeCompanyId: zod.number().nullish(),
+      preferredLanguage: zod
+        .enum(["en", "it", "pt", "es"])
+        .default(updateDailyReportResponseSubmittedByPreferredLanguageDefault),
       systemRole: zod
         .string()
         .nullish()
@@ -2382,6 +2458,8 @@ export const ListRFIsParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const listRFIsResponseSubmittedByPreferredLanguageDefault = `en`;
+
 export const ListRFIsResponseItem = zod.object({
   id: zod.number(),
   projectId: zod.number(),
@@ -2405,6 +2483,9 @@ export const ListRFIsResponseItem = zod.object({
       firstName: zod.string(),
       lastName: zod.string(),
       activeCompanyId: zod.number().nullish(),
+      preferredLanguage: zod
+        .enum(["en", "it", "pt", "es"])
+        .default(listRFIsResponseSubmittedByPreferredLanguageDefault),
       systemRole: zod
         .string()
         .nullish()
@@ -2440,6 +2521,8 @@ export const GetRFIParams = zod.object({
   rfiId: zod.coerce.number(),
 });
 
+export const getRFIResponseSubmittedByPreferredLanguageDefault = `en`;
+
 export const GetRFIResponse = zod.object({
   id: zod.number(),
   projectId: zod.number(),
@@ -2463,6 +2546,9 @@ export const GetRFIResponse = zod.object({
       firstName: zod.string(),
       lastName: zod.string(),
       activeCompanyId: zod.number().nullish(),
+      preferredLanguage: zod
+        .enum(["en", "it", "pt", "es"])
+        .default(getRFIResponseSubmittedByPreferredLanguageDefault),
       systemRole: zod
         .string()
         .nullish()
@@ -2489,6 +2575,8 @@ export const UpdateRFIBody = zod.object({
   dueDate: zod.coerce.date().optional(),
 });
 
+export const updateRFIResponseSubmittedByPreferredLanguageDefault = `en`;
+
 export const UpdateRFIResponse = zod.object({
   id: zod.number(),
   projectId: zod.number(),
@@ -2512,6 +2600,9 @@ export const UpdateRFIResponse = zod.object({
       firstName: zod.string(),
       lastName: zod.string(),
       activeCompanyId: zod.number().nullish(),
+      preferredLanguage: zod
+        .enum(["en", "it", "pt", "es"])
+        .default(updateRFIResponseSubmittedByPreferredLanguageDefault),
       systemRole: zod
         .string()
         .nullish()

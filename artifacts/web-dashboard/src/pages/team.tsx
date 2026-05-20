@@ -58,11 +58,13 @@ function getMemberDisplayName(m: { firstName?: string; lastName?: string; email?
 const inviteSchema = z.object({
   email: z.string().email("Invalid email address"),
   role: z.enum(["owner", "foreman", "worker"]).default("worker"),
+  preferredLanguage: z.enum(["en", "it", "pt", "es"]).default("en"),
 });
 
 const editInviteSchema = z.object({
   email: z.string().email("Invalid email address"),
   role: z.enum(["owner", "foreman", "worker"]),
+  preferredLanguage: z.enum(["en", "it", "pt", "es"]).optional(),
 });
 
 const nameSchema = z.object({
@@ -119,12 +121,12 @@ export default function Team() {
   // ── forms ──────────────────────────────────────────────────────────────────
   const form = useForm<z.infer<typeof inviteSchema>>({
     resolver: zodResolver(inviteSchema),
-    defaultValues: { email: "", role: "worker" },
+    defaultValues: { email: "", role: "worker", preferredLanguage: "en" },
   });
 
   const editInviteForm = useForm<z.infer<typeof editInviteSchema>>({
     resolver: zodResolver(editInviteSchema),
-    defaultValues: { email: "", role: "worker" },
+    defaultValues: { email: "", role: "worker", preferredLanguage: "en" },
   });
 
   const nameForm = useForm<z.infer<typeof nameSchema>>({
@@ -174,7 +176,7 @@ export default function Team() {
   // ── handlers ───────────────────────────────────────────────────────────────
   function openEditInvite(invite: Invite) {
     setEditingInvite(invite);
-    editInviteForm.reset({ email: invite.email, role: invite.role as any });
+    editInviteForm.reset({ email: invite.email, role: invite.role as any, preferredLanguage: (invite as any).preferredLanguage ?? "en" });
   }
 
   function onSubmitEditInvite(values: z.infer<typeof editInviteSchema>) {
@@ -287,6 +289,23 @@ export default function Team() {
                       <FormMessage />
                     </FormItem>
                   )} />
+                  <FormField control={form.control} name="preferredLanguage" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preferred Language</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="en">English</SelectItem>
+                          <SelectItem value="it">Italiano</SelectItem>
+                          <SelectItem value="es">Español</SelectItem>
+                          <SelectItem value="pt">Português</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                   <DialogFooter>
                     <Button type="submit" disabled={createInvitation.isPending}>
                       {createInvitation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -392,6 +411,23 @@ export default function Team() {
                       <SelectItem value="owner">Owner</SelectItem>
                       <SelectItem value="foreman">Foreman</SelectItem>
                       <SelectItem value="worker">Worker</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={editInviteForm.control} name="preferredLanguage" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Preferred Language</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="it">Italiano</SelectItem>
+                      <SelectItem value="es">Español</SelectItem>
+                      <SelectItem value="pt">Português</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -551,6 +587,11 @@ export default function Team() {
                         <p className="text-xs text-muted-foreground">
                           {(invite.role ?? "worker").charAt(0).toUpperCase() + (invite.role ?? "worker").slice(1)} ·{" "}
                           Expires {invite.expiresAt ? format(new Date(invite.expiresAt), "MMM d, yyyy") : "—"}
+                          {(invite as any).preferredLanguage && (invite as any).preferredLanguage !== "en" && (
+                            <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-600 border border-blue-200">
+                              {({ en: "EN", it: "IT", pt: "PT", es: "ES" } as Record<string, string>)[(invite as any).preferredLanguage] ?? (invite as any).preferredLanguage.toUpperCase()}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>

@@ -1,0 +1,128 @@
+{
+  "common": {
+    "save": "Salva",
+    "cancel": "Annulla",
+    "delete": "Elimina",
+    "edit": "Modifica",
+    "done": "Fatto",
+    "submit": "Invia",
+    "close": "Chiudi",
+    "loading": "Caricamento\u2026",
+    "error": "Errore",
+    "success": "Successo",
+    "retry": "Riprova",
+    "back": "Indietro",
+    "next": "Avanti",
+    "yes": "S\u00ec",
+    "no": "No"
+  },
+  "tabs": {
+    "home": "Home",
+    "risk": "Rischio",
+    "inspect": "Ispezioni",
+    "safety": "Sicurezza",
+    "profile": "Profilo"
+  },
+  "home": {
+    "myProjects": "I Miei Progetti",
+    "activeProjects": "Progetti Attivi",
+    "tasks": "Compiti",
+    "dailyLog": "Registro Giornaliero",
+    "fieldPhoto": "Foto Cantiere",
+    "fieldSafety": "Sicurezza Cantiere",
+    "siteScan": "Scansione Cantiere",
+    "askAI": "Chiedi all'AI",
+    "schedule": "Programma",
+    "hours": "Ore",
+    "clockIn": "Entrata",
+    "clockOut": "Uscita"
+  },
+  "tasks": {
+    "title": "Compiti",
+    "assigned": "Assegnati",
+    "completed": "Completati",
+    "overdue": "Scaduti",
+    "noTasks": "Nessun compito.",
+    "markDone": "Segna Fatto",
+    "addNote": "Aggiungi Nota"
+  },
+  "dailyLog": {
+    "title": "Registro Giornaliero",
+    "workersOnSite": "Operai in Cantiere",
+    "hoursWorked": "Ore Lavorate",
+    "weather": "Meteo",
+    "notes": "Note",
+    "photos": "Foto",
+    "submitReport": "Invia Rapporto",
+    "reportSaved": "Rapporto salvato!"
+  },
+  "safety": {
+    "title": "Sicurezza e Incidenti",
+    "checklist": "Checklist",
+    "fileReport": "Compila Nuovo Rapporto",
+    "incidents": "Incidenti",
+    "hazard": "Pericolo",
+    "nearMiss": "Quasi Incidente",
+    "ppe": "DPI",
+    "noReports": "Nessun rapporto di sicurezza."
+  },
+  "documents": {
+    "title": "Documenti",
+    "upload": "Carica",
+    "analyze": "Analizza",
+    "search": "Cerca",
+    "askAI": "Chiedi all'AI",
+    "noDocuments": "Nessun documento."
+  },
+  "quotes": {
+    "title": "Preventivi",
+    "newQuote": "Nuovo Preventivo",
+    "editQuote": "Modifica Preventivo",
+    "convertToInvoice": "Converti in Fattura",
+    "quoteNotFound": "Preventivo non trovato"
+  },
+  "invoices": {
+    "title": "Fatture",
+    "newInvoice": "Nuova Fattura",
+    "editInvoice": "Modifica Fattura",
+    "paid": "Pagata",
+    "overdue": "Scaduta",
+    "invoiceNotFound": "Fattura non trovata"
+  },
+  "rfi": {
+    "title": "RFI",
+    "open": "Aperto",
+    "closed": "Chiuso",
+    "rfiNotFound": "RFI non trovato"
+  },
+  "schedule": {
+    "title": "Programma Assegnato",
+    "today": "Oggi",
+    "upcoming": "In Arrivo",
+    "noEvents": "Nessun evento programmato."
+  },
+  "profile": {
+    "title": "Profilo",
+    "settings": "Impostazioni",
+    "notifications": "Notifiche",
+    "signOut": "Esci",
+    "terms": "Termini di Servizio"
+  },
+  "onboarding": {
+    "welcome": "Benvenuto in Site Snap",
+    "createCompany": "Crea Azienda",
+    "joinCompany": "Unisciti all'Azienda",
+    "companyName": "Nome Azienda",
+    "city": "Citt\u00e0",
+    "province": "Provincia",
+    "phone": "Telefono",
+    "invitationToken": "Token Invito",
+    "workerHint": "Inserisci il token inviato dal proprietario o capocantiere per unirti al team."
+  },
+  "voice": {
+    "title": "Stima Vocale",
+    "startRecording": "Inizia Registrazione",
+    "stopRecording": "Ferma Registrazione",
+    "quoteSaved": "Preventivo salvato!"
+  }
+}

@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, projectDocumentsTable, projectsTable, costAnalysesTable, pool } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth.js";
+import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth.js";
 import { requirePermission } from "../lib/permissionGate.js";
 import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
 import { convertPDFPagesToImages } from "../lib/pdfOcr.js";
+import { generateEmbeddings, embeddingsEnabled } from "../lib/embeddingsClient.js";
 
 const router = Router({ mergeParams: true });
 const objectStorageService = new ObjectStorageService();
@@ -69,7 +70,7 @@ function chunkText(text: string, maxChars = 900, overlap = 150): string[] {
   return chunks;
 }
 
-// ── Chunk Storage (full-text search — no vector embeddings needed) ────────────
+// ── Chunk Storage with optional vector embeddings ─────────────────────────────
 async function storeChunks(
   docId: number, projectId: number, companyId: number, text: string
 ): Promise<number> {
@@ -78,27 +79,73 @@ async function storeChunks(
   const chunks = chunkText(text);
   if (chunks.length === 0) return 0;
 
+  // Generate embeddings in one batch call for efficiency
+  const embeddings = await generateEmbeddings(chunks);
+  const hasEmbeddings = embeddings !== null && embeddings.length === chunks.length;
+  if (!hasEmbeddings && embeddingsEnabled()) {
+    logger.warn({ docId, chunkCount: chunks.length }, "Embedding generation returned mismatch/null; storing chunks without vectors");
+  }
+
   let stored = 0;
   for (let i = 0; i < chunks.length; i++) {
     try {
-      await pool.query(
-        "INSERT INTO document_chunks (project_id, company_id, doc_id, chunk_index, content) VALUES ($1,$2,$3,$4,$5)",
-        [projectId, companyId, docId, i, chunks[i]]
-      );
+      const vec = embeddings?.[i];
+      if (vec) {
+        await pool.query(
+          `INSERT INTO document_chunks (project_id, company_id, doc_id, chunk_index, content, embedding)
+           VALUES ($1,$2,$3,$4,$5,$6::vector)`,
+          [projectId, companyId, docId, i, chunks[i], JSON.stringify(vec)]
+        );
+      } else {
+        await pool.query(
+          "INSERT INTO document_chunks (project_id, company_id, doc_id, chunk_index, content) VALUES ($1,$2,$3,$4,$5)",
+          [projectId, companyId, docId, i, chunks[i]]
+        );
+      }
       stored++;
     } catch (err) {
       logger.error({ err, docId, chunkIndex: i }, "Chunk storage failed");
     }
   }
-  logger.info({ docId, stored }, "Stored document chunks for full-text search");
+  logger.info({ docId, stored, hasEmbeddings }, "Stored document chunks");
   return stored;
 }
 
-// ── Full-Text Search ──────────────────────────────────────────────────────────
+// ── Vector + Full-Text Search ───────────────────────────────────────────────
 type ChunkResult = {
   doc_id: number; chunk_index: number; content: string;
   similarity: number; filename: string; file_type: string;
 };
+
+async function vectorSearch(projectId: number, queryText: string, limit = 8): Promise<ChunkResult[]> {
+  if (!embeddingsEnabled()) return [];
+  const trimmed = queryText.trim();
+  if (!trimmed) return [];
+
+  const embeddings = await generateEmbeddings([trimmed]);
+  if (!embeddings || embeddings.length === 0) return [];
+
+  const queryVec = JSON.stringify(embeddings[0]);
+
+  try {
+    const result = await pool.query<ChunkResult>(
+      `SELECT dc.doc_id, dc.chunk_index, dc.content,
+         (1 - (dc.embedding <=> $1::vector))::float AS similarity,
+         pd.filename, pd.file_type
+       FROM document_chunks dc
+       JOIN project_documents pd ON dc.doc_id = pd.id
+       WHERE dc.project_id = $2
+         AND dc.embedding IS NOT NULL
+       ORDER BY dc.embedding <=> $1::vector
+       LIMIT $3`,
+      [queryVec, projectId, limit]
+    );
+    return result.rows;
+  } catch (err) {
+    logger.warn({ err }, "Vector search failed");
+    return [];
+  }
+}
 
 async function fullTextSearch(projectId: number, queryText: string, limit = 8): Promise<ChunkResult[]> {
   const trimmed = queryText.trim();
@@ -159,6 +206,26 @@ async function fullTextSearch(projectId: number, queryText: string, limit = 8): 
   } catch {
     return [];
   }
+}
+
+/**
+ * Hybrid search: tries vector similarity first (if available), then falls back to full-text.
+ * Returns deduplicated chunks per document, highest similarity first.
+ */
+async function hybridSearch(projectId: number, queryText: string, limit = 8): Promise<ChunkResult[]> {
+  const vecResults = await vectorSearch(projectId, queryText, limit);
+  if (vecResults.length > 0) {
+    // Deduplicate by doc, keep best similarity per doc
+    const byDoc = new Map<number, ChunkResult>();
+    for (const c of vecResults) {
+      const existing = byDoc.get(c.doc_id);
+      if (!existing || c.similarity > existing.similarity) {
+        byDoc.set(c.doc_id, c);
+      }
+    }
+    return [...byDoc.values()].sort((a, b) => b.similarity - a.similarity);
+  }
+  return fullTextSearch(projectId, queryText, limit);
 }
 
 // ── PDF / Word Text Extraction ────────────────────────────────────────────────
@@ -325,9 +392,9 @@ router.post("/search", requireAuth, requireCompany, async (req, res) => {
     return;
   }
 
-  // Try full-text search on document chunks
+  // Try hybrid search (vector + full-text) on document chunks
   try {
-    const chunks = await fullTextSearch(projectId, query.trim(), 10);
+    const chunks = await hybridSearch(projectId, query.trim(), 10);
     if (chunks.length > 0) {
       // Group by doc and return unique doc results
       const byDoc = new Map<number, { doc_id: number; filename: string; file_type: string; maxSim: number; excerpt: string }>();
@@ -348,10 +415,10 @@ router.post("/search", requireAuth, requireCompany, async (req, res) => {
       }).filter(Boolean);
 
       const answer = enriched.length > 0
-        ? `Found ${enriched.length} relevant document${enriched.length > 1 ? "s" : ""} using full-text search.`
+        ? `Found ${enriched.length} relevant document${enriched.length > 1 ? "s" : ""}.`
         : "No closely matching documents found.";
 
-      res.json({ results: enriched, answer, semantic: true });
+      res.json({ results: enriched, answer, semantic: embeddingsEnabled() });
       return;
     }
   } catch (err) {
@@ -418,9 +485,9 @@ Answer questions based ONLY on the provided document sections. When citing a doc
 Be concise, professional, and construction-industry aware. Use CAD for currency unless stated otherwise.
 If the answer is not in the provided material, say so honestly. Do not guess or hallucinate.`;
 
-  // ── Attempt full-text RAG ──────────────────────────────────────────────────
+  // ── Attempt hybrid RAG (vector + full-text) ───────────────────────────────
   try {
-    const chunks = await fullTextSearch(projectId, question.trim(), 8);
+    const chunks = await hybridSearch(projectId, question.trim(), 8);
 
     if (chunks.length > 0) {
       const context = chunks.map((c, i) =>
@@ -510,7 +577,19 @@ If the answer is not in the provided material, say so honestly. Do not guess or 
     );
     const hasChunks = parseInt(chunkCountRow.rows[0]?.cnt ?? "0") > 0;
 
-    res.json({ answer, citations, ragEnabled: false, hasChunks });
+    // Find analyzed docs that have zero chunks (need re-index)
+    const analyzedDocIds = docs.filter(d => d.status === "ready" && (d.aiSummary || d.extractedText)).map(d => d.id);
+    let hasAnalyzedDocsWithNoChunks = false;
+    if (analyzedDocIds.length > 0) {
+      const chunkDocRow = await pool.query<{ doc_id: number }>(
+        `SELECT DISTINCT doc_id FROM document_chunks WHERE project_id = $1 AND doc_id = ANY($2)`,
+        [projectId, analyzedDocIds]
+      );
+      const chunkedDocIds = new Set(chunkDocRow.rows.map(r => r.doc_id));
+      hasAnalyzedDocsWithNoChunks = analyzedDocIds.some(id => !chunkedDocIds.has(id));
+    }
+
+    res.json({ answer, citations, ragEnabled: false, hasChunks, hasAnalyzedDocsWithNoChunks });
   } catch (err) {
     logger.error({ err }, "Document Q&A failed");
     res.status(500).json({ error: "Q&A failed" });
@@ -872,15 +951,10 @@ Respond with ONLY the JSON object, no markdown.`;
 }
 
 // POST /projects/:projectId/documents/:docId/reindex — re-run OCR + chunk for full-text search
-router.post("/:docId/reindex", requireAuth, requireCompany, async (req, res) => {
+router.post("/:docId/reindex", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const docId = parseInt(req.params.docId as string);
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
-
-  const role = req.userRole;
-  if (role !== "owner" && role !== "foreman") {
-    res.status(403).json({ error: "Only owners and foremen can re-index documents." }); return;
-  }
 
   const [doc] = await db.select().from(projectDocumentsTable).where(
     and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId))

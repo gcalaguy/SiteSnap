@@ -84,6 +84,7 @@ router.post(
         companyId: req.companyId!,
         email: parsed.data.email,
         role: parsed.data.role,
+        preferredLanguage: parsed.data.preferredLanguage ?? "en",
         token,
         status: "pending",
         expiresAt,
@@ -161,6 +162,10 @@ router.patch(
     const updates: Record<string, unknown> = {};
     if (email) updates.email = email;
     if (role && ["owner", "foreman", "worker"].includes(role)) updates.role = role;
+    const { preferredLanguage } = req.body as { preferredLanguage?: string };
+    if (preferredLanguage && ["en", "it", "pt", "es"].includes(preferredLanguage)) {
+      updates.preferredLanguage = preferredLanguage;
+    }
 
     const [updated] = await db
       .update(invitationsTable)
@@ -351,7 +356,10 @@ router.post("/invitations/:token/accept", async (req, res) => {
     });
   await db
     .update(usersTable)
-    .set({ activeCompanyId: invitation.companyId })
+    .set({
+      activeCompanyId: invitation.companyId,
+      preferredLanguage: invitation.preferredLanguage ?? "en",
+    })
     .where(eq(usersTable.id, dbUser.id));
 
   // 5. Mark invitation as accepted

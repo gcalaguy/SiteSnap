@@ -46,7 +46,7 @@ type ExtractedFields = {
 type SearchResult = ProjectDoc & { relevance: "high" | "medium" | "low"; reason: string; semantic?: boolean };
 type SearchResponse = { results: SearchResult[]; answer: string; semantic?: boolean };
 type QACitation = { id: number; filename: string; excerpt?: string };
-type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean };
+type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean; hasAnalyzedDocsWithNoChunks?: boolean };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/heic"];
@@ -353,7 +353,7 @@ function QAPanel({ projectId }: { projectId: number }) {
   const { toast } = useToast();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<{ role: "user" | "ai"; text: string; citations?: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean }[]>([]);
+  const [history, setHistory] = useState<{ role: "user" | "ai"; text: string; citations?: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean; hasAnalyzedDocsWithNoChunks?: boolean }[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   async function ask() {
@@ -369,7 +369,7 @@ function QAPanel({ projectId }: { projectId: number }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q, history: history.slice(-6).map(h => ({ role: h.role, text: h.text })) }),
       }) as QAResponse;
-      setHistory([...next, { role: "ai", text: res.answer, citations: res.citations, ragEnabled: res.ragEnabled, hasChunks: res.hasChunks }]);
+      setHistory([...next, { role: "ai", text: res.answer, citations: res.citations, ragEnabled: res.ragEnabled, hasChunks: res.hasChunks, hasAnalyzedDocsWithNoChunks: res.hasAnalyzedDocsWithNoChunks }]);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch {
       toast({ title: "Q&A failed", variant: "destructive" });
@@ -391,8 +391,8 @@ function QAPanel({ projectId }: { projectId: number }) {
               <p className="leading-relaxed">{h.text}</p>
               {h.ragEnabled === false && h.role === "ai" && (
                 <p className="text-[10px] text-muted-foreground mt-1 italic">
-                  {h.hasChunks === false
-                    ? "Content search not yet active — click \"Re-index for AI\" on analyzed documents to enable it."
+                  {h.hasChunks === false && h.hasAnalyzedDocsWithNoChunks
+                    ? "Semantic search is not yet active — use 'Re-index for AI Search' on your documents to enable it."
                     : "No matching sections found — answered from document summaries."}
                 </p>
               )}

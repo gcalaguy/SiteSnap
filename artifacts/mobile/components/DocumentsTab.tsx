@@ -44,8 +44,8 @@ type ExtractedFields = {
 type SearchResult = ProjectDoc & { relevance: "high" | "medium" | "low"; reason: string };
 type SearchResponse = { results: SearchResult[]; answer: string };
 type QACitation = { id: number; filename: string; excerpt?: string };
-type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean };
-type QAMessage = { role: "user" | "assistant"; text: string; citations?: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean };
+type QAResponse = { answer: string; citations: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean; hasAnalyzedDocsWithNoChunks?: boolean };
+type QAMessage = { role: "user" | "assistant"; text: string; citations?: QACitation[]; ragEnabled?: boolean; hasChunks?: boolean; hasAnalyzedDocsWithNoChunks?: boolean };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -378,7 +378,7 @@ function QAPanel({ projectId }: { projectId: number }) {
         body: JSON.stringify({ question: q, history }),
       }) as QAResponse;
       if (data.ragEnabled) setRagActive(true);
-      setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations, ragEnabled: data.ragEnabled, hasChunks: data.hasChunks }]);
+      setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations, ragEnabled: data.ragEnabled, hasChunks: data.hasChunks, hasAnalyzedDocsWithNoChunks: data.hasAnalyzedDocsWithNoChunks }]);
     } catch {
       setMessages(m => [...m, { role: "assistant", text: "Sorry, Q&A failed. Please try again." }]);
     } finally {
@@ -448,8 +448,8 @@ function QAPanel({ projectId }: { projectId: number }) {
                   )}
                   {m.ragEnabled === false && (
                     <Text style={{ fontSize: 10, color: colors.mutedForeground, marginTop: 4, fontStyle: "italic" }}>
-                      {m.hasChunks === false
-                        ? 'Use "Re-index for AI" on analyzed documents to enable content search.'
+                      {m.hasChunks === false && m.hasAnalyzedDocsWithNoChunks
+                        ? "Semantic search is not yet active — use 'Re-index for AI Search' on your documents to enable it."
                         : "No matching sections — answered from document summaries."}
                     </Text>
                   )}
