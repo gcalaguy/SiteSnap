@@ -23,6 +23,8 @@ import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { notify } from "../lib/notify";
+import { searchWeb, formatSearchContext, webSearchEnabled } from "../lib/webSearch.js";
+import { canSearchWeb, recordWebSearch } from "../lib/webSearchRateLimiter.js";
 
 const router = Router();
 
@@ -483,14 +485,45 @@ async function buildTenantContext(companyId: number, _userId: number): Promise<s
 
 // ── AI reply ──────────────────────────────────────────────────────────────────
 
+/**
+ * Decide if a user message warrants a web search.
+ * Short replies ("ok", "yes", "thanks") and single-word commands skip it.
+ */
+function shouldSearchWeb(lastUserMessage: string): boolean {
+  const trimmed = lastUserMessage.trim();
+  if (trimmed.length < 10) return false;
+  const skipWords = new Set(["ok", "yes", "no", "thanks", "thank you", "got it", "sure", "nope", "hello", "hi", "bye", "goodbye"]);
+  const lower = trimmed.toLowerCase().replace(/[^a-z ]/g, "");
+  if (skipWords.has(lower)) return false;
+  return true;
+}
+
 async function getAIReply(
   messageHistory: { role: "user" | "assistant"; content: string }[],
   tenantContext: string,
+  companyId?: number,
 ): Promise<string> {
   const today = new Date().toLocaleDateString("en-CA");
+
+  let webSearchContext = "";
+  let quotaNote = "";
+
+  if (companyId && webSearchEnabled() && canSearchWeb(companyId)) {
+    const lastUser = [...messageHistory].reverse().find(m => m.role === "user");
+    if (lastUser && shouldSearchWeb(lastUser.content)) {
+      const results = await searchWeb(lastUser.content);
+      if (results.length > 0) {
+        recordWebSearch(companyId);
+        webSearchContext = formatSearchContext(results);
+      }
+    }
+  } else if (companyId && webSearchEnabled() && !canSearchWeb(companyId)) {
+    quotaNote = "\n\nNOTE: The user's company has reached its daily web search quota. Only use internal project data and your training knowledge.";
+  }
+
   const systemPrompt =
     SYSTEM_PROMPT +
-    `\n\nToday's date: ${today}\n\n${tenantContext}`;
+    `\n\nToday's date: ${today}\n\n${tenantContext}${webSearchContext}${quotaNote}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.4",
@@ -561,6 +594,7 @@ router.post("/conversations", requireAuth, requireCompany, requirePermission("vi
     const reply = await getAIReply(
       [{ role: "user", content: message.trim() }],
       tenantContext,
+      req.companyId!,
     );
 
     const [aiMessage] = await db
@@ -668,7 +702,7 @@ router.post(
         { role: "user" as const, content: content.trim() },
       ];
 
-      const reply = await getAIReply(messageHistory, tenantContext);
+      const reply = await getAIReply(messageHistory, tenantContext, req.companyId!);
 
       const [aiMessage] = await db
         .insert(messagesTable)

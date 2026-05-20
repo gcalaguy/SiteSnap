@@ -3,6 +3,8 @@ import { z } from "zod";
 import { openai, speechToText, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import { searchWeb, formatSearchContext, webSearchEnabled } from "../lib/webSearch.js";
+import { canSearchWeb, recordWebSearch } from "../lib/webSearchRateLimiter.js";
 
 const router = Router();
 
@@ -203,6 +205,23 @@ router.post("/ai/assistant", requireAuth, requireCompany, async (req, res) => {
 
   const { messages, context } = parsed.data;
 
+  let webSearchContext = "";
+  let quotaNote = "";
+  const companyId = req.companyId;
+
+  if (companyId && webSearchEnabled() && canSearchWeb(companyId)) {
+    const lastUser = [...messages].reverse().find(m => m.role === "user");
+    if (lastUser && lastUser.content.trim().length >= 10) {
+      const results = await searchWeb(lastUser.content);
+      if (results.length > 0) {
+        recordWebSearch(companyId);
+        webSearchContext = formatSearchContext(results);
+      }
+    }
+  } else if (companyId && webSearchEnabled() && !canSearchWeb(companyId)) {
+    quotaNote = "\n\nNOTE: The user's company has reached its daily web search quota. Only use internal project data and your training knowledge.";
+  }
+
   const systemPrompt = `You are Site Snap AI, a friendly and knowledgeable construction assistant for Canadian field crews and project managers.
 
 You help with:
@@ -215,7 +234,7 @@ You help with:
 
 Keep responses concise and practical. Use plain language suited for field workers. If specific project data is provided in the context below, reference it in your answers.
 
-${context ? `\n--- Company & Project Context ---\n${context}\n---` : ""}
+${context ? `\n--- Company & Project Context ---\n${context}\n---` : ""}${webSearchContext}${quotaNote}
 
 Today's date: ${new Date().toLocaleDateString("en-CA")}`;
 
