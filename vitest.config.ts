@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     include: [
       "artifacts/mobile/src/utils/**/*.test.ts",
-      "artifacts/api-server/src/routes/estimator.test.ts",
+      "artifacts/api-server/tests/**/*.test.ts",
     ],
     environment: "node",
   },
