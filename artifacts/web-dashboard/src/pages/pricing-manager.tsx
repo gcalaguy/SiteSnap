@@ -59,6 +59,8 @@ import {
   AlertCircle,
   Tag,
   LayoutGrid,
+  FileText,
+  Receipt,
 } from "lucide-react";
 
 const GOLD = "#D4AF37";
@@ -395,6 +397,24 @@ function CostModelsTab({
                           <span className="font-semibold">{m.contingencyPct}%</span>
                         </div>
                       </div>
+                      {m.sourceType !== "manual" && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] shrink-0 gap-1",
+                            m.sourceType === "quote"
+                              ? "border-blue-200 text-blue-600"
+                              : "border-green-200 text-green-600"
+                          )}
+                        >
+                          {m.sourceType === "quote" ? (
+                            <FileText className="h-3 w-3" />
+                          ) : (
+                            <Receipt className="h-3 w-3" />
+                          )}
+                          {m.sourceType}
+                        </Badge>
+                      )}
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         <Button
                           size="icon"

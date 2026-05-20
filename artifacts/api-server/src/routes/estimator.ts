@@ -42,7 +42,7 @@ router.use(requireFeature("Smart_Estimator"));
 
 // ── Seed pricing data (runs once, idempotent) ─────────────────────────────────
 
-const COST_MODEL_SEED: Omit<EstimatorCostModel, "id" | "createdAt" | "updatedAt" | "companyId">[] = [
+const COST_MODEL_SEED: Omit<EstimatorCostModel, "id" | "createdAt" | "updatedAt" | "companyId" | "sourceType" | "sourceId">[] = [
   // Residential New Build
   { projectType: "residential_new_build", finishLevel: "basic",    name: "Residential New Build — Basic",    baseCostPerSqft: "185", laborCostPerSqft: "75",  materialCostPerSqft: "85",  overheadPct: "10", contingencyPct: "10", notes: "Builder-grade finishes, standard fixtures, vinyl flooring" },
   { projectType: "residential_new_build", finishLevel: "standard", name: "Residential New Build — Standard", baseCostPerSqft: "225", laborCostPerSqft: "90",  materialCostPerSqft: "110", overheadPct: "10", contingencyPct: "10", notes: "Mid-range finishes, laminate/hardwood mix, quality fixtures" },
@@ -131,7 +131,7 @@ async function seedPricingData(companyId: number) {
   const templates = await db.select({ id: estimatorCostModelsTable.id }).from(estimatorCostModelsTable).where(isNull(estimatorCostModelsTable.companyId)).limit(1);
   if (templates.length === 0) {
     await db.insert(estimatorCostModelsTable).values(
-      COST_MODEL_SEED.map((m) => ({ ...m, companyId: null, createdAt: new Date(), updatedAt: new Date() }))
+      COST_MODEL_SEED.map((m) => ({ ...m, companyId: null, sourceType: "manual" as const, sourceId: null, createdAt: new Date(), updatedAt: new Date() }))
     );
     const templateAddons = await db.select({ id: estimatorAddonsTable.id }).from(estimatorAddonsTable).where(isNull(estimatorAddonsTable.companyId)).limit(1);
     if (templateAddons.length === 0) {

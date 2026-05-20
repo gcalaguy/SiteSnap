@@ -21,10 +21,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2, Bell, FileSpreadsheet, Plus, Trash2, Save } from "lucide-react";
+import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2, Bell, FileSpreadsheet, Plus, Trash2, Save, Database } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetInvoiceQueryKey, getListAllInvoicesQueryKey } from "@workspace/api-client-react";
+import ImportCostModelDialog from "@/components/ImportCostModelDialog";
 import jsPDF from "jspdf";
 import { renderSignatureBlock } from "@/lib/signaturePdf";
 import { SignatureBadge } from "@/components/SignatureBadge";
@@ -369,6 +370,7 @@ export default function InvoiceDetail() {
   const [editedDueDate, setEditedDueDate] = useState<string | null>(null);
   const [editedClientEmail, setEditedClientEmail] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importItem, setImportItem] = useState<LineItem | null>(null);
 
   function getCompanyName() {
     return (me as (typeof me & { company?: { name?: string } }) | undefined)?.company?.name ?? "Site Snap";
@@ -856,7 +858,7 @@ export default function InvoiceDetail() {
                   <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-20">Unit</th>
                   <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-28">Unit Price</th>
                   <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-28">Total</th>
-                  {canEdit && <th className="w-10" />}
+                  <th className="w-10" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -906,8 +908,8 @@ export default function InvoiceDetail() {
                       ) : fmtCAD(item.unitPrice)}
                     </td>
                     <td className="px-4 py-2 text-right font-medium">{fmtCAD(item.total)}</td>
-                    {canEdit && (
-                      <td className="px-2 py-2">
+                    <td className="px-2 py-2">
+                      {canEdit && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -916,8 +918,19 @@ export default function InvoiceDetail() {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                      </td>
-                    )}
+                      )}
+                      {me?.role !== "worker" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-primary"
+                          title="Save to Pricing Database"
+                          onClick={() => setImportItem(item)}
+                        >
+                          <Database className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -971,6 +984,18 @@ export default function InvoiceDetail() {
           ) : null}
         </CardContent>
       </Card>
+
+      {importItem && (
+        <ImportCostModelDialog
+          open
+          onClose={() => setImportItem(null)}
+          description={importItem.description}
+          unitPrice={importItem.unitPrice}
+          sourceType="invoice"
+          sourceId={String(invoiceId)}
+          sourceLabel={`Invoice #${invoice?.invoiceNumber ?? invoiceId}`}
+        />
+      )}
     </div>
   );
 }

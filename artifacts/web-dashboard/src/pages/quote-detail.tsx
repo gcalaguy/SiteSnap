@@ -48,10 +48,12 @@ import {
   Download,
   FileSpreadsheet,
   CheckCircle,
+  Database,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import ImportCostModelDialog from "@/components/ImportCostModelDialog";
 import jsPDF from "jspdf";
 import { renderSignatureBlock } from "@/lib/signaturePdf";
 import { SignaturePad } from "@/components/SignaturePad";
@@ -406,6 +408,7 @@ export default function QuoteDetail() {
   const [clientPhone, setClientPhone] = useState<string | null>(null);
   const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importItem, setImportItem] = useState<LineItem | null>(null);
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -1059,7 +1062,7 @@ export default function QuoteDetail() {
                   <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-20">Unit</th>
                   <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-28">Unit Price</th>
                   <th className="text-right px-4 py-2.5 font-medium text-muted-foreground w-28">Total</th>
-                  {isEditable && <th className="w-10" />}
+                  <th className="w-10" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -1119,8 +1122,8 @@ export default function QuoteDetail() {
                     <td className="px-4 py-2 text-right font-medium">
                       {fmtCAD(item.total)}
                     </td>
-                    {isEditable && (
-                      <td className="px-2 py-2">
+                    <td className="px-2 py-2">
+                      {isEditable && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1129,13 +1132,24 @@ export default function QuoteDetail() {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                      </td>
-                    )}
+                      )}
+                      {me?.role !== "worker" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-primary"
+                          title="Save to Pricing Database"
+                          onClick={() => setImportItem(item)}
+                        >
+                          <Database className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {effectiveItems.length === 0 && (
                   <tr>
-                    <td colSpan={isEditable ? 6 : 5} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                    <td colSpan={isEditable ? 6 : 6} className="px-4 py-8 text-center text-muted-foreground text-sm">
                       No line items yet.{isEditable && " Click \"Add Item\" or use AI fill above."}
                     </td>
                   </tr>
@@ -1217,6 +1231,18 @@ export default function QuoteDetail() {
             </AlertDialogContent>
           </AlertDialog>
         </div>
+      )}
+
+      {importItem && (
+        <ImportCostModelDialog
+          open
+          onClose={() => setImportItem(null)}
+          description={importItem.description}
+          unitPrice={importItem.unitPrice}
+          sourceType="quote"
+          sourceId={String(quoteId)}
+          sourceLabel={`Quote #${quote?.quoteNumber ?? quoteId}`}
+        />
       )}
     </div>
   );
