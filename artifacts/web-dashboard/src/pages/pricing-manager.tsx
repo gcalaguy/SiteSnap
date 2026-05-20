@@ -61,6 +61,8 @@ import {
   LayoutGrid,
   FileText,
   Receipt,
+  Search,
+  X,
 } from "lucide-react";
 
 const GOLD = "#D4AF37";
@@ -247,9 +249,6 @@ function CostModelsTab({
   const [deleteConfirm, setDeleteConfirm] = useState<CostModelRecord | null>(null);
   const [deleteWarning, setDeleteWarning] = useState<{ item: CostModelRecord; count: number } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [addingType, setAddingType] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set(Object.keys(projectTypes)));
-
   const grouped = models.reduce<Record<string, CostModelRecord[]>>((acc, m) => {
     if (!acc[m.projectType]) acc[m.projectType] = [];
     acc[m.projectType]!.push(m);
@@ -257,6 +256,37 @@ function CostModelsTab({
   }, {});
 
   const allTypes = Object.keys(projectTypes);
+
+  const [addingType, setAddingType] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set(Object.keys(projectTypes)));
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const query = searchQuery.trim().toLowerCase();
+  const matchesSearch = (m: CostModelRecord) => {
+    if (!query) return true;
+    const typeLabel = (projectTypes[m.projectType] ?? m.projectType).toLowerCase();
+    const haystack = [
+      typeLabel,
+      m.finishLevel.toLowerCase(),
+      m.name.toLowerCase(),
+      (m.notes ?? "").toLowerCase(),
+      m.baseCostPerSqft,
+      m.laborCostPerSqft,
+      m.materialCostPerSqft,
+      m.overheadPct,
+      m.contingencyPct,
+    ].join(" ");
+    return haystack.includes(query);
+  };
+
+  const filteredTypes = allTypes.filter(type => {
+    const rows = grouped[type] ?? [];
+    return rows.some(matchesSearch);
+  });
+
+  const totalVisible = filteredTypes.reduce((sum, t) =>
+    sum + (grouped[t] ?? []).filter(matchesSearch).length, 0
+  );
 
   const missingFinishLevels = (type: string): string[] => {
     const existing = (grouped[type] ?? []).map(m => m.finishLevel);
@@ -333,8 +363,33 @@ function CostModelsTab({
 
   return (
     <div className="space-y-3">
-      {allTypes.map(type => {
-        const rows = grouped[type] ?? [];
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search cost models by type, finish, name, rate, or notes..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="pl-9 pr-9 text-sm"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {totalVisible === 0 && query && (
+        <div className="text-center py-8 text-sm text-muted-foreground">
+          No cost models match "<span className="font-medium text-foreground">{searchQuery}</span>".
+        </div>
+      )}
+
+      {filteredTypes.map(type => {
+        const rows = (grouped[type] ?? []).filter(matchesSearch);
         const isOpen = !collapsed.has(type);
         const missing = missingFinishLevels(type);
 
