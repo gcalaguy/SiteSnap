@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 
 export default function FieldPhotoScreen() {
   const colors = useColors();
@@ -65,15 +66,13 @@ export default function FieldPhotoScreen() {
         }),
       });
 
-      // 2) Fetch local file as blob and upload
-      const res = await fetch(uri);
-      const blob = await res.blob();
-      const putRes = await fetch(uploadURL, {
-        method: "PUT",
+      // 2) Upload binary via expo-file-system (works with file:// URIs)
+      const uploadRes = await FileSystem.uploadAsync(uploadURL, uri, {
+        httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
         headers: { "Content-Type": "image/jpeg" },
-        body: blob,
       });
-      if (!putRes.ok) throw new Error("Upload failed");
+      if (uploadRes.status >= 400) throw new Error("Upload failed");
       return objectPath;
     } catch {
       return null;

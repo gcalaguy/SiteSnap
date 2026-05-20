@@ -5,6 +5,7 @@ import {
 } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
 import React, { useState, useRef } from "react";
+import * as FileSystem from "expo-file-system/legacy";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -109,12 +110,19 @@ export default function FieldSafetyScreen() {
         }),
       });
 
-      const putRes = await fetch(uploadURL, {
-        method: "PUT",
-        headers: { "Content-Type": "image/svg+xml" },
-        body: svg,
+      // Write SVG to a temp file then upload via expo-file-system
+      const tmpFile = `${FileSystem.cacheDirectory}sig_${Date.now()}.svg`;
+      await FileSystem.writeAsStringAsync(tmpFile, svg, {
+        encoding: FileSystem.EncodingType.UTF8,
       });
-      if (!putRes.ok) throw new Error("Upload failed");
+      const uploadRes = await FileSystem.uploadAsync(uploadURL, tmpFile, {
+        httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { "Content-Type": "image/svg+xml" },
+      });
+      // Clean up temp file
+      await FileSystem.deleteAsync(tmpFile, { idempotent: true }).catch(() => {});
+      if (uploadRes.status >= 400) throw new Error("Upload failed");
       return objectPath;
     } catch {
       return null;
