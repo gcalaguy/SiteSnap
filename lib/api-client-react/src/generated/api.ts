@@ -79,6 +79,8 @@ import type {
   EstimateItemBody,
   EstimateTemplate,
   EstimateTemplateWithItems,
+  ExportSheetsBody,
+  ExportSheetsResponse,
   FileAttachmentRecord,
   FinancialSummary,
   FormSubmissionRecord,
@@ -14772,4 +14774,94 @@ export const useDeleteSafetySignoff = <
   TContext
 > => {
   return useMutation(getDeleteSafetySignoffMutationOptions(options));
+};
+
+/**
+ * Pulls invoices, payments, and change orders for the user's company
+and appends them as rows to a specified Google Sheet. Requires the
+user to have linked their Google account and have `viewFinancials`.
+
+ * @summary Export financials to Google Sheets
+ */
+export const getExportSheetsUrl = () => {
+  return `/api/integrations/export-sheets`;
+};
+
+export const exportSheets = async (
+  exportSheetsBody: ExportSheetsBody,
+  options?: RequestInit,
+): Promise<ExportSheetsResponse> => {
+  return customFetch<ExportSheetsResponse>(getExportSheetsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(exportSheetsBody),
+  });
+};
+
+export const getExportSheetsMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof exportSheets>>,
+    TError,
+    { data: BodyType<ExportSheetsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof exportSheets>>,
+  TError,
+  { data: BodyType<ExportSheetsBody> },
+  TContext
+> => {
+  const mutationKey = ["exportSheets"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof exportSheets>>,
+    { data: BodyType<ExportSheetsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return exportSheets(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExportSheetsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof exportSheets>>
+>;
+export type ExportSheetsMutationBody = BodyType<ExportSheetsBody>;
+export type ExportSheetsMutationError = ErrorType<void>;
+
+/**
+ * @summary Export financials to Google Sheets
+ */
+export const useExportSheets = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof exportSheets>>,
+    TError,
+    { data: BodyType<ExportSheetsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof exportSheets>>,
+  TError,
+  { data: BodyType<ExportSheetsBody> },
+  TContext
+> => {
+  return useMutation(getExportSheetsMutationOptions(options));
 };

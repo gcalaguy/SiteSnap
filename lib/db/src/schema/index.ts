@@ -1416,3 +1416,37 @@ export const safetySignoffsTable = pgTable("safety_signoffs", {
 export const insertSafetySignoffSchema = createInsertSchema(safetySignoffsTable).omit({ id: true, createdAt: true });
 export type InsertSafetySignoff = z.infer<typeof insertSafetySignoffSchema>;
 export type SafetySignoff = typeof safetySignoffsTable.$inferSelect;
+
+// ── Provider OAuth Tokens ──────────────────────────────────────────────────────
+
+export const providerTokenTypeEnum = pgEnum("provider_token_type", [
+  "google",
+  "outlook",
+]);
+
+export const providerTokensTable = pgTable("provider_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" }),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
+  provider: providerTokenTypeEnum("provider").notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  tokenData: jsonb("token_data"), // provider-specific extra fields
+  expiresAt: timestamp("expires_at"),
+  scopes: text("scopes").array(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type ProviderToken = typeof providerTokensTable.$inferSelect;
+export type InsertProviderToken = Omit<ProviderToken, "id" | "createdAt" | "updatedAt">;
+
+export const insertProviderTokenSchema = createInsertSchema(providerTokensTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});

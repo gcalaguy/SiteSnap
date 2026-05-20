@@ -3444,6 +3444,34 @@ paths:
         "204":
           description: Deleted
 
+  # ── Productivity Integrations ───────────────────────────────────────────────
+  /integrations/export-sheets:
+    post:
+      operationId: exportSheets
+      tags: [integrations]
+      summary: Export financials to Google Sheets
+      description: |
+        Pulls invoices, payments, and change orders for the user's company
+        and appends them as rows to a specified Google Sheet. Requires the
+        user to have linked their Google account and have `viewFinancials`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportSheetsBody"
+      responses:
+        "200":
+          description: Rows appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportSheetsResponse"
+        "400":
+          description: Bad request or Google account not linked
+        "502":
+          description: Failed to write to Google Sheets
+
 components:
   parameters:
     companyId:
@@ -6053,3 +6081,27 @@ components:
         signatureUrl:
           type: string
           nullable: true
+
+    ExportSheetsBody:
+      type: object
+      required: [spreadsheetId]
+      properties:
+        spreadsheetId:
+          type: string
+          description: Google Sheets spreadsheet ID
+        range:
+          type: string
+          description: A1 notation range to start appending (default "Sheet1!A1")
+
+    ExportSheetsResponse:
+      type: object
+      required: [success, rowsAppended, spreadsheetId]
+      properties:
+        success:
+          type: boolean
+        rowsAppended:
+          type: integer
+        spreadsheetId:
+          type: string
+        updates:
+          type: object

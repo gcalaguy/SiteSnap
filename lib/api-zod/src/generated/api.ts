@@ -4375,3 +4375,25 @@ export const UpdateSafetySignoffResponse = zod.object({
 export const DeleteSafetySignoffParams = zod.object({
   id: zod.coerce.number(),
 });
+
+/**
+ * Pulls invoices, payments, and change orders for the user's company
+and appends them as rows to a specified Google Sheet. Requires the
+user to have linked their Google account and have `viewFinancials`.
+
+ * @summary Export financials to Google Sheets
+ */
+export const ExportSheetsBody = zod.object({
+  spreadsheetId: zod.string().describe("Google Sheets spreadsheet ID"),
+  range: zod
+    .string()
+    .optional()
+    .describe('A1 notation range to start appending (default \"Sheet1!A1\")'),
+});
+
+export const ExportSheetsResponse = zod.object({
+  success: zod.boolean(),
+  rowsAppended: zod.number(),
+  spreadsheetId: zod.string(),
+  updates: zod.object({}).passthrough().optional(),
+});

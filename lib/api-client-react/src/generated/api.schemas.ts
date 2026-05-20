@@ -1619,6 +1619,22 @@ export interface UpdateSafetySignoffBody {
   signatureUrl?: string | null;
 }
 
+export interface ExportSheetsBody {
+  /** Google Sheets spreadsheet ID */
+  spreadsheetId: string;
+  /** A1 notation range to start appending (default "Sheet1!A1") */
+  range?: string;
+}
+
+export type ExportSheetsResponseUpdates = { [key: string]: unknown };
+
+export interface ExportSheetsResponse {
+  success: boolean;
+  rowsAppended: number;
+  spreadsheetId: string;
+  updates?: ExportSheetsResponseUpdates;
+}
+
 export type ListFormSubmissionsParams = {
   status?: string;
   projectId?: number;
