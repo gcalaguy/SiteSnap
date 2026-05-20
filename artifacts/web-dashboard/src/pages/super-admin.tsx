@@ -19,8 +19,10 @@ import {
   Crown,
   DatabaseZap,
   Gift,
+  Pencil,
   ShieldCheck,
   Star,
+  Trash2,
   Users,
   Zap,
 } from "lucide-react";
@@ -97,6 +99,7 @@ type ManageSectionsProps = {
   onDeleteTenant: (tenant: TenantRow | TenantDetail) => void;
   onEditTenantUser: (userId: number, role: string) => void;
   onDeleteTenantUser: (userId: number) => void;
+  onDeleteFeature: (feature: Feature) => void;
   collapsed: { plans: boolean; features: boolean; tenants: boolean };
   setCollapsed: (value: { plans: boolean; features: boolean; tenants: boolean }) => void;
 };
@@ -301,6 +304,7 @@ function ManageTab() {
 
   const deletePlan = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/plans/${id}`, { method: "DELETE" }), onSuccess: () => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan deleted" }); }, onError: (e: any) => toast({ title: "Plan delete failed", description: e.message, variant: "destructive" }) });
   const saveFeature = useMutation({ mutationFn: () => { const payload = { ...featureForm, description: featureForm.description || null }; return editingFeatureId ? customFetch(`/api/admin/features/${editingFeatureId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/features", { method: "POST", body: JSON.stringify(payload) }); }, onSuccess: () => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); refresh(); toast({ title: "Feature saved" }); }, onError: (e: any) => toast({ title: "Feature save failed", description: e.message, variant: "destructive" }) });
+  const deleteFeature = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/features/${id}`, { method: "DELETE" }), onSuccess: () => { refresh(); toast({ title: "Feature deleted" }); }, onError: (e: any) => toast({ title: "Feature delete failed", description: e.message, variant: "destructive" }) });
   const saveTenant = useMutation({
     mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}/subscription`, {
       method: "PATCH",
@@ -373,6 +377,7 @@ function ManageTab() {
             onEditFeature={(f) => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "", isEnabled: f.isEnabled }); setFeatureOpen(true); }}
             onEditTenant={(t) => { setEditingTenantId(t.id); setSelectedTenantUserId(""); setSelectedTenantUserRole("worker"); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "" }); setTenantOpen(true); }}
             onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
+            onDeleteFeature={(f) => deleteFeature.mutate(f.id)}
             onEditTenantUser={(userId, role) => {
               const u = tenantDetail?.users.find((x) => x.id === userId);
               if (u) {
@@ -410,8 +415,9 @@ function ManageTab() {
         onChange={setFeatureForm}
         onSave={() => saveFeature.mutate()}
         onCancel={() => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); }}
-        onDelete={undefined}
+        onDelete={editingFeatureId ? () => deleteFeature.mutate(editingFeatureId) : undefined}
         isSaving={saveFeature.isPending}
+        isDeleting={deleteFeature.isPending}
       />
       <TenantDialog
         open={tenantOpen}
@@ -457,7 +463,7 @@ function ManageTab() {
   );
 }
 
-function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, onEditTenantUser, onDeleteTenantUser, collapsed, setCollapsed }: ManageSectionsProps) {
+function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, onEditTenantUser, onDeleteTenantUser, onDeleteFeature, collapsed, setCollapsed }: ManageSectionsProps) {
   return (
     <div className="space-y-6">
       <Card className="border-gray-200 bg-white text-[#121212]">
@@ -499,13 +505,19 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
         {!collapsed.features && <CardContent>
           <div className="space-y-2">
             {features.map((f) => (
-              <button key={f.id} onClick={() => onEditFeature(f)} className="w-full rounded-lg border border-gray-200 bg-white p-3 text-left hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-[#121212]">{f.name}</span>
-                  <Badge className={f.isEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}>{f.isEnabled ? "Enabled" : "Disabled"}</Badge>
+              <div key={f.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 hover:bg-gray-50">
+                <button className="flex-1 text-left" onClick={() => onEditFeature(f)}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-[#121212]">{f.name}</span>
+                    <Badge className={f.isEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}>{f.isEnabled ? "Enabled" : "Disabled"}</Badge>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">{f.key}</div>
+                </button>
+                <div className="ml-2 flex items-center gap-1">
+                  <button onClick={() => onEditFeature(f)} className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#D4AF37]"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => onDeleteFeature(f)} className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
-                <div className="mt-1 text-xs text-gray-500">{f.key}</div>
-              </button>
+              </div>
             ))}
             <Button className="mt-3 bg-[#D4AF37] text-white font-bold hover:bg-[#b5922e]" onClick={onOpenFeature}>New Feature</Button>
           </div>
@@ -600,7 +612,7 @@ function PlanDialog({ open, form, featureIds, onChange, onFeatureIdsChange, onSa
   );
 }
 
-function FeatureDialog({ open, form, onChange, onSave, onCancel, isSaving }: FeatureDialogState) {
+function FeatureDialog({ open, form, onChange, onSave, onCancel, onDelete, isSaving, isDeleting }: FeatureDialogState) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -612,7 +624,11 @@ function FeatureDialog({ open, form, onChange, onSave, onCancel, isSaving }: Fea
           <div><Label className="text-[#D4AF37]">Key</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={form.key} onChange={(e) => onChange({ ...form, key: e.target.value })} /></div>
           <div><Label className="text-[#D4AF37]">Description</Label><Textarea className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} /></div>
         </div>
-        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={onCancel}>Cancel</Button><Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button></div>
+        <div className="mt-4 flex justify-end gap-2">
+          {onDelete && <Button variant="outline" className="border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={onDelete} disabled={isDeleting}>{isDeleting ? "Deleting…" : "Delete"}</Button>}
+          <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={onCancel}>Cancel</Button>
+          <Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</Button>
+        </div>
       </div>
     </div>
   );
