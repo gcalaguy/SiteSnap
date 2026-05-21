@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera, Hash, Save } from "lucide-react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera, Hash, Save, Download, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -365,6 +365,141 @@ function EmailDomainCard() {
           </a>
         </div>
       </CardContent>
+    </Card>
+  );
+}
+
+function AccountingCard() {
+  const { data: user } = useGetMe();
+  const company = user?.company;
+  const companyId = company?.id;
+  const [collapsed, setCollapsed] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  const { data: exportRows, isLoading: exportLoading } = useQuery<
+    {
+      date: string;
+      documentNumber: string;
+      projectSite: string;
+      accountCode: string;
+      vendorPayee: string;
+      grossAmount: string;
+      tax: string;
+    }[]
+  >({
+    queryKey: ["/api/companies", companyId, "accounting", "export-data"],
+    queryFn: () => customFetch(`/api/companies/${companyId}/accounting/export-data`),
+    enabled: !!companyId && !collapsed,
+  });
+
+  function escapeCsv(val: string | number | null | undefined) {
+    const str = String(val ?? "");
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
+  function downloadCsv() {
+    const rows = exportRows ?? [];
+    const header = ["Date", "Document Number", "Project Site", "Account Code", "Vendor/Payee", "Gross Amount", "Tax"];
+    const lines = [header.join(",")];
+
+    for (const row of rows) {
+      lines.push(
+        [
+          escapeCsv(row.date),
+          escapeCsv(row.documentNumber),
+          escapeCsv(row.projectSite),
+          escapeCsv(row.accountCode),
+          escapeCsv(row.vendorPayee),
+          escapeCsv(row.grossAmount),
+          escapeCsv(row.tax),
+        ].join(","),
+      );
+    }
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `site-snap-transaction-journal-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      downloadCsv();
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <Card>
+      <button onClick={() => setCollapsed((c) => !c)} className="w-full text-left">
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5 text-primary" />
+              Accounting
+            </CardTitle>
+            <CardDescription>
+              QuickBooks sync and manual bookkeeping export tools.
+            </CardDescription>
+          </div>
+          {collapsed
+            ? <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />
+            : <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />}
+        </CardHeader>
+      </button>
+      {!collapsed && (
+        <CardContent className="space-y-6">
+          {/* Accountant-Ready CSV Export */}
+          <div className="rounded-md border border-border bg-muted/20 p-4 space-y-3">
+            <div className="flex items-start gap-2">
+              <Download className="h-5 w-5 mt-0.5 shrink-0 text-primary" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">Accountant-Ready CSV Export</p>
+                <p className="text-xs text-muted-foreground">
+                  Download a flat transaction journal of all paid invoices, approved change orders, and project costs in CSV format for your bookkeeping software.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={exportLoading || exporting}
+                onClick={handleExport}
+              >
+                {exportLoading || exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Export Transaction Journal (CSV)
+              </Button>
+              {exportLoading && <span className="text-xs text-muted-foreground">Loading data...</span>}
+            </div>
+            {(exportRows?.length ?? 0) > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {exportRows!.length} transaction lines ready for export.
+              </p>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* QuickBooks Integration (moved inside Accounting card) */}
+          <QuickBooksCard />
+        </CardContent>
+      )}
     </Card>
   );
 }
@@ -1315,7 +1450,7 @@ export default function Settings() {
       {user?.role === "owner" && <DocumentNumberingCard company={company} />}
       {user?.role === "owner" && <PricingManagerCard />}
       <DigestCard />
-      <QuickBooksCard />
+      <AccountingCard />
     </div>
   );
 }

@@ -519,7 +519,21 @@ export type QuoteLineItem = {
   unit: string;
   unitPrice: number;
   total: number;
+  accountCode?: string;
 };
+
+export const CONSTRUCTION_COA_CODES = [
+  { code: "4101", label: "Progress Revenue" },
+  { code: "5101", label: "Direct Labour" },
+  { code: "5102", label: "Materials" },
+  { code: "5103", label: "Subcontractor Costs" },
+  { code: "5104", label: "Equipment Rental" },
+  { code: "6101", label: "Permits & Fees" },
+  { code: "6102", label: "Inspections" },
+  { code: "6103", label: "Insurance" },
+  { code: "6104", label: "Overhead & Indirect" },
+  { code: "6201", label: "Change Order Revenue" },
+] as const;
 
 export const quotesTable = pgTable("quotes", {
   id: serial("id").primaryKey(),
