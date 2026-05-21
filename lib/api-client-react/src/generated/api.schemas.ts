@@ -1312,6 +1312,15 @@ export const ContactType = {
   supplier: "supplier",
 } as const;
 
+export type ContactComplianceStatus =
+  (typeof ContactComplianceStatus)[keyof typeof ContactComplianceStatus];
+
+export const ContactComplianceStatus = {
+  compliant: "compliant",
+  non_compliant: "non_compliant",
+  warning: "warning",
+} as const;
+
 export interface Contact {
   id: number;
   companyId: number;
@@ -1320,6 +1329,9 @@ export interface Contact {
   phone?: string | null;
   email?: string | null;
   type: ContactType;
+  coiExpiration?: string | null;
+  workersCompClearanceExpiration?: string | null;
+  complianceStatus: ContactComplianceStatus;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -1463,12 +1475,24 @@ export const CreateContactBodyType = {
   supplier: "supplier",
 } as const;
 
+export type CreateContactBodyComplianceStatus =
+  (typeof CreateContactBodyComplianceStatus)[keyof typeof CreateContactBodyComplianceStatus];
+
+export const CreateContactBodyComplianceStatus = {
+  compliant: "compliant",
+  non_compliant: "non_compliant",
+  warning: "warning",
+} as const;
+
 export interface CreateContactBody {
   name: string;
   company?: string | null;
   phone?: string | null;
   email?: string | null;
   type?: CreateContactBodyType;
+  coiExpiration?: string | null;
+  workersCompClearanceExpiration?: string | null;
+  complianceStatus?: CreateContactBodyComplianceStatus;
   notes?: string | null;
 }
 

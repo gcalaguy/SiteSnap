@@ -48,6 +48,10 @@ import {
   User,
   ChevronRight,
   Paperclip,
+  ShieldCheck,
+  AlertTriangle,
+  ShieldAlert,
+  Calendar,
 } from "lucide-react";
 import FileAttachmentsPanel from "@/components/FileAttachments";
 
@@ -77,6 +81,9 @@ interface ContactForm {
   phone: string;
   email: string;
   type: ContactType;
+  coiExpiration: string;
+  workersCompClearanceExpiration: string;
+  complianceStatus: string;
   notes: string;
 }
 
@@ -86,7 +93,33 @@ const EMPTY_FORM: ContactForm = {
   phone: "",
   email: "",
   type: "client",
+  coiExpiration: "",
+  workersCompClearanceExpiration: "",
+  complianceStatus: "compliant",
   notes: "",
+};
+
+function daysUntil(dateStr: string): number {
+  if (!dateStr) return Infinity;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - now.getTime()) / 86_400_000);
+}
+
+function computeAutoStatus(coi: string, wc: string): string {
+  const coiDays = daysUntil(coi);
+  const wcDays = daysUntil(wc);
+  if (coiDays < 0 || wcDays < 0) return "non_compliant";
+  if (coiDays <= 30 || wcDays <= 30) return "warning";
+  return "compliant";
+}
+
+const COMPLIANCE_CONFIG: Record<string, { label: string; bg: string; color: string; icon: React.ElementType }> = {
+  compliant:     { label: "Compliant",     bg: "#DCFCE7", color: "#16A34A", icon: ShieldCheck },
+  warning:       { label: "Warning",       bg: "#FEF3C7", color: "#D97706", icon: AlertTriangle },
+  non_compliant: { label: "Non-Compliant", bg: "#FEE2E2", color: "#DC2626", icon: ShieldAlert },
 };
 
 export default function Contacts() {
@@ -156,18 +189,25 @@ export default function Contacts() {
       phone: c.phone ?? "",
       email: c.email ?? "",
       type: c.type as ContactType,
+      coiExpiration: c.coiExpiration ?? "",
+      workersCompClearanceExpiration: c.workersCompClearanceExpiration ?? "",
+      complianceStatus: c.complianceStatus ?? "compliant",
       notes: c.notes ?? "",
     });
     setDialogOpen(true);
   }
 
   function handleSubmit() {
+    const autoStatus = computeAutoStatus(form.coiExpiration, form.workersCompClearanceExpiration);
     const payload = {
       name: form.name.trim(),
       company: form.company.trim() || undefined,
       phone: form.phone.trim() || undefined,
       email: form.email.trim() || undefined,
       type: form.type,
+      coiExpiration: form.coiExpiration || undefined,
+      workersCompClearanceExpiration: form.workersCompClearanceExpiration || undefined,
+      complianceStatus: (form.complianceStatus || autoStatus) as "compliant" | "non_compliant" | "warning",
       notes: form.notes.trim() || undefined,
     };
 
@@ -293,6 +333,12 @@ export default function Contacts() {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {(contacts as any[]).map((c) => {
             const cfg = TYPE_CONFIG[c.type as ContactType] ?? TYPE_CONFIG.client;
+            const comp = COMPLIANCE_CONFIG[c.complianceStatus as string] ?? COMPLIANCE_CONFIG.compliant;
+            const CompIcon = comp.icon;
+            const coiDays = daysUntil(c.coiExpiration);
+            const wcDays = daysUntil(c.workersCompClearanceExpiration);
+            const auto = computeAutoStatus(c.coiExpiration, c.workersCompClearanceExpiration);
+            const showAutoWarning = auto === "non_compliant" || auto === "warning";
             return (
               <div
                 key={c.id}
@@ -330,6 +376,23 @@ export default function Contacts() {
                   </Badge>
                 </div>
 
+                {/* Compliance badge */}
+                {(c.type === "subcontractor" || c.type === "supplier") && (
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      className="text-xs font-extrabold border-0 gap-1"
+                      style={{ background: comp.bg, color: comp.color }}
+                    >
+                      <CompIcon className="h-3 w-3" /> {comp.label}
+                    </Badge>
+                    {showAutoWarning && (
+                      <span className="text-[10px] font-semibold text-amber-600">
+                        {auto === "non_compliant" ? "Expired" : "Expires soon"}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Contact info */}
                 <div className="space-y-1">
                   {c.email && (
@@ -349,6 +412,26 @@ export default function Contacts() {
                     </a>
                   )}
                 </div>
+
+                {/* Expiration dates */}
+                {(c.type === "subcontractor" || c.type === "supplier") && (c.coiExpiration || c.workersCompClearanceExpiration) && (
+                  <div className="text-[10px] text-[#121212]/50 space-y-0.5 font-medium">
+                    {c.coiExpiration && (
+                      <div className="flex items-center gap-1">
+                        <Calendar size={10} /> COI expires {c.coiExpiration}
+                        {coiDays < 0 && <span className="text-red-600 font-semibold">(Expired)</span>}
+                        {coiDays >= 0 && coiDays <= 30 && <span className="text-amber-600 font-semibold">({coiDays}d)</span>}
+                      </div>
+                    )}
+                    {c.workersCompClearanceExpiration && (
+                      <div className="flex items-center gap-1">
+                        <Calendar size={10} /> WCB expires {c.workersCompClearanceExpiration}
+                        {wcDays < 0 && <span className="text-red-600 font-semibold">(Expired)</span>}
+                        {wcDays >= 0 && wcDays <= 30 && <span className="text-amber-600 font-semibold">({wcDays}d)</span>}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {c.notes && (
                   <p className="text-xs text-[#121212]/60 bg-[#D4AF37]/5 rounded-md px-3 py-2 line-clamp-2 font-medium">
@@ -449,6 +532,45 @@ export default function Contacts() {
                 </SelectContent>
               </Select>
             </div>
+
+            {(form.type === "subcontractor" || form.type === "supplier") && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">COI Expiration</label>
+                    <Input
+                      type="date"
+                      value={form.coiExpiration}
+                      onChange={(e) => setForm((f) => ({ ...f, coiExpiration: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">WCB Expiration</label>
+                    <Input
+                      type="date"
+                      value={form.workersCompClearanceExpiration}
+                      onChange={(e) => setForm((f) => ({ ...f, workersCompClearanceExpiration: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Compliance Status</label>
+                  <Select value={form.complianceStatus} onValueChange={(v) => setForm((f) => ({ ...f, complianceStatus: v }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="compliant">Compliant</SelectItem>
+                      <SelectItem value="warning">Warning</SelectItem>
+                      <SelectItem value="non_compliant">Non-Compliant</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    Auto: {computeAutoStatus(form.coiExpiration, form.workersCompClearanceExpiration).replace("_", "-")}
+                  </p>
+                </div>
+              </>
+            )}
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>

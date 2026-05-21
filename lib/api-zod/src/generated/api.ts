@@ -895,6 +895,9 @@ export const ListLeadsResponseItem = zod.object({
       phone: zod.string().nullish(),
       email: zod.string().nullish(),
       type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+      coiExpiration: zod.coerce.date().nullish(),
+      workersCompClearanceExpiration: zod.coerce.date().nullish(),
+      complianceStatus: zod.enum(["compliant", "non_compliant", "warning"]),
       notes: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
@@ -968,6 +971,9 @@ export const GetLeadResponse = zod.object({
       phone: zod.string().nullish(),
       email: zod.string().nullish(),
       type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+      coiExpiration: zod.coerce.date().nullish(),
+      workersCompClearanceExpiration: zod.coerce.date().nullish(),
+      complianceStatus: zod.enum(["compliant", "non_compliant", "warning"]),
       notes: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
@@ -1037,6 +1043,9 @@ export const UpdateLeadResponse = zod.object({
       phone: zod.string().nullish(),
       email: zod.string().nullish(),
       type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+      coiExpiration: zod.coerce.date().nullish(),
+      workersCompClearanceExpiration: zod.coerce.date().nullish(),
+      complianceStatus: zod.enum(["compliant", "non_compliant", "warning"]),
       notes: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
@@ -1118,6 +1127,9 @@ export const ListContactsResponseItem = zod.object({
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
   type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+  coiExpiration: zod.coerce.date().nullish(),
+  workersCompClearanceExpiration: zod.coerce.date().nullish(),
+  complianceStatus: zod.enum(["compliant", "non_compliant", "warning"]),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -1133,6 +1145,11 @@ export const CreateContactBody = zod.object({
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
   type: zod.enum(["client", "worker", "subcontractor", "supplier"]).optional(),
+  coiExpiration: zod.coerce.date().nullish(),
+  workersCompClearanceExpiration: zod.coerce.date().nullish(),
+  complianceStatus: zod
+    .enum(["compliant", "non_compliant", "warning"])
+    .optional(),
   notes: zod.string().nullish(),
 });
 
@@ -1151,6 +1168,9 @@ export const GetContactResponse = zod.object({
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
   type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+  coiExpiration: zod.coerce.date().nullish(),
+  workersCompClearanceExpiration: zod.coerce.date().nullish(),
+  complianceStatus: zod.enum(["compliant", "non_compliant", "warning"]),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -1169,6 +1189,11 @@ export const UpdateContactBody = zod.object({
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
   type: zod.enum(["client", "worker", "subcontractor", "supplier"]).optional(),
+  coiExpiration: zod.coerce.date().nullish(),
+  workersCompClearanceExpiration: zod.coerce.date().nullish(),
+  complianceStatus: zod
+    .enum(["compliant", "non_compliant", "warning"])
+    .optional(),
   notes: zod.string().nullish(),
 });
 
@@ -1180,6 +1205,9 @@ export const UpdateContactResponse = zod.object({
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
   type: zod.enum(["client", "worker", "subcontractor", "supplier"]),
+  coiExpiration: zod.coerce.date().nullish(),
+  workersCompClearanceExpiration: zod.coerce.date().nullish(),
+  complianceStatus: zod.enum(["compliant", "non_compliant", "warning"]),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),

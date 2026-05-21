@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, workerSchedulesTable, usersTable, userMembershipsTable, projectsTable, companiesTable } from "@workspace/db";
+import { db, workerSchedulesTable, usersTable, userMembershipsTable, projectsTable, companiesTable, contactsTable } from "@workspace/db";
 import { eq, and, lte, gte, or } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
@@ -77,12 +77,17 @@ router.get("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asyn
     .from(projectsTable)
     .where(eq(projectsTable.companyId, req.companyId!));
 
+  const subcontractors = await db.select().from(contactsTable)
+    .where(and(eq(contactsTable.companyId, req.companyId!), eq(contactsTable.type, "subcontractor")))
+    .orderBy(contactsTable.name);
+
   res.json({
     weekStart: fmt(monday),
     weekEnd: fmt(sunday),
     assignments,
     members,
     projects,
+    subcontractors,
   });
 });
 
@@ -96,6 +101,7 @@ router.get("/projects/:projectId/schedule", requireAuth, requireCompany, require
       id: workerSchedulesTable.id,
       projectId: workerSchedulesTable.projectId,
       userId: workerSchedulesTable.userId,
+      contactId: workerSchedulesTable.contactId,
       startDate: workerSchedulesTable.startDate,
       endDate: workerSchedulesTable.endDate,
       notes: workerSchedulesTable.notes,
@@ -104,9 +110,13 @@ router.get("/projects/:projectId/schedule", requireAuth, requireCompany, require
       userLastName: usersTable.lastName,
       userRole: userMembershipsTable.role,
       userEmail: usersTable.email,
+      contactName: contactsTable.name,
+      contactType: contactsTable.type,
+      contactCompliance: contactsTable.complianceStatus,
     })
     .from(workerSchedulesTable)
     .leftJoin(usersTable, eq(workerSchedulesTable.userId, usersTable.id))
+    .leftJoin(contactsTable, eq(workerSchedulesTable.contactId, contactsTable.id))
     .leftJoin(
       userMembershipsTable,
       and(
@@ -127,17 +137,37 @@ router.get("/projects/:projectId/schedule", requireAuth, requireCompany, require
 
 // POST /api/schedule — create assignment
 router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
-  const { projectId, userId, startDate, endDate, notes } = req.body;
+  const { projectId, userId, contactId, startDate, endDate, notes } = req.body;
 
-  if (!projectId || !userId || !startDate || !endDate) {
-    res.status(400).json({ error: "projectId, userId, startDate, endDate are required" });
+  if (!projectId || !startDate || !endDate) {
+    res.status(400).json({ error: "projectId, startDate, endDate are required" });
     return;
+  }
+  if (!userId && !contactId) {
+    res.status(400).json({ error: "Either userId or contactId is required" });
+    return;
+  }
+
+  // If a contactId is provided, check compliance
+  if (contactId) {
+    const [contact] = await db.select().from(contactsTable)
+      .where(and(eq(contactsTable.id, Number(contactId)), eq(contactsTable.companyId, req.companyId!)))
+      .limit(1);
+    if (!contact) {
+      res.status(404).json({ error: "Contact not found" });
+      return;
+    }
+    if (contact.complianceStatus === "non_compliant") {
+      res.status(409).json({ error: "This subcontractor is non-compliant. Update compliance documents before assigning.", code: "COMPLIANCE_ERROR" });
+      return;
+    }
   }
 
   const [row] = await db.insert(workerSchedulesTable).values({
     companyId: req.companyId!,
     projectId: Number(projectId),
-    userId: Number(userId),
+    userId: userId ? Number(userId) : null,
+    contactId: contactId ? Number(contactId) : null,
     startDate,
     endDate,
     notes: notes ?? null,
@@ -149,6 +179,7 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
       id: workerSchedulesTable.id,
       projectId: workerSchedulesTable.projectId,
       userId: workerSchedulesTable.userId,
+      contactId: workerSchedulesTable.contactId,
       startDate: workerSchedulesTable.startDate,
       endDate: workerSchedulesTable.endDate,
       notes: workerSchedulesTable.notes,
@@ -157,10 +188,14 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
       userFirstName: usersTable.firstName,
       userLastName: usersTable.lastName,
       userRole: userMembershipsTable.role,
+      contactName: contactsTable.name,
+      contactType: contactsTable.type,
+      contactCompliance: contactsTable.complianceStatus,
     })
     .from(workerSchedulesTable)
     .leftJoin(projectsTable, eq(workerSchedulesTable.projectId, projectsTable.id))
     .leftJoin(usersTable, eq(workerSchedulesTable.userId, usersTable.id))
+    .leftJoin(contactsTable, eq(workerSchedulesTable.contactId, contactsTable.id))
     .leftJoin(
       userMembershipsTable,
       and(
@@ -220,12 +255,13 @@ router.get("/schedule/gantt", requireAuth, requireCompany, requireOwnerOrForeman
   const fromDate = from ?? fmt(firstOfMonth);
   const toDate = to ?? fmt(lastOfMonth);
 
-  const [assignments, projects, members] = await Promise.all([
+  const [assignments, projects, members, subcontractors] = await Promise.all([
     db
       .select({
         id: workerSchedulesTable.id,
         projectId: workerSchedulesTable.projectId,
         userId: workerSchedulesTable.userId,
+        contactId: workerSchedulesTable.contactId,
         startDate: workerSchedulesTable.startDate,
         endDate: workerSchedulesTable.endDate,
         notes: workerSchedulesTable.notes,
@@ -233,10 +269,14 @@ router.get("/schedule/gantt", requireAuth, requireCompany, requireOwnerOrForeman
         userFirstName: usersTable.firstName,
         userLastName: usersTable.lastName,
         userRole: userMembershipsTable.role,
+        contactName: contactsTable.name,
+        contactType: contactsTable.type,
+        contactCompliance: contactsTable.complianceStatus,
       })
       .from(workerSchedulesTable)
       .leftJoin(projectsTable, eq(workerSchedulesTable.projectId, projectsTable.id))
       .leftJoin(usersTable, eq(workerSchedulesTable.userId, usersTable.id))
+      .leftJoin(contactsTable, eq(workerSchedulesTable.contactId, contactsTable.id))
       .leftJoin(
         userMembershipsTable,
         and(
@@ -277,9 +317,11 @@ router.get("/schedule/gantt", requireAuth, requireCompany, requireOwnerOrForeman
           eq(userMembershipsTable.companyId, req.companyId!),
         ),
       ),
+    db.select().from(contactsTable)
+      .where(and(eq(contactsTable.companyId, req.companyId!), eq(contactsTable.type, "subcontractor"))),
   ]);
 
-  res.json({ assignments, projects, members, from: fromDate, to: toDate });
+  res.json({ assignments, projects, members, subcontractors, from: fromDate, to: toDate });
 });
 
 export default router;

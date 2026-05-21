@@ -5943,7 +5943,7 @@ components:
 
     Contact:
       type: object
-      required: [id, companyId, name, type, createdAt, updatedAt]
+      required: [id, companyId, name, type, complianceStatus, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -5963,6 +5963,17 @@ components:
         type:
           type: string
           enum: [client, worker, subcontractor, supplier]
+        coiExpiration:
+          type: string
+          format: date
+          nullable: true
+        workersCompClearanceExpiration:
+          type: string
+          format: date
+          nullable: true
+        complianceStatus:
+          type: string
+          enum: [compliant, non_compliant, warning]
         notes:
           type: string
           nullable: true
@@ -5991,6 +6002,17 @@ components:
         type:
           type: string
           enum: [client, worker, subcontractor, supplier]
+        coiExpiration:
+          type: string
+          format: date
+          nullable: true
+        workersCompClearanceExpiration:
+          type: string
+          format: date
+          nullable: true
+        complianceStatus:
+          type: string
+          enum: [compliant, non_compliant, warning]
         notes:
           type: string
           nullable: true

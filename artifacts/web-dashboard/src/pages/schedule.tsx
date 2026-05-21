@@ -27,17 +27,20 @@ const BLACK = "#111111";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Member = { id: number; firstName: string; lastName: string; role: string; email: string };
+type Subcontractor = { id: number; name: string; type: string; complianceStatus: string; coiExpiration: string | null; workersCompClearanceExpiration: string | null };
 type GProject = { id: number; name: string; status: string; startDate: string | null; endDate: string | null };
 type GAssignment = {
-  id: number; projectId: number; userId: number;
+  id: number; projectId: number; userId: number | null;
+  contactId: number | null;
   startDate: string; endDate: string; notes: string | null;
   projectName: string | null;
   userFirstName: string | null; userLastName: string | null; userRole: string | null;
+  contactName: string | null; contactType: string | null; contactCompliance: string | null;
 };
-type GanttData = { assignments: GAssignment[]; projects: GProject[]; members: Member[] };
+type GanttData = { assignments: GAssignment[]; projects: GProject[]; members: Member[]; subcontractors: Subcontractor[] };
 type WeekData = {
   weekStart: string; weekEnd: string;
-  assignments: GAssignment[]; members: Member[]; projects: GProject[];
+  assignments: GAssignment[]; members: Member[]; projects: GProject[]; subcontractors: Subcontractor[];
 };
 type ViewMode = "gantt" | "team" | "events" | "equipment";
 type ZoomLevel = "2w" | "1m" | "3m";
@@ -107,6 +110,7 @@ export default function Schedule() {
   // Crew assignment dialog state
   const [showDialog, setShowDialog] = useState(false);
   const [dlgUserId, setDlgUserId] = useState("");
+  const [dlgContactId, setDlgContactId] = useState("");
   const [dlgProjectId, setDlgProjectId] = useState("");
   const [dlgStart, setDlgStart] = useState("");
   const [dlgEnd, setDlgEnd] = useState("");
@@ -466,11 +470,18 @@ export default function Schedule() {
   }
 
   function openDialog(projectId?: string) {
-    setDlgUserId(""); setDlgProjectId(projectId ?? "");
+    setDlgUserId(""); setDlgContactId(""); setDlgProjectId(projectId ?? "");
     setDlgStart(format(new Date(), "yyyy-MM-dd"));
     setDlgEnd(format(addDays(new Date(), 6), "yyyy-MM-dd"));
     setDlgNotes(""); setShowDialog(true);
   }
+
+  const selectedSubcontractor = dlgContactId
+    ? (view === "gantt" ? ganttQuery.data?.subcontractors ?? [] : (teamQuery.data?.subcontractors ?? []))
+        .find(s => String(s.id) === dlgContactId)
+    : null;
+
+  const complianceWarning = selectedSubcontractor && (selectedSubcontractor.complianceStatus === "non_compliant" || selectedSubcontractor.complianceStatus === "warning") ? selectedSubcontractor : null;
 
   // ── Gantt row data ────────────────────────────────────────────────────────
   const ganttProjects = ganttQuery.data?.projects ?? [];
@@ -497,7 +508,7 @@ export default function Schedule() {
   const { scheduledWorkers, activeProjects, unscheduled } = useMemo(() => {
     const allAssignments = view === "gantt" ? ganttAssignments : (teamQuery.data?.assignments ?? []);
     const allMembers = view === "gantt" ? ganttMembers : (teamQuery.data?.members ?? []);
-    const wIds = new Set(allAssignments.map(a => a.userId));
+    const wIds = new Set(allAssignments.map(a => a.userId).filter(Boolean));
     const pIds = new Set(allAssignments.map(a => a.projectId));
     return { scheduledWorkers: wIds.size, activeProjects: pIds.size, unscheduled: allMembers.length - wIds.size };
   }, [view, ganttAssignments, ganttMembers, teamQuery.data]);
@@ -512,6 +523,12 @@ export default function Schedule() {
     if (!teamQuery.data) return [];
     const dayStr = format(day, "yyyy-MM-dd");
     return teamQuery.data.assignments.filter(a => a.userId === userId && dayStr >= a.startDate && dayStr <= a.endDate);
+  }
+
+  function getSubcontractorCellAssignments(contactId: number, day: Date) {
+    if (!teamQuery.data) return [];
+    const dayStr = format(day, "yyyy-MM-dd");
+    return teamQuery.data.assignments.filter(a => a.contactId === contactId && dayStr >= a.startDate && dayStr <= a.endDate);
   }
 
   // ── Access guard ──────────────────────────────────────────────────────────
@@ -806,9 +823,12 @@ export default function Schedule() {
                               ? { leftPx: dragPreview!.leftPx, widthPx: dragPreview!.widthPx }
                               : barGeometry(bar.startDate, bar.endDate);
                             if (!geo) return null;
-                            const c = getUserColor(bar.userId);
+                            const colorId = bar.userId ?? bar.contactId ?? 0;
+                            const c = getUserColor(colorId);
                             const topPx = ROW_PAD + bar.track * (BAR_H + BAR_GAP) + (projGeo ? 8 : 0);
-                            const name = `${bar.userFirstName ?? ""} ${bar.userLastName ?? ""}`.trim();
+                            const name = bar.contactName
+                              ? `${bar.contactName} (${bar.contactType})`
+                              : `${bar.userFirstName ?? ""} ${bar.userLastName ?? ""}`.trim();
                             const displayStart = isDragging ? dragPreview!.startDate : bar.startDate;
                             const displayEnd = isDragging ? dragPreview!.endDate : bar.endDate;
                             return (
@@ -837,7 +857,9 @@ export default function Schedule() {
                                         className="h-4 w-4 rounded-full flex items-center justify-center shrink-0 text-[8px] font-bold"
                                         style={{ backgroundColor: `${c.text}22`, color: c.text }}
                                       >
-                                        {initials(bar.userFirstName ?? "?", bar.userLastName ?? "?")}
+                                        {bar.contactName
+                                          ? bar.contactName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
+                                          : initials(bar.userFirstName ?? "?", bar.userLastName ?? "?")}
                                       </div>
                                     )}
                                     {geo.widthPx > 60 && (
@@ -1057,7 +1079,7 @@ export default function Schedule() {
             <div className="space-y-4 py-2">
               <div>
                 <label className="text-sm font-medium block mb-1">Worker *</label>
-                <Select value={dlgUserId} onValueChange={setDlgUserId}>
+                <Select value={dlgUserId} onValueChange={(v) => { setDlgUserId(v); setDlgContactId(""); }}>
                   <SelectTrigger><SelectValue placeholder="Select a worker…" /></SelectTrigger>
                   <SelectContent>
                     {(view === "gantt" ? ganttMembers : (teamQuery.data?.members ?? [])).map(m => (
@@ -1074,6 +1096,44 @@ export default function Schedule() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center justify-center text-xs text-muted-foreground font-medium">or</div>
+              <div>
+                <label className="text-sm font-medium block mb-1">Subcontractor *</label>
+                <Select value={dlgContactId} onValueChange={(v) => { setDlgContactId(v); setDlgUserId(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Select a subcontractor…" /></SelectTrigger>
+                  <SelectContent>
+                    {(view === "gantt" ? ganttQuery.data?.subcontractors : (teamQuery.data?.subcontractors ?? []))?.map((s: Subcontractor) => {
+                      const isBad = s.complianceStatus === "non_compliant";
+                      const isWarn = s.complianceStatus === "warning";
+                      return (
+                        <SelectItem key={s.id} value={String(s.id)} className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            {s.name}
+                            {isBad && <Badge className="ml-2 text-[10px] bg-red-100 text-red-700 border-0">Non-Compliant</Badge>}
+                            {isWarn && <Badge className="ml-2 text-[10px] bg-amber-100 text-amber-700 border-0">Warning</Badge>}
+                            {s.complianceStatus === "compliant" && <Badge className="ml-2 text-[10px] bg-green-100 text-green-700 border-0">Compliant</Badge>}
+                          </span>
+                        </SelectItem>
+                      );
+                    }) ?? <div className="p-2 text-xs text-muted-foreground">No subcontractors found. Add one in Contacts.</div>}
+                  </SelectContent>
+                </Select>
+              </div>
+              {complianceWarning && (
+                <div className={`rounded-md px-3 py-2 text-sm font-medium flex items-start gap-2 ${
+                  complianceWarning.complianceStatus === "non_compliant"
+                    ? "bg-red-50 text-red-800 border border-red-200"
+                    : "bg-amber-50 text-amber-800 border border-amber-200"
+                }`}>
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Compliance {complianceWarning.complianceStatus === "non_compliant" ? "Issue" : "Warning"}:</span>{" "}
+                    {complianceWarning.complianceStatus === "non_compliant"
+                      ? "This subcontractor is missing or has expired compliance documents. You cannot assign them until the COI and WCB are updated."
+                      : "This subcontractor has compliance documents expiring within 30 days. Review their COI and WCB before proceeding."}
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium block mb-1">Project *</label>
                 <Select value={dlgProjectId} onValueChange={setDlgProjectId}>
@@ -1113,10 +1173,14 @@ export default function Schedule() {
               <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
               <Button
                 onClick={() => {
-                  if (!dlgUserId || !dlgProjectId || !dlgStart || !dlgEnd) return;
-                  createMut.mutate({ userId: Number(dlgUserId), projectId: Number(dlgProjectId), startDate: dlgStart, endDate: dlgEnd, notes: dlgNotes || undefined });
+                  if ((!dlgUserId && !dlgContactId) || !dlgProjectId || !dlgStart || !dlgEnd) return;
+                  if (dlgContactId && complianceWarning?.complianceStatus === "non_compliant") return;
+                  const body: Record<string, unknown> = { projectId: Number(dlgProjectId), startDate: dlgStart, endDate: dlgEnd, notes: dlgNotes || undefined };
+                  if (dlgUserId) body.userId = Number(dlgUserId);
+                  if (dlgContactId) body.contactId = Number(dlgContactId);
+                  createMut.mutate(body);
                 }}
-                disabled={!dlgUserId || !dlgProjectId || !dlgStart || !dlgEnd || createMut.isPending}
+                disabled={(!dlgUserId && !dlgContactId) || !dlgProjectId || !dlgStart || !dlgEnd || createMut.isPending || (complianceWarning?.complianceStatus === "non_compliant")}
               >
                 {createMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Assign

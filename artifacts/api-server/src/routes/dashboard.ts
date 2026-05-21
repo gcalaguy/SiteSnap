@@ -424,7 +424,7 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
       ),
     );
   for (const s of scheduleRows) {
-    const who = userMap[s.userId] ?? "A worker";
+    const who = s.userId ? (userMap[s.userId] ?? "A worker") : "A subcontractor";
     const proj = projectMap[s.projectId] ?? "a project";
     activity.push({
       id: `schedule-${s.id}`,

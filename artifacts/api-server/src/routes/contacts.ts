@@ -15,6 +15,9 @@ const CreateContactBody = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   type: z.enum(["client", "worker", "subcontractor", "supplier"]).default("client"),
+  coiExpiration: z.string().optional(),
+  workersCompClearanceExpiration: z.string().optional(),
+  complianceStatus: z.enum(["compliant", "non_compliant", "warning"]).optional(),
   notes: z.string().optional(),
 });
 
@@ -94,13 +97,15 @@ router.post("/contacts", requireAuth, requireCompany, async (req, res) => {
     return;
   }
 
-  const { email, ...rest } = parsed.data;
+  const { email, coiExpiration, workersCompClearanceExpiration, ...rest } = parsed.data;
 
   const [contact] = await db
     .insert(contactsTable)
     .values({
       companyId: req.companyId!,
       email: email || null,
+      coiExpiration: coiExpiration || null,
+      workersCompClearanceExpiration: workersCompClearanceExpiration || null,
       ...rest,
     })
     .returning();
@@ -122,9 +127,11 @@ router.put("/contacts/:contactId", requireAuth, requireCompany, async (req, res)
     return;
   }
 
-  const { email, ...rest } = parsed.data;
+  const { email, coiExpiration, workersCompClearanceExpiration, ...rest } = parsed.data;
   const updates: Record<string, unknown> = { ...rest, updatedAt: new Date() };
   if (email !== undefined) updates.email = email || null;
+  if (coiExpiration !== undefined) updates.coiExpiration = coiExpiration || null;
+  if (workersCompClearanceExpiration !== undefined) updates.workersCompClearanceExpiration = workersCompClearanceExpiration || null;
 
   const [updated] = await db
     .update(contactsTable)

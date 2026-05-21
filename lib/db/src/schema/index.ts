@@ -297,6 +297,12 @@ export const contactTypeEnum = pgEnum("contact_type", [
   "supplier",
 ]);
 
+export const complianceStatusEnum = pgEnum("compliance_status", [
+  "compliant",
+  "non_compliant",
+  "warning",
+]);
+
 export const contactsTable = pgTable("contacts", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
@@ -307,6 +313,9 @@ export const contactsTable = pgTable("contacts", {
   phone: text("phone"),
   email: text("email"),
   type: contactTypeEnum("type").notNull().default("client"),
+  coiExpiration: date("coi_expiration"),
+  workersCompClearanceExpiration: date("workers_comp_clearance_expiration"),
+  complianceStatus: complianceStatusEnum("compliance_status").notNull().default("compliant"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -678,7 +687,8 @@ export const workerSchedulesTable = pgTable("worker_schedules", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull().references(() => companiesTable.id),
   projectId: integer("project_id").notNull().references(() => projectsTable.id),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
+  userId: integer("user_id").references(() => usersTable.id),
+  contactId: integer("contact_id").references(() => contactsTable.id),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
   notes: text("notes"),
