@@ -18,7 +18,7 @@ import { SignatureBadge } from "@/components/SignatureBadge";
 import {
   ClipboardCheck, ChevronDown, ChevronUp, CheckCircle2, XCircle,
   AlertCircle, CalendarRange, Pencil, FileDown, Table2, Mail,
-  Save, X, Loader2, Download, Info, ShieldCheck,
+  Save, X, Loader2, Download, Info, ShieldCheck, RotateCcw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { estimateTax, type TaxBreakdown } from "@/lib/canadaTax";
@@ -819,6 +819,22 @@ function TimesheetRow({
               <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={handleStartEdit}>
                 <Pencil className="h-3 w-3" /> Edit
               </Button>
+              {isPrivileged && ts.status === "denied" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50"
+                  disabled={editMutation.isPending}
+                  onClick={() => editMutation.mutate({ status: "submitted" })}
+                >
+                  {editMutation.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3 w-3" />
+                  )}
+                  Reset to Pending
+                </Button>
+              )}
               <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => exportPDF(ts, province, companyName)}>
                 <FileDown className="h-3 w-3" /> Save PDF
               </Button>

@@ -250,6 +250,7 @@ const EditTimesheetBody = z.object({
   hourlyRate: z.number().nonnegative().nullable().optional(),
   description: z.string().max(2000).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
+  status: z.enum(["submitted"]).optional(),
 });
 
 router.patch(
@@ -272,11 +273,16 @@ router.patch(
     if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
-    const { totalHours, hourlyRate, description, notes } = parsed.data;
+    const { totalHours, hourlyRate, description, notes, status } = parsed.data;
     if (totalHours !== undefined) updates.totalHours = totalHours.toFixed(2);
     if (hourlyRate !== undefined) updates.hourlyRate = hourlyRate != null ? hourlyRate.toFixed(2) : null;
     if (description !== undefined) updates.description = description;
     if (notes !== undefined) updates.notes = notes;
+    if (status !== undefined) {
+      updates.status = status;
+      updates.reviewedByUserId = null;
+      updates.reviewedAt = null;
+    }
 
     const [updated] = await db
       .update(timesheetsTable)
