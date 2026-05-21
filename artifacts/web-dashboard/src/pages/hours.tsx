@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Clock, Users, Building2, TrendingUp, Trash2,
   ChevronDown, ChevronUp, CalendarRange, UserCheck, X,
+  Download, FileSpreadsheet,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -92,6 +93,8 @@ export default function HoursPage() {
     query: { enabled: !!me?.activeCompanyId } as any,
   });
 
+  const isPrivileged = me?.role === "owner" || me?.role === "foreman";
+
   const [range, setRange] = useState("this_week");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -117,6 +120,27 @@ export default function HoursPage() {
     queryFn: () => customFetch(`/api/time-entries?${params.toString()}`),
   });
 
+  // Payroll export data (owner/foreman only)
+  const payrollParams = new URLSearchParams();
+  if (from) payrollParams.set("from", from);
+  if (to) payrollParams.set("to", to);
+  const { data: payrollRows, isLoading: payrollLoading } = useQuery<
+    {
+      id: number;
+      weekStart: string;
+      totalHours: string;
+      userId: number;
+      projectId: number | null;
+      userFirstName: string | null;
+      userLastName: string | null;
+      projectName: string | null;
+    }[]
+  >({
+    queryKey: ["timesheets", "payroll-export", from, to],
+    queryFn: () => customFetch(`/api/timesheets/payroll-export?${payrollParams.toString()}`),
+    enabled: isPrivileged,
+  });
+
   const deleteEntry = useMutation({
     mutationFn: ({ projectId, entryId }: { projectId: number; entryId: number }) =>
       customFetch(`/api/projects/${projectId}/time-entries/${entryId}`, { method: "DELETE" }),
@@ -133,7 +157,59 @@ export default function HoursPage() {
   if (tsWorkerFilter !== "all") tsParams.userId = tsWorkerFilter;
   const { data: timesheets = [], isLoading: tsLoading } = useListTimesheets(tsParams);
 
-  const isPrivileged = me?.role === "owner" || me?.role === "foreman";
+  function escapeCsv(val: string | number | null | undefined) {
+    const str = String(val ?? "");
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
+  function downloadPayrollCsv() {
+    const rows = payrollRows ?? [];
+    const companyName = (me as any)?.company?.name ?? "";
+    const craNumber = (me as any)?.company?.hstNumber ?? "";
+
+    // Aggregate by employee+project+week
+    const header = ["Employee Name", "CRA Business Number", "Regular Hours", "Overtime Hours", "Double-Time Hours", "Project Site Code"];
+    const lines = [header.join(",")];
+
+    for (const row of rows) {
+      const name = `${row.userFirstName ?? ""} ${row.userLastName ?? ""}`.trim() || "Worker";
+      const hours = parseFloat(row.totalHours ?? "0");
+      let regular = Math.min(hours, 40);
+      let overtime = 0;
+      let double = 0;
+
+      if (hours > 40 && hours <= 60) {
+        overtime = hours - 40;
+      } else if (hours > 60) {
+        overtime = 20;
+        double = hours - 60;
+      }
+
+      lines.push(
+        [
+          escapeCsv(name),
+          escapeCsv(craNumber),
+          escapeCsv(regular.toFixed(2)),
+          escapeCsv(overtime.toFixed(2)),
+          escapeCsv(double.toFixed(2)),
+          escapeCsv(row.projectName ?? companyName),
+        ].join(","),
+      );
+    }
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `site-snap-payroll-hours-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   const totalHours = entries.reduce((sum, e) => sum + parseFloat(e.hours), 0);
 
@@ -298,7 +374,29 @@ export default function HoursPage() {
             )}
           </div>
         </div>
+
+        {/* Payroll CSV Export — owner/foreman only */}
+        {isPrivileged && (
+          <div className="flex flex-col gap-1 ml-auto">
+            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Payroll</Label>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={payrollLoading || (payrollRows?.length ?? 0) === 0}
+              onClick={downloadPayrollCsv}
+            >
+              {payrollLoading ? <Clock className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+              Export Payroll Hours (CSV)
+            </Button>
+          </div>
+        )}
       </div>
+      {isPrivileged && (
+        <p className="text-xs text-muted-foreground -mt-2">
+          This file is formatted for instant import into dedicated Canadian payroll systems like PaymentEvolution, Wagepoint, or QuickBooks Payroll.
+        </p>
+      )}
 
       {/* Active filter summary pill */}
       {(filterUser !== "all" || filterProject !== "all" || isCustom) && (

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, timesheetsTable, timeEntriesTable, usersTable, userMembershipsTable } from "@workspace/db";
+import { db, timesheetsTable, timeEntriesTable, usersTable, userMembershipsTable, projectsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
@@ -192,6 +192,34 @@ router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, req
 
   const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
   res.json(await withReviewer(withUser, updated.reviewedByUserId));
+});
+
+// GET /timesheets/payroll-export — approved hours for payroll handoff
+router.get("/timesheets/payroll-export", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+  const { from, to } = req.query;
+
+  const conditions = [eq(timesheetsTable.companyId, req.companyId!), eq(timesheetsTable.status, "approved")];
+  if (from) conditions.push(gte(timesheetsTable.weekStart, from as string));
+  if (to) conditions.push(lte(timesheetsTable.weekStart, to as string));
+
+  const rows = await db
+    .select({
+      id: timesheetsTable.id,
+      weekStart: timesheetsTable.weekStart,
+      totalHours: timesheetsTable.totalHours,
+      userId: timesheetsTable.userId,
+      projectId: timesheetsTable.projectId,
+      userFirstName: usersTable.firstName,
+      userLastName: usersTable.lastName,
+      projectName: projectsTable.name,
+    })
+    .from(timesheetsTable)
+    .leftJoin(usersTable, eq(timesheetsTable.userId, usersTable.id))
+    .leftJoin(projectsTable, eq(timesheetsTable.projectId, projectsTable.id))
+    .where(and(...conditions))
+    .orderBy(desc(timesheetsTable.weekStart), desc(timesheetsTable.submittedAt));
+
+  res.json(rows);
 });
 
 // POST /timesheets/:timesheetId/deny
