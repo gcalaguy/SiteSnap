@@ -36,7 +36,7 @@ export default function TradehubProfilePage() {
 
   const isMe = userId === "me";
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ displayName: "", trade: "", location: "", province: "", bio: "", website: "" });
+  const [form, setForm] = useState({ displayName: "", trade: "", location: "", province: "", bio: "", website: "", complianceStatus: "compliant" });
 
   const { data: profile, isLoading } = useQuery<any>({
     queryKey: isMe ? ["tradehub-profile-me"] : ["tradehub-profile", userId],
@@ -72,6 +72,7 @@ export default function TradehubProfilePage() {
         province: profile.province ?? "",
         bio: profile.bio ?? "",
         website: profile.website ?? "",
+        complianceStatus: profile.complianceStatus ?? "compliant",
       });
     }
   }, [profile, isMe]);
@@ -367,6 +368,18 @@ function ProfileForm({ form, setForm }: { form: any; setForm: any }) {
       <div className="space-y-1.5">
         <Label>Website / LinkedIn</Label>
         <Input value={form.website} onChange={(e) => setForm((p: any) => ({ ...p, website: e.target.value }))} placeholder="https://" />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Compliance Status</Label>
+        <Select value={form.complianceStatus} onValueChange={(v) => setForm((p: any) => ({ ...p, complianceStatus: v }))}>
+          <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="compliant">Compliant</SelectItem>
+            <SelectItem value="warning">Warning</SelectItem>
+            <SelectItem value="non_compliant">Non-Compliant</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">Used to gate bidding on tender projects.</p>
       </div>
     </>
   );

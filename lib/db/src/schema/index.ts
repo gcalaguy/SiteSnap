@@ -1041,6 +1041,7 @@ export const tradehubProfilesTable = pgTable("tradehub_profiles", {
   voiceIntroUrl: text("voice_intro_url"),
   voiceIntroObjectPath: text("voice_intro_object_path"),
   voiceIntroDuration: integer("voice_intro_duration"),
+  complianceStatus: complianceStatusEnum("compliance_status").notNull().default("compliant"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1107,6 +1108,35 @@ export const tradehubReactionsTable = pgTable(
   },
   (t) => [unique().on(t.postId, t.userId)],
 );
+
+export const jobPostingsTable = pgTable("job_postings", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  createdBy: integer("created_by").notNull().references(() => usersTable.id),
+  projectTitle: text("project_title").notNull(),
+  description: text("description").notNull(),
+  scopeOfWork: text("scope_of_work"),
+  budgetEstimate: text("budget_estimate"),
+  targetedStartDate: date("targeted_start_date"),
+  location: text("location"),
+  province: text("province"),
+  trade: text("trade"),
+  status: text("status").notNull().default("open"), // open | closed | draft
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type JobPosting = typeof jobPostingsTable.$inferSelect;
+
+export const jobPostingApplicationsTable = pgTable("job_posting_applications", {
+  id: serial("id").primaryKey(),
+  jobPostingId: integer("job_posting_id").notNull().references(() => jobPostingsTable.id, { onDelete: "cascade" }),
+  applicantId: integer("applicant_id").notNull().references(() => usersTable.id),
+  applicantProfileId: integer("applicant_profile_id").references(() => tradehubProfilesTable.id),
+  message: text("message"),
+  status: text("status").notNull().default("pending"), // pending | reviewed | accepted | rejected
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type JobPostingApplication = typeof jobPostingApplicationsTable.$inferSelect;
 
 export const tradehubJobApplicationsTable = pgTable("tradehub_job_applications", {
   id: serial("id").primaryKey(),

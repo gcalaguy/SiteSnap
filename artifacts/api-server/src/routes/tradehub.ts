@@ -16,6 +16,8 @@ import {
   tradehubConversationParticipantsTable,
   tradehubMessagesTable,
   tradehubSavedCalculationsTable,
+  jobPostingsTable,
+  jobPostingApplicationsTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { logger } from "../lib/logger";
@@ -446,6 +448,139 @@ router.patch("/tradehub/applications/:id", requireAuth, async (req, res) => {
   }
 });
 
+// ── JOB POSTINGS (Open Tenders) ──────────────────────────────────────────────
+
+// GET /tradehub/job-postings
+router.get("/tradehub/job-postings", requireAuth, async (req, res) => {
+  try {
+    const { province, trade, search } = req.query as Record<string, string>;
+    const conditions: any[] = [eq(jobPostingsTable.status, "open")];
+    if (province) conditions.push(eq(jobPostingsTable.province, province));
+    if (trade) conditions.push(eq(jobPostingsTable.trade, trade));
+
+    const rows = await db
+      .select()
+      .from(jobPostingsTable)
+      .where(and(...conditions))
+      .orderBy(desc(jobPostingsTable.createdAt));
+
+    const result = await Promise.all(
+      rows.map(async (jp) => {
+        const [poster] = await db.select().from(usersTable).where(eq(usersTable.id, jp.createdBy));
+        const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, jp.companyId));
+        const [{ count: appCount }] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(jobPostingApplicationsTable)
+          .where(eq(jobPostingApplicationsTable.jobPostingId, jp.id));
+
+        let hasApplied = false;
+        if (req.userId) {
+          const [existing] = await db
+            .select()
+            .from(jobPostingApplicationsTable)
+            .where(and(eq(jobPostingApplicationsTable.jobPostingId, jp.id), eq(jobPostingApplicationsTable.applicantId, req.userId)))
+            .limit(1);
+          hasApplied = !!existing;
+        }
+        return { ...jp, posterName: poster ? `${poster.firstName} ${poster.lastName}` : "Unknown", companyName: company?.name ?? "Unknown", applicationCount: appCount, hasApplied };
+      })
+    );
+
+    if (search) {
+      const q = search.toLowerCase();
+      res.json(result.filter((r) => r.projectTitle.toLowerCase().includes(q) || r.description.toLowerCase().includes(q)));
+      return;
+    }
+    res.json(result);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/job-postings error");
+    res.status(500).json({ error: "Failed to load job postings" });
+  }
+});
+
+// POST /tradehub/job-postings
+router.post("/tradehub/job-postings", requireAuth, requireCompany, async (req, res) => {
+  try {
+    const { projectTitle, description, scopeOfWork, budgetEstimate, targetedStartDate, location, province, trade } = req.body as {
+      projectTitle: string; description: string; scopeOfWork?: string; budgetEstimate?: string;
+      targetedStartDate?: string; location?: string; province?: string; trade?: string;
+    };
+    if (!projectTitle?.trim() || !description?.trim()) {
+      res.status(400).json({ error: "projectTitle and description required" });
+      return;
+    }
+    const [created] = await db.insert(jobPostingsTable).values({
+      companyId: req.companyId!,
+      createdBy: req.userId!,
+      projectTitle: projectTitle.trim(),
+      description: description.trim(),
+      scopeOfWork: scopeOfWork?.trim() ?? null,
+      budgetEstimate: budgetEstimate?.trim() ?? null,
+      targetedStartDate: targetedStartDate ?? null,
+      location: location?.trim() ?? null,
+      province: province ?? null,
+      trade: trade ?? null,
+    }).returning();
+    res.status(201).json(created);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/job-postings POST error");
+    res.status(500).json({ error: "Failed to create job posting" });
+  }
+});
+
+// POST /tradehub/job-postings/:id/apply
+router.post("/tradehub/job-postings/:id/apply", requireAuth, async (req, res) => {
+  try {
+    const jobPostingId = parseInt(req.params.id as string);
+    const { message } = req.body as { message?: string };
+
+    const [jp] = await db.select().from(jobPostingsTable).where(eq(jobPostingsTable.id, jobPostingId)).limit(1);
+    if (!jp) { res.status(404).json({ error: "Job posting not found" }); return; }
+    if (jp.status !== "open") { res.status(400).json({ error: "This tender is closed" }); return; }
+    if (jp.createdBy === req.userId) { res.status(400).json({ error: "Cannot apply to your own posting" }); return; }
+
+    // Compliance gate: check applicant's tradehub profile compliance status
+    const [profile] = await db
+      .select()
+      .from(tradehubProfilesTable)
+      .where(eq(tradehubProfilesTable.userId, req.userId!))
+      .limit(1);
+    if (profile && profile.complianceStatus === "non_compliant") {
+      res.status(409).json({ code: "COMPLIANCE_ERROR", error: "You must update your liability insurance in settings to bid on projects." });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(jobPostingApplicationsTable)
+      .where(and(eq(jobPostingApplicationsTable.jobPostingId, jobPostingId), eq(jobPostingApplicationsTable.applicantId, req.userId!)))
+      .limit(1);
+    if (existing) { res.status(400).json({ error: "Already applied to this tender" }); return; }
+
+    const [application] = await db.insert(jobPostingApplicationsTable).values({
+      jobPostingId,
+      applicantId: req.userId!,
+      applicantProfileId: profile?.id ?? null,
+      message: message?.trim() ?? null,
+    }).returning();
+
+    const [applicant] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+    const [applicantProfile] = await db.select().from(tradehubProfilesTable).where(eq(tradehubProfilesTable.userId, req.userId!));
+    const appName = applicantProfile?.displayName ?? `${applicant?.firstName ?? "Someone"}`;
+    await db.insert(tradehubNotificationsTable).values({
+      userId: jp.createdBy,
+      type: "application",
+      referenceId: jobPostingId,
+      message: `${appName} applied to your tender: "${jp.projectTitle}"`,
+    }).catch(() => {});
+
+    res.json(application);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/job-postings/:id/apply error");
+    res.status(500).json({ error: "Failed to apply" });
+  }
+});
+
 // ── PROFILES ─────────────────────────────────────────────────────────────────
 
 // GET /tradehub/profile/me
@@ -492,9 +627,9 @@ router.get("/tradehub/profile/:userId", requireAuth, async (req, res) => {
 // PUT /tradehub/profile — upsert my profile
 router.put("/tradehub/profile", requireAuth, async (req, res) => {
   try {
-    const { displayName, trade, location, province, bio, website, avatarUrl } = req.body as {
+    const { displayName, trade, location, province, bio, website, avatarUrl, complianceStatus } = req.body as {
       displayName: string; trade?: string; location?: string; province?: string;
-      bio?: string; website?: string; avatarUrl?: string;
+      bio?: string; website?: string; avatarUrl?: string; complianceStatus?: string;
     };
 
     if (!displayName?.trim()) { res.status(400).json({ error: "displayName required" }); return; }
@@ -508,7 +643,7 @@ router.put("/tradehub/profile", requireAuth, async (req, res) => {
     if (existing) {
       const [updated] = await db
         .update(tradehubProfilesTable)
-        .set({ displayName: displayName.trim(), trade: trade ?? null, location: location ?? null, province: province ?? null, bio: bio ?? null, website: website ?? null, avatarUrl: avatarUrl ?? null, updatedAt: new Date() })
+        .set({ displayName: displayName.trim(), trade: trade ?? null, location: location ?? null, province: province ?? null, bio: bio ?? null, website: website ?? null, avatarUrl: avatarUrl ?? null, complianceStatus: req.body.complianceStatus ?? existing.complianceStatus, updatedAt: new Date() })
         .where(eq(tradehubProfilesTable.userId, req.userId!))
         .returning();
       res.json(updated);
@@ -523,6 +658,7 @@ router.put("/tradehub/profile", requireAuth, async (req, res) => {
         bio: bio ?? null,
         website: website ?? null,
         avatarUrl: avatarUrl ?? null,
+        complianceStatus: req.body.complianceStatus ?? "compliant",
       }).returning();
       res.json(created);
     }
