@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { useCreateInvoice } from "@workspace/api-client-react";
+import { useCreateInvoice, customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, ClipboardList, CheckCircle2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListAllInvoicesQueryKey } from "@workspace/api-client-react";
+
+async function apiFetch(path: string, opts?: RequestInit) {
+  return customFetch(`/api${path}`, opts);
+}
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -45,6 +49,47 @@ export default function NewInvoice() {
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", quantity: 1, unit: "ea", unitPrice: 0, total: 0 },
   ]);
+
+  // Approved change orders import
+  const [approvedCOs, setApprovedCOs] = useState<Array<{ id: number; title: string; amount: string; projectId: number; description?: string | null }>>([]);
+  const [coLoading, setCoLoading] = useState(false);
+  const [selectedCOIds, setSelectedCOIds] = useState<Set<number>>(new Set());
+
+  const loadApprovedCOs = useCallback(async () => {
+    setCoLoading(true);
+    try {
+      const data = await apiFetch("/change-orders") as any[];
+      const approved = (data ?? []).filter((co: any) => co.status === "approved");
+      setApprovedCOs(approved.map((co: any) => ({ id: co.id, title: co.title, amount: co.amount, projectId: co.projectId, description: co.description })));
+    } catch { /* ignore */ }
+    finally { setCoLoading(false); }
+  }, []);
+
+  useEffect(() => { loadApprovedCOs(); }, [loadApprovedCOs]);
+
+  function toggleCO(id: number) {
+    setSelectedCOIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function importSelectedCOs() {
+    const toImport = approvedCOs.filter((co) => selectedCOIds.has(co.id));
+    if (toImport.length === 0) return;
+    const newItems: LineItem[] = toImport.map((co) => ({
+      description: co.title + (co.description ? ` — ${co.description}` : ""),
+      quantity: 1,
+      unit: "ea",
+      unitPrice: Number(co.amount),
+      total: Number(co.amount),
+    }));
+    setLineItems((prev) => [...prev, ...newItems]);
+    setSelectedCOIds(new Set());
+    toast({ title: `${toImport.length} change order(s) added to invoice` });
+  }
 
   const fmtCAD = (v: number) =>
     new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(v);
@@ -221,6 +266,43 @@ export default function NewInvoice() {
                 </div>
               </div>
             ))}
+
+            {/* Import from Approved Change Orders */}
+            {approvedCOs.length > 0 && (
+              <div className="rounded-lg border border-dashed border-[#D4AF37]/40 bg-[#FFFBEB]/50 p-4 mt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4" style={{ color: GOLD }} />
+                    <p className="text-sm font-semibold" style={{ color: GOLD }}>Approved Change Orders</p>
+                  </div>
+                  {selectedCOIds.size > 0 && (
+                    <Button type="button" size="sm" className="h-7 text-xs" style={{ background: GOLD, color: BLACK }} onClick={importSelectedCOs}>
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Add {selectedCOIds.size} to invoice
+                    </Button>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  {approvedCOs.map((co) => {
+                    const selected = selectedCOIds.has(co.id);
+                    return (
+                      <label key={co.id} className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${selected ? "bg-[#D4AF37]/10" : "hover:bg-muted/50"}`}>
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleCO(co.id)}
+                          className="h-4 w-4 accent-[#D4AF37]"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{co.title}</p>
+                          {co.description && <p className="text-xs text-muted-foreground truncate">{co.description}</p>}
+                        </div>
+                        <span className="text-sm font-semibold" style={{ color: GOLD }}>{fmtCAD(Number(co.amount))}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <Button type="button" variant="outline" size="sm" onClick={addItem} className="gap-2 mt-2">
               <Plus className="h-4 w-4" />

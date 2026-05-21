@@ -1202,6 +1202,8 @@ export const changeOrdersTable = pgTable("change_orders", {
     .references(() => usersTable.id),
   approvedByUserId: integer("approved_by_user_id").references(() => usersTable.id),
   approvedAt: timestamp("approved_at"),
+  clientSignatureData: text("client_signature_data"),
+  signedAt: timestamp("signed_at"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

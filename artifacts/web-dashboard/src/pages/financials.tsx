@@ -86,6 +86,8 @@ type ChangeOrder = {
   requestedByUserId: number;
   approvedByUserId?: number | null;
   approvedAt?: string | null;
+  clientSignatureData?: string | null;
+  signedAt?: string | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -597,6 +599,13 @@ function FinancialsInner() {
                         </button>
                       </div>
                     </div>
+                    {co.clientSignatureData && co.status === "approved" && (
+                      <div className="mt-2 pt-2 border-t border-gray-100">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Client Signature</p>
+                        <img src={co.clientSignatureData} alt="Client signature" className="max-h-16 object-contain bg-white rounded border border-gray-200" />
+                        {co.signedAt && <p className="text-[10px] text-muted-foreground mt-0.5">Signed {format(new Date(co.signedAt), "MMM d, yyyy h:mm a")}</p>}
+                      </div>
+                    )}
                     {co.notes && (
                       <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-gray-100">{co.notes}</p>
                     )}

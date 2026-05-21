@@ -12,6 +12,7 @@ import {
   View,
   Modal,
   Alert,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -20,8 +21,9 @@ import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import SignatureCanvas from "@/components/SignatureCanvas";
 
-type TabKey = "invoices" | "quotes";
+type TabKey = "invoices" | "quotes" | "change-orders";
 
 const INVOICE_STATUS_COLORS: Record<string, string> = {
   draft: "#6B7280",
@@ -131,6 +133,11 @@ export default function FinanceScreen() {
   const [clientName, setClientName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Change orders state
+  const [changeOrders, setChangeOrders] = useState<any[]>([]);
+  const [coLoading, setCoLoading] = useState(false);
+  const [sigCOId, setSigCOId] = useState<number | null>(null);
+
   const createInvoice = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       customFetch("/api/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
@@ -156,6 +163,34 @@ export default function FinanceScreen() {
   });
   const isRecording = voiceState === "recording";
   const isTranscribing = voiceState === "transcribing";
+
+  // Load change orders
+  const loadChangeOrders = useCallback(async () => {
+    setCoLoading(true);
+    try {
+      const data = await customFetch("/api/change-orders") as any[];
+      setChangeOrders(data ?? []);
+    } catch { /* ignore */ }
+    finally { setCoLoading(false); }
+  }, []);
+
+  React.useEffect(() => {
+    if (tab === "change-orders") loadChangeOrders();
+  }, [tab, loadChangeOrders]);
+
+  async function saveSignature(coId: number, base64: string) {
+    try {
+      await customFetch(`/api/change-orders/${coId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientSignatureData: base64, signedAt: new Date().toISOString() }),
+      });
+      setChangeOrders((prev) => prev.map((co) => co.id === coId ? { ...co, clientSignatureData: base64, signedAt: new Date().toISOString() } : co));
+      Alert.alert("Signature saved");
+    } catch {
+      Alert.alert("Failed to save signature");
+    }
+  }
 
   const openVoiceModal = (type: "invoice" | "quote") => {
     setVoiceFor(type);
@@ -242,10 +277,10 @@ export default function FinanceScreen() {
 
       {/* Tabs */}
       <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        {(["invoices", "quotes"] as TabKey[]).map((t) => (
+        {(["invoices", "quotes", "change-orders"] as TabKey[]).map((t) => (
           <Pressable key={t} style={styles.tabBtn} onPress={() => setTab(t)}>
             <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.mutedForeground }]}>
-              {t === "invoices" ? "Invoices" : "Quotes"}
+              {t === "invoices" ? "Invoices" : t === "quotes" ? "Quotes" : "Change Orders"}
             </Text>
             {tab === t && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
           </Pressable>
@@ -278,7 +313,7 @@ export default function FinanceScreen() {
             refreshControl={<RefreshControl refreshing={invLoading} onRefresh={refetchInv} tintColor={colors.primary} />}
           />
         )
-      ) : (
+      ) : tab === "quotes" ? (
         qLoading ? (
           <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
         ) : qError ? (
@@ -303,7 +338,64 @@ export default function FinanceScreen() {
             refreshControl={<RefreshControl refreshing={qLoading} onRefresh={refetchQ} tintColor={colors.primary} />}
           />
         )
+      ) : (
+        coLoading ? (
+          <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+        ) : (
+          <FlatList
+            data={changeOrders}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+            ListEmptyComponent={
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No change orders yet</Text>
+            }
+            refreshControl={<RefreshControl refreshing={coLoading} onRefresh={loadChangeOrders} tintColor={colors.primary} />}
+            renderItem={({ item }: { item: any }) => {
+              const statusColor = item.status === "approved" ? "#22C55E" : item.status === "rejected" ? "#EF4444" : "#F59E0B";
+              const statusLabel = item.status === "approved" ? "Approved" : item.status === "rejected" ? "Rejected" : "Pending";
+              return (
+                <View style={[styles.coCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>
+                      <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>Project #{item.projectId}</Text>
+                      <View style={[styles.badge, { backgroundColor: `${statusColor}18` }]}>
+                        <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.rowAmount, { color: colors.primary }]}>{fmtCAD(item.amount)}</Text>
+                  </View>
+                  {item.clientSignatureData && (
+                    <View style={{ marginTop: 8 }}>
+                      <Text style={{ fontSize: 11, color: colors.mutedForeground, marginBottom: 4 }}>Client Signature</Text>
+                      <Image source={{ uri: item.clientSignatureData }} style={{ width: 160, height: 60, resizeMode: "contain", backgroundColor: "#fff", borderRadius: 6, borderWidth: 1, borderColor: colors.border }} />
+                      {item.signedAt && <Text style={{ fontSize: 10, color: colors.mutedForeground, marginTop: 2 }}>Signed {new Date(item.signedAt).toLocaleDateString("en-CA")}</Text>}
+                    </View>
+                  )}
+                  {item.status === "approved" && !item.clientSignatureData && (
+                    <Pressable
+                      onPress={() => setSigCOId(item.id)}
+                      style={[styles.signBtn, { borderColor: colors.primary }]}
+                    >
+                      <Feather name="edit-3" size={14} color={colors.primary} />
+                      <Text style={{ fontSize: 12, color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Collect Signature</Text>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            }}
+          />
+        )
       )}
+
+      {/* Signature Canvas Modal */}
+      <SignatureCanvas
+        visible={sigCOId !== null}
+        onClose={() => setSigCOId(null)}
+        onSave={(base64) => {
+          if (sigCOId !== null) saveSignature(sigCOId, base64);
+        }}
+      />
 
       {/* FABs */}
       <View style={[styles.fabRow, { bottom: insets.bottom + 20 }]}>
@@ -477,4 +569,6 @@ const styles = StyleSheet.create({
   notes: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 8, lineHeight: 18 },
   createBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, marginTop: 14 },
   createBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  coCard: { borderRadius: 10, padding: 14, borderWidth: 1, gap: 8 },
+  signBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, alignSelf: "flex-start", marginTop: 8 },
 });

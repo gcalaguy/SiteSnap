@@ -265,6 +265,8 @@ const UpdateChangeOrderBody = z.object({
   description: z.string().optional().nullable(),
   amount: z.coerce.number().min(0).optional(),
   notes: z.string().optional().nullable(),
+  clientSignatureData: z.string().optional().nullable(),
+  signedAt: z.string().datetime().optional().nullable(),
 });
 
 router.patch("/change-orders/:id", requireAuth, requireCompany, async (req, res) => {
@@ -279,6 +281,8 @@ router.patch("/change-orders/:id", requireAuth, requireCompany, async (req, res)
   if (parsed.data.description !== undefined) updates.description = parsed.data.description;
   if (parsed.data.amount !== undefined) updates.amount = parsed.data.amount.toFixed(2);
   if (parsed.data.notes !== undefined) updates.notes = parsed.data.notes;
+  if (parsed.data.clientSignatureData !== undefined) updates.clientSignatureData = parsed.data.clientSignatureData;
+  if (parsed.data.signedAt !== undefined) updates.signedAt = parsed.data.signedAt ? new Date(parsed.data.signedAt) : null;
 
   const [updated] = await db
     .update(changeOrdersTable)
@@ -326,6 +330,33 @@ router.post("/change-orders/:id/reject", requireAuth, requireCompany, async (req
 
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);
+});
+
+// GET /projects/:projectId/approved-change-orders — for invoice line-item integration
+router.get("/projects/:projectId/approved-change-orders", requireAuth, requireCompany, async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
+  if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
+
+  const [project] = await db
+    .select({ id: projectsTable.id, name: projectsTable.name, address: projectsTable.address })
+    .from(projectsTable)
+    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  const orders = await db
+    .select()
+    .from(changeOrdersTable)
+    .where(
+      and(
+        eq(changeOrdersTable.projectId, projectId),
+        eq(changeOrdersTable.companyId, req.companyId!),
+        eq(changeOrdersTable.status, "approved"),
+      ),
+    )
+    .orderBy(desc(changeOrdersTable.createdAt));
+
+  res.json({ project, changeOrders: orders });
 });
 
 // DELETE /change-orders/:id
