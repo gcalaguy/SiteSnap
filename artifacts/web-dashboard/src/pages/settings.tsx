@@ -777,24 +777,34 @@ function DocumentTemplatesCard({ company }: { company: any }) {
     );
   }
 
+  const [collapsed, setCollapsed] = useState(true);
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary" />
-          Document Templates
-        </CardTitle>
-        <CardDescription>
-          Upload a custom header image for your quotes and invoices. This image will appear at the top of every exported
-          PDF, replacing the default Site Snap header. Recommended: landscape PNG at 1400&times;280 px.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <TemplateSection type="quote" currentUrl={quoteTemplateUrl} inputRef={quoteInputRef} />
-        <Separator />
-        <TemplateSection type="invoice" currentUrl={invoiceTemplateUrl} inputRef={invoiceInputRef} />
-        <p className="text-xs text-muted-foreground">PNG, JPG, or WebP · max 20 MB</p>
-      </CardContent>
+      <button onClick={() => setCollapsed((c) => !c)} className="w-full text-left">
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Document Templates
+            </CardTitle>
+            <CardDescription>
+              Upload a custom header image for your quotes and invoices.
+            </CardDescription>
+          </div>
+          {collapsed
+            ? <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />
+            : <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />}
+        </CardHeader>
+      </button>
+      {!collapsed && (
+        <CardContent className="space-y-6">
+          <TemplateSection type="quote" currentUrl={quoteTemplateUrl} inputRef={quoteInputRef} />
+          <Separator />
+          <TemplateSection type="invoice" currentUrl={invoiceTemplateUrl} inputRef={invoiceInputRef} />
+          <p className="text-xs text-muted-foreground">PNG, JPG, or WebP · max 20 MB</p>
+        </CardContent>
+      )}
     </Card>
   );
 }
