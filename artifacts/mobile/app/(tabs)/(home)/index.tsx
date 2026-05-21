@@ -148,6 +148,7 @@ const QUICK_ACTIONS_WORKER = [
   { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
   { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
   { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4" },
+  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
 ];
 
@@ -159,6 +160,7 @@ const QUICK_ACTIONS_OWNER = [
   { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
   { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
   { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4" },
+  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
 ];
 
