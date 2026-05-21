@@ -862,84 +862,87 @@ function DocumentNumberingCard({ company }: { company: any }) {
     }
   }
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Hash className="h-5 w-5 text-primary" />
-            Document Numbering & Terms
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading...
-        </CardContent>
-      </Card>
-    );
-  }
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Hash className="h-5 w-5 text-primary" />
-          Document Numbering & Terms
-        </CardTitle>
-        <CardDescription>
-          Customize quote/invoice prefixes, starting numbers, and default boilerplate text.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Quote Prefix</Label>
-            <Input value={quotePrefix} onChange={(e) => setQuotePrefix(e.target.value)} placeholder="QUO" />
-            <p className="text-xs text-muted-foreground">e.g., QUO, ABC, 2026-Q</p>
+      <button onClick={() => setCollapsed((c) => !c)} className="w-full text-left">
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Hash className="h-5 w-5 text-primary" />
+              Document Numbering & Terms
+            </CardTitle>
+            <CardDescription>
+              Customize quote/invoice prefixes, starting numbers, and default boilerplate text.
+            </CardDescription>
           </div>
-          <div className="space-y-2">
-            <Label>Quote Start Number</Label>
-            <Input type="number" min={1} value={quoteStart} onChange={(e) => setQuoteStart(Number(e.target.value))} />
-            <p className="text-xs text-muted-foreground">First quote will be {quotePrefix || "QUO"}-{String(quoteStart).padStart(4, "0")}</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Invoice Prefix</Label>
-            <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value)} placeholder="INV" />
-            <p className="text-xs text-muted-foreground">e.g., INV, 2026-INV</p>
-          </div>
-          <div className="space-y-2">
-            <Label>Invoice Start Number</Label>
-            <Input type="number" min={1} value={invoiceStart} onChange={(e) => setInvoiceStart(Number(e.target.value))} />
-            <p className="text-xs text-muted-foreground">First invoice will be {invoicePrefix || "INV"}-{String(invoiceStart).padStart(4, "0")}</p>
-          </div>
-        </div>
-        <Separator />
-        <div className="space-y-2">
-          <Label>Default Quote Terms & Conditions</Label>
-          <textarea
-            className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            value={quoteTerms}
-            onChange={(e) => setQuoteTerms(e.target.value)}
-            placeholder="e.g., Payment terms: Net 30. Warranty: 1 year workmanship."
-          />
-          <p className="text-xs text-muted-foreground">Appears at the bottom of every quote PDF.</p>
-        </div>
-        <div className="space-y-2">
-          <Label>Default Invoice Notes / Terms</Label>
-          <textarea
-            className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            value={invoiceNotes}
-            onChange={(e) => setInvoiceNotes(e.target.value)}
-            placeholder="e.g., EFT remittance: Transit 12345 · Account 987654321. Late fees apply after 30 days."
-          />
-          <p className="text-xs text-muted-foreground">Appears in the Notes / Terms section of every invoice PDF.</p>
-        </div>
-        <Button onClick={handleSave} disabled={saving} className="gap-2">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save Document Settings
-        </Button>
-      </CardContent>
+          {collapsed
+            ? <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />
+            : <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />}
+        </CardHeader>
+      </button>
+      {!collapsed && (
+        <CardContent className="space-y-6">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Quote Prefix</Label>
+                  <Input value={quotePrefix} onChange={(e) => setQuotePrefix(e.target.value)} placeholder="QUO" />
+                  <p className="text-xs text-muted-foreground">e.g., QUO, ABC, 2026-Q</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Quote Start Number</Label>
+                  <Input type="number" min={1} value={quoteStart} onChange={(e) => setQuoteStart(Number(e.target.value))} />
+                  <p className="text-xs text-muted-foreground">First quote will be {quotePrefix || "QUO"}-{String(quoteStart).padStart(4, "0")}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Invoice Prefix</Label>
+                  <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value)} placeholder="INV" />
+                  <p className="text-xs text-muted-foreground">e.g., INV, 2026-INV</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Invoice Start Number</Label>
+                  <Input type="number" min={1} value={invoiceStart} onChange={(e) => setInvoiceStart(Number(e.target.value))} />
+                  <p className="text-xs text-muted-foreground">First invoice will be {invoicePrefix || "INV"}-{String(invoiceStart).padStart(4, "0")}</p>
+                </div>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <Label>Default Quote Terms & Conditions</Label>
+                <textarea
+                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={quoteTerms}
+                  onChange={(e) => setQuoteTerms(e.target.value)}
+                  placeholder="e.g., Payment terms: Net 30. Warranty: 1 year workmanship."
+                />
+                <p className="text-xs text-muted-foreground">Appears at the bottom of every quote PDF.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Default Invoice Notes / Terms</Label>
+                <textarea
+                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={invoiceNotes}
+                  onChange={(e) => setInvoiceNotes(e.target.value)}
+                  placeholder="e.g., EFT remittance: Transit 12345 · Account 987654321. Late fees apply after 30 days."
+                />
+                <p className="text-xs text-muted-foreground">Appears in the Notes / Terms section of every invoice PDF.</p>
+              </div>
+              <Button onClick={handleSave} disabled={saving} className="gap-2">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save Document Settings
+              </Button>
+            </>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }
