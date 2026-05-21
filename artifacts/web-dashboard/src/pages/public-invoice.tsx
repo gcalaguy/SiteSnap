@@ -33,6 +33,7 @@ interface PublicInvoice {
   signerUserAgent?: string | null;
   signatureData?: string | null;
   companyName?: string | null;
+  terms?: string | null;
 }
 
 const fmtCAD = (v: string | number) =>
@@ -201,6 +202,12 @@ export default function PublicInvoicePage() {
               <div className="rounded-md bg-muted/40 p-3 text-sm">
                 <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Notes</p>
                 <p className="whitespace-pre-wrap">{invoice.notes}</p>
+              </div>
+            )}
+            {invoice.terms && (
+              <div className="rounded-md bg-muted/40 p-3 text-sm">
+                <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Terms & Conditions</p>
+                <p className="whitespace-pre-wrap">{invoice.terms}</p>
               </div>
             )}
           </CardContent>

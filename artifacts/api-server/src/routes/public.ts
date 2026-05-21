@@ -26,8 +26,17 @@ const SignBody = z.object({
   signerName: z.string().min(1).max(120),
 });
 
-function publicQuotePayload(q: Record<string, unknown>, companyName?: string | null) {
-  // Strip internal fields, expose only what the client viewer needs.
+async function publicQuotePayload(q: Record<string, unknown>, companyName?: string | null) {
+  // Pull company terms if available
+  let terms: string | null = null;
+  if (q.companyId) {
+    const [c] = await db
+      .select({ defaultQuoteTerms: companiesTable.defaultQuoteTerms })
+      .from(companiesTable)
+      .where(eq(companiesTable.id, q.companyId as number))
+      .limit(1);
+    terms = c?.defaultQuoteTerms ?? null;
+  }
   return {
     id: q.id,
     quoteNumber: q.quoteNumber,
@@ -52,10 +61,20 @@ function publicQuotePayload(q: Record<string, unknown>, companyName?: string | n
     signerUserAgent: q.signerUserAgent ?? null,
     signatureData: q.signatureData ?? null,
     companyName: companyName ?? null,
+    terms,
   };
 }
 
-function publicInvoicePayload(i: Record<string, unknown>, companyName?: string | null) {
+async function publicInvoicePayload(i: Record<string, unknown>, companyName?: string | null) {
+  let terms: string | null = null;
+  if (i.companyId) {
+    const [c] = await db
+      .select({ defaultInvoiceNotes: companiesTable.defaultInvoiceNotes })
+      .from(companiesTable)
+      .where(eq(companiesTable.id, i.companyId as number))
+      .limit(1);
+    terms = c?.defaultInvoiceNotes ?? null;
+  }
   return {
     id: i.id,
     invoiceNumber: i.invoiceNumber,
@@ -79,6 +98,7 @@ function publicInvoicePayload(i: Record<string, unknown>, companyName?: string |
     signerUserAgent: i.signerUserAgent ?? null,
     signatureData: i.signatureData ?? null,
     companyName: companyName ?? null,
+    terms,
   };
 }
 
@@ -282,7 +302,7 @@ router.get(
       return;
     }
     const companyName = await getCompanyName(quote.companyId);
-    res.json(publicQuotePayload(quote as unknown as Record<string, unknown>, companyName));
+    res.json(await publicQuotePayload(quote as unknown as Record<string, unknown>, companyName));
   }),
 );
 
@@ -358,7 +378,7 @@ router.get(
       return;
     }
     const companyName = await getCompanyName(invoice.companyId);
-    res.json(publicInvoicePayload(invoice as unknown as Record<string, unknown>, companyName));
+    res.json(await publicInvoicePayload(invoice as unknown as Record<string, unknown>, companyName));
   }),
 );
 

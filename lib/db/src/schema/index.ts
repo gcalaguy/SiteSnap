@@ -68,6 +68,12 @@ export const companiesTable = pgTable("companies", {
   activeFeatures: text("active_features").array(),
   meetingConfig: jsonb("meeting_config"),
   estimatorConfig: jsonb("estimator_config"),
+  quoteNumberPrefix: text("quote_number_prefix").default("QUO"),
+  invoiceNumberPrefix: text("invoice_number_prefix").default("INV"),
+  quoteStartNumber: integer("quote_start_number").default(1),
+  invoiceStartNumber: integer("invoice_start_number").default(1),
+  defaultQuoteTerms: text("default_quote_terms"),
+  defaultInvoiceNotes: text("default_invoice_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

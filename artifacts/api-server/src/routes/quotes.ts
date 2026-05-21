@@ -7,6 +7,7 @@ import {
   projectsTable,
   usersTable,
   userMembershipsTable,
+  companiesTable,
 } from "@workspace/db";
 import { eq, and, count, desc, inArray, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
@@ -97,12 +98,24 @@ async function verifyProjectAccess(projectId: number, companyId: number) {
 }
 
 async function getNextQuoteNumber(companyId: number): Promise<string> {
+  const [company] = await db
+    .select({
+      prefix: companiesTable.quoteNumberPrefix,
+      startNumber: companiesTable.quoteStartNumber,
+    })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, companyId))
+    .limit(1);
+
   const [result] = await db
     .select({ count: count() })
     .from(quotesTable)
     .where(eq(quotesTable.companyId, companyId));
-  const num = (result?.count ?? 0) + 1;
-  return `QUO-${String(num).padStart(4, "0")}`;
+
+  const prefix = company?.prefix ?? "QUO";
+  const start = company?.startNumber ?? 1;
+  const num = (result?.count ?? 0) + start;
+  return `${prefix}-${String(num).padStart(4, "0")}`;
 }
 
 function calcTotals(lineItems: { quantity: number; unitPrice: number; total?: number }[], taxRate = 0.13) {
@@ -374,10 +387,17 @@ router.post("/:quoteId/convert-to-invoice", requireAuth, requireCompany, async (
   const parsed = ConvertQuoteToInvoiceBody.safeParse(req.body);
   const dueDate = parsed.success ? (parsed.data.dueDate ?? null) : null;
 
+  // Get company invoice numbering settings
+  const [invCompany] = await db
+    .select({ prefix: companiesTable.invoiceNumberPrefix, startNumber: companiesTable.invoiceStartNumber })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, req.companyId!))
+    .limit(1);
+
   const invoiceCount = await db.select({ count: count() }).from(invoicesTable)
     .where(eq(invoicesTable.companyId, req.companyId!));
-  const invoiceNum = (invoiceCount[0]?.count ?? 0) + 1;
-  const invoiceNumber = `INV-${String(invoiceNum).padStart(4, "0")}`;
+  const invoiceNum = (invoiceCount[0]?.count ?? 0) + (invCompany?.startNumber ?? 1);
+  const invoiceNumber = `${invCompany?.prefix ?? "INV"}-${String(invoiceNum).padStart(4, "0")}`;
 
   const now = new Date();
   const [invoice] = await db.insert(invoicesTable).values({

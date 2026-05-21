@@ -84,13 +84,27 @@ router.get("/companies/:companyId/settings", requireAuth, requireCompany, async 
   }
 
   const [row] = await db
-    .select({ estimatorConfig: companiesTable.estimatorConfig })
+    .select({
+      estimatorConfig: companiesTable.estimatorConfig,
+      quoteNumberPrefix: companiesTable.quoteNumberPrefix,
+      invoiceNumberPrefix: companiesTable.invoiceNumberPrefix,
+      quoteStartNumber: companiesTable.quoteStartNumber,
+      invoiceStartNumber: companiesTable.invoiceStartNumber,
+      defaultQuoteTerms: companiesTable.defaultQuoteTerms,
+      defaultInvoiceNotes: companiesTable.defaultInvoiceNotes,
+    })
     .from(companiesTable)
     .where(eq(companiesTable.id, companyId))
     .limit(1);
 
   res.json({
     estimatorConfig: (row?.estimatorConfig ?? {}) as Record<string, unknown>,
+    quoteNumberPrefix: row?.quoteNumberPrefix ?? "QUO",
+    invoiceNumberPrefix: row?.invoiceNumberPrefix ?? "INV",
+    quoteStartNumber: row?.quoteStartNumber ?? 1,
+    invoiceStartNumber: row?.invoiceStartNumber ?? 1,
+    defaultQuoteTerms: row?.defaultQuoteTerms ?? "",
+    defaultInvoiceNotes: row?.defaultInvoiceNotes ?? "",
   });
 });
 
@@ -102,7 +116,10 @@ router.patch("/companies/:companyId", requireAuth, requireCompany, async (req, r
     return;
   }
 
-  const allowed = ["name", "phone", "address", "city", "province", "website", "hstNumber", "estimatorConfig"] as const;
+  const allowed = [
+    "name", "phone", "address", "city", "province", "website", "hstNumber",
+    "estimatorConfig",
+  ] as const;
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key === "estimatorConfig" && req.body?.estimatorConfig != null) {
@@ -181,6 +198,49 @@ router.patch("/companies/:companyId/invoice-template", requireAuth, requireCompa
   const [updated] = await db
     .update(companiesTable)
     .set({ invoiceTemplatePath: templatePath })
+    .where(eq(companiesTable.id, companyId))
+    .returning();
+
+  res.json(updated);
+});
+
+// PATCH /companies/:companyId/document-settings — update numbering + boilerplate
+router.patch("/companies/:companyId/document-settings", requireAuth, requireCompany, async (req, res) => {
+  const companyId = parseInt(req.params.companyId as string);
+  if (companyId !== req.companyId) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  const update: Record<string, unknown> = {};
+
+  if (typeof req.body?.quoteNumberPrefix === "string") {
+    update.quoteNumberPrefix = req.body.quoteNumberPrefix.trim() || "QUO";
+  }
+  if (typeof req.body?.invoiceNumberPrefix === "string") {
+    update.invoiceNumberPrefix = req.body.invoiceNumberPrefix.trim() || "INV";
+  }
+  if (typeof req.body?.quoteStartNumber === "number") {
+    update.quoteStartNumber = Math.max(1, Math.floor(req.body.quoteStartNumber));
+  }
+  if (typeof req.body?.invoiceStartNumber === "number") {
+    update.invoiceStartNumber = Math.max(1, Math.floor(req.body.invoiceStartNumber));
+  }
+  if (typeof req.body?.defaultQuoteTerms === "string") {
+    update.defaultQuoteTerms = req.body.defaultQuoteTerms.trim() || null;
+  }
+  if (typeof req.body?.defaultInvoiceNotes === "string") {
+    update.defaultInvoiceNotes = req.body.defaultInvoiceNotes.trim() || null;
+  }
+
+  if (Object.keys(update).length === 0) {
+    res.status(400).json({ error: "No updatable fields provided" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(companiesTable)
+    .set(update)
     .where(eq(companiesTable.id, companyId))
     .returning();
 

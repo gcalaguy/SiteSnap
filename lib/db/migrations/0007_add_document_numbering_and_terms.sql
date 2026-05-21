@@ -1,0 +1,7 @@
+ALTER TABLE companies
+ADD COLUMN IF NOT EXISTS quote_number_prefix TEXT DEFAULT 'QUO',
+ADD COLUMN IF NOT EXISTS invoice_number_prefix TEXT DEFAULT 'INV',
+ADD COLUMN IF NOT EXISTS quote_start_number INTEGER DEFAULT 1,
+ADD COLUMN IF NOT EXISTS invoice_start_number INTEGER DEFAULT 1,
+ADD COLUMN IF NOT EXISTS default_quote_terms TEXT,
+ADD COLUMN IF NOT EXISTS default_invoice_notes TEXT;

@@ -12,9 +12,18 @@ import { format } from "date-fns";
 const router = Router();
 
 async function getNextInvoiceNumber(companyId: number): Promise<string> {
+  const [company] = await db
+    .select({ prefix: companiesTable.invoiceNumberPrefix, startNumber: companiesTable.invoiceStartNumber })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, companyId))
+    .limit(1);
+
   const [result] = await db.select({ count: count() }).from(invoicesTable).where(eq(invoicesTable.companyId, companyId));
-  const num = (result?.count ?? 0) + 1;
-  return `INV-${String(num).padStart(4, "0")}`;
+
+  const prefix = company?.prefix ?? "INV";
+  const start = company?.startNumber ?? 1;
+  const num = (result?.count ?? 0) + start;
+  return `${prefix}-${String(num).padStart(4, "0")}`;
 }
 
 /** Build a worker visibility condition: created by me OR assigned to me */

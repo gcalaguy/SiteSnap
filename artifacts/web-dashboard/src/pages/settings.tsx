@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera } from "lucide-react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera, Hash, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -799,6 +799,151 @@ function DocumentTemplatesCard({ company }: { company: any }) {
   );
 }
 
+// ── Document Numbering & Terms Card ──────────────────────────────────────────
+
+function DocumentNumberingCard({ company }: { company: any }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const companyId = company?.id;
+
+  const { data: settings, isLoading } = useQuery<{
+    quoteNumberPrefix: string;
+    invoiceNumberPrefix: string;
+    quoteStartNumber: number;
+    invoiceStartNumber: number;
+    defaultQuoteTerms: string;
+    defaultInvoiceNotes: string;
+  }>({
+    queryKey: ["/api/companies", companyId, "settings"],
+    queryFn: () => customFetch(`/api/companies/${companyId}/settings`),
+    enabled: !!companyId,
+  });
+
+  const [quotePrefix, setQuotePrefix] = useState("");
+  const [invoicePrefix, setInvoicePrefix] = useState("");
+  const [quoteStart, setQuoteStart] = useState(1);
+  const [invoiceStart, setInvoiceStart] = useState(1);
+  const [quoteTerms, setQuoteTerms] = useState("");
+  const [invoiceNotes, setInvoiceNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (settings) {
+      setQuotePrefix(settings.quoteNumberPrefix ?? "QUO");
+      setInvoicePrefix(settings.invoiceNumberPrefix ?? "INV");
+      setQuoteStart(settings.quoteStartNumber ?? 1);
+      setInvoiceStart(settings.invoiceStartNumber ?? 1);
+      setQuoteTerms(settings.defaultQuoteTerms ?? "");
+      setInvoiceNotes(settings.defaultInvoiceNotes ?? "");
+    }
+  }, [settings]);
+
+  async function handleSave() {
+    if (!companyId) return;
+    setSaving(true);
+    try {
+      await customFetch(`/api/companies/${companyId}/document-settings`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          quoteNumberPrefix: quotePrefix.trim(),
+          invoiceNumberPrefix: invoicePrefix.trim(),
+          quoteStartNumber: Math.max(1, Number(quoteStart) || 1),
+          invoiceStartNumber: Math.max(1, Number(invoiceStart) || 1),
+          defaultQuoteTerms: quoteTerms.trim() || null,
+          defaultInvoiceNotes: invoiceNotes.trim() || null,
+        }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies", companyId, "settings"] });
+      toast({ title: "Document settings saved" });
+    } catch (e: any) {
+      toast({ title: "Failed to save settings", description: e?.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Hash className="h-5 w-5 text-primary" />
+            Document Numbering & Terms
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Hash className="h-5 w-5 text-primary" />
+          Document Numbering & Terms
+        </CardTitle>
+        <CardDescription>
+          Customize quote/invoice prefixes, starting numbers, and default boilerplate text.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Quote Prefix</Label>
+            <Input value={quotePrefix} onChange={(e) => setQuotePrefix(e.target.value)} placeholder="QUO" />
+            <p className="text-xs text-muted-foreground">e.g., QUO, ABC, 2026-Q</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Quote Start Number</Label>
+            <Input type="number" min={1} value={quoteStart} onChange={(e) => setQuoteStart(Number(e.target.value))} />
+            <p className="text-xs text-muted-foreground">First quote will be {quotePrefix || "QUO"}-{String(quoteStart).padStart(4, "0")}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Invoice Prefix</Label>
+            <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value)} placeholder="INV" />
+            <p className="text-xs text-muted-foreground">e.g., INV, 2026-INV</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Invoice Start Number</Label>
+            <Input type="number" min={1} value={invoiceStart} onChange={(e) => setInvoiceStart(Number(e.target.value))} />
+            <p className="text-xs text-muted-foreground">First invoice will be {invoicePrefix || "INV"}-{String(invoiceStart).padStart(4, "0")}</p>
+          </div>
+        </div>
+        <Separator />
+        <div className="space-y-2">
+          <Label>Default Quote Terms & Conditions</Label>
+          <textarea
+            className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={quoteTerms}
+            onChange={(e) => setQuoteTerms(e.target.value)}
+            placeholder="e.g., Payment terms: Net 30. Warranty: 1 year workmanship."
+          />
+          <p className="text-xs text-muted-foreground">Appears at the bottom of every quote PDF.</p>
+        </div>
+        <div className="space-y-2">
+          <Label>Default Invoice Notes / Terms</Label>
+          <textarea
+            className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={invoiceNotes}
+            onChange={(e) => setInvoiceNotes(e.target.value)}
+            placeholder="e.g., EFT remittance: Transit 12345 · Account 987654321. Late fees apply after 30 days."
+          />
+          <p className="text-xs text-muted-foreground">Appears in the Notes / Terms section of every invoice PDF.</p>
+        </div>
+        <Button onClick={handleSave} disabled={saving} className="gap-2">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save Document Settings
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Pricing Manager Card (collapsible) ───────────────────────────────────────
 
 function PricingManagerCard() {
@@ -1154,6 +1299,7 @@ export default function Settings() {
       {user?.role === "owner" && <MemberPermissionsCard companyId={company.id} ownerId={user.id} />}
       <CompanyLogoCard company={company} />
       <DocumentTemplatesCard company={company} />
+      {user?.role === "owner" && <DocumentNumberingCard company={company} />}
       {user?.role === "owner" && <PricingManagerCard />}
       <DigestCard />
       <QuickBooksCard />

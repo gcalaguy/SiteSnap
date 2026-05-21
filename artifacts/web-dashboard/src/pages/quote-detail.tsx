@@ -101,6 +101,7 @@ function buildQuotePdfDoc(
   logoDataUrl?: string,
   companyAddress?: string,
   companyPhone?: string,
+  defaultTerms?: string | null,
 ): jsPDF {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
   const PRIMARY: [number, number, number] = [10, 10, 10];
@@ -298,6 +299,19 @@ function buildQuotePdfDoc(
     doc.setTextColor(...DARK);
     const noteLines = doc.splitTextToSize(quote.notes, pageW - margin * 2);
     doc.text(noteLines, margin, ny + 5);
+  }
+
+  // Default Terms & Conditions
+  if (defaultTerms) {
+    const ty = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + (quote.notes ? 52 : 30);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...GRAY);
+    doc.text("Terms & Conditions:", margin, ty);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...DARK);
+    const termLines = doc.splitTextToSize(defaultTerms, pageW - margin * 2);
+    doc.text(termLines, margin, ty + 5);
   }
 
   // Signature block (renders above the footer strip if signed)
@@ -705,6 +719,7 @@ export default function QuoteDetail() {
               logoDataUrl,
               companyAddress,
               companyPhone,
+              (me as any)?.company?.defaultQuoteTerms,
             ).save(`${quote.quoteNumber}.pdf`);
             toast({ title: "PDF downloaded" });
           }}>

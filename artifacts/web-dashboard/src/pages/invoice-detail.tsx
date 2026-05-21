@@ -120,7 +120,7 @@ function calcTotals(items: LineItem[], taxRate = 0.13) {
 }
 
 // Shared PDF builder
-function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: string, templateDataUrl?: string, logoDataUrl?: string): jsPDF {
+function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: string, templateDataUrl?: string, logoDataUrl?: string, defaultNotes?: string | null): jsPDF {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
 
   const PRIMARY: [number, number, number] = [212, 175, 55];
@@ -297,6 +297,20 @@ function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: strin
     doc.setTextColor(...DARK);
     const lines = doc.splitTextToSize(invoice.notes, pageW - margin * 2);
     doc.text(lines, margin, y);
+    y += (lines as string[]).length * 5 + 4;
+  }
+
+  if (defaultNotes) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY);
+    doc.text("TERMS & CONDITIONS", margin, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...DARK);
+    const termLines = doc.splitTextToSize(defaultNotes, pageW - margin * 2);
+    doc.text(termLines, margin, y);
   }
 
   if (invoice.status === "paid" && invoice.paidAt) {
@@ -331,20 +345,20 @@ function buildPdfDoc(invoice: Invoice, lineItems: LineItem[], companyName: strin
   return doc;
 }
 
-async function downloadInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName: string, templatePath?: string, logoPath?: string) {
+async function downloadInvoicePDF(invoice: Invoice, lineItems: LineItem[], companyName: string, templatePath?: string, logoPath?: string, defaultNotes?: string | null) {
   const [templateDataUrl, logoDataUrl] = await Promise.all([
     loadTemplateDataUrl(templatePath),
     loadTemplateDataUrl(logoPath),
   ]);
-  buildPdfDoc(invoice, lineItems, companyName, templateDataUrl, logoDataUrl).save(`${invoice.invoiceNumber}.pdf`);
+  buildPdfDoc(invoice, lineItems, companyName, templateDataUrl, logoDataUrl, defaultNotes).save(`${invoice.invoiceNumber}.pdf`);
 }
 
-async function buildPdfBase64(invoice: Invoice, lineItems: LineItem[], companyName: string, templatePath?: string, logoPath?: string): Promise<string> {
+async function buildPdfBase64(invoice: Invoice, lineItems: LineItem[], companyName: string, templatePath?: string, logoPath?: string, defaultNotes?: string | null): Promise<string> {
   const [templateDataUrl, logoDataUrl] = await Promise.all([
     loadTemplateDataUrl(templatePath),
     loadTemplateDataUrl(logoPath),
   ]);
-  const dataUri = buildPdfDoc(invoice, lineItems, companyName, templateDataUrl, logoDataUrl).output("datauristring");
+  const dataUri = buildPdfDoc(invoice, lineItems, companyName, templateDataUrl, logoDataUrl, defaultNotes).output("datauristring");
   return dataUri.split(",")[1] ?? dataUri;
 }
 
@@ -482,7 +496,7 @@ export default function InvoiceDetail() {
 
   async function handleDownloadPDF() {
     if (!invoice) return;
-    await downloadInvoicePDF(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath(), getLogoPath());
+    await downloadInvoicePDF(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath(), getLogoPath(), (me as any)?.company?.defaultInvoiceNotes);
     toast({ title: "PDF downloaded" });
   }
 
@@ -551,7 +565,7 @@ export default function InvoiceDetail() {
       toast({ title: "No client email on this invoice", variant: "destructive" });
       return;
     }
-    const pdfBase64 = await buildPdfBase64(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath(), getLogoPath());
+    const pdfBase64 = await buildPdfBase64(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath(), getLogoPath(), (me as any)?.company?.defaultInvoiceNotes);
     sendEmail.mutate(
       { invoiceId, data: { pdfBase64 } },
       {
