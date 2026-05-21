@@ -88,7 +88,14 @@ export default function TradeHubScreen() {
   const [newContent, setNewContent] = useState("");
   const [newType, setNewType] = useState<PostType>("discussion");
 
-  const { data: posts = [], isLoading, refetch, isRefetching } = useQuery<TradePost[]>({
+  const {
+    data: posts = [],
+    isLoading,
+    refetch,
+    isRefetching,
+    error,
+    isError,
+  } = useQuery<TradePost[]>({
     queryKey: ["tradehub-feed-mobile", activeType],
     queryFn: () =>
       customFetch<TradePost[]>(
@@ -236,6 +243,22 @@ export default function TradeHubScreen() {
         <View style={styles.loading}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
+      ) : isError ? (
+        <View style={styles.loading}>
+          <Feather name="alert-triangle" size={36} color={colors.mutedForeground} />
+          <Text style={[styles.emptyText, { color: colors.mutedForeground, marginTop: 12 }]}>
+            Could not load TradeHub
+          </Text>
+          <Text style={[styles.emptyHint, { color: colors.mutedForeground }]}>
+            {error instanceof Error ? error.message : "Something went wrong"}
+          </Text>
+          <TouchableOpacity
+            onPress={() => refetch()}
+            style={[styles.retryBtn, { backgroundColor: colors.primary }]}
+          >
+            <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={posts}
@@ -360,6 +383,12 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 5 },
   actionCount: { fontSize: 13, fontFamily: "Inter_500Medium" },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
   empty: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
   emptyText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   emptyHint: { fontSize: 13, fontFamily: "Inter_400Regular" },

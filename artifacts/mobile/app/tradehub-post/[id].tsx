@@ -109,7 +109,7 @@ export default function TradeHubPostScreen() {
   const [showApply, setShowApply] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
-  const { data: post, isLoading } = useQuery<TradePost>({
+  const { data: post, isLoading, error, isError, refetch } = useQuery<TradePost>({
     queryKey: ["tradehub-post", id],
     queryFn: () => customFetch<TradePost>(`/api/tradehub/posts/${id}`),
     enabled: !!id,
@@ -199,6 +199,22 @@ export default function TradeHubPostScreen() {
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      ) : isError ? (
+        <View style={styles.center}>
+          <Feather name="alert-triangle" size={36} color={colors.mutedForeground} />
+          <Text style={[styles.emptyText, { color: colors.mutedForeground, marginTop: 12 }]}>
+            Could not load post
+          </Text>
+          <Text style={[styles.emptyHint, { color: colors.mutedForeground }]}>
+            {error instanceof Error ? error.message : "Something went wrong"}
+          </Text>
+          <TouchableOpacity
+            onPress={() => refetch()}
+            style={[styles.retryBtn, { backgroundColor: colors.primary }]}
+          >
+            <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : !post ? (
         <View style={styles.center}>
@@ -523,4 +539,11 @@ const styles = StyleSheet.create({
   },
   modalSubmitBtn: { borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
   modalSubmitText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" },
+  emptyHint: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 4 },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
 });

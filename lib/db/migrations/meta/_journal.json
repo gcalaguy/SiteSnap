@@ -22,6 +22,69 @@
       "when": 1747094400000,
       "tag": "0002_scans_add_thumbnail_path",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778764755,
+      "tag": "0003_add_processing_ocr",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779278466,
+      "tag": "0004_add_estimator_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779206756,
+      "tag": "0005_add_permissions_to_user_memberships",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779215102,
+      "tag": "0006_cost_models_add_company_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779364969,
+      "tag": "0007_add_document_numbering_and_terms",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779372963,
+      "tag": "0008_change_orders_signature",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779373834,
+      "tag": "0009_contact_compliance",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779374009,
+      "tag": "0010_worker_schedules_contact",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1779374451,
+      "tag": "0011_tradehub_compliance_and_job_postings",
+      "breakpoints": true
     }
   ]
 }
