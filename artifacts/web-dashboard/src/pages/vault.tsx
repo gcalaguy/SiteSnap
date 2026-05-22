@@ -1,6 +1,12 @@
 import { useState } from "react";
-import { customFetch, useGetMe } from "@workspace/api-client-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetMe,
+  useListAllWorkerDocuments,
+  useDeleteWorkerDocument,
+  getListAllWorkerDocumentsQueryKey,
+  type WorkerDocumentEnriched,
+} from "@workspace/api-client-react";
 import {
   ShieldCheck,
   Search,
@@ -22,22 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-interface WorkerDoc {
-  id: number;
-  workerId: number;
-  workerName?: string;
-  workerEmail?: string | null;
-  companyId: number;
-  documentType: string;
-  fileUrl: string;
-  filePath: string | null;
-  expirationDate: string | null;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-function formatDate(dateStr: string | null): string {
+function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
   const d = new Date(dateStr);
   return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-CA");
@@ -47,10 +38,10 @@ interface WorkerGroup {
   workerId: number;
   workerName: string;
   workerEmail: string;
-  docs: WorkerDoc[];
+  docs: WorkerDocumentEnriched[];
 }
 
-function groupByWorker(docs: WorkerDoc[]): WorkerGroup[] {
+function groupByWorker(docs: WorkerDocumentEnriched[]): WorkerGroup[] {
   const map = new Map<number, WorkerGroup>();
   for (const d of docs) {
     const existing = map.get(d.workerId);
@@ -73,12 +64,19 @@ export default function WorkerDocumentsPage() {
   const { data: user } = useGetMe();
   const [search, setSearch] = useState("");
   const [expandedWorkerId, setExpandedWorkerId] = useState<number | null>(null);
-  const [selectedDoc, setSelectedDoc] = useState<WorkerDoc | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<WorkerDocumentEnriched | null>(null);
 
-  const { data: docs = [], isLoading, error, refetch } = useQuery<WorkerDoc[]>({
-    queryKey: ["worker-documents"],
-    queryFn: () => customFetch<WorkerDoc[]>("/api/tenant/vault/all-documents"),
-    enabled: user != null,
+  const { data: docs = [], isLoading, error } = useListAllWorkerDocuments({
+    query: { enabled: user != null, queryKey: getListAllWorkerDocumentsQueryKey() },
+  });
+
+  const deleteDocument = useDeleteWorkerDocument({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAllWorkerDocumentsQueryKey() });
+        setSelectedDoc(null);
+      },
+    },
   });
 
   const groups = groupByWorker(docs);
@@ -90,10 +88,9 @@ export default function WorkerDocumentsPage() {
     return matchesWorker || matchesDoc;
   });
 
-  async function handleDelete(id: number) {
+  function handleDelete(id: number) {
     if (!confirm("Delete this document permanently?")) return;
-    await customFetch(`/api/worker/vault/documents/${id}`, { method: "DELETE" });
-    queryClient.invalidateQueries({ queryKey: ["worker-documents"] });
+    deleteDocument.mutate({ id });
   }
 
   if (isLoading) {
@@ -112,9 +109,6 @@ export default function WorkerDocumentsPage() {
       <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: "#F8F8F8" }}>
         <ShieldCheck className="w-12 h-12 text-red-400 mb-3" />
         <p className="text-sm text-red-500">Failed to load worker documents</p>
-        <Button onClick={() => refetch()} className="mt-4 bg-[#C9A84C] text-white" size="sm">
-          <RefreshCw className="w-4 h-4 mr-2" /> Retry
-        </Button>
       </div>
     );
   }

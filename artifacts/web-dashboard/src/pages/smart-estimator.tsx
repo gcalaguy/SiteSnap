@@ -1,6 +1,14 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import {
+  customFetch,
+  useListProjects,
+  useListCostModels,
+  useCreateCostModel,
+  useUpdateCostModel,
+  useDeleteCostModel,
+  getListCostModelsQueryKey,
+} from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -116,8 +124,8 @@ type SavedEstimate = {
   scanProjectName: string | null;
 };
 
-type AddonModel = { id: number; addonKey: string; name: string; description: string | null; costType: string; amount: string; applicableTypes: string | null };
-type CostModel = { id: number; projectType: string; finishLevel: string; name: string; baseCostPerSqft: string; laborCostPerSqft: string; materialCostPerSqft: string; overheadPct: string; contingencyPct: string; notes: string | null };
+type AddonModel = { id: number; addonKey: string; name: string; description?: string | null; costType: string; amount: string; applicableTypes?: string | null };
+type CostModel = { id: number; projectType: string; finishLevel: string; name: string; baseCostPerSqft: string; laborCostPerSqft: string; materialCostPerSqft: string; overheadPct: string; contingencyPct: string; notes?: string | null };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -513,16 +521,10 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   // Data
-  const { data: projectsList = [] } = useQuery<{ id: number; name: string }[]>({
-    queryKey: ["projects-list"],
-    queryFn: () => customFetch("/api/projects"),
-    select: (data) => data.map((p: { id: number; name: string }) => ({ id: p.id, name: p.name })),
-  });
+  const { data: rawProjects = [] } = useListProjects();
+  const projectsList = rawProjects.map((p) => ({ id: p.id, name: p.name }));
 
-  const { data: modelsData } = useQuery<{ models: CostModel[]; addons: AddonModel[]; projectTypes: Record<string, string> }>({
-    queryKey: ["estimator-cost-models"],
-    queryFn: () => customFetch("/api/estimator/cost-models"),
-  });
+  const { data: modelsData } = useListCostModels();
   const PROJECT_TYPE_LABELS = modelsData?.projectTypes ?? {
     residential_new_build:  "Residential New Build",
     commercial_new_build:   "Commercial New Build",
@@ -549,37 +551,37 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
   });
 
   // Pricing DB CRUD mutations
-  const createModelMutation = useMutation({
-    mutationFn: (body: typeof BLANK_MODEL_FORM) =>
-      customFetch("/api/estimator/cost-models", { method: "POST", body: JSON.stringify(body) }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["estimator-cost-models"] });
-      setShowModelDialog(false);
-      toast({ title: "Cost model added" });
+  const { mutate: createCostModelMutate, isPending: createCostModelPending } = useCreateCostModel({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+        setShowModelDialog(false);
+        toast({ title: "Cost model added" });
+      },
+      onError: (err) => handleError(err, "Failed to add cost model"),
     },
-    onError: (err) => handleError(err, "Failed to add cost model"),
   });
 
-  const updateModelMutation = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: Partial<typeof BLANK_MODEL_FORM> }) =>
-      customFetch(`/api/estimator/cost-models/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["estimator-cost-models"] });
-      setShowModelDialog(false);
-      toast({ title: "Cost model updated" });
+  const { mutate: updateCostModelMutate, isPending: updateCostModelPending } = useUpdateCostModel({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+        setShowModelDialog(false);
+        toast({ title: "Cost model updated" });
+      },
+      onError: (err) => handleError(err, "Failed to update cost model"),
     },
-    onError: (err) => handleError(err, "Failed to update cost model"),
   });
 
-  const deleteModelMutation = useMutation({
-    mutationFn: (id: number) =>
-      customFetch(`/api/estimator/cost-models/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["estimator-cost-models"] });
-      setDeleteConfirmId(null);
-      toast({ title: "Cost model deleted" });
+  const { mutate: deleteCostModelMutate, isPending: deleteCostModelPending } = useDeleteCostModel({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCostModelsQueryKey() });
+        setDeleteConfirmId(null);
+        toast({ title: "Cost model deleted" });
+      },
+      onError: (err) => handleError(err, "Failed to delete cost model"),
     },
-    onError: (err) => handleError(err, "Failed to delete cost model"),
   });
 
   function openAddDialog() {
@@ -606,13 +608,13 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
 
   function handleSaveModel() {
     if (editingModelId !== null) {
-      updateModelMutation.mutate({ id: editingModelId, body: modelForm });
+      updateCostModelMutate({ id: editingModelId, data: modelForm });
     } else {
-      createModelMutation.mutate(modelForm);
+      createCostModelMutate({ data: modelForm });
     }
   }
 
-  const modelMutating = createModelMutation.isPending || updateModelMutation.isPending;
+  const modelMutating = createCostModelPending || updateCostModelPending;
 
   // Mutations
   const parseMutation = useMutation({
@@ -975,10 +977,10 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
             <Button
               variant="destructive"
-              onClick={() => deleteConfirmId !== null && deleteModelMutation.mutate(deleteConfirmId)}
-              disabled={deleteModelMutation.isPending}
+              onClick={() => deleteConfirmId !== null && deleteCostModelMutate({ id: deleteConfirmId })}
+              disabled={deleteCostModelPending}
             >
-              {deleteModelMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+              {deleteCostModelPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

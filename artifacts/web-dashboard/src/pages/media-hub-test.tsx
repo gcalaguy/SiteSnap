@@ -1,9 +1,8 @@
 import { useState, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   useMediaHubPresignedUrl,
   useMediaHubSavePhoto,
-  customFetch,
+  useListProjects,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -31,12 +30,8 @@ export default function MediaHubTestPage() {
     | null
   >(null);
 
-  const { data: projects = [] } = useQuery<{ id: number; name: string }[]>({
-    queryKey: ["projects-list"],
-    queryFn: () => customFetch("/api/projects"),
-    select: (data) =>
-      (data as any[]).map((p: any) => ({ id: p.id, name: p.name })),
-  });
+  const { data: rawProjects = [] } = useListProjects();
+  const projects = rawProjects.map((p) => ({ id: p.id, name: p.name }));
 
   const presigned = useMediaHubPresignedUrl();
   const savePhoto = useMediaHubSavePhoto();

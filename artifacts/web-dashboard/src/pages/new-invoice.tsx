@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
-import { useCreateInvoice, customFetch } from "@workspace/api-client-react";
+import { useCreateInvoice, useListChangeOrders } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,10 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, Loader2, ClipboardList, CheckCircle2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListAllInvoicesQueryKey } from "@workspace/api-client-react";
-
-async function apiFetch(path: string, opts?: RequestInit) {
-  return customFetch(`/api${path}`, opts);
-}
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -50,22 +46,10 @@ export default function NewInvoice() {
     { description: "", quantity: 1, unit: "ea", unitPrice: 0, total: 0 },
   ]);
 
-  // Approved change orders import
-  const [approvedCOs, setApprovedCOs] = useState<Array<{ id: number; title: string; amount: string; projectId: number; description?: string | null }>>([]);
-  const [coLoading, setCoLoading] = useState(false);
   const [selectedCOIds, setSelectedCOIds] = useState<Set<number>>(new Set());
 
-  const loadApprovedCOs = useCallback(async () => {
-    setCoLoading(true);
-    try {
-      const data = await apiFetch("/change-orders") as any[];
-      const approved = (data ?? []).filter((co: any) => co.status === "approved");
-      setApprovedCOs(approved.map((co: any) => ({ id: co.id, title: co.title, amount: co.amount, projectId: co.projectId, description: co.description })));
-    } catch { /* ignore */ }
-    finally { setCoLoading(false); }
-  }, []);
-
-  useEffect(() => { loadApprovedCOs(); }, [loadApprovedCOs]);
+  const { data: changeOrders = [] } = useListChangeOrders();
+  const approvedCOs = changeOrders.filter((co) => co.status === "approved");
 
   function toggleCO(id: number) {
     setSelectedCOIds((prev) => {
