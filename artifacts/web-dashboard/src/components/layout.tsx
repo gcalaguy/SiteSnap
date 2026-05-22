@@ -175,7 +175,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen w-full" style={{ background: "#F8F8F8" }}>
       {/* Black & Gold Sidebar */}
       <div
-        className="hidden md:flex flex-col h-screen sticky top-0 overflow-hidden flex-shrink-0"
+        className="hidden md:flex flex-col h-screen sticky top-0 overflow-hidden flex-shrink-0 gap-[0px] ml-[0px] mr-[0px] mt-[0px] mb-[0px] pl-[0px] pr-[0px] pt-[0px] pb-[0px]"
         style={{
           width: 260,
           background: BLACK,

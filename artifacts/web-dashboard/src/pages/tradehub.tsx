@@ -80,14 +80,14 @@ function FeedPostCard({ post, onReact }: { post: Post; onReact: (id: number) => 
   return (
     <div className="bg-card border border-border/60 rounded-xl overflow-hidden hover:border-border hover:shadow-md transition-all group"
       style={{ borderLeft: `3px solid ${tc.accent}` }}>
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-3">
+      <div className="p-5 border-t-[#121010] border-r-[#121010] border-b-[#121010] border-l-[#121010]">
+        <div className="flex items-center justify-between mb-3 opacity-[1] border-t-[#0f0f0f] border-r-[#0f0f0f] border-b-[#0f0f0f] border-l-[#0f0f0f] rounded-tl-[0px] rounded-tr-[0px] rounded-br-[0px] rounded-bl-[0px] border-t-[1px] border-r-[1px] border-b-[1px] border-l-[1px]">
           <Link href={`/tradehub/profile/${post.userId}`}>
             <div className="flex items-center gap-2.5 cursor-pointer">
               <Avatar profile={post.profile} author={post.author} size={9} />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-semibold text-foreground hover:underline leading-tight">{displayName}</span>
+                  <span className="text-sm font-semibold text-foreground hover:underline leading-tight ml-[20px] mr-[20px]">{displayName}</span>
                   {post.profile?.isVerified && <BadgeCheck className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "#3b82f6" }} />}
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -106,7 +106,7 @@ function FeedPostCard({ post, onReact }: { post: Post; onReact: (id: number) => 
         <Link href={`/tradehub/posts/${post.id}`}>
           <div className="cursor-pointer mb-3">
             <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors mb-1 leading-snug">{post.title}</h3>
-            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{post.content}</p>
+            <p className="text-sm line-clamp-2 leading-relaxed text-[#004fff]">{post.content}</p>
           </div>
         </Link>
         {post.type === "job" && (post.budget || post.jobType) && (
@@ -579,7 +579,7 @@ export default function TradehubPage() {
   const hasTenderFilters = tenderTrade !== "all" || tenderProvince !== "all";
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-6 ml-[0px] mr-[0px] mt-[0px] mb-[0px] pl-[0px] pr-[0px] pt-[24px] pb-[24px]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -608,7 +608,6 @@ export default function TradehubPage() {
           </Button>
         </div>
       </div>
-
       {/* 3-Way Tabs */}
       <div className="flex items-center gap-1 rounded-lg p-1" style={{ background: BLACK }}>
         {tabs.map((tab) => {
@@ -623,10 +622,9 @@ export default function TradehubPage() {
           );
         })}
       </div>
-
       <div className="grid lg:grid-cols-4 gap-6">
         {/* Sidebar */}
-        <aside className="lg:col-span-1 space-y-3">
+        <aside className="lg:col-span-1 space-y-3 text-left ml-[0px] mr-[0px] mt-[11px] mb-[11px] pl-[0px] pr-[0px] pt-[0px] pb-[0px]">
           <div className="rounded-xl p-4" style={{ background: BLACK }}>
             {myProfile ? (
               <Link href="/tradehub/profile/me">
@@ -835,7 +833,6 @@ export default function TradehubPage() {
           )}
         </div>
       </div>
-
       <CreatePostModal open={showCreate} onClose={() => setShowCreate(false)} />
       <CreateTenderModal open={showTenderCreate} onClose={() => setShowTenderCreate(false)} />
     </div>
