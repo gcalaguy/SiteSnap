@@ -17,6 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { ReviewSummaryCard } from "@/components/tradehub/ReviewSummaryCard";
+import { ReviewFeedList } from "@/components/tradehub/ReviewFeedList";
+import { ReviewFormModal } from "@/components/tradehub/ReviewFormModal";
 
 const TRADES = ["Electrician","Plumber","HVAC","General Contractor","Carpenter","Welder","Roofer","Painter","Mason","Ironworker","Concrete","Landscaping","Other"];
 const PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
@@ -56,6 +59,53 @@ export default function TradehubProfilePage() {
     queryKey: ["tradehub-notifications"],
     queryFn: () => customFetch("/api/tradehub/notifications"),
     enabled: isMe,
+  });
+
+  const [showReviewModal, setShowReviewModal] = useState(false);
+
+  // Reviews data
+  const targetUserId = isMe ? me?.id : (profile?.userId ?? parseInt(userId ?? "0"));
+  const targetType = isMe ? undefined : "user_worker";
+
+  const { data: reviewSummary } = useQuery({
+    queryKey: ["trade-reviews-summary", targetType, targetUserId],
+    queryFn: () =>
+      customFetch<{ average: number; total: number; distribution: any }>(
+        `/api/reviews/summary?targetType=${targetType}&targetUserId=${targetUserId}`,
+      ),
+    enabled: !isMe && !!targetUserId,
+  });
+
+  const { data: reviewList } = useQuery({
+    queryKey: ["trade-reviews-list", targetType, targetUserId],
+    queryFn: () =>
+      customFetch<{ reviews: any[]; hasMore: boolean }>(
+        `/api/reviews/list?targetType=${targetType}&targetUserId=${targetUserId}&page=1&limit=10`,
+      ),
+    enabled: !isMe && !!targetUserId,
+  });
+
+  const submitReviewMutation = useMutation({
+    mutationFn: ({ rating, comment }: { rating: number; comment: string }) =>
+      customFetch("/api/reviews/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetType,
+          targetUserId,
+          rating,
+          comment: comment || undefined,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trade-reviews-summary", targetType, targetUserId] });
+      queryClient.invalidateQueries({ queryKey: ["trade-reviews-list", targetType, targetUserId] });
+      setShowReviewModal(false);
+      toast({ title: "Review submitted!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to submit review", variant: "destructive" });
+    },
   });
 
   const markReadMutation = useMutation({
@@ -199,6 +249,17 @@ export default function TradehubProfilePage() {
             </CardContent>
           </Card>
 
+          {/* Reviews Summary (others' profiles) */}
+          {!isMe && reviewSummary && (
+            <ReviewSummaryCard
+              average={reviewSummary.average}
+              total={reviewSummary.total}
+              distribution={reviewSummary.distribution}
+              onWriteReview={() => setShowReviewModal(true)}
+              canWriteReview={!!me && me.id !== targetUserId}
+            />
+          )}
+
           <Card>
             <CardContent className="p-2 space-y-1">
               {[
@@ -313,6 +374,21 @@ export default function TradehubProfilePage() {
             </Card>
           )}
 
+          {/* Reviews Feed (others' profiles) */}
+          {!isMe && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Reviews</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ReviewFeedList
+                  reviews={reviewList?.reviews ?? []}
+                  hasMore={reviewList?.hasMore}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {/* Empty state */}
           {isMe && !editing && (
             <Card className="border-dashed">
@@ -330,6 +406,17 @@ export default function TradehubProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Review Form Modal */}
+      {!isMe && (
+        <ReviewFormModal
+          open={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          onSubmit={(rating, comment) => submitReviewMutation.mutate({ rating, comment })}
+          isSubmitting={submitReviewMutation.isPending}
+          targetName={displayData.displayName ?? "this profile"}
+        />
+      )}
     </div>
   );
 }

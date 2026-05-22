@@ -92,6 +92,7 @@ import type {
   FormTemplateRecord,
   GetFormSubmission200,
   GetScanThumbnailUrl200,
+  GetTradeReviewSummaryParams,
   GoogleCalendarEventResponse,
   HealthStatus,
   ImportItemBody,
@@ -111,6 +112,7 @@ import type {
   ListScansParams,
   ListSitePhotosParams,
   ListTimesheetsParams,
+  ListTradeReviewsParams,
   MarkAllNotificationsRead200,
   MarkNotificationRead200,
   MediaHubPhoto,
@@ -150,6 +152,10 @@ import type {
   SyncUserBody,
   Task,
   Timesheet,
+  TradeReview,
+  TradeReviewListResponse,
+  TradeReviewSubmit,
+  TradeReviewSummary,
   UpdateBuilderEstimateBody,
   UpdateChangeOrderBody,
   UpdateDailyLogBody,
@@ -16026,6 +16032,289 @@ export function useListWorkerDocumentsByWorker<
     workerId,
     options,
   );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a review for a company or user
+ */
+export const getSubmitTradeReviewUrl = () => {
+  return `/api/reviews/submit`;
+};
+
+export const submitTradeReview = async (
+  tradeReviewSubmit: TradeReviewSubmit,
+  options?: RequestInit,
+): Promise<TradeReview> => {
+  return customFetch<TradeReview>(getSubmitTradeReviewUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(tradeReviewSubmit),
+  });
+};
+
+export const getSubmitTradeReviewMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitTradeReview>>,
+    TError,
+    { data: BodyType<TradeReviewSubmit> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitTradeReview>>,
+  TError,
+  { data: BodyType<TradeReviewSubmit> },
+  TContext
+> => {
+  const mutationKey = ["submitTradeReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitTradeReview>>,
+    { data: BodyType<TradeReviewSubmit> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitTradeReview(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitTradeReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitTradeReview>>
+>;
+export type SubmitTradeReviewMutationBody = BodyType<TradeReviewSubmit>;
+export type SubmitTradeReviewMutationError = ErrorType<void>;
+
+/**
+ * @summary Submit a review for a company or user
+ */
+export const useSubmitTradeReview = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitTradeReview>>,
+    TError,
+    { data: BodyType<TradeReviewSubmit> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitTradeReview>>,
+  TError,
+  { data: BodyType<TradeReviewSubmit> },
+  TContext
+> => {
+  return useMutation(getSubmitTradeReviewMutationOptions(options));
+};
+
+/**
+ * @summary Get aggregate rating summary for a target
+ */
+export const getGetTradeReviewSummaryUrl = (
+  params: GetTradeReviewSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/reviews/summary?${stringifiedParams}`
+    : `/api/reviews/summary`;
+};
+
+export const getTradeReviewSummary = async (
+  params: GetTradeReviewSummaryParams,
+  options?: RequestInit,
+): Promise<TradeReviewSummary> => {
+  return customFetch<TradeReviewSummary>(getGetTradeReviewSummaryUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTradeReviewSummaryQueryKey = (
+  params?: GetTradeReviewSummaryParams,
+) => {
+  return [`/api/reviews/summary`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetTradeReviewSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTradeReviewSummary>>,
+  TError = ErrorType<void>,
+>(
+  params: GetTradeReviewSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTradeReviewSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTradeReviewSummaryQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTradeReviewSummary>>
+  > = ({ signal }) =>
+    getTradeReviewSummary(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTradeReviewSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTradeReviewSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTradeReviewSummary>>
+>;
+export type GetTradeReviewSummaryQueryError = ErrorType<void>;
+
+/**
+ * @summary Get aggregate rating summary for a target
+ */
+
+export function useGetTradeReviewSummary<
+  TData = Awaited<ReturnType<typeof getTradeReviewSummary>>,
+  TError = ErrorType<void>,
+>(
+  params: GetTradeReviewSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTradeReviewSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTradeReviewSummaryQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List paginated reviews for a target
+ */
+export const getListTradeReviewsUrl = (params: ListTradeReviewsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/reviews/list?${stringifiedParams}`
+    : `/api/reviews/list`;
+};
+
+export const listTradeReviews = async (
+  params: ListTradeReviewsParams,
+  options?: RequestInit,
+): Promise<TradeReviewListResponse> => {
+  return customFetch<TradeReviewListResponse>(getListTradeReviewsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTradeReviewsQueryKey = (
+  params?: ListTradeReviewsParams,
+) => {
+  return [`/api/reviews/list`, ...(params ? [params] : [])] as const;
+};
+
+export const getListTradeReviewsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTradeReviews>>,
+  TError = ErrorType<void>,
+>(
+  params: ListTradeReviewsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTradeReviews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTradeReviewsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTradeReviews>>
+  > = ({ signal }) => listTradeReviews(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTradeReviews>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTradeReviewsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTradeReviews>>
+>;
+export type ListTradeReviewsQueryError = ErrorType<void>;
+
+/**
+ * @summary List paginated reviews for a target
+ */
+
+export function useListTradeReviews<
+  TData = Awaited<ReturnType<typeof listTradeReviews>>,
+  TError = ErrorType<void>,
+>(
+  params: ListTradeReviewsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTradeReviews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTradeReviewsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

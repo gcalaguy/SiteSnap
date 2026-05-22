@@ -62,6 +62,8 @@ tags:
     description: Field logs, site photos, and safety signoffs
   - name: worker-vault
     description: Worker compliance documents and certificate vault
+  - name: trade-reviews
+    description: 5-star review and feedback rating system for TradeHub
 
 paths:
   # ── Forms ────────────────────────────────────────────────────────────────────
@@ -3765,6 +3767,106 @@ paths:
         "500":
           description: Server error
 
+  # ── Trade Reviews ─────────────────────────────────────────────────────────
+  /reviews/submit:
+    post:
+      operationId: submitTradeReview
+      tags: [trade-reviews]
+      summary: Submit a review for a company or user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TradeReviewSubmit"
+      responses:
+        "201":
+          description: Review created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeReview"
+        "400":
+          description: Invalid data or self-review
+        "409":
+          description: Already reviewed this target
+        "500":
+          description: Server error
+
+  /reviews/summary:
+    get:
+      operationId: getTradeReviewSummary
+      tags: [trade-reviews]
+      summary: Get aggregate rating summary for a target
+      parameters:
+        - in: query
+          name: targetType
+          required: true
+          schema:
+            type: string
+            enum: [company, user_owner, user_foreman, user_worker]
+        - in: query
+          name: targetCompanyId
+          schema:
+            type: integer
+        - in: query
+          name: targetUserId
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Summary with average, total, and distribution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeReviewSummary"
+        "400":
+          description: Invalid query
+        "500":
+          description: Server error
+
+  /reviews/list:
+    get:
+      operationId: listTradeReviews
+      tags: [trade-reviews]
+      summary: List paginated reviews for a target
+      parameters:
+        - in: query
+          name: targetType
+          required: true
+          schema:
+            type: string
+            enum: [company, user_owner, user_foreman, user_worker]
+        - in: query
+          name: targetCompanyId
+          schema:
+            type: integer
+        - in: query
+          name: targetUserId
+          schema:
+            type: integer
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Paginated list of reviews with reviewer names
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeReviewListResponse"
+        "400":
+          description: Invalid query
+        "500":
+          description: Server error
+
 components:
   parameters:
     companyId:
@@ -6665,3 +6767,91 @@ components:
         expirationDate:
           type: string
           nullable: true
+
+    TradeReview:
+      type: object
+      required: [id, reviewerId, targetType, rating, createdAt]
+      properties:
+        id:
+          type: integer
+        reviewerId:
+          type: integer
+        targetType:
+          type: string
+          enum: [company, user_owner, user_foreman, user_worker]
+        targetCompanyId:
+          type: integer
+          nullable: true
+        targetUserId:
+          type: integer
+          nullable: true
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        reviewerName:
+          type: string
+
+    TradeReviewSubmit:
+      type: object
+      required: [targetType, rating]
+      properties:
+        targetType:
+          type: string
+          enum: [company, user_owner, user_foreman, user_worker]
+        targetCompanyId:
+          type: integer
+        targetUserId:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 2000
+
+    TradeReviewSummary:
+      type: object
+      required: [average, total, distribution]
+      properties:
+        average:
+          type: number
+          format: float
+        total:
+          type: integer
+        distribution:
+          type: object
+          required: ["1", "2", "3", "4", "5"]
+          properties:
+            "1":
+              type: integer
+            "2":
+              type: integer
+            "3":
+              type: integer
+            "4":
+              type: integer
+            "5":
+              type: integer
+
+    TradeReviewListResponse:
+      type: object
+      required: [reviews, page, limit, hasMore]
+      properties:
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeReview"
+        page:
+          type: integer
+        limit:
+          type: integer
+        hasMore:
+          type: boolean

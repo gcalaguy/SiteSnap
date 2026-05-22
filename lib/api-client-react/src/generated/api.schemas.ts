@@ -1841,6 +1841,76 @@ export interface WorkerDocumentUpload {
   expirationDate?: string | null;
 }
 
+export type TradeReviewTargetType =
+  (typeof TradeReviewTargetType)[keyof typeof TradeReviewTargetType];
+
+export const TradeReviewTargetType = {
+  company: "company",
+  user_owner: "user_owner",
+  user_foreman: "user_foreman",
+  user_worker: "user_worker",
+} as const;
+
+export interface TradeReview {
+  id: number;
+  reviewerId: number;
+  targetType: TradeReviewTargetType;
+  targetCompanyId?: number | null;
+  targetUserId?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating: number;
+  comment?: string | null;
+  createdAt: string;
+  reviewerName?: string;
+}
+
+export type TradeReviewSubmitTargetType =
+  (typeof TradeReviewSubmitTargetType)[keyof typeof TradeReviewSubmitTargetType];
+
+export const TradeReviewSubmitTargetType = {
+  company: "company",
+  user_owner: "user_owner",
+  user_foreman: "user_foreman",
+  user_worker: "user_worker",
+} as const;
+
+export interface TradeReviewSubmit {
+  targetType: TradeReviewSubmitTargetType;
+  targetCompanyId?: number;
+  targetUserId?: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating: number;
+  /** @maxLength 2000 */
+  comment?: string;
+}
+
+export type TradeReviewSummaryDistribution = {
+  "1": number;
+  "2": number;
+  "3": number;
+  "4": number;
+  "5": number;
+};
+
+export interface TradeReviewSummary {
+  average: number;
+  total: number;
+  distribution: TradeReviewSummaryDistribution;
+}
+
+export interface TradeReviewListResponse {
+  reviews: TradeReview[];
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 export type ListFormSubmissionsParams = {
   status?: string;
   projectId?: number;
@@ -2014,3 +2084,37 @@ export type ListSafetySignoffsParams = {
 export type DeleteWorkerDocument200 = {
   success?: boolean;
 };
+
+export type GetTradeReviewSummaryParams = {
+  targetType: GetTradeReviewSummaryTargetType;
+  targetCompanyId?: number;
+  targetUserId?: number;
+};
+
+export type GetTradeReviewSummaryTargetType =
+  (typeof GetTradeReviewSummaryTargetType)[keyof typeof GetTradeReviewSummaryTargetType];
+
+export const GetTradeReviewSummaryTargetType = {
+  company: "company",
+  user_owner: "user_owner",
+  user_foreman: "user_foreman",
+  user_worker: "user_worker",
+} as const;
+
+export type ListTradeReviewsParams = {
+  targetType: ListTradeReviewsTargetType;
+  targetCompanyId?: number;
+  targetUserId?: number;
+  page?: number;
+  limit?: number;
+};
+
+export type ListTradeReviewsTargetType =
+  (typeof ListTradeReviewsTargetType)[keyof typeof ListTradeReviewsTargetType];
+
+export const ListTradeReviewsTargetType = {
+  company: "company",
+  user_owner: "user_owner",
+  user_foreman: "user_foreman",
+  user_worker: "user_worker",
+} as const;

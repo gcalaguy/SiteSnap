@@ -49,6 +49,7 @@ import fieldAutomationRouter from "./fieldAutomation";
 import productivityIntegrationsRouter from "./integrations/productivity";
 import mediaHubRouter from "./mediaHub";
 import workerVaultRouter from "./workerVault";
+import tradeReviewsRouter from "./tradeReviews";
 
 const router: IRouter = Router();
 
@@ -104,5 +105,6 @@ router.use(fieldAutomationRouter);
 router.use(productivityIntegrationsRouter);
 router.use(mediaHubRouter);
 router.use(workerVaultRouter);
+router.use(tradeReviewsRouter);
 
 export default router;

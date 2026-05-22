@@ -92,6 +92,13 @@
       "when": 1779482000,
       "tag": "0012_worker_vault",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1779540000,
+      "tag": "0013_trade_reviews",
+      "breakpoints": true
     }
   ]
 }

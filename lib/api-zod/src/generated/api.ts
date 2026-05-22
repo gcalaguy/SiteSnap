@@ -4802,3 +4802,97 @@ export const ListWorkerDocumentsByWorkerResponseItem = zod.object({
 export const ListWorkerDocumentsByWorkerResponse = zod.array(
   ListWorkerDocumentsByWorkerResponseItem,
 );
+
+/**
+ * @summary Submit a review for a company or user
+ */
+export const submitTradeReviewBodyRatingMax = 5;
+
+export const submitTradeReviewBodyCommentMax = 2000;
+
+export const SubmitTradeReviewBody = zod.object({
+  targetType: zod.enum([
+    "company",
+    "user_owner",
+    "user_foreman",
+    "user_worker",
+  ]),
+  targetCompanyId: zod.number().optional(),
+  targetUserId: zod.number().optional(),
+  rating: zod.number().min(1).max(submitTradeReviewBodyRatingMax),
+  comment: zod.string().max(submitTradeReviewBodyCommentMax).optional(),
+});
+
+/**
+ * @summary Get aggregate rating summary for a target
+ */
+export const GetTradeReviewSummaryQueryParams = zod.object({
+  targetType: zod.enum([
+    "company",
+    "user_owner",
+    "user_foreman",
+    "user_worker",
+  ]),
+  targetCompanyId: zod.coerce.number().optional(),
+  targetUserId: zod.coerce.number().optional(),
+});
+
+export const GetTradeReviewSummaryResponse = zod.object({
+  average: zod.number(),
+  total: zod.number(),
+  distribution: zod.object({
+    "1": zod.number(),
+    "2": zod.number(),
+    "3": zod.number(),
+    "4": zod.number(),
+    "5": zod.number(),
+  }),
+});
+
+/**
+ * @summary List paginated reviews for a target
+ */
+export const listTradeReviewsQueryPageDefault = 1;
+export const listTradeReviewsQueryLimitDefault = 10;
+
+export const ListTradeReviewsQueryParams = zod.object({
+  targetType: zod.enum([
+    "company",
+    "user_owner",
+    "user_foreman",
+    "user_worker",
+  ]),
+  targetCompanyId: zod.coerce.number().optional(),
+  targetUserId: zod.coerce.number().optional(),
+  page: zod.coerce.number().default(listTradeReviewsQueryPageDefault),
+  limit: zod.coerce.number().default(listTradeReviewsQueryLimitDefault),
+});
+
+export const listTradeReviewsResponseReviewsItemRatingMax = 5;
+
+export const ListTradeReviewsResponse = zod.object({
+  reviews: zod.array(
+    zod.object({
+      id: zod.number(),
+      reviewerId: zod.number(),
+      targetType: zod.enum([
+        "company",
+        "user_owner",
+        "user_foreman",
+        "user_worker",
+      ]),
+      targetCompanyId: zod.number().nullish(),
+      targetUserId: zod.number().nullish(),
+      rating: zod
+        .number()
+        .min(1)
+        .max(listTradeReviewsResponseReviewsItemRatingMax),
+      comment: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      reviewerName: zod.string().optional(),
+    }),
+  ),
+  page: zod.number(),
+  limit: zod.number(),
+  hasMore: zod.boolean(),
+});
