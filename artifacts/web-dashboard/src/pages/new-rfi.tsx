@@ -15,6 +15,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft, Loader2, Sparkles } from "lucide-react";
+import { getAiErrorMessage } from "@/hooks/useApiError";
+
+const SUBJECT_MAX = 500;
+const DESCRIPTION_MAX = 3_000;
 
 const rfiSchema = z.object({
   subject: z.string().min(2, "Required"),
@@ -63,8 +67,8 @@ export default function NewRFI() {
           form.setValue("aiDraftResponse", data.suggestedResponse);
           toast({ title: "AI Polished RFI" });
         },
-        onError: (err: any) => {
-          toast({ title: "AI Enhancement Failed", description: err.message, variant: "destructive" });
+        onError: (err: unknown) => {
+          toast({ title: "AI Enhancement Failed", description: getAiErrorMessage(err), variant: "destructive" });
         }
       }
     );
@@ -80,8 +84,8 @@ export default function NewRFI() {
           toast({ title: "RFI created" });
           setLocation(`/projects/${projectId}`);
         },
-        onError: (err: any) => {
-          toast({ title: "Error creating RFI", description: err.message, variant: "destructive" });
+        onError: (err: unknown) => {
+          toast({ title: "Error creating RFI", description: getAiErrorMessage(err), variant: "destructive" });
         }
       }
     );
@@ -107,11 +111,44 @@ export default function NewRFI() {
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   
                   <FormField control={form.control} name="subject" render={({ field }) => (
-                    <FormItem><FormLabel>Subject</FormLabel><FormControl><Input placeholder="e.g. Dimensions of elevator shaft" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Subject</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. Dimensions of elevator shaft"
+                          {...field}
+                          maxLength={SUBJECT_MAX}
+                          onChange={(e) => field.onChange(e.target.value.slice(0, SUBJECT_MAX))}
+                        />
+                      </FormControl>
+                      {field.value.length >= SUBJECT_MAX * 0.8 && (
+                        <p className={`text-xs text-right tabular-nums ${field.value.length >= SUBJECT_MAX ? "text-destructive font-medium" : "text-amber-500"}`}>
+                          {field.value.length}/{SUBJECT_MAX}
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
                   )} />
 
                   <FormField control={form.control} name="description" render={({ field }) => (
-                    <FormItem><FormLabel>Description / Question</FormLabel><FormControl><Textarea className="min-h-[150px]" placeholder="Explain the issue clearly..." {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Description / Question</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          className="min-h-[150px]"
+                          placeholder="Explain the issue clearly..."
+                          {...field}
+                          maxLength={DESCRIPTION_MAX}
+                          onChange={(e) => field.onChange(e.target.value.slice(0, DESCRIPTION_MAX))}
+                        />
+                      </FormControl>
+                      <div className="flex justify-end">
+                        <p className={`text-xs tabular-nums ${field.value.length >= DESCRIPTION_MAX ? "text-destructive font-medium" : field.value.length >= DESCRIPTION_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                          {field.value.length.toLocaleString()}/{DESCRIPTION_MAX.toLocaleString()}
+                        </p>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
                   )} />
 
                   <div className="grid grid-cols-2 gap-4">

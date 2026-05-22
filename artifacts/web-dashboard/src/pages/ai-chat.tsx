@@ -40,6 +40,8 @@ type ChatMessage = {
   createdAt?: string;
 };
 
+const MESSAGE_MAX = 4_000;
+
 const QUICK_CHIPS = [
   "What open tasks do I have?",
   "Show me recent daily reports",
@@ -238,7 +240,10 @@ function AIChatInner() {
               body: JSON.stringify({ audio: base64, format: "webm" }),
             });
             if (result.text) {
-              setInput((prev) => (prev ? `${prev} ${result.text}` : result.text));
+              setInput((prev) => {
+                const combined = prev ? `${prev} ${result.text}` : result.text;
+                return combined.slice(0, MESSAGE_MAX);
+              });
               textareaRef.current?.focus();
             }
           } catch (err) {
@@ -409,16 +414,22 @@ function AIChatInner() {
         {/* Input bar */}
         <div className="border-t border-border px-4 py-3 bg-card shrink-0">
           <div className="flex gap-2 items-end">
-            <div className="flex-1">
+            <div className="flex-1 space-y-1">
               <Textarea
                 ref={textareaRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => setInput(e.target.value.slice(0, MESSAGE_MAX))}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask a construction question… (Enter to send, Shift+Enter for new line)"
                 className="min-h-[44px] max-h-36 resize-none text-sm"
                 rows={1}
+                maxLength={MESSAGE_MAX}
               />
+              {input.length >= MESSAGE_MAX * 0.8 && (
+                <p className={`text-xs text-right tabular-nums ${input.length >= MESSAGE_MAX ? "text-destructive font-medium" : "text-amber-500"}`}>
+                  {input.length.toLocaleString()}/{MESSAGE_MAX.toLocaleString()}
+                </p>
+              )}
             </div>
 
             {/* Mic button */}

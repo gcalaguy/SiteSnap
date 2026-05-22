@@ -120,6 +120,8 @@ function RecordingPulse({ color }: { color: string }) {
   );
 }
 
+const MESSAGE_MAX = 4_000;
+
 export default function AskScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -262,7 +264,10 @@ export default function AskScreen() {
       );
 
       if (result.text) {
-        setInput((prev) => (prev ? `${prev} ${result.text}` : result.text));
+        setInput((prev) => {
+          const combined = prev ? `${prev} ${result.text}` : result.text;
+          return combined.slice(0, MESSAGE_MAX);
+        });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch {
@@ -466,20 +471,33 @@ export default function AskScreen() {
           </TouchableOpacity>
         )}
 
-        <View
-          style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}
-        >
-          <TextInput
-            style={[styles.input, { color: colors.foreground }]}
-            value={input}
-            onChangeText={setInput}
-            placeholder={isRecording ? "Recording… tap mic to stop" : "Ask a question…"}
-            placeholderTextColor={isRecording ? "#EF4444" : colors.mutedForeground}
-            multiline
-            returnKeyType="send"
-            onSubmitEditing={() => sendMessage(input)}
-            blurOnSubmit={false}
-          />
+        <View style={{ flex: 1 }}>
+          <View
+            style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
+            <TextInput
+              style={[styles.input, { color: colors.foreground }]}
+              value={input}
+              onChangeText={(text) => setInput(text.slice(0, MESSAGE_MAX))}
+              placeholder={isRecording ? "Recording… tap mic to stop" : "Ask a question…"}
+              placeholderTextColor={isRecording ? "#EF4444" : colors.mutedForeground}
+              multiline
+              returnKeyType="send"
+              onSubmitEditing={() => sendMessage(input)}
+              blurOnSubmit={false}
+              maxLength={MESSAGE_MAX}
+            />
+          </View>
+          {input.length >= MESSAGE_MAX * 0.8 && (
+            <Text
+              style={[
+                styles.charCounter,
+                { color: input.length >= MESSAGE_MAX ? "#EF4444" : "#F59E0B" },
+              ]}
+            >
+              {input.length.toLocaleString()}/{MESSAGE_MAX.toLocaleString()}
+            </Text>
+          )}
         </View>
 
         <TouchableOpacity
@@ -623,6 +641,13 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   clearButton: { padding: 6 },
+  charCounter: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    textAlign: "right",
+    marginTop: 2,
+    paddingRight: 4,
+  },
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",

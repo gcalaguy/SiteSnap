@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { getListDailyReportsQueryKey } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { getAiErrorMessage } from "@/hooks/useApiError";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft, Loader2, Sparkles, Camera, X, Upload, Mic, MicOff } from "lucide-react";
+
+const RAW_INPUT_MAX = 5_000;
 
 const reportSchema = z.object({
   reportDate: z.string(),
@@ -52,7 +55,10 @@ export default function NewReport() {
   const [photos, setPhotos] = useState<PhotoUpload[]>([]);
 
   const voice = useVoiceRecorder((transcript) => {
-    setRawInput((prev) => (prev ? `${prev.trimEnd()} ${transcript}` : transcript));
+    setRawInput((prev) => {
+      const combined = prev ? `${prev.trimEnd()} ${transcript}` : transcript;
+      return combined.slice(0, RAW_INPUT_MAX);
+    });
   });
 
   const form = useForm<z.infer<typeof reportSchema>>({
@@ -92,7 +98,7 @@ export default function NewReport() {
           toast({ title: "AI Generation Complete", description: "Fields populated from your notes." });
         },
         onError: (err: unknown) => {
-          toast({ title: "AI Generation Failed", description: String(err), variant: "destructive" });
+          toast({ title: "AI Generation Failed", description: getAiErrorMessage(err), variant: "destructive" });
         }
       }
     );
@@ -233,7 +239,8 @@ export default function NewReport() {
                   placeholder="e.g. 5 guys on site today. Finished framing the 2nd floor. Used 50 studs. Weather was sunny. Had an issue with the lift..." 
                   className="min-h-[180px] bg-background pr-12"
                   value={rawInput}
-                  onChange={(e) => setRawInput(e.target.value)}
+                  onChange={(e) => setRawInput(e.target.value.slice(0, RAW_INPUT_MAX))}
+                  maxLength={RAW_INPUT_MAX}
                 />
                 <button
                   type="button"
@@ -256,15 +263,21 @@ export default function NewReport() {
                       : <Mic className="h-4 w-4" />}
                 </button>
               </div>
-              {voice.state === "recording" && (
-                <p className="text-xs text-red-500 flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                  Recording… tap the mic to stop and transcribe
+              <div className="flex items-center justify-between gap-2">
+                {voice.state === "recording" ? (
+                  <p className="text-xs text-red-500 flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                    Recording… tap the mic to stop and transcribe
+                  </p>
+                ) : voice.error ? (
+                  <p className="text-xs text-destructive">{voice.error}</p>
+                ) : (
+                  <span />
+                )}
+                <p className={`text-xs shrink-0 tabular-nums ${rawInput.length >= RAW_INPUT_MAX ? "text-destructive font-medium" : rawInput.length >= RAW_INPUT_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                  {rawInput.length.toLocaleString()}/{RAW_INPUT_MAX.toLocaleString()}
                 </p>
-              )}
-              {voice.error && (
-                <p className="text-xs text-destructive">{voice.error}</p>
-              )}
+              </div>
               <Button className="w-full" onClick={handleAIGenerate} disabled={!rawInput.trim() || generateAI.isPending}>
                 {generateAI.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Generate Fields

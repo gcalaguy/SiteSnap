@@ -19,6 +19,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 
+const NOTES_MAX = 2_000;
+
 export default function FieldDailyLogScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -110,8 +112,24 @@ export default function FieldDailyLogScreen() {
           placeholder="What happened on site today?"
           placeholderTextColor={colors.mutedForeground}
           value={notes}
-          onChangeText={setNotes}
+          onChangeText={(text) => setNotes(text.slice(0, NOTES_MAX))}
+          maxLength={NOTES_MAX}
         />
+        <Text
+          style={[
+            styles.charCounter,
+            {
+              color:
+                notes.length >= NOTES_MAX
+                  ? "#EF4444"
+                  : notes.length >= NOTES_MAX * 0.8
+                    ? "#F59E0B"
+                    : colors.mutedForeground,
+            },
+          ]}
+        >
+          {notes.length}/{NOTES_MAX}
+        </Text>
 
         {/* Weather */}
         <Text style={[styles.label, { color: colors.mutedForeground }]}>Weather</Text>
@@ -170,6 +188,12 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
   chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
+  charCounter: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    textAlign: "right",
+    marginTop: 4,
+  },
   halfInput: { flex: 1 },
   row: { flexDirection: "row", gap: 10 },
   submitBtn: { paddingVertical: 14, borderRadius: 12, alignItems: "center", marginTop: 24 },
