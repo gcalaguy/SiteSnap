@@ -506,7 +506,11 @@ export const projectDocumentsTable = pgTable("project_documents", {
   aiSummary: text("ai_summary"),
   extractedText: text("extracted_text"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_project_documents_project_id").on(t.projectId),
+  index("idx_project_documents_status").on(t.status),
+  index("idx_project_documents_project_status").on(t.projectId, t.status),
+]);
 
 export const insertProjectDocumentSchema = createInsertSchema(
   projectDocumentsTable,
