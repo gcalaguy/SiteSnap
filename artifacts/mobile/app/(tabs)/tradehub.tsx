@@ -19,53 +19,36 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { customFetch } from "@workspace/api-client-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useListTradehubFeed,
+  useCreateTradehubPost,
+  useReactToTradehubPost,
+  TradehubPost,
+  ListTradehubFeedType,
+} from "@workspace/api-client-react";
 
-type PostType = "discussion" | "job" | "showcase";
-
-interface PostAuthor {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-}
-
-interface TradePost {
-  id: number;
-  type: PostType;
-  title: string;
-  content: string;
-  trade: string | null;
-  location: string | null;
-  province: string | null;
-  author: PostAuthor | null;
-  reactionCount: number;
-  commentCount: number;
-  hasReacted: boolean;
-  createdAt: string;
-  isMine?: boolean;
-}
-
-const TYPE_LABELS: Record<PostType, string> = {
+const TYPE_LABELS: Record<ListTradehubFeedType, string> = {
   discussion: "Discussion",
   job: "Job",
   showcase: "Showcase",
 };
-const TYPE_COLORS: Record<PostType, string> = {
+
+const TYPE_COLORS: Record<ListTradehubFeedType, string> = {
   discussion: "#3B82F6",
   job: "#D4AF37",
   showcase: "#8B5CF6",
 };
-const TYPE_ICONS: Record<PostType, string> = {
+
+const TYPE_ICONS: Record<ListTradehubFeedType, string> = {
   discussion: "message-circle",
   job: "briefcase",
   showcase: "star",
 };
 
-function authorName(author: PostAuthor | null): string {
+function authorName(author: TradehubPost["author"]): string {
   if (!author) return "Unknown";
-  return `${author.firstName ?? ""} ${author.lastName ?? ""}`.trim() || author.email;
+  return `${author.firstName ?? ""} ${author.lastName ?? ""}`.trim() || "Unknown";
 }
 
 function timeAgo(dateStr: string) {
@@ -82,48 +65,46 @@ export default function TradeHubScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [activeType, setActiveType] = useState<PostType | "all">("all");
+  const [activeType, setActiveType] = useState<ListTradehubFeedType | "all">("all");
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
-  const [newType, setNewType] = useState<PostType>("discussion");
+  const [newType, setNewType] = useState<ListTradehubFeedType>("discussion");
+
+  const feedParams = {
+    ...(activeType !== "all" ? { type: activeType } : {}),
+  };
 
   const {
-    data: posts = [],
+    data: feedData,
     isLoading,
     refetch,
     isRefetching,
     error,
     isError,
-  } = useQuery<TradePost[]>({
-    queryKey: ["tradehub-feed-mobile", activeType],
-    queryFn: () =>
-      customFetch<TradePost[]>(
-        activeType === "all" ? "/api/tradehub/posts" : `/api/tradehub/posts?kind=${activeType}`
-      ),
-  });
+  } = useListTradehubFeed(feedParams);
 
-  const react = useMutation({
-    mutationFn: (postId: number) =>
-      customFetch(`/api/tradehub/posts/${postId}/react`, { method: "POST" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-feed-mobile"] }),
-  });
+  const posts = feedData?.posts ?? [];
 
-  const createPost = useMutation({
-    mutationFn: (data: { title: string; content: string; type: PostType }) =>
-      customFetch("/api/tradehub/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tradehub-feed-mobile"] });
-      setShowCreate(false);
-      setNewTitle("");
-      setNewContent("");
-      setNewType("discussion");
+  const react = useReactToTradehubPost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["tradehubFeed"] });
+      },
     },
-    onError: () => Alert.alert("Failed to post", "Please try again."),
+  });
+
+  const createPost = useCreateTradehubPost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["tradehubFeed"] });
+        setShowCreate(false);
+        setNewTitle("");
+        setNewContent("");
+        setNewType("discussion");
+      },
+      onError: () => Alert.alert("Failed to post", "Please try again."),
+    },
   });
 
   function handlePost() {
@@ -131,13 +112,15 @@ export default function TradeHubScreen() {
       Alert.alert("Missing fields", "Title and body are required.");
       return;
     }
-    createPost.mutate({ title: newTitle.trim(), content: newContent.trim(), type: newType });
+    createPost.mutate({
+      data: { title: newTitle.trim(), content: newContent.trim(), type: newType },
+    });
   }
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
-  const types: (PostType | "all")[] = ["all", "discussion", "job", "showcase"];
+  const types: (ListTradehubFeedType | "all")[] = ["all", "discussion", "job", "showcase"];
 
-  function renderPost({ item }: { item: TradePost }) {
+  function renderPost({ item }: { item: TradehubPost }) {
     const typeColor = TYPE_COLORS[item.type] ?? colors.primary;
     const typeLabel = TYPE_LABELS[item.type] ?? item.type;
     const typeIcon = (TYPE_ICONS[item.type] ?? "file-text") as any;
@@ -169,7 +152,7 @@ export default function TradeHubScreen() {
           <View style={styles.postActions}>
             <Pressable
               style={styles.actionBtn}
-              onPress={() => react.mutate(item.id)}
+              onPress={() => react.mutate({ id: item.id })}
               hitSlop={8}
             >
               <Feather
@@ -195,20 +178,33 @@ export default function TradeHubScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInset + 12, backgroundColor: colors.sidebar }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-          <Feather name="arrow-left" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>TradeHub</Text>
           <Text style={styles.headerSub}>Canadian Trades Community</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.newBtn, { backgroundColor: colors.primary }]}
-          onPress={() => setShowCreate(true)}
-          hitSlop={8}
-        >
-          <Feather name="plus" size={18} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.12)" }]}
+            onPress={() => router.push("/tradehub-jobs" as any)}
+            hitSlop={8}
+          >
+            <Feather name="briefcase" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.12)" }]}
+            onPress={() => router.push("/tradehub-messages" as any)}
+            hitSlop={8}
+          >
+            <Feather name="message-circle" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.newBtn, { backgroundColor: colors.primary }]}
+            onPress={() => setShowCreate(true)}
+            hitSlop={8}
+          >
+            <Feather name="plus" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Type filter */}
@@ -297,10 +293,9 @@ export default function TradeHubScreen() {
             </View>
 
             <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-              {/* Type picker */}
               <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Type</Text>
               <View style={styles.typeRow}>
-                {(["discussion", "job", "showcase"] as PostType[]).map((t) => (
+                {(["discussion", "job", "showcase"] as ListTradehubFeedType[]).map((t) => (
                   <TouchableOpacity
                     key={t}
                     onPress={() => setNewType(t)}
@@ -354,6 +349,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 14,
   },
+  iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   backBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },

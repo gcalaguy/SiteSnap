@@ -16,53 +16,24 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { customFetch, useGetMe } from "@workspace/api-client-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { formatDistanceToNow } from "date-fns";
+import {
+  useGetTradehubPost,
+  useReactToTradehubPost,
+  useApplyToTradehubJob,
+  useDeleteTradehubPost,
+  useGetMe,
+  customFetch,
+  TradehubPostDetail,
+  TradehubComment,
+} from "@workspace/api-client-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type PostType = "discussion" | "job" | "showcase";
-
-interface PostAuthor {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-}
-
-interface Comment {
-  id: number;
-  postId: number;
-  userId: number;
-  content: string;
-  createdAt: string;
-  author: PostAuthor | null;
-  profile: { displayName?: string } | null;
-}
-
-interface TradePost {
-  id: number;
-  userId: number;
-  type: PostType;
-  title: string;
-  content: string;
-  trade: string | null;
-  location: string | null;
-  province: string | null;
-  budget: string | null;
-  jobType: string | null;
-  author: PostAuthor | null;
-  profile: { displayName?: string } | null;
-  reactionCount: number;
-  commentCount: number;
-  hasReacted: boolean;
-  createdAt: string;
-  comments: Comment[];
-  applications: any[];
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -78,10 +49,10 @@ const TYPE_LABEL: Record<PostType, string> = {
   showcase: "Showcase",
 };
 
-function authorName(author: PostAuthor | null, profile: { displayName?: string } | null): string {
+function authorName(author: TradehubPostDetail["author"], profile: TradehubPostDetail["profile"]): string {
   if (profile?.displayName) return profile.displayName;
   if (!author) return "Unknown";
-  return `${author.firstName ?? ""} ${author.lastName ?? ""}`.trim() || author.email;
+  return `${author.firstName ?? ""} ${author.lastName ?? ""}`.trim() || "Unknown";
 }
 
 function timeAgo(dateStr: string): string {
@@ -100,6 +71,7 @@ export default function TradeHubPostScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const postId = Number(id);
 
   const { data: me } = useGetMe();
   const meId = (me as any)?.id as number | undefined;
@@ -109,53 +81,51 @@ export default function TradeHubPostScreen() {
   const [showApply, setShowApply] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
-  const { data: post, isLoading, error, isError, refetch } = useQuery<TradePost>({
-    queryKey: ["tradehub-post", id],
-    queryFn: () => customFetch<TradePost>(`/api/tradehub/posts/${id}`),
-    enabled: !!id,
-  });
+  const { data: post, isLoading, error, isError, refetch } = useGetTradehubPost(postId);
 
-  const reactMutation = useMutation({
-    mutationFn: () => customFetch(`/api/tradehub/posts/${id}/react`, { method: "POST" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tradehub-post", id] }),
+  const reactMutation = useReactToTradehubPost({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["tradehubPost", postId] });
+        qc.invalidateQueries({ queryKey: ["tradehubFeed"] });
+      },
+    },
   });
 
   const commentMutation = useMutation({
     mutationFn: (content: string) =>
-      customFetch(`/api/tradehub/posts/${id}/comments`, {
+      customFetch(`/api/tradehub/posts/${postId}/comments`, {
         method: "POST",
         body: JSON.stringify({ content }),
       }),
     onSuccess: () => {
       setComment("");
-      qc.invalidateQueries({ queryKey: ["tradehub-post", id] });
-      qc.invalidateQueries({ queryKey: ["tradehub-posts"] });
+      qc.invalidateQueries({ queryKey: ["tradehubPost", postId] });
+      qc.invalidateQueries({ queryKey: ["tradehubFeed"] });
     },
     onError: () => Alert.alert("Error", "Failed to post comment."),
   });
 
-  const applyMutation = useMutation({
-    mutationFn: () =>
-      customFetch(`/api/tradehub/jobs/${id}/apply`, {
-        method: "POST",
-        body: JSON.stringify({ message: applyMsg }),
-      }),
-    onSuccess: () => {
-      setShowApply(false);
-      setApplyMsg("");
-      qc.invalidateQueries({ queryKey: ["tradehub-post", id] });
-      Alert.alert("Applied!", "Your application has been sent.");
+  const applyMutation = useApplyToTradehubJob({
+    mutation: {
+      onSuccess: () => {
+        setShowApply(false);
+        setApplyMsg("");
+        qc.invalidateQueries({ queryKey: ["tradehubPost", postId] });
+        Alert.alert("Applied!", "Your application has been sent.");
+      },
+      onError: (err: any) => Alert.alert("Error", err?.message ?? "Could not apply."),
     },
-    onError: (err: any) => Alert.alert("Error", err?.message ?? "Could not apply."),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: () => customFetch(`/api/tradehub/posts/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["tradehub-posts"] });
-      router.back();
+  const deleteMutation = useDeleteTradehubPost({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["tradehubFeed"] });
+        router.back();
+      },
+      onError: () => Alert.alert("Error", "Failed to delete post."),
     },
-    onError: () => Alert.alert("Error", "Failed to delete post."),
   });
 
   const handleSendComment = () => {
@@ -167,13 +137,15 @@ export default function TradeHubPostScreen() {
   const handleDelete = () => {
     Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate() },
+      { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate({ id: postId }) },
     ]);
   };
 
   const isOwner = !!meId && post?.userId === meId;
-  const myApplication = post?.applications?.find((a: any) => a.applicantId === meId);
-  const typeColor = post ? (TYPE_COLOR[post.type] ?? colors.primary) : colors.primary;
+  const myApplication = (post as any)?.applications?.find((a: any) => a.applicantId === meId);
+  const typeColor = post ? (TYPE_COLOR[post.type as PostType] ?? colors.primary) : colors.primary;
+
+  const comments: TradehubComment[] = (post as any)?.comments ?? [];
 
   return (
     <KeyboardAvoidingView
@@ -223,7 +195,7 @@ export default function TradeHubPostScreen() {
       ) : (
         <>
           <FlatList
-            data={post.comments}
+            data={comments}
             keyExtractor={(c) => String(c.id)}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 16 }}
@@ -244,13 +216,13 @@ export default function TradeHubPostScreen() {
                       </Text>
                       <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
                         {timeAgo(post.createdAt)}
-                        {post.province ? ` · ${post.province}` : ""}
-                        {post.trade ? ` · ${post.trade}` : ""}
+                        {post.province ? ` \u00b7 ${post.province}` : ""}
+                        {post.trade ? ` \u00b7 ${post.trade}` : ""}
                       </Text>
                     </View>
                     <View style={[styles.typeBadge, { backgroundColor: typeColor + "18" }]}>
                       <Text style={[styles.typeText, { color: typeColor }]}>
-                        {TYPE_LABEL[post.type] ?? post.type}
+                        {TYPE_LABEL[post.type as PostType] ?? post.type}
                       </Text>
                     </View>
                   </View>
@@ -279,7 +251,7 @@ export default function TradeHubPostScreen() {
                   <View style={[styles.actionsRow, { borderTopColor: colors.border }]}>
                     <TouchableOpacity
                       style={styles.actionBtn}
-                      onPress={() => reactMutation.mutate()}
+                      onPress={() => reactMutation.mutate({ id: postId })}
                       disabled={reactMutation.isPending}
                     >
                       <Feather
@@ -328,9 +300,9 @@ export default function TradeHubPostScreen() {
                 </View>
 
                 {/* Comments header */}
-                {post.comments.length > 0 && (
+                {comments.length > 0 && (
                   <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-                    Comments ({post.comments.length})
+                    Comments ({comments.length})
                   </Text>
                 )}
               </View>
@@ -378,75 +350,75 @@ export default function TradeHubPostScreen() {
           >
             <TextInput
               ref={inputRef}
-              style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="Add a comment…"
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                },
+              ]}
+              placeholder="Write a comment…"
               placeholderTextColor={colors.mutedForeground}
               value={comment}
               onChangeText={setComment}
               multiline
-              maxLength={1000}
               returnKeyType="send"
               onSubmitEditing={handleSendComment}
+              blurOnSubmit={false}
             />
-            <Pressable
+            <TouchableOpacity
+              style={[styles.sendBtn, { backgroundColor: colors.primary }]}
               onPress={handleSendComment}
-              disabled={!comment.trim() || commentMutation.isPending}
-              style={({ pressed }) => [
-                styles.sendBtn,
-                { backgroundColor: colors.primary, opacity: !comment.trim() || commentMutation.isPending ? 0.4 : pressed ? 0.8 : 1 },
-              ]}
+              disabled={commentMutation.isPending || !comment.trim()}
             >
               {commentMutation.isPending ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Feather name="send" size={16} color="#FFF" />
+                <Feather name="send" size={18} color="#FFFFFF" />
               )}
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </>
       )}
 
       {/* Apply modal */}
-      <Modal visible={showApply} transparent animationType="slide" onRequestClose={() => setShowApply(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowApply(false)} />
-        <View style={[styles.modalSheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
-          <View style={styles.modalHandle} />
-          <Text style={[styles.modalTitle, { color: colors.foreground }]}>Apply for this Job</Text>
-          <Text style={[styles.modalSub, { color: colors.mutedForeground }]}>
-            Add a short message to introduce yourself (optional).
-          </Text>
-          <TextInput
-            style={[styles.modalInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-            placeholder="Hi, I'm interested in this position…"
-            placeholderTextColor={colors.mutedForeground}
-            value={applyMsg}
-            onChangeText={setApplyMsg}
-            multiline
-            maxLength={500}
-            numberOfLines={4}
-          />
-          <TouchableOpacity
-            style={[styles.modalSubmitBtn, { backgroundColor: colors.primary, opacity: applyMutation.isPending ? 0.6 : 1 }]}
-            onPress={() => applyMutation.mutate()}
-            disabled={applyMutation.isPending}
-          >
-            {applyMutation.isPending ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.modalSubmitText}>Send Application</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+      <Modal visible={showApply} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowApply(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <View style={[styles.modal, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <TouchableOpacity onPress={() => setShowApply(false)} hitSlop={10}>
+                <Feather name="x" size={22} color={colors.foreground} />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>Apply</Text>
+              <TouchableOpacity
+                onPress={() => applyMutation.mutate({ id: postId, data: { message: applyMsg.trim() || undefined } })}
+                disabled={applyMutation.isPending}
+              >
+                {applyMutation.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Text style={[styles.postBtn, { color: colors.primary }]}>Send</Text>}
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Cover message (optional)</Text>
+              <TextInput
+                style={[styles.textInput, styles.bodyInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                placeholder="Introduce yourself and why you're a good fit…"
+                placeholderTextColor={colors.mutedForeground}
+                value={applyMsg}
+                onChangeText={setApplyMsg}
+                multiline
+                textAlignVertical="top"
+              />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </KeyboardAvoidingView>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -454,96 +426,64 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 14,
   },
-  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   iconBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
-
-  // Post card
-  card: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 10 },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  emptyText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  emptyHint: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  retryBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 },
+  card: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 10 },
   authorRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  avatarText: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  avatarText: { fontSize: 14, fontFamily: "Inter_700Bold" },
   authorName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  metaText: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
-  typeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  metaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   typeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  postTitle: { fontSize: 19, fontFamily: "Inter_700Bold", lineHeight: 26 },
-  postBody: { fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22 },
-  tagsRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
-  tagText: { fontSize: 12, fontFamily: "Inter_500Medium" },
-
-  // Actions
-  actionsRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingTop: 12, borderTopWidth: 1, flexWrap: "wrap" },
-  actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
+  postTitle: { fontSize: 17, fontFamily: "Inter_700Bold", lineHeight: 24 },
+  postBody: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 21 },
+  tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
+  tagText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  actionsRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingTop: 10, borderTopWidth: 1 },
+  actionBtn: { flexDirection: "row", alignItems: "center", gap: 5 },
   actionText: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  applyBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
-  applyBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFF" },
-  appliedBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
-
-  // Section label
-  sectionLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5, textTransform: "uppercase" },
-
-  // Comments
-  commentCard: { borderWidth: 1, borderRadius: 14, padding: 12, gap: 8 },
+  applyBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  applyBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
+  appliedBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
+  sectionLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginTop: 4 },
+  commentCard: { borderRadius: 12, borderWidth: 1, padding: 12, gap: 8 },
   commentHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  commentAvatar: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
-  commentAvatarText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  commentAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  commentAvatarText: { fontSize: 11, fontFamily: "Inter_700Bold" },
   commentAuthor: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  commentTime: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
+  commentTime: { fontSize: 11, fontFamily: "Inter_400Regular" },
   commentBody: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
-  emptyComments: { alignItems: "center", paddingVertical: 32, gap: 10, paddingHorizontal: 32 },
-  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
-
-  // Input bar
-  inputBar: {
+  emptyComments: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 8 },
+  inputBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1 },
+  input: { flex: 1, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, fontFamily: "Inter_400Regular", maxHeight: 100 },
+  sendBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  modal: { flex: 1 },
+  modalHeader: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 10,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    maxHeight: 100,
-  },
-  sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
   },
-
-  // Apply modal
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
-  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 12 },
-  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "#CCC", alignSelf: "center", marginBottom: 8 },
-  modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
-  modalSub: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  modalInput: {
+  modalTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  postBtn: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  modalScroll: { flex: 1 },
+  modalContent: { padding: 20, gap: 4 },
+  fieldLabel: { fontSize: 13, fontFamily: "Inter_500Medium", marginBottom: 8 },
+  textInput: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 15,
     fontFamily: "Inter_400Regular",
-    minHeight: 90,
-    textAlignVertical: "top",
   },
-  modalSubmitBtn: { borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
-  modalSubmitText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFF" },
-  emptyHint: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 4 },
-  retryBtn: {
-    marginTop: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
+  bodyInput: { minHeight: 140 },
 });

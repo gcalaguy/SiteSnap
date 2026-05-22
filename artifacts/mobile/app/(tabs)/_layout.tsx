@@ -38,6 +38,10 @@ function NativeTabLayout() {
             <Label>Safety</Label>
           </NativeTabs.Trigger>
         )}
+        <NativeTabs.Trigger name="tradehub">
+          <Icon sf={{ default: "globe", selected: "globe.fill" }} />
+          <Label>TradeHub</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
@@ -134,6 +138,14 @@ function ClassicTabLayout() {
           title: "Safety",
           tabBarIcon: ({ color }) =>
             isIOS ? <SymbolView name="cross.case" tintColor={color} size={24} /> : <Feather name="alert-circle" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="tradehub"
+        options={{
+          title: "TradeHub",
+          tabBarIcon: ({ color }) =>
+            isIOS ? <SymbolView name="globe" tintColor={color} size={24} /> : <Feather name="globe" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
