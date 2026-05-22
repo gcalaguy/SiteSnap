@@ -19,6 +19,7 @@ import { useGetMe, customFetch } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { getAiErrorMessage } from "@/src/utils/aiError";
+import { withAiRetry } from "@/src/utils/aiRetry";
 import { useRef } from "react";
 
 type ParsedParams = {
@@ -88,6 +89,7 @@ export default function VoiceEstimateScreen() {
   const isWorker = me?.role === "worker";
 
   const [step, setStep] = useState<Step>("idle");
+  const [retrying, setRetrying] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [params, setParams] = useState<ParsedParams | null>(null);
   const [result, setResult] = useState<EstimateResult | null>(null);
@@ -124,17 +126,24 @@ export default function VoiceEstimateScreen() {
       return;
     }
     setStep("parsing");
+    setRetrying(false);
     setError(null);
     try {
-      const data = await customFetch<ParsedParams>("/api/estimator/parse", {
-        method: "POST",
-        body: JSON.stringify({ prompt: text }),
-      });
+      const data = await withAiRetry(
+        () =>
+          customFetch<ParsedParams>("/api/estimator/parse", {
+            method: "POST",
+            body: JSON.stringify({ prompt: text }),
+          }),
+        () => setRetrying(true),
+      );
       setParams(data);
       setStep("reviewing");
     } catch (err) {
       setError(getAiErrorMessage(err, "Failed to parse project description. Please try again."));
       setStep("idle");
+    } finally {
+      setRetrying(false);
     }
   }, []);
 
@@ -155,23 +164,30 @@ export default function VoiceEstimateScreen() {
   const handleCalculate = async () => {
     if (!params) return;
     setStep("calculating");
+    setRetrying(false);
     setError(null);
     try {
-      const data = await customFetch<EstimateResult>("/api/estimator/calculate", {
-        method: "POST",
-        body: JSON.stringify({
-          project_type: params.project_type,
-          square_feet: params.square_feet,
-          finish_level: params.finish_level,
-          addons: params.addons,
-          margin_pct: params.confidence > 80 ? 15 : 20,
-        }),
-      });
+      const data = await withAiRetry(
+        () =>
+          customFetch<EstimateResult>("/api/estimator/calculate", {
+            method: "POST",
+            body: JSON.stringify({
+              project_type: params.project_type,
+              square_feet: params.square_feet,
+              finish_level: params.finish_level,
+              addons: params.addons,
+              margin_pct: params.confidence > 80 ? 15 : 20,
+            }),
+          }),
+        () => setRetrying(true),
+      );
       setResult(data);
       setStep("result");
     } catch (err) {
       setError(getAiErrorMessage(err, "Failed to calculate estimate. Please try again."));
       setStep("reviewing");
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -327,7 +343,11 @@ export default function VoiceEstimateScreen() {
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-              {step === "parsing" ? "Analysing your description…" : "Calculating estimate…"}
+              {retrying || voiceRecorder.state === "retrying"
+                ? "Retrying…"
+                : step === "parsing"
+                  ? "Analysing your description…"
+                  : "Calculating estimate…"}
             </Text>
           </View>
         )}

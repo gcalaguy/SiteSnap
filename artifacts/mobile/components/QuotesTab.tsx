@@ -28,6 +28,7 @@ import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import { getAiErrorMessage } from "@/src/utils/aiError";
+import { withAiRetry } from "@/src/utils/aiRetry";
 
 type LineItem = { description: string; quantity: number; unit: string; unitPrice: number; total: number };
 type AIResult = { title?: string; lineItems?: LineItem[]; notes?: string; clientName?: string };
@@ -76,6 +77,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
   const [description, setDescription] = useState("");
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiRetrying, setAiRetrying] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<number, string>>({});
 
@@ -84,6 +86,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
   });
   const isRecording = voiceState === "recording";
   const isTranscribing = voiceState === "transcribing";
+  const isVoiceRetrying = voiceState === "retrying";
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getListQuotesQueryKey(projectId) });
@@ -105,12 +108,17 @@ export function QuotesTab({ projectId }: { projectId: number }) {
       return;
     }
     setAiLoading(true);
+    setAiRetrying(false);
     try {
-      const data = await customFetch<AIResult>("/api/ai/quote/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voiceInput: description, clientName: clientName || undefined }),
-      });
+      const data = await withAiRetry(
+        () =>
+          customFetch<AIResult>("/api/ai/quote/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ voiceInput: description, clientName: clientName || undefined }),
+          }),
+        () => setAiRetrying(true),
+      );
       setAiResult(data);
       setStep("preview");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -118,6 +126,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
       Alert.alert("AI generation failed", getAiErrorMessage(err));
     } finally {
       setAiLoading(false);
+      setAiRetrying(false);
     }
   }, [description, clientName]);
 
@@ -442,7 +451,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                     <Feather name={isRecording ? "mic-off" : "mic"} size={24} color="#FFFFFF" />
                   </View>
                   <Text style={[styles.voiceBtnText, { color: isRecording ? "#DC2626" : colors.primary }]}>
-                    {isTranscribing ? "Transcribing…" : isRecording ? "Tap to stop" : "Tap to record voice"}
+                    {isVoiceRetrying ? "Retrying…" : isTranscribing ? "Transcribing…" : isRecording ? "Tap to stop" : "Tap to record voice"}
                   </Text>
                   {isRecording && <View style={[styles.recordingDot, { backgroundColor: "#DC2626" }]} />}
                 </TouchableOpacity>
@@ -458,7 +467,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                     <Feather name="zap" size={18} color={description.trim() ? "#FFFFFF" : colors.mutedForeground} />
                   )}
                   <Text style={[styles.generateBtnText, { color: description.trim() && !aiLoading ? "#FFFFFF" : colors.mutedForeground }]}>
-                    {aiLoading ? "AI generating…" : "Generate with AI"}
+                    {aiRetrying ? "Retrying…" : aiLoading ? "AI generating…" : "Generate with AI"}
                   </Text>
                 </TouchableOpacity>
               </>

@@ -8,8 +8,9 @@ import {
 import * as FileSystem from "expo-file-system/legacy";
 import { customFetch } from "@workspace/api-client-react";
 import { getAiErrorMessage } from "@/src/utils/aiError";
+import { withAiRetry } from "@/src/utils/aiRetry";
 
-export type VoiceState = "idle" | "recording" | "transcribing";
+export type VoiceState = "idle" | "recording" | "transcribing" | "retrying";
 
 export interface UseVoiceRecorderReturn {
   state: VoiceState;
@@ -68,11 +69,15 @@ export function useVoiceRecorder(
       // customFetch returns the parsed JSON body directly (not a Response).
       // It throws an ApiError on non-2xx responses.
       console.log("[voiceRecorder] sending to /api/ai/transcribe");
-      const result = await customFetch<{ text?: string }>("/api/ai/transcribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio: base64, format: "m4a" }),
-      });
+      const result = await withAiRetry(
+        () =>
+          customFetch<{ text?: string }>("/api/ai/transcribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: base64, format: "m4a" }),
+          }),
+        () => setState("retrying"),
+      );
       console.log("[voiceRecorder] transcribe result:", result);
 
       const transcript = result.text?.trim() ?? "";
