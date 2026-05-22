@@ -12,6 +12,7 @@ import {
   boolean,
   unique,
   primaryKey,
+  index,
 } from "drizzle-orm/pg-core";
 
 export * from "./conversations";
