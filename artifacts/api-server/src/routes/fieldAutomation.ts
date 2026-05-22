@@ -10,11 +10,27 @@ import {
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
-import {
-  CreateDailyLogBody,
-  CreateSitePhotoBody,
-  CreateSafetySignoffBody,
-} from "@workspace/api-zod";
+import { z } from "zod";
+
+const CreateDailyLogBody = z.object({
+  projectId: z.number(),
+  notes: z.string().max(5000).nullish(),
+  weatherTemp: z.string().max(20).nullish(),
+  weatherCondition: z.string().max(200).nullish(),
+});
+
+const CreateSitePhotoBody = z.object({
+  projectId: z.number(),
+  imageUrl: z.string().min(1).max(2000),
+  markupData: z.object({}).passthrough().nullish(),
+  roomLocation: z.string().max(500).nullish(),
+});
+
+const CreateSafetySignoffBody = z.object({
+  projectId: z.number(),
+  responses: z.object({}).passthrough(),
+  signatureUrl: z.string().max(2000).nullish(),
+});
 
 const router = Router();
 
@@ -44,7 +60,7 @@ router.post(
   async (req, res) => {
     const parsed = CreateDailyLogBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid body", details: parsed.error });
+      res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
       return;
     }
 
@@ -202,7 +218,7 @@ router.post(
   async (req, res) => {
     const parsed = CreateSitePhotoBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid body", details: parsed.error });
+      res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
       return;
     }
 
@@ -347,7 +363,7 @@ router.post(
   async (req, res) => {
     const parsed = CreateSafetySignoffBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid body", details: parsed.error });
+      res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
       return;
     }
 

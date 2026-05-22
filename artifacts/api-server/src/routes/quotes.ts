@@ -12,8 +12,55 @@ import {
 import { eq, and, count, desc, inArray, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
-import { CreateQuoteBody, UpdateQuoteBody, RejectQuoteBody, ConvertQuoteToInvoiceBody } from "@workspace/api-zod";
+import { ConvertQuoteToInvoiceBody } from "@workspace/api-zod";
 import { Resend } from "resend";
+import { z } from "zod";
+
+const LineItemSchema = z.object({
+  description: z.string().max(500),
+  quantity: z.number(),
+  unit: z.string().max(20),
+  unitPrice: z.number(),
+  total: z.number(),
+});
+
+const CreateQuoteBodyValidated = z.object({
+  title: z.string().min(1).max(300),
+  clientName: z.string().min(1).max(300),
+  clientEmail: z.string().max(300).nullish(),
+  clientCompanyName: z.string().max(300).nullish(),
+  clientAddress: z.string().max(1000).nullish(),
+  clientPhone: z.string().max(50).nullish(),
+  voiceInput: z.string().max(5000).nullish(),
+  lineItems: z.array(LineItemSchema).max(100).optional(),
+  subtotal: z.number().optional(),
+  taxRate: z.number().optional(),
+  taxAmount: z.number().optional(),
+  total: z.number().optional(),
+  notes: z.string().max(5000).nullish(),
+  validUntil: z.coerce.date().nullish(),
+});
+
+const UpdateQuoteBodyValidated = z.object({
+  title: z.string().min(1).max(300).optional(),
+  clientName: z.string().min(1).max(300).optional(),
+  clientEmail: z.string().max(300).nullish(),
+  clientCompanyName: z.string().max(300).nullish(),
+  clientAddress: z.string().max(1000).nullish(),
+  clientPhone: z.string().max(50).nullish(),
+  voiceInput: z.string().max(5000).nullish(),
+  lineItems: z.array(LineItemSchema).max(100).optional(),
+  subtotal: z.number().optional(),
+  taxRate: z.number().optional(),
+  taxAmount: z.number().optional(),
+  total: z.number().optional(),
+  notes: z.string().max(5000).nullish(),
+  validUntil: z.coerce.date().nullish(),
+});
+
+const RejectQuoteBodyValidated = z.object({
+  reason: z.string().max(2000).optional(),
+});
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -157,8 +204,8 @@ router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"),
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
   }
 
-  const parsed = CreateQuoteBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
+  const parsed = CreateQuoteBodyValidated.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }
 
   const { title, clientName, clientEmail, clientCompanyName, clientAddress, clientPhone, voiceInput, lineItems = [], notes, validUntil } = parsed.data;
   const quoteNumber = await getNextQuoteNumber(req.companyId!);
@@ -230,8 +277,8 @@ router.put("/:quoteId", requireAuth, requireCompany, requirePermission("manageQu
     res.status(409).json({ error: "Only draft or rejected quotes can be edited" }); return;
   }
 
-  const parsed = UpdateQuoteBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
+  const parsed = UpdateQuoteBodyValidated.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }
 
   const { title, clientName, clientEmail, clientCompanyName, clientAddress, clientPhone, voiceInput, lineItems, notes, validUntil } = parsed.data;
   const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -346,8 +393,9 @@ router.post("/:quoteId/reject", requireAuth, requireCompany, async (req, res) =>
   if (existing.status !== "pending_approval") {
     res.status(409).json({ error: "Only pending quotes can be rejected" }); return;
   }
-  const parsed = RejectQuoteBody.safeParse(req.body);
-  const notes = parsed.success ? (parsed.data.reason ?? null) : null;
+  const parsed = RejectQuoteBodyValidated.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }
+  const notes = parsed.data.reason ?? null;
   const [updated] = await db.update(quotesTable)
     .set({ status: "rejected", notes: notes ?? existing.notes, updatedAt: new Date() })
     .where(eq(quotesTable.id, quoteId)).returning();

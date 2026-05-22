@@ -14,11 +14,25 @@ import { generateEmbeddings, embeddingsEnabled } from "../lib/embeddingsClient.j
 const router = Router({ mergeParams: true });
 const objectStorageService = new ObjectStorageService();
 
-const RegisterDocumentBody = z.object({
-  filename: z.string().min(1),
-  fileType: z.string().min(1),
-  objectPath: z.string().min(1),
+const RegisterDocumentBody = z.strictObject({
+  filename: z.string().min(1).max(500),
+  fileType: z.string().min(1).max(100),
+  objectPath: z.string().min(1).max(1000),
   fileSize: z.number().int().positive().optional(),
+});
+
+const SearchDocumentsBody = z.strictObject({
+  query: z.string().min(2).max(1000),
+});
+
+const QAHistoryItem = z.strictObject({
+  role: z.enum(["user", "assistant"]),
+  text: z.string().max(4000),
+});
+
+const QADocumentsBody = z.strictObject({
+  question: z.string().min(3).max(2000),
+  history: z.array(QAHistoryItem).max(20).optional(),
 });
 
 const IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
@@ -309,7 +323,7 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
   if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
 
   const parsed = RegisterDocumentBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error.issues }); return; }
+  if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }
 
   const [doc] = await db
     .insert(projectDocumentsTable)
@@ -417,11 +431,12 @@ router.post("/search", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
-  const { query } = req.body;
-  if (!query || typeof query !== "string" || query.trim().length < 2) {
-    res.status(400).json({ error: "query is required" });
+  const parsedSearch = SearchDocumentsBody.safeParse(req.body);
+  if (!parsedSearch.success) {
+    res.status(400).json({ error: "Malformed request payload", details: parsedSearch.error.issues });
     return;
   }
+  const { query } = parsedSearch.data;
 
   // Try hybrid search (vector + full-text) on document chunks
   let searchUsedVectors = false;
@@ -499,11 +514,12 @@ router.post("/qa", requireAuth, requireCompany, requireAiQuota, async (req, res)
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
-  const { question, history = [] } = req.body;
-  if (!question || typeof question !== "string" || question.trim().length < 3) {
-    res.status(400).json({ error: "question is required" });
+  const parsedQA = QADocumentsBody.safeParse(req.body);
+  if (!parsedQA.success) {
+    res.status(400).json({ error: "Malformed request payload", details: parsedQA.error.issues });
     return;
   }
+  const { question, history = [] } = parsedQA.data;
 
   const [project] = await db.select({ name: projectsTable.name, companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId));
   const docs = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.projectId, projectId));

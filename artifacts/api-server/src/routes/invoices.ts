@@ -4,10 +4,44 @@ import { db, invoicesTable, quotesTable, companiesTable } from "@workspace/db";
 import { eq, and, desc, count, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
-import { UpdateInvoiceBody } from "@workspace/api-zod";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
 import { sendReminderForInvoice } from "../lib/invoiceReminders.js";
 import { format } from "date-fns";
+import { z } from "zod";
+
+const InvoiceLineItemSchema = z.object({
+  description: z.string().max(500),
+  quantity: z.number(),
+  unit: z.string().max(20),
+  unitPrice: z.number(),
+  total: z.number(),
+});
+
+const CreateInvoiceBody = z.object({
+  title: z.string().min(1).max(300),
+  clientName: z.string().min(1).max(300),
+  clientEmail: z.string().max(300).nullish(),
+  lineItems: z.array(InvoiceLineItemSchema).max(100).optional(),
+  notes: z.string().max(5000).nullish(),
+  dueDate: z.string().max(20).nullish(),
+});
+
+const UpdateInvoiceBodyValidated = z.object({
+  title: z.string().min(1).max(300).optional(),
+  clientName: z.string().min(1).max(300).optional(),
+  clientEmail: z.string().max(300).nullish(),
+  lineItems: z.array(InvoiceLineItemSchema).max(100).optional(),
+  subtotal: z.number().optional(),
+  taxRate: z.number().optional(),
+  taxAmount: z.number().optional(),
+  total: z.number().optional(),
+  notes: z.string().max(5000).nullish(),
+  dueDate: z.coerce.date().nullish(),
+});
+
+const SendInvoiceEmailBody = z.object({
+  pdfBase64: z.string().min(1).max(15_000_000),
+});
 
 const router = Router();
 
@@ -36,12 +70,14 @@ function workerVisibilityInvoices(userId: number) {
 
 // POST /invoices — create a standalone invoice directly
 router.post("/invoices", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
-  const { title, clientName, clientEmail, lineItems = [], notes, dueDate } = req.body ?? {};
-  if (!title || !clientName) { res.status(400).json({ error: "title and clientName are required" }); return; }
+  const parsed = CreateInvoiceBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }
+
+  const { title, clientName, clientEmail, lineItems = [], notes, dueDate } = parsed.data;
 
   const taxRate = 0.13;
-  const items = Array.isArray(lineItems) ? lineItems : [];
-  const subtotal = items.reduce((s: number, i: any) => s + Number(i.quantity ?? 1) * Number(i.unitPrice ?? 0), 0);
+  const items = lineItems;
+  const subtotal = items.reduce((s, i) => s + Number(i.quantity ?? 1) * Number(i.unitPrice ?? 0), 0);
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
   const invoiceNumber = await getNextInvoiceNumber(req.companyId!);
@@ -152,8 +188,8 @@ router.put("/invoices/:invoiceId", requireAuth, requireCompany, requirePermissio
     res.status(409).json({ error: "Cannot edit a paid or cancelled invoice" }); return;
   }
 
-  const parsed = UpdateInvoiceBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
+  const parsed = UpdateInvoiceBodyValidated.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }
 
   const { title, clientName, clientEmail, lineItems, subtotal, taxRate, taxAmount, total, notes, dueDate } = parsed.data;
   const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -216,12 +252,13 @@ router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, async
 // POST /invoices/:invoiceId/send-email
 router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
-  const { pdfBase64 } = req.body as { pdfBase64?: string };
 
-  if (!pdfBase64) {
-    res.status(400).json({ error: "pdfBase64 is required" });
+  const parsedEmail = SendInvoiceEmailBody.safeParse(req.body);
+  if (!parsedEmail.success) {
+    res.status(400).json({ error: "Malformed request payload", details: parsedEmail.error.issues });
     return;
   }
+  const { pdfBase64 } = parsedEmail.data;
 
   const [invoice] = await db
     .select()
