@@ -1,3 +1,3 @@
 ALTER TABLE change_orders
-  ADD COLUMN client_signature_data TEXT,
-  ADD COLUMN signed_at TIMESTAMP;
+  ADD COLUMN IF NOT EXISTS client_signature_data TEXT,
+  ADD COLUMN IF NOT EXISTS signed_at TIMESTAMP;

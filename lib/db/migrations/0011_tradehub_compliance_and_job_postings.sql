@@ -1,6 +1,6 @@
 -- Add compliance_status to tradehub_profiles
 ALTER TABLE tradehub_profiles
-  ADD COLUMN compliance_status compliance_status NOT NULL DEFAULT 'compliant';
+  ADD COLUMN IF NOT EXISTS compliance_status compliance_status NOT NULL DEFAULT 'compliant';
 
 -- Create job_postings table
 CREATE TABLE IF NOT EXISTS job_postings (
