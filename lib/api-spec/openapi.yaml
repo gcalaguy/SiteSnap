@@ -1426,6 +1426,64 @@ paths:
               schema:
                 $ref: "#/components/schemas/QuickBooksStatus"
 
+  /quickbooks/auth-url:
+    get:
+      operationId: getQuickBooksAuthUrl
+      tags: [quickbooks]
+      summary: Get the OAuth authorization URL to connect QuickBooks
+      responses:
+        "200":
+          description: Auth URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuickBooksAuthUrl"
+        "503":
+          description: QuickBooks not configured
+
+  /quickbooks/disconnect:
+    delete:
+      operationId: disconnectQuickBooks
+      tags: [quickbooks]
+      summary: Disconnect QuickBooks integration for the current company
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+
+  /quickbooks/sync/invoices:
+    post:
+      operationId: syncQuickBooksInvoices
+      tags: [quickbooks]
+      summary: Sync invoices to QuickBooks
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuickBooksSyncResult"
+
+  /quickbooks/sync/costs:
+    post:
+      operationId: syncQuickBooksCosts
+      tags: [quickbooks]
+      summary: Sync project costs to QuickBooks
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuickBooksSyncResult"
+
   /companies/{companyId}/settings:
     get:
       operationId: getCompanySettings
@@ -1440,6 +1498,102 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CompanySettings"
+        "403":
+          description: Access denied
+
+  /companies/{companyId}/document-settings:
+    patch:
+      operationId: updateCompanyDocumentSettings
+      tags: [companies]
+      summary: Update document numbering prefixes, start numbers, and default text
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyDocumentSettingsUpdate"
+      responses:
+        "200":
+          description: Updated company row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+        "400":
+          description: No updatable fields
+        "403":
+          description: Access denied
+
+  /companies/{companyId}/logo:
+    patch:
+      operationId: updateCompanyLogo
+      tags: [companies]
+      summary: Update company logo path (set to empty string to remove)
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyLogoUpdate"
+      responses:
+        "200":
+          description: Updated company row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+        "400":
+          description: logoPath is required
+        "403":
+          description: Access denied
+
+  /companies/{companyId}/quote-template:
+    patch:
+      operationId: updateCompanyQuoteTemplate
+      tags: [companies]
+      summary: Set or clear the quote template image path
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyTemplateUpdate"
+      responses:
+        "200":
+          description: Updated company row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+        "403":
+          description: Access denied
+
+  /companies/{companyId}/invoice-template:
+    patch:
+      operationId: updateCompanyInvoiceTemplate
+      tags: [companies]
+      summary: Set or clear the invoice template image path
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyTemplateUpdate"
+      responses:
+        "200":
+          description: Updated company row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
         "403":
           description: Access denied
 
@@ -8494,3 +8648,55 @@ components:
           type: string
         tax:
           type: string
+
+    QuickBooksAuthUrl:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+
+    QuickBooksSyncResult:
+      type: object
+      required: [synced, total, errors]
+      properties:
+        synced:
+          type: integer
+        total:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    CompanyLogoUpdate:
+      type: object
+      required: [logoPath]
+      properties:
+        logoPath:
+          type: string
+          description: Object storage path; pass empty string to remove logo
+
+    CompanyTemplateUpdate:
+      type: object
+      required: [templatePath]
+      properties:
+        templatePath:
+          type: ["string", "null"]
+          description: Object storage path; pass null or empty string to clear
+
+    CompanyDocumentSettingsUpdate:
+      type: object
+      properties:
+        quoteNumberPrefix:
+          type: string
+        invoiceNumberPrefix:
+          type: string
+        quoteStartNumber:
+          type: integer
+        invoiceStartNumber:
+          type: integer
+        defaultQuoteTerms:
+          type: ["string", "null"]
+        defaultInvoiceNotes:
+          type: ["string", "null"]

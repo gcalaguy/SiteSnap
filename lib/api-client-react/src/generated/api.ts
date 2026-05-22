@@ -42,7 +42,10 @@ import type {
   CalendarEventBody,
   ChangeOrderRecord,
   Company,
+  CompanyDocumentSettingsUpdate,
+  CompanyLogoUpdate,
   CompanySettings,
+  CompanyTemplateUpdate,
   Contact,
   ConvertEstimateBody,
   ConvertLead201,
@@ -93,6 +96,7 @@ import type {
   DeleteTradehubPost200,
   DeleteWorkerDocument200,
   DenyTimesheetBody,
+  DisconnectQuickBooks200,
   EmailConfig,
   ErrorEnvelope,
   EstimateItemBody,
@@ -157,7 +161,9 @@ import type {
   ProjectSummary,
   ProposalRecord,
   ProposalWithEstimate,
+  QuickBooksAuthUrl,
   QuickBooksStatus,
+  QuickBooksSyncResult,
   Quote,
   QuoteAIGenerateBody,
   QuoteAIGenerateResponse,
@@ -6268,6 +6274,324 @@ export function useGetQuickBooksStatus<
 }
 
 /**
+ * @summary Get the OAuth authorization URL to connect QuickBooks
+ */
+export const getGetQuickBooksAuthUrlUrl = () => {
+  return `/api/quickbooks/auth-url`;
+};
+
+export const getQuickBooksAuthUrl = async (
+  options?: RequestInit,
+): Promise<QuickBooksAuthUrl> => {
+  return customFetch<QuickBooksAuthUrl>(getGetQuickBooksAuthUrlUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetQuickBooksAuthUrlQueryKey = () => {
+  return [`/api/quickbooks/auth-url`] as const;
+};
+
+export const getGetQuickBooksAuthUrlQueryOptions = <
+  TData = Awaited<ReturnType<typeof getQuickBooksAuthUrl>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getQuickBooksAuthUrl>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetQuickBooksAuthUrlQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getQuickBooksAuthUrl>>
+  > = ({ signal }) => getQuickBooksAuthUrl({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getQuickBooksAuthUrl>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetQuickBooksAuthUrlQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getQuickBooksAuthUrl>>
+>;
+export type GetQuickBooksAuthUrlQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the OAuth authorization URL to connect QuickBooks
+ */
+
+export function useGetQuickBooksAuthUrl<
+  TData = Awaited<ReturnType<typeof getQuickBooksAuthUrl>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getQuickBooksAuthUrl>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetQuickBooksAuthUrlQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Disconnect QuickBooks integration for the current company
+ */
+export const getDisconnectQuickBooksUrl = () => {
+  return `/api/quickbooks/disconnect`;
+};
+
+export const disconnectQuickBooks = async (
+  options?: RequestInit,
+): Promise<DisconnectQuickBooks200> => {
+  return customFetch<DisconnectQuickBooks200>(getDisconnectQuickBooksUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDisconnectQuickBooksMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disconnectQuickBooks>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disconnectQuickBooks>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["disconnectQuickBooks"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disconnectQuickBooks>>,
+    void
+  > = () => {
+    return disconnectQuickBooks(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisconnectQuickBooksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disconnectQuickBooks>>
+>;
+
+export type DisconnectQuickBooksMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Disconnect QuickBooks integration for the current company
+ */
+export const useDisconnectQuickBooks = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disconnectQuickBooks>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof disconnectQuickBooks>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getDisconnectQuickBooksMutationOptions(options));
+};
+
+/**
+ * @summary Sync invoices to QuickBooks
+ */
+export const getSyncQuickBooksInvoicesUrl = () => {
+  return `/api/quickbooks/sync/invoices`;
+};
+
+export const syncQuickBooksInvoices = async (
+  options?: RequestInit,
+): Promise<QuickBooksSyncResult> => {
+  return customFetch<QuickBooksSyncResult>(getSyncQuickBooksInvoicesUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSyncQuickBooksInvoicesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncQuickBooksInvoices>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof syncQuickBooksInvoices>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["syncQuickBooksInvoices"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof syncQuickBooksInvoices>>,
+    void
+  > = () => {
+    return syncQuickBooksInvoices(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SyncQuickBooksInvoicesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof syncQuickBooksInvoices>>
+>;
+
+export type SyncQuickBooksInvoicesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Sync invoices to QuickBooks
+ */
+export const useSyncQuickBooksInvoices = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncQuickBooksInvoices>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof syncQuickBooksInvoices>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getSyncQuickBooksInvoicesMutationOptions(options));
+};
+
+/**
+ * @summary Sync project costs to QuickBooks
+ */
+export const getSyncQuickBooksCostsUrl = () => {
+  return `/api/quickbooks/sync/costs`;
+};
+
+export const syncQuickBooksCosts = async (
+  options?: RequestInit,
+): Promise<QuickBooksSyncResult> => {
+  return customFetch<QuickBooksSyncResult>(getSyncQuickBooksCostsUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSyncQuickBooksCostsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncQuickBooksCosts>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof syncQuickBooksCosts>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["syncQuickBooksCosts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof syncQuickBooksCosts>>,
+    void
+  > = () => {
+    return syncQuickBooksCosts(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SyncQuickBooksCostsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof syncQuickBooksCosts>>
+>;
+
+export type SyncQuickBooksCostsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Sync project costs to QuickBooks
+ */
+export const useSyncQuickBooksCosts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncQuickBooksCosts>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof syncQuickBooksCosts>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getSyncQuickBooksCostsMutationOptions(options));
+};
+
+/**
  * @summary Get document numbering and terms settings for a company
  */
 export const getGetCompanySettingsUrl = (companyId: number) => {
@@ -6355,6 +6679,357 @@ export function useGetCompanySettings<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update document numbering prefixes, start numbers, and default text
+ */
+export const getUpdateCompanyDocumentSettingsUrl = (companyId: number) => {
+  return `/api/companies/${companyId}/document-settings`;
+};
+
+export const updateCompanyDocumentSettings = async (
+  companyId: number,
+  companyDocumentSettingsUpdate: CompanyDocumentSettingsUpdate,
+  options?: RequestInit,
+): Promise<Company> => {
+  return customFetch<Company>(getUpdateCompanyDocumentSettingsUrl(companyId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(companyDocumentSettingsUpdate),
+  });
+};
+
+export const getUpdateCompanyDocumentSettingsMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompanyDocumentSettings>>,
+    TError,
+    { companyId: number; data: BodyType<CompanyDocumentSettingsUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCompanyDocumentSettings>>,
+  TError,
+  { companyId: number; data: BodyType<CompanyDocumentSettingsUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateCompanyDocumentSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCompanyDocumentSettings>>,
+    { companyId: number; data: BodyType<CompanyDocumentSettingsUpdate> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return updateCompanyDocumentSettings(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCompanyDocumentSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCompanyDocumentSettings>>
+>;
+export type UpdateCompanyDocumentSettingsMutationBody =
+  BodyType<CompanyDocumentSettingsUpdate>;
+export type UpdateCompanyDocumentSettingsMutationError = ErrorType<void>;
+
+/**
+ * @summary Update document numbering prefixes, start numbers, and default text
+ */
+export const useUpdateCompanyDocumentSettings = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompanyDocumentSettings>>,
+    TError,
+    { companyId: number; data: BodyType<CompanyDocumentSettingsUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCompanyDocumentSettings>>,
+  TError,
+  { companyId: number; data: BodyType<CompanyDocumentSettingsUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateCompanyDocumentSettingsMutationOptions(options));
+};
+
+/**
+ * @summary Update company logo path (set to empty string to remove)
+ */
+export const getUpdateCompanyLogoUrl = (companyId: number) => {
+  return `/api/companies/${companyId}/logo`;
+};
+
+export const updateCompanyLogo = async (
+  companyId: number,
+  companyLogoUpdate: CompanyLogoUpdate,
+  options?: RequestInit,
+): Promise<Company> => {
+  return customFetch<Company>(getUpdateCompanyLogoUrl(companyId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(companyLogoUpdate),
+  });
+};
+
+export const getUpdateCompanyLogoMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompanyLogo>>,
+    TError,
+    { companyId: number; data: BodyType<CompanyLogoUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCompanyLogo>>,
+  TError,
+  { companyId: number; data: BodyType<CompanyLogoUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateCompanyLogo"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCompanyLogo>>,
+    { companyId: number; data: BodyType<CompanyLogoUpdate> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return updateCompanyLogo(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCompanyLogoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCompanyLogo>>
+>;
+export type UpdateCompanyLogoMutationBody = BodyType<CompanyLogoUpdate>;
+export type UpdateCompanyLogoMutationError = ErrorType<void>;
+
+/**
+ * @summary Update company logo path (set to empty string to remove)
+ */
+export const useUpdateCompanyLogo = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompanyLogo>>,
+    TError,
+    { companyId: number; data: BodyType<CompanyLogoUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCompanyLogo>>,
+  TError,
+  { companyId: number; data: BodyType<CompanyLogoUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateCompanyLogoMutationOptions(options));
+};
+
+/**
+ * @summary Set or clear the quote template image path
+ */
+export const getUpdateCompanyQuoteTemplateUrl = (companyId: number) => {
+  return `/api/companies/${companyId}/quote-template`;
+};
+
+export const updateCompanyQuoteTemplate = async (
+  companyId: number,
+  companyTemplateUpdate: CompanyTemplateUpdate,
+  options?: RequestInit,
+): Promise<Company> => {
+  return customFetch<Company>(getUpdateCompanyQuoteTemplateUrl(companyId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(companyTemplateUpdate),
+  });
+};
+
+export const getUpdateCompanyQuoteTemplateMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompanyQuoteTemplate>>,
+    TError,
+    { companyId: number; data: BodyType<CompanyTemplateUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCompanyQuoteTemplate>>,
+  TError,
+  { companyId: number; data: BodyType<CompanyTemplateUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateCompanyQuoteTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCompanyQuoteTemplate>>,
+    { companyId: number; data: BodyType<CompanyTemplateUpdate> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return updateCompanyQuoteTemplate(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCompanyQuoteTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCompanyQuoteTemplate>>
+>;
+export type UpdateCompanyQuoteTemplateMutationBody =
+  BodyType<CompanyTemplateUpdate>;
+export type UpdateCompanyQuoteTemplateMutationError = ErrorType<void>;
+
+/**
+ * @summary Set or clear the quote template image path
+ */
+export const useUpdateCompanyQuoteTemplate = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompanyQuoteTemplate>>,
+    TError,
+    { companyId: number; data: BodyType<CompanyTemplateUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCompanyQuoteTemplate>>,
+  TError,
+  { companyId: number; data: BodyType<CompanyTemplateUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateCompanyQuoteTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Set or clear the invoice template image path
+ */
+export const getUpdateCompanyInvoiceTemplateUrl = (companyId: number) => {
+  return `/api/companies/${companyId}/invoice-template`;
+};
+
+export const updateCompanyInvoiceTemplate = async (
+  companyId: number,
+  companyTemplateUpdate: CompanyTemplateUpdate,
+  options?: RequestInit,
+): Promise<Company> => {
+  return customFetch<Company>(getUpdateCompanyInvoiceTemplateUrl(companyId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(companyTemplateUpdate),
+  });
+};
+
+export const getUpdateCompanyInvoiceTemplateMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompanyInvoiceTemplate>>,
+    TError,
+    { companyId: number; data: BodyType<CompanyTemplateUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCompanyInvoiceTemplate>>,
+  TError,
+  { companyId: number; data: BodyType<CompanyTemplateUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateCompanyInvoiceTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCompanyInvoiceTemplate>>,
+    { companyId: number; data: BodyType<CompanyTemplateUpdate> }
+  > = (props) => {
+    const { companyId, data } = props ?? {};
+
+    return updateCompanyInvoiceTemplate(companyId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCompanyInvoiceTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCompanyInvoiceTemplate>>
+>;
+export type UpdateCompanyInvoiceTemplateMutationBody =
+  BodyType<CompanyTemplateUpdate>;
+export type UpdateCompanyInvoiceTemplateMutationError = ErrorType<void>;
+
+/**
+ * @summary Set or clear the invoice template image path
+ */
+export const useUpdateCompanyInvoiceTemplate = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompanyInvoiceTemplate>>,
+    TError,
+    { companyId: number; data: BodyType<CompanyTemplateUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCompanyInvoiceTemplate>>,
+  TError,
+  { companyId: number; data: BodyType<CompanyTemplateUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateCompanyInvoiceTemplateMutationOptions(options));
+};
 
 /**
  * @summary Get flat transaction journal rows for accountant CSV export

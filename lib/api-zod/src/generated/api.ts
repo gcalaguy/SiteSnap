@@ -1841,6 +1841,38 @@ export const GetQuickBooksStatusResponse = zod.object({
 });
 
 /**
+ * @summary Get the OAuth authorization URL to connect QuickBooks
+ */
+export const GetQuickBooksAuthUrlResponse = zod.object({
+  url: zod.string(),
+});
+
+/**
+ * @summary Disconnect QuickBooks integration for the current company
+ */
+export const DisconnectQuickBooksResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Sync invoices to QuickBooks
+ */
+export const SyncQuickBooksInvoicesResponse = zod.object({
+  synced: zod.number(),
+  total: zod.number(),
+  errors: zod.array(zod.string()),
+});
+
+/**
+ * @summary Sync project costs to QuickBooks
+ */
+export const SyncQuickBooksCostsResponse = zod.object({
+  synced: zod.number(),
+  total: zod.number(),
+  errors: zod.array(zod.string()),
+});
+
+/**
  * @summary Get document numbering and terms settings for a company
  */
 export const GetCompanySettingsParams = zod.object({
@@ -1855,6 +1887,135 @@ export const GetCompanySettingsResponse = zod.object({
   invoiceStartNumber: zod.number(),
   defaultQuoteTerms: zod.string(),
   defaultInvoiceNotes: zod.string(),
+});
+
+/**
+ * @summary Update document numbering prefixes, start numbers, and default text
+ */
+export const UpdateCompanyDocumentSettingsParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const UpdateCompanyDocumentSettingsBody = zod.object({
+  quoteNumberPrefix: zod.string().optional(),
+  invoiceNumberPrefix: zod.string().optional(),
+  quoteStartNumber: zod.number().optional(),
+  invoiceStartNumber: zod.number().optional(),
+  defaultQuoteTerms: zod.string().nullish(),
+  defaultInvoiceNotes: zod.string().nullish(),
+});
+
+export const UpdateCompanyDocumentSettingsResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  province: zod.string(),
+  city: zod.string(),
+  phone: zod.string().nullish(),
+  logoPath: zod.string().nullish(),
+  quoteTemplatePath: zod.string().nullish(),
+  invoiceTemplatePath: zod.string().nullish(),
+  estimatorConfig: zod
+    .object({
+      projectTypeLabels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Company-specific estimator overrides"),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update company logo path (set to empty string to remove)
+ */
+export const UpdateCompanyLogoParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const UpdateCompanyLogoBody = zod.object({
+  logoPath: zod
+    .string()
+    .describe("Object storage path; pass empty string to remove logo"),
+});
+
+export const UpdateCompanyLogoResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  province: zod.string(),
+  city: zod.string(),
+  phone: zod.string().nullish(),
+  logoPath: zod.string().nullish(),
+  quoteTemplatePath: zod.string().nullish(),
+  invoiceTemplatePath: zod.string().nullish(),
+  estimatorConfig: zod
+    .object({
+      projectTypeLabels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Company-specific estimator overrides"),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Set or clear the quote template image path
+ */
+export const UpdateCompanyQuoteTemplateParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const UpdateCompanyQuoteTemplateBody = zod.object({
+  templatePath: zod
+    .string()
+    .nullable()
+    .describe("Object storage path; pass null or empty string to clear"),
+});
+
+export const UpdateCompanyQuoteTemplateResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  province: zod.string(),
+  city: zod.string(),
+  phone: zod.string().nullish(),
+  logoPath: zod.string().nullish(),
+  quoteTemplatePath: zod.string().nullish(),
+  invoiceTemplatePath: zod.string().nullish(),
+  estimatorConfig: zod
+    .object({
+      projectTypeLabels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Company-specific estimator overrides"),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Set or clear the invoice template image path
+ */
+export const UpdateCompanyInvoiceTemplateParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const UpdateCompanyInvoiceTemplateBody = zod.object({
+  templatePath: zod
+    .string()
+    .nullable()
+    .describe("Object storage path; pass null or empty string to clear"),
+});
+
+export const UpdateCompanyInvoiceTemplateResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  province: zod.string(),
+  city: zod.string(),
+  phone: zod.string().nullish(),
+  logoPath: zod.string().nullish(),
+  quoteTemplatePath: zod.string().nullish(),
+  invoiceTemplatePath: zod.string().nullish(),
+  estimatorConfig: zod
+    .object({
+      projectTypeLabels: zod.record(zod.string(), zod.string()).optional(),
+    })
+    .nullish()
+    .describe("Company-specific estimator overrides"),
+  createdAt: zod.coerce.date(),
 });
 
 /**

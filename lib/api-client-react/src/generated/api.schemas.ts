@@ -2469,6 +2469,40 @@ export interface AccountingExportRow {
   tax: string;
 }
 
+export interface QuickBooksAuthUrl {
+  url: string;
+}
+
+export interface QuickBooksSyncResult {
+  synced: number;
+  total: number;
+  errors: string[];
+}
+
+export interface CompanyLogoUpdate {
+  /** Object storage path; pass empty string to remove logo */
+  logoPath: string;
+}
+
+export interface CompanyTemplateUpdate {
+  /**
+   * Object storage path; pass null or empty string to clear
+   * @nullable
+   */
+  templatePath: string | null;
+}
+
+export interface CompanyDocumentSettingsUpdate {
+  quoteNumberPrefix?: string;
+  invoiceNumberPrefix?: string;
+  quoteStartNumber?: number;
+  invoiceStartNumber?: number;
+  /** @nullable */
+  defaultQuoteTerms?: string | null;
+  /** @nullable */
+  defaultInvoiceNotes?: string | null;
+}
+
 export type ListFormSubmissionsParams = {
   status?: string;
   projectId?: number;
@@ -2523,6 +2557,10 @@ export const ListContactsType = {
 
 export type SetActiveCompanyBody = {
   companyId: number;
+};
+
+export type DisconnectQuickBooks200 = {
+  ok: boolean;
 };
 
 export type ListAllDailyReportsParams = {

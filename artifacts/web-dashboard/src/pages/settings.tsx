@@ -3,6 +3,14 @@ import {
   getListCompanyMembersQueryKey, getGetMemberPermissionsQueryKey,
   useGetBillingSeats, useGetEmailConfig, useGetQuickBooksStatus, useGetCompanySettings, useGetAccountingExportData,
   getGetEmailConfigQueryKey, getGetQuickBooksStatusQueryKey, getGetCompanySettingsQueryKey, getGetAccountingExportDataQueryKey,
+  getQuickBooksAuthUrl,
+  useDisconnectQuickBooks,
+  useSyncQuickBooksInvoices,
+  useSyncQuickBooksCosts,
+  useUpdateCompanyDocumentSettings,
+  useUpdateCompanyLogo,
+  useUpdateCompanyQuoteTemplate,
+  useUpdateCompanyInvoiceTemplate,
 } from "@workspace/api-client-react";
 import type { MemberPermissions, UserWithCompany } from "@workspace/api-client-react";
 import { PricingSettingsBody } from "@/pages/pricing-manager";
@@ -493,36 +501,39 @@ function QuickBooksCard() {
 
   const connectMutation = useMutation({
     mutationFn: async () => {
-      const data = await customFetch<{ url: string }>("/api/quickbooks/auth-url");
+      const data = await getQuickBooksAuthUrl();
       window.location.href = data.url;
     },
     onError: (err: any) => setSyncMsg({ type: "error", text: err?.message ?? "Failed to get auth URL" }),
   });
 
-  const disconnectMutation = useMutation({
-    mutationFn: () => customFetch("/api/quickbooks/disconnect", { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: getGetQuickBooksStatusQueryKey() }); setSyncMsg(null); },
-    onError: (err: any) => setSyncMsg({ type: "error", text: err?.message ?? "Disconnect failed" }),
+  const disconnectMutation = useDisconnectQuickBooks({
+    mutation: {
+      onSuccess: () => { qc.invalidateQueries({ queryKey: getGetQuickBooksStatusQueryKey() }); setSyncMsg(null); },
+      onError: (err: any) => setSyncMsg({ type: "error", text: err?.message ?? "Disconnect failed" }),
+    },
   });
 
-  const syncInvoices = useMutation({
-    mutationFn: () => customFetch<{ synced: number; total: number; errors: string[] }>("/api/quickbooks/sync/invoices", { method: "POST" }),
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: getGetQuickBooksStatusQueryKey() });
-      const errText = data.errors.length ? ` (${data.errors.length} errors)` : "";
-      setSyncMsg({ type: data.errors.length ? "error" : "ok", text: `Synced ${data.synced}/${data.total} invoices to QuickBooks${errText}` });
+  const syncInvoices = useSyncQuickBooksInvoices({
+    mutation: {
+      onSuccess: (data) => {
+        qc.invalidateQueries({ queryKey: getGetQuickBooksStatusQueryKey() });
+        const errText = data.errors.length ? ` (${data.errors.length} errors)` : "";
+        setSyncMsg({ type: data.errors.length ? "error" : "ok", text: `Synced ${data.synced}/${data.total} invoices to QuickBooks${errText}` });
+      },
+      onError: (err: any) => setSyncMsg({ type: "error", text: err?.message ?? "Invoice sync failed" }),
     },
-    onError: (err: any) => setSyncMsg({ type: "error", text: err?.message ?? "Invoice sync failed" }),
   });
 
-  const syncCosts = useMutation({
-    mutationFn: () => customFetch<{ synced: number; total: number; errors: string[] }>("/api/quickbooks/sync/costs", { method: "POST" }),
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: getGetQuickBooksStatusQueryKey() });
-      const errText = data.errors.length ? ` (${data.errors.length} errors)` : "";
-      setSyncMsg({ type: data.errors.length ? "error" : "ok", text: `Synced ${data.synced}/${data.total} cost entries to QuickBooks${errText}` });
+  const syncCosts = useSyncQuickBooksCosts({
+    mutation: {
+      onSuccess: (data) => {
+        qc.invalidateQueries({ queryKey: getGetQuickBooksStatusQueryKey() });
+        const errText = data.errors.length ? ` (${data.errors.length} errors)` : "";
+        setSyncMsg({ type: data.errors.length ? "error" : "ok", text: `Synced ${data.synced}/${data.total} cost entries to QuickBooks${errText}` });
+      },
+      onError: (err: any) => setSyncMsg({ type: "error", text: err?.message ?? "Cost sync failed" }),
     },
-    onError: (err: any) => setSyncMsg({ type: "error", text: err?.message ?? "Cost sync failed" }),
   });
 
   const fmtDate = (d: string | null | undefined) => d ? new Date(d).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" }) : "Never";
@@ -672,6 +683,8 @@ function CompanyLogoCard({ company }: { company: any }) {
     ? company.logoPath.replace(/^\/objects\//, "/api/storage/objects/")
     : null;
 
+  const updateLogo = useUpdateCompanyLogo();
+
   async function handleLogoUpload(file: File) {
     setUploading(true);
     try {
@@ -683,10 +696,7 @@ function CompanyLogoCard({ company }: { company: any }) {
         }
       );
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      await customFetch(`/api/companies/${company.id}/logo`, {
-        method: "PATCH",
-        body: JSON.stringify({ logoPath: objectPath }),
-      });
+      await updateLogo.mutateAsync({ companyId: company.id, data: { logoPath: objectPath } });
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({ title: "Logo uploaded", description: "Your logo will appear on exported estimates." });
     } catch (e: any) {
@@ -698,10 +708,7 @@ function CompanyLogoCard({ company }: { company: any }) {
 
   async function handleRemoveLogo() {
     try {
-      await customFetch(`/api/companies/${company.id}/logo`, {
-        method: "PATCH",
-        body: JSON.stringify({ logoPath: "" }),
-      });
+      await updateLogo.mutateAsync({ companyId: company.id, data: { logoPath: "" } });
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({ title: "Logo removed" });
     } catch {
@@ -772,6 +779,9 @@ function DocumentTemplatesCard({ company }: { company: any }) {
   const quoteInputRef = useRef<HTMLInputElement>(null);
   const invoiceInputRef = useRef<HTMLInputElement>(null);
 
+  const updateQuoteTemplate = useUpdateCompanyQuoteTemplate();
+  const updateInvoiceTemplate = useUpdateCompanyInvoiceTemplate();
+
   function templateUrl(path: string | null | undefined) {
     if (!path) return null;
     return path.replace(/^\/objects\//, "/api/storage/objects/");
@@ -785,10 +795,11 @@ function DocumentTemplatesCard({ company }: { company: any }) {
         { method: "POST", body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }
       );
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      await customFetch(`/api/companies/${company.id}/${type}-template`, {
-        method: "PATCH",
-        body: JSON.stringify({ templatePath: objectPath }),
-      });
+      if (type === "quote") {
+        await updateQuoteTemplate.mutateAsync({ companyId: company.id, data: { templatePath: objectPath } });
+      } else {
+        await updateInvoiceTemplate.mutateAsync({ companyId: company.id, data: { templatePath: objectPath } });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({ title: `${type === "quote" ? "Quote" : "Invoice"} template uploaded`, description: "It will appear on all new PDFs." });
     } catch (e: any) {
@@ -800,10 +811,11 @@ function DocumentTemplatesCard({ company }: { company: any }) {
 
   async function handleRemove(type: "quote" | "invoice") {
     try {
-      await customFetch(`/api/companies/${company.id}/${type}-template`, {
-        method: "PATCH",
-        body: JSON.stringify({ templatePath: "" }),
-      });
+      if (type === "quote") {
+        await updateQuoteTemplate.mutateAsync({ companyId: company.id, data: { templatePath: null } });
+      } else {
+        await updateInvoiceTemplate.mutateAsync({ companyId: company.id, data: { templatePath: null } });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({ title: `${type === "quote" ? "Quote" : "Invoice"} template removed` });
     } catch {
@@ -924,7 +936,8 @@ function DocumentNumberingCard({ company }: { company: any }) {
   const [invoiceStart, setInvoiceStart] = useState(1);
   const [quoteTerms, setQuoteTerms] = useState("");
   const [invoiceNotes, setInvoiceNotes] = useState("");
-  const [saving, setSaving] = useState(false);
+
+  const saveDocSettings = useUpdateCompanyDocumentSettings();
 
   useEffect(() => {
     if (settings) {
@@ -939,25 +952,22 @@ function DocumentNumberingCard({ company }: { company: any }) {
 
   async function handleSave() {
     if (!companyId) return;
-    setSaving(true);
     try {
-      await customFetch(`/api/companies/${companyId}/document-settings`, {
-        method: "PATCH",
-        body: JSON.stringify({
+      await saveDocSettings.mutateAsync({
+        companyId,
+        data: {
           quoteNumberPrefix: quotePrefix.trim(),
           invoiceNumberPrefix: invoicePrefix.trim(),
           quoteStartNumber: Math.max(1, Number(quoteStart) || 1),
           invoiceStartNumber: Math.max(1, Number(invoiceStart) || 1),
           defaultQuoteTerms: quoteTerms.trim() || null,
           defaultInvoiceNotes: invoiceNotes.trim() || null,
-        }),
+        },
       });
       queryClient.invalidateQueries({ queryKey: getGetCompanySettingsQueryKey(companyId!) });
       toast({ title: "Document settings saved" });
     } catch (e: any) {
       toast({ title: "Failed to save settings", description: e?.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -1034,8 +1044,8 @@ function DocumentNumberingCard({ company }: { company: any }) {
                 />
                 <p className="text-xs text-muted-foreground">Appears in the Notes / Terms section of every invoice PDF.</p>
               </div>
-              <Button onClick={handleSave} disabled={saving} className="gap-2">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              <Button onClick={handleSave} disabled={saveDocSettings.isPending} className="gap-2">
+                {saveDocSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Save Document Settings
               </Button>
             </>
