@@ -144,6 +144,8 @@ function AiBriefingCard({ colors }: { colors: any }) {
 const QUICK_ACTIONS_WORKER = [
   { label: "My Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
   { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6" },
+  { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9" },
+  { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b" },
   { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4" },
   { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
   { label: "Vault", icon: "lock", path: "/vault", color: "#16a34a" },
@@ -156,6 +158,8 @@ const QUICK_ACTIONS_WORKER = [
 const QUICK_ACTIONS_OWNER = [
   { label: "Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
   { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
+  { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9" },
+  { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b" },
   { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6" },
   { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4" },
   { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
