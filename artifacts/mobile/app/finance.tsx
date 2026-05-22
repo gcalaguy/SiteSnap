@@ -22,6 +22,7 @@ import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import SignatureCanvas from "@/components/SignatureCanvas";
+import { getAiErrorMessage } from "@/src/utils/aiError";
 
 type TabKey = "invoices" | "quotes" | "change-orders";
 
@@ -213,8 +214,8 @@ export default function FinanceScreen() {
         body: JSON.stringify({ voiceInput: voiceTranscript, clientName: clientName || undefined }),
       });
       setAiResult(data);
-    } catch {
-      Alert.alert("AI generation failed. Please try again.");
+    } catch (err) {
+      Alert.alert("AI generation failed", getAiErrorMessage(err));
     } finally {
       setAiLoading(false);
     }

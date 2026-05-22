@@ -22,6 +22,7 @@ import { Feather } from "@expo/vector-icons";
 import { useListProjects, customFetch } from "@workspace/api-client-react";
 
 import { useColors } from "@/hooks/useColors";
+import { getAiErrorMessage } from "@/src/utils/aiError";
 
 const GOLD = "#C9A84C";
 const MAX_PHOTOS = 8;
@@ -184,8 +185,8 @@ export default function SiteVisionScreen() {
 
       setResult(data);
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err: any) {
-      Alert.alert("Analysis failed", err?.message ?? "Something went wrong. Please try again.");
+    } catch (err) {
+      Alert.alert("Analysis failed", getAiErrorMessage(err));
     } finally {
       setLoading(false);
     }

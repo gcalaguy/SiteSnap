@@ -27,6 +27,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
+import { getAiErrorMessage } from "@/src/utils/aiError";
 
 type LineItem = { description: string; quantity: number; unit: string; unitPrice: number; total: number };
 type AIResult = { title?: string; lineItems?: LineItem[]; notes?: string; clientName?: string };
@@ -113,8 +114,8 @@ export function QuotesTab({ projectId }: { projectId: number }) {
       setAiResult(data);
       setStep("preview");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      Alert.alert("AI generation failed", "Please try again.");
+    } catch (err) {
+      Alert.alert("AI generation failed", getAiErrorMessage(err));
     } finally {
       setAiLoading(false);
     }

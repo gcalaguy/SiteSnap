@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { useGetMe, customFetch } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { getAiErrorMessage } from "@/src/utils/aiError";
 import { useRef } from "react";
 
 type ParsedParams = {
@@ -125,7 +126,7 @@ export default function VoiceEstimateScreen() {
       setParams(data);
       setStep("reviewing");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to parse project description");
+      setError(getAiErrorMessage(err, "Failed to parse project description. Please try again."));
       setStep("idle");
     }
   }, []);
@@ -162,7 +163,7 @@ export default function VoiceEstimateScreen() {
       setResult(data);
       setStep("result");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to calculate estimate");
+      setError(getAiErrorMessage(err, "Failed to calculate estimate. Please try again."));
       setStep("reviewing");
     }
   };
@@ -195,7 +196,7 @@ export default function VoiceEstimateScreen() {
       setSavedQuoteId(quote.id);
       setStep("result");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save quote");
+      setError(getAiErrorMessage(err, "Failed to save quote. Please try again."));
       setStep("result");
     }
   };

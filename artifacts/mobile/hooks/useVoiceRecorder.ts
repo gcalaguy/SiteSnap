@@ -7,6 +7,7 @@ import {
 } from "expo-audio";
 import * as FileSystem from "expo-file-system/legacy";
 import { customFetch } from "@workspace/api-client-react";
+import { getAiErrorMessage } from "@/src/utils/aiError";
 
 export type VoiceState = "idle" | "recording" | "transcribing";
 
@@ -82,7 +83,7 @@ export function useVoiceRecorder(
       // and surface feedback instead of leaving the sheet stuck on "Working on it…"
       onTranscript(transcript);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Transcription failed";
+      const msg = getAiErrorMessage(err, "Transcription failed. Please try again.");
       console.error("[voiceRecorder] transcribe error:", msg);
       setError(msg);
       // Notify upstream so the FAB can show the error instead of hanging

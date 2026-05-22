@@ -7,6 +7,7 @@ import {
   type VoiceIntent,
   type SingleAction,
 } from "@/src/utils/voiceRouter";
+import { getAiErrorMessage } from "@/src/utils/aiError";
 
 export type ExecutorState = "idle" | "parsing" | "executing" | "done" | "error";
 
@@ -92,7 +93,7 @@ export function useVoiceIntentExecutor(
           return;
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Voice command failed";
+        const msg = getAiErrorMessage(err, "Voice command failed. Please try again.");
         console.error("[voiceExecutor] error:", msg);
         setState("error");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

@@ -1,6 +1,7 @@
 import { useGetMe, customFetch, useSetActiveCompany, getGetMeQueryKey } from "@workspace/api-client-react";
 import { signOut } from "@/utils/auth";
 import { useRouter } from "expo-router";
+import { getAiErrorMessage } from "@/src/utils/aiError";
 import * as Haptics from "expo-haptics";
 import { Share } from "react-native";
 import React, { useState, useCallback } from "react";
@@ -162,8 +163,8 @@ export default function ProfileScreen() {
         body: JSON.stringify({ voiceInput: voiceTranscript, clientName: clientName || undefined }),
       });
       setAiResult(data);
-    } catch {
-      Alert.alert("AI generation failed", "Please try again.");
+    } catch (err) {
+      Alert.alert("AI generation failed", getAiErrorMessage(err));
     } finally {
       setAiLoading(false);
     }

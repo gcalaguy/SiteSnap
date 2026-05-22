@@ -579,7 +579,15 @@ async function classifyWithLLM(
         break;
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const { getAiErrorMessage } = await import("./aiError");
+    const { ApiError } = await import("@workspace/api-client-react");
+    if (err instanceof ApiError && err.status === 400) {
+      // Validation error from the server — surface it to the user by re-throwing
+      // with the formatted message. The executor's catch block will show an alert.
+      throw new Error(getAiErrorMessage(err, "Voice classification failed. Please try again."));
+    }
+    // Network / server errors — log and fall back to UNKNOWN silently
+    const msg = getAiErrorMessage(err, "Voice classification failed.");
     console.error("[voiceRouter] classifyWithLLM error:", msg);
   }
 
