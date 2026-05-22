@@ -314,9 +314,7 @@ function AuthApp() {
           <Route path="/media-hub" component={MediaHubTestPage} />
           <Route path="/safety-compliance" component={SafetyCompliancePage} />
           <Route path="/worker-documents" component={WorkerDocumentsPage} />
-          <Route path="/inspections">
-            <Redirect to="/safety-compliance" />
-          </Route>
+          <Route path="/inspections" component={InspectionsPage} />
           <Route path="/safety/submit" component={SafetySubmitPage} />
           <Route path="/safety/submissions/:id" component={SafetyDetailPage} />
           <Route path="/safety">
