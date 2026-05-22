@@ -110,7 +110,20 @@ app.post(
 );
 // ────────────────────────────────────────────────────────────────────────────
 
-app.use(cors({ credentials: true, origin: true }));
+const ALLOWED_ORIGINS = process.env.REPLIT_DOMAINS
+  ? process.env.REPLIT_DOMAINS.split(",").map((d) => `https://${d.trim()}`)
+  : [];
+ALLOWED_ORIGINS.push("http://localhost:5173", "http://localhost:3000");
+
+app.use(
+  cors({
+    credentials: true,
+    origin: (origin, callback) => {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      callback(new Error("Not allowed by CORS"));
+    },
+  }),
+);
 app.use("/api/ai/transcribe", express.json({ limit: "20mb" }));
 app.use("/api/ai/photo-summary", express.json({ limit: "50mb" }));
 app.use("/api/invoices", express.json({ limit: "10mb" }));

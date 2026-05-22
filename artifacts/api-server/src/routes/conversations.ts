@@ -751,7 +751,7 @@ router.delete("/conversations/:conversationId", requireAuth, requireCompany, req
       return;
     }
 
-    await db.delete(conversationsTable).where(eq(conversationsTable.id, id));
+    await db.delete(conversationsTable).where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, req.userId!)));
     res.status(204).send();
   } catch (err) {
     req.log?.error({ err }, "Failed to delete conversation");

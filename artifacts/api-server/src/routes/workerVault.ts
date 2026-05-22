@@ -120,7 +120,7 @@ router.delete("/worker/vault/documents/:id", requireAuth, async (req, res) => {
       return;
     }
 
-    await db.delete(workerDocumentsTable).where(eq(workerDocumentsTable.id, id));
+    await db.delete(workerDocumentsTable).where(and(eq(workerDocumentsTable.id, id), eq(workerDocumentsTable.companyId, req.companyId!)));
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "worker/vault/documents/:id DELETE error");

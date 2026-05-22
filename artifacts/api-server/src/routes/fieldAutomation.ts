@@ -186,7 +186,7 @@ router.delete(
       return;
     }
 
-    await db.delete(dailyLogsTable).where(eq(dailyLogsTable.id, id));
+    await db.delete(dailyLogsTable).where(and(eq(dailyLogsTable.id, id), eq(dailyLogsTable.projectId, existing.projectId)));
     res.status(204).send();
   },
 );
@@ -331,7 +331,7 @@ router.delete(
       return;
     }
 
-    await db.delete(sitePhotosTable).where(eq(sitePhotosTable.id, id));
+    await db.delete(sitePhotosTable).where(and(eq(sitePhotosTable.id, id), eq(sitePhotosTable.projectId, existing.projectId)));
     res.status(204).send();
   },
 );
@@ -479,7 +479,7 @@ router.delete(
       return;
     }
 
-    await db.delete(safetySignoffsTable).where(eq(safetySignoffsTable.id, id));
+    await db.delete(safetySignoffsTable).where(and(eq(safetySignoffsTable.id, id), eq(safetySignoffsTable.projectId, existing.projectId)));
     res.status(204).send();
   },
 );

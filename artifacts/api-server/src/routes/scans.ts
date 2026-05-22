@@ -148,7 +148,7 @@ router.delete(
 
     if (!existing) throw new NotFoundError("Scan not found");
 
-    await db.delete(scansTable).where(eq(scansTable.id, id));
+    await db.delete(scansTable).where(and(eq(scansTable.id, id), eq(scansTable.companyId, req.companyId!)));
 
     res.status(204).send();
   }),

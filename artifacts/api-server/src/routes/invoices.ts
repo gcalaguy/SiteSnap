@@ -168,7 +168,7 @@ router.put("/invoices/:invoiceId", requireAuth, requireCompany, requirePermissio
   if (taxAmount !== undefined) updates.taxAmount = taxAmount?.toFixed(2);
   if (total !== undefined) updates.total = total?.toFixed(2);
 
-  const [updated] = await db.update(invoicesTable).set(updates).where(eq(invoicesTable.id, invoiceId)).returning();
+  const [updated] = await db.update(invoicesTable).set(updates).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!))).returning();
   res.json(updated);
 });
 
@@ -357,7 +357,7 @@ router.delete("/invoices/:invoiceId", requireAuth, requireCompany, async (req, r
     res.status(403).json({ error: "You can only delete invoices you created" });
     return;
   }
-  await db.delete(invoicesTable).where(eq(invoicesTable.id, invoiceId));
+  await db.delete(invoicesTable).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)));
   res.status(204).end();
 });
 

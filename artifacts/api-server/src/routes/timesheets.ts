@@ -314,7 +314,7 @@ router.delete(
     // Prevent deletion of approved timesheets (financial record)
     if (ts.status === "approved") { res.status(409).json({ error: "Approved timesheets cannot be deleted" }); return; }
 
-    await db.delete(timesheetsTable).where(eq(timesheetsTable.id, id));
+    await db.delete(timesheetsTable).where(and(eq(timesheetsTable.id, id), eq(timesheetsTable.companyId, req.companyId!)));
     res.json({ ok: true });
   }),
 );

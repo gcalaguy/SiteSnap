@@ -253,7 +253,7 @@ router.put("/:quoteId", requireAuth, requireCompany, requirePermission("manageQu
     updates.total = total;
   }
 
-  const [updated] = await db.update(quotesTable).set(updates).where(eq(quotesTable.id, quoteId)).returning();
+  const [updated] = await db.update(quotesTable).set(updates).where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).returning();
   res.json(updated);
 });
 
@@ -272,7 +272,7 @@ router.delete("/:quoteId", requireAuth, requireCompany, requirePermission("manag
     res.status(403).json({ error: "You can only delete quotes you created" }); return;
   }
 
-  await db.delete(quotesTable).where(eq(quotesTable.id, quoteId));
+  await db.delete(quotesTable).where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!)));
   res.status(204).send();
 });
 
