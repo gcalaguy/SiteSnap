@@ -3,8 +3,23 @@ import { db, workerSchedulesTable, usersTable, userMembershipsTable, projectsTab
 import { eq, and, lte, gte, or } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
+import { z } from "zod";
 
 const router = Router();
+
+const CreateScheduleBody = z.object({
+  projectId: z.number().int().positive(),
+  userId: z.number().int().positive().optional(),
+  contactId: z.number().int().positive().optional(),
+  startDate: z.string().min(1),
+  endDate: z.string().min(1),
+  notes: z.string().optional(),
+});
+
+const UpdateScheduleBody = z.object({
+  startDate: z.string().min(1),
+  endDate: z.string().min(1),
+});
 
 // GET /api/schedule?weekOf=YYYY-MM-DD
 // Returns all worker assignments for the week containing weekOf
@@ -137,12 +152,10 @@ router.get("/projects/:projectId/schedule", requireAuth, requireCompany, require
 
 // POST /api/schedule — create assignment
 router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
-  const { projectId, userId, contactId, startDate, endDate, notes } = req.body;
+  const parsed = CreateScheduleBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
 
-  if (!projectId || !startDate || !endDate) {
-    res.status(400).json({ error: "projectId, startDate, endDate are required" });
-    return;
-  }
+  const { projectId, userId, contactId, startDate, endDate, notes } = parsed.data;
   if (!userId && !contactId) {
     res.status(400).json({ error: "Either userId or contactId is required" });
     return;
@@ -211,12 +224,9 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
 // PATCH /api/schedule/:id — update dates
 router.patch("/schedule/:id", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   const id = Number(req.params.id);
-  const { startDate, endDate } = req.body;
-
-  if (!startDate || !endDate) {
-    res.status(400).json({ error: "startDate and endDate are required" });
-    return;
-  }
+  const parsed = UpdateScheduleBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+  const { startDate, endDate } = parsed.data;
 
   const [updated] = await db.update(workerSchedulesTable)
     .set({ startDate, endDate })

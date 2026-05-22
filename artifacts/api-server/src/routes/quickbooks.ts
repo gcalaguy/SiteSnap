@@ -99,9 +99,15 @@ async function qbRequest(conn: Awaited<ReturnType<typeof getValidToken>>, method
   return json;
 }
 
+function escapeQbString(str: string): string {
+  // QuickBooks IQL escaping: double single quotes; cap length to avoid query abuse
+  return str.replace(/'/g, "''").slice(0, 200);
+}
+
 async function findOrCreateCustomer(conn: Awaited<ReturnType<typeof getValidToken>>, displayName: string, email?: string | null) {
-  const query = `SELECT * FROM Customer WHERE DisplayName = ?1 MAXRESULTS 1`;
-  const result = await qbRequest(conn, "GET", `/query?query=${encodeURIComponent(query)}&minorversion=73`);
+  const safeName = escapeQbString(displayName);
+  const query = encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName = '${safeName}' MAXRESULTS 1`);
+  const result = await qbRequest(conn, "GET", `/query?query=${query}`);
   const existing = result?.QueryResponse?.Customer?.[0];
   if (existing) return existing.Id as string;
 

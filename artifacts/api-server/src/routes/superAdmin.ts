@@ -382,9 +382,16 @@ router.post("/admin/features", ...guard, async (req, res) => {
 });
 
 // PATCH /admin/features/:id
+const UpdateFeatureBody = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  slug: z.string().min(1).optional(),
+  category: z.string().optional(),
+});
+
 router.patch("/admin/features/:id", ...guard, async (req, res) => {
   const id = Number(req.params.id);
-  const body = insertFeatureSchema.partial().parse(req.body);
+  const body = UpdateFeatureBody.parse(req.body);
   const [feature] = await db
     .update(featuresTable).set(body).where(eq(featuresTable.id, id)).returning();
   if (!feature) { res.status(404).json({ error: "Feature not found" }); return; }

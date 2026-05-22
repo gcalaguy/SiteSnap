@@ -13,6 +13,33 @@ import { z } from "zod";
 
 const router = Router();
 
+const CreateFormBody = z.object({
+  name: z.string().min(1),
+  category: z.enum(["safety", "injury", "hazard", "toolbox"]),
+  schema: z.object({
+    fields: z.array(z.object({
+      id: z.string(),
+      label: z.string(),
+      type: z.string(),
+      required: z.boolean().default(false),
+      options: z.array(z.string()).optional(),
+    })),
+  }),
+});
+
+const CreateSubmissionBody = z.object({
+  templateId: z.number().int().positive(),
+  data: z.record(z.unknown()),
+  status: z.enum(["submitted", "draft"]).optional(),
+  projectId: z.number().int().positive().optional(),
+  contactId: z.number().int().positive().optional(),
+});
+
+const UpdateSubmissionStatusBody = z.object({
+  status: z.enum(["reviewed", "approved"]),
+  notes: z.string().optional(),
+});
+
 // ── Form Templates (at /forms) ────────────────────────────────────────────────
 
 // GET /forms — list all active templates
@@ -39,24 +66,9 @@ router.get("/forms/:id", requireAuth, requireCompany, async (req, res) => {
   res.json(template);
 });
 
-// POST /forms — create custom form template
-const CreateFormBody = z.object({
-  name: z.string().min(1),
-  category: z.enum(["safety", "injury", "hazard", "toolbox"]),
-  schema: z.object({
-    fields: z.array(z.object({
-      id: z.string(),
-      label: z.string(),
-      type: z.string(),
-      required: z.boolean().default(false),
-      options: z.array(z.string()).optional(),
-    })),
-  }),
-});
-
 router.post("/forms", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   const parsed = CreateFormBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
 
   const [template] = await db
     .insert(formTemplatesTable)
@@ -152,17 +164,9 @@ router.get("/form-submissions", requireAuth, requireCompany, async (req, res) =>
 // POST /form-submissions — create submission with contact + project linking
 router.post("/form-submissions", requireAuth, requireCompany, async (req, res) => {
   try {
-    const { templateId, data, status = "submitted", projectId, contactId } = req.body as {
-      templateId: number;
-      data: Record<string, any>;
-      status?: string;
-      projectId?: number;
-      contactId?: number;
-    };
-
-    if (!templateId || !data) {
-      res.status(400).json({ error: "templateId and data required" }); return;
-    }
+    const parsed = CreateSubmissionBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { templateId, data, status = "submitted", projectId, contactId } = parsed.data;
 
     const [template] = await db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, templateId));
     if (!template) { res.status(404).json({ error: "Template not found" }); return; }
@@ -217,10 +221,9 @@ router.patch("/form-submissions/:id/status", requireAuth, requireCompany, requir
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { status, notes } = req.body as { status: "reviewed" | "approved"; notes?: string };
-  if (!["reviewed", "approved"].includes(status)) {
-    res.status(400).json({ error: "status must be reviewed or approved" }); return;
-  }
+  const parsed = UpdateSubmissionStatusBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+  const { status, notes } = parsed.data;
 
   const [updated] = await db
     .update(formSubmissionsTable)

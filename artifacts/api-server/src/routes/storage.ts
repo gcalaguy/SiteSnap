@@ -8,6 +8,8 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { db, fileAttachmentsTable, projectDocumentsTable, projectsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -125,8 +127,31 @@ router.get(
       const raw = req.params.path;
       const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
       const objectPath = `/objects/${wildcardPath}`;
-      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
+      // Verify ownership: objectPath must belong to this company via fileAttachments or projectDocuments
+      const [fileAttachment] = await db
+        .select({ id: fileAttachmentsTable.id })
+        .from(fileAttachmentsTable)
+        .where(and(eq(fileAttachmentsTable.objectPath, objectPath), eq(fileAttachmentsTable.companyId, req.companyId!)))
+        .limit(1);
+
+      let isOwner = !!fileAttachment;
+      if (!isOwner) {
+        const [projectDoc] = await db
+          .select({ id: projectDocumentsTable.id })
+          .from(projectDocumentsTable)
+          .innerJoin(projectsTable, eq(projectsTable.id, projectDocumentsTable.projectId))
+          .where(and(eq(projectDocumentsTable.objectPath, objectPath), eq(projectsTable.companyId, req.companyId!)))
+          .limit(1);
+        isOwner = !!projectDoc;
+      }
+
+      if (!isOwner) {
+        res.status(404).json({ error: "Object not found" });
+        return;
+      }
+
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
       const response = await objectStorageService.downloadObject(objectFile);
 
       res.status(response.status);

@@ -15,8 +15,46 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
 import { getMeetingLink, type MeetingPlatform } from "../lib/meetingService";
+import { z } from "zod";
 
 const router = Router();
+
+const CreateScheduleEventBody = z.object({
+  title: z.string().min(1).max(200),
+  type: z.string().optional(),
+  projectId: z.number().int().positive().optional(),
+  startTime: z.string().min(1),
+  endTime: z.string().min(1),
+  location: z.string().optional(),
+  notes: z.string().optional(),
+  assignees: z.array(z.object({ resourceType: z.enum(["user", "equipment"]), resourceId: z.number().int().positive() })).optional(),
+  allowConflict: z.boolean().optional(),
+  recipientEmails: z.array(z.string().email()).optional(),
+  meetingPlatform: z.string().optional(),
+  meetingLink: z.string().optional(),
+});
+
+const UpdateScheduleEventBody = z.object({
+  title: z.string().min(1).max(200).optional(),
+  type: z.string().optional(),
+  projectId: z.number().int().positive().optional(),
+  startTime: z.string().min(1).optional(),
+  endTime: z.string().min(1).optional(),
+  location: z.string().optional(),
+  notes: z.string().optional(),
+  status: z.string().optional(),
+  assignees: z.array(z.object({ resourceType: z.enum(["user", "equipment"]), resourceId: z.number().int().positive() })).optional(),
+  allowConflict: z.boolean().optional(),
+  meetingPlatform: z.string().optional(),
+  meetingLink: z.string().optional(),
+});
+
+const CreateEquipmentBody = z.object({
+  name: z.string().min(1).max(200),
+  type: z.string().optional(),
+  status: z.string().optional(),
+  notes: z.string().optional(),
+});
 
 // ── Equipment ──────────────────────────────────────────────────────────────────
 
@@ -44,11 +82,9 @@ router.post(
   requirePermission("viewSchedules"),
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
-    const { name, type, status, notes } = req.body;
-    if (!name) {
-      res.status(400).json({ error: "name is required" });
-      return;
-    }
+    const parsed = CreateEquipmentBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { name, type, status, notes } = parsed.data;
     const [row] = await db
       .insert(equipmentTable)
       .values({ companyId: req.companyId!, name, type: type ?? "other", status: status ?? "available", notes: notes ?? null })
@@ -191,12 +227,9 @@ router.post(
   requirePermission("viewSchedules"),
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
-    const { title, type, projectId, startTime, endTime, location, notes, assignees, allowConflict, recipientEmails, meetingPlatform, meetingLink: providedMeetingLink } = req.body;
-
-    if (!title || !startTime || !endTime) {
-      res.status(400).json({ error: "title, startTime, endTime are required" });
-      return;
-    }
+    const parsed = CreateScheduleEventBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { title, type, projectId, startTime, endTime, location, notes, assignees, allowConflict, recipientEmails, meetingPlatform, meetingLink: providedMeetingLink } = parsed.data;
     const start = new Date(startTime);
     const end = new Date(endTime);
     if (end <= start) {
@@ -393,7 +426,9 @@ router.patch(
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
-    const { title, type, projectId, startTime, endTime, location, notes, status, assignees, allowConflict } = req.body;
+    const parsed = UpdateScheduleEventBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { title, type, projectId, startTime, endTime, location, notes, status, assignees, allowConflict } = parsed.data;
 
     const existing = await db
       .select()

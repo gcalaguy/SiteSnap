@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { eq, and, isNotNull } from 'drizzle-orm';
 import { requireAuth, requireCompany, requireOwner } from '../lib/auth';
 import { db, companiesTable, usersTable, userMembershipsTable, plansTable } from '@workspace/db';
+import { z } from "zod";
 import {
   getUncachableStripeClient,
   getStripePublishableKey,
@@ -66,10 +67,16 @@ router.get('/billing/subscription', requireAuth, requireCompany, async (req, res
   }
 });
 
+const CheckoutBody = z.object({
+  priceId: z.string().min(1),
+  seats: z.number().int().min(1).max(100).optional(),
+});
+
 router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, async (req, res) => {
   try {
-    const { priceId, seats = 1 } = req.body as { priceId: string; seats?: number };
-    if (!priceId) { res.status(400).json({ error: 'priceId is required' }); return; }
+    const parsed = CheckoutBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Malformed request payload', details: parsed.error.flatten() }); return; }
+    const { priceId, seats = 1 } = parsed.data;
 
     const [company] = await db
       .select()

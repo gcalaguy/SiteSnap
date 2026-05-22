@@ -304,6 +304,9 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
+  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
+
   const parsed = RegisterDocumentBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error.issues }); return; }
 
@@ -329,7 +332,10 @@ router.delete("/:docId", requireAuth, requireCompany, async (req, res) => {
   const docId = parseInt(req.params.docId as string);
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
 
-  await pool.query("DELETE FROM document_chunks WHERE doc_id=$1", [docId]);
+  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
+
+  await pool.query("DELETE FROM document_chunks WHERE doc_id=$1 AND project_id=$2", [docId, projectId]);
   await db.delete(projectDocumentsTable).where(
     and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId))
   );
@@ -367,7 +373,7 @@ router.post("/:docId/extract", requireAuth, requireCompany, async (req, res) => 
   if (!isImage(doc.fileType)) {
     await db.update(projectDocumentsTable)
       .set({ status: "failed", aiSummary: "Use the Analyze button for full AI analysis." })
-      .where(eq(projectDocumentsTable.id, docId));
+      .where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
     res.json({ status: "failed", message: "Use /analyze instead" });
     return;
   }
@@ -387,7 +393,9 @@ router.post("/:docId/analyze", requireAuth, requireCompany, async (req, res) => 
   if (!doc) { res.status(404).json({ error: "Document not found" }); return; }
 
   const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId));
-  await db.update(projectDocumentsTable).set({ status: "processing" }).where(eq(projectDocumentsTable.id, docId));
+  await db.update(projectDocumentsTable).set({ status: "processing" }).where(
+    and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId))
+  );
 
   if (isImage(doc.fileType)) {
     await runImageAnalysis(doc, docId, projectId, project.companyId, res);

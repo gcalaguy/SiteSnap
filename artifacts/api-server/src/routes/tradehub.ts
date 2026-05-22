@@ -21,8 +21,52 @@ import {
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { logger } from "../lib/logger";
+import { z } from "zod";
 
 const router = Router();
+
+const CreatePostBody = z.object({
+  type: z.enum(["discussion", "job", "safety_alert", "tool_review", "calculation"]).optional(),
+  title: z.string().min(1).max(200),
+  content: z.string().min(1).max(5000),
+  trade: z.string().max(100).optional(),
+  location: z.string().max(200).optional(),
+  province: z.string().max(50).optional(),
+  budget: z.string().max(50).optional(),
+  jobType: z.string().max(50).optional(),
+  visibility: z.enum(["public", "internal"]).optional(),
+});
+
+const CreateJobPostingBody = z.object({
+  projectTitle: z.string().min(1).max(200),
+  description: z.string().min(1).max(5000),
+  scopeOfWork: z.string().max(5000).optional(),
+  budgetEstimate: z.string().max(100).optional(),
+  targetedStartDate: z.string().optional(),
+  location: z.string().max(200).optional(),
+  province: z.string().max(50).optional(),
+  trade: z.string().max(100).optional(),
+});
+
+const CreateCommentBody = z.object({
+  content: z.string().min(1).max(2000),
+});
+
+const UpdateProfileBody = z.object({
+  displayName: z.string().min(1).max(200),
+  trade: z.string().max(100).optional(),
+  location: z.string().max(200).optional(),
+  province: z.string().max(50).optional(),
+  bio: z.string().max(2000).optional(),
+  website: z.string().max(500).optional(),
+  avatarUrl: z.string().max(500).optional(),
+});
+
+const CreateReportBody = z.object({
+  targetType: z.enum(["post", "comment", "profile", "job"]),
+  targetId: z.number().int().positive(),
+  reason: z.string().min(1).max(1000),
+});
 
 // ── Rate limiting (simple in-memory, per process) ─────────────────────────────
 const postCounts = new Map<string, { count: number; resetAt: number }>();
@@ -178,14 +222,12 @@ router.post("/tradehub/posts", requireAuth, async (req, res) => {
       return;
     }
 
-    const { type = "discussion", title, content, trade, location, province, budget, jobType, visibility = "public" } = req.body as {
-      type?: string; title: string; content: string; trade?: string;
-      location?: string; province?: string; budget?: string; jobType?: string; visibility?: string;
-    };
-
-    if (!title?.trim() || !content?.trim()) {
-      res.status(400).json({ error: "title and content are required" }); return;
+    const parsed = CreatePostBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() });
+      return;
     }
+    const { type = "discussion", title, content, trade, location, province, budget, jobType, visibility = "public" } = parsed.data;
 
     const [post] = await db.insert(tradehubPostsTable).values({
       userId: req.userId!,
@@ -266,7 +308,13 @@ router.delete("/tradehub/posts/:id", requireAuth, async (req, res) => {
     if (post.userId !== req.userId && req.systemRole !== "super_admin") {
       res.status(403).json({ error: "You can only delete your own posts" }); return;
     }
-    await db.delete(tradehubPostsTable).where(eq(tradehubPostsTable.id, id));
+    if (req.companyId) {
+      await db.delete(tradehubPostsTable).where(
+        and(eq(tradehubPostsTable.id, id), eq(tradehubPostsTable.companyId, req.companyId))
+      );
+    } else {
+      await db.delete(tradehubPostsTable).where(eq(tradehubPostsTable.id, id));
+    }
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "tradehub/posts/:id DELETE error");
@@ -280,8 +328,9 @@ router.delete("/tradehub/posts/:id", requireAuth, async (req, res) => {
 router.post("/tradehub/posts/:id/comments", requireAuth, async (req, res) => {
   try {
     const postId = parseInt(req.params.id as string);
-    const { content } = req.body as { content: string };
-    if (!content?.trim()) { res.status(400).json({ error: "content required" }); return; }
+    const parsed = CreateCommentBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { content } = parsed.data;
 
     const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, postId)).limit(1);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
@@ -514,14 +563,9 @@ router.get("/tradehub/job-postings", requireAuth, async (req, res) => {
 // POST /tradehub/job-postings
 router.post("/tradehub/job-postings", requireAuth, requireCompany, async (req, res) => {
   try {
-    const { projectTitle, description, scopeOfWork, budgetEstimate, targetedStartDate, location, province, trade } = req.body as {
-      projectTitle: string; description: string; scopeOfWork?: string; budgetEstimate?: string;
-      targetedStartDate?: string; location?: string; province?: string; trade?: string;
-    };
-    if (!projectTitle?.trim() || !description?.trim()) {
-      res.status(400).json({ error: "projectTitle and description required" });
-      return;
-    }
+    const parsed = CreateJobPostingBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { projectTitle, description, scopeOfWork, budgetEstimate, targetedStartDate, location, province, trade } = parsed.data;
     const [created] = await db.insert(jobPostingsTable).values({
       companyId: req.companyId!,
       createdBy: req.userId!,
@@ -640,12 +684,9 @@ router.get("/tradehub/profile/:userId", requireAuth, async (req, res) => {
 // PUT /tradehub/profile — upsert my profile
 router.put("/tradehub/profile", requireAuth, async (req, res) => {
   try {
-    const { displayName, trade, location, province, bio, website, avatarUrl, complianceStatus } = req.body as {
-      displayName: string; trade?: string; location?: string; province?: string;
-      bio?: string; website?: string; avatarUrl?: string; complianceStatus?: string;
-    };
-
-    if (!displayName?.trim()) { res.status(400).json({ error: "displayName required" }); return; }
+    const parsed = UpdateProfileBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { displayName, trade, location, province, bio, website, avatarUrl } = parsed.data;
 
     const [existing] = await db
       .select()
@@ -656,7 +697,7 @@ router.put("/tradehub/profile", requireAuth, async (req, res) => {
     if (existing) {
       const [updated] = await db
         .update(tradehubProfilesTable)
-        .set({ displayName: displayName.trim(), trade: trade ?? null, location: location ?? null, province: province ?? null, bio: bio ?? null, website: website ?? null, avatarUrl: avatarUrl ?? null, complianceStatus: req.body.complianceStatus ?? existing.complianceStatus, updatedAt: new Date() })
+        .set({ displayName: displayName.trim(), trade: trade ?? null, location: location ?? null, province: province ?? null, bio: bio ?? null, website: website ?? null, avatarUrl: avatarUrl ?? null, updatedAt: new Date() })
         .where(eq(tradehubProfilesTable.userId, req.userId!))
         .returning();
       res.json(updated);
@@ -671,7 +712,7 @@ router.put("/tradehub/profile", requireAuth, async (req, res) => {
         bio: bio ?? null,
         website: website ?? null,
         avatarUrl: avatarUrl ?? null,
-        complianceStatus: req.body.complianceStatus ?? "compliant",
+        complianceStatus: "compliant",
       }).returning();
       res.json(created);
     }
@@ -717,10 +758,9 @@ router.post("/tradehub/notifications/read-all", requireAuth, async (req, res) =>
 // POST /tradehub/reports
 router.post("/tradehub/reports", requireAuth, async (req, res) => {
   try {
-    const { targetType, targetId, reason } = req.body as { targetType: string; targetId: number; reason: string };
-    if (!targetType || !targetId || !reason?.trim()) {
-      res.status(400).json({ error: "targetType, targetId, and reason required" }); return;
-    }
+    const parsed = CreateReportBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { targetType, targetId, reason } = parsed.data;
     const [report] = await db.insert(tradehubReportsTable).values({
       reporterId: req.userId!,
       targetType,
