@@ -287,6 +287,7 @@ export const rfisTable = pgTable("rfis", {
 }, (t) => [
   index("idx_rfis_project_id").on(t.projectId),
   index("idx_rfis_status").on(t.status),
+  index("idx_rfis_project_status").on(t.projectId, t.status),
 ]);
 
 export const insertRFISchema = createInsertSchema(rfisTable).omit({
@@ -447,6 +448,7 @@ export const tasksTable = pgTable("tasks", {
 }, (t) => [
   index("idx_tasks_project_id").on(t.projectId),
   index("idx_tasks_status").on(t.status),
+  index("idx_tasks_project_status").on(t.projectId, t.status),
 ]);
 
 export const insertTaskSchema = createInsertSchema(tasksTable).omit({
@@ -931,6 +933,7 @@ export const formSubmissionsTable = pgTable("form_submissions", {
 }, (t) => [
   index("idx_form_submissions_company_id").on(t.companyId),
   index("idx_form_submissions_status").on(t.status),
+  index("idx_form_submissions_company_status").on(t.companyId, t.status),
 ]);
 export type FormSubmission = typeof formSubmissionsTable.$inferSelect;
 
@@ -1458,6 +1461,7 @@ export const inspectionsTable = pgTable("inspections", {
 }, (t) => [
   index("idx_inspections_company_id").on(t.companyId),
   index("idx_inspections_project_id").on(t.projectId),
+  index("idx_inspections_company_project").on(t.companyId, t.projectId),
 ]);
 export type Inspection = typeof inspectionsTable.$inferSelect;
 
