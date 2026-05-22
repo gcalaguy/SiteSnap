@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startDailyCron } from "./cron";
 import { pool } from "@workspace/db";
+import { instrumentPool } from "./lib/slowQueryLogger";
 
 const rawPort = process.env["PORT"];
 
@@ -16,6 +17,9 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+// Instrument pg pool before any queries run.
+instrumentPool(pool);
 
 async function initStripe() {
   try {
