@@ -1,4 +1,9 @@
-import { useGetMe, customFetch, useListCompanyMembers, useGetMemberPermissions, useSetMemberPermissions, getListCompanyMembersQueryKey, getGetMemberPermissionsQueryKey } from "@workspace/api-client-react";
+import {
+  useGetMe, customFetch, useListCompanyMembers, useGetMemberPermissions, useSetMemberPermissions,
+  getListCompanyMembersQueryKey, getGetMemberPermissionsQueryKey,
+  useGetBillingSeats, useGetEmailConfig, useGetQuickBooksStatus, useGetCompanySettings, useGetAccountingExportData,
+  getGetEmailConfigQueryKey, getGetQuickBooksStatusQueryKey, getGetCompanySettingsQueryKey, getGetAccountingExportDataQueryKey,
+} from "@workspace/api-client-react";
 import type { MemberPermissions, UserWithCompany } from "@workspace/api-client-react";
 import { PricingSettingsBody } from "@/pages/pricing-manager";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera, Hash, Save, Download, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -27,14 +32,7 @@ function statusBadge(status: string) {
 
 function TeamSeatsCard() {
   const [, navigate] = useLocation();
-  const { data: seatInfo, isLoading: seatsLoading } = useQuery<{
-    currentSeats: number;
-    maxSeats: number | "unlimited";
-    canAddMore: boolean;
-  }>({
-    queryKey: ["billing-seats"],
-    queryFn: () => customFetch("/api/billing/seats"),
-  });
+  const { data: seatInfo, isLoading: seatsLoading } = useGetBillingSeats();
 
   const seatUsed = seatInfo?.currentSeats ?? 0;
   const seatMax = seatInfo?.maxSeats;
@@ -232,31 +230,10 @@ function DigestCard() {
   );
 }
 
-interface QbStatus {
-  connected: boolean;
-  configured: boolean;
-  connection: {
-    realmId: string;
-    environment: string;
-    lastInvoiceSyncAt: string | null;
-    lastCostSyncAt: string | null;
-    syncedInvoiceCount: number | null;
-    syncedCostCount: number | null;
-    connectedAt: string;
-  } | null;
-}
-
-interface EmailConfig {
-  fromEmail: string;
-  isCustomDomain: boolean;
-  resendKeySet: boolean;
-}
 
 function EmailDomainCard() {
-  const { data: cfg, isLoading } = useQuery<EmailConfig>({
-    queryKey: ["email-config"],
-    queryFn: () => customFetch("/api/settings/email-config"),
-    refetchOnWindowFocus: false,
+  const { data: cfg, isLoading } = useGetEmailConfig({
+    query: { queryKey: getGetEmailConfigQueryKey(), refetchOnWindowFocus: false },
   });
 
   const steps = [
@@ -376,20 +353,8 @@ function AccountingCard() {
   const [collapsed, setCollapsed] = useState(true);
   const [exporting, setExporting] = useState(false);
 
-  const { data: exportRows, isLoading: exportLoading } = useQuery<
-    {
-      date: string;
-      documentNumber: string;
-      projectSite: string;
-      accountCode: string;
-      vendorPayee: string;
-      grossAmount: string;
-      tax: string;
-    }[]
-  >({
-    queryKey: ["/api/companies", companyId, "accounting", "export-data"],
-    queryFn: () => customFetch(`/api/companies/${companyId}/accounting/export-data`),
-    enabled: !!companyId && !collapsed,
+  const { data: exportRows, isLoading: exportLoading } = useGetAccountingExportData(companyId ?? 0, {
+    query: { queryKey: getGetAccountingExportDataQueryKey(companyId ?? 0), enabled: !!companyId && !collapsed },
   });
 
   function escapeCsv(val: string | number | null | undefined) {
@@ -508,17 +473,15 @@ function QuickBooksCard() {
   const qc = useQueryClient();
   const [syncMsg, setSyncMsg] = useState<{ type: "ok" | "error"; text: string } | null>(null);
 
-  const { data: qb, isLoading: qbLoading } = useQuery<QbStatus>({
-    queryKey: ["qb-status"],
-    queryFn: () => customFetch("/api/quickbooks/status"),
-    refetchOnWindowFocus: false,
+  const { data: qb, isLoading: qbLoading } = useGetQuickBooksStatus({
+    query: { queryKey: getGetQuickBooksStatusQueryKey(), refetchOnWindowFocus: false },
   });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const qbParam = params.get("qb");
     if (qbParam === "connected") {
-      qc.invalidateQueries({ queryKey: ["qb-status"] });
+      qc.invalidateQueries({ queryKey: getGetQuickBooksStatusQueryKey() });
       setSyncMsg({ type: "ok", text: "QuickBooks connected successfully!" });
       window.history.replaceState({}, "", window.location.pathname);
     } else if (qbParam === "error") {
@@ -538,14 +501,14 @@ function QuickBooksCard() {
 
   const disconnectMutation = useMutation({
     mutationFn: () => customFetch("/api/quickbooks/disconnect", { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["qb-status"] }); setSyncMsg(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: getGetQuickBooksStatusQueryKey() }); setSyncMsg(null); },
     onError: (err: any) => setSyncMsg({ type: "error", text: err?.message ?? "Disconnect failed" }),
   });
 
   const syncInvoices = useMutation({
     mutationFn: () => customFetch<{ synced: number; total: number; errors: string[] }>("/api/quickbooks/sync/invoices", { method: "POST" }),
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["qb-status"] });
+      qc.invalidateQueries({ queryKey: getGetQuickBooksStatusQueryKey() });
       const errText = data.errors.length ? ` (${data.errors.length} errors)` : "";
       setSyncMsg({ type: data.errors.length ? "error" : "ok", text: `Synced ${data.synced}/${data.total} invoices to QuickBooks${errText}` });
     },
@@ -555,14 +518,14 @@ function QuickBooksCard() {
   const syncCosts = useMutation({
     mutationFn: () => customFetch<{ synced: number; total: number; errors: string[] }>("/api/quickbooks/sync/costs", { method: "POST" }),
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["qb-status"] });
+      qc.invalidateQueries({ queryKey: getGetQuickBooksStatusQueryKey() });
       const errText = data.errors.length ? ` (${data.errors.length} errors)` : "";
       setSyncMsg({ type: data.errors.length ? "error" : "ok", text: `Synced ${data.synced}/${data.total} cost entries to QuickBooks${errText}` });
     },
     onError: (err: any) => setSyncMsg({ type: "error", text: err?.message ?? "Cost sync failed" }),
   });
 
-  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" }) : "Never";
+  const fmtDate = (d: string | null | undefined) => d ? new Date(d).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" }) : "Never";
   const isSyncing = syncInvoices.isPending || syncCosts.isPending;
 
   const [collapsed, setCollapsed] = useState(true);
@@ -951,17 +914,8 @@ function DocumentNumberingCard({ company }: { company: any }) {
   const { toast } = useToast();
   const companyId = company?.id;
 
-  const { data: settings, isLoading } = useQuery<{
-    quoteNumberPrefix: string;
-    invoiceNumberPrefix: string;
-    quoteStartNumber: number;
-    invoiceStartNumber: number;
-    defaultQuoteTerms: string;
-    defaultInvoiceNotes: string;
-  }>({
-    queryKey: ["/api/companies", companyId, "settings"],
-    queryFn: () => customFetch(`/api/companies/${companyId}/settings`),
-    enabled: !!companyId,
+  const { data: settings, isLoading } = useGetCompanySettings(companyId ?? 0, {
+    query: { queryKey: getGetCompanySettingsQueryKey(companyId ?? 0), enabled: !!companyId },
   });
 
   const [quotePrefix, setQuotePrefix] = useState("");
@@ -998,7 +952,7 @@ function DocumentNumberingCard({ company }: { company: any }) {
           defaultInvoiceNotes: invoiceNotes.trim() || null,
         }),
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/companies", companyId, "settings"] });
+      queryClient.invalidateQueries({ queryKey: getGetCompanySettingsQueryKey(companyId!) });
       toast({ title: "Document settings saved" });
     } catch (e: any) {
       toast({ title: "Failed to save settings", description: e?.message, variant: "destructive" });

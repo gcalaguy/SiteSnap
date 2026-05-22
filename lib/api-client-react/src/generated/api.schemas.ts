@@ -2337,6 +2337,58 @@ export interface InspectionAlertRow {
   inspection?: InspectionAlertRowInspection;
 }
 
+export interface BillingSeats {
+  currentSeats: number;
+  maxSeats: number | "unlimited";
+  canAddMore: boolean;
+  planName?: string | null;
+  subscriptionStatus?: string | null;
+}
+
+export interface EmailConfig {
+  fromEmail: string;
+  isCustomDomain: boolean;
+  resendKeySet: boolean;
+}
+
+export interface QuickBooksConnection {
+  realmId: string;
+  environment: string;
+  lastInvoiceSyncAt?: string | null;
+  lastCostSyncAt?: string | null;
+  syncedInvoiceCount?: number | null;
+  syncedCostCount?: number | null;
+  connectedAt: string;
+}
+
+export interface QuickBooksStatus {
+  connected: boolean;
+  configured: boolean;
+  connection: QuickBooksConnection | null;
+}
+
+export type CompanySettingsEstimatorConfig = { [key: string]: unknown };
+
+export interface CompanySettings {
+  estimatorConfig?: CompanySettingsEstimatorConfig;
+  quoteNumberPrefix: string;
+  invoiceNumberPrefix: string;
+  quoteStartNumber: number;
+  invoiceStartNumber: number;
+  defaultQuoteTerms: string;
+  defaultInvoiceNotes: string;
+}
+
+export interface AccountingExportRow {
+  date: string;
+  documentNumber: string;
+  projectSite: string;
+  accountCode: string;
+  vendorPayee: string;
+  grossAmount: string;
+  tax: string;
+}
+
 export type ListFormSubmissionsParams = {
   status?: string;
   projectId?: number;

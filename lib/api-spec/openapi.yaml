@@ -68,6 +68,12 @@ tags:
     description: TradeHub social network – posts, jobs, messages, profiles, and notifications
   - name: inspections
     description: AI-powered site inspections and inspection alerts
+  - name: billing
+    description: Billing, subscription, and seat management
+  - name: settings
+    description: Company settings and configuration
+  - name: quickbooks
+    description: QuickBooks Online integration
 
 paths:
   # ── Forms ────────────────────────────────────────────────────────────────────
@@ -1377,6 +1383,84 @@ paths:
           description: Owner access required
         "404":
           description: Member not found
+
+  # ── Billing ──────────────────────────────────────────────────────────────────
+  /billing/seats:
+    get:
+      operationId: getBillingSeats
+      tags: [billing]
+      summary: Get the current seat usage and limit for the company
+      responses:
+        "200":
+          description: Seat info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingSeats"
+
+  # ── Settings ─────────────────────────────────────────────────────────────────
+  /settings/email-config:
+    get:
+      operationId: getEmailConfig
+      tags: [settings]
+      summary: Get the current outbound email configuration
+      responses:
+        "200":
+          description: Email configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailConfig"
+
+  # ── QuickBooks ────────────────────────────────────────────────────────────────
+  /quickbooks/status:
+    get:
+      operationId: getQuickBooksStatus
+      tags: [quickbooks]
+      summary: Get QuickBooks connection status for the current company
+      responses:
+        "200":
+          description: QuickBooks status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuickBooksStatus"
+
+  /companies/{companyId}/settings:
+    get:
+      operationId: getCompanySettings
+      tags: [companies]
+      summary: Get document numbering and terms settings for a company
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+      responses:
+        "200":
+          description: Company settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanySettings"
+        "403":
+          description: Access denied
+
+  /companies/{companyId}/accounting/export-data:
+    get:
+      operationId: getAccountingExportData
+      tags: [companies]
+      summary: Get flat transaction journal rows for accountant CSV export
+      parameters:
+        - $ref: "#/components/parameters/companyId"
+      responses:
+        "200":
+          description: Transaction rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccountingExportRow"
+        "403":
+          description: Access denied
 
   # ── Invitations ────────────────────────────────────────────────────────────
   /invitations:
@@ -8191,3 +8275,112 @@ components:
               type: string
             date:
               type: string
+
+    BillingSeats:
+      type: object
+      required: [currentSeats, maxSeats, canAddMore]
+      properties:
+        currentSeats:
+          type: integer
+        maxSeats:
+          oneOf:
+            - type: integer
+            - type: string
+              enum: [unlimited]
+        canAddMore:
+          type: boolean
+        planName:
+          type: string
+          nullable: true
+        subscriptionStatus:
+          type: string
+          nullable: true
+
+    EmailConfig:
+      type: object
+      required: [fromEmail, isCustomDomain, resendKeySet]
+      properties:
+        fromEmail:
+          type: string
+        isCustomDomain:
+          type: boolean
+        resendKeySet:
+          type: boolean
+
+    QuickBooksConnection:
+      type: object
+      required: [realmId, environment, connectedAt]
+      properties:
+        realmId:
+          type: string
+        environment:
+          type: string
+        lastInvoiceSyncAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastCostSyncAt:
+          type: string
+          format: date-time
+          nullable: true
+        syncedInvoiceCount:
+          type: integer
+          nullable: true
+        syncedCostCount:
+          type: integer
+          nullable: true
+        connectedAt:
+          type: string
+          format: date-time
+
+    QuickBooksStatus:
+      type: object
+      required: [connected, configured, connection]
+      properties:
+        connected:
+          type: boolean
+        configured:
+          type: boolean
+        connection:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/QuickBooksConnection"
+
+    CompanySettings:
+      type: object
+      required: [quoteNumberPrefix, invoiceNumberPrefix, quoteStartNumber, invoiceStartNumber, defaultQuoteTerms, defaultInvoiceNotes]
+      properties:
+        estimatorConfig:
+          type: object
+          additionalProperties: true
+        quoteNumberPrefix:
+          type: string
+        invoiceNumberPrefix:
+          type: string
+        quoteStartNumber:
+          type: integer
+        invoiceStartNumber:
+          type: integer
+        defaultQuoteTerms:
+          type: string
+        defaultInvoiceNotes:
+          type: string
+
+    AccountingExportRow:
+      type: object
+      required: [date, documentNumber, projectSite, accountCode, vendorPayee, grossAmount, tax]
+      properties:
+        date:
+          type: string
+        documentNumber:
+          type: string
+        projectSite:
+          type: string
+        accountCode:
+          type: string
+        vendorPayee:
+          type: string
+        grossAmount:
+          type: string
+        tax:
+          type: string

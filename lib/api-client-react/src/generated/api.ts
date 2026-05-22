@@ -25,6 +25,7 @@ import type {
   AIGeneratedCostAnalysis,
   AIGeneratedDailyReport,
   AIGeneratedRFI,
+  AccountingExportRow,
   ActivityItem,
   AddPhotoBody,
   AddProjectMemberBody,
@@ -34,12 +35,14 @@ import type {
   ApplyToTradehubJobBody,
   ApproveProposalBody,
   ApproveTimesheetBody,
+  BillingSeats,
   BuilderEstimate,
   BuilderEstimateItem,
   BuilderEstimateWithItems,
   CalendarEventBody,
   ChangeOrderRecord,
   Company,
+  CompanySettings,
   Contact,
   ConvertEstimateBody,
   ConvertLead201,
@@ -90,6 +93,7 @@ import type {
   DeleteTradehubPost200,
   DeleteWorkerDocument200,
   DenyTimesheetBody,
+  EmailConfig,
   ErrorEnvelope,
   EstimateItemBody,
   EstimateTemplate,
@@ -151,6 +155,7 @@ import type {
   ProjectSummary,
   ProposalRecord,
   ProposalWithEstimate,
+  QuickBooksStatus,
   Quote,
   QuoteAIGenerateBody,
   QuoteAIGenerateResponse,
@@ -6034,6 +6039,415 @@ export const useSetMemberPermissions = <
 > => {
   return useMutation(getSetMemberPermissionsMutationOptions(options));
 };
+
+/**
+ * @summary Get the current seat usage and limit for the company
+ */
+export const getGetBillingSeatsUrl = () => {
+  return `/api/billing/seats`;
+};
+
+export const getBillingSeats = async (
+  options?: RequestInit,
+): Promise<BillingSeats> => {
+  return customFetch<BillingSeats>(getGetBillingSeatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBillingSeatsQueryKey = () => {
+  return [`/api/billing/seats`] as const;
+};
+
+export const getGetBillingSeatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBillingSeats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBillingSeats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBillingSeatsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getBillingSeats>>> = ({
+    signal,
+  }) => getBillingSeats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBillingSeats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBillingSeatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBillingSeats>>
+>;
+export type GetBillingSeatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the current seat usage and limit for the company
+ */
+
+export function useGetBillingSeats<
+  TData = Awaited<ReturnType<typeof getBillingSeats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBillingSeats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBillingSeatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the current outbound email configuration
+ */
+export const getGetEmailConfigUrl = () => {
+  return `/api/settings/email-config`;
+};
+
+export const getEmailConfig = async (
+  options?: RequestInit,
+): Promise<EmailConfig> => {
+  return customFetch<EmailConfig>(getGetEmailConfigUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEmailConfigQueryKey = () => {
+  return [`/api/settings/email-config`] as const;
+};
+
+export const getGetEmailConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEmailConfig>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetEmailConfigQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getEmailConfig>>> = ({
+    signal,
+  }) => getEmailConfig({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEmailConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEmailConfig>>
+>;
+export type GetEmailConfigQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the current outbound email configuration
+ */
+
+export function useGetEmailConfig<
+  TData = Awaited<ReturnType<typeof getEmailConfig>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEmailConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEmailConfigQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get QuickBooks connection status for the current company
+ */
+export const getGetQuickBooksStatusUrl = () => {
+  return `/api/quickbooks/status`;
+};
+
+export const getQuickBooksStatus = async (
+  options?: RequestInit,
+): Promise<QuickBooksStatus> => {
+  return customFetch<QuickBooksStatus>(getGetQuickBooksStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetQuickBooksStatusQueryKey = () => {
+  return [`/api/quickbooks/status`] as const;
+};
+
+export const getGetQuickBooksStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getQuickBooksStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getQuickBooksStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetQuickBooksStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getQuickBooksStatus>>
+  > = ({ signal }) => getQuickBooksStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getQuickBooksStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetQuickBooksStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getQuickBooksStatus>>
+>;
+export type GetQuickBooksStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get QuickBooks connection status for the current company
+ */
+
+export function useGetQuickBooksStatus<
+  TData = Awaited<ReturnType<typeof getQuickBooksStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getQuickBooksStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetQuickBooksStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get document numbering and terms settings for a company
+ */
+export const getGetCompanySettingsUrl = (companyId: number) => {
+  return `/api/companies/${companyId}/settings`;
+};
+
+export const getCompanySettings = async (
+  companyId: number,
+  options?: RequestInit,
+): Promise<CompanySettings> => {
+  return customFetch<CompanySettings>(getGetCompanySettingsUrl(companyId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCompanySettingsQueryKey = (companyId: number) => {
+  return [`/api/companies/${companyId}/settings`] as const;
+};
+
+export const getGetCompanySettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCompanySettings>>,
+  TError = ErrorType<void>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCompanySettings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCompanySettingsQueryKey(companyId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCompanySettings>>
+  > = ({ signal }) =>
+    getCompanySettings(companyId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!companyId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCompanySettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCompanySettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCompanySettings>>
+>;
+export type GetCompanySettingsQueryError = ErrorType<void>;
+
+/**
+ * @summary Get document numbering and terms settings for a company
+ */
+
+export function useGetCompanySettings<
+  TData = Awaited<ReturnType<typeof getCompanySettings>>,
+  TError = ErrorType<void>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCompanySettings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCompanySettingsQueryOptions(companyId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get flat transaction journal rows for accountant CSV export
+ */
+export const getGetAccountingExportDataUrl = (companyId: number) => {
+  return `/api/companies/${companyId}/accounting/export-data`;
+};
+
+export const getAccountingExportData = async (
+  companyId: number,
+  options?: RequestInit,
+): Promise<AccountingExportRow[]> => {
+  return customFetch<AccountingExportRow[]>(
+    getGetAccountingExportDataUrl(companyId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAccountingExportDataQueryKey = (companyId: number) => {
+  return [`/api/companies/${companyId}/accounting/export-data`] as const;
+};
+
+export const getGetAccountingExportDataQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAccountingExportData>>,
+  TError = ErrorType<void>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAccountingExportData>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAccountingExportDataQueryKey(companyId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAccountingExportData>>
+  > = ({ signal }) =>
+    getAccountingExportData(companyId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!companyId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAccountingExportData>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAccountingExportDataQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountingExportData>>
+>;
+export type GetAccountingExportDataQueryError = ErrorType<void>;
+
+/**
+ * @summary Get flat transaction journal rows for accountant CSV export
+ */
+
+export function useGetAccountingExportData<
+  TData = Awaited<ReturnType<typeof getAccountingExportData>>,
+  TError = ErrorType<void>,
+>(
+  companyId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAccountingExportData>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAccountingExportDataQueryOptions(
+    companyId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Invite a team member via email

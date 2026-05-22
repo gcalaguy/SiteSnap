@@ -1802,6 +1802,82 @@ export const SetMemberPermissionsResponse = zod.object({
 });
 
 /**
+ * @summary Get the current seat usage and limit for the company
+ */
+export const GetBillingSeatsResponse = zod.object({
+  currentSeats: zod.number(),
+  maxSeats: zod.union([zod.number(), zod.enum(["unlimited"])]),
+  canAddMore: zod.boolean(),
+  planName: zod.string().nullish(),
+  subscriptionStatus: zod.string().nullish(),
+});
+
+/**
+ * @summary Get the current outbound email configuration
+ */
+export const GetEmailConfigResponse = zod.object({
+  fromEmail: zod.string(),
+  isCustomDomain: zod.boolean(),
+  resendKeySet: zod.boolean(),
+});
+
+/**
+ * @summary Get QuickBooks connection status for the current company
+ */
+export const GetQuickBooksStatusResponse = zod.object({
+  connected: zod.boolean(),
+  configured: zod.boolean(),
+  connection: zod
+    .object({
+      realmId: zod.string(),
+      environment: zod.string(),
+      lastInvoiceSyncAt: zod.coerce.date().nullish(),
+      lastCostSyncAt: zod.coerce.date().nullish(),
+      syncedInvoiceCount: zod.number().nullish(),
+      syncedCostCount: zod.number().nullish(),
+      connectedAt: zod.coerce.date(),
+    })
+    .nullable(),
+});
+
+/**
+ * @summary Get document numbering and terms settings for a company
+ */
+export const GetCompanySettingsParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const GetCompanySettingsResponse = zod.object({
+  estimatorConfig: zod.record(zod.string(), zod.unknown()).optional(),
+  quoteNumberPrefix: zod.string(),
+  invoiceNumberPrefix: zod.string(),
+  quoteStartNumber: zod.number(),
+  invoiceStartNumber: zod.number(),
+  defaultQuoteTerms: zod.string(),
+  defaultInvoiceNotes: zod.string(),
+});
+
+/**
+ * @summary Get flat transaction journal rows for accountant CSV export
+ */
+export const GetAccountingExportDataParams = zod.object({
+  companyId: zod.coerce.number(),
+});
+
+export const GetAccountingExportDataResponseItem = zod.object({
+  date: zod.string(),
+  documentNumber: zod.string(),
+  projectSite: zod.string(),
+  accountCode: zod.string(),
+  vendorPayee: zod.string(),
+  grossAmount: zod.string(),
+  tax: zod.string(),
+});
+export const GetAccountingExportDataResponse = zod.array(
+  GetAccountingExportDataResponseItem,
+);
+
+/**
  * @summary Invite a team member via email
  */
 export const createInvitationBodyPreferredLanguageDefault = `en`;
