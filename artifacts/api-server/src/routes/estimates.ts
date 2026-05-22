@@ -182,7 +182,7 @@ router.get("/estimates", requireAuth, requireCompany, requirePermission("viewQuo
 // ── POST /api/estimates/generate (text scope) ─────────────────────────────────
 
 const GenerateTextBody = z.object({
-  scope: z.string().min(20, "Please provide at least 20 characters of scope description"),
+  scope: z.string().min(20, "Please provide at least 20 characters of scope description").max(10000, "Scope must be at most 10 000 characters"),
 });
 
 router.post("/estimates/generate", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
@@ -194,7 +194,7 @@ router.post("/estimates/generate", requireAuth, requireCompany, requirePermissio
 
   const parsed = GenerateTextBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid body" });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 
@@ -252,7 +252,13 @@ router.post(
       return;
     }
 
-    const hint = typeof req.body?.hint === "string" ? req.body.hint : "";
+    const rawHint = typeof req.body?.hint === "string" ? req.body.hint : "";
+    const hintParsed = z.string().max(2000, "Hint must be at most 2 000 characters").safeParse(rawHint);
+    if (!hintParsed.success) {
+      res.status(400).json({ error: "Malformed request payload", details: hintParsed.error.issues });
+      return;
+    }
+    const hint = hintParsed.data;
     const mime = file.mimetype.toLowerCase();
     const isImage = mime.startsWith("image/");
 
@@ -302,8 +308,8 @@ router.post(
 // ── POST /api/estimates/:id/email ────────────────────────────────────────────
 
 const EmailEstimateBody = z.object({
-  to: z.string().email("Please enter a valid email address"),
-  message: z.string().optional(),
+  to: z.string().email("Please enter a valid email address").max(254, "Email address too long"),
+  message: z.string().max(2000, "Message must be at most 2 000 characters").optional(),
 });
 
 router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
@@ -318,7 +324,7 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermissi
 
   const parsed = EmailEstimateBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid body" });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 
@@ -476,7 +482,7 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermissi
 // ── PATCH /api/estimates/:id — update title + result ─────────────────────────
 
 const PatchEstimateBody = z.object({
-  title: z.string().min(1).optional(),
+  title: z.string().min(1).max(200, "Title must be at most 200 characters").optional(),
   result: z.record(z.unknown()).optional(),
 });
 
@@ -492,7 +498,7 @@ router.patch("/estimates/:id", requireAuth, requireCompany, requirePermission("m
 
   const parsed = PatchEstimateBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid body" });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 

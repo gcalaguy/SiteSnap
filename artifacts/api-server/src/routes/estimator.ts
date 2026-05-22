@@ -400,29 +400,29 @@ router.get(
 
 // POST /api/estimator/cost-models — create a new cost model
 const CostModelBody = z.object({
-  projectType:         z.string().min(1, "projectType is required"),
+  projectType:         z.string().min(1, "projectType is required").max(100, "projectType must be at most 100 characters"),
   finishLevel:         z.enum(["basic", "standard", "premium", "luxury"]),
-  name:                z.string().min(1, "name is required"),
-  baseCostPerSqft:     z.string(),
-  laborCostPerSqft:    z.string(),
-  materialCostPerSqft: z.string(),
-  overheadPct:         z.string().default("10"),
-  contingencyPct:      z.string().default("10"),
-  notes:               z.string().optional(),
+  name:                z.string().min(1, "name is required").max(200, "name must be at most 200 characters"),
+  baseCostPerSqft:     z.string().max(20, "baseCostPerSqft must be at most 20 characters"),
+  laborCostPerSqft:    z.string().max(20, "laborCostPerSqft must be at most 20 characters"),
+  materialCostPerSqft: z.string().max(20, "materialCostPerSqft must be at most 20 characters"),
+  overheadPct:         z.string().max(10, "overheadPct must be at most 10 characters").default("10"),
+  contingencyPct:      z.string().max(10, "contingencyPct must be at most 10 characters").default("10"),
+  notes:               z.string().max(1000, "notes must be at most 1 000 characters").optional(),
 });
 
 const ImportItemBody = z.object({
-  projectType:         z.string().min(1, "projectType is required"),
+  projectType:         z.string().min(1, "projectType is required").max(100, "projectType must be at most 100 characters"),
   finishLevel:         z.enum(["basic", "standard", "premium", "luxury"]),
-  name:                z.string().min(1, "name is required"),
-  baseCostPerSqft:     z.string(),
-  laborCostPerSqft:    z.string(),
-  materialCostPerSqft: z.string(),
-  overheadPct:         z.string().default("10"),
-  contingencyPct:      z.string().default("10"),
-  notes:               z.string().optional(),
+  name:                z.string().min(1, "name is required").max(200, "name must be at most 200 characters"),
+  baseCostPerSqft:     z.string().max(20, "baseCostPerSqft must be at most 20 characters"),
+  laborCostPerSqft:    z.string().max(20, "laborCostPerSqft must be at most 20 characters"),
+  materialCostPerSqft: z.string().max(20, "materialCostPerSqft must be at most 20 characters"),
+  overheadPct:         z.string().max(10, "overheadPct must be at most 10 characters").default("10"),
+  contingencyPct:      z.string().max(10, "contingencyPct must be at most 10 characters").default("10"),
+  notes:               z.string().max(1000, "notes must be at most 1 000 characters").optional(),
   sourceType:          z.enum(["manual", "quote", "invoice"]).default("manual"),
-  sourceId:            z.string().optional(),
+  sourceId:            z.string().max(100, "sourceId must be at most 100 characters").optional(),
 });
 
 router.post(
@@ -432,7 +432,7 @@ router.post(
   requireOwner,
   asyncHandler(async (req, res) => {
     const parsed = CostModelBody.safeParse(req.body);
-    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
     const { notes, ...rest } = parsed.data;
     const [model] = await db
       .insert(estimatorCostModelsTable)
@@ -450,7 +450,7 @@ router.post(
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = ImportItemBody.safeParse(req.body);
-    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
     const { notes, sourceType, sourceId, ...rest } = parsed.data;
     const [model] = await db
       .insert(estimatorCostModelsTable)
@@ -478,7 +478,7 @@ router.put(
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) throw new BadRequestError("Invalid ID");
     const parsed = CostModelBody.partial().safeParse(req.body);
-    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
     const { notes, ...rest } = parsed.data;
     const updateData: Record<string, unknown> = { ...rest, updatedAt: new Date() };
     if ("notes" in parsed.data) updateData.notes = notes ?? null;
@@ -560,12 +560,12 @@ router.delete(
 
 // POST /api/estimator/addons — create a new add-on
 const AddonBody = z.object({
-  name:            z.string().min(1, "name is required"),
-  addonKey:        z.string().min(1, "addonKey is required"),
-  description:     z.string().optional(),
+  name:            z.string().min(1, "name is required").max(200, "name must be at most 200 characters"),
+  addonKey:        z.string().min(1, "addonKey is required").max(100, "addonKey must be at most 100 characters"),
+  description:     z.string().max(500, "description must be at most 500 characters").optional(),
   costType:        z.enum(["flat", "per_sqft"]).default("flat"),
-  amount:          z.string().min(1, "amount is required"),
-  applicableTypes: z.string().optional(),
+  amount:          z.string().min(1, "amount is required").max(20, "amount must be at most 20 characters"),
+  applicableTypes: z.string().max(500, "applicableTypes must be at most 500 characters").optional(),
 });
 
 router.post(
@@ -576,7 +576,7 @@ router.post(
   asyncHandler(async (req, res) => {
     await seedPricingData(req.companyId!);
     const parsed = AddonBody.safeParse(req.body);
-    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
     const { description, applicableTypes, ...rest } = parsed.data;
     const [addon] = await db
       .insert(estimatorAddonsTable)
@@ -596,7 +596,7 @@ router.put(
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) throw new BadRequestError("Invalid ID");
     const parsed = AddonBody.partial().safeParse(req.body);
-    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
     const { description, applicableTypes, ...rest } = parsed.data;
     const updateData: Record<string, unknown> = { ...rest };
     if ("description" in parsed.data) updateData.description = description ?? null;
@@ -643,7 +643,7 @@ router.delete(
 
 // POST /api/estimator/parse — AI: free text → structured params
 const ParseBody = z.object({
-  prompt: z.string().min(10, "Please describe the project (min 10 characters)"),
+  prompt: z.string().min(10, "Please describe the project (min 10 characters)").max(5000, "Prompt must be at most 5 000 characters"),
 });
 
 router.post(
@@ -652,7 +652,7 @@ router.post(
   requireCompany,
   asyncHandler(async (req, res) => {
     const parsed = ParseBody.safeParse(req.body);
-    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
 
     await seedPricingData(req.companyId!);
     const params = await parsePromptToParams(parsed.data.prompt);
@@ -751,7 +751,10 @@ router.post(
       }
     }
 
-    const hint = typeof req.body.hint === "string" ? req.body.hint.trim() : "";
+    const rawHint = typeof req.body.hint === "string" ? req.body.hint.trim() : "";
+    const hintParsed = z.string().max(2000, "Hint must be at most 2 000 characters").safeParse(rawHint);
+    if (!hintParsed.success) throw new BadRequestError("Malformed request payload", hintParsed.error.issues);
+    const hint = hintParsed.data;
     const fullPrompt = hint ? `${extractedText}\n\nAdditional context: ${hint}` : extractedText;
     await seedPricingData(req.companyId!);
     const params = await parsePromptToParams(fullPrompt);
@@ -761,10 +764,10 @@ router.post(
 
 // POST /api/estimator/calculate — rule engine: params → estimate
 const CalculateBody = z.object({
-  project_type: z.string(),
-  square_feet: z.number().positive("square_feet must be positive"),
-  finish_level: z.string(),
-  addons: z.array(z.string()).optional().default([]),
+  project_type: z.string().min(1).max(100, "project_type must be at most 100 characters"),
+  square_feet: z.number().positive("square_feet must be positive").max(1_000_000, "square_feet must be at most 1 000 000"),
+  finish_level: z.string().min(1).max(50, "finish_level must be at most 50 characters"),
+  addons: z.array(z.string().max(100)).max(50, "addons must have at most 50 items").optional().default([]),
   margin_pct: z.number().min(0).max(100).optional().default(15),
 });
 
@@ -774,7 +777,7 @@ router.post(
   requireCompany,
   asyncHandler(async (req, res) => {
     const parsed = CalculateBody.safeParse(req.body);
-    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
 
     await seedPricingData(req.companyId!);
     const { project_type, square_feet, finish_level, addons, margin_pct } = parsed.data;
@@ -811,16 +814,16 @@ router.post(
 
 // POST /api/estimator/smart-estimates — save a smart estimate
 const SaveSmartEstimateBody = z.object({
-  title: z.string().min(1),
+  title: z.string().min(1).max(200, "title must be at most 200 characters"),
   params: z.object({
-    project_type: z.string(),
-    square_feet: z.number(),
-    finish_level: z.string(),
-    addons: z.array(z.string()),
-    margin_pct: z.number().optional(),
+    project_type: z.string().min(1).max(100, "project_type must be at most 100 characters"),
+    square_feet: z.number().positive().max(1_000_000, "square_feet must be at most 1 000 000"),
+    finish_level: z.string().min(1).max(50, "finish_level must be at most 50 characters"),
+    addons: z.array(z.string().max(100)).max(50, "addons must have at most 50 items"),
+    margin_pct: z.number().min(0).max(100).optional(),
   }),
   result: z.record(z.unknown()),
-  sourcePrompt: z.string().optional(),
+  sourcePrompt: z.string().max(5000, "sourcePrompt must be at most 5 000 characters").optional(),
   scanId: z.number().int().positive().optional(),
 });
 
@@ -831,7 +834,7 @@ router.post(
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = SaveSmartEstimateBody.safeParse(req.body);
-    if (!parsed.success) throw new BadRequestError(parsed.error.issues[0]?.message ?? "Invalid body");
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
 
     const { title, params, result, sourcePrompt, scanId } = parsed.data;
 
