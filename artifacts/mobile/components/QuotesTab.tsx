@@ -29,6 +29,7 @@ import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 import { withAiRetry } from "@/src/utils/aiRetry";
+import { RetrySnackbar } from "@/components/RetrySnackbar";
 
 type LineItem = { description: string; quantity: number; unit: string; unitPrice: number; total: number };
 type AIResult = { title?: string; lineItems?: LineItem[]; notes?: string; clientName?: string };
@@ -79,6 +80,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiRetrying, setAiRetrying] = useState(false);
   const [aiWaiting, setAiWaiting] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<number, string>>({});
 
@@ -100,6 +102,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
     setClientName("");
     setDescription("");
     setAiResult(null);
+    setAiError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }
 
@@ -111,6 +114,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
     setAiLoading(true);
     setAiRetrying(false);
     setAiWaiting(false);
+    setAiError(null);
     try {
       const data = await withAiRetry(
         () =>
@@ -126,7 +130,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
       setStep("preview");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
-      Alert.alert("AI generation failed", getAiErrorMessage(err));
+      setAiError(getAiErrorMessage(err));
     } finally {
       setAiLoading(false);
       setAiRetrying(false);
@@ -395,7 +399,11 @@ export function QuotesTab({ projectId }: { projectId: number }) {
 
       {/* Creation Modal */}
       <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowModal(false)}>
-        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+        <View style={[styles.modal, { backgroundColor: colors.background, position: "relative" }]}>
+          <RetrySnackbar
+            visible={(aiRetrying || aiWaiting || isVoiceRetrying) && !!showModal}
+            message={aiWaiting ? "Waiting for connection…" : "Poor connection detected, retrying…"}
+          />
           {/* Modal header */}
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowModal(false)} hitSlop={10}>
@@ -474,6 +482,22 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                     {aiWaiting ? "Waiting for connection…" : aiRetrying ? "Retrying…" : aiLoading ? "AI generating…" : "Generate with AI"}
                   </Text>
                 </TouchableOpacity>
+
+                {aiError && !aiLoading && (
+                  <View style={[styles.errorBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+                    <View style={styles.errorBannerTop}>
+                      <Feather name="alert-circle" size={15} color="#EF4444" />
+                      <Text style={styles.errorBannerMsg}>{aiError}</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={handleGenerate}
+                      style={[styles.retryBtn, { backgroundColor: colors.primary }]}
+                    >
+                      <Feather name="refresh-cw" size={13} color="#FFFFFF" />
+                      <Text style={styles.retryBtnText}>Tap to retry</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </>
             ) : (
               <>
@@ -600,6 +624,11 @@ const styles = StyleSheet.create({
   recordingDot: { width: 8, height: 8, borderRadius: 4 },
   generateBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, borderRadius: 12, paddingVertical: 15, marginTop: 8 },
   generateBtnText: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  errorBanner: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 10, marginTop: 4 },
+  errorBannerTop: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  errorBannerMsg: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C", lineHeight: 19 },
+  retryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 14 },
+  retryBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
   previewTitle: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 4 },
   previewClient: { fontSize: 13, fontFamily: "Inter_400Regular", marginBottom: 16 },
   table: { borderRadius: 10, borderWidth: 1, overflow: "hidden", marginBottom: 16 },

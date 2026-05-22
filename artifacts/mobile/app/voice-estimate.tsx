@@ -20,6 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 import { withAiRetry } from "@/src/utils/aiRetry";
+import { RetrySnackbar } from "@/components/RetrySnackbar";
 import { useRef } from "react";
 
 type ParsedParams = {
@@ -272,8 +273,21 @@ export default function VoiceEstimateScreen() {
     );
   }
 
+  const isSnackbarVisible =
+    retrying ||
+    waiting ||
+    voiceRecorder.state === "retrying" ||
+    voiceRecorder.state === "waiting";
+
+  const snackbarMessage =
+    waiting || voiceRecorder.state === "waiting"
+      ? "Waiting for connection…"
+      : "Poor connection detected, retrying…";
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <RetrySnackbar visible={isSnackbarVisible} message={snackbarMessage} />
+
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInsets + 8, backgroundColor: colors.sidebar }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}>
@@ -338,10 +352,21 @@ export default function VoiceEstimateScreen() {
               {"Example: \"2,000 sqft residential basement renovation, standard finishes, add flooring and painting\""}
             </Text>
 
-            {(voiceRecorder.error) && (
-              <View style={[styles.errorBox, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
-                <Feather name="alert-circle" size={16} color="#EF4444" />
-                <Text style={styles.errorText}>{voiceRecorder.error}</Text>
+            {(voiceRecorder.error || error) && (
+              <View style={[styles.errorBox, { backgroundColor: "#FEF2F2", borderColor: "#FECACA", flexDirection: "column", alignItems: "stretch", gap: 10 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Feather name="alert-circle" size={16} color="#EF4444" />
+                  <Text style={[styles.errorText, { flex: 1 }]}>{voiceRecorder.error ?? error}</Text>
+                </View>
+                {error && transcript ? (
+                  <TouchableOpacity
+                    onPress={() => handleTranscript(transcript)}
+                    style={styles.retryInlineBtn}
+                  >
+                    <Feather name="refresh-cw" size={13} color="#FFFFFF" />
+                    <Text style={styles.retryInlineBtnText}>Tap to retry</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             )}
           </View>
@@ -420,9 +445,18 @@ export default function VoiceEstimateScreen() {
             </View>
 
             {error && (
-              <View style={[styles.errorBox, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
-                <Feather name="alert-circle" size={16} color="#EF4444" />
-                <Text style={styles.errorText}>{error}</Text>
+              <View style={[styles.errorBox, { backgroundColor: "#FEF2F2", borderColor: "#FECACA", flexDirection: "column", alignItems: "stretch", gap: 10 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Feather name="alert-circle" size={16} color="#EF4444" />
+                  <Text style={[styles.errorText, { flex: 1 }]}>{error}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleCalculate}
+                  style={styles.retryInlineBtn}
+                >
+                  <Feather name="refresh-cw" size={13} color="#FFFFFF" />
+                  <Text style={styles.retryInlineBtnText}>Tap to retry</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -664,6 +698,8 @@ const styles = StyleSheet.create({
 
   errorBox: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 8, padding: 12 },
   errorText: { color: "#EF4444", fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+  retryInlineBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 14, backgroundColor: "#2563EB" },
+  retryInlineBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
 
   successBox: { flexDirection: "row", alignItems: "flex-start", gap: 12, borderWidth: 1, borderRadius: 12, padding: 16 },
   successTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 4 },
