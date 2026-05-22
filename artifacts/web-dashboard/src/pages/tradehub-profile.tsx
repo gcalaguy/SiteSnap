@@ -1,7 +1,21 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation, Link } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch, useGetMe } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetMe,
+  useGetTradehubProfileMe,
+  useGetTradehubProfile,
+  useListTradehubNotifications,
+  useUpsertTradehubProfile,
+  useMarkAllTradehubNotificationsRead,
+  useGetTradeReviewSummary,
+  useListTradeReviews,
+  useSubmitTradeReview,
+  getGetTradehubProfileMeQueryKey,
+  getListTradehubNotificationsQueryKey,
+  getGetTradeReviewSummaryQueryKey,
+  getListTradeReviewsQueryKey,
+} from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
@@ -41,103 +55,76 @@ export default function TradehubProfilePage() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ displayName: "", trade: "", location: "", province: "", bio: "", website: "", complianceStatus: "compliant" });
 
-  const { data: profile, isLoading } = useQuery<any>({
-    queryKey: isMe ? ["tradehub-profile-me"] : ["tradehub-profile", userId],
-    queryFn: () =>
-      isMe
-        ? customFetch("/api/tradehub/profile/me")
-        : customFetch(`/api/tradehub/profile/${userId}`),
-  });
+  const { data: profileMe, isLoading: loadingMe } = useGetTradehubProfileMe();
+  const { data: profileOther, isLoading: loadingOther } = useGetTradehubProfile(
+    parseInt(userId ?? "0"),
+    { query: { enabled: !!userId && userId !== "me" } as any },
+  );
+  const profile = isMe ? profileMe : profileOther;
+  const isLoading = isMe ? loadingMe : loadingOther;
 
-  const { data: myProfile } = useQuery<any>({
-    queryKey: ["tradehub-profile-me"],
-    queryFn: () => customFetch("/api/tradehub/profile/me"),
-    enabled: !isMe,
-  });
+  const myProfile = profileMe;
 
-  const { data: notifications = [] } = useQuery<any[]>({
-    queryKey: ["tradehub-notifications"],
-    queryFn: () => customFetch("/api/tradehub/notifications"),
-    enabled: isMe,
-  });
+  const { data: notifications = [] } = useListTradehubNotifications();
 
   const [showReviewModal, setShowReviewModal] = useState(false);
 
-  // Reviews data
-  const targetUserId = isMe ? me?.id : (profile?.userId ?? parseInt(userId ?? "0"));
+  const targetUserId = isMe ? (me as any)?.id : ((profile as any)?.userId ?? parseInt(userId ?? "0"));
   const targetType = isMe ? undefined : "user_worker";
 
-  const { data: reviewSummary } = useQuery({
-    queryKey: ["trade-reviews-summary", targetType, targetUserId],
-    queryFn: () =>
-      customFetch<{ average: number; total: number; distribution: any }>(
-        `/api/reviews/summary?targetType=${targetType}&targetUserId=${targetUserId}`,
-      ),
-    enabled: !isMe && !!targetUserId,
-  });
+  const { data: reviewSummary } = useGetTradeReviewSummary(
+    { targetType: targetType as any, targetUserId },
+    { query: { enabled: !isMe && !!targetUserId } as any },
+  );
 
-  const { data: reviewList } = useQuery({
-    queryKey: ["trade-reviews-list", targetType, targetUserId],
-    queryFn: () =>
-      customFetch<{ reviews: any[]; hasMore: boolean }>(
-        `/api/reviews/list?targetType=${targetType}&targetUserId=${targetUserId}&page=1&limit=10`,
-      ),
-    enabled: !isMe && !!targetUserId,
-  });
+  const { data: reviewList } = useListTradeReviews(
+    { targetType: targetType as any, targetUserId, page: 1, limit: 10 },
+    { query: { enabled: !isMe && !!targetUserId } as any },
+  );
 
-  const submitReviewMutation = useMutation({
-    mutationFn: ({ rating, comment }: { rating: number; comment: string }) =>
-      customFetch("/api/reviews/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetType,
-          targetUserId,
-          rating,
-          comment: comment || undefined,
-        }),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trade-reviews-summary", targetType, targetUserId] });
-      queryClient.invalidateQueries({ queryKey: ["trade-reviews-list", targetType, targetUserId] });
-      setShowReviewModal(false);
-      toast({ title: "Review submitted!" });
-    },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err?.message || "Failed to submit review", variant: "destructive" });
+  const submitReviewMutation = useSubmitTradeReview({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTradeReviewSummaryQueryKey({ targetType: targetType as any, targetUserId }) });
+        queryClient.invalidateQueries({ queryKey: getListTradeReviewsQueryKey({ targetType: targetType as any, targetUserId, page: 1, limit: 10 }) });
+        setShowReviewModal(false);
+        toast({ title: "Review submitted!" });
+      },
+      onError: (err: any) => {
+        toast({ title: "Error", description: err?.message || "Failed to submit review", variant: "destructive" });
+      },
     },
   });
 
-  const markReadMutation = useMutation({
-    mutationFn: () => customFetch("/api/tradehub/notifications/read-all", { method: "POST" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-notifications"] }),
+  const markReadMutation = useMarkAllTradehubNotificationsRead({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTradehubNotificationsQueryKey() }),
+    },
   });
 
   useEffect(() => {
     if (profile && isMe) {
       setForm({
-        displayName: profile.displayName ?? "",
-        trade: profile.trade ?? "",
-        location: profile.location ?? "",
-        province: profile.province ?? "",
-        bio: profile.bio ?? "",
-        website: profile.website ?? "",
-        complianceStatus: profile.complianceStatus ?? "compliant",
+        displayName: (profile as any).displayName ?? "",
+        trade: (profile as any).trade ?? "",
+        location: (profile as any).location ?? "",
+        province: (profile as any).province ?? "",
+        bio: (profile as any).bio ?? "",
+        website: (profile as any).website ?? "",
+        complianceStatus: (profile as any).complianceStatus ?? "compliant",
       });
     }
   }, [profile, isMe]);
 
-  const saveMutation = useMutation({
-    mutationFn: () => customFetch("/api/tradehub/profile", {
-      method: "PUT",
-      body: JSON.stringify(form),
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tradehub-profile-me"] });
-      setEditing(false);
-      toast({ title: "Profile saved!" });
+  const saveMutation = useUpsertTradehubProfile({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTradehubProfileMeQueryKey() });
+        setEditing(false);
+        toast({ title: "Profile saved!" });
+      },
+      onError: () => toast({ title: "Error", description: "Failed to save profile", variant: "destructive" }),
     },
-    onError: () => toast({ title: "Error", description: "Failed to save profile", variant: "destructive" }),
   });
 
   if (isLoading) {
@@ -158,7 +145,7 @@ export default function TradehubProfilePage() {
         <Card>
           <CardContent className="pt-6 space-y-4">
             <ProfileForm form={form} setForm={setForm} />
-            <Button className="w-full gap-2" onClick={() => saveMutation.mutate()} disabled={!form.displayName.trim() || saveMutation.isPending}>
+            <Button className="w-full gap-2" onClick={() => saveMutation.mutate({ data: form as any })} disabled={!form.displayName.trim() || saveMutation.isPending}>
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Create Profile
             </Button>
@@ -172,10 +159,10 @@ export default function TradehubProfilePage() {
     return <div className="p-6 text-center text-muted-foreground">Profile not found.</div>;
   }
 
-  const displayData = isMe ? profile : profile;
-  const recentPosts = isMe ? [] : (profile.recentPosts ?? []);
+  const displayData = profile as any;
+  const recentPosts = isMe ? [] : (displayData.recentPosts ?? []);
   const initials = displayData.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "??";
-  const unreadNotifs = notifications.filter((n: any) => !n.isRead);
+  const unreadNotifs = (notifications as any[]).filter((n: any) => !n.isRead);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -189,7 +176,6 @@ export default function TradehubProfilePage() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
         <div className="lg:col-span-1 space-y-4">
           <Card>
             <CardContent className="pt-6">
@@ -249,14 +235,13 @@ export default function TradehubProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Reviews Summary (others' profiles) */}
           {!isMe && reviewSummary && (
             <ReviewSummaryCard
-              average={reviewSummary.average}
-              total={reviewSummary.total}
-              distribution={reviewSummary.distribution}
+              average={(reviewSummary as any).average}
+              total={(reviewSummary as any).total}
+              distribution={(reviewSummary as any).distribution}
               onWriteReview={() => setShowReviewModal(true)}
-              canWriteReview={!!me && me.id !== targetUserId}
+              canWriteReview={!!(me as any) && (me as any).id !== targetUserId}
             />
           )}
 
@@ -277,7 +262,6 @@ export default function TradehubProfilePage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-          {/* Voice Intro */}
           {isMe && (
             <Card>
               <CardHeader>
@@ -288,16 +272,15 @@ export default function TradehubProfilePage() {
               </CardHeader>
               <CardContent>
                 <VoiceRecorder
-                  existingUrl={profile?.voiceIntroUrl}
-                  existingDuration={profile?.voiceIntroDuration}
-                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["tradehub-profile-me"] })}
-                  onDeleted={() => queryClient.invalidateQueries({ queryKey: ["tradehub-profile-me"] })}
+                  existingUrl={(profile as any)?.voiceIntroUrl}
+                  existingDuration={(profile as any)?.voiceIntroDuration}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: getGetTradehubProfileMeQueryKey() })}
+                  onDeleted={() => queryClient.invalidateQueries({ queryKey: getGetTradehubProfileMeQueryKey() })}
                 />
               </CardContent>
             </Card>
           )}
 
-          {/* Edit form */}
           {editing && isMe && (
             <Card>
               <CardHeader><CardTitle className="text-base">Edit Profile</CardTitle></CardHeader>
@@ -305,7 +288,7 @@ export default function TradehubProfilePage() {
                 <ProfileForm form={form} setForm={setForm} />
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
-                  <Button onClick={() => saveMutation.mutate()} disabled={!form.displayName.trim() || saveMutation.isPending} className="gap-2">
+                  <Button onClick={() => saveMutation.mutate({ data: form as any })} disabled={!form.displayName.trim() || saveMutation.isPending} className="gap-2">
                     {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save Changes
                   </Button>
@@ -314,8 +297,7 @@ export default function TradehubProfilePage() {
             </Card>
           )}
 
-          {/* Notifications */}
-          {isMe && notifications.length > 0 && (
+          {isMe && (notifications as any[]).length > 0 && (
             <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -330,7 +312,7 @@ export default function TradehubProfilePage() {
                 )}
               </CardHeader>
               <CardContent className="space-y-2">
-                {notifications.slice(0, 10).map((n: any) => (
+                {(notifications as any[]).slice(0, 10).map((n: any) => (
                   <div key={n.id} className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${n.isRead ? "bg-muted/30" : "bg-primary/5 border border-primary/10"}`}>
                     <Bell className={`h-4 w-4 flex-shrink-0 mt-0.5 ${n.isRead ? "text-muted-foreground" : "text-primary"}`} />
                     <div className="flex-1 min-w-0">
@@ -348,7 +330,6 @@ export default function TradehubProfilePage() {
             </Card>
           )}
 
-          {/* Recent posts (other user) */}
           {!isMe && recentPosts.length > 0 && (
             <Card>
               <CardHeader><CardTitle className="text-base">Recent Posts</CardTitle></CardHeader>
@@ -374,7 +355,6 @@ export default function TradehubProfilePage() {
             </Card>
           )}
 
-          {/* Reviews Feed (others' profiles) */}
           {!isMe && (
             <Card>
               <CardHeader>
@@ -382,14 +362,13 @@ export default function TradehubProfilePage() {
               </CardHeader>
               <CardContent>
                 <ReviewFeedList
-                  reviews={reviewList?.reviews ?? []}
-                  hasMore={reviewList?.hasMore}
+                  reviews={(reviewList as any)?.reviews ?? []}
+                  hasMore={(reviewList as any)?.hasMore}
                 />
               </CardContent>
             </Card>
           )}
 
-          {/* Empty state */}
           {isMe && !editing && (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12 gap-3 text-center">
@@ -407,12 +386,11 @@ export default function TradehubProfilePage() {
         </div>
       </div>
 
-      {/* Review Form Modal */}
       {!isMe && (
         <ReviewFormModal
           open={showReviewModal}
           onClose={() => setShowReviewModal(false)}
-          onSubmit={(rating, comment) => submitReviewMutation.mutate({ rating, comment })}
+          onSubmit={(rating, comment) => submitReviewMutation.mutate({ data: { targetType: targetType as any, targetUserId, rating, comment: comment || undefined } })}
           isSubmitting={submitReviewMutation.isPending}
           targetName={displayData.displayName ?? "this profile"}
         />

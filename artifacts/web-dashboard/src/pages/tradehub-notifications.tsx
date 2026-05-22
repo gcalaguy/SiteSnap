@@ -1,25 +1,28 @@
 import { Link } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useListTradehubNotifications,
+  useMarkAllTradehubNotificationsRead,
+  getListTradehubNotificationsQueryKey,
+} from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { ArrowLeft, Bell, CheckCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function TradehubNotificationsPage() {
   const queryClient = useQueryClient();
 
-  const { data: notifications = [], isLoading } = useQuery<any[]>({
-    queryKey: ["tradehub-notifications"],
-    queryFn: () => customFetch("/api/tradehub/notifications"),
+  const { data: notifications = [], isLoading } = useListTradehubNotifications();
+
+  const markReadMutation = useMarkAllTradehubNotificationsRead({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTradehubNotificationsQueryKey() }),
+    },
   });
 
-  const markReadMutation = useMutation({
-    mutationFn: () => customFetch("/api/tradehub/notifications/read-all", { method: "POST" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-notifications"] }),
-  });
-
-  const unread = notifications.filter((n) => !n.isRead);
+  const allNotifs = notifications as any[];
+  const unread = allNotifs.filter((n) => !n.isRead);
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -52,7 +55,7 @@ export default function TradehubNotificationsPage() {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : notifications.length === 0 ? (
+          ) : allNotifs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-6">
               <Bell className="h-10 w-10 text-muted-foreground/30" />
               <p className="font-medium text-muted-foreground">No notifications yet</p>
@@ -60,10 +63,10 @@ export default function TradehubNotificationsPage() {
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {notifications.map((n: any, i: number) => (
+              {allNotifs.map((n: any, i: number) => (
                 <div
                   key={n.id}
-                  className={`flex items-start gap-4 p-4 transition-colors ${n.isRead ? "" : "bg-primary/5"} ${i === 0 ? "rounded-t-xl" : ""} ${i === notifications.length - 1 ? "rounded-b-xl" : ""}`}
+                  className={`flex items-start gap-4 p-4 transition-colors ${n.isRead ? "" : "bg-primary/5"} ${i === 0 ? "rounded-t-xl" : ""} ${i === allNotifs.length - 1 ? "rounded-b-xl" : ""}`}
                 >
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${n.isRead ? "bg-muted" : "bg-primary/10"}`}>
                     <Bell className={`h-4 w-4 ${n.isRead ? "text-muted-foreground" : "text-primary"}`} />

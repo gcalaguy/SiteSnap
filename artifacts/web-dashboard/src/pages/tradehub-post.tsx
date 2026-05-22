@@ -1,7 +1,19 @@
 import { useState } from "react";
 import { useParams, useLocation, Link } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch, useGetMe } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetMe,
+  useGetTradehubPost,
+  useGetTradehubProfileMe,
+  useReactToTradehubPost,
+  useAddTradehubComment,
+  useApplyToTradehubJob,
+  useDeleteTradehubPost,
+  useCreateTradehubReport,
+  useUpdateTradehubApplication,
+  getGetTradehubPostQueryKey,
+  getListTradehubFeedQueryKey,
+} from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
@@ -38,76 +50,64 @@ export default function TradehubPostPage() {
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
 
-  const { data: post, isLoading } = useQuery<any>({
-    queryKey: ["tradehub-post", id],
-    queryFn: () => customFetch(`/api/tradehub/posts/${id}`),
-  });
+  const postId = parseInt(id);
 
-  const { data: myProfile } = useQuery<any>({
-    queryKey: ["tradehub-profile-me"],
-    queryFn: () => customFetch("/api/tradehub/profile/me"),
-  });
+  const { data: post, isLoading } = useGetTradehubPost(postId);
+  const { data: myProfile } = useGetTradehubProfileMe();
 
-  const reactMutation = useMutation({
-    mutationFn: () => customFetch(`/api/tradehub/posts/${id}/react`, { method: "POST" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-post", id] }),
-  });
-
-  const commentMutation = useMutation({
-    mutationFn: () => customFetch(`/api/tradehub/posts/${id}/comments`, {
-      method: "POST",
-      body: JSON.stringify({ content: comment }),
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tradehub-post", id] });
-      setComment("");
-      toast({ title: "Comment added" });
-    },
-    onError: () => toast({ title: "Error", description: "Failed to comment", variant: "destructive" }),
-  });
-
-  const applyMutation = useMutation({
-    mutationFn: () => customFetch(`/api/tradehub/jobs/${id}/apply`, {
-      method: "POST",
-      body: JSON.stringify({ message: applyMessage }),
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tradehub-post", id] });
-      setShowApply(false);
-      toast({ title: "Application sent!", description: "The poster will be notified." });
-    },
-    onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Already applied or failed", variant: "destructive" }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => customFetch(`/api/tradehub/posts/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tradehub-feed"] });
-      setLocation("/tradehub");
-      toast({ title: "Post deleted" });
+  const reactMutation = useReactToTradehubPost({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetTradehubPostQueryKey(postId) }),
     },
   });
 
-  const reportMutation = useMutation({
-    mutationFn: () => customFetch("/api/tradehub/reports", {
-      method: "POST",
-      body: JSON.stringify({ targetType: "post", targetId: parseInt(id), reason: reportReason }),
-    }),
-    onSuccess: () => {
-      setShowReport(false);
-      toast({ title: "Report submitted", description: "Thank you. Our team will review it." });
+  const commentMutation = useAddTradehubComment({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTradehubPostQueryKey(postId) });
+        setComment("");
+        toast({ title: "Comment added" });
+      },
+      onError: () => toast({ title: "Error", description: "Failed to comment", variant: "destructive" }),
     },
   });
 
-  const updateApplicationMutation = useMutation({
-    mutationFn: ({ appId, status }: { appId: number; status: string }) =>
-      customFetch(`/api/tradehub/applications/${appId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tradehub-post", id] });
-      toast({ title: "Application updated" });
+  const applyMutation = useApplyToTradehubJob({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTradehubPostQueryKey(postId) });
+        setShowApply(false);
+        toast({ title: "Application sent!", description: "The poster will be notified." });
+      },
+      onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Already applied or failed", variant: "destructive" }),
+    },
+  });
+
+  const deleteMutation = useDeleteTradehubPost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListTradehubFeedQueryKey() });
+        setLocation("/tradehub");
+        toast({ title: "Post deleted" });
+      },
+    },
+  });
+
+  const reportMutation = useCreateTradehubReport({
+    mutation: {
+      onSuccess: () => {
+        setShowReport(false);
+        toast({ title: "Report submitted", description: "Thank you. Our team will review it." });
+      },
+    },
+  });
+
+  const updateApplicationMutation = useUpdateTradehubApplication({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTradehubPostQueryKey(postId) });
+        toast({ title: "Application updated" });
+      },
     },
   });
 
@@ -123,15 +123,15 @@ export default function TradehubPostPage() {
     return <div className="p-6 text-center text-muted-foreground">Post not found.</div>;
   }
 
-  const tc = typeConfig[post.type] ?? typeConfig.discussion;
+  const postData = post as any;
+  const tc = typeConfig[postData.type] ?? typeConfig.discussion;
   const TypeIcon = tc.icon;
-  const isOwner = post.userId === (me as any)?.id;
-  const initials = post.profile?.displayName
-    ? post.profile.displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
-    : `${post.author?.firstName?.[0] ?? ""}${post.author?.lastName?.[0] ?? ""}`;
+  const isOwner = postData.userId === (me as any)?.id;
+  const initials = postData.profile?.displayName
+    ? postData.profile.displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
+    : `${postData.author?.firstName?.[0] ?? ""}${postData.author?.lastName?.[0] ?? ""}`;
 
-  // Check if current user already applied
-  const myApplication = post.applications?.find((a: any) => a.applicantId === (me as any)?.id);
+  const myApplication = postData.applications?.find((a: any) => a.applicantId === (me as any)?.id);
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
@@ -142,30 +142,28 @@ export default function TradehubPostPage() {
         <nav className="text-sm text-muted-foreground flex items-center gap-1.5">
           <Link href="/tradehub"><span className="hover:text-foreground cursor-pointer">TradeHub</span></Link>
           <span>/</span>
-          <span className="text-foreground">{post.title}</span>
+          <span className="text-foreground">{postData.title}</span>
         </nav>
       </div>
 
-      {/* Post */}
       <Card className="mb-6">
         <CardContent className="p-6">
-          {/* Author */}
           <div className="flex items-start gap-4 mb-4">
-            <Link href={`/tradehub/profile/${post.userId}`}>
+            <Link href={`/tradehub/profile/${postData.userId}`}>
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold cursor-pointer hover:opacity-80 flex-shrink-0">
-                {post.profile?.avatarUrl
-                  ? <img src={post.profile.avatarUrl} className="w-12 h-12 rounded-full object-cover" alt="" />
+                {postData.profile?.avatarUrl
+                  ? <img src={postData.profile.avatarUrl} className="w-12 h-12 rounded-full object-cover" alt="" />
                   : initials}
               </div>
             </Link>
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <Link href={`/tradehub/profile/${post.userId}`}>
+                <Link href={`/tradehub/profile/${postData.userId}`}>
                   <span className="font-semibold hover:underline cursor-pointer">
-                    {post.profile?.displayName ?? `${post.author?.firstName} ${post.author?.lastName}`}
+                    {postData.profile?.displayName ?? `${postData.author?.firstName} ${postData.author?.lastName}`}
                   </span>
                 </Link>
-                {post.profile?.isVerified && (
+                {postData.profile?.isVerified && (
                   <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">✓ Verified</span>
                 )}
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${tc.color}`}>
@@ -173,15 +171,15 @@ export default function TradehubPostPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                {post.profile?.trade && <span>{post.profile.trade}</span>}
-                {post.province && <span>· {post.province}</span>}
-                {post.trade && <span>· {post.trade}</span>}
-                <span>· {format(new Date(post.createdAt), "MMMM d, yyyy")}</span>
+                {postData.profile?.trade && <span>{postData.profile.trade}</span>}
+                {postData.province && <span>· {postData.province}</span>}
+                {postData.trade && <span>· {postData.trade}</span>}
+                <span>· {format(new Date(postData.createdAt), "MMMM d, yyyy")}</span>
               </div>
             </div>
             <div className="flex items-center gap-1">
               {isOwner && (
-                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate()}>
+                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate({ id: postId })}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
@@ -193,40 +191,37 @@ export default function TradehubPostPage() {
             </div>
           </div>
 
-          <h1 className="text-xl font-bold text-foreground mb-3">{post.title}</h1>
-          <p className="text-foreground leading-relaxed whitespace-pre-wrap">{post.content}</p>
+          <h1 className="text-xl font-bold text-foreground mb-3">{postData.title}</h1>
+          <p className="text-foreground leading-relaxed whitespace-pre-wrap">{postData.content}</p>
 
-          {/* Job metadata */}
-          {post.type === "job" && (post.budget || post.jobType) && (
+          {postData.type === "job" && (postData.budget || postData.jobType) && (
             <div className="mt-4 flex gap-2 flex-wrap">
-              {post.jobType && <Badge variant="outline">{post.jobType}</Badge>}
-              {post.budget && <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">{post.budget}</Badge>}
+              {postData.jobType && <Badge variant="outline">{postData.jobType}</Badge>}
+              {postData.budget && <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">{postData.budget}</Badge>}
             </div>
           )}
 
-          {/* Media */}
-          {post.media?.length > 0 && (
+          {postData.media?.length > 0 && (
             <div className="mt-4 grid grid-cols-2 gap-2">
-              {post.media.map((m: any) => (
+              {postData.media.map((m: any) => (
                 <img key={m.id} src={m.url} className="rounded-lg object-cover w-full aspect-video" alt="" />
               ))}
             </div>
           )}
 
-          {/* Reactions / Apply */}
           <div className="mt-5 pt-4 border-t flex items-center gap-4">
             <button
-              onClick={() => reactMutation.mutate()}
-              className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${post.hasReacted ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
+              onClick={() => reactMutation.mutate({ id: postId })}
+              className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${postData.hasReacted ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
             >
-              <ThumbsUp className={`h-4 w-4 ${post.hasReacted ? "fill-primary" : ""}`} />
-              {post.reactionCount > 0 ? post.reactionCount : ""} Like{post.reactionCount !== 1 ? "s" : ""}
+              <ThumbsUp className={`h-4 w-4 ${postData.hasReacted ? "fill-primary" : ""}`} />
+              {postData.reactionCount > 0 ? postData.reactionCount : ""} Like{postData.reactionCount !== 1 ? "s" : ""}
             </button>
             <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <MessageSquare className="h-4 w-4" />
-              {post.commentCount} Comment{post.commentCount !== 1 ? "s" : ""}
+              {postData.commentCount} Comment{postData.commentCount !== 1 ? "s" : ""}
             </span>
-            {post.type === "job" && !isOwner && (
+            {postData.type === "job" && !isOwner && (
               <div className="ml-auto">
                 {myApplication ? (
                   <Badge variant="outline" className="gap-1.5">
@@ -244,17 +239,16 @@ export default function TradehubPostPage() {
         </CardContent>
       </Card>
 
-      {/* Applications (visible to post owner) */}
-      {isOwner && post.type === "job" && post.applications?.length > 0 && (
+      {isOwner && postData.type === "job" && postData.applications?.length > 0 && (
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Briefcase className="h-4 w-4 text-primary" />
-              Applications ({post.applications.length})
+              Applications ({postData.applications.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {post.applications.map((app: any) => (
+            {postData.applications.map((app: any) => (
               <div key={app.id} className="border rounded-xl p-4">
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <div>
@@ -268,9 +262,9 @@ export default function TradehubPostPage() {
                 {app.message && <p className="text-sm text-muted-foreground mb-3 italic">"{app.message}"</p>}
                 {app.status === "pending" && (
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => updateApplicationMutation.mutate({ appId: app.id, status: "accepted" })}>Accept</Button>
-                    <Button size="sm" variant="outline" onClick={() => updateApplicationMutation.mutate({ appId: app.id, status: "reviewed" })}>Reviewed</Button>
-                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => updateApplicationMutation.mutate({ appId: app.id, status: "rejected" })}>Reject</Button>
+                    <Button size="sm" onClick={() => updateApplicationMutation.mutate({ id: app.id, data: { status: "accepted" } })}>Accept</Button>
+                    <Button size="sm" variant="outline" onClick={() => updateApplicationMutation.mutate({ id: app.id, data: { status: "reviewed" } })}>Reviewed</Button>
+                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => updateApplicationMutation.mutate({ id: app.id, data: { status: "rejected" } })}>Reject</Button>
                   </div>
                 )}
               </div>
@@ -279,20 +273,19 @@ export default function TradehubPostPage() {
         </Card>
       )}
 
-      {/* Comments */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
-            Comments ({post.comments?.length ?? 0})
+            Comments ({postData.comments?.length ?? 0})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {(post.comments ?? []).length === 0 ? (
+          {(postData.comments ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">No comments yet. Be the first!</p>
           ) : (
             <div className="space-y-4">
-              {(post.comments ?? []).map((c: any) => {
+              {(postData.comments ?? []).map((c: any) => {
                 const cInitials = c.profile?.displayName
                   ? c.profile.displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
                   : `${c.author?.firstName?.[0] ?? ""}${c.author?.lastName?.[0] ?? ""}`;
@@ -320,7 +313,7 @@ export default function TradehubPostPage() {
 
           <div className="flex gap-3">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0 mt-0.5">
-              {myProfile?.displayName?.[0]?.toUpperCase() ?? (me as any)?.firstName?.[0]?.toUpperCase() ?? "?"}
+              {(myProfile as any)?.displayName?.[0]?.toUpperCase() ?? (me as any)?.firstName?.[0]?.toUpperCase() ?? "?"}
             </div>
             <div className="flex-1 flex gap-2">
               <Textarea
@@ -332,7 +325,7 @@ export default function TradehubPostPage() {
               />
               <Button
                 size="icon"
-                onClick={() => commentMutation.mutate()}
+                onClick={() => commentMutation.mutate({ id: postId, data: { content: comment } })}
                 disabled={!comment.trim() || commentMutation.isPending}
                 className="self-end"
               >
@@ -343,12 +336,11 @@ export default function TradehubPostPage() {
         </CardContent>
       </Card>
 
-      {/* Apply Modal */}
       <Dialog open={showApply} onOpenChange={setShowApply}>
         <DialogContent>
           <DialogHeader><DialogTitle>Apply for this Job</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Applying to: <strong>{post.title}</strong></p>
+            <p className="text-sm text-muted-foreground">Applying to: <strong>{postData.title}</strong></p>
             <div>
               <Label>Cover Message (optional)</Label>
               <Textarea
@@ -362,7 +354,7 @@ export default function TradehubPostPage() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowApply(false)}>Cancel</Button>
-            <Button onClick={() => applyMutation.mutate()} disabled={applyMutation.isPending} className="gap-2">
+            <Button onClick={() => applyMutation.mutate({ id: postId, data: { message: applyMessage || undefined } })} disabled={applyMutation.isPending} className="gap-2">
               {applyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Send Application
             </Button>
@@ -370,7 +362,6 @@ export default function TradehubPostPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Report Modal */}
       <Dialog open={showReport} onOpenChange={setShowReport}>
         <DialogContent>
           <DialogHeader><DialogTitle>Report this Post</DialogTitle></DialogHeader>
@@ -386,7 +377,7 @@ export default function TradehubPostPage() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowReport(false)}>Cancel</Button>
-            <Button onClick={() => reportMutation.mutate()} disabled={!reportReason.trim() || reportMutation.isPending} variant="destructive">
+            <Button onClick={() => reportMutation.mutate({ data: { targetType: "post", targetId: postId, reason: reportReason } })} disabled={!reportReason.trim() || reportMutation.isPending} variant="destructive">
               Submit Report
             </Button>
           </DialogFooter>

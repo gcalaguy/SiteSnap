@@ -64,6 +64,10 @@ tags:
     description: Worker compliance documents and certificate vault
   - name: trade-reviews
     description: 5-star review and feedback rating system for TradeHub
+  - name: tradehub
+    description: TradeHub social network – posts, jobs, messages, profiles, and notifications
+  - name: inspections
+    description: AI-powered site inspections and inspection alerts
 
 paths:
   # ── Forms ────────────────────────────────────────────────────────────────────
@@ -3867,6 +3871,697 @@ paths:
         "500":
           description: Server error
 
+  # ── TradeHub ───────────────────────────────────────────────────────────────
+
+  /tradehub/feed:
+    get:
+      operationId: listTradehubFeed
+      tags: [tradehub]
+      summary: List paginated TradeHub posts (all types)
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [discussion, job, showcase]
+        - in: query
+          name: trade
+          schema:
+            type: string
+        - in: query
+          name: province
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Paginated feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubFeedResponse"
+        "500":
+          description: Server error
+
+  /tradehub/posts:
+    post:
+      operationId: createTradehubPost
+      tags: [tradehub]
+      summary: Create a new TradeHub post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTradehubPostBody"
+      responses:
+        "201":
+          description: Post created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubPost"
+        "400":
+          description: Validation error
+        "500":
+          description: Server error
+
+  /tradehub/posts/{id}:
+    get:
+      operationId: getTradehubPost
+      tags: [tradehub]
+      summary: Get a single TradeHub post with comments and applications
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Post detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubPostDetail"
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+    delete:
+      operationId: deleteTradehubPost
+      tags: [tradehub]
+      summary: Delete a TradeHub post (owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Post deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "403":
+          description: Not the post owner
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+
+  /tradehub/posts/{id}/react:
+    post:
+      operationId: reactToTradehubPost
+      tags: [tradehub]
+      summary: Toggle a like reaction on a post
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reaction toggled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reacted]
+                properties:
+                  reacted:
+                    type: boolean
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+
+  /tradehub/posts/{id}/comments:
+    post:
+      operationId: addTradehubComment
+      tags: [tradehub]
+      summary: Add a comment to a post
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        "201":
+          description: Comment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubComment"
+        "404":
+          description: Post not found
+        "500":
+          description: Server error
+
+  /tradehub/jobs:
+    get:
+      operationId: listTradehubJobs
+      tags: [tradehub]
+      summary: List job posts with optional trade/province filters (paginated)
+      parameters:
+        - in: query
+          name: trade
+          schema:
+            type: string
+        - in: query
+          name: province
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Paginated job list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubFeedResponse"
+        "500":
+          description: Server error
+
+  /tradehub/jobs/{id}/apply:
+    post:
+      operationId: applyToTradehubJob
+      tags: [tradehub]
+      summary: Apply to a job post
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  maxLength: 2000
+      responses:
+        "201":
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubApplication"
+        "409":
+          description: Already applied
+        "500":
+          description: Server error
+
+  /tradehub/applications/{id}:
+    patch:
+      operationId: updateTradehubApplication
+      tags: [tradehub]
+      summary: Update an application status (accept / reject / reviewed)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, accepted, reviewed, rejected]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubApplication"
+        "403":
+          description: Not the post owner
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+
+  /tradehub/profile/me:
+    get:
+      operationId: getTradehubProfileMe
+      tags: [tradehub]
+      summary: Get the current user's TradeHub profile (null if not created)
+      responses:
+        "200":
+          description: My TradeHub profile or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubProfile"
+        "500":
+          description: Server error
+
+  /tradehub/profile/{userId}:
+    get:
+      operationId: getTradehubProfile
+      tags: [tradehub]
+      summary: Get another user's TradeHub profile
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: TradeHub profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubProfile"
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+
+  /tradehub/profile:
+    put:
+      operationId: upsertTradehubProfile
+      tags: [tradehub]
+      summary: Create or update the current user's TradeHub profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertTradehubProfileBody"
+      responses:
+        "200":
+          description: Saved profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubProfile"
+        "400":
+          description: Validation error
+        "500":
+          description: Server error
+
+  /tradehub/notifications:
+    get:
+      operationId: listTradehubNotifications
+      tags: [tradehub]
+      summary: List TradeHub notifications for the current user
+      responses:
+        "200":
+          description: Notifications list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TradehubNotification"
+        "500":
+          description: Server error
+
+  /tradehub/notifications/read-all:
+    post:
+      operationId: markAllTradehubNotificationsRead
+      tags: [tradehub]
+      summary: Mark all TradeHub notifications as read
+      responses:
+        "200":
+          description: Done
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "500":
+          description: Server error
+
+  /tradehub/reports:
+    post:
+      operationId: createTradehubReport
+      tags: [tradehub]
+      summary: Report a post or user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTradehubReportBody"
+      responses:
+        "201":
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "500":
+          description: Server error
+
+  /tradehub/users/search:
+    get:
+      operationId: searchTradehubUsers
+      tags: [tradehub]
+      summary: Search TradeHub users by display name or trade
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 2
+      responses:
+        "200":
+          description: Matching users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TradehubUserSearchResult"
+        "500":
+          description: Server error
+
+  /tradehub/conversations:
+    get:
+      operationId: listTradehubConversations
+      tags: [tradehub]
+      summary: List all conversations for the current user
+      responses:
+        "200":
+          description: Conversation list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TradehubConversation"
+        "500":
+          description: Server error
+    post:
+      operationId: createTradehubConversation
+      tags: [tradehub]
+      summary: Start a new direct-message conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTradehubConversationBody"
+      responses:
+        "201":
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [conversationId]
+                properties:
+                  conversationId:
+                    type: integer
+        "500":
+          description: Server error
+
+  /tradehub/conversations/{id}/messages:
+    get:
+      operationId: listTradehubMessages
+      tags: [tradehub]
+      summary: List messages in a conversation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Message list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TradehubMessage"
+        "403":
+          description: Not a participant
+        "500":
+          description: Server error
+    post:
+      operationId: sendTradehubMessage
+      tags: [tradehub]
+      summary: Send a message in a conversation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 5000
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradehubMessage"
+        "403":
+          description: Not a participant
+        "500":
+          description: Server error
+
+  /tradehub/conversations/{id}/read:
+    post:
+      operationId: markTradehubConversationRead
+      tags: [tradehub]
+      summary: Mark all messages in a conversation as read
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "500":
+          description: Server error
+
+  # ── Inspections ────────────────────────────────────────────────────────────
+
+  /inspections:
+    get:
+      operationId: listInspections
+      tags: [inspections]
+      summary: List all inspections for the current company
+      responses:
+        "200":
+          description: Inspection rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InspectionRow"
+        "500":
+          description: Server error
+    post:
+      operationId: createInspection
+      tags: [inspections]
+      summary: Create an inspection (optionally submit immediately)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInspectionBody"
+      responses:
+        "201":
+          description: Created inspection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InspectionRecord"
+        "400":
+          description: Validation error
+        "500":
+          description: Server error
+
+  /inspections/{id}:
+    get:
+      operationId: getInspection
+      tags: [inspections]
+      summary: Get a single inspection with its checklist items
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Inspection detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InspectionDetail"
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+
+  /inspections/{id}/submit:
+    post:
+      operationId: submitInspection
+      tags: [inspections]
+      summary: Submit a draft inspection to trigger AI analysis
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Submission started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+
+  /inspection-alerts:
+    get:
+      operationId: listInspectionAlerts
+      tags: [inspections]
+      summary: List inspection alerts for the current company
+      responses:
+        "200":
+          description: Alert rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InspectionAlertRow"
+        "500":
+          description: Server error
+
+  /inspection-alerts/{id}/read:
+    patch:
+      operationId: markInspectionAlertRead
+      tags: [inspections]
+      summary: Mark a single inspection alert as read
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+
+  /inspection-alerts/read-all:
+    patch:
+      operationId: markAllInspectionAlertsRead
+      tags: [inspections]
+      summary: Mark all inspection alerts as read for the current company
+      responses:
+        "200":
+          description: Marked all read
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "500":
+          description: Server error
+
 components:
   parameters:
     companyId:
@@ -6855,3 +7550,550 @@ components:
           type: integer
         hasMore:
           type: boolean
+
+    # ── TradeHub schemas ───────────────────────────────────────────────────────
+
+    TradehubAuthor:
+      type: object
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+
+    TradehubProfileSnippet:
+      type: object
+      properties:
+        displayName:
+          type: string
+        trade:
+          type: string
+          nullable: true
+        isVerified:
+          type: boolean
+        avatarUrl:
+          type: string
+          nullable: true
+
+    TradehubMedia:
+      type: object
+      required: [id, url]
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+
+    TradehubPost:
+      type: object
+      required: [id, userId, type, title, content, createdAt, commentCount, reactionCount, hasReacted, applicationCount, media]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        type:
+          type: string
+          enum: [discussion, job, showcase]
+        title:
+          type: string
+        content:
+          type: string
+        trade:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        province:
+          type: string
+          nullable: true
+        budget:
+          type: string
+          nullable: true
+        jobType:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        commentCount:
+          type: integer
+        reactionCount:
+          type: integer
+        hasReacted:
+          type: boolean
+        applicationCount:
+          type: integer
+        author:
+          $ref: "#/components/schemas/TradehubAuthor"
+        profile:
+          $ref: "#/components/schemas/TradehubProfileSnippet"
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradehubMedia"
+
+    TradehubComment:
+      type: object
+      required: [id, postId, userId, content, createdAt]
+      properties:
+        id:
+          type: integer
+        postId:
+          type: integer
+        userId:
+          type: integer
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        author:
+          $ref: "#/components/schemas/TradehubAuthor"
+        profile:
+          $ref: "#/components/schemas/TradehubProfileSnippet"
+
+    TradehubApplication:
+      type: object
+      required: [id, postId, applicantId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        postId:
+          type: integer
+        applicantId:
+          type: integer
+        status:
+          type: string
+          enum: [pending, accepted, reviewed, rejected]
+        message:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    TradehubPostDetail:
+      allOf:
+        - $ref: "#/components/schemas/TradehubPost"
+        - type: object
+          properties:
+            comments:
+              type: array
+              items:
+                $ref: "#/components/schemas/TradehubComment"
+            applications:
+              type: array
+              items:
+                $ref: "#/components/schemas/TradehubApplication"
+
+    TradehubFeedResponse:
+      type: object
+      required: [posts, page, hasMore]
+      properties:
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradehubPost"
+        page:
+          type: integer
+        hasMore:
+          type: boolean
+
+    CreateTradehubPostBody:
+      type: object
+      required: [type, title, content]
+      properties:
+        type:
+          type: string
+          enum: [discussion, job, showcase]
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        trade:
+          type: string
+        province:
+          type: string
+        budget:
+          type: string
+        jobType:
+          type: string
+
+    TradehubProfile:
+      type: object
+      required: [userId, displayName, createdAt]
+      properties:
+        userId:
+          type: integer
+        displayName:
+          type: string
+        trade:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        province:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        isVerified:
+          type: boolean
+        complianceStatus:
+          type: string
+          nullable: true
+        voiceIntroUrl:
+          type: string
+          nullable: true
+        voiceIntroDuration:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        recentPosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradehubPost"
+
+    UpsertTradehubProfileBody:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        trade:
+          type: string
+        location:
+          type: string
+        province:
+          type: string
+        bio:
+          type: string
+          maxLength: 2000
+        website:
+          type: string
+        complianceStatus:
+          type: string
+          enum: [compliant, warning, non_compliant]
+
+    TradehubNotification:
+      type: object
+      required: [id, userId, message, isRead, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        type:
+          type: string
+          nullable: true
+        message:
+          type: string
+        referenceId:
+          type: integer
+          nullable: true
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateTradehubReportBody:
+      type: object
+      required: [targetType, targetId, reason]
+      properties:
+        targetType:
+          type: string
+          enum: [post, user, comment]
+        targetId:
+          type: integer
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+
+    TradehubUserSearchResult:
+      type: object
+      required: [userId, displayName]
+      properties:
+        userId:
+          type: integer
+        displayName:
+          type: string
+        trade:
+          type: string
+          nullable: true
+        province:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+
+    TradehubConversationParticipant:
+      type: object
+      properties:
+        userId:
+          type: integer
+        displayName:
+          type: string
+        trade:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+
+    TradehubLastMessage:
+      type: object
+      properties:
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    TradehubConversation:
+      type: object
+      required: [id, createdAt, unreadCount]
+      properties:
+        id:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        unreadCount:
+          type: integer
+        otherParticipant:
+          $ref: "#/components/schemas/TradehubConversationParticipant"
+        lastMessage:
+          $ref: "#/components/schemas/TradehubLastMessage"
+
+    CreateTradehubConversationBody:
+      type: object
+      required: [recipientId, message]
+      properties:
+        recipientId:
+          type: integer
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+
+    TradehubMessage:
+      type: object
+      required: [id, conversationId, senderId, content, createdAt]
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        senderId:
+          type: integer
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Inspection schemas ─────────────────────────────────────────────────────
+
+    InspectionRecord:
+      type: object
+      required: [id, companyId, inspectorId, inspectionType, date, status, createdAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: integer
+          nullable: true
+        inspectorId:
+          type: integer
+        inspectionType:
+          type: string
+          enum: [general, safety, quality, progress, electrical, structural, fire, environmental]
+        date:
+          type: string
+        score:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [draft, submitted]
+        aiSummary:
+          type: string
+          nullable: true
+        riskLevel:
+          type: string
+          nullable: true
+        riskScore:
+          type: string
+          nullable: true
+        failedItemAnalysis:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    InspectionItem:
+      type: object
+      required: [id, itemName, status, severity]
+      properties:
+        id:
+          type: integer
+        itemName:
+          type: string
+        status:
+          type: string
+          enum: [pass, fail, na]
+        severity:
+          type: string
+          enum: [low, medium, high]
+        comment:
+          type: string
+          nullable: true
+
+    InspectionProjectRef:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    InspectionInspectorRef:
+      type: object
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+
+    InspectionRow:
+      type: object
+      required: [inspection]
+      properties:
+        inspection:
+          $ref: "#/components/schemas/InspectionRecord"
+        project:
+          $ref: "#/components/schemas/InspectionProjectRef"
+        inspector:
+          $ref: "#/components/schemas/InspectionInspectorRef"
+
+    InspectionDetail:
+      type: object
+      required: [inspection, items]
+      properties:
+        inspection:
+          $ref: "#/components/schemas/InspectionRecord"
+        project:
+          $ref: "#/components/schemas/InspectionProjectRef"
+        inspector:
+          $ref: "#/components/schemas/InspectionInspectorRef"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InspectionItem"
+
+    CreateInspectionItemBody:
+      type: object
+      required: [itemName]
+      properties:
+        itemName:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [pass, fail, na]
+          default: pass
+        severity:
+          type: string
+          enum: [low, medium, high]
+          default: low
+        comment:
+          type: string
+
+    CreateInspectionBody:
+      type: object
+      required: [inspectionType, date, items]
+      properties:
+        projectId:
+          type: integer
+          nullable: true
+        inspectionType:
+          type: string
+          enum: [general, safety, quality, progress, electrical, structural, fire, environmental]
+        date:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateInspectionItemBody"
+          minItems: 1
+        submit:
+          type: boolean
+          default: false
+
+    InspectionAlertData:
+      type: object
+      required: [id, type, message, severity, isRead, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    InspectionAlertRow:
+      type: object
+      required: [inspectionId]
+      properties:
+        inspectionId:
+          type: integer
+        alert:
+          $ref: "#/components/schemas/InspectionAlertData"
+        project:
+          $ref: "#/components/schemas/InspectionProjectRef"
+        inspection:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            inspectionType:
+              type: string
+            date:
+              type: string

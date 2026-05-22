@@ -1,7 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, Link } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch, useGetMe } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetMe,
+  useListTradehubConversations,
+  useListTradehubMessages,
+  useSendTradehubMessage,
+  useCreateTradehubConversation,
+  useSearchTradehubUsers,
+  useMarkTradehubConversationRead,
+  getListTradehubConversationsQueryKey,
+  getListTradehubMessagesQueryKey,
+} from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, isToday, isYesterday } from "date-fns";
 import {
@@ -10,7 +20,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -22,30 +31,25 @@ function formatTime(date: string) {
   return format(d, "MMM d");
 }
 
-// ── New Conversation Dialog ────────────────────────────────────────────────────
 function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: number) => void }) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  const { data: results = [], isLoading } = useQuery<any[]>({
-    queryKey: ["tradehub-user-search", search],
-    queryFn: () => customFetch(`/api/tradehub/users/search?q=${encodeURIComponent(search)}`),
-    enabled: search.trim().length >= 2,
-  });
+  const { data: results = [], isLoading } = useSearchTradehubUsers(
+    { q: search },
+    { query: { enabled: search.trim().length >= 2 } as any },
+  );
 
-  const createMutation = useMutation({
-    mutationFn: () =>
-      customFetch("/api/tradehub/conversations", {
-        method: "POST",
-        body: JSON.stringify({ recipientId: selectedUser.id, message }),
-      }),
-    onSuccess: (data: any) => {
-      onCreated(data.conversationId);
-      onClose();
+  const createMutation = useCreateTradehubConversation({
+    mutation: {
+      onSuccess: (data: any) => {
+        onCreated(data.conversationId);
+        onClose();
+      },
+      onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to start conversation", variant: "destructive" }),
     },
-    onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to start conversation", variant: "destructive" }),
   });
 
   return (
@@ -73,10 +77,10 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
                     <div className="flex items-center justify-center py-6">
                       <Loader2 className="h-4 w-4 animate-spin" />
                     </div>
-                  ) : results.length === 0 ? (
+                  ) : (results as any[]).length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-6">No users found</p>
                   ) : (
-                    results.map((u: any) => {
+                    (results as any[]).map((u: any) => {
                       const initials = u.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "??";
                       return (
                         <button
@@ -124,7 +128,7 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
           <DialogFooter>
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button
-              onClick={() => createMutation.mutate()}
+              onClick={() => createMutation.mutate({ data: { recipientId: selectedUser.id ?? selectedUser.userId, message } })}
               disabled={!message.trim() || createMutation.isPending}
               className="gap-2"
             >
@@ -138,9 +142,8 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function TradehubMessagesPage() {
-  const { conversationId } = useParams<{ conversationId?: string }>();
+  const { conversationId: conversationIdStr } = useParams<{ conversationId?: string }>();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { data: me } = useGetMe();
@@ -148,54 +151,49 @@ export default function TradehubMessagesPage() {
   const [showNew, setShowNew] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { data: conversations = [], isLoading: loadingConvs } = useQuery<any[]>({
-    queryKey: ["tradehub-conversations"],
-    queryFn: () => customFetch("/api/tradehub/conversations"),
-    refetchInterval: 10000,
+  const conversationId = conversationIdStr ? parseInt(conversationIdStr) : undefined;
+
+  const { data: conversations = [], isLoading: loadingConvs } = useListTradehubConversations({
+    query: { refetchInterval: 10000 } as any,
   });
 
-  const { data: messages = [], isLoading: loadingMsgs } = useQuery<any[]>({
-    queryKey: ["tradehub-messages", conversationId],
-    queryFn: () => customFetch(`/api/tradehub/conversations/${conversationId}/messages`),
-    enabled: !!conversationId,
-    refetchInterval: 5000,
-  });
+  const { data: messages = [], isLoading: loadingMsgs } = useListTradehubMessages(
+    conversationId ?? 0,
+    { query: { enabled: !!conversationId, refetchInterval: 5000 } as any },
+  );
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Mark read when viewing a conversation
+  const markReadMutation = useMarkTradehubConversationRead();
+
   useEffect(() => {
     if (!conversationId) return;
-    customFetch(`/api/tradehub/conversations/${conversationId}/read`, { method: "POST" }).catch(() => {});
-  }, [conversationId, messages.length]);
+    markReadMutation.mutate({ id: conversationId });
+  }, [conversationId, (messages as any[]).length]);
 
-  const sendMutation = useMutation({
-    mutationFn: () =>
-      customFetch(`/api/tradehub/conversations/${conversationId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ content: newMessage }),
-      }),
-    onSuccess: () => {
-      setNewMessage("");
-      queryClient.invalidateQueries({ queryKey: ["tradehub-messages", conversationId] });
-      queryClient.invalidateQueries({ queryKey: ["tradehub-conversations"] });
+  const sendMutation = useSendTradehubMessage({
+    mutation: {
+      onSuccess: () => {
+        setNewMessage("");
+        queryClient.invalidateQueries({ queryKey: getListTradehubMessagesQueryKey(conversationId!) });
+        queryClient.invalidateQueries({ queryKey: getListTradehubConversationsQueryKey() });
+      },
     },
   });
 
-  const activeConv = conversations.find((c: any) => String(c.id) === conversationId);
+  const activeConv = (conversations as any[]).find((c: any) => c.id === conversationId);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (newMessage.trim()) sendMutation.mutate();
+      if (newMessage.trim() && conversationId) sendMutation.mutate({ id: conversationId, data: { content: newMessage } });
     }
   };
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/tradehub">
           <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
@@ -215,7 +213,6 @@ export default function TradehubMessagesPage() {
       </div>
 
       <div className="grid lg:grid-cols-5 gap-4 h-[calc(100vh-220px)] min-h-[500px]">
-        {/* Conversations List */}
         <div className="lg:col-span-2 border rounded-xl overflow-hidden flex flex-col">
           <div className="p-3 border-b bg-muted/30">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Conversations</p>
@@ -225,7 +222,7 @@ export default function TradehubMessagesPage() {
               <div className="flex items-center justify-center h-32">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
               </div>
-            ) : conversations.length === 0 ? (
+            ) : (conversations as any[]).length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
                 <MessageCircle className="h-10 w-10 text-muted-foreground/30" />
                 <p className="text-sm text-muted-foreground">No conversations yet</p>
@@ -234,10 +231,10 @@ export default function TradehubMessagesPage() {
                 </Button>
               </div>
             ) : (
-              conversations.map((conv: any) => {
+              (conversations as any[]).map((conv: any) => {
                 const other = conv.otherParticipant;
                 const initials = other?.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "??";
-                const isActive = String(conv.id) === conversationId;
+                const isActive = conv.id === conversationId;
                 const hasUnread = conv.unreadCount > 0;
 
                 return (
@@ -276,7 +273,6 @@ export default function TradehubMessagesPage() {
           </div>
         </div>
 
-        {/* Message Thread */}
         <div className="lg:col-span-3 border rounded-xl overflow-hidden flex flex-col">
           {!conversationId ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 p-6 text-center">
@@ -291,7 +287,6 @@ export default function TradehubMessagesPage() {
             </div>
           ) : (
             <>
-              {/* Thread header */}
               <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-3">
                 {activeConv && (
                   <>
@@ -311,20 +306,19 @@ export default function TradehubMessagesPage() {
                 )}
               </div>
 
-              {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {loadingMsgs ? (
                   <div className="flex items-center justify-center h-32">
                     <Loader2 className="h-5 w-5 animate-spin text-primary" />
                   </div>
-                ) : messages.length === 0 ? (
+                ) : (messages as any[]).length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <p className="text-sm text-muted-foreground">No messages yet. Say hello!</p>
                   </div>
                 ) : (
-                  messages.map((msg: any, i: number) => {
+                  (messages as any[]).map((msg: any, i: number) => {
                     const isMe = msg.senderId === (me as any)?.id;
-                    const showDate = i === 0 || format(new Date(messages[i - 1].createdAt), "yyyy-MM-dd") !== format(new Date(msg.createdAt), "yyyy-MM-dd");
+                    const showDate = i === 0 || format(new Date((messages as any[])[i - 1].createdAt), "yyyy-MM-dd") !== format(new Date(msg.createdAt), "yyyy-MM-dd");
 
                     return (
                       <div key={msg.id}>
@@ -352,7 +346,6 @@ export default function TradehubMessagesPage() {
                 <div ref={bottomRef} />
               </div>
 
-              {/* Input */}
               <div className="p-3 border-t bg-background flex gap-2 items-end">
                 <Textarea
                   value={newMessage}
@@ -364,7 +357,7 @@ export default function TradehubMessagesPage() {
                 />
                 <Button
                   size="icon"
-                  onClick={() => sendMutation.mutate()}
+                  onClick={() => conversationId && sendMutation.mutate({ id: conversationId, data: { content: newMessage } })}
                   disabled={!newMessage.trim() || sendMutation.isPending}
                   className="flex-shrink-0"
                 >
@@ -380,7 +373,7 @@ export default function TradehubMessagesPage() {
         open={showNew}
         onClose={() => setShowNew(false)}
         onCreated={(id) => {
-          queryClient.invalidateQueries({ queryKey: ["tradehub-conversations"] });
+          queryClient.invalidateQueries({ queryKey: getListTradehubConversationsQueryKey() });
           setLocation(`/tradehub/messages/${id}`);
         }}
       />

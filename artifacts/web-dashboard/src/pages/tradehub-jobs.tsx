@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  listTradehubJobs,
+  getListTradehubJobsQueryKey,
+} from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { Briefcase, MapPin, DollarSign, Clock, Loader2, ArrowLeft, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,19 +16,17 @@ const TRADES = ["Electrician","Plumber","HVAC","General Contractor","Carpenter",
 const PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
 
 export default function TradehubJobsPage() {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [tradeFilter, setTradeFilter] = useState("all");
   const [provinceFilter, setProvinceFilter] = useState("all");
 
-  const params = new URLSearchParams();
-  if (tradeFilter !== "all") params.set("trade", tradeFilter);
-  if (provinceFilter !== "all") params.set("province", provinceFilter);
+  const jobParams = {
+    ...(tradeFilter !== "all" ? { trade: tradeFilter } : {}),
+    ...(provinceFilter !== "all" ? { province: provinceFilter } : {}),
+  };
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["tradehub-jobs", tradeFilter, provinceFilter],
-    queryFn: ({ pageParam = 1 }) =>
-      customFetch(`/api/tradehub/jobs?${params.toString()}&page=${pageParam}`),
+    queryKey: getListTradehubJobsQueryKey(jobParams),
+    queryFn: ({ pageParam = 1 }) => listTradehubJobs({ ...jobParams, page: pageParam as number }),
     getNextPageParam: (last: any) => last.hasMore ? last.page + 1 : undefined,
     initialPageParam: 1,
   });
@@ -35,7 +35,6 @@ export default function TradehubJobsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/tradehub">
           <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
@@ -56,7 +55,6 @@ export default function TradehubJobsPage() {
         </Link>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-3 mb-6 flex-wrap">
         <Select value={tradeFilter} onValueChange={setTradeFilter}>
           <SelectTrigger className="w-[160px]">
@@ -88,7 +86,6 @@ export default function TradehubJobsPage() {
         </div>
       </div>
 
-      {/* Job List */}
       {isLoading ? (
         <div className="space-y-4">
           {[1,2,3,4].map((i) => <div key={i} className="h-40 rounded-xl bg-muted animate-pulse" />)}

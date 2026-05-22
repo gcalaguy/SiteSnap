@@ -1911,6 +1911,405 @@ export interface TradeReviewListResponse {
   hasMore: boolean;
 }
 
+export interface TradehubAuthor {
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface TradehubProfileSnippet {
+  displayName?: string;
+  trade?: string | null;
+  isVerified?: boolean;
+  avatarUrl?: string | null;
+}
+
+export interface TradehubMedia {
+  id: number;
+  url: string;
+}
+
+export type TradehubPostType =
+  (typeof TradehubPostType)[keyof typeof TradehubPostType];
+
+export const TradehubPostType = {
+  discussion: "discussion",
+  job: "job",
+  showcase: "showcase",
+} as const;
+
+export interface TradehubPost {
+  id: number;
+  userId: number;
+  type: TradehubPostType;
+  title: string;
+  content: string;
+  trade?: string | null;
+  location?: string | null;
+  province?: string | null;
+  budget?: string | null;
+  jobType?: string | null;
+  createdAt: string;
+  commentCount: number;
+  reactionCount: number;
+  hasReacted: boolean;
+  applicationCount: number;
+  author?: TradehubAuthor;
+  profile?: TradehubProfileSnippet;
+  media: TradehubMedia[];
+}
+
+export interface TradehubComment {
+  id: number;
+  postId: number;
+  userId: number;
+  content: string;
+  createdAt: string;
+  author?: TradehubAuthor;
+  profile?: TradehubProfileSnippet;
+}
+
+export type TradehubApplicationStatus =
+  (typeof TradehubApplicationStatus)[keyof typeof TradehubApplicationStatus];
+
+export const TradehubApplicationStatus = {
+  pending: "pending",
+  accepted: "accepted",
+  reviewed: "reviewed",
+  rejected: "rejected",
+} as const;
+
+export interface TradehubApplication {
+  id: number;
+  postId: number;
+  applicantId: number;
+  status: TradehubApplicationStatus;
+  message?: string | null;
+  createdAt: string;
+}
+
+export type TradehubPostDetail = TradehubPost & {
+  comments?: TradehubComment[];
+  applications?: TradehubApplication[];
+};
+
+export interface TradehubFeedResponse {
+  posts: TradehubPost[];
+  page: number;
+  hasMore: boolean;
+}
+
+export type CreateTradehubPostBodyType =
+  (typeof CreateTradehubPostBodyType)[keyof typeof CreateTradehubPostBodyType];
+
+export const CreateTradehubPostBodyType = {
+  discussion: "discussion",
+  job: "job",
+  showcase: "showcase",
+} as const;
+
+export interface CreateTradehubPostBody {
+  type: CreateTradehubPostBodyType;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  title: string;
+  /**
+   * @minLength 1
+   * @maxLength 10000
+   */
+  content: string;
+  trade?: string;
+  province?: string;
+  budget?: string;
+  jobType?: string;
+}
+
+export interface TradehubProfile {
+  userId: number;
+  displayName: string;
+  trade?: string | null;
+  location?: string | null;
+  province?: string | null;
+  bio?: string | null;
+  website?: string | null;
+  avatarUrl?: string | null;
+  isVerified?: boolean;
+  complianceStatus?: string | null;
+  voiceIntroUrl?: string | null;
+  voiceIntroDuration?: number | null;
+  createdAt: string;
+  recentPosts?: TradehubPost[];
+}
+
+export type UpsertTradehubProfileBodyComplianceStatus =
+  (typeof UpsertTradehubProfileBodyComplianceStatus)[keyof typeof UpsertTradehubProfileBodyComplianceStatus];
+
+export const UpsertTradehubProfileBodyComplianceStatus = {
+  compliant: "compliant",
+  warning: "warning",
+  non_compliant: "non_compliant",
+} as const;
+
+export interface UpsertTradehubProfileBody {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  displayName: string;
+  trade?: string;
+  location?: string;
+  province?: string;
+  /** @maxLength 2000 */
+  bio?: string;
+  website?: string;
+  complianceStatus?: UpsertTradehubProfileBodyComplianceStatus;
+}
+
+export interface TradehubNotification {
+  id: number;
+  userId: number;
+  type?: string | null;
+  message: string;
+  referenceId?: number | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export type CreateTradehubReportBodyTargetType =
+  (typeof CreateTradehubReportBodyTargetType)[keyof typeof CreateTradehubReportBodyTargetType];
+
+export const CreateTradehubReportBodyTargetType = {
+  post: "post",
+  user: "user",
+  comment: "comment",
+} as const;
+
+export interface CreateTradehubReportBody {
+  targetType: CreateTradehubReportBodyTargetType;
+  targetId: number;
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  reason: string;
+}
+
+export interface TradehubUserSearchResult {
+  userId: number;
+  displayName: string;
+  trade?: string | null;
+  province?: string | null;
+  avatarUrl?: string | null;
+}
+
+export interface TradehubConversationParticipant {
+  userId?: number;
+  displayName?: string;
+  trade?: string | null;
+  avatarUrl?: string | null;
+}
+
+export interface TradehubLastMessage {
+  content?: string;
+  createdAt?: string;
+}
+
+export interface TradehubConversation {
+  id: number;
+  createdAt: string;
+  unreadCount: number;
+  otherParticipant?: TradehubConversationParticipant;
+  lastMessage?: TradehubLastMessage;
+}
+
+export interface CreateTradehubConversationBody {
+  recipientId: number;
+  /**
+   * @minLength 1
+   * @maxLength 5000
+   */
+  message: string;
+}
+
+export interface TradehubMessage {
+  id: number;
+  conversationId: number;
+  senderId: number;
+  content: string;
+  createdAt: string;
+}
+
+export type InspectionRecordInspectionType =
+  (typeof InspectionRecordInspectionType)[keyof typeof InspectionRecordInspectionType];
+
+export const InspectionRecordInspectionType = {
+  general: "general",
+  safety: "safety",
+  quality: "quality",
+  progress: "progress",
+  electrical: "electrical",
+  structural: "structural",
+  fire: "fire",
+  environmental: "environmental",
+} as const;
+
+export type InspectionRecordStatus =
+  (typeof InspectionRecordStatus)[keyof typeof InspectionRecordStatus];
+
+export const InspectionRecordStatus = {
+  draft: "draft",
+  submitted: "submitted",
+} as const;
+
+export interface InspectionRecord {
+  id: number;
+  companyId: number;
+  projectId?: number | null;
+  inspectorId: number;
+  inspectionType: InspectionRecordInspectionType;
+  date: string;
+  score?: number | null;
+  status: InspectionRecordStatus;
+  aiSummary?: string | null;
+  riskLevel?: string | null;
+  riskScore?: string | null;
+  failedItemAnalysis?: string | null;
+  createdAt: string;
+}
+
+export type InspectionItemStatus =
+  (typeof InspectionItemStatus)[keyof typeof InspectionItemStatus];
+
+export const InspectionItemStatus = {
+  pass: "pass",
+  fail: "fail",
+  na: "na",
+} as const;
+
+export type InspectionItemSeverity =
+  (typeof InspectionItemSeverity)[keyof typeof InspectionItemSeverity];
+
+export const InspectionItemSeverity = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+} as const;
+
+export interface InspectionItem {
+  id: number;
+  itemName: string;
+  status: InspectionItemStatus;
+  severity: InspectionItemSeverity;
+  comment?: string | null;
+}
+
+export interface InspectionProjectRef {
+  id?: number;
+  name?: string;
+}
+
+export interface InspectionInspectorRef {
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface InspectionRow {
+  inspection: InspectionRecord;
+  project?: InspectionProjectRef;
+  inspector?: InspectionInspectorRef;
+}
+
+export interface InspectionDetail {
+  inspection: InspectionRecord;
+  project?: InspectionProjectRef;
+  inspector?: InspectionInspectorRef;
+  items: InspectionItem[];
+}
+
+export type CreateInspectionItemBodyStatus =
+  (typeof CreateInspectionItemBodyStatus)[keyof typeof CreateInspectionItemBodyStatus];
+
+export const CreateInspectionItemBodyStatus = {
+  pass: "pass",
+  fail: "fail",
+  na: "na",
+} as const;
+
+export type CreateInspectionItemBodySeverity =
+  (typeof CreateInspectionItemBodySeverity)[keyof typeof CreateInspectionItemBodySeverity];
+
+export const CreateInspectionItemBodySeverity = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+} as const;
+
+export interface CreateInspectionItemBody {
+  /** @minLength 1 */
+  itemName: string;
+  status?: CreateInspectionItemBodyStatus;
+  severity?: CreateInspectionItemBodySeverity;
+  comment?: string;
+}
+
+export type CreateInspectionBodyInspectionType =
+  (typeof CreateInspectionBodyInspectionType)[keyof typeof CreateInspectionBodyInspectionType];
+
+export const CreateInspectionBodyInspectionType = {
+  general: "general",
+  safety: "safety",
+  quality: "quality",
+  progress: "progress",
+  electrical: "electrical",
+  structural: "structural",
+  fire: "fire",
+  environmental: "environmental",
+} as const;
+
+export interface CreateInspectionBody {
+  projectId?: number | null;
+  inspectionType: CreateInspectionBodyInspectionType;
+  date: string;
+  /** @minItems 1 */
+  items: CreateInspectionItemBody[];
+  submit?: boolean;
+}
+
+export type InspectionAlertDataSeverity =
+  (typeof InspectionAlertDataSeverity)[keyof typeof InspectionAlertDataSeverity];
+
+export const InspectionAlertDataSeverity = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+  critical: "critical",
+} as const;
+
+export interface InspectionAlertData {
+  id: number;
+  type: string;
+  message: string;
+  severity: InspectionAlertDataSeverity;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export type InspectionAlertRowInspection = {
+  id?: number;
+  inspectionType?: string;
+  date?: string;
+} | null;
+
+export interface InspectionAlertRow {
+  inspectionId: number;
+  alert?: InspectionAlertData;
+  project?: InspectionProjectRef;
+  inspection?: InspectionAlertRowInspection;
+}
+
 export type ListFormSubmissionsParams = {
   status?: string;
   projectId?: number;
@@ -2118,3 +2517,103 @@ export const ListTradeReviewsTargetType = {
   user_foreman: "user_foreman",
   user_worker: "user_worker",
 } as const;
+
+export type ListTradehubFeedParams = {
+  type?: ListTradehubFeedType;
+  trade?: string;
+  province?: string;
+  page?: number;
+};
+
+export type ListTradehubFeedType =
+  (typeof ListTradehubFeedType)[keyof typeof ListTradehubFeedType];
+
+export const ListTradehubFeedType = {
+  discussion: "discussion",
+  job: "job",
+  showcase: "showcase",
+} as const;
+
+export type DeleteTradehubPost200 = {
+  ok: boolean;
+};
+
+export type ReactToTradehubPost200 = {
+  reacted: boolean;
+};
+
+export type AddTradehubCommentBody = {
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  content: string;
+};
+
+export type ListTradehubJobsParams = {
+  trade?: string;
+  province?: string;
+  page?: number;
+};
+
+export type ApplyToTradehubJobBody = {
+  /** @maxLength 2000 */
+  message?: string;
+};
+
+export type UpdateTradehubApplicationBodyStatus =
+  (typeof UpdateTradehubApplicationBodyStatus)[keyof typeof UpdateTradehubApplicationBodyStatus];
+
+export const UpdateTradehubApplicationBodyStatus = {
+  pending: "pending",
+  accepted: "accepted",
+  reviewed: "reviewed",
+  rejected: "rejected",
+} as const;
+
+export type UpdateTradehubApplicationBody = {
+  status: UpdateTradehubApplicationBodyStatus;
+};
+
+export type MarkAllTradehubNotificationsRead200 = {
+  ok: boolean;
+};
+
+export type CreateTradehubReport201 = {
+  ok: boolean;
+};
+
+export type SearchTradehubUsersParams = {
+  /**
+   * @minLength 2
+   */
+  q: string;
+};
+
+export type CreateTradehubConversation201 = {
+  conversationId: number;
+};
+
+export type SendTradehubMessageBody = {
+  /**
+   * @minLength 1
+   * @maxLength 5000
+   */
+  content: string;
+};
+
+export type MarkTradehubConversationRead200 = {
+  ok: boolean;
+};
+
+export type SubmitInspection200 = {
+  ok: boolean;
+};
+
+export type MarkInspectionAlertRead200 = {
+  ok: boolean;
+};
+
+export type MarkAllInspectionAlertsRead200 = {
+  ok: boolean;
+};

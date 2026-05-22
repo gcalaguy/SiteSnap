@@ -4896,3 +4896,825 @@ export const ListTradeReviewsResponse = zod.object({
   limit: zod.number(),
   hasMore: zod.boolean(),
 });
+
+/**
+ * @summary List paginated TradeHub posts (all types)
+ */
+export const listTradehubFeedQueryPageDefault = 1;
+
+export const ListTradehubFeedQueryParams = zod.object({
+  type: zod.enum(["discussion", "job", "showcase"]).optional(),
+  trade: zod.coerce.string().optional(),
+  province: zod.coerce.string().optional(),
+  page: zod.coerce.number().default(listTradehubFeedQueryPageDefault),
+});
+
+export const ListTradehubFeedResponse = zod.object({
+  posts: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.number(),
+      type: zod.enum(["discussion", "job", "showcase"]),
+      title: zod.string(),
+      content: zod.string(),
+      trade: zod.string().nullish(),
+      location: zod.string().nullish(),
+      province: zod.string().nullish(),
+      budget: zod.string().nullish(),
+      jobType: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      commentCount: zod.number(),
+      reactionCount: zod.number(),
+      hasReacted: zod.boolean(),
+      applicationCount: zod.number(),
+      author: zod
+        .object({
+          id: zod.number().optional(),
+          firstName: zod.string().optional(),
+          lastName: zod.string().optional(),
+        })
+        .optional(),
+      profile: zod
+        .object({
+          displayName: zod.string().optional(),
+          trade: zod.string().nullish(),
+          isVerified: zod.boolean().optional(),
+          avatarUrl: zod.string().nullish(),
+        })
+        .optional(),
+      media: zod.array(
+        zod.object({
+          id: zod.number(),
+          url: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  page: zod.number(),
+  hasMore: zod.boolean(),
+});
+
+/**
+ * @summary Create a new TradeHub post
+ */
+export const createTradehubPostBodyTitleMax = 200;
+
+export const createTradehubPostBodyContentMax = 10000;
+
+export const CreateTradehubPostBody = zod.object({
+  type: zod.enum(["discussion", "job", "showcase"]),
+  title: zod.string().min(1).max(createTradehubPostBodyTitleMax),
+  content: zod.string().min(1).max(createTradehubPostBodyContentMax),
+  trade: zod.string().optional(),
+  province: zod.string().optional(),
+  budget: zod.string().optional(),
+  jobType: zod.string().optional(),
+});
+
+/**
+ * @summary Get a single TradeHub post with comments and applications
+ */
+export const GetTradehubPostParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetTradehubPostResponse = zod
+  .object({
+    id: zod.number(),
+    userId: zod.number(),
+    type: zod.enum(["discussion", "job", "showcase"]),
+    title: zod.string(),
+    content: zod.string(),
+    trade: zod.string().nullish(),
+    location: zod.string().nullish(),
+    province: zod.string().nullish(),
+    budget: zod.string().nullish(),
+    jobType: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    commentCount: zod.number(),
+    reactionCount: zod.number(),
+    hasReacted: zod.boolean(),
+    applicationCount: zod.number(),
+    author: zod
+      .object({
+        id: zod.number().optional(),
+        firstName: zod.string().optional(),
+        lastName: zod.string().optional(),
+      })
+      .optional(),
+    profile: zod
+      .object({
+        displayName: zod.string().optional(),
+        trade: zod.string().nullish(),
+        isVerified: zod.boolean().optional(),
+        avatarUrl: zod.string().nullish(),
+      })
+      .optional(),
+    media: zod.array(
+      zod.object({
+        id: zod.number(),
+        url: zod.string(),
+      }),
+    ),
+  })
+  .and(
+    zod.object({
+      comments: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            postId: zod.number(),
+            userId: zod.number(),
+            content: zod.string(),
+            createdAt: zod.coerce.date(),
+            author: zod
+              .object({
+                id: zod.number().optional(),
+                firstName: zod.string().optional(),
+                lastName: zod.string().optional(),
+              })
+              .optional(),
+            profile: zod
+              .object({
+                displayName: zod.string().optional(),
+                trade: zod.string().nullish(),
+                isVerified: zod.boolean().optional(),
+                avatarUrl: zod.string().nullish(),
+              })
+              .optional(),
+          }),
+        )
+        .optional(),
+      applications: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            postId: zod.number(),
+            applicantId: zod.number(),
+            status: zod.enum(["pending", "accepted", "reviewed", "rejected"]),
+            message: zod.string().nullish(),
+            createdAt: zod.coerce.date(),
+          }),
+        )
+        .optional(),
+    }),
+  );
+
+/**
+ * @summary Delete a TradeHub post (owner only)
+ */
+export const DeleteTradehubPostParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteTradehubPostResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Toggle a like reaction on a post
+ */
+export const ReactToTradehubPostParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ReactToTradehubPostResponse = zod.object({
+  reacted: zod.boolean(),
+});
+
+/**
+ * @summary Add a comment to a post
+ */
+export const AddTradehubCommentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const addTradehubCommentBodyContentMax = 2000;
+
+export const AddTradehubCommentBody = zod.object({
+  content: zod.string().min(1).max(addTradehubCommentBodyContentMax),
+});
+
+/**
+ * @summary List job posts with optional trade/province filters (paginated)
+ */
+export const listTradehubJobsQueryPageDefault = 1;
+
+export const ListTradehubJobsQueryParams = zod.object({
+  trade: zod.coerce.string().optional(),
+  province: zod.coerce.string().optional(),
+  page: zod.coerce.number().default(listTradehubJobsQueryPageDefault),
+});
+
+export const ListTradehubJobsResponse = zod.object({
+  posts: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.number(),
+      type: zod.enum(["discussion", "job", "showcase"]),
+      title: zod.string(),
+      content: zod.string(),
+      trade: zod.string().nullish(),
+      location: zod.string().nullish(),
+      province: zod.string().nullish(),
+      budget: zod.string().nullish(),
+      jobType: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      commentCount: zod.number(),
+      reactionCount: zod.number(),
+      hasReacted: zod.boolean(),
+      applicationCount: zod.number(),
+      author: zod
+        .object({
+          id: zod.number().optional(),
+          firstName: zod.string().optional(),
+          lastName: zod.string().optional(),
+        })
+        .optional(),
+      profile: zod
+        .object({
+          displayName: zod.string().optional(),
+          trade: zod.string().nullish(),
+          isVerified: zod.boolean().optional(),
+          avatarUrl: zod.string().nullish(),
+        })
+        .optional(),
+      media: zod.array(
+        zod.object({
+          id: zod.number(),
+          url: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  page: zod.number(),
+  hasMore: zod.boolean(),
+});
+
+/**
+ * @summary Apply to a job post
+ */
+export const ApplyToTradehubJobParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const applyToTradehubJobBodyMessageMax = 2000;
+
+export const ApplyToTradehubJobBody = zod.object({
+  message: zod.string().max(applyToTradehubJobBodyMessageMax).optional(),
+});
+
+/**
+ * @summary Update an application status (accept / reject / reviewed)
+ */
+export const UpdateTradehubApplicationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateTradehubApplicationBody = zod.object({
+  status: zod.enum(["pending", "accepted", "reviewed", "rejected"]),
+});
+
+export const UpdateTradehubApplicationResponse = zod.object({
+  id: zod.number(),
+  postId: zod.number(),
+  applicantId: zod.number(),
+  status: zod.enum(["pending", "accepted", "reviewed", "rejected"]),
+  message: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get the current user's TradeHub profile (null if not created)
+ */
+export const GetTradehubProfileMeResponse = zod.object({
+  userId: zod.number(),
+  displayName: zod.string(),
+  trade: zod.string().nullish(),
+  location: zod.string().nullish(),
+  province: zod.string().nullish(),
+  bio: zod.string().nullish(),
+  website: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  isVerified: zod.boolean().optional(),
+  complianceStatus: zod.string().nullish(),
+  voiceIntroUrl: zod.string().nullish(),
+  voiceIntroDuration: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  recentPosts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        type: zod.enum(["discussion", "job", "showcase"]),
+        title: zod.string(),
+        content: zod.string(),
+        trade: zod.string().nullish(),
+        location: zod.string().nullish(),
+        province: zod.string().nullish(),
+        budget: zod.string().nullish(),
+        jobType: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+        commentCount: zod.number(),
+        reactionCount: zod.number(),
+        hasReacted: zod.boolean(),
+        applicationCount: zod.number(),
+        author: zod
+          .object({
+            id: zod.number().optional(),
+            firstName: zod.string().optional(),
+            lastName: zod.string().optional(),
+          })
+          .optional(),
+        profile: zod
+          .object({
+            displayName: zod.string().optional(),
+            trade: zod.string().nullish(),
+            isVerified: zod.boolean().optional(),
+            avatarUrl: zod.string().nullish(),
+          })
+          .optional(),
+        media: zod.array(
+          zod.object({
+            id: zod.number(),
+            url: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get another user's TradeHub profile
+ */
+export const GetTradehubProfileParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const GetTradehubProfileResponse = zod.object({
+  userId: zod.number(),
+  displayName: zod.string(),
+  trade: zod.string().nullish(),
+  location: zod.string().nullish(),
+  province: zod.string().nullish(),
+  bio: zod.string().nullish(),
+  website: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  isVerified: zod.boolean().optional(),
+  complianceStatus: zod.string().nullish(),
+  voiceIntroUrl: zod.string().nullish(),
+  voiceIntroDuration: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  recentPosts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        type: zod.enum(["discussion", "job", "showcase"]),
+        title: zod.string(),
+        content: zod.string(),
+        trade: zod.string().nullish(),
+        location: zod.string().nullish(),
+        province: zod.string().nullish(),
+        budget: zod.string().nullish(),
+        jobType: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+        commentCount: zod.number(),
+        reactionCount: zod.number(),
+        hasReacted: zod.boolean(),
+        applicationCount: zod.number(),
+        author: zod
+          .object({
+            id: zod.number().optional(),
+            firstName: zod.string().optional(),
+            lastName: zod.string().optional(),
+          })
+          .optional(),
+        profile: zod
+          .object({
+            displayName: zod.string().optional(),
+            trade: zod.string().nullish(),
+            isVerified: zod.boolean().optional(),
+            avatarUrl: zod.string().nullish(),
+          })
+          .optional(),
+        media: zod.array(
+          zod.object({
+            id: zod.number(),
+            url: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Create or update the current user's TradeHub profile
+ */
+export const upsertTradehubProfileBodyDisplayNameMax = 100;
+
+export const upsertTradehubProfileBodyBioMax = 2000;
+
+export const UpsertTradehubProfileBody = zod.object({
+  displayName: zod.string().min(1).max(upsertTradehubProfileBodyDisplayNameMax),
+  trade: zod.string().optional(),
+  location: zod.string().optional(),
+  province: zod.string().optional(),
+  bio: zod.string().max(upsertTradehubProfileBodyBioMax).optional(),
+  website: zod.string().optional(),
+  complianceStatus: zod
+    .enum(["compliant", "warning", "non_compliant"])
+    .optional(),
+});
+
+export const UpsertTradehubProfileResponse = zod.object({
+  userId: zod.number(),
+  displayName: zod.string(),
+  trade: zod.string().nullish(),
+  location: zod.string().nullish(),
+  province: zod.string().nullish(),
+  bio: zod.string().nullish(),
+  website: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  isVerified: zod.boolean().optional(),
+  complianceStatus: zod.string().nullish(),
+  voiceIntroUrl: zod.string().nullish(),
+  voiceIntroDuration: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  recentPosts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        type: zod.enum(["discussion", "job", "showcase"]),
+        title: zod.string(),
+        content: zod.string(),
+        trade: zod.string().nullish(),
+        location: zod.string().nullish(),
+        province: zod.string().nullish(),
+        budget: zod.string().nullish(),
+        jobType: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+        commentCount: zod.number(),
+        reactionCount: zod.number(),
+        hasReacted: zod.boolean(),
+        applicationCount: zod.number(),
+        author: zod
+          .object({
+            id: zod.number().optional(),
+            firstName: zod.string().optional(),
+            lastName: zod.string().optional(),
+          })
+          .optional(),
+        profile: zod
+          .object({
+            displayName: zod.string().optional(),
+            trade: zod.string().nullish(),
+            isVerified: zod.boolean().optional(),
+            avatarUrl: zod.string().nullish(),
+          })
+          .optional(),
+        media: zod.array(
+          zod.object({
+            id: zod.number(),
+            url: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary List TradeHub notifications for the current user
+ */
+export const ListTradehubNotificationsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  type: zod.string().nullish(),
+  message: zod.string(),
+  referenceId: zod.number().nullish(),
+  isRead: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListTradehubNotificationsResponse = zod.array(
+  ListTradehubNotificationsResponseItem,
+);
+
+/**
+ * @summary Mark all TradeHub notifications as read
+ */
+export const MarkAllTradehubNotificationsReadResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Report a post or user
+ */
+export const createTradehubReportBodyReasonMax = 2000;
+
+export const CreateTradehubReportBody = zod.object({
+  targetType: zod.enum(["post", "user", "comment"]),
+  targetId: zod.number(),
+  reason: zod.string().min(1).max(createTradehubReportBodyReasonMax),
+});
+
+/**
+ * @summary Search TradeHub users by display name or trade
+ */
+export const searchTradehubUsersQueryQMin = 2;
+
+export const SearchTradehubUsersQueryParams = zod.object({
+  q: zod.coerce.string().min(searchTradehubUsersQueryQMin),
+});
+
+export const SearchTradehubUsersResponseItem = zod.object({
+  userId: zod.number(),
+  displayName: zod.string(),
+  trade: zod.string().nullish(),
+  province: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+});
+export const SearchTradehubUsersResponse = zod.array(
+  SearchTradehubUsersResponseItem,
+);
+
+/**
+ * @summary List all conversations for the current user
+ */
+export const ListTradehubConversationsResponseItem = zod.object({
+  id: zod.number(),
+  createdAt: zod.coerce.date(),
+  unreadCount: zod.number(),
+  otherParticipant: zod
+    .object({
+      userId: zod.number().optional(),
+      displayName: zod.string().optional(),
+      trade: zod.string().nullish(),
+      avatarUrl: zod.string().nullish(),
+    })
+    .optional(),
+  lastMessage: zod
+    .object({
+      content: zod.string().optional(),
+      createdAt: zod.coerce.date().optional(),
+    })
+    .optional(),
+});
+export const ListTradehubConversationsResponse = zod.array(
+  ListTradehubConversationsResponseItem,
+);
+
+/**
+ * @summary Start a new direct-message conversation
+ */
+export const createTradehubConversationBodyMessageMax = 5000;
+
+export const CreateTradehubConversationBody = zod.object({
+  recipientId: zod.number(),
+  message: zod.string().min(1).max(createTradehubConversationBodyMessageMax),
+});
+
+/**
+ * @summary List messages in a conversation
+ */
+export const ListTradehubMessagesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListTradehubMessagesResponseItem = zod.object({
+  id: zod.number(),
+  conversationId: zod.number(),
+  senderId: zod.number(),
+  content: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const ListTradehubMessagesResponse = zod.array(
+  ListTradehubMessagesResponseItem,
+);
+
+/**
+ * @summary Send a message in a conversation
+ */
+export const SendTradehubMessageParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const sendTradehubMessageBodyContentMax = 5000;
+
+export const SendTradehubMessageBody = zod.object({
+  content: zod.string().min(1).max(sendTradehubMessageBodyContentMax),
+});
+
+/**
+ * @summary Mark all messages in a conversation as read
+ */
+export const MarkTradehubConversationReadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkTradehubConversationReadResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary List all inspections for the current company
+ */
+export const ListInspectionsResponseItem = zod.object({
+  inspection: zod.object({
+    id: zod.number(),
+    companyId: zod.number(),
+    projectId: zod.number().nullish(),
+    inspectorId: zod.number(),
+    inspectionType: zod.enum([
+      "general",
+      "safety",
+      "quality",
+      "progress",
+      "electrical",
+      "structural",
+      "fire",
+      "environmental",
+    ]),
+    date: zod.string(),
+    score: zod.number().nullish(),
+    status: zod.enum(["draft", "submitted"]),
+    aiSummary: zod.string().nullish(),
+    riskLevel: zod.string().nullish(),
+    riskScore: zod.string().nullish(),
+    failedItemAnalysis: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+  }),
+  project: zod
+    .object({
+      id: zod.number().optional(),
+      name: zod.string().optional(),
+    })
+    .optional(),
+  inspector: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+    })
+    .optional(),
+});
+export const ListInspectionsResponse = zod.array(ListInspectionsResponseItem);
+
+/**
+ * @summary Create an inspection (optionally submit immediately)
+ */
+
+export const createInspectionBodyItemsItemStatusDefault = `pass`;
+export const createInspectionBodyItemsItemSeverityDefault = `low`;
+export const createInspectionBodySubmitDefault = false;
+
+export const CreateInspectionBody = zod.object({
+  projectId: zod.number().nullish(),
+  inspectionType: zod.enum([
+    "general",
+    "safety",
+    "quality",
+    "progress",
+    "electrical",
+    "structural",
+    "fire",
+    "environmental",
+  ]),
+  date: zod.string(),
+  items: zod
+    .array(
+      zod.object({
+        itemName: zod.string().min(1),
+        status: zod
+          .enum(["pass", "fail", "na"])
+          .default(createInspectionBodyItemsItemStatusDefault),
+        severity: zod
+          .enum(["low", "medium", "high"])
+          .default(createInspectionBodyItemsItemSeverityDefault),
+        comment: zod.string().optional(),
+      }),
+    )
+    .min(1),
+  submit: zod.boolean().default(createInspectionBodySubmitDefault),
+});
+
+/**
+ * @summary Get a single inspection with its checklist items
+ */
+export const GetInspectionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetInspectionResponse = zod.object({
+  inspection: zod.object({
+    id: zod.number(),
+    companyId: zod.number(),
+    projectId: zod.number().nullish(),
+    inspectorId: zod.number(),
+    inspectionType: zod.enum([
+      "general",
+      "safety",
+      "quality",
+      "progress",
+      "electrical",
+      "structural",
+      "fire",
+      "environmental",
+    ]),
+    date: zod.string(),
+    score: zod.number().nullish(),
+    status: zod.enum(["draft", "submitted"]),
+    aiSummary: zod.string().nullish(),
+    riskLevel: zod.string().nullish(),
+    riskScore: zod.string().nullish(),
+    failedItemAnalysis: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+  }),
+  project: zod
+    .object({
+      id: zod.number().optional(),
+      name: zod.string().optional(),
+    })
+    .optional(),
+  inspector: zod
+    .object({
+      id: zod.number().optional(),
+      firstName: zod.string().optional(),
+      lastName: zod.string().optional(),
+    })
+    .optional(),
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      itemName: zod.string(),
+      status: zod.enum(["pass", "fail", "na"]),
+      severity: zod.enum(["low", "medium", "high"]),
+      comment: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Submit a draft inspection to trigger AI analysis
+ */
+export const SubmitInspectionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SubmitInspectionResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary List inspection alerts for the current company
+ */
+export const ListInspectionAlertsResponseItem = zod.object({
+  inspectionId: zod.number(),
+  alert: zod
+    .object({
+      id: zod.number(),
+      type: zod.string(),
+      message: zod.string(),
+      severity: zod.enum(["low", "medium", "high", "critical"]),
+      isRead: zod.boolean(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  project: zod
+    .object({
+      id: zod.number().optional(),
+      name: zod.string().optional(),
+    })
+    .optional(),
+  inspection: zod
+    .object({
+      id: zod.number().optional(),
+      inspectionType: zod.string().optional(),
+      date: zod.string().optional(),
+    })
+    .nullish(),
+});
+export const ListInspectionAlertsResponse = zod.array(
+  ListInspectionAlertsResponseItem,
+);
+
+/**
+ * @summary Mark a single inspection alert as read
+ */
+export const MarkInspectionAlertReadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkInspectionAlertReadResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Mark all inspection alerts as read for the current company
+ */
+export const MarkAllInspectionAlertsReadResponse = zod.object({
+  ok: zod.boolean(),
+});

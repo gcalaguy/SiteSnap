@@ -28,8 +28,10 @@ import type {
   ActivityItem,
   AddPhotoBody,
   AddProjectMemberBody,
+  AddTradehubCommentBody,
   AddonBody,
   AddonRecord,
+  ApplyToTradehubJobBody,
   ApproveProposalBody,
   ApproveTimesheetBody,
   BuilderEstimate,
@@ -58,6 +60,7 @@ import type {
   CreateEstimateTemplateBody,
   CreateFormBody,
   CreateFormSubmissionBody,
+  CreateInspectionBody,
   CreateInvitationBody,
   CreateInvoiceBody,
   CreateInvoiceFromProposal201,
@@ -69,6 +72,11 @@ import type {
   CreateScanBody,
   CreateSitePhotoBody,
   CreateTaskBody,
+  CreateTradehubConversation201,
+  CreateTradehubConversationBody,
+  CreateTradehubPostBody,
+  CreateTradehubReport201,
+  CreateTradehubReportBody,
   DailyLogRecord,
   DailyReport,
   DailyReportPhoto,
@@ -78,6 +86,7 @@ import type {
   DeleteCostModel200,
   DeleteDailyReport200,
   DeleteRFI200,
+  DeleteTradehubPost200,
   DeleteWorkerDocument200,
   DenyTimesheetBody,
   ErrorEnvelope,
@@ -96,6 +105,10 @@ import type {
   GoogleCalendarEventResponse,
   HealthStatus,
   ImportItemBody,
+  InspectionAlertRow,
+  InspectionDetail,
+  InspectionRecord,
+  InspectionRow,
   Invitation,
   Invoice,
   InvoicePaymentSummary,
@@ -113,8 +126,14 @@ import type {
   ListSitePhotosParams,
   ListTimesheetsParams,
   ListTradeReviewsParams,
+  ListTradehubFeedParams,
+  ListTradehubJobsParams,
+  MarkAllInspectionAlertsRead200,
   MarkAllNotificationsRead200,
+  MarkAllTradehubNotificationsRead200,
+  MarkInspectionAlertRead200,
   MarkNotificationRead200,
+  MarkTradehubConversationRead200,
   MediaHubPhoto,
   MediaHubPresignedUrlRequest,
   MediaHubPresignedUrlResponse,
@@ -134,6 +153,7 @@ import type {
   Quote,
   QuoteAIGenerateBody,
   QuoteAIGenerateResponse,
+  ReactToTradehubPost200,
   RecordPaymentBody,
   RegisterDocumentBody,
   RegisterFileBody,
@@ -142,12 +162,15 @@ import type {
   SafetySignoffRecord,
   ScanRecord,
   ScanUrlResponse,
+  SearchTradehubUsersParams,
   SendInvoiceEmail200,
   SendInvoiceEmailBody,
   SendInvoiceReminder200,
+  SendTradehubMessageBody,
   SetActiveCompanyBody,
   SitePhotoRecord,
   SmartSummary,
+  SubmitInspection200,
   SubmitTimesheetBody,
   SyncUserBody,
   Task,
@@ -156,6 +179,16 @@ import type {
   TradeReviewListResponse,
   TradeReviewSubmit,
   TradeReviewSummary,
+  TradehubApplication,
+  TradehubComment,
+  TradehubConversation,
+  TradehubFeedResponse,
+  TradehubMessage,
+  TradehubNotification,
+  TradehubPost,
+  TradehubPostDetail,
+  TradehubProfile,
+  TradehubUserSearchResult,
   UpdateBuilderEstimateBody,
   UpdateChangeOrderBody,
   UpdateDailyLogBody,
@@ -172,8 +205,10 @@ import type {
   UpdateScanBody,
   UpdateSitePhotoBody,
   UpdateTaskBody,
+  UpdateTradehubApplicationBody,
   UploadUrlRequest,
   UploadUrlResponse,
+  UpsertTradehubProfileBody,
   User,
   UserWithCompany,
   WorkerDocument,
@@ -16322,3 +16357,2414 @@ export function useListTradeReviews<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List paginated TradeHub posts (all types)
+ */
+export const getListTradehubFeedUrl = (params?: ListTradehubFeedParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tradehub/feed?${stringifiedParams}`
+    : `/api/tradehub/feed`;
+};
+
+export const listTradehubFeed = async (
+  params?: ListTradehubFeedParams,
+  options?: RequestInit,
+): Promise<TradehubFeedResponse> => {
+  return customFetch<TradehubFeedResponse>(getListTradehubFeedUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTradehubFeedQueryKey = (
+  params?: ListTradehubFeedParams,
+) => {
+  return [`/api/tradehub/feed`, ...(params ? [params] : [])] as const;
+};
+
+export const getListTradehubFeedQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTradehubFeed>>,
+  TError = ErrorType<void>,
+>(
+  params?: ListTradehubFeedParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTradehubFeed>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTradehubFeedQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTradehubFeed>>
+  > = ({ signal }) => listTradehubFeed(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTradehubFeed>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTradehubFeedQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTradehubFeed>>
+>;
+export type ListTradehubFeedQueryError = ErrorType<void>;
+
+/**
+ * @summary List paginated TradeHub posts (all types)
+ */
+
+export function useListTradehubFeed<
+  TData = Awaited<ReturnType<typeof listTradehubFeed>>,
+  TError = ErrorType<void>,
+>(
+  params?: ListTradehubFeedParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTradehubFeed>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTradehubFeedQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new TradeHub post
+ */
+export const getCreateTradehubPostUrl = () => {
+  return `/api/tradehub/posts`;
+};
+
+export const createTradehubPost = async (
+  createTradehubPostBody: CreateTradehubPostBody,
+  options?: RequestInit,
+): Promise<TradehubPost> => {
+  return customFetch<TradehubPost>(getCreateTradehubPostUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTradehubPostBody),
+  });
+};
+
+export const getCreateTradehubPostMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTradehubPost>>,
+    TError,
+    { data: BodyType<CreateTradehubPostBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTradehubPost>>,
+  TError,
+  { data: BodyType<CreateTradehubPostBody> },
+  TContext
+> => {
+  const mutationKey = ["createTradehubPost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTradehubPost>>,
+    { data: BodyType<CreateTradehubPostBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTradehubPost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTradehubPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTradehubPost>>
+>;
+export type CreateTradehubPostMutationBody = BodyType<CreateTradehubPostBody>;
+export type CreateTradehubPostMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a new TradeHub post
+ */
+export const useCreateTradehubPost = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTradehubPost>>,
+    TError,
+    { data: BodyType<CreateTradehubPostBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTradehubPost>>,
+  TError,
+  { data: BodyType<CreateTradehubPostBody> },
+  TContext
+> => {
+  return useMutation(getCreateTradehubPostMutationOptions(options));
+};
+
+/**
+ * @summary Get a single TradeHub post with comments and applications
+ */
+export const getGetTradehubPostUrl = (id: number) => {
+  return `/api/tradehub/posts/${id}`;
+};
+
+export const getTradehubPost = async (
+  id: number,
+  options?: RequestInit,
+): Promise<TradehubPostDetail> => {
+  return customFetch<TradehubPostDetail>(getGetTradehubPostUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTradehubPostQueryKey = (id: number) => {
+  return [`/api/tradehub/posts/${id}`] as const;
+};
+
+export const getGetTradehubPostQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTradehubPost>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTradehubPost>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTradehubPostQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTradehubPost>>> = ({
+    signal,
+  }) => getTradehubPost(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTradehubPost>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTradehubPostQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTradehubPost>>
+>;
+export type GetTradehubPostQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a single TradeHub post with comments and applications
+ */
+
+export function useGetTradehubPost<
+  TData = Awaited<ReturnType<typeof getTradehubPost>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTradehubPost>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTradehubPostQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Delete a TradeHub post (owner only)
+ */
+export const getDeleteTradehubPostUrl = (id: number) => {
+  return `/api/tradehub/posts/${id}`;
+};
+
+export const deleteTradehubPost = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteTradehubPost200> => {
+  return customFetch<DeleteTradehubPost200>(getDeleteTradehubPostUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTradehubPostMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTradehubPost>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTradehubPost>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTradehubPost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTradehubPost>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteTradehubPost(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTradehubPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTradehubPost>>
+>;
+
+export type DeleteTradehubPostMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a TradeHub post (owner only)
+ */
+export const useDeleteTradehubPost = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTradehubPost>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTradehubPost>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTradehubPostMutationOptions(options));
+};
+
+/**
+ * @summary Toggle a like reaction on a post
+ */
+export const getReactToTradehubPostUrl = (id: number) => {
+  return `/api/tradehub/posts/${id}/react`;
+};
+
+export const reactToTradehubPost = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ReactToTradehubPost200> => {
+  return customFetch<ReactToTradehubPost200>(getReactToTradehubPostUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReactToTradehubPostMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reactToTradehubPost>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reactToTradehubPost>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["reactToTradehubPost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reactToTradehubPost>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return reactToTradehubPost(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReactToTradehubPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reactToTradehubPost>>
+>;
+
+export type ReactToTradehubPostMutationError = ErrorType<void>;
+
+/**
+ * @summary Toggle a like reaction on a post
+ */
+export const useReactToTradehubPost = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reactToTradehubPost>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reactToTradehubPost>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getReactToTradehubPostMutationOptions(options));
+};
+
+/**
+ * @summary Add a comment to a post
+ */
+export const getAddTradehubCommentUrl = (id: number) => {
+  return `/api/tradehub/posts/${id}/comments`;
+};
+
+export const addTradehubComment = async (
+  id: number,
+  addTradehubCommentBody: AddTradehubCommentBody,
+  options?: RequestInit,
+): Promise<TradehubComment> => {
+  return customFetch<TradehubComment>(getAddTradehubCommentUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addTradehubCommentBody),
+  });
+};
+
+export const getAddTradehubCommentMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTradehubComment>>,
+    TError,
+    { id: number; data: BodyType<AddTradehubCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addTradehubComment>>,
+  TError,
+  { id: number; data: BodyType<AddTradehubCommentBody> },
+  TContext
+> => {
+  const mutationKey = ["addTradehubComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addTradehubComment>>,
+    { id: number; data: BodyType<AddTradehubCommentBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return addTradehubComment(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddTradehubCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addTradehubComment>>
+>;
+export type AddTradehubCommentMutationBody = BodyType<AddTradehubCommentBody>;
+export type AddTradehubCommentMutationError = ErrorType<void>;
+
+/**
+ * @summary Add a comment to a post
+ */
+export const useAddTradehubComment = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTradehubComment>>,
+    TError,
+    { id: number; data: BodyType<AddTradehubCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addTradehubComment>>,
+  TError,
+  { id: number; data: BodyType<AddTradehubCommentBody> },
+  TContext
+> => {
+  return useMutation(getAddTradehubCommentMutationOptions(options));
+};
+
+/**
+ * @summary List job posts with optional trade/province filters (paginated)
+ */
+export const getListTradehubJobsUrl = (params?: ListTradehubJobsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tradehub/jobs?${stringifiedParams}`
+    : `/api/tradehub/jobs`;
+};
+
+export const listTradehubJobs = async (
+  params?: ListTradehubJobsParams,
+  options?: RequestInit,
+): Promise<TradehubFeedResponse> => {
+  return customFetch<TradehubFeedResponse>(getListTradehubJobsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTradehubJobsQueryKey = (
+  params?: ListTradehubJobsParams,
+) => {
+  return [`/api/tradehub/jobs`, ...(params ? [params] : [])] as const;
+};
+
+export const getListTradehubJobsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTradehubJobs>>,
+  TError = ErrorType<void>,
+>(
+  params?: ListTradehubJobsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTradehubJobs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTradehubJobsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTradehubJobs>>
+  > = ({ signal }) => listTradehubJobs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTradehubJobs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTradehubJobsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTradehubJobs>>
+>;
+export type ListTradehubJobsQueryError = ErrorType<void>;
+
+/**
+ * @summary List job posts with optional trade/province filters (paginated)
+ */
+
+export function useListTradehubJobs<
+  TData = Awaited<ReturnType<typeof listTradehubJobs>>,
+  TError = ErrorType<void>,
+>(
+  params?: ListTradehubJobsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTradehubJobs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTradehubJobsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Apply to a job post
+ */
+export const getApplyToTradehubJobUrl = (id: number) => {
+  return `/api/tradehub/jobs/${id}/apply`;
+};
+
+export const applyToTradehubJob = async (
+  id: number,
+  applyToTradehubJobBody: ApplyToTradehubJobBody,
+  options?: RequestInit,
+): Promise<TradehubApplication> => {
+  return customFetch<TradehubApplication>(getApplyToTradehubJobUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(applyToTradehubJobBody),
+  });
+};
+
+export const getApplyToTradehubJobMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applyToTradehubJob>>,
+    TError,
+    { id: number; data: BodyType<ApplyToTradehubJobBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof applyToTradehubJob>>,
+  TError,
+  { id: number; data: BodyType<ApplyToTradehubJobBody> },
+  TContext
+> => {
+  const mutationKey = ["applyToTradehubJob"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof applyToTradehubJob>>,
+    { id: number; data: BodyType<ApplyToTradehubJobBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return applyToTradehubJob(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApplyToTradehubJobMutationResult = NonNullable<
+  Awaited<ReturnType<typeof applyToTradehubJob>>
+>;
+export type ApplyToTradehubJobMutationBody = BodyType<ApplyToTradehubJobBody>;
+export type ApplyToTradehubJobMutationError = ErrorType<void>;
+
+/**
+ * @summary Apply to a job post
+ */
+export const useApplyToTradehubJob = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applyToTradehubJob>>,
+    TError,
+    { id: number; data: BodyType<ApplyToTradehubJobBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof applyToTradehubJob>>,
+  TError,
+  { id: number; data: BodyType<ApplyToTradehubJobBody> },
+  TContext
+> => {
+  return useMutation(getApplyToTradehubJobMutationOptions(options));
+};
+
+/**
+ * @summary Update an application status (accept / reject / reviewed)
+ */
+export const getUpdateTradehubApplicationUrl = (id: number) => {
+  return `/api/tradehub/applications/${id}`;
+};
+
+export const updateTradehubApplication = async (
+  id: number,
+  updateTradehubApplicationBody: UpdateTradehubApplicationBody,
+  options?: RequestInit,
+): Promise<TradehubApplication> => {
+  return customFetch<TradehubApplication>(getUpdateTradehubApplicationUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateTradehubApplicationBody),
+  });
+};
+
+export const getUpdateTradehubApplicationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTradehubApplication>>,
+    TError,
+    { id: number; data: BodyType<UpdateTradehubApplicationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTradehubApplication>>,
+  TError,
+  { id: number; data: BodyType<UpdateTradehubApplicationBody> },
+  TContext
+> => {
+  const mutationKey = ["updateTradehubApplication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTradehubApplication>>,
+    { id: number; data: BodyType<UpdateTradehubApplicationBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateTradehubApplication(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTradehubApplicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTradehubApplication>>
+>;
+export type UpdateTradehubApplicationMutationBody =
+  BodyType<UpdateTradehubApplicationBody>;
+export type UpdateTradehubApplicationMutationError = ErrorType<void>;
+
+/**
+ * @summary Update an application status (accept / reject / reviewed)
+ */
+export const useUpdateTradehubApplication = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTradehubApplication>>,
+    TError,
+    { id: number; data: BodyType<UpdateTradehubApplicationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTradehubApplication>>,
+  TError,
+  { id: number; data: BodyType<UpdateTradehubApplicationBody> },
+  TContext
+> => {
+  return useMutation(getUpdateTradehubApplicationMutationOptions(options));
+};
+
+/**
+ * @summary Get the current user's TradeHub profile (null if not created)
+ */
+export const getGetTradehubProfileMeUrl = () => {
+  return `/api/tradehub/profile/me`;
+};
+
+export const getTradehubProfileMe = async (
+  options?: RequestInit,
+): Promise<TradehubProfile> => {
+  return customFetch<TradehubProfile>(getGetTradehubProfileMeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTradehubProfileMeQueryKey = () => {
+  return [`/api/tradehub/profile/me`] as const;
+};
+
+export const getGetTradehubProfileMeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTradehubProfileMe>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTradehubProfileMe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTradehubProfileMeQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTradehubProfileMe>>
+  > = ({ signal }) => getTradehubProfileMe({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTradehubProfileMe>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTradehubProfileMeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTradehubProfileMe>>
+>;
+export type GetTradehubProfileMeQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the current user's TradeHub profile (null if not created)
+ */
+
+export function useGetTradehubProfileMe<
+  TData = Awaited<ReturnType<typeof getTradehubProfileMe>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTradehubProfileMe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTradehubProfileMeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get another user's TradeHub profile
+ */
+export const getGetTradehubProfileUrl = (userId: number) => {
+  return `/api/tradehub/profile/${userId}`;
+};
+
+export const getTradehubProfile = async (
+  userId: number,
+  options?: RequestInit,
+): Promise<TradehubProfile> => {
+  return customFetch<TradehubProfile>(getGetTradehubProfileUrl(userId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTradehubProfileQueryKey = (userId: number) => {
+  return [`/api/tradehub/profile/${userId}`] as const;
+};
+
+export const getGetTradehubProfileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTradehubProfile>>,
+  TError = ErrorType<void>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTradehubProfile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTradehubProfileQueryKey(userId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTradehubProfile>>
+  > = ({ signal }) => getTradehubProfile(userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!userId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTradehubProfile>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTradehubProfileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTradehubProfile>>
+>;
+export type GetTradehubProfileQueryError = ErrorType<void>;
+
+/**
+ * @summary Get another user's TradeHub profile
+ */
+
+export function useGetTradehubProfile<
+  TData = Awaited<ReturnType<typeof getTradehubProfile>>,
+  TError = ErrorType<void>,
+>(
+  userId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTradehubProfile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTradehubProfileQueryOptions(userId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create or update the current user's TradeHub profile
+ */
+export const getUpsertTradehubProfileUrl = () => {
+  return `/api/tradehub/profile`;
+};
+
+export const upsertTradehubProfile = async (
+  upsertTradehubProfileBody: UpsertTradehubProfileBody,
+  options?: RequestInit,
+): Promise<TradehubProfile> => {
+  return customFetch<TradehubProfile>(getUpsertTradehubProfileUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertTradehubProfileBody),
+  });
+};
+
+export const getUpsertTradehubProfileMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertTradehubProfile>>,
+    TError,
+    { data: BodyType<UpsertTradehubProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertTradehubProfile>>,
+  TError,
+  { data: BodyType<UpsertTradehubProfileBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertTradehubProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertTradehubProfile>>,
+    { data: BodyType<UpsertTradehubProfileBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertTradehubProfile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertTradehubProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertTradehubProfile>>
+>;
+export type UpsertTradehubProfileMutationBody =
+  BodyType<UpsertTradehubProfileBody>;
+export type UpsertTradehubProfileMutationError = ErrorType<void>;
+
+/**
+ * @summary Create or update the current user's TradeHub profile
+ */
+export const useUpsertTradehubProfile = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertTradehubProfile>>,
+    TError,
+    { data: BodyType<UpsertTradehubProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertTradehubProfile>>,
+  TError,
+  { data: BodyType<UpsertTradehubProfileBody> },
+  TContext
+> => {
+  return useMutation(getUpsertTradehubProfileMutationOptions(options));
+};
+
+/**
+ * @summary List TradeHub notifications for the current user
+ */
+export const getListTradehubNotificationsUrl = () => {
+  return `/api/tradehub/notifications`;
+};
+
+export const listTradehubNotifications = async (
+  options?: RequestInit,
+): Promise<TradehubNotification[]> => {
+  return customFetch<TradehubNotification[]>(
+    getListTradehubNotificationsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTradehubNotificationsQueryKey = () => {
+  return [`/api/tradehub/notifications`] as const;
+};
+
+export const getListTradehubNotificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTradehubNotifications>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTradehubNotifications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTradehubNotificationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTradehubNotifications>>
+  > = ({ signal }) => listTradehubNotifications({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTradehubNotifications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTradehubNotificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTradehubNotifications>>
+>;
+export type ListTradehubNotificationsQueryError = ErrorType<void>;
+
+/**
+ * @summary List TradeHub notifications for the current user
+ */
+
+export function useListTradehubNotifications<
+  TData = Awaited<ReturnType<typeof listTradehubNotifications>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTradehubNotifications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTradehubNotificationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Mark all TradeHub notifications as read
+ */
+export const getMarkAllTradehubNotificationsReadUrl = () => {
+  return `/api/tradehub/notifications/read-all`;
+};
+
+export const markAllTradehubNotificationsRead = async (
+  options?: RequestInit,
+): Promise<MarkAllTradehubNotificationsRead200> => {
+  return customFetch<MarkAllTradehubNotificationsRead200>(
+    getMarkAllTradehubNotificationsReadUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getMarkAllTradehubNotificationsReadMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAllTradehubNotificationsRead>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markAllTradehubNotificationsRead>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["markAllTradehubNotificationsRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markAllTradehubNotificationsRead>>,
+    void
+  > = () => {
+    return markAllTradehubNotificationsRead(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkAllTradehubNotificationsReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markAllTradehubNotificationsRead>>
+>;
+
+export type MarkAllTradehubNotificationsReadMutationError = ErrorType<void>;
+
+/**
+ * @summary Mark all TradeHub notifications as read
+ */
+export const useMarkAllTradehubNotificationsRead = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAllTradehubNotificationsRead>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markAllTradehubNotificationsRead>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getMarkAllTradehubNotificationsReadMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Report a post or user
+ */
+export const getCreateTradehubReportUrl = () => {
+  return `/api/tradehub/reports`;
+};
+
+export const createTradehubReport = async (
+  createTradehubReportBody: CreateTradehubReportBody,
+  options?: RequestInit,
+): Promise<CreateTradehubReport201> => {
+  return customFetch<CreateTradehubReport201>(getCreateTradehubReportUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTradehubReportBody),
+  });
+};
+
+export const getCreateTradehubReportMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTradehubReport>>,
+    TError,
+    { data: BodyType<CreateTradehubReportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTradehubReport>>,
+  TError,
+  { data: BodyType<CreateTradehubReportBody> },
+  TContext
+> => {
+  const mutationKey = ["createTradehubReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTradehubReport>>,
+    { data: BodyType<CreateTradehubReportBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTradehubReport(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTradehubReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTradehubReport>>
+>;
+export type CreateTradehubReportMutationBody =
+  BodyType<CreateTradehubReportBody>;
+export type CreateTradehubReportMutationError = ErrorType<void>;
+
+/**
+ * @summary Report a post or user
+ */
+export const useCreateTradehubReport = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTradehubReport>>,
+    TError,
+    { data: BodyType<CreateTradehubReportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTradehubReport>>,
+  TError,
+  { data: BodyType<CreateTradehubReportBody> },
+  TContext
+> => {
+  return useMutation(getCreateTradehubReportMutationOptions(options));
+};
+
+/**
+ * @summary Search TradeHub users by display name or trade
+ */
+export const getSearchTradehubUsersUrl = (
+  params: SearchTradehubUsersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tradehub/users/search?${stringifiedParams}`
+    : `/api/tradehub/users/search`;
+};
+
+export const searchTradehubUsers = async (
+  params: SearchTradehubUsersParams,
+  options?: RequestInit,
+): Promise<TradehubUserSearchResult[]> => {
+  return customFetch<TradehubUserSearchResult[]>(
+    getSearchTradehubUsersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getSearchTradehubUsersQueryKey = (
+  params?: SearchTradehubUsersParams,
+) => {
+  return [`/api/tradehub/users/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchTradehubUsersQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchTradehubUsers>>,
+  TError = ErrorType<void>,
+>(
+  params: SearchTradehubUsersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchTradehubUsers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSearchTradehubUsersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof searchTradehubUsers>>
+  > = ({ signal }) =>
+    searchTradehubUsers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchTradehubUsers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchTradehubUsersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchTradehubUsers>>
+>;
+export type SearchTradehubUsersQueryError = ErrorType<void>;
+
+/**
+ * @summary Search TradeHub users by display name or trade
+ */
+
+export function useSearchTradehubUsers<
+  TData = Awaited<ReturnType<typeof searchTradehubUsers>>,
+  TError = ErrorType<void>,
+>(
+  params: SearchTradehubUsersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchTradehubUsers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchTradehubUsersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all conversations for the current user
+ */
+export const getListTradehubConversationsUrl = () => {
+  return `/api/tradehub/conversations`;
+};
+
+export const listTradehubConversations = async (
+  options?: RequestInit,
+): Promise<TradehubConversation[]> => {
+  return customFetch<TradehubConversation[]>(
+    getListTradehubConversationsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTradehubConversationsQueryKey = () => {
+  return [`/api/tradehub/conversations`] as const;
+};
+
+export const getListTradehubConversationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTradehubConversations>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTradehubConversations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTradehubConversationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTradehubConversations>>
+  > = ({ signal }) => listTradehubConversations({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTradehubConversations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTradehubConversationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTradehubConversations>>
+>;
+export type ListTradehubConversationsQueryError = ErrorType<void>;
+
+/**
+ * @summary List all conversations for the current user
+ */
+
+export function useListTradehubConversations<
+  TData = Awaited<ReturnType<typeof listTradehubConversations>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTradehubConversations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTradehubConversationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Start a new direct-message conversation
+ */
+export const getCreateTradehubConversationUrl = () => {
+  return `/api/tradehub/conversations`;
+};
+
+export const createTradehubConversation = async (
+  createTradehubConversationBody: CreateTradehubConversationBody,
+  options?: RequestInit,
+): Promise<CreateTradehubConversation201> => {
+  return customFetch<CreateTradehubConversation201>(
+    getCreateTradehubConversationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createTradehubConversationBody),
+    },
+  );
+};
+
+export const getCreateTradehubConversationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTradehubConversation>>,
+    TError,
+    { data: BodyType<CreateTradehubConversationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTradehubConversation>>,
+  TError,
+  { data: BodyType<CreateTradehubConversationBody> },
+  TContext
+> => {
+  const mutationKey = ["createTradehubConversation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTradehubConversation>>,
+    { data: BodyType<CreateTradehubConversationBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTradehubConversation(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTradehubConversationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTradehubConversation>>
+>;
+export type CreateTradehubConversationMutationBody =
+  BodyType<CreateTradehubConversationBody>;
+export type CreateTradehubConversationMutationError = ErrorType<void>;
+
+/**
+ * @summary Start a new direct-message conversation
+ */
+export const useCreateTradehubConversation = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTradehubConversation>>,
+    TError,
+    { data: BodyType<CreateTradehubConversationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTradehubConversation>>,
+  TError,
+  { data: BodyType<CreateTradehubConversationBody> },
+  TContext
+> => {
+  return useMutation(getCreateTradehubConversationMutationOptions(options));
+};
+
+/**
+ * @summary List messages in a conversation
+ */
+export const getListTradehubMessagesUrl = (id: number) => {
+  return `/api/tradehub/conversations/${id}/messages`;
+};
+
+export const listTradehubMessages = async (
+  id: number,
+  options?: RequestInit,
+): Promise<TradehubMessage[]> => {
+  return customFetch<TradehubMessage[]>(getListTradehubMessagesUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTradehubMessagesQueryKey = (id: number) => {
+  return [`/api/tradehub/conversations/${id}/messages`] as const;
+};
+
+export const getListTradehubMessagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTradehubMessages>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTradehubMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTradehubMessagesQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTradehubMessages>>
+  > = ({ signal }) => listTradehubMessages(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTradehubMessages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTradehubMessagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTradehubMessages>>
+>;
+export type ListTradehubMessagesQueryError = ErrorType<void>;
+
+/**
+ * @summary List messages in a conversation
+ */
+
+export function useListTradehubMessages<
+  TData = Awaited<ReturnType<typeof listTradehubMessages>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTradehubMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTradehubMessagesQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Send a message in a conversation
+ */
+export const getSendTradehubMessageUrl = (id: number) => {
+  return `/api/tradehub/conversations/${id}/messages`;
+};
+
+export const sendTradehubMessage = async (
+  id: number,
+  sendTradehubMessageBody: SendTradehubMessageBody,
+  options?: RequestInit,
+): Promise<TradehubMessage> => {
+  return customFetch<TradehubMessage>(getSendTradehubMessageUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(sendTradehubMessageBody),
+  });
+};
+
+export const getSendTradehubMessageMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendTradehubMessage>>,
+    TError,
+    { id: number; data: BodyType<SendTradehubMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendTradehubMessage>>,
+  TError,
+  { id: number; data: BodyType<SendTradehubMessageBody> },
+  TContext
+> => {
+  const mutationKey = ["sendTradehubMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendTradehubMessage>>,
+    { id: number; data: BodyType<SendTradehubMessageBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return sendTradehubMessage(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendTradehubMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendTradehubMessage>>
+>;
+export type SendTradehubMessageMutationBody = BodyType<SendTradehubMessageBody>;
+export type SendTradehubMessageMutationError = ErrorType<void>;
+
+/**
+ * @summary Send a message in a conversation
+ */
+export const useSendTradehubMessage = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendTradehubMessage>>,
+    TError,
+    { id: number; data: BodyType<SendTradehubMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendTradehubMessage>>,
+  TError,
+  { id: number; data: BodyType<SendTradehubMessageBody> },
+  TContext
+> => {
+  return useMutation(getSendTradehubMessageMutationOptions(options));
+};
+
+/**
+ * @summary Mark all messages in a conversation as read
+ */
+export const getMarkTradehubConversationReadUrl = (id: number) => {
+  return `/api/tradehub/conversations/${id}/read`;
+};
+
+export const markTradehubConversationRead = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MarkTradehubConversationRead200> => {
+  return customFetch<MarkTradehubConversationRead200>(
+    getMarkTradehubConversationReadUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getMarkTradehubConversationReadMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markTradehubConversationRead>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markTradehubConversationRead>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["markTradehubConversationRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markTradehubConversationRead>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return markTradehubConversationRead(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkTradehubConversationReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markTradehubConversationRead>>
+>;
+
+export type MarkTradehubConversationReadMutationError = ErrorType<void>;
+
+/**
+ * @summary Mark all messages in a conversation as read
+ */
+export const useMarkTradehubConversationRead = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markTradehubConversationRead>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markTradehubConversationRead>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getMarkTradehubConversationReadMutationOptions(options));
+};
+
+/**
+ * @summary List all inspections for the current company
+ */
+export const getListInspectionsUrl = () => {
+  return `/api/inspections`;
+};
+
+export const listInspections = async (
+  options?: RequestInit,
+): Promise<InspectionRow[]> => {
+  return customFetch<InspectionRow[]>(getListInspectionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListInspectionsQueryKey = () => {
+  return [`/api/inspections`] as const;
+};
+
+export const getListInspectionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listInspections>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listInspections>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListInspectionsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listInspections>>> = ({
+    signal,
+  }) => listInspections({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listInspections>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListInspectionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listInspections>>
+>;
+export type ListInspectionsQueryError = ErrorType<void>;
+
+/**
+ * @summary List all inspections for the current company
+ */
+
+export function useListInspections<
+  TData = Awaited<ReturnType<typeof listInspections>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listInspections>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListInspectionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an inspection (optionally submit immediately)
+ */
+export const getCreateInspectionUrl = () => {
+  return `/api/inspections`;
+};
+
+export const createInspection = async (
+  createInspectionBody: CreateInspectionBody,
+  options?: RequestInit,
+): Promise<InspectionRecord> => {
+  return customFetch<InspectionRecord>(getCreateInspectionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createInspectionBody),
+  });
+};
+
+export const getCreateInspectionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createInspection>>,
+    TError,
+    { data: BodyType<CreateInspectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createInspection>>,
+  TError,
+  { data: BodyType<CreateInspectionBody> },
+  TContext
+> => {
+  const mutationKey = ["createInspection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createInspection>>,
+    { data: BodyType<CreateInspectionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createInspection(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateInspectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createInspection>>
+>;
+export type CreateInspectionMutationBody = BodyType<CreateInspectionBody>;
+export type CreateInspectionMutationError = ErrorType<void>;
+
+/**
+ * @summary Create an inspection (optionally submit immediately)
+ */
+export const useCreateInspection = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createInspection>>,
+    TError,
+    { data: BodyType<CreateInspectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createInspection>>,
+  TError,
+  { data: BodyType<CreateInspectionBody> },
+  TContext
+> => {
+  return useMutation(getCreateInspectionMutationOptions(options));
+};
+
+/**
+ * @summary Get a single inspection with its checklist items
+ */
+export const getGetInspectionUrl = (id: number) => {
+  return `/api/inspections/${id}`;
+};
+
+export const getInspection = async (
+  id: number,
+  options?: RequestInit,
+): Promise<InspectionDetail> => {
+  return customFetch<InspectionDetail>(getGetInspectionUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInspectionQueryKey = (id: number) => {
+  return [`/api/inspections/${id}`] as const;
+};
+
+export const getGetInspectionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInspection>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getInspection>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetInspectionQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getInspection>>> = ({
+    signal,
+  }) => getInspection(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInspection>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInspectionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInspection>>
+>;
+export type GetInspectionQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a single inspection with its checklist items
+ */
+
+export function useGetInspection<
+  TData = Awaited<ReturnType<typeof getInspection>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getInspection>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInspectionQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a draft inspection to trigger AI analysis
+ */
+export const getSubmitInspectionUrl = (id: number) => {
+  return `/api/inspections/${id}/submit`;
+};
+
+export const submitInspection = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SubmitInspection200> => {
+  return customFetch<SubmitInspection200>(getSubmitInspectionUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSubmitInspectionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitInspection>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitInspection>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["submitInspection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitInspection>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return submitInspection(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitInspectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitInspection>>
+>;
+
+export type SubmitInspectionMutationError = ErrorType<void>;
+
+/**
+ * @summary Submit a draft inspection to trigger AI analysis
+ */
+export const useSubmitInspection = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitInspection>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitInspection>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSubmitInspectionMutationOptions(options));
+};
+
+/**
+ * @summary List inspection alerts for the current company
+ */
+export const getListInspectionAlertsUrl = () => {
+  return `/api/inspection-alerts`;
+};
+
+export const listInspectionAlerts = async (
+  options?: RequestInit,
+): Promise<InspectionAlertRow[]> => {
+  return customFetch<InspectionAlertRow[]>(getListInspectionAlertsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListInspectionAlertsQueryKey = () => {
+  return [`/api/inspection-alerts`] as const;
+};
+
+export const getListInspectionAlertsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listInspectionAlerts>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listInspectionAlerts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListInspectionAlertsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listInspectionAlerts>>
+  > = ({ signal }) => listInspectionAlerts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listInspectionAlerts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListInspectionAlertsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listInspectionAlerts>>
+>;
+export type ListInspectionAlertsQueryError = ErrorType<void>;
+
+/**
+ * @summary List inspection alerts for the current company
+ */
+
+export function useListInspectionAlerts<
+  TData = Awaited<ReturnType<typeof listInspectionAlerts>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listInspectionAlerts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListInspectionAlertsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Mark a single inspection alert as read
+ */
+export const getMarkInspectionAlertReadUrl = (id: number) => {
+  return `/api/inspection-alerts/${id}/read`;
+};
+
+export const markInspectionAlertRead = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MarkInspectionAlertRead200> => {
+  return customFetch<MarkInspectionAlertRead200>(
+    getMarkInspectionAlertReadUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+    },
+  );
+};
+
+export const getMarkInspectionAlertReadMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markInspectionAlertRead>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markInspectionAlertRead>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["markInspectionAlertRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markInspectionAlertRead>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return markInspectionAlertRead(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkInspectionAlertReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markInspectionAlertRead>>
+>;
+
+export type MarkInspectionAlertReadMutationError = ErrorType<void>;
+
+/**
+ * @summary Mark a single inspection alert as read
+ */
+export const useMarkInspectionAlertRead = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markInspectionAlertRead>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markInspectionAlertRead>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getMarkInspectionAlertReadMutationOptions(options));
+};
+
+/**
+ * @summary Mark all inspection alerts as read for the current company
+ */
+export const getMarkAllInspectionAlertsReadUrl = () => {
+  return `/api/inspection-alerts/read-all`;
+};
+
+export const markAllInspectionAlertsRead = async (
+  options?: RequestInit,
+): Promise<MarkAllInspectionAlertsRead200> => {
+  return customFetch<MarkAllInspectionAlertsRead200>(
+    getMarkAllInspectionAlertsReadUrl(),
+    {
+      ...options,
+      method: "PATCH",
+    },
+  );
+};
+
+export const getMarkAllInspectionAlertsReadMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAllInspectionAlertsRead>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markAllInspectionAlertsRead>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["markAllInspectionAlertsRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markAllInspectionAlertsRead>>,
+    void
+  > = () => {
+    return markAllInspectionAlertsRead(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkAllInspectionAlertsReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markAllInspectionAlertsRead>>
+>;
+
+export type MarkAllInspectionAlertsReadMutationError = ErrorType<void>;
+
+/**
+ * @summary Mark all inspection alerts as read for the current company
+ */
+export const useMarkAllInspectionAlertsRead = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAllInspectionAlertsRead>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markAllInspectionAlertsRead>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getMarkAllInspectionAlertsReadMutationOptions(options));
+};

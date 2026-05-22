@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
+import {
+  useListTradehubNotifications,
+  useGetTradehubProfileMe,
+  useReactToTradehubPost,
+  useCreateTradehubPost,
+  listTradehubFeed,
+  getListTradehubFeedQueryKey,
+} from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
@@ -68,7 +75,6 @@ function PostCard({ post, onReact }: { post: Post; onReact: (id: number) => void
     <div className="bg-card border border-border/60 rounded-xl overflow-hidden hover:border-border hover:shadow-md transition-all group"
       style={{ borderLeft: `3px solid ${tc.accent}` }}>
       <div className="p-5">
-        {/* Author row */}
         <div className="flex items-center justify-between mb-3">
           <Link href={`/tradehub/profile/${post.userId}`}>
             <div className="flex items-center gap-2.5 cursor-pointer">
@@ -107,7 +113,6 @@ function PostCard({ post, onReact }: { post: Post; onReact: (id: number) => void
           </div>
         </div>
 
-        {/* Content */}
         <Link href={`/tradehub/posts/${post.id}`}>
           <div className="cursor-pointer mb-3">
             <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors mb-1 leading-snug">
@@ -117,7 +122,6 @@ function PostCard({ post, onReact }: { post: Post; onReact: (id: number) => void
           </div>
         </Link>
 
-        {/* Job metadata pills */}
         {post.type === "job" && (post.budget || post.jobType) && (
           <div className="flex gap-2 flex-wrap mb-3">
             {post.jobType && (
@@ -134,7 +138,6 @@ function PostCard({ post, onReact }: { post: Post; onReact: (id: number) => void
           </div>
         )}
 
-        {/* Media */}
         {post.media.length > 0 && (
           <div className={`mb-3 grid gap-1.5 rounded-lg overflow-hidden ${post.media.length === 1 ? "" : "grid-cols-2"}`}>
             {post.media.slice(0, 4).map((m) => (
@@ -143,7 +146,6 @@ function PostCard({ post, onReact }: { post: Post; onReact: (id: number) => void
           </div>
         )}
 
-        {/* Actions */}
         <div className="flex items-center gap-1 pt-3 border-t border-border/40">
           <button
             onClick={() => onReact(post.id)}
@@ -194,18 +196,16 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
   const [budget, setBudget] = useState("");
   const [jobType, setJobType] = useState("");
 
-  const createMutation = useMutation({
-    mutationFn: () => customFetch("/api/tradehub/posts", {
-      method: "POST",
-      body: JSON.stringify({ type, title, content, trade: trade || undefined, province: province || undefined, budget: budget || undefined, jobType: jobType || undefined }),
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tradehub-feed"] });
-      toast({ title: "Post published to TradeHub!" });
-      onClose();
-      setTitle(""); setContent(""); setType("discussion");
+  const createMutation = useCreateTradehubPost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListTradehubFeedQueryKey() });
+        toast({ title: "Post published to TradeHub!" });
+        onClose();
+        setTitle(""); setContent(""); setType("discussion");
+      },
+      onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to post", variant: "destructive" }),
     },
-    onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to post", variant: "destructive" }),
   });
 
   return (
@@ -282,7 +282,18 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => createMutation.mutate()}
+          <Button
+            onClick={() => createMutation.mutate({
+              data: {
+                type: type as "discussion" | "job" | "showcase",
+                title,
+                content,
+                ...(trade ? { trade } : {}),
+                ...(province ? { province } : {}),
+                ...(budget ? { budget } : {}),
+                ...(jobType ? { jobType } : {}),
+              },
+            })}
             disabled={!title.trim() || !content.trim() || createMutation.isPending}
             className="gap-2" style={{ background: BLACK, color: GOLD }}>
             {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -310,34 +321,29 @@ export default function TradehubFeedPage() {
   const [provinceFilter, setProvinceFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  const params = new URLSearchParams();
-  if (typeFilter !== "all") params.set("type", typeFilter);
-  if (tradeFilter !== "all") params.set("trade", tradeFilter);
-  if (provinceFilter !== "all") params.set("province", provinceFilter);
+  const feedParams = {
+    ...(typeFilter !== "all" ? { type: typeFilter as "discussion" | "job" | "showcase" } : {}),
+    ...(tradeFilter !== "all" ? { trade: tradeFilter } : {}),
+    ...(provinceFilter !== "all" ? { province: provinceFilter } : {}),
+  };
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["tradehub-feed", typeFilter, tradeFilter, provinceFilter],
-    queryFn: ({ pageParam = 1 }) =>
-      customFetch(`/api/tradehub/feed?${params.toString()}&page=${pageParam}`),
+    queryKey: getListTradehubFeedQueryKey(feedParams),
+    queryFn: ({ pageParam = 1 }) => listTradehubFeed({ ...feedParams, page: pageParam as number }),
     getNextPageParam: (last: any) => last.hasMore ? last.page + 1 : undefined,
     initialPageParam: 1,
   });
 
-  const { data: notifications = [] } = useQuery<any[]>({
-    queryKey: ["tradehub-notifications"],
-    queryFn: () => customFetch("/api/tradehub/notifications"),
-  });
-  const unreadCount = notifications.filter((n: any) => !n.isRead).length;
+  const { data: notifications = [] } = useListTradehubNotifications();
+  const unreadCount = (notifications as any[]).filter((n: any) => !n.isRead).length;
 
-  const { data: myProfile } = useQuery<any>({
-    queryKey: ["tradehub-profile-me"],
-    queryFn: () => customFetch("/api/tradehub/profile/me"),
-  });
+  const { data: myProfile } = useGetTradehubProfileMe();
 
-  const reactMutation = useMutation({
-    mutationFn: (postId: number) =>
-      customFetch(`/api/tradehub/posts/${postId}/react`, { method: "POST" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-feed"] }),
+  const reactMutation = useReactToTradehubPost({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTradehubFeedQueryKey() }),
+      onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed", variant: "destructive" }),
+    },
   });
 
   const allPosts: Post[] = data?.pages.flatMap((p: any) => p.posts) ?? [];
@@ -351,7 +357,6 @@ export default function TradehubFeedPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      {/* Page header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -384,20 +389,18 @@ export default function TradehubFeedPage() {
       </div>
 
       <div className="grid lg:grid-cols-4 gap-6">
-        {/* ── Sidebar ── */}
         <aside className="lg:col-span-1 space-y-3">
-          {/* Profile card */}
           <div className="rounded-xl p-4" style={{ background: BLACK }}>
             {myProfile ? (
               <Link href="/tradehub/profile/me">
                 <div className="flex items-center gap-3 cursor-pointer group">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
                     style={{ background: GOLD, color: BLACK }}>
-                    {myProfile.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                    {(myProfile as any).displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate text-white leading-tight">{myProfile.displayName}</p>
-                    <p className="text-xs truncate mt-0.5" style={{ color: GOLD }}>{myProfile.trade ?? "No trade set"}</p>
+                    <p className="font-semibold text-sm truncate text-white leading-tight">{(myProfile as any).displayName}</p>
+                    <p className="text-xs truncate mt-0.5" style={{ color: GOLD }}>{(myProfile as any).trade ?? "No trade set"}</p>
                   </div>
                   <ChevronRight className="h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: GOLD }} />
                 </div>
@@ -417,7 +420,6 @@ export default function TradehubFeedPage() {
             )}
           </div>
 
-          {/* Nav links */}
           <div className="rounded-xl py-2" style={{ background: BLACK }}>
             {[
               { href: "/tradehub",          label: "Feed",       icon: Globe },
@@ -436,7 +438,6 @@ export default function TradehubFeedPage() {
             ))}
           </div>
 
-          {/* Sidebar filters */}
           <div className="rounded-xl p-4 space-y-3" style={{ background: BLACK }}>
             <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Refine</p>
             <Select value={tradeFilter} onValueChange={setTradeFilter}>
@@ -468,9 +469,7 @@ export default function TradehubFeedPage() {
           </div>
         </aside>
 
-        {/* ── Feed column ── */}
         <div className="lg:col-span-3 space-y-4">
-          {/* Search + type pill tabs */}
           <div className="space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -494,7 +493,7 @@ export default function TradehubFeedPage() {
                   <button key={tab.value}
                     onClick={() => setTypeFilter(tab.value)}
                     className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${isActive ? "font-semibold" : "text-zinc-400 hover:text-zinc-200"}`}
-                    style={isActive ? { background: GOLD, color: BLACK } : undefined}>
+                    style={isActive ? { background: GOLD, color: BLACK } : {}}>
                     {tab.label}
                   </button>
                 );
@@ -502,35 +501,28 @@ export default function TradehubFeedPage() {
             </div>
           </div>
 
-          {/* Posts */}
           {isLoading ? (
-            [1,2,3].map((i) => (
-              <div key={i} className="h-44 rounded-xl bg-muted animate-pulse" />
-            ))
+            <div className="space-y-4">
+              {[1,2,3].map(i => <div key={i} className="h-40 rounded-xl bg-muted animate-pulse" />)}
+            </div>
           ) : posts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-xl border border-border/60 bg-card">
-              <Globe className="h-12 w-12 text-muted-foreground/20" />
-              <div className="text-center">
-                <p className="font-semibold">No posts found</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {search ? "Try a different search term." : "Be the first to post something on TradeHub."}
-                </p>
-              </div>
-              {!search && (
-                <Button className="gap-2" style={{ background: BLACK, color: GOLD }}
-                  onClick={() => setShowCreate(true)}>
-                  <Plus className="h-4 w-4" />Create First Post
-                </Button>
-              )}
+            <div className="rounded-xl border-2 border-dashed border-border/60 flex flex-col items-center justify-center gap-3 py-16 text-center">
+              <Globe className="h-10 w-10 text-muted-foreground/30" />
+              <p className="font-medium text-muted-foreground">No posts yet</p>
+              <p className="text-sm text-muted-foreground">Be the first to share something with the TradeHub.</p>
+              <Button className="mt-1 gap-2" style={{ background: BLACK, color: GOLD }}
+                onClick={() => setShowCreate(true)}>
+                <Plus className="h-4 w-4" />Create Post
+              </Button>
             </div>
           ) : (
             <>
               {posts.map((post) => (
-                <PostCard key={post.id} post={post} onReact={(id) => reactMutation.mutate(id)} />
+                <PostCard key={post.id} post={post} onReact={(id) => reactMutation.mutate({ id })} />
               ))}
               {hasNextPage && (
                 <Button variant="outline" className="w-full" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
-                  {isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Load More
                 </Button>
               )}
