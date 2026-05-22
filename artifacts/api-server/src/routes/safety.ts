@@ -32,6 +32,11 @@ router.get("/safety/templates", requireAuth, requireCompany, requirePermission("
 // ── Submissions ───────────────────────────────────────────────────────────────
 
 // GET /safety/submissions
+// Column order in WHERE matches idx_form_submissions_company_status (companyId, status):
+//   1. companyId  — always applied (leading column, most selective)
+//   2. userId     — optional worker/filter (not in composite index, but applied after)
+//   3. status     — optional filter (second column of composite index)
+// When both companyId and status are present the planner uses the full composite index.
 router.get("/safety/submissions", requireAuth, requireCompany, requirePermission("viewSafetyTab"), async (req, res) => {
   try {
     const { status, workerId } = req.query as Record<string, string>;

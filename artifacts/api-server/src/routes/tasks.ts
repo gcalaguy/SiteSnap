@@ -25,6 +25,9 @@ const UpdateTaskBody = z.object({
 });
 
 // GET /projects/:projectId/tasks
+// Supports optional ?status= query param.
+// Column order in WHERE matches idx_tasks_project_status (projectId, status)
+// so the planner can do an index-only scan when both columns are provided.
 router.get("/", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) {
@@ -32,16 +35,25 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
     return;
   }
 
+  const { status } = req.query as Record<string, string | undefined>;
+  const validStatuses = ["todo", "in_progress", "done"] as const;
+  type TaskStatus = typeof validStatuses[number];
+  const statusFilter = validStatuses.includes(status as TaskStatus) ? (status as TaskStatus) : undefined;
+
+  // Build conditions: projectId first, then status — matches idx_tasks_project_status (projectId, status)
+  const conditions = [eq(tasksTable.projectId, projectId)];
+  if (statusFilter) {
+    conditions.push(eq(tasksTable.status, statusFilter));
+  }
   // Workers only see tasks assigned to them; owners/foremen see all
-  const whereClause =
-    req.userRole === "worker"
-      ? and(eq(tasksTable.projectId, projectId), eq(tasksTable.assignedToUserId, req.userId!))
-      : eq(tasksTable.projectId, projectId);
+  if (req.userRole === "worker") {
+    conditions.push(eq(tasksTable.assignedToUserId, req.userId!));
+  }
 
   const tasks = await db
     .select()
     .from(tasksTable)
-    .where(whereClause)
+    .where(and(...conditions))
     .orderBy(tasksTable.createdAt);
 
   res.json(tasks);

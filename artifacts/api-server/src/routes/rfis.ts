@@ -75,15 +75,28 @@ async function getNextRFINumber(projectId: number): Promise<string> {
 }
 
 // GET /projects/:projectId/rfis
+// Supports optional ?status= query param.
+// Column order in WHERE matches idx_rfis_project_status (projectId, status)
+// so the planner can use the full composite index when both columns are provided.
 router.get("/", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
+  const { status } = req.query as Record<string, string | undefined>;
+  const validStatuses = ["open", "in_review", "answered", "closed"] as const;
+  type RFIStatus = typeof validStatuses[number];
+  const statusFilter = validStatuses.includes(status as RFIStatus) ? (status as RFIStatus) : undefined;
+
+  // projectId first, then status — matches idx_rfis_project_status (projectId, status)
+  const whereClause = statusFilter
+    ? and(eq(rfisTable.projectId, projectId), eq(rfisTable.status, statusFilter))
+    : eq(rfisTable.projectId, projectId);
+
   const rfis = await db
     .select()
     .from(rfisTable)
-    .where(eq(rfisTable.projectId, projectId));
+    .where(whereClause);
 
   // Attach submittedBy user
   const userIds = [...new Set(rfis.map((r) => r.submittedByUserId))];

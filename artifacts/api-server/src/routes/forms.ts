@@ -119,6 +119,11 @@ router.delete("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, 
 // ── Form Submissions (at /form-submissions) ────────────────────────────────────
 
 // GET /form-submissions — list (with contact + project linking)
+// Column order in WHERE matches idx_form_submissions_company_status (companyId, status):
+//   1. companyId  — always applied (leading column, most selective for the tenant)
+//   2. userId     — optional worker restriction (not in composite index, applied after)
+//   3. status     — optional filter (second column of composite index)
+// When both companyId and status are present the planner uses the full composite index.
 router.get("/form-submissions", requireAuth, requireCompany, async (req, res) => {
   try {
     const { status, templateId, projectId, contactId } = req.query as Record<string, string>;

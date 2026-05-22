@@ -161,6 +161,9 @@ async function runAIAnalysis(
 }
 
 // ── GET /inspections — list inspections for company ──────────────────────────
+// Supports optional ?projectId= query param.
+// Column order in WHERE matches idx_inspections_company_project (companyId, projectId)
+// so the planner can use the full composite index when both columns are provided.
 
 router.get(
   "/inspections",
@@ -182,6 +185,18 @@ router.get(
     const myRole = myMembership[0]?.role;
     const isWorker = myRole === "worker";
 
+    const projectIdParam = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
+    const projectIdFilter = projectIdParam && !isNaN(projectIdParam) ? projectIdParam : undefined;
+
+    // companyId first, then projectId — matches idx_inspections_company_project (companyId, projectId)
+    const conditions: ReturnType<typeof eq>[] = [eq(inspectionsTable.companyId, req.companyId!)];
+    if (projectIdFilter !== undefined) {
+      conditions.push(eq(inspectionsTable.projectId, projectIdFilter));
+    }
+    if (isWorker) {
+      conditions.push(eq(inspectionsTable.inspectorId, req.userId!));
+    }
+
     const rows = await db
       .select({
         inspection: inspectionsTable,
@@ -191,12 +206,7 @@ router.get(
       .from(inspectionsTable)
       .leftJoin(projectsTable, eq(projectsTable.id, inspectionsTable.projectId))
       .leftJoin(usersTable, eq(usersTable.id, inspectionsTable.inspectorId))
-      .where(
-        and(
-          eq(inspectionsTable.companyId, req.companyId!),
-          isWorker ? eq(inspectionsTable.inspectorId, req.userId!) : undefined,
-        ),
-      )
+      .where(and(...conditions))
       .orderBy(desc(inspectionsTable.createdAt));
 
     res.json(rows);
