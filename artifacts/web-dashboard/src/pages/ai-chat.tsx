@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { getAiErrorMessage } from "@/hooks/useApiError";
 import {
   Bot,
   Send,
@@ -175,9 +176,9 @@ function AIChatInner() {
           });
           refetchConversations();
         }
-      } catch {
+      } catch (err) {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        toast({ title: "Failed to send message", variant: "destructive" });
+        toast({ title: "Failed to send message", description: getAiErrorMessage(err), variant: "destructive" });
       } finally {
         setIsLoading(false);
       }
@@ -240,10 +241,10 @@ function AIChatInner() {
               setInput((prev) => (prev ? `${prev} ${result.text}` : result.text));
               textareaRef.current?.focus();
             }
-          } catch {
+          } catch (err) {
             toast({
               title: "Transcription failed",
-              description: "Could not transcribe audio",
+              description: getAiErrorMessage(err),
               variant: "destructive",
             });
           } finally {

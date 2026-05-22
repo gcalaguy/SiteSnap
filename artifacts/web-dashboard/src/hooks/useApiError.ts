@@ -74,6 +74,27 @@ export function parseApiError(err: unknown): { message: string; code?: string; d
 }
 
 /**
+ * Extracts a human-readable error message from an AI API error, preferring
+ * the server's structured `error` field over the generic HTTP message.
+ *
+ * In development mode, field-level `details` (e.g. Zod validation issues) are
+ * also logged to the browser console so engineers can inspect them without
+ * cluttering the user-facing toast.
+ *
+ * Usage in try/catch blocks:
+ *   } catch (err) {
+ *     toast({ title: "AI generation failed", description: getAiErrorMessage(err), variant: "destructive" });
+ *   }
+ */
+export function getAiErrorMessage(err: unknown): string {
+  const parsed = parseApiError(err);
+  if (import.meta.env.DEV && (parsed.details || parsed.code)) {
+    console.debug("[AI error]", parsed);
+  }
+  return parsed.message;
+}
+
+/**
  * Returns a stable `handleError` function that shows a toast for any API
  * error. Use it in mutation `onError` callbacks.
  *

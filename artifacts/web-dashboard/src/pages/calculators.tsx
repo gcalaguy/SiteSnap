@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Link } from "wouter";
 import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { getAiErrorMessage } from "@/hooks/useApiError";
 import { CALCULATORS, CATEGORIES, categoryMeta, type CalcDef } from "@/lib/calculators-data";
 
 const GOLD = "#C9A84C";
@@ -116,8 +117,8 @@ export default function CalculatorsPage() {
         body: JSON.stringify({ calculator: activeCalc.name, inputs, summary: result.summary, results: result.results }),
       }) as any;
       setAiSummary(data.summary);
-    } catch {
-      toast({ title: "AI unavailable", description: "Could not generate AI summary.", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "AI unavailable", description: getAiErrorMessage(err), variant: "destructive" });
     } finally {
       setAiLoading(false);
     }

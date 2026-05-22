@@ -12,6 +12,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { getAiErrorMessage } from "@/hooks/useApiError";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -166,8 +167,8 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
       });
       setAiResult(result as { title?: string; lineItems?: LineItem[]; notes?: string });
       setStep("preview");
-    } catch {
-      toast({ title: "AI generation failed", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "AI generation failed", description: getAiErrorMessage(err), variant: "destructive" });
     } finally {
       setAiLoading(false);
     }

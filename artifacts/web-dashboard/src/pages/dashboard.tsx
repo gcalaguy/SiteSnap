@@ -38,6 +38,8 @@ import { format, formatDistanceToNow } from "date-fns";
 import { WeatherCard } from "@/components/WeatherCard";
 import { Link } from "wouter";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { getAiErrorMessage } from "@/hooks/useApiError";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -447,6 +449,7 @@ const SEV_SECTION_COLOR: Record<string, string> = {
 function ForemanBriefingCard() {
   const qc = useQueryClient();
   const today = format(new Date(), "EEEE, MMMM d");
+  const { toast } = useToast();
 
   const generate = useMutation({
     mutationKey: ["foreman-briefing"],
@@ -454,6 +457,9 @@ function ForemanBriefingCard() {
       customFetch("/api/ai/foreman-briefing", { method: "POST" }),
     onSuccess: (data) => {
       qc.setQueryData(["foreman-briefing-cache"], data);
+    },
+    onError: (err) => {
+      toast({ title: "Failed to generate briefing", description: getAiErrorMessage(err), variant: "destructive" });
     },
   });
 

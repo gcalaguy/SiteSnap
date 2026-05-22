@@ -34,6 +34,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getAiErrorMessage } from "@/hooks/useApiError";
 import {
   ArrowLeft,
   Sparkles,
@@ -514,8 +515,8 @@ export default function QuoteDetail() {
       if (result.title && !title) setTitle(result.title);
       if (result.notes) setNotes(result.notes);
       toast({ title: "AI quote generated", description: "Review and adjust the line items below." });
-    } catch {
-      toast({ title: "AI generation failed", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "AI generation failed", description: getAiErrorMessage(err), variant: "destructive" });
     } finally {
       setAiLoading(false);
     }
