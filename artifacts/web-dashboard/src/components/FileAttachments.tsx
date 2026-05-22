@@ -1,8 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,27 +69,40 @@ export default function FileAttachments({ entityType, entityId, readOnly = false
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<FileAttachment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const loadFiles = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await customFetch(
+  const queryKey = ["file-attachments", entityType, entityId];
+  const {
+    data: fetchedFiles = [],
+    isLoading: loading,
+  } = useQuery({
+    queryKey,
+    queryFn: async () => {
+      return await customFetch(
         `/api/files?entityType=${entityType}&entityId=${entityId}`,
       ) as FileAttachment[];
-      setFiles(data ?? []);
-    } catch {
-      /* ignore */
-    } finally {
-      setLoading(false);
-    }
-  }, [entityType, entityId]);
+    },
+    enabled: !!entityId,
+    staleTime: 5 * 60 * 1000,
+    retry: 3,
+  });
 
   useEffect(() => {
-    if (entityId) loadFiles();
-  }, [entityId, loadFiles]);
+    setFiles(fetchedFiles);
+  }, [fetchedFiles]);
+
+  async function fetchWithTimeout(url: string, init: RequestInit & { timeout?: number } = {}): Promise<Response> {
+    const { timeout = 30000, ...rest } = init;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+      return await fetch(url, { ...rest, signal: controller.signal });
+    } finally {
+      clearTimeout(id);
+    }
+  }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -95,22 +110,23 @@ export default function FileAttachments({ entityType, entityId, readOnly = false
     e.target.value = "";
 
     setUploading(true);
+    setUploadProgress(10);
     try {
-      // Step 1: Get presigned URL
       const { uploadURL, objectPath } = await customFetch(`/api/storage/uploads/request-url`, {
         method: "POST",
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       }) as { uploadURL: string; objectPath: string };
 
-      // Step 2: Upload file directly
-      const uploadRes = await fetch(uploadURL, {
+      setUploadProgress(40);
+      const uploadRes = await fetchWithTimeout(uploadURL, {
         method: "PUT",
         body: file,
         headers: { "Content-Type": file.type },
+        timeout: 60000,
       });
       if (!uploadRes.ok) throw new Error("Upload failed");
 
-      // Step 3: Register file record
+      setUploadProgress(80);
       const record = await customFetch(`/api/files`, {
         method: "POST",
         body: JSON.stringify({
@@ -124,11 +140,13 @@ export default function FileAttachments({ entityType, entityId, readOnly = false
       }) as FileAttachment;
 
       setFiles((prev) => [record, ...prev]);
+      setUploadProgress(100);
       toast({ title: "File uploaded", description: file.name });
     } catch (err: any) {
       toast({ title: "Upload failed", description: err?.message ?? "Please try again", variant: "destructive" });
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   }
 
@@ -173,7 +191,7 @@ export default function FileAttachments({ entityType, entityId, readOnly = false
             ) : (
               <Upload className="h-3 w-3" />
             )}
-            {uploading ? "Uploading…" : "Upload File"}
+            {uploading ? `${uploadProgress}%` : "Upload File"}
           </Button>
         )}
         <input

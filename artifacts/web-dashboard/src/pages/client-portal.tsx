@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -220,12 +221,30 @@ function PhotoLightbox({ photos, index, onClose, onNav }: {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
+async function fetchPortal(token: string): Promise<PortalData> {
+  const res = await fetch(`/api/portal/${token}`);
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? "Failed to load portal");
+  return body;
+}
+
 export default function ClientPortal() {
   const { token } = useParams<{ token: string }>();
   const { toast } = useToast();
-  const [data, setData] = useState<PortalData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const {
+    data,
+    isLoading: loading,
+    error: queryError,
+  } = useQuery({
+    queryKey: ["client-portal", token],
+    queryFn: () => fetchPortal(token!),
+    enabled: !!token,
+  });
+
+  const error = queryError ? (queryError as Error).message : null;
+
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -239,30 +258,17 @@ export default function ClientPortal() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!token) return;
-    fetch(`${BASE}/api/portal/${token}`)
-      .then(async (r) => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(body.error ?? "Failed to load portal");
-        }
-        return r.json();
-      })
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [token]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [data?.messages]);
-
   async function handleUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
     setUploading(true);
+    setUploadProgress(0);
     try {
-      for (const file of Array.from(files)) {
+      const allFiles = Array.from(files);
+      for (let i = 0; i < allFiles.length; i++) {
+        const file = allFiles[i];
+        const baseProgress = Math.round((i / allFiles.length) * 100);
+        setUploadProgress(baseProgress + 5);
+
         const urlRes = await fetch(`${BASE}/api/portal/${token}/upload-url`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -271,23 +277,25 @@ export default function ClientPortal() {
         if (!urlRes.ok) throw new Error("Failed to get upload URL");
         const { uploadURL, objectPath } = await urlRes.json();
 
+        setUploadProgress(baseProgress + 40);
         const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
         if (!uploadRes.ok) throw new Error("Failed to upload file");
 
+        setUploadProgress(baseProgress + 70);
         const regRes = await fetch(`${BASE}/api/portal/${token}/uploads`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ filename: file.name, fileType: file.type, objectPath, fileSize: file.size }),
         });
         if (!regRes.ok) throw new Error("Failed to register upload");
-        const newUpload = await regRes.json();
-        setData((prev) => prev ? { ...prev, clientUploads: [newUpload, ...prev.clientUploads] } : prev);
+        setUploadProgress(baseProgress + 100);
       }
       toast({ title: "File(s) uploaded successfully" });
     } catch (e: any) {
       toast({ title: e.message ?? "Upload failed", variant: "destructive" });
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   }
 
@@ -304,7 +312,6 @@ export default function ClientPortal() {
       });
       if (!res.ok) throw new Error("Failed to send message");
       const newMsg = await res.json();
-      setData((prev) => prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev);
       setMessageText("");
     } catch (e: any) {
       toast({ title: e.message ?? "Failed to send", variant: "destructive" });
@@ -684,9 +691,13 @@ export default function ClientPortal() {
             >
               <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
               {uploading ? (
-                <div className="flex flex-col items-center gap-2">
+                <div className="flex flex-col items-center gap-3 w-full max-w-xs">
                   <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
-                  <p className="text-sm text-slate-500">Uploading...</p>
+                  <div className="w-full space-y-1">
+                    <Progress value={uploadProgress} className="h-2" />
+                    <p className="text-xs text-slate-500 text-center">{uploadProgress}%</p>
+                  </div>
+                  <p className="text-sm text-slate-500">Uploading to secure storage…</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2">

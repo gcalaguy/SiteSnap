@@ -9,6 +9,7 @@ import {
   getListSitePhotosQueryKey,
   getListSafetySignoffsQueryKey,
 } from "@workspace/api-client-react";
+import { queryClient } from "@/lib/queryClient";
 import {
   Card,
   CardContent,
@@ -164,7 +165,9 @@ export default function FieldLogsPage() {
     try {
       const res = await fetch(url, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Delete failed");
-      window.location.reload();
+      if (type === "log") queryClient.invalidateQueries({ queryKey: getListDailyLogsQueryKey(dailyLogParams) });
+      if (type === "photo") queryClient.invalidateQueries({ queryKey: getListSitePhotosQueryKey(photoParams) });
+      if (type === "safety") queryClient.invalidateQueries({ queryKey: getListSafetySignoffsQueryKey(safetyParams) });
     } catch {
       alert("Failed to delete. Only owners can remove items.");
     }
@@ -181,7 +184,7 @@ export default function FieldLogsPage() {
       });
       if (!res.ok) throw new Error("Update failed");
       setEditingLogId(null);
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: getListDailyLogsQueryKey(dailyLogParams) });
     } catch {
       alert("Failed to update. Only owners can edit items.");
     } finally {
@@ -200,7 +203,7 @@ export default function FieldLogsPage() {
       });
       if (!res.ok) throw new Error("Update failed");
       setEditingPhotoId(null);
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: getListSitePhotosQueryKey(photoParams) });
     } catch {
       alert("Failed to update. Only owners can edit items.");
     } finally {
@@ -219,7 +222,7 @@ export default function FieldLogsPage() {
       });
       if (!res.ok) throw new Error("Update failed");
       setEditingSafetyId(null);
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: getListSafetySignoffsQueryKey(safetyParams) });
     } catch {
       alert("Failed to update. Only owners can edit items.");
     } finally {

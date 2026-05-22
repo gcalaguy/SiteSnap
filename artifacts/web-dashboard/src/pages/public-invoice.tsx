@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,54 +40,35 @@ interface PublicInvoice {
 const fmtCAD = (v: string | number) =>
   new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 
+async function fetchPublicInvoice(token: string): Promise<PublicInvoice> {
+  const res = await fetch(`/api/public/invoices/${token}`);
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? "Invoice not found");
+  return body;
+}
+
 export default function PublicInvoicePage() {
   const params = useParams<{ token: string }>();
   const token = params.token!;
   const { toast } = useToast();
 
-  const [invoice, setInvoice] = useState<PublicInvoice | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [signerName, setSignerName] = useState("");
+  const {
+    data: invoice,
+    isLoading: loading,
+    error: queryError,
+    refetch: reloadInvoice,
+    isFetching: refreshing,
+  } = useQuery({
+    queryKey: ["public-invoice", token],
+    queryFn: () => fetchPublicInvoice(token),
+    enabled: !!token,
+  });
+
+  const error = queryError ? (queryError as Error).message : null;
+
+  const [signerName, setSignerName] = useState(invoice?.clientName ?? "");
   const [signature, setSignature] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetch(`/api/public/invoices/${token}`)
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).error ?? "Invoice not found");
-        return r.json();
-      })
-      .then((i: PublicInvoice) => {
-        if (cancelled) return;
-        setInvoice(i);
-        setSignerName(i.clientName ?? "");
-      })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
-  async function reloadInvoice() {
-    setRefreshing(true);
-    try {
-      const res = await fetch(`/api/public/invoices/${token}`);
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Invoice not found");
-      setInvoice(body);
-    } finally {
-      setRefreshing(false);
-    }
-  }
 
   async function submitSignature() {
     if (!signature) {
@@ -106,7 +88,6 @@ export default function PublicInvoicePage() {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Failed to submit signature");
-      setInvoice(body);
       await reloadInvoice();
       toast({ title: "Invoice acknowledged", description: "Thank you — your signature has been recorded." });
     } catch (e: any) {

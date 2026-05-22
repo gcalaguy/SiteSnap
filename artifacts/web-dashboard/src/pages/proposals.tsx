@@ -1,5 +1,22 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { customFetch } from "@workspace/api-client-react";
+import {
+  useListBuilderEstimates,
+  useListProposals,
+  useListEstimateTemplates,
+  useCreateBuilderEstimate,
+  useDeleteBuilderEstimate,
+  useConvertEstimateToProposal,
+  useUpdateProposal,
+  useDeleteProposal,
+  useApproveProposal,
+  useCreateEstimateTemplate,
+  useDeleteEstimateTemplate,
+  getListBuilderEstimatesQueryKey,
+  getListProposalsQueryKey,
+  getListEstimateTemplatesQueryKey,
+} from "@workspace/api-client-react";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,18 +175,20 @@ export default function Proposals() {
   const [tab, setTab] = useState<"estimates" | "proposals">("estimates");
   const [proposalStatusFilter, setProposalStatusFilter] = useState<string | null>(null);
 
-  // Estimates
-  const [estimates, setEstimates] = useState<BuilderEstimate[]>([]);
-  const [estimatesLoading, setEstimatesLoading] = useState(true);
+  // Data via React Query (cached, resilient)
+  const estimatesRaw = useListBuilderEstimates();
+  const estimates = (estimatesRaw.data ?? []) as BuilderEstimate[];
+  const estimatesLoading = estimatesRaw.isLoading;
+
+  const proposalsRaw = useListProposals();
+  const proposals = (proposalsRaw.data ?? []) as Proposal[];
+  const proposalsLoading = proposalsRaw.isLoading;
+
+  const { data: templates = [], refetch: refetchTemplates } = useListEstimateTemplates();
+
+  // UI state
   const [selectedEstimate, setSelectedEstimate] = useState<BuilderEstimate | null>(null);
-
-  // Proposals
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [proposalsLoading, setProposalsLoading] = useState(true);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
-
-  // Templates
-  const [templates, setTemplates] = useState<Template[]>([]);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -186,36 +205,15 @@ export default function Proposals() {
   const [approveSignature, setApproveSignature] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load estimates
-  const loadEstimates = useCallback(async () => {
-    try {
-      setEstimatesLoading(true);
-      const data = await apiFetch("/builder-estimates") as BuilderEstimate[];
-      setEstimates(data ?? []);
-    } catch { /* ignore */ }
-    finally { setEstimatesLoading(false); }
-  }, []);
-
-  // Load proposals
-  const loadProposals = useCallback(async () => {
-    try {
-      setProposalsLoading(true);
-      const data = await apiFetch("/proposals") as Proposal[];
-      setProposals(data ?? []);
-    } catch { /* ignore */ }
-    finally { setProposalsLoading(false); }
-  }, []);
-
-  // Load templates
-  const loadTemplates = useCallback(async () => {
-    try {
-      const data = await apiFetch("/estimate-templates") as Template[];
-      setTemplates(data ?? []);
-    } catch { /* ignore */ }
-  }, []);
-
-  // Initial load
-  useEffect(() => { loadEstimates(); loadProposals(); loadTemplates(); }, []);
+  // Mutations
+  const createEstimate = useCreateBuilderEstimate();
+  const deleteEstimate = useDeleteBuilderEstimate();
+  const convertEstimate = useConvertEstimateToProposal();
+  const updateProposal = useUpdateProposal();
+  const deleteProposalMut = useDeleteProposal();
+  const approveProposalMut = useApproveProposal();
+  const createTemplate = useCreateEstimateTemplate();
+  const deleteTemplateMut = useDeleteEstimateTemplate();
 
   // Open estimate builder
   async function openEstimate(estimate: BuilderEstimate) {
@@ -242,7 +240,7 @@ export default function Proposals() {
         method: "POST",
         body: JSON.stringify({ title: createEstimateTitle.trim(), notes: createEstimateNotes.trim() || null }),
       }) as BuilderEstimate;
-      setEstimates((prev) => [data, ...prev]);
+      queryClient.invalidateQueries({ queryKey: getListBuilderEstimatesQueryKey() });
       setCreateEstimateOpen(false);
       setCreateEstimateTitle("");
       setCreateEstimateNotes("");
@@ -258,7 +256,7 @@ export default function Proposals() {
     setIsSubmitting(true);
     try {
       await apiFetch(`/builder-estimates/${deleteEstimateId}`, { method: "DELETE" });
-      setEstimates((prev) => prev.filter((e) => e.id !== deleteEstimateId));
+      queryClient.invalidateQueries({ queryKey: getListBuilderEstimatesQueryKey() });
       if (selectedEstimate?.id === deleteEstimateId) setSelectedEstimate(null);
       setDeleteEstimateId(null);
       toast({ title: "Estimate deleted" });
@@ -279,7 +277,7 @@ export default function Proposals() {
           notes: convertForm.notes.trim() || null,
         }),
       }) as Proposal;
-      setProposals((prev) => [data, ...prev]);
+      queryClient.invalidateQueries({ queryKey: getListProposalsQueryKey() });
       setConvertOpen(false);
       setConvertForm({ clientName: "", clientEmail: "", notes: "" });
       setTab("proposals");
@@ -295,7 +293,7 @@ export default function Proposals() {
         method: "PATCH",
         body: JSON.stringify({ status }),
       }) as Proposal;
-      setProposals((prev) => prev.map((p) => (p.id === id ? data : p)));
+      queryClient.invalidateQueries({ queryKey: getListProposalsQueryKey() });
       if (selectedProposal?.id === id) setSelectedProposal((p) => p ? { ...p, status: data.status } : p);
       toast({ title: `Marked as ${status}` });
     } catch { toast({ title: "Failed to update proposal", variant: "destructive" }); }
@@ -310,7 +308,7 @@ export default function Proposals() {
         method: "POST",
         body: JSON.stringify({ approvedByName: approveSignature.trim() }),
       }) as Proposal;
-      setProposals((prev) => prev.map((p) => (p.id === data.id ? data : p)));
+      queryClient.invalidateQueries({ queryKey: getListProposalsQueryKey() });
       setSelectedProposal((p) => p ? { ...p, ...data } : p);
       setApproveOpen(false);
       setApproveSignature("");
@@ -325,7 +323,7 @@ export default function Proposals() {
     setIsSubmitting(true);
     try {
       await apiFetch(`/proposals/${deleteProposalId}`, { method: "DELETE" });
-      setProposals((prev) => prev.filter((p) => p.id !== deleteProposalId));
+      queryClient.invalidateQueries({ queryKey: getListProposalsQueryKey() });
       if (selectedProposal?.id === deleteProposalId) setSelectedProposal(null);
       setDeleteProposalId(null);
       toast({ title: "Proposal deleted" });
@@ -352,7 +350,7 @@ export default function Proposals() {
       });
       setSaveTemplateOpen(false);
       setTemplateName("");
-      await loadTemplates();
+      await refetchTemplates();
       toast({ title: "Template saved!" });
     } catch { toast({ title: "Failed to save template", variant: "destructive" }); }
     finally { setIsSubmitting(false); }
@@ -370,6 +368,7 @@ export default function Proposals() {
           body: JSON.stringify({ name: item.name, description: item.description, quantity: n(item.quantity), unitCost: n(item.unitCost), margin: n(item.margin) }),
         });
       }
+      queryClient.invalidateQueries({ queryKey: getListBuilderEstimatesQueryKey() });
       const updated = await apiFetch(`/builder-estimates/${selectedEstimate.id}`) as BuilderEstimate;
       setSelectedEstimate(updated);
       setTemplateOpen(false);
@@ -382,7 +381,7 @@ export default function Proposals() {
   async function handleDeleteTemplate(id: number) {
     try {
       await apiFetch(`/estimate-templates/${id}`, { method: "DELETE" });
-      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      await refetchTemplates();
       toast({ title: "Template deleted" });
     } catch { toast({ title: "Failed to delete template", variant: "destructive" }); }
   }
@@ -566,7 +565,7 @@ export default function Proposals() {
               estimate={selectedEstimate}
               onUpdate={(updated) => {
                 setSelectedEstimate(updated);
-                setEstimates((prev) => prev.map((e) => e.id === updated.id ? { ...e, title: updated.title, notes: updated.notes } : e));
+                queryClient.invalidateQueries({ queryKey: getListBuilderEstimatesQueryKey() });
               }}
               onDelete={() => setDeleteEstimateId(selectedEstimate.id)}
               onConvert={() => setConvertOpen(true)}
@@ -587,7 +586,7 @@ export default function Proposals() {
               onDelete={() => setDeleteProposalId(selectedProposal.id)}
               toast={toast}
               onUpdate={(updated) => {
-                setProposals((prev) => prev.map((p) => p.id === updated.id ? { ...p, ...updated } : p));
+                queryClient.invalidateQueries({ queryKey: getListProposalsQueryKey() });
                 setSelectedProposal((p) => p ? { ...p, ...updated } : p);
               }}
             />

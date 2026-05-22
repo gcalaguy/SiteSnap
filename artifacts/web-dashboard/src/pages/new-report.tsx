@@ -117,32 +117,56 @@ export default function NewReport() {
     });
   }
 
+  async function fetchWithTimeout(url: string, init: RequestInit & { timeout?: number } = {}): Promise<Response> {
+    const { timeout = 30000, ...rest } = init;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+      const res = await fetch(url, { ...rest, signal: controller.signal });
+      return res;
+    } finally {
+      clearTimeout(id);
+    }
+  }
+
   async function uploadPhoto(photo: PhotoUpload, index: number): Promise<string | null> {
     setPhotos(prev => prev.map((p, i) => i === index ? { ...p, uploading: true, error: undefined } : p));
-    try {
-      const urlRes = await fetch("/api/storage/uploads/request-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: photo.file.name, size: photo.file.size, contentType: photo.file.type }),
-        credentials: "include",
-      });
-      if (!urlRes.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = await urlRes.json();
+    const maxRetries = 2;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          await new Promise(r => setTimeout(r, 1000 * attempt));
+        }
+        const urlRes = await fetchWithTimeout("/api/storage/uploads/request-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: photo.file.name, size: photo.file.size, contentType: photo.file.type }),
+          credentials: "include",
+          timeout: 15000,
+        });
+        if (!urlRes.ok) throw new Error("Failed to get upload URL");
+        const { uploadURL, objectPath } = await urlRes.json();
 
-      const putRes = await fetch(uploadURL, {
-        method: "PUT",
-        headers: { "Content-Type": photo.file.type },
-        body: photo.file,
-      });
-      if (!putRes.ok) throw new Error("Failed to upload file");
+        const putRes = await fetchWithTimeout(uploadURL, {
+          method: "PUT",
+          headers: { "Content-Type": photo.file.type },
+          body: photo.file,
+          timeout: 60000,
+        });
+        if (!putRes.ok) throw new Error("Failed to upload file");
 
-      setPhotos(prev => prev.map((p, i) => i === index ? { ...p, uploading: false, uploaded: true, objectPath } : p));
-      return objectPath as string;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Upload failed";
-      setPhotos(prev => prev.map((p, i) => i === index ? { ...p, uploading: false, error: msg } : p));
-      return null;
+        setPhotos(prev => prev.map((p, i) => i === index ? { ...p, uploading: false, uploaded: true, objectPath } : p));
+        return objectPath as string;
+      } catch (err) {
+        const isLast = attempt === maxRetries;
+        const msg = err instanceof Error ? err.message : "Upload failed";
+        if (isLast) {
+          setPhotos(prev => prev.map((p, i) => i === index ? { ...p, uploading: false, error: msg } : p));
+          return null;
+        }
+      }
     }
+    return null;
   }
 
   async function onSubmit(values: z.infer<typeof reportSchema>) {
