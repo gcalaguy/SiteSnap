@@ -3,6 +3,7 @@ import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 
 const router = Router();
 
@@ -31,6 +32,7 @@ router.post(
   "/ai/photo-summary",
   requireAuth,
   requireCompany,
+  requireAiQuota,
   asyncHandler(async (req, res) => {
     const parsed = PhotoSummaryInput.safeParse(req.body);
     if (!parsed.success) {

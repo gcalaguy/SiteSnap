@@ -13,6 +13,7 @@ import {
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
+import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 import { notify } from "../lib/notify";
 import { sendEmail } from "../lib/mailer";
 import { z } from "zod";
@@ -242,6 +243,7 @@ router.post(
   requireAuth,
   requireCompany,
   requireFeature("INSPECTIONS"),
+  requireAiQuota,
   asyncHandler(async (req, res) => {
     const parsed = CreateInspectionBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
@@ -294,6 +296,7 @@ router.post(
   requireAuth,
   requireCompany,
   requireFeature("INSPECTIONS"),
+  requireAiQuota,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }

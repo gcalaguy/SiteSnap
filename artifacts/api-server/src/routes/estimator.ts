@@ -21,6 +21,7 @@ import { requireFeature } from "../lib/featureGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import { BadRequestError, NotFoundError, ConflictError } from "../lib/errors";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 
 const DEFAULT_PROJECT_TYPE_LABELS: Record<string, string> = {
   residential_new_build:  "Residential New Build",
@@ -650,6 +651,7 @@ router.post(
   "/estimator/parse",
   requireAuth,
   requireCompany,
+  requireAiQuota,
   asyncHandler(async (req, res) => {
     const parsed = ParseBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
@@ -667,6 +669,7 @@ router.post(
   "/estimator/parse-from-file",
   requireAuth,
   requireCompany,
+  requireAiQuota,
   fileUpload.single("file"),
   asyncHandler(async (req, res) => {
     const file = req.file;

@@ -6,6 +6,7 @@ import { requirePermission } from "../lib/permissionGate.js";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import multer from "multer";
 import { z } from "zod";
+import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -185,7 +186,7 @@ const GenerateTextBody = z.object({
   scope: z.string().min(20, "Please provide at least 20 characters of scope description").max(10000, "Scope must be at most 10 000 characters"),
 });
 
-router.post("/estimates/generate", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
+router.post("/estimates/generate", requireAuth, requireCompany, requirePermission("manageQuotes"), requireAiQuota, async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -238,6 +239,7 @@ router.post(
   requireAuth,
   requireCompany,
   requirePermission("manageQuotes"),
+  requireAiQuota,
   upload.single("file"),
   async (req, res) => {
     const role = req.userRole;

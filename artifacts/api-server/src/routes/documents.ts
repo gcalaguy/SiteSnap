@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { db, projectDocumentsTable, projectsTable, costAnalysesTable, pool } from "@workspace/db";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth.js";
 import { requirePermission } from "../lib/permissionGate.js";
+import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../lib/objectStorage.js";
@@ -361,7 +362,7 @@ router.post("/:docId/embed", requireAuth, requireCompany, async (req, res) => {
 });
 
 // POST /projects/:projectId/documents/:docId/extract (legacy)
-router.post("/:docId/extract", requireAuth, requireCompany, async (req, res) => {
+router.post("/:docId/extract", requireAuth, requireCompany, requireAiQuota, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const docId = parseInt(req.params.docId as string);
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
@@ -384,7 +385,7 @@ router.post("/:docId/extract", requireAuth, requireCompany, async (req, res) => 
 });
 
 // POST /projects/:projectId/documents/:docId/analyze
-router.post("/:docId/analyze", requireAuth, requireCompany, async (req, res) => {
+router.post("/:docId/analyze", requireAuth, requireCompany, requireAiQuota, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const docId = parseInt(req.params.docId as string);
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
@@ -494,7 +495,7 @@ router.post("/search", requireAuth, requireCompany, async (req, res) => {
 });
 
 // POST /projects/:projectId/documents/qa — RAG-powered Q&A with multi-turn
-router.post("/qa", requireAuth, requireCompany, async (req, res) => {
+router.post("/qa", requireAuth, requireCompany, requireAiQuota, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
@@ -987,7 +988,7 @@ Respond with ONLY the JSON object, no markdown.`;
 }
 
 // POST /projects/:projectId/documents/:docId/reindex — re-run OCR + chunk for full-text search
-router.post("/:docId/reindex", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.post("/:docId/reindex", requireAuth, requireCompany, requireOwnerOrForeman, requireAiQuota, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const docId = parseInt(req.params.docId as string);
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
