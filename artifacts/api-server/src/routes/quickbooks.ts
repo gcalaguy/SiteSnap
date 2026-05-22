@@ -100,9 +100,8 @@ async function qbRequest(conn: Awaited<ReturnType<typeof getValidToken>>, method
 }
 
 async function findOrCreateCustomer(conn: Awaited<ReturnType<typeof getValidToken>>, displayName: string, email?: string | null) {
-  const safeName = displayName.replace(/'/g, "\\'");
-  const query = encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName = '${safeName}' MAXRESULTS 1`);
-  const result = await qbRequest(conn, "GET", `/query?query=${query}`);
+  const query = `SELECT * FROM Customer WHERE DisplayName = ?1 MAXRESULTS 1`;
+  const result = await qbRequest(conn, "GET", `/query?query=${encodeURIComponent(query)}&minorversion=73`);
   const existing = result?.QueryResponse?.Customer?.[0];
   if (existing) return existing.Id as string;
 

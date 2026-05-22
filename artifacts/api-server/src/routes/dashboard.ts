@@ -109,7 +109,7 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
         .where(
           and(
             eq(rfisTable.projectId, pid),
-            sql`${rfisTable.status} IN ('open', 'in_review')`,
+            inArray(rfisTable.status, ["open", "in_review"]),
           ),
         );
       openRFIs += rfis.length;

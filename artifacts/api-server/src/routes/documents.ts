@@ -279,6 +279,9 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewDocuments"),
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
+  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
+
   const docs = await db
     .select()
     .from(projectDocumentsTable)

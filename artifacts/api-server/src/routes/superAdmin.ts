@@ -14,6 +14,7 @@ import {
   insertFeatureSchema,
   insertCompanySchema,
 } from "@workspace/db";
+import { z } from "zod/v4";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { requireAuth, requireSuperAdmin } from "../lib/auth";
 import { getUncachableStripeClient } from "../lib/stripeClient";
@@ -42,7 +43,17 @@ router.post("/admin/plans", ...guard, async (req, res) => {
     res.status(400).json({ error: "monthlyPrice and yearlyPrice are required and must be valid numbers" });
     return;
   }
-  const body = insertPlanSchema.parse(raw);
+  const PlanCreateBody = insertPlanSchema.pick({
+    name: true,
+    slug: true,
+    description: true,
+    monthlyPrice: true,
+    yearlyPrice: true,
+    maxSeats: true,
+    isActive: true,
+    customConfig: true,
+  });
+  const body = PlanCreateBody.parse(raw);
   const [plan] = await db.insert(plansTable).values(body).returning();
 
   try {
@@ -105,7 +116,20 @@ router.patch("/admin/plans/:id", ...guard, async (req, res) => {
     res.status(400).json({ error: "yearlyPrice must be a valid number" });
     return;
   }
-  const body = insertPlanSchema.partial().parse(raw);
+  const PlanUpdateBody = insertPlanSchema.partial().pick({
+    name: true,
+    slug: true,
+    description: true,
+    monthlyPrice: true,
+    yearlyPrice: true,
+    maxSeats: true,
+    isActive: true,
+    stripeProductId: true,
+    stripeMonthlyPriceId: true,
+    stripeYearlyPriceId: true,
+    customConfig: true,
+  });
+  const body = PlanUpdateBody.parse(raw);
 
   const [existing] = await db.select().from(plansTable).where(eq(plansTable.id, id)).limit(1);
   if (!existing) { res.status(404).json({ error: "Plan not found" }); return; }

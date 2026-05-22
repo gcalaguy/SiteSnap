@@ -562,7 +562,7 @@ async function notifyForemen(companyId: number, submissionId: number, templateNa
       and(
         eq(userMembershipsTable.userId, usersTable.id),
         eq(userMembershipsTable.companyId, companyId),
-        sql`${userMembershipsTable.role} IN ('owner', 'foreman')`,
+        inArray(userMembershipsTable.role, ["owner", "foreman"]),
       ),
     );
 

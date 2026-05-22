@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc, sql, inArray, ne } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray, ne } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -107,7 +107,20 @@ router.get("/tradehub/feed", requireAuth, async (req, res) => {
     const limit = 20;
     const offset = (pageNum - 1) * limit;
 
-    const conditions: any[] = [eq(tradehubPostsTable.visibility, "public")];
+    const conditions: any[] = [];
+    if (req.companyId) {
+      conditions.push(
+        or(
+          eq(tradehubPostsTable.visibility, "public"),
+          and(
+            eq(tradehubPostsTable.visibility, "internal"),
+            eq(tradehubPostsTable.companyId, req.companyId),
+          ),
+        ),
+      );
+    } else {
+      conditions.push(eq(tradehubPostsTable.visibility, "public"));
+    }
     if (type) conditions.push(eq(tradehubPostsTable.type, type));
     if (province) conditions.push(eq(tradehubPostsTable.province, province));
     if (trade) conditions.push(eq(tradehubPostsTable.trade, trade));

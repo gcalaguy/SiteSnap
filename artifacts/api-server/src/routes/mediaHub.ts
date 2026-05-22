@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { db, mediaHubPhotosTable } from "@workspace/db";
+import { db, mediaHubPhotosTable, projectsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { ObjectStorageService } from "../lib/objectStorage";
 
@@ -18,6 +19,15 @@ const SavePhotoBody = z.object({
   roomLocation: z.string().nullable().optional(),
   markupData: z.unknown().nullable().optional(),
 });
+
+async function verifyProjectAccess(projectId: number, companyId: number) {
+  const [project] = await db
+    .select({ id: projectsTable.id })
+    .from(projectsTable)
+    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, companyId)))
+    .limit(1);
+  return project ?? null;
+}
 
 // POST /api/media/presigned-url
 router.post(
@@ -59,6 +69,12 @@ router.post(
     }
     const { projectId, imageUrl, roomLocation, markupData } = parsed.data;
     const uploadedById = req.userId ?? null;
+
+    const project = await verifyProjectAccess(projectId, req.companyId!);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
 
     const [photo] = await db
       .insert(mediaHubPhotosTable)
