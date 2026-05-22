@@ -135,9 +135,14 @@ export default function FinanceScreen() {
   const [clientName, setClientName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Per-tab pull-to-refresh tracking (separate from initial load)
+  const [invRefreshing, setInvRefreshing] = useState(false);
+  const [qRefreshing, setQRefreshing] = useState(false);
+
   // Change orders state
   const [changeOrders, setChangeOrders] = useState<any[]>([]);
   const [coLoading, setCoLoading] = useState(false);
+  const [coRefreshing, setCoRefreshing] = useState(false);
   const [coUpdatedAt, setCoUpdatedAt] = useState<number | null>(null);
   const [sigCOId, setSigCOId] = useState<number | null>(null);
 
@@ -171,15 +176,41 @@ export default function FinanceScreen() {
   const isRecording = voiceState === "recording";
   const isTranscribing = voiceState === "transcribing";
 
+  // Pull-to-refresh handlers for invoices and quotes
+  const handleRefreshInv = useCallback(async () => {
+    setInvRefreshing(true);
+    try {
+      await refetchInv();
+    } finally {
+      setInvRefreshing(false);
+    }
+  }, [refetchInv]);
+
+  const handleRefreshQ = useCallback(async () => {
+    setQRefreshing(true);
+    try {
+      await refetchQ();
+    } finally {
+      setQRefreshing(false);
+    }
+  }, [refetchQ]);
+
   // Load change orders
-  const loadChangeOrders = useCallback(async () => {
-    setCoLoading(true);
+  const loadChangeOrders = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setCoRefreshing(true);
+    } else {
+      setCoLoading(true);
+    }
     try {
       const data = await customFetch("/api/change-orders") as any[];
       setChangeOrders(data ?? []);
       setCoUpdatedAt(Date.now());
     } catch { /* ignore */ }
-    finally { setCoLoading(false); }
+    finally {
+      setCoLoading(false);
+      setCoRefreshing(false);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -296,14 +327,18 @@ export default function FinanceScreen() {
       </View>
 
       {/* Last updated label */}
-      {(tab === "invoices" ? invRelativeTime : tab === "quotes" ? qRelativeTime : coRelativeTime) ? (
-        <View style={styles.updatedRow}>
-          <Feather name="clock" size={11} color="#9CA3AF" />
-          <Text style={styles.updatedText}>
-            {tab === "invoices" ? invRelativeTime : tab === "quotes" ? qRelativeTime : coRelativeTime}
-          </Text>
-        </View>
-      ) : null}
+      {(() => {
+        const isRefreshing = tab === "invoices" ? invRefreshing : tab === "quotes" ? qRefreshing : coRefreshing;
+        const relTime = tab === "invoices" ? invRelativeTime : tab === "quotes" ? qRelativeTime : coRelativeTime;
+        const label = isRefreshing ? "Refreshing…" : relTime;
+        if (!label) return null;
+        return (
+          <View style={styles.updatedRow}>
+            <Feather name="clock" size={11} color="#9CA3AF" />
+            <Text style={styles.updatedText}>{label}</Text>
+          </View>
+        );
+      })()}
 
       {/* List */}
       {tab === "invoices" ? (
@@ -328,7 +363,7 @@ export default function FinanceScreen() {
             ListEmptyComponent={
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No invoices yet</Text>
             }
-            refreshControl={<RefreshControl refreshing={invLoading} onRefresh={refetchInv} tintColor={colors.primary} />}
+            refreshControl={<RefreshControl refreshing={invRefreshing} onRefresh={handleRefreshInv} tintColor={colors.primary} />}
           />
         )
       ) : tab === "quotes" ? (
@@ -353,7 +388,7 @@ export default function FinanceScreen() {
             ListEmptyComponent={
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No quotes yet</Text>
             }
-            refreshControl={<RefreshControl refreshing={qLoading} onRefresh={refetchQ} tintColor={colors.primary} />}
+            refreshControl={<RefreshControl refreshing={qRefreshing} onRefresh={handleRefreshQ} tintColor={colors.primary} />}
           />
         )
       ) : (
@@ -367,7 +402,7 @@ export default function FinanceScreen() {
             ListEmptyComponent={
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No change orders yet</Text>
             }
-            refreshControl={<RefreshControl refreshing={coLoading} onRefresh={loadChangeOrders} tintColor={colors.primary} />}
+            refreshControl={<RefreshControl refreshing={coRefreshing} onRefresh={() => loadChangeOrders(true)} tintColor={colors.primary} />}
             renderItem={({ item }: { item: any }) => {
               const statusColor = item.status === "approved" ? "#22C55E" : item.status === "rejected" ? "#EF4444" : "#F59E0B";
               const statusLabel = item.status === "approved" ? "Approved" : item.status === "rejected" ? "Rejected" : "Pending";
