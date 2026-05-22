@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useListProjects, useCreateProject } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,7 @@ import {
   Loader2,
   MapPin,
   Building2,
+  RefreshCw,
 } from "lucide-react";
 
 const GOLD = "#D4AF37";
@@ -59,7 +60,7 @@ const projectSchema = z.object({
 type Filter = "All" | "Active" | "OnHold" | "Complete";
 
 export default function Projects() {
-  const { data: projects, isLoading } = useListProjects();
+  const { data: projects, isLoading, dataUpdatedAt } = useListProjects();
   const createProject = useCreateProject();
   const { toast } = useToast();
   const [search, setSearch]           = useState("");
@@ -67,6 +68,24 @@ export default function Projects() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [sortCol, setSortCol]         = useState<string | null>(null);
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc");
+
+  const [lastUpdatedLabel, setLastUpdatedLabel] = useState<string>("");
+
+  useEffect(() => {
+    function computeLabel() {
+      if (!dataUpdatedAt) return "";
+      const secs = Math.floor((Date.now() - dataUpdatedAt) / 1000);
+      if (secs < 5) return "just now";
+      if (secs < 60) return `${secs}s ago`;
+      const mins = Math.floor(secs / 60);
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      return `${hrs}h ago`;
+    }
+    setLastUpdatedLabel(computeLabel());
+    const id = setInterval(() => setLastUpdatedLabel(computeLabel()), 10_000);
+    return () => clearInterval(id);
+  }, [dataUpdatedAt]);
 
   const form = useForm<z.infer<typeof projectSchema>>({
     resolver: zodResolver(projectSchema),
@@ -151,6 +170,18 @@ export default function Projects() {
           <p className="text-sm mt-0.5 text-[#121212]/60 font-medium">All your job sites in one place</p>
         </div>
         <div className="flex items-center gap-2">
+          {lastUpdatedLabel && (
+            <span className="text-xs text-[#121212]/40 hidden sm:block">
+              Updated {lastUpdatedLabel}
+            </span>
+          )}
+          <button
+            onClick={() => queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() })}
+            className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border hover:bg-[#F8F8F8]"
+            style={{ borderColor: "rgba(212,175,55,0.25)", color: MUTED }}
+          >
+            <RefreshCw size={12} style={{ color: GOLD }} /> Refresh
+          </button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <button

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { 
   useGetProject, 
@@ -207,7 +207,26 @@ function TasksTab({ projectId, selectedWorkerId, members }: {
   members: Member[];
 }) {
   const { toast } = useToast();
-  const { data: allTasks = [], isLoading } = useListTasks(projectId);
+  const { data: allTasks = [], isLoading, dataUpdatedAt } = useListTasks(projectId);
+
+  const [lastUpdatedLabel, setLastUpdatedLabel] = useState<string>("");
+
+  useEffect(() => {
+    function computeLabel() {
+      if (!dataUpdatedAt) return "";
+      const secs = Math.floor((Date.now() - dataUpdatedAt) / 1000);
+      if (secs < 5) return "just now";
+      if (secs < 60) return `${secs}s ago`;
+      const mins = Math.floor(secs / 60);
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      return `${hrs}h ago`;
+    }
+    setLastUpdatedLabel(computeLabel());
+    const id = setInterval(() => setLastUpdatedLabel(computeLabel()), 10_000);
+    return () => clearInterval(id);
+  }, [dataUpdatedAt]);
+
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
@@ -313,9 +332,16 @@ function TasksTab({ projectId, selectedWorkerId, members }: {
             </p>
           )}
         </div>
-        <Button onClick={handleOpenDialog}>
-          <Plus className="mr-2 h-4 w-4" /> Add Task
-        </Button>
+        <div className="flex items-center gap-3">
+          {lastUpdatedLabel && (
+            <span className="text-xs text-muted-foreground hidden sm:block">
+              Updated {lastUpdatedLabel}
+            </span>
+          )}
+          <Button onClick={handleOpenDialog}>
+            <Plus className="mr-2 h-4 w-4" /> Add Task
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
