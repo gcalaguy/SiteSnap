@@ -434,11 +434,17 @@ router.get("/tradehub/jobs", requireAuth, async (req, res) => {
   }
 });
 
+const ApplyToJobBody = z.object({
+  message: z.string().max(2000).optional(),
+});
+
 // POST /tradehub/jobs/:id/apply
 router.post("/tradehub/jobs/:id/apply", requireAuth, async (req, res) => {
   try {
     const postId = parseInt(req.params.id as string);
-    const { message } = req.body as { message?: string };
+    const parsed = ApplyToJobBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { message } = parsed.data;
 
     const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, postId)).limit(1);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
@@ -474,14 +480,17 @@ router.post("/tradehub/jobs/:id/apply", requireAuth, async (req, res) => {
   }
 });
 
+const UpdateApplicationBody = z.object({
+  status: z.enum(["reviewed", "accepted", "rejected"]),
+});
+
 // PATCH /tradehub/applications/:id — update application status
 router.patch("/tradehub/applications/:id", requireAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    const { status } = req.body as { status: string };
-    if (!["reviewed", "accepted", "rejected"].includes(status)) {
-      res.status(400).json({ error: "Invalid status" }); return;
-    }
+    const parsed = UpdateApplicationBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { status } = parsed.data;
 
     const [app] = await db.select().from(tradehubJobApplicationsTable).where(eq(tradehubJobApplicationsTable.id, id)).limit(1);
     if (!app) { res.status(404).json({ error: "Application not found" }); return; }

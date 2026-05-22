@@ -743,7 +743,7 @@ router.delete("/conversations/:conversationId", requireAuth, requireCompany, req
     const [conversation] = await db
       .select()
       .from(conversationsTable)
-      .where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, req.userId!)))
+      .where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, req.userId!), eq(conversationsTable.companyId, req.companyId!)))
       .limit(1);
 
     if (!conversation) {
@@ -751,7 +751,7 @@ router.delete("/conversations/:conversationId", requireAuth, requireCompany, req
       return;
     }
 
-    await db.delete(conversationsTable).where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, req.userId!)));
+    await db.delete(conversationsTable).where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, req.userId!), eq(conversationsTable.companyId, req.companyId!)));
     res.status(204).send();
   } catch (err) {
     req.log?.error({ err }, "Failed to delete conversation");
