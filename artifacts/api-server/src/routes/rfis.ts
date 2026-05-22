@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, rfisTable, usersTable, projectsTable } from "@workspace/db";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, SQL } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
@@ -15,6 +15,21 @@ allRfisRouter.get(
   requireCompany,
   requirePermission("viewQuotes"),
   asyncHandler(async (req, res) => {
+    const { projectId: projectIdParam, status: statusParam } = req.query as Record<string, string | undefined>;
+
+    const validStatuses = ["open", "in_review", "answered", "closed"] as const;
+    type RFIStatus = typeof validStatuses[number];
+    const statusFilter = validStatuses.includes(statusParam as RFIStatus) ? (statusParam as RFIStatus) : undefined;
+    const projectIdFilter = projectIdParam ? parseInt(projectIdParam, 10) : undefined;
+
+    const conditions: SQL[] = [eq(projectsTable.companyId, req.companyId!)];
+    if (projectIdFilter && !isNaN(projectIdFilter)) {
+      conditions.push(eq(rfisTable.projectId, projectIdFilter));
+    }
+    if (statusFilter) {
+      conditions.push(eq(rfisTable.status, statusFilter));
+    }
+
     const rows = await db
       .select({
         id: rfisTable.id,
@@ -30,11 +45,9 @@ allRfisRouter.get(
         submittedByLastName: usersTable.lastName,
       })
       .from(rfisTable)
-      .innerJoin(projectsTable, and(
-        eq(rfisTable.projectId, projectsTable.id),
-        eq(projectsTable.companyId, req.companyId!),
-      ))
+      .innerJoin(projectsTable, eq(rfisTable.projectId, projectsTable.id))
       .leftJoin(usersTable, eq(rfisTable.submittedByUserId, usersTable.id))
+      .where(and(...conditions))
       .orderBy(rfisTable.createdAt);
 
     res.json(rows.map((r) => ({

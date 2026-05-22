@@ -1,15 +1,32 @@
-import { useListAllDailyReports } from "@workspace/api-client-react";
+import { useListAllDailyReports, useListProjects } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { FileText, Search, ExternalLink, Users, Cloud } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { FileText, Search, ExternalLink, Users, Cloud, X } from "lucide-react";
 import { useState } from "react";
 
 export default function ReportsPage() {
   const [search, setSearch] = useState("");
+  const [projectId, setProjectId] = useState<number | undefined>(undefined);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
-  const { data: reports = [], isLoading } = useListAllDailyReports();
+  const { data: projects = [] } = useListProjects();
+  const { data: reports = [], isLoading } = useListAllDailyReports({
+    projectId,
+    from: from || undefined,
+    to: to || undefined,
+  });
 
   const filtered = reports.filter((r) => {
     const q = search.toLowerCase();
@@ -24,6 +41,14 @@ export default function ReportsPage() {
     (a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime(),
   );
 
+  const hasFilters = projectId !== undefined || from !== "" || to !== "";
+
+  function clearFilters() {
+    setProjectId(undefined);
+    setFrom("");
+    setTo("");
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -34,14 +59,66 @@ export default function ReportsPage() {
         <p className="text-sm text-[#121212]/60 font-medium">All daily site reports submitted across your projects.</p>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#D4AF37]" />
-        <Input
-          className="pl-9 border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
-          placeholder="Search reports…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex flex-wrap gap-3 items-end">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#D4AF37]" />
+          <Input
+            className="pl-9 border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
+            placeholder="Search reports…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <Select
+          value={projectId !== undefined ? String(projectId) : "all"}
+          onValueChange={(v) => setProjectId(v === "all" ? undefined : Number(v))}
+        >
+          <SelectTrigger className="w-[180px] border-[#D4AF37]/20 focus:ring-[#D4AF37]">
+            <SelectValue placeholder="All Projects" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Projects</SelectItem>
+            {projects.map((p) => (
+              <SelectItem key={p.id} value={String(p.id)}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="flex items-end gap-2">
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs text-[#121212]/60 font-medium">From</Label>
+            <Input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="w-[150px] border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs text-[#121212]/60 font-medium">To</Label>
+            <Input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="w-[150px] border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
+            />
+          </div>
+        </div>
+
+        {hasFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="text-[#121212]/60 hover:text-[#121212] gap-1"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear filters
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -50,7 +127,9 @@ export default function ReportsPage() {
         <Card className="border-[#D4AF37]/20">
           <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
             <FileText className="h-10 w-10 text-[#D4AF37]/40" />
-            <p className="text-[#121212]/60 font-medium">{search ? "No reports match your search." : "No daily reports yet. Submit one from a project."}</p>
+            <p className="text-[#121212]/60 font-medium">
+              {search || hasFilters ? "No reports match your filters." : "No daily reports yet. Submit one from a project."}
+            </p>
           </CardContent>
         </Card>
       ) : (

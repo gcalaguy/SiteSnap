@@ -2525,6 +2525,21 @@ export type SetActiveCompanyBody = {
   companyId: number;
 };
 
+export type ListAllDailyReportsParams = {
+  /**
+   * Filter by project ID
+   */
+  projectId?: number;
+  /**
+   * Start of date range (inclusive, YYYY-MM-DD)
+   */
+  from?: string;
+  /**
+   * End of date range (inclusive, YYYY-MM-DD)
+   */
+  to?: string;
+};
+
 export type DeleteDailyReport200 = {
   ok?: boolean;
 };
@@ -2532,6 +2547,27 @@ export type DeleteDailyReport200 = {
 export type DeleteCostAnalysis200 = {
   ok?: boolean;
 };
+
+export type ListAllRFIsParams = {
+  /**
+   * Filter by project ID
+   */
+  projectId?: number;
+  /**
+   * Filter by RFI status
+   */
+  status?: ListAllRFIsStatus;
+};
+
+export type ListAllRFIsStatus =
+  (typeof ListAllRFIsStatus)[keyof typeof ListAllRFIsStatus];
+
+export const ListAllRFIsStatus = {
+  open: "open",
+  in_review: "in_review",
+  answered: "answered",
+  closed: "closed",
+} as const;
 
 export type DeleteRFI200 = {
   ok?: boolean;

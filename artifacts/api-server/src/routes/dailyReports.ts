@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, dailyReportsTable, usersTable, projectsTable, dailyReportPhotosTable } from "@workspace/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, gte, lte, SQL } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { CreateDailyReportBody, UpdateDailyReportBody } from "@workspace/api-zod";
@@ -14,6 +14,21 @@ allDailyReportsRouter.get(
   requireCompany,
   requirePermission("viewTimesheets"),
   asyncHandler(async (req, res) => {
+    const { projectId: projectIdParam, from: fromParam, to: toParam } = req.query as Record<string, string | undefined>;
+
+    const projectIdFilter = projectIdParam ? parseInt(projectIdParam, 10) : undefined;
+
+    const conditions: SQL[] = [eq(projectsTable.companyId, req.companyId!)];
+    if (projectIdFilter && !isNaN(projectIdFilter)) {
+      conditions.push(eq(dailyReportsTable.projectId, projectIdFilter));
+    }
+    if (fromParam) {
+      conditions.push(gte(dailyReportsTable.reportDate, fromParam));
+    }
+    if (toParam) {
+      conditions.push(lte(dailyReportsTable.reportDate, toParam));
+    }
+
     const rows = await db
       .select({
         id: dailyReportsTable.id,
@@ -30,11 +45,9 @@ allDailyReportsRouter.get(
         submittedByLastName: usersTable.lastName,
       })
       .from(dailyReportsTable)
-      .innerJoin(projectsTable, and(
-        eq(dailyReportsTable.projectId, projectsTable.id),
-        eq(projectsTable.companyId, req.companyId!),
-      ))
+      .innerJoin(projectsTable, eq(dailyReportsTable.projectId, projectsTable.id))
       .leftJoin(usersTable, eq(dailyReportsTable.submittedByUserId, usersTable.id))
+      .where(and(...conditions))
       .orderBy(dailyReportsTable.reportDate);
 
     res.json(rows.map((r) => ({

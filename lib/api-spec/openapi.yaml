@@ -1726,6 +1726,27 @@ paths:
       operationId: listAllDailyReports
       tags: [daily-reports]
       summary: List all daily reports across all projects for the company
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by project ID
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Start of date range (inclusive, YYYY-MM-DD)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: End of date range (inclusive, YYYY-MM-DD)
       responses:
         "200":
           description: All daily reports for the company
@@ -1929,6 +1950,20 @@ paths:
       operationId: listAllRFIs
       tags: [rfis]
       summary: List all RFIs across all projects for the company
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by project ID
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, in_review, answered, closed]
+          description: Filter by RFI status
       responses:
         "200":
           description: All RFIs for the company

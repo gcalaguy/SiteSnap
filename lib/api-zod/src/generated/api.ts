@@ -2275,6 +2275,18 @@ export const GetProjectSummaryResponse = zod.object({
 /**
  * @summary List all daily reports across all projects for the company
  */
+export const ListAllDailyReportsQueryParams = zod.object({
+  projectId: zod.coerce.number().optional().describe("Filter by project ID"),
+  from: zod
+    .date()
+    .optional()
+    .describe("Start of date range (inclusive, YYYY-MM-DD)"),
+  to: zod
+    .date()
+    .optional()
+    .describe("End of date range (inclusive, YYYY-MM-DD)"),
+});
+
 export const ListAllDailyReportsResponseItem = zod.object({
   id: zod.number(),
   projectId: zod.number(),
@@ -2578,6 +2590,14 @@ export const DeleteCostAnalysisResponse = zod.object({
 /**
  * @summary List all RFIs across all projects for the company
  */
+export const ListAllRFIsQueryParams = zod.object({
+  projectId: zod.coerce.number().optional().describe("Filter by project ID"),
+  status: zod
+    .enum(["open", "in_review", "answered", "closed"])
+    .optional()
+    .describe("Filter by RFI status"),
+});
+
 export const ListAllRFIsResponseItem = zod.object({
   id: zod.number(),
   projectId: zod.number(),
