@@ -331,6 +331,20 @@ export interface ProjectSummary {
   lastReportDate?: string | null;
 }
 
+export interface DailyReportListItem {
+  id: number;
+  projectId: number;
+  projectName?: string | null;
+  reportDate: string;
+  submittedByName: string;
+  weather?: string | null;
+  temperature?: string | null;
+  crewCount: number;
+  workPerformed: string;
+  issues?: string | null;
+  createdAt: string;
+}
+
 export interface DailyReport {
   id: number;
   projectId: number;
@@ -401,6 +415,19 @@ export const RFIPriority = {
   high: "high",
   urgent: "urgent",
 } as const;
+
+export interface RFIListItem {
+  id: number;
+  projectId: number;
+  projectName?: string | null;
+  rfiNumber: string;
+  subject: string;
+  status: RFIStatus;
+  priority: RFIPriority;
+  submittedByName: string;
+  dueDate?: string | null;
+  createdAt: string;
+}
 
 export interface Rfi {
   id: number;

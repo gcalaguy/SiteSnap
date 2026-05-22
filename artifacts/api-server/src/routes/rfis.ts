@@ -5,6 +5,54 @@ import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth"
 import { requirePermission } from "../lib/permissionGate";
 import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
 import { notify } from "../lib/notify";
+import { asyncHandler } from "../lib/asyncHandler";
+
+// GET /rfis — all RFIs across all projects for the authenticated company
+export const allRfisRouter = Router();
+allRfisRouter.get(
+  "/rfis",
+  requireAuth,
+  requireCompany,
+  requirePermission("viewQuotes"),
+  asyncHandler(async (req, res) => {
+    const rows = await db
+      .select({
+        id: rfisTable.id,
+        projectId: rfisTable.projectId,
+        projectName: projectsTable.name,
+        rfiNumber: rfisTable.rfiNumber,
+        subject: rfisTable.subject,
+        status: rfisTable.status,
+        priority: rfisTable.priority,
+        dueDate: rfisTable.dueDate,
+        createdAt: rfisTable.createdAt,
+        submittedByFirstName: usersTable.firstName,
+        submittedByLastName: usersTable.lastName,
+      })
+      .from(rfisTable)
+      .innerJoin(projectsTable, and(
+        eq(rfisTable.projectId, projectsTable.id),
+        eq(projectsTable.companyId, req.companyId!),
+      ))
+      .leftJoin(usersTable, eq(rfisTable.submittedByUserId, usersTable.id))
+      .orderBy(rfisTable.createdAt);
+
+    res.json(rows.map((r) => ({
+      id: r.id,
+      projectId: r.projectId,
+      projectName: r.projectName ?? null,
+      rfiNumber: r.rfiNumber,
+      subject: r.subject,
+      status: r.status,
+      priority: r.priority,
+      dueDate: r.dueDate ?? null,
+      createdAt: r.createdAt,
+      submittedByName: r.submittedByFirstName && r.submittedByLastName
+        ? `${r.submittedByFirstName} ${r.submittedByLastName}`
+        : "Unknown",
+    })));
+  }),
+);
 
 const router = Router({ mergeParams: true });
 

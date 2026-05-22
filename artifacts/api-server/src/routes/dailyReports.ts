@@ -4,6 +4,56 @@ import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { CreateDailyReportBody, UpdateDailyReportBody } from "@workspace/api-zod";
+import { asyncHandler } from "../lib/asyncHandler";
+
+// GET /daily-reports — all daily reports across all projects for the authenticated company
+export const allDailyReportsRouter = Router();
+allDailyReportsRouter.get(
+  "/daily-reports",
+  requireAuth,
+  requireCompany,
+  requirePermission("viewTimesheets"),
+  asyncHandler(async (req, res) => {
+    const rows = await db
+      .select({
+        id: dailyReportsTable.id,
+        projectId: dailyReportsTable.projectId,
+        projectName: projectsTable.name,
+        reportDate: dailyReportsTable.reportDate,
+        weather: dailyReportsTable.weather,
+        temperature: dailyReportsTable.temperature,
+        crewCount: dailyReportsTable.crewCount,
+        workPerformed: dailyReportsTable.workPerformed,
+        issues: dailyReportsTable.issues,
+        createdAt: dailyReportsTable.createdAt,
+        submittedByFirstName: usersTable.firstName,
+        submittedByLastName: usersTable.lastName,
+      })
+      .from(dailyReportsTable)
+      .innerJoin(projectsTable, and(
+        eq(dailyReportsTable.projectId, projectsTable.id),
+        eq(projectsTable.companyId, req.companyId!),
+      ))
+      .leftJoin(usersTable, eq(dailyReportsTable.submittedByUserId, usersTable.id))
+      .orderBy(dailyReportsTable.reportDate);
+
+    res.json(rows.map((r) => ({
+      id: r.id,
+      projectId: r.projectId,
+      projectName: r.projectName ?? null,
+      reportDate: r.reportDate,
+      weather: r.weather ?? null,
+      temperature: r.temperature ?? null,
+      crewCount: r.crewCount,
+      workPerformed: r.workPerformed,
+      issues: r.issues ?? null,
+      createdAt: r.createdAt,
+      submittedByName: r.submittedByFirstName && r.submittedByLastName
+        ? `${r.submittedByFirstName} ${r.submittedByLastName}`
+        : "Unknown",
+    })));
+  }),
+);
 
 const router = Router({ mergeParams: true });
 

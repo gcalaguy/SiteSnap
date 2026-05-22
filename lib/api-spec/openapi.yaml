@@ -1636,6 +1636,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProjectSummary"
 
+  # ── Cross-project Daily Reports ────────────────────────────────────────────
+  /daily-reports:
+    get:
+      operationId: listAllDailyReports
+      tags: [daily-reports]
+      summary: List all daily reports across all projects for the company
+      responses:
+        "200":
+          description: All daily reports for the company
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyReportListItem"
+
   # ── Daily Reports ──────────────────────────────────────────────────────────
   /projects/{projectId}/daily-reports:
     get:
@@ -1822,6 +1838,22 @@ paths:
                     type: boolean
         "404":
           description: Not found
+
+  # ── Cross-project RFIs ─────────────────────────────────────────────────────
+  /rfis:
+    get:
+      operationId: listAllRFIs
+      tags: [rfis]
+      summary: List all RFIs across all projects for the company
+      responses:
+        "200":
+          description: All RFIs for the company
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RFIListItem"
 
   # ── RFIs ───────────────────────────────────────────────────────────────────
   /projects/{projectId}/rfis:
@@ -5087,6 +5119,39 @@ components:
       required: [projectId, projectName, status, totalSpent, reportCount, openRFICount, closedRFICount]
 
     # ── Daily Reports ─────────────────────────────────────────────────────────
+    DailyReportListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        projectName:
+          type: string
+          nullable: true
+        reportDate:
+          type: string
+          format: date
+        submittedByName:
+          type: string
+        weather:
+          type: string
+          nullable: true
+        temperature:
+          type: string
+          nullable: true
+        crewCount:
+          type: integer
+        workPerformed:
+          type: string
+        issues:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, projectId, reportDate, submittedByName, crewCount, workPerformed, createdAt]
+
     DailyReport:
       type: object
       properties:
@@ -5202,6 +5267,35 @@ components:
         aiAnalysis:
           type: string
       required: [periodLabel, labourCost, materialsCost, equipmentCost, otherCost]
+
+    RFIListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        projectName:
+          type: string
+          nullable: true
+        rfiNumber:
+          type: string
+        subject:
+          type: string
+        status:
+          $ref: "#/components/schemas/RFIStatus"
+        priority:
+          $ref: "#/components/schemas/RFIPriority"
+        submittedByName:
+          type: string
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, projectId, rfiNumber, subject, status, priority, submittedByName, createdAt]
 
     # ── RFIs ──────────────────────────────────────────────────────────────────
     RFI:

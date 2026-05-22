@@ -2197,6 +2197,26 @@ export const GetProjectSummaryResponse = zod.object({
 });
 
 /**
+ * @summary List all daily reports across all projects for the company
+ */
+export const ListAllDailyReportsResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  projectName: zod.string().nullish(),
+  reportDate: zod.coerce.date(),
+  submittedByName: zod.string(),
+  weather: zod.string().nullish(),
+  temperature: zod.string().nullish(),
+  crewCount: zod.number(),
+  workPerformed: zod.string(),
+  issues: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAllDailyReportsResponse = zod.array(
+  ListAllDailyReportsResponseItem,
+);
+
+/**
  * @summary List daily reports for a project
  */
 export const ListDailyReportsParams = zod.object({
@@ -2478,6 +2498,23 @@ export const DeleteCostAnalysisParams = zod.object({
 export const DeleteCostAnalysisResponse = zod.object({
   ok: zod.boolean().optional(),
 });
+
+/**
+ * @summary List all RFIs across all projects for the company
+ */
+export const ListAllRFIsResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  projectName: zod.string().nullish(),
+  rfiNumber: zod.string(),
+  subject: zod.string(),
+  status: zod.enum(["open", "in_review", "answered", "closed"]),
+  priority: zod.enum(["low", "medium", "high", "urgent"]),
+  submittedByName: zod.string(),
+  dueDate: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAllRFIsResponse = zod.array(ListAllRFIsResponseItem);
 
 /**
  * @summary List RFIs for a project

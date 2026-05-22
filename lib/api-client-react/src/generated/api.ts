@@ -79,6 +79,7 @@ import type {
   CreateTradehubReportBody,
   DailyLogRecord,
   DailyReport,
+  DailyReportListItem,
   DailyReportPhoto,
   DashboardSummary,
   DeleteAddon200,
@@ -153,6 +154,7 @@ import type {
   Quote,
   QuoteAIGenerateBody,
   QuoteAIGenerateResponse,
+  RFIListItem,
   ReactToTradehubPost200,
   RecordPaymentBody,
   RegisterDocumentBody,
@@ -7309,6 +7311,81 @@ export function useGetProjectSummary<
 }
 
 /**
+ * @summary List all daily reports across all projects for the company
+ */
+export const getListAllDailyReportsUrl = () => {
+  return `/api/daily-reports`;
+};
+
+export const listAllDailyReports = async (
+  options?: RequestInit,
+): Promise<DailyReportListItem[]> => {
+  return customFetch<DailyReportListItem[]>(getListAllDailyReportsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAllDailyReportsQueryKey = () => {
+  return [`/api/daily-reports`] as const;
+};
+
+export const getListAllDailyReportsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAllDailyReports>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAllDailyReports>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAllDailyReportsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAllDailyReports>>
+  > = ({ signal }) => listAllDailyReports({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAllDailyReports>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAllDailyReportsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAllDailyReports>>
+>;
+export type ListAllDailyReportsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all daily reports across all projects for the company
+ */
+
+export function useListAllDailyReports<
+  TData = Awaited<ReturnType<typeof listAllDailyReports>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAllDailyReports>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAllDailyReportsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary List daily reports for a project
  */
 export const getListDailyReportsUrl = (projectId: number) => {
@@ -8271,6 +8348,81 @@ export const useDeleteCostAnalysis = <
 > => {
   return useMutation(getDeleteCostAnalysisMutationOptions(options));
 };
+
+/**
+ * @summary List all RFIs across all projects for the company
+ */
+export const getListAllRFIsUrl = () => {
+  return `/api/rfis`;
+};
+
+export const listAllRFIs = async (
+  options?: RequestInit,
+): Promise<RFIListItem[]> => {
+  return customFetch<RFIListItem[]>(getListAllRFIsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAllRFIsQueryKey = () => {
+  return [`/api/rfis`] as const;
+};
+
+export const getListAllRFIsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAllRFIs>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAllRFIs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAllRFIsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAllRFIs>>> = ({
+    signal,
+  }) => listAllRFIs({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAllRFIs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAllRFIsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAllRFIs>>
+>;
+export type ListAllRFIsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all RFIs across all projects for the company
+ */
+
+export function useListAllRFIs<
+  TData = Awaited<ReturnType<typeof listAllRFIs>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAllRFIs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAllRFIsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List RFIs for a project

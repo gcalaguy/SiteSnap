@@ -1,5 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import { useListAllDailyReports } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,29 +6,10 @@ import { Input } from "@/components/ui/input";
 import { FileText, Search, ExternalLink, Users, Cloud } from "lucide-react";
 import { useState } from "react";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-type ReportItem = {
-  id: number;
-  projectId: number;
-  projectName: string | null;
-  reportDate: string;
-  submittedByName: string;
-  weather: string | null;
-  temperature: string | null;
-  crewCount: number;
-  workPerformed: string;
-  issues: string | null;
-  createdAt: string;
-};
-
 export default function ReportsPage() {
   const [search, setSearch] = useState("");
 
-  const { data: reports = [], isLoading } = useQuery<ReportItem[]>({
-    queryKey: ["daily-reports-all"],
-    queryFn: () => customFetch(`${BASE}/api/daily-reports`),
-  });
+  const { data: reports = [], isLoading } = useListAllDailyReports();
 
   const filtered = reports.filter((r) => {
     const q = search.toLowerCase();

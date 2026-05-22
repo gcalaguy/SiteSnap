@@ -1,27 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import { useListAllRFIs } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MessageSquareWarning, Search, ExternalLink } from "lucide-react";
 import { useState } from "react";
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-type RFIItem = {
-  id: number;
-  projectId: number;
-  projectName: string | null;
-  rfiNumber: string;
-  subject: string;
-  status: string;
-  priority: string;
-  submittedByName: string;
-  dueDate: string | null;
-  createdAt: string;
-};
 
 const statusColor: Record<string, string> = {
   open: "bg-red-100 text-red-700 border-red-200",
@@ -34,16 +18,13 @@ const priorityColor: Record<string, string> = {
   low: "bg-gray-100 text-gray-600 border-gray-200",
   medium: "bg-orange-100 text-orange-700 border-orange-200",
   high: "bg-red-100 text-red-700 border-red-200",
-  critical: "bg-red-200 text-red-800 border-red-300",
+  urgent: "bg-red-200 text-red-800 border-red-300",
 };
 
 export default function RFIsPage() {
   const [search, setSearch] = useState("");
 
-  const { data: rfis = [], isLoading } = useQuery<RFIItem[]>({
-    queryKey: ["rfis-all"],
-    queryFn: () => customFetch(`${BASE}/api/rfis`),
-  });
+  const { data: rfis = [], isLoading } = useListAllRFIs();
 
   const filtered = rfis.filter((r) => {
     const q = search.toLowerCase();
