@@ -13,6 +13,7 @@ import {
   unique,
   primaryKey,
   index,
+  vector,
 } from "drizzle-orm/pg-core";
 
 export * from "./conversations";
@@ -513,6 +514,24 @@ export const insertProjectDocumentSchema = createInsertSchema(
 export type InsertProjectDocument = z.infer<typeof insertProjectDocumentSchema>;
 export type ProjectDocument = typeof projectDocumentsTable.$inferSelect;
 
+// ── Document Chunks (RAG / semantic search) ───────────────────────────────────
+
+export const documentChunksTable = pgTable("document_chunks", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => projectsTable.id),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  docId: integer("doc_id").notNull().references(() => projectDocumentsTable.id),
+  chunkIndex: integer("chunk_index").notNull(),
+  content: text("content").notNull(),
+  embedding: vector("embedding", { dimensions: 1536 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("document_chunks_project_idx").on(t.projectId),
+  index("document_chunks_doc_idx").on(t.docId),
+]);
+
+export type DocumentChunk = typeof documentChunksTable.$inferSelect;
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 
 export const notificationsTable = pgTable("notifications", {
@@ -646,6 +665,7 @@ export const invoicesTable = pgTable("invoices", {
   reminderSentAt: timestamp("reminder_sent_at"),
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
   assignedToUserId: integer("assigned_to_user_id").references(() => usersTable.id),
+  proposalId: integer("proposal_id"),
   // E-signature audit trail
   signatureData: text("signature_data"),
   signerName: text("signer_name"),

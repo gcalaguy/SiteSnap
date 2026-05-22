@@ -9,7 +9,7 @@ To run the application:
 - **Build All**: `pnpm run build`
 - **Typecheck All**: `pnpm run typecheck`
 - **Codegen API**: `pnpm --filter @workspace/api-spec run codegen`
-- **Push DB Schema (dev)**: `pnpm --filter @workspace/db run push`
+- **Push DB Schema (dev)**: `pnpm --filter @workspace/db run push` (runs with `--force` — non-interactive)
 - **Migrate Production DB (after deploy)**: `DATABASE_URL=<prod_url> pnpm --filter @workspace/db run migrate`
 
 Required Environment Variables:
