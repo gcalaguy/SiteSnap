@@ -10,6 +10,9 @@ export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
+const DEFAULT_TIMEOUT_MS = 15000;
 
 // ---------------------------------------------------------------------------
 // Module-level configuration
@@ -154,6 +157,27 @@ function getStringField(value: unknown, key: string): string | undefined {
 
   const trimmed = candidate.trim();
   return trimmed === "" ? undefined : trimmed;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableError(err: unknown): boolean {
+  if (err instanceof ApiError) {
+    return err.response.status >= 500 || err.response.status === 429 || err.response.status === 408;
+  }
+  return true; // Network errors (TypeError, AbortError) are always retryable
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
 }
 
 function truncate(text: string, maxLength = 300): string {
@@ -380,12 +404,29 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await sleep(RETRY_DELAY_MS * Math.pow(2, attempt - 1));
+    }
+    try {
+      const response = await withTimeout(
+        fetch(input, { ...init, method, headers }),
+        DEFAULT_TIMEOUT_MS,
+      );
 
-  if (!response.ok) {
-    const errorData = await parseErrorBody(response, method);
-    throw new ApiError(response, errorData, requestInfo);
+      if (!response.ok) {
+        const errorData = await parseErrorBody(response, method);
+        throw new ApiError(response, errorData, requestInfo);
+      }
+
+      return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+    } catch (err) {
+      lastError = err;
+      if (attempt === MAX_RETRIES || !isRetryableError(err)) {
+        throw err;
+      }
+    }
   }
-
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  throw lastError;
 }

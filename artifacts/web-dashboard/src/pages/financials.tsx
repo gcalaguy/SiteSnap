@@ -1,10 +1,31 @@
-import { useState, useCallback, useEffect } from "react";
-import { customFetch } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetFinancialSummary,
+  useListPayments,
+  useListChangeOrders,
+  useListAllInvoices,
+  useListProjects,
+  useRecordPayment,
+  useDeletePayment,
+  useCreateChangeOrder,
+  useDeleteChangeOrder,
+  useApproveChangeOrder,
+  useRejectChangeOrder,
+} from "@workspace/api-client-react";
+import type {
+  FinancialSummary,
+  PaymentRecord,
+  ChangeOrderRecord,
+  Invoice,
+  Project,
+  RecordPaymentBody,
+  CreateChangeOrderBody,
+} from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -49,82 +70,26 @@ import {
   Trash2,
   Receipt,
   RefreshCw,
-  Pencil,
   ClipboardList,
   ArrowRight,
-  BarChart3,
   CreditCard,
 } from "lucide-react";
 import SearchBar from "@/components/SearchBar";
 import { format } from "date-fns";
 import { Link } from "wouter";
+import { FeatureGuard } from "@/components/FeatureGuard";
 
 // ── Brand ──────────────────────────────────────────────────────────────────────
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-type PaymentRecord = {
-  id: number;
-  companyId: number;
-  invoiceId: number;
-  amount: string;
-  method: string;
-  paidAt: string;
-  notes?: string | null;
-  createdAt: string;
-};
-
-type ChangeOrder = {
-  id: number;
-  companyId: number;
-  projectId: number;
-  title: string;
-  description?: string | null;
-  amount: string;
-  status: "pending" | "approved" | "rejected";
-  requestedByUserId: number;
-  approvedByUserId?: number | null;
-  approvedAt?: string | null;
-  clientSignatureData?: string | null;
-  signedAt?: string | null;
-  notes?: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type FinancialSummary = {
-  outstanding: string;
-  overdue: string;
-  collected: string;
-  totalInvoiced: string;
-  totalPaymentsReceived: string;
-  invoiceCount: number;
-  pendingChangeOrders: number;
-  approvedChangeOrdersValue: string;
-  recentPayments: PaymentRecord[];
-};
-
-type Invoice = {
-  id: number;
-  invoiceNumber: string;
-  title: string;
-  clientName: string;
-  status: string;
-  total: string;
-  dueDate?: string | null;
-};
-
-type Project = {
-  id: number;
-  name: string;
-};
-
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function cad(v: string | number | undefined | null) {
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(
-    parseFloat(String(v ?? "0")) || 0,
-  );
+  return new Intl.NumberFormat("en-CA", {
+    style: "currency",
+    currency: "CAD",
+    maximumFractionDigits: 0,
+  }).format(parseFloat(String(v ?? "0")) || 0);
 }
 
 const METHOD_LABELS: Record<string, string> = {
@@ -141,189 +106,200 @@ const CO_STATUS_CONFIG: Record<string, { label: string; color: string; bg: strin
   rejected: { label: "Rejected", color: "#DC2626", bg: "#FEE2E2", icon: <XCircle size={11} /> },
 };
 
-async function apiFetch(path: string, opts?: RequestInit) {
-  return customFetch(`/api${path}`, opts);
-}
-
-// ── Main Page ──────────────────────────────────────────────────────────────────
-import { FeatureGuard } from "@/components/FeatureGuard";
-
 function FinancialsInner() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<"overview" | "payments" | "change-orders">("overview");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [summary, setSummary] = useState<FinancialSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
+  // ── Data queries ──────────────────────────────────────────────────────────
+  const summaryQuery = useGetFinancialSummary();
+  const paymentsQuery = useListPayments();
+  const changeOrdersQuery = useListChangeOrders();
+  const invoicesQuery = useListAllInvoices();
+  const projectsQuery = useListProjects();
 
-  const [payments, setPayments] = useState<PaymentRecord[]>([]);
-  const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const summary: FinancialSummary | undefined = summaryQuery.data;
+  const summaryLoading = summaryQuery.isLoading;
+  const payments: PaymentRecord[] = paymentsQuery.data ?? [];
+  const paymentsLoading = paymentsQuery.isLoading;
+  const changeOrders: ChangeOrderRecord[] = changeOrdersQuery.data ?? [];
+  const changeOrdersLoading = changeOrdersQuery.isLoading;
+  const invoices: Invoice[] = (invoicesQuery.data ?? []).filter(
+    (inv) => inv.status !== "paid" && inv.status !== "cancelled"
+  );
+  const projects: Project[] = projectsQuery.data ?? [];
 
-  const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([]);
-  const [changeOrdersLoading, setChangeOrdersLoading] = useState(false);
-
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-
-  // Record payment dialog
+  // ── UI state ──────────────────────────────────────────────────────────────
   const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({ invoiceId: "", amount: "", method: "e-transfer", notes: "" });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Delete payment
+  const [paymentForm, setPaymentForm] = useState({
+    invoiceId: "",
+    amount: "",
+    method: "e-transfer",
+    notes: "",
+  });
   const [deletePaymentId, setDeletePaymentId] = useState<number | null>(null);
-
-  // Create change order dialog
   const [createCOOpen, setCreateCOOpen] = useState(false);
-  const [coForm, setCoForm] = useState({ projectId: "", title: "", description: "", amount: "", notes: "" });
-
-  // Delete change order
+  const [coForm, setCoForm] = useState({
+    projectId: "",
+    title: "",
+    description: "",
+    amount: "",
+    notes: "",
+  });
   const [deleteCOId, setDeleteCOId] = useState<number | null>(null);
 
-  // Load functions
-  const loadSummary = useCallback(async () => {
-    try {
-      setSummaryLoading(true);
-      const data = await apiFetch("/financials/summary") as FinancialSummary;
-      setSummary(data);
-    } catch { /* ignore */ }
-    finally { setSummaryLoading(false); }
-  }, []);
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const recordPaymentMutation = useRecordPayment({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/financials/summary"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+        setRecordPaymentOpen(false);
+        setPaymentForm({ invoiceId: "", amount: "", method: "e-transfer", notes: "" });
+        toast({ title: "Payment recorded" });
+      },
+      onError: (err: any) => {
+        toast({ title: err?.message ?? "Failed to record payment", variant: "destructive" });
+      },
+    },
+  });
 
-  const loadPayments = useCallback(async () => {
-    try {
-      setPaymentsLoading(true);
-      const data = await apiFetch("/payments") as PaymentRecord[];
-      setPayments(data ?? []);
-    } catch { /* ignore */ }
-    finally { setPaymentsLoading(false); }
-  }, []);
+  const deletePaymentMutation = useDeletePayment({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/financials/summary"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+        setDeletePaymentId(null);
+        toast({ title: "Payment deleted" });
+      },
+      onError: () => {
+        toast({ title: "Failed to delete payment", variant: "destructive" });
+      },
+    },
+  });
 
-  const loadChangeOrders = useCallback(async () => {
-    try {
-      setChangeOrdersLoading(true);
-      const data = await apiFetch("/change-orders") as ChangeOrder[];
-      setChangeOrders(data ?? []);
-    } catch { /* ignore */ }
-    finally { setChangeOrdersLoading(false); }
-  }, []);
+  const createCOMutation = useCreateChangeOrder({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/financials/summary"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/change-orders"] });
+        setCreateCOOpen(false);
+        setCoForm({ projectId: "", title: "", description: "", amount: "", notes: "" });
+        toast({ title: "Change order created" });
+      },
+      onError: (err: any) => {
+        toast({ title: err?.message ?? "Failed to create change order", variant: "destructive" });
+      },
+    },
+  });
 
-  const loadInvoices = useCallback(async () => {
-    try {
-      const data = await apiFetch("/invoices") as Invoice[];
-      setInvoices((data ?? []).filter((inv) => inv.status !== "paid" && inv.status !== "cancelled"));
-    } catch { /* ignore */ }
-  }, []);
+  const approveCOMutation = useApproveChangeOrder({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/financials/summary"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/change-orders"] });
+        toast({ title: "Change order approved" });
+      },
+      onError: () => {
+        toast({ title: "Failed to approve change order", variant: "destructive" });
+      },
+    },
+  });
 
-  const loadProjects = useCallback(async () => {
-    try {
-      const data = await apiFetch("/projects") as Project[];
-      setProjects(data ?? []);
-    } catch { /* ignore */ }
-  }, []);
+  const rejectCOMutation = useRejectChangeOrder({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/financials/summary"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/change-orders"] });
+        toast({ title: "Change order rejected" });
+      },
+      onError: () => {
+        toast({ title: "Failed to reject change order", variant: "destructive" });
+      },
+    },
+  });
 
-  useEffect(() => {
-    loadSummary();
-    loadPayments();
-    loadChangeOrders();
-    loadInvoices();
-    loadProjects();
-  }, []);
+  const deleteCOMutation = useDeleteChangeOrder({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/financials/summary"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/change-orders"] });
+        setDeleteCOId(null);
+        toast({ title: "Change order deleted" });
+      },
+      onError: () => {
+        toast({ title: "Failed to delete change order", variant: "destructive" });
+      },
+    },
+  });
 
-  // ── Record payment ──────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
   async function handleRecordPayment() {
     if (!paymentForm.invoiceId || !paymentForm.amount) {
       toast({ title: "Invoice and amount are required", variant: "destructive" });
       return;
     }
-    setIsSubmitting(true);
-    try {
-      const data = await apiFetch(`/invoices/${paymentForm.invoiceId}/payments`, {
-        method: "POST",
-        body: JSON.stringify({
-          amount: parseFloat(paymentForm.amount),
-          method: paymentForm.method,
-          notes: paymentForm.notes.trim() || null,
-        }),
-      }) as PaymentRecord;
-      setPayments((prev) => [data, ...prev]);
-      setRecordPaymentOpen(false);
-      setPaymentForm({ invoiceId: "", amount: "", method: "e-transfer", notes: "" });
-      await loadSummary();
-      toast({ title: "Payment recorded" });
-    } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to record payment", variant: "destructive" });
-    }
-    finally { setIsSubmitting(false); }
+    const body: RecordPaymentBody = {
+      amount: parseFloat(paymentForm.amount),
+      method: paymentForm.method as any,
+      notes: paymentForm.notes.trim() || undefined,
+    };
+    recordPaymentMutation.mutate({
+      id: parseInt(paymentForm.invoiceId),
+      data: body,
+    });
   }
 
-  // ── Delete payment ──────────────────────────────────────────────────────────
-  async function handleDeletePayment() {
+  function handleDeletePayment() {
     if (!deletePaymentId) return;
-    setIsSubmitting(true);
-    try {
-      await apiFetch(`/payments/${deletePaymentId}`, { method: "DELETE" });
-      setPayments((prev) => prev.filter((p) => p.id !== deletePaymentId));
-      setDeletePaymentId(null);
-      await loadSummary();
-      toast({ title: "Payment deleted" });
-    } catch { toast({ title: "Failed to delete payment", variant: "destructive" }); }
-    finally { setIsSubmitting(false); }
+    deletePaymentMutation.mutate({ id: deletePaymentId });
   }
 
-  // ── Create change order ─────────────────────────────────────────────────────
   async function handleCreateCO() {
     if (!coForm.projectId || !coForm.title.trim() || !coForm.amount) {
       toast({ title: "Project, title, and amount are required", variant: "destructive" });
       return;
     }
-    setIsSubmitting(true);
-    try {
-      const data = await apiFetch("/change-orders", {
-        method: "POST",
-        body: JSON.stringify({
-          projectId: parseInt(coForm.projectId),
-          title: coForm.title.trim(),
-          description: coForm.description.trim() || null,
-          amount: parseFloat(coForm.amount),
-          notes: coForm.notes.trim() || null,
-        }),
-      }) as ChangeOrder;
-      setChangeOrders((prev) => [data, ...prev]);
-      setCreateCOOpen(false);
-      setCoForm({ projectId: "", title: "", description: "", amount: "", notes: "" });
-      await loadSummary();
-      toast({ title: "Change order created" });
-    } catch (err: any) {
-      toast({ title: err?.message ?? "Failed to create change order", variant: "destructive" });
+    const body: CreateChangeOrderBody = {
+      projectId: parseInt(coForm.projectId),
+      title: coForm.title.trim(),
+      description: coForm.description.trim() || null,
+      amount: parseFloat(coForm.amount),
+      notes: coForm.notes.trim() || null,
+    };
+    createCOMutation.mutate({ data: body });
+  }
+
+  function handleCOAction(id: number, action: "approve" | "reject") {
+    if (action === "approve") {
+      approveCOMutation.mutate({ id });
+    } else {
+      rejectCOMutation.mutate({ id });
     }
-    finally { setIsSubmitting(false); }
   }
 
-  // ── Approve / reject change order ───────────────────────────────────────────
-  async function handleCOAction(id: number, action: "approve" | "reject") {
-    try {
-      const data = await apiFetch(`/change-orders/${id}/${action}`, { method: "POST" }) as ChangeOrder;
-      setChangeOrders((prev) => prev.map((co) => co.id === id ? data : co));
-      await loadSummary();
-      toast({ title: action === "approve" ? "Change order approved" : "Change order rejected" });
-    } catch { toast({ title: `Failed to ${action} change order`, variant: "destructive" }); }
-  }
-
-  // ── Delete change order ─────────────────────────────────────────────────────
-  async function handleDeleteCO() {
+  function handleDeleteCO() {
     if (!deleteCOId) return;
-    setIsSubmitting(true);
-    try {
-      await apiFetch(`/change-orders/${deleteCOId}`, { method: "DELETE" });
-      setChangeOrders((prev) => prev.filter((co) => co.id !== deleteCOId));
-      setDeleteCOId(null);
-      await loadSummary();
-      toast({ title: "Change order deleted" });
-    } catch { toast({ title: "Failed to delete change order", variant: "destructive" }); }
-    finally { setIsSubmitting(false); }
+    deleteCOMutation.mutate({ id: deleteCOId });
   }
 
+  const isSubmitting =
+    recordPaymentMutation.isPending ||
+    deletePaymentMutation.isPending ||
+    createCOMutation.isPending ||
+    approveCOMutation.isPending ||
+    rejectCOMutation.isPending ||
+    deleteCOMutation.isPending;
+
+  // ── Refresh all ───────────────────────────────────────────────────────────
+  function refreshAll() {
+    queryClient.invalidateQueries({ queryKey: ["/api/financials/summary"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/change-orders"] });
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 h-full flex flex-col">
       {/* Header */}
@@ -336,7 +312,7 @@ function FinancialsInner() {
           <p className="text-sm text-[#121212]/60 font-medium">Payments, change orders, and revenue tracking</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => { loadSummary(); loadPayments(); loadChangeOrders(); }} className="border-[#D4AF37]/20 hover:border-[#D4AF37]/40">
+          <Button variant="outline" size="sm" onClick={refreshAll} className="border-[#D4AF37]/20 hover:border-[#D4AF37]/40">
             <RefreshCw size={14} className="mr-1" style={{ color: "#D4AF37" }} /> Refresh
           </Button>
           {tab === "payments" && (
@@ -355,7 +331,7 @@ function FinancialsInner() {
       <SearchBar
         value={searchQuery}
         onChange={setSearchQuery}
-        placeholder="Search by description, project, or amount …"
+        placeholder="Search by description, project, or amount ..."
         className="w-full sm:w-80 flex-shrink-0"
       />
 
@@ -400,9 +376,8 @@ function FinancialsInner() {
           <TabsTrigger value="change-orders" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white">Change Orders</TabsTrigger>
         </TabsList>
 
-        {/* ── Overview Tab ── */}
+        {/* Overview Tab */}
         <TabsContent value="overview" className="flex-1 min-h-0 overflow-y-auto mt-4 space-y-6">
-          {/* Revenue breakdown */}
           <div>
             <h2 className="text-base font-semibold mb-3">Revenue Breakdown</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -420,7 +395,6 @@ function FinancialsInner() {
             </div>
           </div>
 
-          {/* Recent payments */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold">Recent Payments</h2>
@@ -443,7 +417,7 @@ function FinancialsInner() {
                   <div
                     key={p.id}
                     className="flex items-center justify-between px-4 py-3"
-                    style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA", borderBottom: i < (summary.recentPayments.length - 1) ? "1px solid #F0F0F0" : "none" }}
+                    style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA", borderBottom: i < (summary.recentPayments!.length - 1) ? "1px solid #F0F0F0" : "none" }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#F0FDF4" }}>
@@ -451,7 +425,7 @@ function FinancialsInner() {
                       </div>
                       <div>
                         <p className="text-sm font-medium">Invoice #{p.invoiceId}</p>
-                        <p className="text-xs text-muted-foreground">{METHOD_LABELS[p.method] ?? p.method} · {format(new Date(p.paidAt), "MMM d, yyyy")}</p>
+                        <p className="text-xs text-muted-foreground">{METHOD_LABELS[p.method] ?? p.method} ... {format(new Date(p.paidAt), "MMM d, yyyy")}</p>
                       </div>
                     </div>
                     <span className="text-sm font-bold" style={{ color: "#16A34A" }}>+{cad(p.amount)}</span>
@@ -461,13 +435,12 @@ function FinancialsInner() {
             )}
           </div>
 
-          {/* Pending change orders summary */}
           {(summary?.pendingChangeOrders ?? 0) > 0 && (
             <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
               <AlertCircle size={18} className="text-amber-600 flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-sm font-semibold text-amber-900">
-                  {summary!.pendingChangeOrders} change order{summary!.pendingChangeOrders > 1 ? "s" : ""} awaiting approval
+                  {(summary?.pendingChangeOrders ?? 0)} change order{(summary?.pendingChangeOrders ?? 0) > 1 ? "s" : ""} awaiting approval
                 </p>
                 <p className="text-xs text-amber-700">Review and approve or reject in the Change Orders tab</p>
               </div>
@@ -478,7 +451,7 @@ function FinancialsInner() {
           )}
         </TabsContent>
 
-        {/* ── Payments Tab ── */}
+        {/* Payments Tab */}
         <TabsContent value="payments" className="flex-1 min-h-0 overflow-y-auto mt-4">
           {paymentsLoading ? (
             <div className="space-y-2">
@@ -495,7 +468,6 @@ function FinancialsInner() {
             </div>
           ) : (
             <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #E5E5E5" }}>
-              {/* Table header */}
               <div className="grid text-xs font-bold uppercase tracking-wide px-4 py-2.5" style={{ gridTemplateColumns: "1fr 120px 140px 120px 32px", background: BLACK, color: "#aaa" }}>
                 <span>Invoice</span>
                 <span>Method</span>
@@ -538,7 +510,7 @@ function FinancialsInner() {
           )}
         </TabsContent>
 
-        {/* ── Change Orders Tab ── */}
+        {/* Change Orders Tab */}
         <TabsContent value="change-orders" className="flex-1 min-h-0 overflow-y-auto mt-4">
           {changeOrdersLoading ? (
             <div className="space-y-2">
@@ -579,7 +551,7 @@ function FinancialsInner() {
                           </span>
                         </div>
                         {co.description && <p className="text-xs text-muted-foreground mt-0.5">{co.description}</p>}
-                        <p className="text-xs text-muted-foreground mt-1">Project #{co.projectId} · {format(new Date(co.createdAt), "MMM d, yyyy")}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Project #{co.projectId} ... {format(new Date(co.createdAt), "MMM d, yyyy")}</p>
                         {co.approvedAt && <p className="text-xs text-green-700 mt-0.5">Approved {format(new Date(co.approvedAt), "MMM d, yyyy")}</p>}
                       </div>
                       <div className="text-right flex-shrink-0">
@@ -599,11 +571,11 @@ function FinancialsInner() {
                         </button>
                       </div>
                     </div>
-                    {co.clientSignatureData && co.status === "approved" && (
+                    {(co as any).clientSignatureData && co.status === "approved" && (
                       <div className="mt-2 pt-2 border-t border-gray-100">
                         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Client Signature</p>
-                        <img src={co.clientSignatureData} alt="Client signature" className="max-h-16 object-contain bg-white rounded border border-gray-200" />
-                        {co.signedAt && <p className="text-[10px] text-muted-foreground mt-0.5">Signed {format(new Date(co.signedAt), "MMM d, yyyy h:mm a")}</p>}
+                        <img src={(co as any).clientSignatureData} alt="Client signature" className="max-h-16 object-contain bg-white rounded border border-gray-200" />
+                        {(co as any).signedAt && <p className="text-[10px] text-muted-foreground mt-0.5">Signed {format(new Date((co as any).signedAt), "MMM d, yyyy h:mm a")}</p>}
                       </div>
                     )}
                     {co.notes && (
@@ -626,14 +598,14 @@ function FinancialsInner() {
               <label className="text-sm font-medium">Invoice *</label>
               <Select value={paymentForm.invoiceId} onValueChange={(v) => setPaymentForm((f) => ({ ...f, invoiceId: v }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select an invoice…" />
+                  <SelectValue placeholder="Select an invoice..." />
                 </SelectTrigger>
                 <SelectContent>
                   {invoices.length === 0
                     ? <SelectItem value="none" disabled>No open invoices</SelectItem>
                     : invoices.map((inv) => (
                       <SelectItem key={inv.id} value={String(inv.id)}>
-                        {inv.invoiceNumber} — {inv.clientName} ({cad(inv.total)})
+                        {inv.invoiceNumber} --- {inv.clientName} ({cad(inv.total)})
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -658,7 +630,7 @@ function FinancialsInner() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>
-              <Textarea placeholder="e.g. Deposit received…" rows={2} value={paymentForm.notes} onChange={(e) => setPaymentForm((f) => ({ ...f, notes: e.target.value }))} />
+              <Textarea placeholder="e.g. Deposit received..." rows={2} value={paymentForm.notes} onChange={(e) => setPaymentForm((f) => ({ ...f, notes: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
@@ -681,7 +653,7 @@ function FinancialsInner() {
               <label className="text-sm font-medium">Project *</label>
               <Select value={coForm.projectId} onValueChange={(v) => setCoForm((f) => ({ ...f, projectId: v }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project…" />
+                  <SelectValue placeholder="Select project..." />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.length === 0
@@ -698,7 +670,7 @@ function FinancialsInner() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Description</label>
-              <Textarea placeholder="Describe the extra scope…" rows={2} value={coForm.description} onChange={(e) => setCoForm((f) => ({ ...f, description: e.target.value }))} />
+              <Textarea placeholder="Describe the extra scope..." rows={2} value={coForm.description} onChange={(e) => setCoForm((f) => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Amount (CAD) *</label>
@@ -706,7 +678,7 @@ function FinancialsInner() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>
-              <Input placeholder="Any other notes…" value={coForm.notes} onChange={(e) => setCoForm((f) => ({ ...f, notes: e.target.value }))} />
+              <Input placeholder="Any other notes..." value={coForm.notes} onChange={(e) => setCoForm((f) => ({ ...f, notes: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
