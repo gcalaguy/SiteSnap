@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -7,13 +7,14 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { useColors } from "@/hooks/useColors";
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -44,14 +45,9 @@ interface WorkerDoc {
 }
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "No expiry";
+  if (!dateStr) return "";
   const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? "No expiry" : d.toLocaleDateString("en-CA");
-}
-function isExpired(dateStr: string | null): boolean {
-  if (!dateStr) return false;
-  const d = new Date(dateStr);
-  return d.getTime() < Date.now();
+  return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-CA");
 }
 
 export default function VaultScreen() {
@@ -61,9 +57,6 @@ export default function VaultScreen() {
   const queryClient = useQueryClient();
   const [showUpload, setShowUpload] = useState(false);
   const [docType, setDocType] = useState(DOC_TYPES[0]);
-  const [expiry, setExpiry] = useState("");
-  const [fileUrl, setFileUrl] = useState("");
-  const [filePath, setFilePath] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const {
@@ -84,38 +77,65 @@ export default function VaultScreen() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vault-my-docs"] }),
   });
 
-  async function handleSave() {
-    if (!fileUrl.trim()) {
-      Alert.alert("Missing file", "Enter a file URL or upload a file first.");
+  const handlePickAndUpload = useCallback(async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permission needed", "Allow photo library access in Settings to upload documents.");
       return;
     }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: false,
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets.length) return;
+    const asset = result.assets[0];
+
     setUploading(true);
     try {
+      const ext = (asset.fileName?.split(".").pop() ?? "jpg").toLowerCase();
+      const mimeType = asset.mimeType ?? `image/${ext}`;
+      const filename = asset.fileName ?? `doc_${Date.now()}.${ext}`;
+      const fileSize = asset.fileSize ?? 0;
+
+      // 1. Request presigned upload URL
+      const { uploadURL, objectPath } = await customFetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: filename, size: fileSize, contentType: mimeType }),
+      }) as { uploadURL: string; objectPath: string };
+
+      // 2. Upload binary to storage
+      await FileSystem.uploadAsync(uploadURL, asset.uri, {
+        httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { "Content-Type": mimeType },
+      });
+
+      // 3. Save vault entry
       await customFetch("/api/worker/vault/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           documentType: docType,
-          fileUrl: fileUrl.trim(),
-          filePath: filePath.trim() || undefined,
-          expirationDate: expiry || undefined,
+          fileUrl: `/api/storage/objects/${objectPath}`,
+          filePath: objectPath,
         }),
       });
+
       queryClient.invalidateQueries({ queryKey: ["vault-my-docs"] });
       setShowUpload(false);
-      setFileUrl("");
-      setFilePath("");
-      setExpiry("");
-      Alert.alert("Saved", "Document added to your vault.");
+      Alert.alert("Uploaded", `${docType} saved to your vault.`);
     } catch (err: any) {
-      Alert.alert("Error", err?.message ?? "Failed to save document.");
+      Alert.alert("Upload failed", err?.message ?? "Could not upload document.");
     } finally {
       setUploading(false);
     }
-  }
+  }, [docType, queryClient]);
 
   function renderDoc({ item }: { item: WorkerDoc }) {
-    const expired = isExpired(item.expirationDate);
     return (
       <View
         style={[
@@ -127,18 +147,17 @@ export default function VaultScreen() {
           <View
             style={[
               styles.docIcon,
-              { backgroundColor: expired ? "#FEE2E2" : `${colors.primary}18` },
+              { backgroundColor: `${colors.primary}18` },
             ]}
           >
-            <Feather name="file-text" size={18} color={expired ? "#EF4444" : colors.primary} />
+            <Feather name="file-text" size={18} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.docType, { color: colors.foreground }]}>
               {item.documentType}
             </Text>
             <Text style={[styles.docMeta, { color: colors.mutedForeground }]}>
-              Expires: {formatDate(item.expirationDate)}
-              {expired ? "  \u2022 EXPIRED" : ""}
+              Uploaded {formatDate(item.createdAt)}
             </Text>
           </View>
           <TouchableOpacity
@@ -177,16 +196,10 @@ export default function VaultScreen() {
           <Feather name="arrow-left" size={22} color="#FFFFFF" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>Compliance Vault</Text>
+          <Text style={styles.headerTitle}>Document Vault</Text>
           <Text style={styles.headerSub}>My Documents</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.newBtn, { backgroundColor: colors.primary }]}
-          onPress={() => setShowUpload(true)}
-          hitSlop={8}
-        >
-          <Feather name="plus" size={18} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={{ width: 38 }} />
       </View>
 
       {isLoading ? (
@@ -218,7 +231,7 @@ export default function VaultScreen() {
           data={docs}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderDoc}
-          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 24 }]}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
           }
@@ -229,28 +242,45 @@ export default function VaultScreen() {
                 No documents yet
               </Text>
               <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
-                Tap + to add your first certificate or ID
+                Tap Upload to add your first certificate or ID
               </Text>
             </View>
           }
         />
       )}
 
+      {/* Floating Upload Button */}
+      <TouchableOpacity
+        style={[
+          styles.fab,
+          { backgroundColor: colors.primary, bottom: insets.bottom + 20 },
+        ]}
+        onPress={() => {
+          setDocType(DOC_TYPES[0]);
+          setShowUpload(true);
+        }}
+        activeOpacity={0.85}
+      >
+        <Feather name="upload" size={20} color="#FFFFFF" />
+        <Text style={styles.fabText}>Upload</Text>
+      </TouchableOpacity>
+
       {/* Upload Sheet */}
       {showUpload && (
         <View style={[styles.sheetOverlay, { backgroundColor: "rgba(0,0,0,0.4)" }]}>
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
             <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Add Document</Text>
+              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Upload Document</Text>
               <TouchableOpacity onPress={() => setShowUpload(false)} hitSlop={10}>
                 <Feather name="x" size={22} color={colors.foreground} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.sheetBody}>
-              {/* Type */}
-              <Text style={[styles.label, { color: colors.mutedForeground }]}>Document Type</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6, marginBottom: 16 }}>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>
+                What type of document?
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6, marginBottom: 20 }}>
                 {DOC_TYPES.map((t) => {
                   const active = docType === t;
                   return (
@@ -279,35 +309,8 @@ export default function VaultScreen() {
                 })}
               </View>
 
-              {/* Expiry */}
-              <Text style={[styles.label, { color: colors.mutedForeground }]}>Expiration (optional)</Text>
-              <TextInput
-                value={expiry}
-                onChangeText={setExpiry}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.mutedForeground}
-                style={[
-                  styles.input,
-                  { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              />
-
-              {/* File URL */}
-              <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>File URL</Text>
-              <TextInput
-                value={fileUrl}
-                onChangeText={setFileUrl}
-                placeholder="https://... or /objects/..."
-                placeholderTextColor={colors.mutedForeground}
-                style={[
-                  styles.input,
-                  { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              />
-
-              {/* Save */}
               <TouchableOpacity
-                onPress={handleSave}
+                onPress={handlePickAndUpload}
                 disabled={uploading}
                 style={[styles.uploadBtn, { backgroundColor: colors.primary, opacity: uploading ? 0.6 : 1 }]}
               >
@@ -315,9 +318,9 @@ export default function VaultScreen() {
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <>
-                    <Feather name="save" size={18} color="#FFFFFF" />
+                    <Feather name="image" size={18} color="#FFFFFF" />
                     <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 15 }}>
-                      Save Document
+                      Choose from Library
                     </Text>
                   </>
                 )}
@@ -342,7 +345,6 @@ const styles = StyleSheet.create({
   backBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },
-  newBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { padding: 12, gap: 10 },
   card: { borderRadius: 14, borderWidth: 1, padding: 14 },
@@ -354,6 +356,22 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   emptySub: { fontSize: 13, fontFamily: "Inter_400Regular" },
   retryBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 },
+  fab: {
+    position: "absolute",
+    right: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  fabText: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 15 },
   sheetOverlay: {
     position: "absolute",
     top: 0,
@@ -374,14 +392,6 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   sheetBody: { paddingHorizontal: 20, paddingTop: 16 },
   label: { fontSize: 13, fontFamily: "Inter_600SemiBold", marginBottom: 6 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-  },
   typeChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   uploadBtn: {
     flexDirection: "row",
@@ -390,6 +400,5 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderRadius: 14,
-    marginTop: 16,
   },
 });

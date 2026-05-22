@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ShieldCheck,
   Search,
   FileText,
-  AlertTriangle,
-  ChevronRight,
   Trash2,
   RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  User,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -38,23 +38,41 @@ interface WorkerDoc {
 }
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "No expiry";
+  if (!dateStr) return "";
   const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? "No expiry" : d.toLocaleDateString("en-CA");
+  return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-CA");
 }
 
-function isExpired(dateStr: string | null): boolean {
-  if (!dateStr) return false;
-  const d = new Date(dateStr);
-  return d.getTime() < Date.now();
+interface WorkerGroup {
+  workerId: number;
+  workerName: string;
+  workerEmail: string;
+  docs: WorkerDoc[];
+}
+
+function groupByWorker(docs: WorkerDoc[]): WorkerGroup[] {
+  const map = new Map<number, WorkerGroup>();
+  for (const d of docs) {
+    const existing = map.get(d.workerId);
+    if (existing) {
+      existing.docs.push(d);
+    } else {
+      map.set(d.workerId, {
+        workerId: d.workerId,
+        workerName: d.workerName || "Unknown",
+        workerEmail: d.workerEmail || "",
+        docs: [d],
+      });
+    }
+  }
+  return Array.from(map.values());
 }
 
 export default function WorkerDocumentsPage() {
-  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { data: user } = useGetMe();
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<string | null>(null);
+  const [expandedWorkerId, setExpandedWorkerId] = useState<number | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<WorkerDoc | null>(null);
 
   const { data: docs = [], isLoading, error, refetch } = useQuery<WorkerDoc[]>({
@@ -63,16 +81,14 @@ export default function WorkerDocumentsPage() {
     enabled: user != null,
   });
 
-  const filtered = docs.filter((d) => {
+  const groups = groupByWorker(docs);
+  const filteredGroups = groups.filter((g) => {
     const q = search.toLowerCase();
-    const matchesSearch =
-      (d.workerName?.toLowerCase() || "").includes(q) ||
-      d.documentType.toLowerCase().includes(q);
-    const matchesType = filterType ? d.documentType === filterType : true;
-    return matchesSearch && matchesType;
+    if (!q) return true;
+    const matchesWorker = g.workerName.toLowerCase().includes(q) || g.workerEmail.toLowerCase().includes(q);
+    const matchesDoc = g.docs.some((d) => d.documentType.toLowerCase().includes(q));
+    return matchesWorker || matchesDoc;
   });
-
-  const docTypes = [...new Set(docs.map((d) => d.documentType))].sort();
 
   async function handleDelete(id: number) {
     if (!confirm("Delete this document permanently?")) return;
@@ -112,46 +128,23 @@ export default function WorkerDocumentsPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold" style={{ color: "#0A0A0A" }}>Worker Documents</h1>
-            <p className="text-xs text-[#0A0A0A]/50 mt-0.5">Compliance certificates & ID vault</p>
+            <p className="text-xs text-[#0A0A0A]/50 mt-0.5">Compliance vault by worker profile</p>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0A0A0A]/30" />
-            <Input
-              placeholder="Search by worker or document type..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white border-[#E5E5E5]"
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <Button
-              variant={filterType === null ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilterType(null)}
-              className={filterType === null ? "bg-[#C9A84C] text-white" : "border-[#E5E5E5]"}
-            >
-              All
-            </Button>
-            {docTypes.map((t) => (
-              <Button
-                key={t}
-                variant={filterType === t ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilterType(filterType === t ? null : t)}
-                className={filterType === t ? "bg-[#C9A84C] text-white" : "border-[#E5E5E5]"}
-              >
-                {t}
-              </Button>
-            ))}
-          </div>
+        {/* Search */}
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0A0A0A]/30" />
+          <Input
+            placeholder="Search by worker name or document type..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 bg-white border-[#E5E5E5]"
+          />
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <p className="text-2xl font-bold" style={{ color: "#0A0A0A" }}>{docs.length}</p>
@@ -160,14 +153,8 @@ export default function WorkerDocumentsPage() {
           </Card>
           <Card>
             <CardContent className="p-4">
-              <p className="text-2xl font-bold text-[#C9A84C]">{[...new Set(docs.map((d) => d.workerId))].length}</p>
+              <p className="text-2xl font-bold text-[#C9A84C]">{groups.length}</p>
               <p className="text-xs text-[#0A0A0A]/50 mt-1">Workers</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-2xl font-bold text-red-500">{docs.filter((d) => isExpired(d.expirationDate)).length}</p>
-              <p className="text-xs text-[#0A0A0A]/50 mt-1">Expired</p>
             </CardContent>
           </Card>
           <Card>
@@ -178,85 +165,93 @@ export default function WorkerDocumentsPage() {
           </Card>
         </div>
 
-        {/* Table */}
-        <Card>
-          <CardContent className="p-0">
-            {filtered.length === 0 ? (
-              <div className="py-16 flex flex-col items-center text-center">
-                <FileText className="w-10 h-10 text-[#E5E5E5] mb-3" />
-                <p className="text-sm text-[#0A0A0A]/50">No documents found</p>
-                <p className="text-xs text-[#0A0A0A]/30 mt-1">Workers upload certificates from their mobile vault</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[#E5E5E5] bg-white/60">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#0A0A0A]/50">Worker</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#0A0A0A]/50">Document</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#0A0A0A]/50">Expiry</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#0A0A0A]/50">Status</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-[#0A0A0A]/50">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((d) => {
-                      const expired = isExpired(d.expirationDate);
-                      return (
-                        <tr
-                          key={d.id}
-                          className="border-b border-[#F0F0F0] hover:bg-[#FAFAFA] cursor-pointer"
-                          onClick={() => setSelectedDoc(d)}
-                        >
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="font-medium text-[#0A0A0A]">{d.workerName || "Unknown"}</p>
-                              <p className="text-xs text-[#0A0A0A]/40">{d.workerEmail || ""}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge variant="outline" className="bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/20 font-medium">
-                              {d.documentType}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-1.5">
-                              <span className={expired ? "text-red-500 font-medium" : "text-[#0A0A0A]/70"}>
-                                {formatDate(d.expirationDate)}
-                              </span>
-                              {expired && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge className={d.status === "active" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-gray-100 text-gray-500 border-gray-200"}>
-                              {d.status}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(d.id);
-                                }}
+        {/* Worker Profiles */}
+        {filteredGroups.length === 0 ? (
+          <div className="py-16 flex flex-col items-center text-center">
+            <FileText className="w-10 h-10 text-[#E5E5E5] mb-3" />
+            <p className="text-sm text-[#0A0A0A]/50">No documents found</p>
+            <p className="text-xs text-[#0A0A0A]/30 mt-1">Workers upload certificates from their mobile vault</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredGroups.map((group) => {
+              const isExpanded = expandedWorkerId === group.workerId;
+              return (
+                <Card key={group.workerId} className="overflow-hidden">
+                  <CardContent className="p-0">
+                    {/* Profile Header */}
+                    <button
+                      onClick={() => setExpandedWorkerId(isExpanded ? null : group.workerId)}
+                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-[#FAFAFA] transition-colors text-left"
+                    >
+                      <div className="w-9 h-9 rounded-full bg-[#C9A84C]/10 flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-[#C9A84C]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[#0A0A0A] truncate">{group.workerName}</p>
+                        <p className="text-xs text-[#0A0A0A]/40 truncate">{group.workerEmail}</p>
+                      </div>
+                      <Badge variant="outline" className="bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/20 flex-shrink-0">
+                        {group.docs.length} doc{group.docs.length > 1 ? "s" : ""}
+                      </Badge>
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-[#0A0A0A]/30 flex-shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-[#0A0A0A]/30 flex-shrink-0" />
+                      )}
+                    </button>
+
+                    {/* Documents Table */}
+                    {isExpanded && (
+                      <div className="border-t border-[#F0F0F0]">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-[#FAFAFA]">
+                              <th className="text-left px-5 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">Document Type</th>
+                              <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">Uploaded</th>
+                              <th className="text-right px-5 py-2.5 text-xs font-semibold text-[#0A0A0A]/40">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.docs.map((d) => (
+                              <tr
+                                key={d.id}
+                                className="border-t border-[#F5F5F5] hover:bg-[#FAFAFA] cursor-pointer"
+                                onClick={() => setSelectedDoc(d)}
                               >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                              <ChevronRight className="w-4 h-4 text-[#0A0A0A]/20" />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                                <td className="px-5 py-3">
+                                  <Badge variant="outline" className="bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/20 font-medium">
+                                    {d.documentType}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-[#0A0A0A]/60">
+                                  {formatDate(d.createdAt)}
+                                </td>
+                                <td className="px-5 py-3 text-right">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(d.id);
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Document Detail Dialog */}
@@ -282,14 +277,12 @@ export default function WorkerDocumentsPage() {
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-xs text-[#0A0A0A]/40">Expires</p>
-                  <p className={`text-sm font-medium mt-1 ${isExpired(selectedDoc.expirationDate) ? "text-red-500" : "text-[#0A0A0A]"}`}>
-                    {formatDate(selectedDoc.expirationDate)}
-                  </p>
+                  <p className="text-xs text-[#0A0A0A]/40">Uploaded</p>
+                  <p className="text-sm font-medium mt-1 text-[#0A0A0A]">{formatDate(selectedDoc.createdAt)}</p>
                 </div>
               </div>
               <div>
-                <p className="text-xs text-[#0A0A0A]/40">File URL</p>
+                <p className="text-xs text-[#0A0A0A]/40">File</p>
                 <a
                   href={selectedDoc.fileUrl}
                   target="_blank"
