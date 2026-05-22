@@ -221,7 +221,9 @@ export const dailyReportsTable = pgTable("daily_reports", {
   issues: text("issues"),
   aiSummary: text("ai_summary"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_daily_reports_project_id").on(t.projectId),
+]);
 
 export const insertDailyReportSchema = createInsertSchema(
   dailyReportsTable,
@@ -325,7 +327,10 @@ export const contactsTable = pgTable("contacts", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_contacts_company_id").on(t.companyId),
+  index("idx_contacts_type").on(t.type),
+]);
 
 export const insertContactSchema = createInsertSchema(contactsTable).omit({
   id: true,
@@ -520,7 +525,10 @@ export const notificationsTable = pgTable("notifications", {
   projectId: integer("project_id").references(() => projectsTable.id),
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_notifications_user_id").on(t.userId),
+  index("idx_notifications_is_read").on(t.isRead),
+]);
 
 export type Notification = typeof notificationsTable.$inferSelect;
 
@@ -590,7 +598,10 @@ export const quotesTable = pgTable("quotes", {
   publicToken: text("public_token").unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_quotes_company_id").on(t.companyId),
+  index("idx_quotes_status").on(t.status),
+]);
 
 export const insertQuoteSchema = createInsertSchema(quotesTable).omit({
   id: true,
@@ -725,7 +736,11 @@ export const timeEntriesTable = pgTable("time_entries", {
   hours: numeric("hours", { precision: 5, scale: 2 }).notNull(),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_time_entries_company_id").on(t.companyId),
+  index("idx_time_entries_project_id").on(t.projectId),
+  index("idx_time_entries_user_id").on(t.userId),
+]);
 
 export const insertTimeEntrySchema = createInsertSchema(timeEntriesTable).omit({ id: true, createdAt: true });
 export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
@@ -955,7 +970,10 @@ export const scansTable = pgTable("scans", {
   status: text("status").notNull().default("ready"),          // "ready" | "processing"
   thumbnailPath: text("thumbnail_path"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_scans_company_id").on(t.companyId),
+  index("idx_scans_project_id").on(t.projectId),
+]);
 export type Scan = typeof scansTable.$inferSelect;
 
 export const estimatesTable = pgTable("estimates", {
@@ -971,7 +989,10 @@ export const estimatesTable = pgTable("estimates", {
   scanId: integer("scan_id").references(() => scansTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_estimates_company_id").on(t.companyId),
+  index("idx_estimates_status").on(t.status),
+]);
 
 export type Estimate = typeof estimatesTable.$inferSelect;
 
@@ -1234,7 +1255,10 @@ export const fileAttachmentsTable = pgTable("file_attachments", {
   mimeType: text("mime_type"),
   objectPath: text("object_path").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_file_attachments_company_id").on(t.companyId),
+  index("idx_file_attachments_entity").on(t.entityType, t.entityId),
+]);
 export type FileAttachment = typeof fileAttachmentsTable.$inferSelect;
 
 // ── Payments ──────────────────────────────────────────────────────────────────
