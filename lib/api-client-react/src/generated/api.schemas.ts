@@ -50,10 +50,12 @@ export interface CreateScanBody {
   fileSizeBytes?: number | null;
   sourceType?: CreateScanBodySourceType;
   projectId?: number | null;
+  /** @maxLength 200 */
   name?: string | null;
 }
 
 export interface UpdateScanBody {
+  /** @maxLength 200 */
   name?: string;
 }
 
@@ -465,8 +467,12 @@ export interface UpdateRFIBody {
 }
 
 export interface AIGenerateDailyReportBody {
+  /** @maxLength 200 */
   projectName: string;
-  /** Raw notes or voice transcript to structure */
+  /**
+   * Raw notes or voice transcript to structure
+   * @maxLength 5000
+   */
   rawInput: string;
   reportDate: string;
   crewCount?: number;
@@ -481,12 +487,14 @@ export interface AIGeneratedDailyReport {
 }
 
 export interface AIGenerateCostAnalysisBody {
+  /** @maxLength 200 */
   projectName: string;
   labourCost: number;
   materialsCost: number;
   equipmentCost: number;
   otherCost: number;
   budget?: number | null;
+  /** @maxLength 1000 */
   notes?: string;
 }
 
@@ -507,8 +515,11 @@ export interface AIGeneratedCostAnalysis {
 }
 
 export interface AIGenerateRFIBody {
+  /** @maxLength 200 */
   projectName: string;
+  /** @maxLength 500 */
   subject: string;
+  /** @maxLength 3000 */
   description: string;
 }
 
@@ -724,12 +735,17 @@ export const ChatMessageRole = {
 
 export interface ChatMessage {
   role: ChatMessageRole;
+  /** @maxLength 4000 */
   content: string;
 }
 
 export interface AIAssistantBody {
+  /** @maxItems 50 */
   messages: ChatMessage[];
-  /** JSON-encoded project/company context for the assistant */
+  /**
+   * JSON-encoded project/company context for the assistant
+   * @maxLength 5000
+   */
   context?: string | null;
 }
 
@@ -764,15 +780,20 @@ export interface ProjectDocument {
 }
 
 export interface RegisterDocumentBody {
+  /** @maxLength 500 */
   filename: string;
+  /** @maxLength 100 */
   fileType: string;
+  /** @maxLength 1000 */
   objectPath: string;
   fileSize?: number;
 }
 
 export interface QuoteLineItem {
+  /** @maxLength 500 */
   description: string;
   quantity: number;
+  /** @maxLength 20 */
   unit: string;
   unitPrice: number;
   total: number;
@@ -823,42 +844,63 @@ export interface Quote {
 }
 
 export interface CreateQuoteBody {
+  /** @maxLength 300 */
   title: string;
+  /** @maxLength 300 */
   clientName: string;
+  /** @maxLength 300 */
   clientEmail?: string | null;
+  /** @maxLength 300 */
   clientCompanyName?: string | null;
+  /** @maxLength 1000 */
   clientAddress?: string | null;
+  /** @maxLength 50 */
   clientPhone?: string | null;
+  /** @maxLength 5000 */
   voiceInput?: string | null;
+  /** @maxItems 100 */
   lineItems?: QuoteLineItem[];
   subtotal?: number;
   taxRate?: number;
   taxAmount?: number;
   total?: number;
+  /** @maxLength 5000 */
   notes?: string | null;
   validUntil?: string | null;
 }
 
 export interface UpdateQuoteBody {
+  /** @maxLength 300 */
   title?: string;
+  /** @maxLength 300 */
   clientName?: string;
+  /** @maxLength 300 */
   clientEmail?: string | null;
+  /** @maxLength 300 */
   clientCompanyName?: string | null;
+  /** @maxLength 1000 */
   clientAddress?: string | null;
+  /** @maxLength 50 */
   clientPhone?: string | null;
+  /** @maxLength 5000 */
   voiceInput?: string | null;
+  /** @maxItems 100 */
   lineItems?: QuoteLineItem[];
   subtotal?: number;
   taxRate?: number;
   taxAmount?: number;
   total?: number;
+  /** @maxLength 5000 */
   notes?: string | null;
   validUntil?: string | null;
 }
 
 export interface QuoteAIGenerateBody {
+  /** @maxLength 3000 */
   voiceInput: string;
+  /** @maxLength 200 */
   projectName?: string | null;
+  /** @maxLength 200 */
   clientName?: string | null;
 }
 
@@ -921,9 +963,14 @@ export interface Timesheet {
 }
 
 export interface ApproveTimesheetBody {
-  /** Base64-encoded data URL (PNG) of the approver's signature */
+  /**
+   * Base64-encoded data URL (PNG) of the approver's signature
+   * @maxLength 2000000
+   */
   signatureData: string;
+  /** @maxLength 120 */
   signerName?: string | null;
+  /** @maxLength 1000 */
   notes?: string | null;
 }
 
@@ -931,7 +978,9 @@ export interface SubmitTimesheetBody {
   weekStart: string;
   totalHours: number;
   hourlyRate?: number | null;
+  /** @maxLength 2000 */
   description?: string | null;
+  /** @maxLength 1000 */
   notes?: string;
   projectId?: number | null;
 }
@@ -1664,23 +1713,33 @@ export interface CostModelsResponse {
 }
 
 export interface CreateInvoiceBody {
+  /** @maxLength 300 */
   title: string;
+  /** @maxLength 300 */
   clientName: string;
+  /** @maxLength 300 */
   clientEmail?: string | null;
+  /** @maxItems 100 */
   lineItems?: QuoteLineItem[];
+  /** @maxLength 5000 */
   notes?: string | null;
   dueDate?: string | null;
 }
 
 export interface UpdateInvoiceBody {
+  /** @maxLength 300 */
   title?: string;
+  /** @maxLength 300 */
   clientName?: string;
+  /** @maxLength 300 */
   clientEmail?: string | null;
+  /** @maxItems 100 */
   lineItems?: QuoteLineItem[];
   subtotal?: number;
   taxRate?: number;
   taxAmount?: number;
   total?: number;
+  /** @maxLength 5000 */
   notes?: string | null;
   dueDate?: string | null;
 }
@@ -1699,14 +1758,20 @@ export interface DailyLogRecord {
 
 export interface CreateDailyLogBody {
   projectId: number;
+  /** @maxLength 5000 */
   notes?: string | null;
+  /** @maxLength 20 */
   weatherTemp?: string | null;
+  /** @maxLength 200 */
   weatherCondition?: string | null;
 }
 
 export interface UpdateDailyLogBody {
+  /** @maxLength 5000 */
   notes?: string | null;
+  /** @maxLength 20 */
   weatherTemp?: string | null;
+  /** @maxLength 200 */
   weatherCondition?: string | null;
 }
 
@@ -1725,12 +1790,15 @@ export type CreateSitePhotoBodyMarkupData = { [key: string]: unknown } | null;
 
 export interface CreateSitePhotoBody {
   projectId: number;
+  /** @maxLength 2000 */
   imageUrl: string;
   markupData?: CreateSitePhotoBodyMarkupData;
+  /** @maxLength 500 */
   roomLocation?: string | null;
 }
 
 export interface UpdateSitePhotoBody {
+  /** @maxLength 500 */
   roomLocation?: string | null;
 }
 
@@ -1750,6 +1818,7 @@ export type CreateSafetySignoffBodyResponses = { [key: string]: unknown };
 export interface CreateSafetySignoffBody {
   projectId: number;
   responses: CreateSafetySignoffBodyResponses;
+  /** @maxLength 2000 */
   signatureUrl?: string | null;
 }
 
@@ -1757,6 +1826,7 @@ export type UpdateSafetySignoffBodyResponses = { [key: string]: unknown };
 
 export interface UpdateSafetySignoffBody {
   responses?: UpdateSafetySignoffBodyResponses;
+  /** @maxLength 2000 */
   signatureUrl?: string | null;
 }
 
@@ -2044,12 +2114,18 @@ export interface CreateTradehubPostBody {
   title: string;
   /**
    * @minLength 1
-   * @maxLength 10000
+   * @maxLength 5000
    */
   content: string;
+  /** @maxLength 100 */
   trade?: string;
+  /** @maxLength 200 */
+  location?: string;
+  /** @maxLength 50 */
   province?: string;
+  /** @maxLength 50 */
   budget?: string;
+  /** @maxLength 50 */
   jobType?: string;
 }
 
@@ -2082,14 +2158,18 @@ export const UpsertTradehubProfileBodyComplianceStatus = {
 export interface UpsertTradehubProfileBody {
   /**
    * @minLength 1
-   * @maxLength 100
+   * @maxLength 200
    */
   displayName: string;
+  /** @maxLength 100 */
   trade?: string;
+  /** @maxLength 200 */
   location?: string;
+  /** @maxLength 50 */
   province?: string;
   /** @maxLength 2000 */
   bio?: string;
+  /** @maxLength 500 */
   website?: string;
   complianceStatus?: UpsertTradehubProfileBodyComplianceStatus;
 }
@@ -2118,7 +2198,7 @@ export interface CreateTradehubReportBody {
   targetId: number;
   /**
    * @minLength 1
-   * @maxLength 2000
+   * @maxLength 1000
    */
   reason: string;
 }

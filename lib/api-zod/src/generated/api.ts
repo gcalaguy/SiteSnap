@@ -2769,9 +2769,16 @@ export const DeleteRFIResponse = zod.object({
 /**
  * @summary AI generates a structured daily report summary from raw input
  */
+export const generateDailyReportAIBodyProjectNameMax = 200;
+
+export const generateDailyReportAIBodyRawInputMax = 5000;
+
 export const GenerateDailyReportAIBody = zod.object({
-  projectName: zod.string(),
-  rawInput: zod.string().describe("Raw notes or voice transcript to structure"),
+  projectName: zod.string().max(generateDailyReportAIBodyProjectNameMax),
+  rawInput: zod
+    .string()
+    .max(generateDailyReportAIBodyRawInputMax)
+    .describe("Raw notes or voice transcript to structure"),
   reportDate: zod.coerce.date(),
   crewCount: zod.number().optional(),
 });
@@ -2787,14 +2794,18 @@ export const GenerateDailyReportAIResponse = zod.object({
 /**
  * @summary AI generates a cost analysis summary and recommendations
  */
+export const generateCostAnalysisAIBodyProjectNameMax = 200;
+
+export const generateCostAnalysisAIBodyNotesMax = 1000;
+
 export const GenerateCostAnalysisAIBody = zod.object({
-  projectName: zod.string(),
+  projectName: zod.string().max(generateCostAnalysisAIBodyProjectNameMax),
   labourCost: zod.number(),
   materialsCost: zod.number(),
   equipmentCost: zod.number(),
   otherCost: zod.number(),
   budget: zod.number().nullish(),
-  notes: zod.string().optional(),
+  notes: zod.string().max(generateCostAnalysisAIBodyNotesMax).optional(),
 });
 
 export const GenerateCostAnalysisAIResponse = zod.object({
@@ -2807,15 +2818,24 @@ export const GenerateCostAnalysisAIResponse = zod.object({
 /**
  * @summary AI construction assistant — conversational chat for field crew
  */
+export const chatWithAssistantBodyMessagesItemContentMax = 4000;
+
+export const chatWithAssistantBodyMessagesMax = 50;
+
+export const chatWithAssistantBodyContextMax = 5000;
+
 export const ChatWithAssistantBody = zod.object({
-  messages: zod.array(
-    zod.object({
-      role: zod.enum(["user", "assistant"]),
-      content: zod.string(),
-    }),
-  ),
+  messages: zod
+    .array(
+      zod.object({
+        role: zod.enum(["user", "assistant"]),
+        content: zod.string().max(chatWithAssistantBodyMessagesItemContentMax),
+      }),
+    )
+    .max(chatWithAssistantBodyMessagesMax),
   context: zod
     .string()
+    .max(chatWithAssistantBodyContextMax)
     .nullish()
     .describe("JSON-encoded project\/company context for the assistant"),
 });
@@ -2827,10 +2847,16 @@ export const ChatWithAssistantResponse = zod.object({
 /**
  * @summary AI drafts an RFI document from a description
  */
+export const generateRFIAIBodyProjectNameMax = 200;
+
+export const generateRFIAIBodySubjectMax = 500;
+
+export const generateRFIAIBodyDescriptionMax = 3000;
+
 export const GenerateRFIAIBody = zod.object({
-  projectName: zod.string(),
-  subject: zod.string(),
-  description: zod.string(),
+  projectName: zod.string().max(generateRFIAIBodyProjectNameMax),
+  subject: zod.string().max(generateRFIAIBodySubjectMax),
+  description: zod.string().max(generateRFIAIBodyDescriptionMax),
 });
 
 export const GenerateRFIAIResponse = zod.object({
@@ -3073,10 +3099,16 @@ export const RegisterDocumentParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const registerDocumentBodyFilenameMax = 500;
+
+export const registerDocumentBodyFileTypeMax = 100;
+
+export const registerDocumentBodyObjectPathMax = 1000;
+
 export const RegisterDocumentBody = zod.object({
-  filename: zod.string(),
-  fileType: zod.string(),
-  objectPath: zod.string(),
+  filename: zod.string().max(registerDocumentBodyFilenameMax),
+  fileType: zod.string().max(registerDocumentBodyFileTypeMax),
+  objectPath: zod.string().max(registerDocumentBodyObjectPathMax),
   fileSize: zod.number().optional(),
 });
 
@@ -3190,13 +3222,15 @@ export const ListScansResponse = zod.array(ListScansResponseItem);
 /**
  * @summary Register a 3D scan record after presigned upload
  */
+export const createScanBodyNameMax = 200;
+
 export const CreateScanBody = zod.object({
   objectPath: zod.string(),
   fileName: zod.string(),
   fileSizeBytes: zod.number().nullish(),
   sourceType: zod.enum(["file", "video_capture"]).optional(),
   projectId: zod.number().nullish(),
-  name: zod.string().nullish(),
+  name: zod.string().max(createScanBodyNameMax).nullish(),
 });
 
 /**
@@ -3206,8 +3240,10 @@ export const UpdateScanParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const updateScanBodyNameMax = 200;
+
 export const UpdateScanBody = zod.object({
-  name: zod.string().optional(),
+  name: zod.string().max(updateScanBodyNameMax).optional(),
 });
 
 export const UpdateScanResponse = zod.object({
@@ -3275,6 +3311,10 @@ export const ListQuotesParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const listQuotesResponseLineItemsItemDescriptionMax = 500;
+
+export const listQuotesResponseLineItemsItemUnitMax = 20;
+
 export const ListQuotesResponseItem = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -3296,9 +3336,11 @@ export const ListQuotesResponseItem = zod.object({
   voiceInput: zod.string().nullish(),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(listQuotesResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(listQuotesResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -3331,30 +3373,58 @@ export const CreateQuoteParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const createQuoteBodyTitleMax = 300;
+
+export const createQuoteBodyClientNameMax = 300;
+
+export const createQuoteBodyClientEmailMax = 300;
+
+export const createQuoteBodyClientCompanyNameMax = 300;
+
+export const createQuoteBodyClientAddressMax = 1000;
+
+export const createQuoteBodyClientPhoneMax = 50;
+
+export const createQuoteBodyVoiceInputMax = 5000;
+
+export const createQuoteBodyLineItemsItemDescriptionMax = 500;
+
+export const createQuoteBodyLineItemsItemUnitMax = 20;
+
+export const createQuoteBodyLineItemsMax = 100;
+
+export const createQuoteBodyNotesMax = 5000;
+
 export const CreateQuoteBody = zod.object({
-  title: zod.string(),
-  clientName: zod.string(),
-  clientEmail: zod.string().nullish(),
-  clientCompanyName: zod.string().nullish(),
-  clientAddress: zod.string().nullish(),
-  clientPhone: zod.string().nullish(),
-  voiceInput: zod.string().nullish(),
+  title: zod.string().max(createQuoteBodyTitleMax),
+  clientName: zod.string().max(createQuoteBodyClientNameMax),
+  clientEmail: zod.string().max(createQuoteBodyClientEmailMax).nullish(),
+  clientCompanyName: zod
+    .string()
+    .max(createQuoteBodyClientCompanyNameMax)
+    .nullish(),
+  clientAddress: zod.string().max(createQuoteBodyClientAddressMax).nullish(),
+  clientPhone: zod.string().max(createQuoteBodyClientPhoneMax).nullish(),
+  voiceInput: zod.string().max(createQuoteBodyVoiceInputMax).nullish(),
   lineItems: zod
     .array(
       zod.object({
-        description: zod.string(),
+        description: zod
+          .string()
+          .max(createQuoteBodyLineItemsItemDescriptionMax),
         quantity: zod.number(),
-        unit: zod.string(),
+        unit: zod.string().max(createQuoteBodyLineItemsItemUnitMax),
         unitPrice: zod.number(),
         total: zod.number(),
       }),
     )
+    .max(createQuoteBodyLineItemsMax)
     .optional(),
   subtotal: zod.number().optional(),
   taxRate: zod.number().optional(),
   taxAmount: zod.number().optional(),
   total: zod.number().optional(),
-  notes: zod.string().nullish(),
+  notes: zod.string().max(createQuoteBodyNotesMax).nullish(),
   validUntil: zod.coerce.date().nullish(),
 });
 
@@ -3365,6 +3435,10 @@ export const GetQuoteParams = zod.object({
   projectId: zod.coerce.number(),
   quoteId: zod.coerce.number(),
 });
+
+export const getQuoteResponseLineItemsItemDescriptionMax = 500;
+
+export const getQuoteResponseLineItemsItemUnitMax = 20;
 
 export const GetQuoteResponse = zod.object({
   id: zod.number(),
@@ -3387,9 +3461,11 @@ export const GetQuoteResponse = zod.object({
   voiceInput: zod.string().nullish(),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(getQuoteResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(getQuoteResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -3422,32 +3498,64 @@ export const UpdateQuoteParams = zod.object({
   quoteId: zod.coerce.number(),
 });
 
+export const updateQuoteBodyTitleMax = 300;
+
+export const updateQuoteBodyClientNameMax = 300;
+
+export const updateQuoteBodyClientEmailMax = 300;
+
+export const updateQuoteBodyClientCompanyNameMax = 300;
+
+export const updateQuoteBodyClientAddressMax = 1000;
+
+export const updateQuoteBodyClientPhoneMax = 50;
+
+export const updateQuoteBodyVoiceInputMax = 5000;
+
+export const updateQuoteBodyLineItemsItemDescriptionMax = 500;
+
+export const updateQuoteBodyLineItemsItemUnitMax = 20;
+
+export const updateQuoteBodyLineItemsMax = 100;
+
+export const updateQuoteBodyNotesMax = 5000;
+
 export const UpdateQuoteBody = zod.object({
-  title: zod.string().optional(),
-  clientName: zod.string().optional(),
-  clientEmail: zod.string().nullish(),
-  clientCompanyName: zod.string().nullish(),
-  clientAddress: zod.string().nullish(),
-  clientPhone: zod.string().nullish(),
-  voiceInput: zod.string().nullish(),
+  title: zod.string().max(updateQuoteBodyTitleMax).optional(),
+  clientName: zod.string().max(updateQuoteBodyClientNameMax).optional(),
+  clientEmail: zod.string().max(updateQuoteBodyClientEmailMax).nullish(),
+  clientCompanyName: zod
+    .string()
+    .max(updateQuoteBodyClientCompanyNameMax)
+    .nullish(),
+  clientAddress: zod.string().max(updateQuoteBodyClientAddressMax).nullish(),
+  clientPhone: zod.string().max(updateQuoteBodyClientPhoneMax).nullish(),
+  voiceInput: zod.string().max(updateQuoteBodyVoiceInputMax).nullish(),
   lineItems: zod
     .array(
       zod.object({
-        description: zod.string(),
+        description: zod
+          .string()
+          .max(updateQuoteBodyLineItemsItemDescriptionMax),
         quantity: zod.number(),
-        unit: zod.string(),
+        unit: zod.string().max(updateQuoteBodyLineItemsItemUnitMax),
         unitPrice: zod.number(),
         total: zod.number(),
       }),
     )
+    .max(updateQuoteBodyLineItemsMax)
     .optional(),
   subtotal: zod.number().optional(),
   taxRate: zod.number().optional(),
   taxAmount: zod.number().optional(),
   total: zod.number().optional(),
-  notes: zod.string().nullish(),
+  notes: zod.string().max(updateQuoteBodyNotesMax).nullish(),
   validUntil: zod.coerce.date().nullish(),
 });
+
+export const updateQuoteResponseLineItemsItemDescriptionMax = 500;
+
+export const updateQuoteResponseLineItemsItemUnitMax = 20;
 
 export const UpdateQuoteResponse = zod.object({
   id: zod.number(),
@@ -3470,9 +3578,11 @@ export const UpdateQuoteResponse = zod.object({
   voiceInput: zod.string().nullish(),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(updateQuoteResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(updateQuoteResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -3513,6 +3623,10 @@ export const SubmitQuoteForApprovalParams = zod.object({
   quoteId: zod.coerce.number(),
 });
 
+export const submitQuoteForApprovalResponseLineItemsItemDescriptionMax = 500;
+
+export const submitQuoteForApprovalResponseLineItemsItemUnitMax = 20;
+
 export const SubmitQuoteForApprovalResponse = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -3534,9 +3648,13 @@ export const SubmitQuoteForApprovalResponse = zod.object({
   voiceInput: zod.string().nullish(),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(submitQuoteForApprovalResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod
+        .string()
+        .max(submitQuoteForApprovalResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -3569,6 +3687,10 @@ export const UnsubmitQuoteParams = zod.object({
   quoteId: zod.coerce.number(),
 });
 
+export const unsubmitQuoteResponseLineItemsItemDescriptionMax = 500;
+
+export const unsubmitQuoteResponseLineItemsItemUnitMax = 20;
+
 export const UnsubmitQuoteResponse = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -3590,9 +3712,11 @@ export const UnsubmitQuoteResponse = zod.object({
   voiceInput: zod.string().nullish(),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(unsubmitQuoteResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(unsubmitQuoteResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -3625,6 +3749,10 @@ export const ApproveQuoteParams = zod.object({
   quoteId: zod.coerce.number(),
 });
 
+export const approveQuoteResponseLineItemsItemDescriptionMax = 500;
+
+export const approveQuoteResponseLineItemsItemUnitMax = 20;
+
 export const ApproveQuoteResponse = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -3646,9 +3774,11 @@ export const ApproveQuoteResponse = zod.object({
   voiceInput: zod.string().nullish(),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(approveQuoteResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(approveQuoteResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -3685,6 +3815,10 @@ export const RejectQuoteBody = zod.object({
   reason: zod.string().optional(),
 });
 
+export const rejectQuoteResponseLineItemsItemDescriptionMax = 500;
+
+export const rejectQuoteResponseLineItemsItemUnitMax = 20;
+
 export const RejectQuoteResponse = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -3706,9 +3840,11 @@ export const RejectQuoteResponse = zod.object({
   voiceInput: zod.string().nullish(),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(rejectQuoteResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(rejectQuoteResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -3748,19 +3884,31 @@ export const ConvertQuoteToInvoiceBody = zod.object({
 /**
  * @summary AI-generate quote line items from voice/text description
  */
+export const generateQuoteAIBodyVoiceInputMax = 3000;
+
+export const generateQuoteAIBodyProjectNameMax = 200;
+
+export const generateQuoteAIBodyClientNameMax = 200;
+
 export const GenerateQuoteAIBody = zod.object({
-  voiceInput: zod.string(),
-  projectName: zod.string().nullish(),
-  clientName: zod.string().nullish(),
+  voiceInput: zod.string().max(generateQuoteAIBodyVoiceInputMax),
+  projectName: zod.string().max(generateQuoteAIBodyProjectNameMax).nullish(),
+  clientName: zod.string().max(generateQuoteAIBodyClientNameMax).nullish(),
 });
+
+export const generateQuoteAIResponseLineItemsItemDescriptionMax = 500;
+
+export const generateQuoteAIResponseLineItemsItemUnitMax = 20;
 
 export const GenerateQuoteAIResponse = zod.object({
   title: zod.string(),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(generateQuoteAIResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(generateQuoteAIResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -3825,12 +3973,16 @@ export const ListTimesheetsResponse = zod.array(ListTimesheetsResponseItem);
 /**
  * @summary Submit a timesheet for a week
  */
+export const submitTimesheetBodyDescriptionMax = 2000;
+
+export const submitTimesheetBodyNotesMax = 1000;
+
 export const SubmitTimesheetBody = zod.object({
   weekStart: zod.coerce.date(),
   totalHours: zod.number(),
   hourlyRate: zod.number().nullish(),
-  description: zod.string().nullish(),
-  notes: zod.string().optional(),
+  description: zod.string().max(submitTimesheetBodyDescriptionMax).nullish(),
+  notes: zod.string().max(submitTimesheetBodyNotesMax).optional(),
   projectId: zod.number().nullish(),
 });
 
@@ -3888,12 +4040,19 @@ export const ApproveTimesheetParams = zod.object({
   timesheetId: zod.coerce.number(),
 });
 
+export const approveTimesheetBodySignatureDataMax = 2000000;
+
+export const approveTimesheetBodySignerNameMax = 120;
+
+export const approveTimesheetBodyNotesMax = 1000;
+
 export const ApproveTimesheetBody = zod.object({
   signatureData: zod
     .string()
+    .max(approveTimesheetBodySignatureDataMax)
     .describe("Base64-encoded data URL (PNG) of the approver's signature"),
-  signerName: zod.string().nullish(),
-  notes: zod.string().nullish(),
+  signerName: zod.string().max(approveTimesheetBodySignerNameMax).nullish(),
+  notes: zod.string().max(approveTimesheetBodyNotesMax).nullish(),
 });
 
 export const ApproveTimesheetResponse = zod.object({
@@ -3996,6 +4155,10 @@ export const ListAllQuotesQueryParams = zod.object({
     .nullish(),
 });
 
+export const listAllQuotesResponseLineItemsItemDescriptionMax = 500;
+
+export const listAllQuotesResponseLineItemsItemUnitMax = 20;
+
 export const ListAllQuotesResponseItem = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -4017,9 +4180,11 @@ export const ListAllQuotesResponseItem = zod.object({
   voiceInput: zod.string().nullish(),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(listAllQuotesResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(listAllQuotesResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -4052,6 +4217,10 @@ export const ListAllInvoicesQueryParams = zod.object({
   status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]).nullish(),
 });
 
+export const listAllInvoicesResponseLineItemsItemDescriptionMax = 500;
+
+export const listAllInvoicesResponseLineItemsItemUnitMax = 20;
+
 export const ListAllInvoicesResponseItem = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -4064,9 +4233,11 @@ export const ListAllInvoicesResponseItem = zod.object({
   status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(listAllInvoicesResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(listAllInvoicesResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -4094,22 +4265,39 @@ export const ListAllInvoicesResponse = zod.array(ListAllInvoicesResponseItem);
 /**
  * @summary Create a standalone invoice directly
  */
+export const createInvoiceBodyTitleMax = 300;
+
+export const createInvoiceBodyClientNameMax = 300;
+
+export const createInvoiceBodyClientEmailMax = 300;
+
+export const createInvoiceBodyLineItemsItemDescriptionMax = 500;
+
+export const createInvoiceBodyLineItemsItemUnitMax = 20;
+
+export const createInvoiceBodyLineItemsMax = 100;
+
+export const createInvoiceBodyNotesMax = 5000;
+
 export const CreateInvoiceBody = zod.object({
-  title: zod.string(),
-  clientName: zod.string(),
-  clientEmail: zod.string().nullish(),
+  title: zod.string().max(createInvoiceBodyTitleMax),
+  clientName: zod.string().max(createInvoiceBodyClientNameMax),
+  clientEmail: zod.string().max(createInvoiceBodyClientEmailMax).nullish(),
   lineItems: zod
     .array(
       zod.object({
-        description: zod.string(),
+        description: zod
+          .string()
+          .max(createInvoiceBodyLineItemsItemDescriptionMax),
         quantity: zod.number(),
-        unit: zod.string(),
+        unit: zod.string().max(createInvoiceBodyLineItemsItemUnitMax),
         unitPrice: zod.number(),
         total: zod.number(),
       }),
     )
+    .max(createInvoiceBodyLineItemsMax)
     .optional(),
-  notes: zod.string().nullish(),
+  notes: zod.string().max(createInvoiceBodyNotesMax).nullish(),
   dueDate: zod.coerce.date().nullish(),
 });
 
@@ -4119,6 +4307,10 @@ export const CreateInvoiceBody = zod.object({
 export const GetInvoiceParams = zod.object({
   invoiceId: zod.coerce.number(),
 });
+
+export const getInvoiceResponseLineItemsItemDescriptionMax = 500;
+
+export const getInvoiceResponseLineItemsItemUnitMax = 20;
 
 export const GetInvoiceResponse = zod.object({
   id: zod.number(),
@@ -4132,9 +4324,11 @@ export const GetInvoiceResponse = zod.object({
   status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(getInvoiceResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(getInvoiceResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -4165,28 +4359,49 @@ export const UpdateInvoiceParams = zod.object({
   invoiceId: zod.coerce.number(),
 });
 
+export const updateInvoiceBodyTitleMax = 300;
+
+export const updateInvoiceBodyClientNameMax = 300;
+
+export const updateInvoiceBodyClientEmailMax = 300;
+
+export const updateInvoiceBodyLineItemsItemDescriptionMax = 500;
+
+export const updateInvoiceBodyLineItemsItemUnitMax = 20;
+
+export const updateInvoiceBodyLineItemsMax = 100;
+
+export const updateInvoiceBodyNotesMax = 5000;
+
 export const UpdateInvoiceBody = zod.object({
-  title: zod.string().optional(),
-  clientName: zod.string().optional(),
-  clientEmail: zod.string().nullish(),
+  title: zod.string().max(updateInvoiceBodyTitleMax).optional(),
+  clientName: zod.string().max(updateInvoiceBodyClientNameMax).optional(),
+  clientEmail: zod.string().max(updateInvoiceBodyClientEmailMax).nullish(),
   lineItems: zod
     .array(
       zod.object({
-        description: zod.string(),
+        description: zod
+          .string()
+          .max(updateInvoiceBodyLineItemsItemDescriptionMax),
         quantity: zod.number(),
-        unit: zod.string(),
+        unit: zod.string().max(updateInvoiceBodyLineItemsItemUnitMax),
         unitPrice: zod.number(),
         total: zod.number(),
       }),
     )
+    .max(updateInvoiceBodyLineItemsMax)
     .optional(),
   subtotal: zod.number().optional(),
   taxRate: zod.number().optional(),
   taxAmount: zod.number().optional(),
   total: zod.number().optional(),
-  notes: zod.string().nullish(),
+  notes: zod.string().max(updateInvoiceBodyNotesMax).nullish(),
   dueDate: zod.coerce.date().nullish(),
 });
+
+export const updateInvoiceResponseLineItemsItemDescriptionMax = 500;
+
+export const updateInvoiceResponseLineItemsItemUnitMax = 20;
 
 export const UpdateInvoiceResponse = zod.object({
   id: zod.number(),
@@ -4200,9 +4415,11 @@ export const UpdateInvoiceResponse = zod.object({
   status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(updateInvoiceResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(updateInvoiceResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -4233,6 +4450,10 @@ export const MarkInvoiceSentParams = zod.object({
   invoiceId: zod.coerce.number(),
 });
 
+export const markInvoiceSentResponseLineItemsItemDescriptionMax = 500;
+
+export const markInvoiceSentResponseLineItemsItemUnitMax = 20;
+
 export const MarkInvoiceSentResponse = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -4245,9 +4466,11 @@ export const MarkInvoiceSentResponse = zod.object({
   status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(markInvoiceSentResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(markInvoiceSentResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -4278,6 +4501,10 @@ export const MarkInvoicePaidParams = zod.object({
   invoiceId: zod.coerce.number(),
 });
 
+export const markInvoicePaidResponseLineItemsItemDescriptionMax = 500;
+
+export const markInvoicePaidResponseLineItemsItemUnitMax = 20;
+
 export const MarkInvoicePaidResponse = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -4290,9 +4517,11 @@ export const MarkInvoicePaidResponse = zod.object({
   status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
   lineItems: zod.array(
     zod.object({
-      description: zod.string(),
+      description: zod
+        .string()
+        .max(markInvoicePaidResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
-      unit: zod.string(),
+      unit: zod.string().max(markInvoicePaidResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),
@@ -4541,11 +4770,20 @@ export const DeleteAddonResponse = zod.object({
 /**
  * @summary Create a daily field log
  */
+export const createDailyLogBodyNotesMax = 5000;
+
+export const createDailyLogBodyWeatherTempMax = 20;
+
+export const createDailyLogBodyWeatherConditionMax = 200;
+
 export const CreateDailyLogBody = zod.object({
   projectId: zod.number(),
-  notes: zod.string().nullish(),
-  weatherTemp: zod.string().nullish(),
-  weatherCondition: zod.string().nullish(),
+  notes: zod.string().max(createDailyLogBodyNotesMax).nullish(),
+  weatherTemp: zod.string().max(createDailyLogBodyWeatherTempMax).nullish(),
+  weatherCondition: zod
+    .string()
+    .max(createDailyLogBodyWeatherConditionMax)
+    .nullish(),
 });
 
 /**
@@ -4577,10 +4815,19 @@ export const UpdateDailyLogParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const updateDailyLogBodyNotesMax = 5000;
+
+export const updateDailyLogBodyWeatherTempMax = 20;
+
+export const updateDailyLogBodyWeatherConditionMax = 200;
+
 export const UpdateDailyLogBody = zod.object({
-  notes: zod.string().nullish(),
-  weatherTemp: zod.string().nullish(),
-  weatherCondition: zod.string().nullish(),
+  notes: zod.string().max(updateDailyLogBodyNotesMax).nullish(),
+  weatherTemp: zod.string().max(updateDailyLogBodyWeatherTempMax).nullish(),
+  weatherCondition: zod
+    .string()
+    .max(updateDailyLogBodyWeatherConditionMax)
+    .nullish(),
 });
 
 export const UpdateDailyLogResponse = zod.object({
@@ -4607,11 +4854,15 @@ export const DeleteDailyLogParams = zod.object({
 /**
  * @summary Upload a site photo with markup
  */
+export const createSitePhotoBodyImageUrlMax = 2000;
+
+export const createSitePhotoBodyRoomLocationMax = 500;
+
 export const CreateSitePhotoBody = zod.object({
   projectId: zod.number(),
-  imageUrl: zod.string(),
+  imageUrl: zod.string().max(createSitePhotoBodyImageUrlMax),
   markupData: zod.object({}).passthrough().nullish(),
-  roomLocation: zod.string().nullish(),
+  roomLocation: zod.string().max(createSitePhotoBodyRoomLocationMax).nullish(),
 });
 
 /**
@@ -4638,8 +4889,10 @@ export const UpdateSitePhotoParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const updateSitePhotoBodyRoomLocationMax = 500;
+
 export const UpdateSitePhotoBody = zod.object({
-  roomLocation: zod.string().nullish(),
+  roomLocation: zod.string().max(updateSitePhotoBodyRoomLocationMax).nullish(),
 });
 
 export const UpdateSitePhotoResponse = zod.object({
@@ -4661,10 +4914,15 @@ export const DeleteSitePhotoParams = zod.object({
 /**
  * @summary Submit a daily safety signoff
  */
+export const createSafetySignoffBodySignatureUrlMax = 2000;
+
 export const CreateSafetySignoffBody = zod.object({
   projectId: zod.number(),
   responses: zod.object({}).passthrough(),
-  signatureUrl: zod.string().nullish(),
+  signatureUrl: zod
+    .string()
+    .max(createSafetySignoffBodySignatureUrlMax)
+    .nullish(),
 });
 
 /**
@@ -4693,9 +4951,14 @@ export const UpdateSafetySignoffParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const updateSafetySignoffBodySignatureUrlMax = 2000;
+
 export const UpdateSafetySignoffBody = zod.object({
   responses: zod.object({}).passthrough().optional(),
-  signatureUrl: zod.string().nullish(),
+  signatureUrl: zod
+    .string()
+    .max(updateSafetySignoffBodySignatureUrlMax)
+    .nullish(),
 });
 
 export const UpdateSafetySignoffResponse = zod.object({
@@ -5072,16 +5335,27 @@ export const ListTradehubFeedResponse = zod.object({
  */
 export const createTradehubPostBodyTitleMax = 200;
 
-export const createTradehubPostBodyContentMax = 10000;
+export const createTradehubPostBodyContentMax = 5000;
+
+export const createTradehubPostBodyTradeMax = 100;
+
+export const createTradehubPostBodyLocationMax = 200;
+
+export const createTradehubPostBodyProvinceMax = 50;
+
+export const createTradehubPostBodyBudgetMax = 50;
+
+export const createTradehubPostBodyJobTypeMax = 50;
 
 export const CreateTradehubPostBody = zod.object({
   type: zod.enum(["discussion", "job", "showcase"]),
   title: zod.string().min(1).max(createTradehubPostBodyTitleMax),
   content: zod.string().min(1).max(createTradehubPostBodyContentMax),
-  trade: zod.string().optional(),
-  province: zod.string().optional(),
-  budget: zod.string().optional(),
-  jobType: zod.string().optional(),
+  trade: zod.string().max(createTradehubPostBodyTradeMax).optional(),
+  location: zod.string().max(createTradehubPostBodyLocationMax).optional(),
+  province: zod.string().max(createTradehubPostBodyProvinceMax).optional(),
+  budget: zod.string().max(createTradehubPostBodyBudgetMax).optional(),
+  jobType: zod.string().max(createTradehubPostBodyJobTypeMax).optional(),
 });
 
 /**
@@ -5426,17 +5700,25 @@ export const GetTradehubProfileResponse = zod.object({
 /**
  * @summary Create or update the current user's TradeHub profile
  */
-export const upsertTradehubProfileBodyDisplayNameMax = 100;
+export const upsertTradehubProfileBodyDisplayNameMax = 200;
+
+export const upsertTradehubProfileBodyTradeMax = 100;
+
+export const upsertTradehubProfileBodyLocationMax = 200;
+
+export const upsertTradehubProfileBodyProvinceMax = 50;
 
 export const upsertTradehubProfileBodyBioMax = 2000;
 
+export const upsertTradehubProfileBodyWebsiteMax = 500;
+
 export const UpsertTradehubProfileBody = zod.object({
   displayName: zod.string().min(1).max(upsertTradehubProfileBodyDisplayNameMax),
-  trade: zod.string().optional(),
-  location: zod.string().optional(),
-  province: zod.string().optional(),
+  trade: zod.string().max(upsertTradehubProfileBodyTradeMax).optional(),
+  location: zod.string().max(upsertTradehubProfileBodyLocationMax).optional(),
+  province: zod.string().max(upsertTradehubProfileBodyProvinceMax).optional(),
   bio: zod.string().max(upsertTradehubProfileBodyBioMax).optional(),
-  website: zod.string().optional(),
+  website: zod.string().max(upsertTradehubProfileBodyWebsiteMax).optional(),
   complianceStatus: zod
     .enum(["compliant", "warning", "non_compliant"])
     .optional(),
@@ -5526,7 +5808,7 @@ export const MarkAllTradehubNotificationsReadResponse = zod.object({
 /**
  * @summary Report a post or user
  */
-export const createTradehubReportBodyReasonMax = 2000;
+export const createTradehubReportBodyReasonMax = 1000;
 
 export const CreateTradehubReportBody = zod.object({
   targetType: zod.enum(["post", "user", "comment"]),

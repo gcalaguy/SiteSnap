@@ -4779,6 +4779,7 @@ components:
           nullable: true
         name:
           type: string
+          maxLength: 200
           nullable: true
 
     UpdateScanBody:
@@ -4786,6 +4787,7 @@ components:
       properties:
         name:
           type: string
+          maxLength: 200
 
     ScanUrlResponse:
       type: object
@@ -5473,8 +5475,10 @@ components:
       properties:
         projectName:
           type: string
+          maxLength: 200
         rawInput:
           type: string
+          maxLength: 5000
           description: Raw notes or voice transcript to structure
         reportDate:
           type: string
@@ -5503,6 +5507,7 @@ components:
       properties:
         projectName:
           type: string
+          maxLength: 200
         labourCost:
           type: number
         materialsCost:
@@ -5516,6 +5521,7 @@ components:
           nullable: true
         notes:
           type: string
+          maxLength: 1000
       required: [projectName, labourCost, materialsCost, equipmentCost, otherCost]
 
     AIGeneratedCostAnalysis:
@@ -5541,10 +5547,13 @@ components:
       properties:
         projectName:
           type: string
+          maxLength: 200
         subject:
           type: string
+          maxLength: 500
         description:
           type: string
+          maxLength: 3000
       required: [projectName, subject, description]
 
     AIGeneratedRFI:
@@ -5857,6 +5866,7 @@ components:
           enum: [user, assistant]
         content:
           type: string
+          maxLength: 4000
 
     AIAssistantBody:
       type: object
@@ -5864,10 +5874,12 @@ components:
       properties:
         messages:
           type: array
+          maxItems: 50
           items:
             $ref: "#/components/schemas/ChatMessage"
         context:
           type: string
+          maxLength: 5000
           description: JSON-encoded project/company context for the assistant
           nullable: true
 
@@ -5918,10 +5930,13 @@ components:
       properties:
         filename:
           type: string
+          maxLength: 500
         fileType:
           type: string
+          maxLength: 100
         objectPath:
           type: string
+          maxLength: 1000
         fileSize:
           type: integer
 
@@ -5933,10 +5948,12 @@ components:
       properties:
         description:
           type: string
+          maxLength: 500
         quantity:
           type: number
         unit:
           type: string
+          maxLength: 20
         unitPrice:
           type: number
         total:
@@ -6041,25 +6058,33 @@ components:
       properties:
         title:
           type: string
+          maxLength: 300
         clientName:
           type: string
+          maxLength: 300
         clientEmail:
           type: string
+          maxLength: 300
           nullable: true
         clientCompanyName:
           type: string
+          maxLength: 300
           nullable: true
         clientAddress:
           type: string
+          maxLength: 1000
           nullable: true
         clientPhone:
           type: string
+          maxLength: 50
           nullable: true
         voiceInput:
           type: string
+          maxLength: 5000
           nullable: true
         lineItems:
           type: array
+          maxItems: 100
           items:
             $ref: "#/components/schemas/QuoteLineItem"
         subtotal:
@@ -6072,6 +6097,7 @@ components:
           type: number
         notes:
           type: string
+          maxLength: 5000
           nullable: true
         validUntil:
           type: string
@@ -6083,25 +6109,33 @@ components:
       properties:
         title:
           type: string
+          maxLength: 300
         clientName:
           type: string
+          maxLength: 300
         clientEmail:
           type: string
+          maxLength: 300
           nullable: true
         clientCompanyName:
           type: string
+          maxLength: 300
           nullable: true
         clientAddress:
           type: string
+          maxLength: 1000
           nullable: true
         clientPhone:
           type: string
+          maxLength: 50
           nullable: true
         voiceInput:
           type: string
+          maxLength: 5000
           nullable: true
         lineItems:
           type: array
+          maxItems: 100
           items:
             $ref: "#/components/schemas/QuoteLineItem"
         subtotal:
@@ -6114,6 +6148,7 @@ components:
           type: number
         notes:
           type: string
+          maxLength: 5000
           nullable: true
         validUntil:
           type: string
@@ -6126,11 +6161,14 @@ components:
       properties:
         voiceInput:
           type: string
+          maxLength: 3000
         projectName:
           type: string
+          maxLength: 200
           nullable: true
         clientName:
           type: string
+          maxLength: 200
           nullable: true
 
     QuoteAIGenerateResponse:
@@ -6249,12 +6287,15 @@ components:
       properties:
         signatureData:
           type: string
+          maxLength: 2000000
           description: Base64-encoded data URL (PNG) of the approver's signature
         signerName:
           type: string
+          maxLength: 120
           nullable: true
         notes:
           type: string
+          maxLength: 1000
           nullable: true
 
     SubmitTimesheetBody:
@@ -6271,9 +6312,11 @@ components:
           nullable: true
         description:
           type: string
+          maxLength: 2000
           nullable: true
         notes:
           type: string
+          maxLength: 1000
         projectId:
           type: integer
           nullable: true
@@ -7274,17 +7317,22 @@ components:
       properties:
         title:
           type: string
+          maxLength: 300
         clientName:
           type: string
+          maxLength: 300
         clientEmail:
           type: string
+          maxLength: 300
           nullable: true
         lineItems:
           type: array
+          maxItems: 100
           items:
             $ref: "#/components/schemas/QuoteLineItem"
         notes:
           type: string
+          maxLength: 5000
           nullable: true
         dueDate:
           type: string
@@ -7296,13 +7344,17 @@ components:
       properties:
         title:
           type: string
+          maxLength: 300
         clientName:
           type: string
+          maxLength: 300
         clientEmail:
           type: string
+          maxLength: 300
           nullable: true
         lineItems:
           type: array
+          maxItems: 100
           items:
             $ref: "#/components/schemas/QuoteLineItem"
         subtotal:
@@ -7315,6 +7367,7 @@ components:
           type: number
         notes:
           type: string
+          maxLength: 5000
           nullable: true
         dueDate:
           type: string
@@ -7356,12 +7409,15 @@ components:
           type: integer
         notes:
           type: string
+          maxLength: 5000
           nullable: true
         weatherTemp:
           type: string
+          maxLength: 20
           nullable: true
         weatherCondition:
           type: string
+          maxLength: 200
           nullable: true
 
     UpdateDailyLogBody:
@@ -7369,12 +7425,15 @@ components:
       properties:
         notes:
           type: string
+          maxLength: 5000
           nullable: true
         weatherTemp:
           type: string
+          maxLength: 20
           nullable: true
         weatherCondition:
           type: string
+          maxLength: 200
           nullable: true
 
     SitePhotoRecord:
@@ -7405,11 +7464,13 @@ components:
           type: integer
         imageUrl:
           type: string
+          maxLength: 2000
         markupData:
           type: object
           nullable: true
         roomLocation:
           type: string
+          maxLength: 500
           nullable: true
 
     UpdateSitePhotoBody:
@@ -7417,6 +7478,7 @@ components:
       properties:
         roomLocation:
           type: string
+          maxLength: 500
           nullable: true
 
     SafetySignoffRecord:
@@ -7448,6 +7510,7 @@ components:
           type: object
         signatureUrl:
           type: string
+          maxLength: 2000
           nullable: true
 
     UpdateSafetySignoffBody:
@@ -7457,6 +7520,7 @@ components:
           type: object
         signatureUrl:
           type: string
+          maxLength: 2000
           nullable: true
 
     ExportSheetsBody:
@@ -7895,15 +7959,22 @@ components:
         content:
           type: string
           minLength: 1
-          maxLength: 10000
+          maxLength: 5000
         trade:
           type: string
+          maxLength: 100
+        location:
+          type: string
+          maxLength: 200
         province:
           type: string
+          maxLength: 50
         budget:
           type: string
+          maxLength: 50
         jobType:
           type: string
+          maxLength: 50
 
     TradehubProfile:
       type: object
@@ -7957,18 +8028,22 @@ components:
         displayName:
           type: string
           minLength: 1
-          maxLength: 100
+          maxLength: 200
         trade:
           type: string
+          maxLength: 100
         location:
           type: string
+          maxLength: 200
         province:
           type: string
+          maxLength: 50
         bio:
           type: string
           maxLength: 2000
         website:
           type: string
+          maxLength: 500
         complianceStatus:
           type: string
           enum: [compliant, warning, non_compliant]
@@ -8007,7 +8082,7 @@ components:
         reason:
           type: string
           minLength: 1
-          maxLength: 2000
+          maxLength: 1000
 
     TradehubUserSearchResult:
       type: object
