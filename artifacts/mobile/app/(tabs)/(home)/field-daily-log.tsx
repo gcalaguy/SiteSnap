@@ -161,11 +161,11 @@ export default function FieldDailyLogScreen() {
         {/* Submit */}
         <TouchableOpacity
           onPress={submit}
-          disabled={!projectId || createLog.isPending}
+          disabled={!projectId || createLog.isPending || notes.length >= NOTES_MAX}
           style={[
             styles.submitBtn,
             {
-              backgroundColor: !projectId || createLog.isPending ? "#ccc" : colors.primary,
+              backgroundColor: !projectId || createLog.isPending || notes.length >= NOTES_MAX ? "#ccc" : colors.primary,
             },
           ]}
         >

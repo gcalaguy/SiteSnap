@@ -183,7 +183,7 @@ export default function NewRFI() {
 
                   <div className="flex justify-end gap-4">
                     <Button type="button" variant="outline" onClick={() => setLocation(`/projects/${projectId}`)}>Cancel</Button>
-                    <Button type="submit" disabled={createRFI.isPending}>
+                    <Button type="submit" disabled={createRFI.isPending || form.watch("description").length >= DESCRIPTION_MAX}>
                       {createRFI.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Submit RFI
                     </Button>

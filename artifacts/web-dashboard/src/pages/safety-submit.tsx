@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Send, Loader2, ShieldAlert, User, FolderOpen } from "l
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -21,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
+const TEXTAREA_FIELD_MAX = 2_000;
 
 interface FormField {
   id: string;
@@ -73,13 +75,14 @@ function FormFieldRenderer({
 
     case "textarea":
       return (
-        <Textarea
+        <CharCountedTextarea
           id={id}
           value={value ?? ""}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(e.target.value.slice(0, TEXTAREA_FIELD_MAX))}
           required={field.required}
           placeholder={field.required ? "Required" : "Optional"}
           rows={3}
+          maxLength={TEXTAREA_FIELD_MAX}
         />
       );
 
@@ -225,6 +228,12 @@ export default function SafetySubmitPage() {
       if (Array.isArray(v)) return v.length > 0;
       return v !== undefined && v !== null && v !== "";
     });
+  };
+
+  const hasTextareaAtLimit = () => {
+    if (!selectedTemplate) return false;
+    const fields = selectedTemplate.schema?.fields ?? [];
+    return fields.some((f) => f.type === "textarea" && typeof formData[f.id] === "string" && (formData[f.id] as string).length >= TEXTAREA_FIELD_MAX);
   };
 
   if (loadingTemplates) {
@@ -391,7 +400,7 @@ export default function SafetySubmitPage() {
             <Button
               variant="outline"
               onClick={() => saveMutation.mutate({ status: "draft" })}
-              disabled={saveMutation.isPending || !selectedTemplateId}
+              disabled={saveMutation.isPending || !selectedTemplateId || hasTextareaAtLimit()}
               className="gap-2"
             >
               {saveMutation.isPending ? (
@@ -403,7 +412,7 @@ export default function SafetySubmitPage() {
             </Button>
             <Button
               onClick={() => saveMutation.mutate({ status: "submitted" })}
-              disabled={saveMutation.isPending || !validateRequired()}
+              disabled={saveMutation.isPending || !validateRequired() || hasTextareaAtLimit()}
               style={{ background: GOLD, color: BLACK }}
               className="font-semibold gap-2"
             >

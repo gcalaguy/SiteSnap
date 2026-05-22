@@ -45,6 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -57,6 +58,11 @@ import { Label } from "@/components/ui/label";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
+const TASK_DESC_MAX = 2_000;
+const ASSIGN_NOTES_MAX = 1_000;
+const RFI_DESC_MAX = 3_000;
+const RFI_RESPONSE_MAX = 3_000;
+const REPORT_FIELD_MAX = 5_000;
 
 type Task = {
   id: number;
@@ -407,11 +413,12 @@ function TasksTab({ projectId, selectedWorkerId, members }: {
             </div>
             <div>
               <label className="text-sm font-medium block mb-1">Description</label>
-              <Textarea
+              <CharCountedTextarea
                 placeholder="Optional description"
                 value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
+                onChange={(e) => setNewDesc(e.target.value.slice(0, TASK_DESC_MAX))}
                 className="min-h-[80px]"
+                maxLength={TASK_DESC_MAX}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -463,7 +470,7 @@ function TasksTab({ projectId, selectedWorkerId, members }: {
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
             <Button
               onClick={handleCreate}
-              disabled={!newTitle.trim() || createTask.isPending}
+              disabled={!newTitle.trim() || createTask.isPending || newDesc.length >= TASK_DESC_MAX}
             >
               {createTask.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Add Task
@@ -528,8 +535,13 @@ export default function ProjectDetail() {
   const [expandedRfiId, setExpandedRfiId] = useState<number | null>(null);
 
   const [editingReportId, setEditingReportId] = useState<number | null>(null);
+  const [editReportWork, setEditReportWork] = useState("");
+  const [editReportMaterials, setEditReportMaterials] = useState("");
+  const [editReportIssues, setEditReportIssues] = useState("");
   const [editingCostId, setEditingCostId] = useState<number | null>(null);
   const [editingRfiId, setEditingRfiId] = useState<number | null>(null);
+  const [editRfiDesc, setEditRfiDesc] = useState("");
+  const [editRfiResponse, setEditRfiResponse] = useState("");
 
   const { data: me } = useGetMe();
   const companyId = me?.company?.id;
@@ -703,6 +715,25 @@ export default function ProjectDetail() {
   const filteredReports = selectedWorkerId
     ? (reports ?? []).filter((r: any) => r.submittedByUserId === selectedWorkerId)
     : (reports ?? []);
+
+  useEffect(() => {
+    if (!editingReportId) return;
+    const r = filteredReports.find((x: any) => x.id === editingReportId);
+    if (r) {
+      setEditReportWork(r.workPerformed ?? "");
+      setEditReportMaterials(r.materialsUsed ?? "");
+      setEditReportIssues(r.issues ?? "");
+    }
+  }, [editingReportId]);
+
+  useEffect(() => {
+    if (!editingRfiId) return;
+    const r = (rfis ?? []).find((x: any) => x.id === editingRfiId);
+    if (r) {
+      setEditRfiDesc(r.description ?? "");
+      setEditRfiResponse(r.response ?? "");
+    }
+  }, [editingRfiId]);
 
   const getStatusBadge = (status?: string) => {
     if (!status) return null;
@@ -1254,17 +1285,32 @@ export default function ProjectDetail() {
                     <Label>Date</Label>
                     <Input type="date" defaultValue={report.reportDate.split("T")[0]} id={`edit-report-date-${report.id}`} />
                     <Label>Work Performed</Label>
-                    <Textarea defaultValue={report.workPerformed} id={`edit-report-work-${report.id}`} rows={3} />
+                    <CharCountedTextarea
+                      value={editReportWork}
+                      onChange={(e) => setEditReportWork(e.target.value.slice(0, REPORT_FIELD_MAX))}
+                      rows={3}
+                      maxLength={REPORT_FIELD_MAX}
+                    />
                     <Label>Weather</Label>
                     <Input defaultValue={report.weather ?? ""} id={`edit-report-weather-${report.id}`} />
                     <Label>Temperature</Label>
                     <Input defaultValue={report.temperature ?? ""} id={`edit-report-temp-${report.id}`} />
                     <Label>Materials Used</Label>
-                    <Textarea defaultValue={report.materialsUsed ?? ""} id={`edit-report-materials-${report.id}`} rows={2} />
+                    <CharCountedTextarea
+                      value={editReportMaterials}
+                      onChange={(e) => setEditReportMaterials(e.target.value.slice(0, REPORT_FIELD_MAX))}
+                      rows={2}
+                      maxLength={REPORT_FIELD_MAX}
+                    />
                     <Label>Equipment</Label>
                     <Input defaultValue={report.equipment ?? ""} id={`edit-report-equipment-${report.id}`} />
                     <Label>Issues / Delays</Label>
-                    <Textarea defaultValue={report.issues ?? ""} id={`edit-report-issues-${report.id}`} rows={2} />
+                    <CharCountedTextarea
+                      value={editReportIssues}
+                      onChange={(e) => setEditReportIssues(e.target.value.slice(0, REPORT_FIELD_MAX))}
+                      rows={2}
+                      maxLength={REPORT_FIELD_MAX}
+                    />
                     <Label>Crew Count</Label>
                     <Input type="number" defaultValue={report.crewCount ?? ""} id={`edit-report-crew-${report.id}`} />
                   </div>
@@ -1273,29 +1319,26 @@ export default function ProjectDetail() {
                     <Button
                       onClick={() => {
                         const dateVal = (document.getElementById(`edit-report-date-${report.id}`) as HTMLInputElement)?.value;
-                        const workVal = (document.getElementById(`edit-report-work-${report.id}`) as HTMLTextAreaElement)?.value;
                         const weatherVal = (document.getElementById(`edit-report-weather-${report.id}`) as HTMLInputElement)?.value;
                         const tempVal = (document.getElementById(`edit-report-temp-${report.id}`) as HTMLInputElement)?.value;
-                        const materialsVal = (document.getElementById(`edit-report-materials-${report.id}`) as HTMLTextAreaElement)?.value;
                         const equipmentVal = (document.getElementById(`edit-report-equipment-${report.id}`) as HTMLInputElement)?.value;
-                        const issuesVal = (document.getElementById(`edit-report-issues-${report.id}`) as HTMLTextAreaElement)?.value;
                         const crewVal = (document.getElementById(`edit-report-crew-${report.id}`) as HTMLInputElement)?.value;
                         updateDailyReport.mutate({
                           projectId,
                           reportId: report.id,
                           data: {
                             reportDate: dateVal ? new Date(dateVal).toISOString() : report.reportDate,
-                            workPerformed: workVal,
+                            workPerformed: editReportWork,
                             weather: weatherVal || undefined,
                             temperature: tempVal || undefined,
-                            materialsUsed: materialsVal || undefined,
+                            materialsUsed: editReportMaterials || undefined,
                             equipment: equipmentVal || undefined,
-                            issues: issuesVal || undefined,
+                            issues: editReportIssues || undefined,
                             crewCount: crewVal ? Number(crewVal) : undefined,
                           } as any,
                         });
                       }}
-                      disabled={updateDailyReport.isPending}
+                      disabled={updateDailyReport.isPending || editReportWork.length >= REPORT_FIELD_MAX || editReportMaterials.length >= REPORT_FIELD_MAX || editReportIssues.length >= REPORT_FIELD_MAX}
                     >
                       {updateDailyReport.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
                     </Button>
@@ -1584,7 +1627,12 @@ export default function ProjectDetail() {
                     <Label>Subject</Label>
                     <Input defaultValue={rfi.subject} id={`edit-rfi-subject-${rfi.id}`} />
                     <Label>Description</Label>
-                    <Textarea defaultValue={rfi.description} id={`edit-rfi-desc-${rfi.id}`} rows={3} />
+                    <CharCountedTextarea
+                      value={editRfiDesc}
+                      onChange={(e) => setEditRfiDesc(e.target.value.slice(0, RFI_DESC_MAX))}
+                      rows={3}
+                      maxLength={RFI_DESC_MAX}
+                    />
                     <Label>Priority</Label>
                     <Select defaultValue={rfi.priority}>
                       <SelectTrigger id={`edit-rfi-priority-${rfi.id}`}><SelectValue /></SelectTrigger>
@@ -1608,32 +1656,35 @@ export default function ProjectDetail() {
                     <Label>Due Date</Label>
                     <Input type="date" defaultValue={rfi.dueDate ? rfi.dueDate.split("T")[0] : ""} id={`edit-rfi-due-${rfi.id}`} />
                     <Label>Response</Label>
-                    <Textarea defaultValue={rfi.response ?? ""} id={`edit-rfi-response-${rfi.id}`} rows={3} />
+                    <CharCountedTextarea
+                      value={editRfiResponse}
+                      onChange={(e) => setEditRfiResponse(e.target.value.slice(0, RFI_RESPONSE_MAX))}
+                      rows={3}
+                      maxLength={RFI_RESPONSE_MAX}
+                    />
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setEditingRfiId(null)}>Cancel</Button>
                     <Button
                       onClick={() => {
                         const subject = (document.getElementById(`edit-rfi-subject-${rfi.id}`) as HTMLInputElement)?.value;
-                        const description = (document.getElementById(`edit-rfi-desc-${rfi.id}`) as HTMLTextAreaElement)?.value;
                         const priority = (document.getElementById(`edit-rfi-priority-${rfi.id}`) as HTMLInputElement)?.value;
                         const status = (document.getElementById(`edit-rfi-status-${rfi.id}`) as HTMLInputElement)?.value;
                         const due = (document.getElementById(`edit-rfi-due-${rfi.id}`) as HTMLInputElement)?.value;
-                        const response = (document.getElementById(`edit-rfi-response-${rfi.id}`) as HTMLTextAreaElement)?.value;
                         updateRFI.mutate({
                           projectId,
                           rfiId: rfi.id,
                           data: {
                             subject,
-                            description,
+                            description: editRfiDesc,
                             priority: priority || rfi.priority,
                             status: status || rfi.status,
                             dueDate: due ? new Date(due).toISOString() : undefined,
-                            response: response || undefined,
+                            response: editRfiResponse || undefined,
                           } as any,
                         });
                       }}
-                      disabled={updateRFI.isPending}
+                      disabled={updateRFI.isPending || editRfiDesc.length >= RFI_DESC_MAX || editRfiResponse.length >= RFI_RESPONSE_MAX}
                     >
                       {updateRFI.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
                     </Button>
@@ -1824,11 +1875,12 @@ export default function ProjectDetail() {
             </div>
             <div>
               <label className="text-sm font-medium block mb-1">Notes (optional)</label>
-              <Textarea
+              <CharCountedTextarea
                 placeholder="e.g. Framing crew, 7am–3pm shift"
                 value={assignNotes}
-                onChange={(e) => setAssignNotes(e.target.value)}
+                onChange={(e) => setAssignNotes(e.target.value.slice(0, ASSIGN_NOTES_MAX))}
                 className="min-h-[64px]"
+                maxLength={ASSIGN_NOTES_MAX}
               />
             </div>
           </div>
@@ -1842,7 +1894,7 @@ export default function ProjectDetail() {
                 endDate: assignEndDate,
                 notes: assignNotes || undefined,
               })}
-              disabled={!assignUserId || !assignStartDate || !assignEndDate || createAssignment.isPending}
+              disabled={!assignUserId || !assignStartDate || !assignEndDate || createAssignment.isPending || assignNotes.length >= ASSIGN_NOTES_MAX}
             >
               {createAssignment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Schedule

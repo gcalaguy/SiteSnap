@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -24,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
+const NOTES_MAX = 1_000;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Member = { id: number; firstName: string; lastName: string; role: string; email: string };
@@ -1162,10 +1164,12 @@ export default function Schedule() {
               </div>
               <div>
                 <label className="text-sm font-medium block mb-1">Notes (optional)</label>
-                <Textarea
+                <CharCountedTextarea
                   placeholder="e.g. Framing crew, 7am–3pm"
-                  value={dlgNotes} onChange={e => setDlgNotes(e.target.value)}
+                  value={dlgNotes}
+                  onChange={e => setDlgNotes(e.target.value.slice(0, NOTES_MAX))}
                   className="min-h-[60px]"
+                  maxLength={NOTES_MAX}
                 />
               </div>
             </div>
@@ -1180,7 +1184,7 @@ export default function Schedule() {
                   if (dlgContactId) body.contactId = Number(dlgContactId);
                   createMut.mutate(body);
                 }}
-                disabled={(!dlgUserId && !dlgContactId) || !dlgProjectId || !dlgStart || !dlgEnd || createMut.isPending || (complianceWarning?.complianceStatus === "non_compliant")}
+                disabled={(!dlgUserId && !dlgContactId) || !dlgProjectId || !dlgStart || !dlgEnd || createMut.isPending || (complianceWarning?.complianceStatus === "non_compliant") || dlgNotes.length >= NOTES_MAX}
               >
                 {createMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Assign
@@ -1374,7 +1378,13 @@ export default function Schedule() {
               </div>
               <div>
                 <label className="text-sm font-medium block mb-1">Notes (optional)</label>
-                <Textarea placeholder="Additional details…" value={evtNotes} onChange={e => setEvtNotes(e.target.value)} className="min-h-[60px]" />
+                <CharCountedTextarea
+                  placeholder="Additional details…"
+                  value={evtNotes}
+                  onChange={e => setEvtNotes(e.target.value.slice(0, NOTES_MAX))}
+                  className="min-h-[60px]"
+                  maxLength={NOTES_MAX}
+                />
               </div>
               {evtType === "meeting" && (
                 <div className="space-y-2">
@@ -1492,7 +1502,7 @@ export default function Schedule() {
                     });
                   }
                 }}
-                disabled={!evtTitle || !evtDate || !evtStartTime || !evtEndTime || createEventMut.isPending || updateEventMut.isPending}
+                disabled={!evtTitle || !evtDate || !evtStartTime || !evtEndTime || createEventMut.isPending || updateEventMut.isPending || evtNotes.length >= NOTES_MAX}
               >
                 {(createEventMut.isPending || updateEventMut.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {editEvtId ? "Save Changes" : "Create Event"}
@@ -1541,7 +1551,13 @@ export default function Schedule() {
               </div>
               <div>
                 <label className="text-sm font-medium block mb-1">Notes (optional)</label>
-                <Textarea placeholder="e.g. Due for service in June" value={eqNotes} onChange={e => setEqNotes(e.target.value)} className="min-h-[60px]" />
+                <CharCountedTextarea
+                  placeholder="e.g. Due for service in June"
+                  value={eqNotes}
+                  onChange={e => setEqNotes(e.target.value.slice(0, NOTES_MAX))}
+                  className="min-h-[60px]"
+                  maxLength={NOTES_MAX}
+                />
               </div>
             </div>
             <DialogFooter>
@@ -1556,7 +1572,7 @@ export default function Schedule() {
                     createEquipMut.mutate(body);
                   }
                 }}
-                disabled={!eqName || createEquipMut.isPending || updateEquipMut.isPending}
+                disabled={!eqName || createEquipMut.isPending || updateEquipMut.isPending || eqNotes.length >= NOTES_MAX}
               >
                 {(createEquipMut.isPending || updateEquipMut.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {editEquipId ? "Save Changes" : "Add Equipment"}

@@ -18,6 +18,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft, Loader2, Sparkles, Camera, X, Upload, Mic, MicOff } from "lucide-react";
 
 const RAW_INPUT_MAX = 5_000;
+const WORK_MAX = 5_000;
+const MATERIALS_MAX = 2_000;
+const EQUIPMENT_MAX = 1_000;
+const ISSUES_MAX = 2_000;
 
 const reportSchema = z.object({
   reportDate: z.string(),
@@ -361,19 +365,83 @@ export default function NewReport() {
                   </div>
 
                   <FormField control={form.control} name="workPerformed" render={({ field }) => (
-                    <FormItem><FormLabel>Work Performed *</FormLabel><FormControl><Textarea className="min-h-[100px]" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Work Performed *</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          className="min-h-[100px]"
+                          maxLength={WORK_MAX}
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value.slice(0, WORK_MAX))}
+                        />
+                      </FormControl>
+                      <div className="flex justify-end">
+                        <p className={`text-xs tabular-nums ${field.value.length >= WORK_MAX ? "text-destructive font-medium" : field.value.length >= WORK_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                          {field.value.length.toLocaleString()}/{WORK_MAX.toLocaleString()}
+                        </p>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
                   )} />
 
                   <FormField control={form.control} name="materialsUsed" render={({ field }) => (
-                    <FormItem><FormLabel>Materials Used</FormLabel><FormControl><Textarea className="min-h-[60px]" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Materials Used</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          className="min-h-[60px]"
+                          maxLength={MATERIALS_MAX}
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value.slice(0, MATERIALS_MAX))}
+                        />
+                      </FormControl>
+                      <div className="flex justify-end">
+                        <p className={`text-xs tabular-nums ${(field.value?.length ?? 0) >= MATERIALS_MAX ? "text-destructive font-medium" : (field.value?.length ?? 0) >= MATERIALS_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                          {(field.value?.length ?? 0).toLocaleString()}/{MATERIALS_MAX.toLocaleString()}
+                        </p>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                   
                   <FormField control={form.control} name="equipment" render={({ field }) => (
-                    <FormItem><FormLabel>Equipment on Site</FormLabel><FormControl><Textarea className="min-h-[60px]" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Equipment on Site</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          className="min-h-[60px]"
+                          maxLength={EQUIPMENT_MAX}
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value.slice(0, EQUIPMENT_MAX))}
+                        />
+                      </FormControl>
+                      <div className="flex justify-end">
+                        <p className={`text-xs tabular-nums ${(field.value?.length ?? 0) >= EQUIPMENT_MAX ? "text-destructive font-medium" : (field.value?.length ?? 0) >= EQUIPMENT_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                          {(field.value?.length ?? 0).toLocaleString()}/{EQUIPMENT_MAX.toLocaleString()}
+                        </p>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
                   )} />
 
                   <FormField control={form.control} name="issues" render={({ field }) => (
-                    <FormItem><FormLabel>Issues / Delays</FormLabel><FormControl><Textarea className="min-h-[60px]" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Issues / Delays</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          className="min-h-[60px]"
+                          maxLength={ISSUES_MAX}
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value.slice(0, ISSUES_MAX))}
+                        />
+                      </FormControl>
+                      <div className="flex justify-end">
+                        <p className={`text-xs tabular-nums ${(field.value?.length ?? 0) >= ISSUES_MAX ? "text-destructive font-medium" : (field.value?.length ?? 0) >= ISSUES_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                          {(field.value?.length ?? 0).toLocaleString()}/{ISSUES_MAX.toLocaleString()}
+                        </p>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
                   )} />
 
                   {form.watch("aiSummary") && (
@@ -388,7 +456,7 @@ export default function NewReport() {
 
                   <div className="flex justify-end gap-4">
                     <Button type="button" variant="outline" onClick={() => setLocation(`/projects/${projectId}`)}>Cancel</Button>
-                    <Button type="submit" disabled={isSubmitting}>
+                    <Button type="submit" disabled={isSubmitting || form.watch("workPerformed").length >= WORK_MAX || (form.watch("materialsUsed")?.length ?? 0) >= MATERIALS_MAX || (form.watch("equipment")?.length ?? 0) >= EQUIPMENT_MAX || (form.watch("issues")?.length ?? 0) >= ISSUES_MAX}>
                       {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Save Report{photos.length > 0 ? ` + ${photos.length} Photo${photos.length > 1 ? 's' : ''}` : ''}
                     </Button>

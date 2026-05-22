@@ -19,6 +19,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 
+const RESPONSE_MAX = 3_000;
+
 type RFIStatus = "open" | "in_review" | "resolved" | "closed";
 
 const STATUS_CONFIG: Record<RFIStatus, { label: string; color: string; bg: string }> = {
@@ -289,21 +291,37 @@ export default function RFIDetailScreen() {
 
           <TextInput
             value={response}
-            onChangeText={setResponse}
+            onChangeText={(text) => setResponse(text.slice(0, RESPONSE_MAX))}
             placeholder="Add your response or resolution notes here… or tap the mic to dictate"
             placeholderTextColor={colors.mutedForeground}
             multiline
             numberOfLines={5}
+            maxLength={RESPONSE_MAX}
             textAlignVertical="top"
             style={[
               styles.textarea,
               {
                 backgroundColor: colors.card,
-                borderColor: voice.state === "recording" ? "#EF4444" : colors.border,
+                borderColor: response.length >= RESPONSE_MAX ? "#EF4444" : voice.state === "recording" ? "#EF4444" : colors.border,
                 color: colors.foreground,
               },
             ]}
           />
+          <Text
+            style={[
+              styles.charCounter,
+              {
+                color:
+                  response.length >= RESPONSE_MAX
+                    ? "#EF4444"
+                    : response.length >= RESPONSE_MAX * 0.8
+                      ? "#F59E0B"
+                      : colors.mutedForeground,
+              },
+            ]}
+          >
+            {response.length}/{RESPONSE_MAX}
+          </Text>
         </View>
 
         {/* Save button */}
@@ -320,7 +338,7 @@ export default function RFIDetailScreen() {
             },
           ]}
           onPress={handleSave}
-          disabled={!hasChanges || saving}
+          disabled={!hasChanges || saving || response.length >= RESPONSE_MAX}
         >
           {saving ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
@@ -397,6 +415,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#DC2626",
   },
   textarea: { borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 120, fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  charCounter: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "right", marginTop: 4 },
   saveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 12, paddingVertical: 14 },
   saveBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });
