@@ -4698,3 +4698,107 @@ export const CreateOutlookEventResponse = zod.object({
   eventId: zod.string(),
   webLink: zod.string().describe("URL to open the event in Outlook"),
 });
+
+/**
+ * @summary Upload a compliance document for the current worker
+ */
+
+export const UploadWorkerDocumentBody = zod.object({
+  documentType: zod.enum([
+    "Driver License",
+    "OSHA 10",
+    "OSHA 30",
+    "Working at Heights",
+    "WHMIS",
+    "First Aid",
+    "Fall Protection",
+    "Confined Space",
+    "Electrical Safety",
+    "Other",
+  ]),
+  fileUrl: zod.string().min(1),
+  filePath: zod.string().nullish(),
+  expirationDate: zod.string().nullish(),
+});
+
+/**
+ * @summary List all documents for the authenticated worker in their company
+ */
+export const listMyWorkerDocumentsResponseStatusDefault = `active`;
+
+export const ListMyWorkerDocumentsResponseItem = zod.object({
+  id: zod.number(),
+  workerId: zod.number(),
+  companyId: zod.number(),
+  documentType: zod.string(),
+  fileUrl: zod.string(),
+  filePath: zod.string().nullish(),
+  expirationDate: zod.string().nullish(),
+  status: zod.string().default(listMyWorkerDocumentsResponseStatusDefault),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListMyWorkerDocumentsResponse = zod.array(
+  ListMyWorkerDocumentsResponseItem,
+);
+
+/**
+ * @summary Delete a worker document by ID
+ */
+export const DeleteWorkerDocumentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteWorkerDocumentResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
+ * @summary List all worker documents for the current tenant (owner/foreman only)
+ */
+export const listAllWorkerDocumentsResponseStatusDefault = `active`;
+
+export const ListAllWorkerDocumentsResponseItem = zod.object({
+  id: zod.number(),
+  workerId: zod.number(),
+  workerName: zod.string().nullish(),
+  workerEmail: zod.string().nullish(),
+  companyId: zod.number(),
+  documentType: zod.string(),
+  fileUrl: zod.string(),
+  filePath: zod.string().nullish(),
+  expirationDate: zod.string().nullish(),
+  status: zod.string().default(listAllWorkerDocumentsResponseStatusDefault),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListAllWorkerDocumentsResponse = zod.array(
+  ListAllWorkerDocumentsResponseItem,
+);
+
+/**
+ * @summary List documents for a specific worker (owner/foreman only)
+ */
+export const ListWorkerDocumentsByWorkerParams = zod.object({
+  workerId: zod.coerce.number(),
+});
+
+export const listWorkerDocumentsByWorkerResponseStatusDefault = `active`;
+
+export const ListWorkerDocumentsByWorkerResponseItem = zod.object({
+  id: zod.number(),
+  workerId: zod.number(),
+  companyId: zod.number(),
+  documentType: zod.string(),
+  fileUrl: zod.string(),
+  filePath: zod.string().nullish(),
+  expirationDate: zod.string().nullish(),
+  status: zod
+    .string()
+    .default(listWorkerDocumentsByWorkerResponseStatusDefault),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListWorkerDocumentsByWorkerResponse = zod.array(
+  ListWorkerDocumentsByWorkerResponseItem,
+);

@@ -1789,6 +1789,58 @@ export interface OutlookCalendarEventResponse {
   webLink: string;
 }
 
+export interface WorkerDocument {
+  id: number;
+  workerId: number;
+  companyId: number;
+  documentType: string;
+  fileUrl: string;
+  filePath?: string | null;
+  expirationDate?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkerDocumentEnriched {
+  id: number;
+  workerId: number;
+  workerName?: string | null;
+  workerEmail?: string | null;
+  companyId: number;
+  documentType: string;
+  fileUrl: string;
+  filePath?: string | null;
+  expirationDate?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WorkerDocumentUploadDocumentType =
+  (typeof WorkerDocumentUploadDocumentType)[keyof typeof WorkerDocumentUploadDocumentType];
+
+export const WorkerDocumentUploadDocumentType = {
+  Driver_License: "Driver License",
+  OSHA_10: "OSHA 10",
+  OSHA_30: "OSHA 30",
+  Working_at_Heights: "Working at Heights",
+  WHMIS: "WHMIS",
+  First_Aid: "First Aid",
+  Fall_Protection: "Fall Protection",
+  Confined_Space: "Confined Space",
+  Electrical_Safety: "Electrical Safety",
+  Other: "Other",
+} as const;
+
+export interface WorkerDocumentUpload {
+  documentType: WorkerDocumentUploadDocumentType;
+  /** @minLength 1 */
+  fileUrl: string;
+  filePath?: string | null;
+  expirationDate?: string | null;
+}
+
 export type ListFormSubmissionsParams = {
   status?: string;
   projectId?: number;
@@ -1957,4 +2009,8 @@ export type ListSitePhotosParams = {
 
 export type ListSafetySignoffsParams = {
   projectId: number;
+};
+
+export type DeleteWorkerDocument200 = {
+  success?: boolean;
 };

@@ -60,6 +60,8 @@ tags:
     description: Smart Estimator pricing models and add-ons
   - name: field-automation
     description: Field logs, site photos, and safety signoffs
+  - name: worker-vault
+    description: Worker compliance documents and certificate vault
 
 paths:
   # ── Forms ────────────────────────────────────────────────────────────────────
@@ -3652,6 +3654,117 @@ paths:
         "502":
           description: Failed to create Outlook Calendar event
 
+  # ── Worker Vault ──────────────────────────────────────────────────────────
+  /worker/vault/upload:
+    post:
+      operationId: uploadWorkerDocument
+      tags: [worker-vault]
+      summary: Upload a compliance document for the current worker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkerDocumentUpload"
+      responses:
+        "201":
+          description: Document saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerDocument"
+        "400":
+          description: Invalid upload data
+        "500":
+          description: Server error
+
+  /worker/vault/my-documents:
+    get:
+      operationId: listMyWorkerDocuments
+      tags: [worker-vault]
+      summary: List all documents for the authenticated worker in their company
+      responses:
+        "200":
+          description: List of worker documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkerDocument"
+        "500":
+          description: Server error
+
+  /worker/vault/documents/{id}:
+    delete:
+      operationId: deleteWorkerDocument
+      tags: [worker-vault]
+      summary: Delete a worker document by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "403":
+          description: Not authorized
+        "404":
+          description: Document not found
+
+  /tenant/vault/all-documents:
+    get:
+      operationId: listAllWorkerDocuments
+      tags: [worker-vault]
+      summary: List all worker documents for the current tenant (owner/foreman only)
+      responses:
+        "200":
+          description: List of enriched worker documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkerDocumentEnriched"
+        "403":
+          description: Insufficient permissions
+        "500":
+          description: Server error
+
+  /tenant/vault/worker/{workerId}:
+    get:
+      operationId: listWorkerDocumentsByWorker
+      tags: [worker-vault]
+      summary: List documents for a specific worker (owner/foreman only)
+      parameters:
+        - in: path
+          name: workerId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of worker documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkerDocument"
+        "403":
+          description: Insufficient permissions
+        "500":
+          description: Server error
+
 components:
   parameters:
     companyId:
@@ -6459,3 +6572,96 @@ components:
         webLink:
           type: string
           description: URL to open the event in Outlook
+
+    WorkerDocument:
+      type: object
+      required: [id, workerId, companyId, documentType, fileUrl, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        workerId:
+          type: integer
+        companyId:
+          type: integer
+        documentType:
+          type: string
+        fileUrl:
+          type: string
+        filePath:
+          type: string
+          nullable: true
+        expirationDate:
+          type: string
+          nullable: true
+        status:
+          type: string
+          default: active
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WorkerDocumentEnriched:
+      type: object
+      required: [id, workerId, companyId, documentType, fileUrl, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        workerId:
+          type: integer
+        workerName:
+          type: string
+          nullable: true
+        workerEmail:
+          type: string
+          nullable: true
+        companyId:
+          type: integer
+        documentType:
+          type: string
+        fileUrl:
+          type: string
+        filePath:
+          type: string
+          nullable: true
+        expirationDate:
+          type: string
+          nullable: true
+        status:
+          type: string
+          default: active
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WorkerDocumentUpload:
+      type: object
+      required: [documentType, fileUrl]
+      properties:
+        documentType:
+          type: string
+          enum:
+            - "Driver License"
+            - "OSHA 10"
+            - "OSHA 30"
+            - "Working at Heights"
+            - "WHMIS"
+            - "First Aid"
+            - "Fall Protection"
+            - "Confined Space"
+            - "Electrical Safety"
+            - "Other"
+        fileUrl:
+          type: string
+          minLength: 1
+        filePath:
+          type: string
+          nullable: true
+        expirationDate:
+          type: string
+          nullable: true

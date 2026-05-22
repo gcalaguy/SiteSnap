@@ -146,6 +146,7 @@ const QUICK_ACTIONS_WORKER = [
   { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6" },
   { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4" },
   { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
+  { label: "Vault", icon: "lock", path: "/vault", color: "#16a34a" },
   { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
   { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4" },
   { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37" },

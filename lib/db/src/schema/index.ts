@@ -16,6 +16,7 @@ import {
 
 export * from "./conversations";
 export * from "./messages";
+export * from "./workerDocuments";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 

@@ -52,6 +52,7 @@ import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
 import SafetyCompliancePage from "@/pages/safety-compliance";
 import SafetyPrintPage from "@/pages/safety-print";
+import WorkerDocumentsPage from "@/pages/vault";
 import WorkerPortalPage from "@/pages/worker-portal";
 import WorkerPortalSubmitPage from "@/pages/worker-portal-submit";
 import WorkerPortalDetailPage from "@/pages/worker-portal-detail";
@@ -312,6 +313,7 @@ function AuthApp() {
           <Route path="/risk-dashboard" component={RiskDashboardPage} />
           <Route path="/media-hub" component={MediaHubTestPage} />
           <Route path="/safety-compliance" component={SafetyCompliancePage} />
+          <Route path="/worker-documents" component={WorkerDocumentsPage} />
           <Route path="/inspections">
             <Redirect to="/safety-compliance" />
           </Route>

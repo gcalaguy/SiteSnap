@@ -85,6 +85,13 @@
       "when": 1779374451,
       "tag": "0011_tradehub_compliance_and_job_postings",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1779482000,
+      "tag": "0012_worker_vault",
+      "breakpoints": true
     }
   ]
 }

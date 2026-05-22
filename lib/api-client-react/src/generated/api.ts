@@ -78,6 +78,7 @@ import type {
   DeleteCostModel200,
   DeleteDailyReport200,
   DeleteRFI200,
+  DeleteWorkerDocument200,
   DenyTimesheetBody,
   ErrorEnvelope,
   EstimateItemBody,
@@ -169,6 +170,9 @@ import type {
   UploadUrlResponse,
   User,
   UserWithCompany,
+  WorkerDocument,
+  WorkerDocumentEnriched,
+  WorkerDocumentUpload,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -15613,3 +15617,419 @@ export const useCreateOutlookEvent = <
 > => {
   return useMutation(getCreateOutlookEventMutationOptions(options));
 };
+
+/**
+ * @summary Upload a compliance document for the current worker
+ */
+export const getUploadWorkerDocumentUrl = () => {
+  return `/api/worker/vault/upload`;
+};
+
+export const uploadWorkerDocument = async (
+  workerDocumentUpload: WorkerDocumentUpload,
+  options?: RequestInit,
+): Promise<WorkerDocument> => {
+  return customFetch<WorkerDocument>(getUploadWorkerDocumentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(workerDocumentUpload),
+  });
+};
+
+export const getUploadWorkerDocumentMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadWorkerDocument>>,
+    TError,
+    { data: BodyType<WorkerDocumentUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadWorkerDocument>>,
+  TError,
+  { data: BodyType<WorkerDocumentUpload> },
+  TContext
+> => {
+  const mutationKey = ["uploadWorkerDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadWorkerDocument>>,
+    { data: BodyType<WorkerDocumentUpload> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadWorkerDocument(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadWorkerDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadWorkerDocument>>
+>;
+export type UploadWorkerDocumentMutationBody = BodyType<WorkerDocumentUpload>;
+export type UploadWorkerDocumentMutationError = ErrorType<void>;
+
+/**
+ * @summary Upload a compliance document for the current worker
+ */
+export const useUploadWorkerDocument = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadWorkerDocument>>,
+    TError,
+    { data: BodyType<WorkerDocumentUpload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadWorkerDocument>>,
+  TError,
+  { data: BodyType<WorkerDocumentUpload> },
+  TContext
+> => {
+  return useMutation(getUploadWorkerDocumentMutationOptions(options));
+};
+
+/**
+ * @summary List all documents for the authenticated worker in their company
+ */
+export const getListMyWorkerDocumentsUrl = () => {
+  return `/api/worker/vault/my-documents`;
+};
+
+export const listMyWorkerDocuments = async (
+  options?: RequestInit,
+): Promise<WorkerDocument[]> => {
+  return customFetch<WorkerDocument[]>(getListMyWorkerDocumentsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyWorkerDocumentsQueryKey = () => {
+  return [`/api/worker/vault/my-documents`] as const;
+};
+
+export const getListMyWorkerDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyWorkerDocuments>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyWorkerDocuments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyWorkerDocumentsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyWorkerDocuments>>
+  > = ({ signal }) => listMyWorkerDocuments({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyWorkerDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyWorkerDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyWorkerDocuments>>
+>;
+export type ListMyWorkerDocumentsQueryError = ErrorType<void>;
+
+/**
+ * @summary List all documents for the authenticated worker in their company
+ */
+
+export function useListMyWorkerDocuments<
+  TData = Awaited<ReturnType<typeof listMyWorkerDocuments>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyWorkerDocuments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyWorkerDocumentsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Delete a worker document by ID
+ */
+export const getDeleteWorkerDocumentUrl = (id: number) => {
+  return `/api/worker/vault/documents/${id}`;
+};
+
+export const deleteWorkerDocument = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteWorkerDocument200> => {
+  return customFetch<DeleteWorkerDocument200>(getDeleteWorkerDocumentUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteWorkerDocumentMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkerDocument>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWorkerDocument>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteWorkerDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWorkerDocument>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteWorkerDocument(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWorkerDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteWorkerDocument>>
+>;
+
+export type DeleteWorkerDocumentMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a worker document by ID
+ */
+export const useDeleteWorkerDocument = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkerDocument>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWorkerDocument>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteWorkerDocumentMutationOptions(options));
+};
+
+/**
+ * @summary List all worker documents for the current tenant (owner/foreman only)
+ */
+export const getListAllWorkerDocumentsUrl = () => {
+  return `/api/tenant/vault/all-documents`;
+};
+
+export const listAllWorkerDocuments = async (
+  options?: RequestInit,
+): Promise<WorkerDocumentEnriched[]> => {
+  return customFetch<WorkerDocumentEnriched[]>(getListAllWorkerDocumentsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAllWorkerDocumentsQueryKey = () => {
+  return [`/api/tenant/vault/all-documents`] as const;
+};
+
+export const getListAllWorkerDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAllWorkerDocuments>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAllWorkerDocuments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAllWorkerDocumentsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAllWorkerDocuments>>
+  > = ({ signal }) => listAllWorkerDocuments({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAllWorkerDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAllWorkerDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAllWorkerDocuments>>
+>;
+export type ListAllWorkerDocumentsQueryError = ErrorType<void>;
+
+/**
+ * @summary List all worker documents for the current tenant (owner/foreman only)
+ */
+
+export function useListAllWorkerDocuments<
+  TData = Awaited<ReturnType<typeof listAllWorkerDocuments>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAllWorkerDocuments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAllWorkerDocumentsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List documents for a specific worker (owner/foreman only)
+ */
+export const getListWorkerDocumentsByWorkerUrl = (workerId: number) => {
+  return `/api/tenant/vault/worker/${workerId}`;
+};
+
+export const listWorkerDocumentsByWorker = async (
+  workerId: number,
+  options?: RequestInit,
+): Promise<WorkerDocument[]> => {
+  return customFetch<WorkerDocument[]>(
+    getListWorkerDocumentsByWorkerUrl(workerId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListWorkerDocumentsByWorkerQueryKey = (workerId: number) => {
+  return [`/api/tenant/vault/worker/${workerId}`] as const;
+};
+
+export const getListWorkerDocumentsByWorkerQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWorkerDocumentsByWorker>>,
+  TError = ErrorType<void>,
+>(
+  workerId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkerDocumentsByWorker>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListWorkerDocumentsByWorkerQueryKey(workerId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listWorkerDocumentsByWorker>>
+  > = ({ signal }) =>
+    listWorkerDocumentsByWorker(workerId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!workerId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWorkerDocumentsByWorker>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListWorkerDocumentsByWorkerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWorkerDocumentsByWorker>>
+>;
+export type ListWorkerDocumentsByWorkerQueryError = ErrorType<void>;
+
+/**
+ * @summary List documents for a specific worker (owner/foreman only)
+ */
+
+export function useListWorkerDocumentsByWorker<
+  TData = Awaited<ReturnType<typeof listWorkerDocumentsByWorker>>,
+  TError = ErrorType<void>,
+>(
+  workerId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkerDocumentsByWorker>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWorkerDocumentsByWorkerQueryOptions(
+    workerId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
