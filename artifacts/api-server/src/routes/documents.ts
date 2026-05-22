@@ -354,7 +354,8 @@ router.post("/:docId/embed", requireAuth, requireCompany, async (req, res) => {
   if (!doc) { res.status(404).json({ error: "Document not found" }); return; }
   if (!doc.extractedText) { res.status(400).json({ error: "Document has no extracted text yet. Analyze it first." }); return; }
 
-  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId));
+  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
   const count = await storeChunks(docId, projectId, project.companyId!, doc.extractedText);
   res.json({ ok: true, chunks: count });
 });
@@ -377,7 +378,8 @@ router.post("/:docId/extract", requireAuth, requireCompany, async (req, res) => 
     res.json({ status: "failed", message: "Use /analyze instead" });
     return;
   }
-  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId));
+  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
   await runImageAnalysis(doc, docId, projectId, project.companyId, res);
 });
 
@@ -392,7 +394,8 @@ router.post("/:docId/analyze", requireAuth, requireCompany, async (req, res) => 
   );
   if (!doc) { res.status(404).json({ error: "Document not found" }); return; }
 
-  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId));
+  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
   await db.update(projectDocumentsTable).set({ status: "processing" }).where(
     and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId))
   );
@@ -684,7 +687,7 @@ Respond with ONLY the JSON object. No markdown. No explanation.`;
 
     await db.update(projectDocumentsTable).set({
       status: "ready", aiSummary: summary, extractedData: parsed, extractedText,
-    }).where(eq(projectDocumentsTable.id, docId));
+    }).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
 
     // Store chunks for full-text search (synchronous so chunkCount is accurate)
     let chunkCount = 0;
@@ -692,11 +695,11 @@ Respond with ONLY the JSON object. No markdown. No explanation.`;
       chunkCount = await storeChunks(docId, projectId, companyId, extractedText);
     }
 
-    const [updated] = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.id, docId));
+    const [updated] = await db.select().from(projectDocumentsTable).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
     res.json({ ...updated, chunkCount });
   } catch (err) {
     logger.error({ err }, "Image AI analysis failed");
-    await db.update(projectDocumentsTable).set({ status: "failed", aiSummary: "Analysis failed." }).where(eq(projectDocumentsTable.id, docId));
+    await db.update(projectDocumentsTable).set({ status: "failed", aiSummary: "Analysis failed." }).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
     res.status(500).json({ error: "Analysis failed" });
   }
 }
@@ -718,7 +721,7 @@ async function runPDFAnalysis(
       ocrFallback = true;
       await db.update(projectDocumentsTable)
         .set({ status: "processing_ocr" as any })
-        .where(eq(projectDocumentsTable.id, docId));
+        .where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
 
       const images = await convertPDFPagesToImages(fileContent, OCR_MAX_PAGES, OCR_DPI);
       if (images.length > 0) {
@@ -806,14 +809,14 @@ Respond with ONLY the JSON object. No markdown.`;
           const summary = typeof classifyParsed.summary === "string" ? classifyParsed.summary : (typeof visionParsed.summary === "string" ? visionParsed.summary : "PDF document stored.");
           await db.update(projectDocumentsTable).set({
             status: "ready", aiSummary: summary, extractedData: classifyParsed, extractedText: rawText,
-          }).where(eq(projectDocumentsTable.id, docId));
+          }).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
 
           let chunkCount = 0;
           if (rawText.length > 50) {
             chunkCount = await storeChunks(docId, projectId, companyId, rawText);
           }
 
-          const [updated] = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.id, docId));
+          const [updated] = await db.select().from(projectDocumentsTable).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
           res.json({ ...updated, chunkCount });
           return;
         }
@@ -864,18 +867,18 @@ Respond with ONLY the JSON object. No markdown.`;
 
     await db.update(projectDocumentsTable).set({
       status: "ready", aiSummary: summary, extractedData: parsed, extractedText,
-    }).where(eq(projectDocumentsTable.id, docId));
+    }).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
 
     let chunkCount = 0;
     if (extractedText.length > 50) {
       chunkCount = await storeChunks(docId, projectId, companyId, extractedText);
     }
 
-    const [updated] = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.id, docId));
+    const [updated] = await db.select().from(projectDocumentsTable).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
     res.json({ ...updated, chunkCount });
   } catch (err) {
     logger.error({ err }, "PDF analysis failed");
-    await db.update(projectDocumentsTable).set({ status: "failed" }).where(eq(projectDocumentsTable.id, docId));
+    await db.update(projectDocumentsTable).set({ status: "failed" }).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
     res.status(500).json({ error: "Analysis failed" });
   }
 }
@@ -923,18 +926,18 @@ Respond with ONLY the JSON object. No markdown.`;
 
     await db.update(projectDocumentsTable).set({
       status: "ready", aiSummary: summary, extractedData: parsed, extractedText,
-    }).where(eq(projectDocumentsTable.id, docId));
+    }).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
 
     let chunkCount = 0;
     if (extractedText.length > 50) {
       chunkCount = await storeChunks(docId, projectId, companyId, extractedText);
     }
 
-    const [updated] = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.id, docId));
+    const [updated] = await db.select().from(projectDocumentsTable).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
     res.json({ ...updated, chunkCount });
   } catch (err) {
     logger.error({ err }, "Word analysis failed");
-    await db.update(projectDocumentsTable).set({ status: "failed" }).where(eq(projectDocumentsTable.id, docId));
+    await db.update(projectDocumentsTable).set({ status: "failed" }).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
     res.status(500).json({ error: "Analysis failed" });
   }
 }
@@ -972,13 +975,13 @@ Respond with ONLY the JSON object, no markdown.`;
 
     await db.update(projectDocumentsTable).set({
       status: "ready", aiSummary: summary, extractedData: parsed, extractedText: summary,
-    }).where(eq(projectDocumentsTable.id, docId));
+    }).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
 
-    const [updated] = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.id, docId));
+    const [updated] = await db.select().from(projectDocumentsTable).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
     res.json({ ...updated, chunkCount: 0 });
   } catch (err) {
     logger.error({ err }, "Document profile generation failed");
-    await db.update(projectDocumentsTable).set({ status: "failed" }).where(eq(projectDocumentsTable.id, docId));
+    await db.update(projectDocumentsTable).set({ status: "failed" }).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
     res.status(500).json({ error: "Analysis failed" });
   }
 }
@@ -997,7 +1000,8 @@ router.post("/:docId/reindex", requireAuth, requireCompany, requireOwnerOrForema
     res.status(400).json({ error: "Document must be fully analyzed before re-indexing." }); return;
   }
 
-  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId));
+  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
   let textToChunk = doc.extractedText ?? "";
 
   // If stored text is insufficient and it's a PDF, attempt OCR re-run
