@@ -282,7 +282,10 @@ export const rfisTable = pgTable("rfis", {
   dueDate: date("due_date"),
   closedAt: timestamp("closed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_rfis_project_id").on(t.projectId),
+  index("idx_rfis_status").on(t.status),
+]);
 
 export const insertRFISchema = createInsertSchema(rfisTable).omit({
   id: true,
@@ -377,7 +380,10 @@ export const leadsTable = pgTable("leads", {
   ),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_leads_company_id").on(t.companyId),
+  index("idx_leads_stage").on(t.stage),
+]);
 
 export const insertLeadSchema = createInsertSchema(leadsTable).omit({
   id: true,
@@ -433,7 +439,10 @@ export const tasksTable = pgTable("tasks", {
   priority: taskPriorityEnum("priority").notNull().default("medium"),
   dueDate: date("due_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_tasks_project_id").on(t.projectId),
+  index("idx_tasks_status").on(t.status),
+]);
 
 export const insertTaskSchema = createInsertSchema(tasksTable).omit({
   id: true,
@@ -904,7 +913,10 @@ export const formSubmissionsTable = pgTable("form_submissions", {
   reviewNotes: text("review_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_form_submissions_company_id").on(t.companyId),
+  index("idx_form_submissions_status").on(t.status),
+]);
 export type FormSubmission = typeof formSubmissionsTable.$inferSelect;
 
 export const submissionPhotosTable = pgTable("submission_photos", {
@@ -1419,7 +1431,10 @@ export const inspectionsTable = pgTable("inspections", {
   failedItemAnalysis: text("failed_item_analysis"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_inspections_company_id").on(t.companyId),
+  index("idx_inspections_project_id").on(t.projectId),
+]);
 export type Inspection = typeof inspectionsTable.$inferSelect;
 
 export const inspectionItemsTable = pgTable("inspection_items", {
