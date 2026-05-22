@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetFinancialSummary,
@@ -129,6 +129,32 @@ function FinancialsInner() {
     (inv) => inv.status !== "paid" && inv.status !== "cancelled"
   );
   const projects: Project[] = projectsQuery.data ?? [];
+
+  // ── Last-updated timestamp ────────────────────────────────────────────────
+  const lastUpdatedAt = Math.max(
+    summaryQuery.dataUpdatedAt,
+    paymentsQuery.dataUpdatedAt,
+    changeOrdersQuery.dataUpdatedAt,
+    invoicesQuery.dataUpdatedAt,
+  );
+
+  const [lastUpdatedLabel, setLastUpdatedLabel] = useState<string>("");
+
+  useEffect(() => {
+    function computeLabel() {
+      if (!lastUpdatedAt) return "";
+      const secs = Math.floor((Date.now() - lastUpdatedAt) / 1000);
+      if (secs < 5) return "just now";
+      if (secs < 60) return `${secs}s ago`;
+      const mins = Math.floor(secs / 60);
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      return `${hrs}h ago`;
+    }
+    setLastUpdatedLabel(computeLabel());
+    const id = setInterval(() => setLastUpdatedLabel(computeLabel()), 10_000);
+    return () => clearInterval(id);
+  }, [lastUpdatedAt]);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
@@ -311,7 +337,12 @@ function FinancialsInner() {
           </h1>
           <p className="text-sm text-[#121212]/60 font-medium">Payments, change orders, and revenue tracking</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {lastUpdatedLabel && (
+            <span className="text-xs text-muted-foreground hidden sm:block">
+              Updated {lastUpdatedLabel}
+            </span>
+          )}
           <Button variant="outline" size="sm" onClick={refreshAll} className="border-[#D4AF37]/20 hover:border-[#D4AF37]/40">
             <RefreshCw size={14} className="mr-1" style={{ color: "#D4AF37" }} /> Refresh
           </Button>
