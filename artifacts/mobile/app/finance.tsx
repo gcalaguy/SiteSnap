@@ -14,6 +14,7 @@ import {
   Alert,
   Image,
 } from "react-native";
+import { useRelativeTime } from "@/hooks/useRelativeTime";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -137,6 +138,7 @@ export default function FinanceScreen() {
   // Change orders state
   const [changeOrders, setChangeOrders] = useState<any[]>([]);
   const [coLoading, setCoLoading] = useState(false);
+  const [coUpdatedAt, setCoUpdatedAt] = useState<number | null>(null);
   const [sigCOId, setSigCOId] = useState<number | null>(null);
 
   const createInvoice = useMutation({
@@ -148,8 +150,12 @@ export default function FinanceScreen() {
       customFetch("/api/projects/0/quotes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }),
   });
 
-  const { data: invoices, isLoading: invLoading, isError: invError, error: invErrorObj, refetch: refetchInv } = useListAllInvoices({});
-  const { data: quotes, isLoading: qLoading, isError: qError, error: qErrorObj, refetch: refetchQ } = useListAllQuotes({});
+  const { data: invoices, isLoading: invLoading, isError: invError, error: invErrorObj, refetch: refetchInv, dataUpdatedAt: invUpdatedAt } = useListAllInvoices({});
+  const { data: quotes, isLoading: qLoading, isError: qError, error: qErrorObj, refetch: refetchQ, dataUpdatedAt: qUpdatedAt } = useListAllQuotes({});
+
+  const invRelativeTime = useRelativeTime(invUpdatedAt || null);
+  const qRelativeTime = useRelativeTime(qUpdatedAt || null);
+  const coRelativeTime = useRelativeTime(coUpdatedAt);
 
   // Debug: log quote fetch errors to help diagnose empty-list issues
   React.useEffect(() => {
@@ -171,6 +177,7 @@ export default function FinanceScreen() {
     try {
       const data = await customFetch("/api/change-orders") as any[];
       setChangeOrders(data ?? []);
+      setCoUpdatedAt(Date.now());
     } catch { /* ignore */ }
     finally { setCoLoading(false); }
   }, []);
@@ -287,6 +294,16 @@ export default function FinanceScreen() {
           </Pressable>
         ))}
       </View>
+
+      {/* Last updated label */}
+      {(tab === "invoices" ? invRelativeTime : tab === "quotes" ? qRelativeTime : coRelativeTime) ? (
+        <View style={styles.updatedRow}>
+          <Feather name="clock" size={11} color="#9CA3AF" />
+          <Text style={styles.updatedText}>
+            {tab === "invoices" ? invRelativeTime : tab === "quotes" ? qRelativeTime : coRelativeTime}
+          </Text>
+        </View>
+      ) : null}
 
       {/* List */}
       {tab === "invoices" ? (
@@ -572,4 +589,6 @@ const styles = StyleSheet.create({
   createBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Inter_600SemiBold" },
   coCard: { borderRadius: 10, padding: 14, borderWidth: 1, gap: 8 },
   signBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, alignSelf: "flex-start", marginTop: 8 },
+  updatedRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 16, paddingVertical: 6 },
+  updatedText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#9CA3AF" },
 });
