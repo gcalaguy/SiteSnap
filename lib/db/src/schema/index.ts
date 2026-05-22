@@ -777,6 +777,7 @@ export const timesheetsTable = pgTable("timesheets", {
   index("idx_timesheets_user_id").on(t.userId),
   index("idx_timesheets_project_id").on(t.projectId),
   index("idx_timesheets_status").on(t.status),
+  index("idx_timesheets_project_status").on(t.projectId, t.status),
 ]);
 
 export type Timesheet = typeof timesheetsTable.$inferSelect;
