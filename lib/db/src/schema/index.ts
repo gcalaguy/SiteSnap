@@ -632,7 +632,13 @@ export const invoicesTable = pgTable("invoices", {
   publicToken: text("public_token").unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+(table) => [
+  index("idx_invoices_company").on(table.companyId),
+  index("idx_invoices_project").on(table.projectId),
+  index("idx_invoices_status").on(table.status),
+  index("idx_invoices_quote").on(table.quoteId),
+]);
 
 export const insertInvoiceSchema = createInsertSchema(invoicesTable).omit({
   id: true,
@@ -741,7 +747,13 @@ export const timesheetsTable = pgTable("timesheets", {
   signedAt: timestamp("signed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+(table) => [
+  index("idx_timesheets_company").on(table.companyId),
+  index("idx_timesheets_user").on(table.userId),
+  index("idx_timesheets_project").on(table.projectId),
+  index("idx_timesheets_status").on(table.status),
+]);
 
 export type Timesheet = typeof timesheetsTable.$inferSelect;
 
@@ -1080,7 +1092,11 @@ export const tradehubPostsTable = pgTable("tradehub_posts", {
   visibility: text("visibility").notNull().default("public"), // public | local
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+(table) => [
+  index("idx_tradehub_posts_company").on(table.companyId),
+  index("idx_tradehub_posts_type").on(table.type),
+]);
 export type TradehubPost = typeof tradehubPostsTable.$inferSelect;
 
 export const tradehubPostMediaTable = pgTable("tradehub_post_media", {
@@ -1127,7 +1143,12 @@ export const jobPostingsTable = pgTable("job_postings", {
   status: text("status").notNull().default("open"), // open | closed | draft
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+(table) => [
+  index("idx_job_postings_company").on(table.companyId),
+  index("idx_job_postings_status").on(table.status),
+  index("idx_job_postings_trade").on(table.trade),
+]);
 export type JobPosting = typeof jobPostingsTable.$inferSelect;
 
 export const jobPostingApplicationsTable = pgTable("job_posting_applications", {
@@ -1223,7 +1244,11 @@ export const paymentsTable = pgTable("payments", {
   paidAt: timestamp("paid_at").defaultNow().notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+},
+(table) => [
+  index("idx_payments_company").on(table.companyId),
+  index("idx_payments_invoice").on(table.invoiceId),
+]);
 export type Payment = typeof paymentsTable.$inferSelect;
 
 // ── Change Orders ─────────────────────────────────────────────────────────────
@@ -1250,7 +1275,12 @@ export const changeOrdersTable = pgTable("change_orders", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+(table) => [
+  index("idx_change_orders_company").on(table.companyId),
+  index("idx_change_orders_project").on(table.projectId),
+  index("idx_change_orders_status").on(table.status),
+]);
 export type ChangeOrder = typeof changeOrdersTable.$inferSelect;
 
 // ── Tradehub Messages ─────────────────────────────────────────────────────────

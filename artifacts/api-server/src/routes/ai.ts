@@ -35,7 +35,7 @@ const RFIAIInput = z.object({
 router.post("/ai/daily-report/generate", requireAuth, requireCompany, async (req, res) => {
   const parsed = DailyReportAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+    res.status(400).json({ error: "Malformed request payload" });
     return;
   }
 
@@ -86,7 +86,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 router.post("/ai/cost-analysis/generate", requireAuth, requireCompany, async (req, res) => {
   const parsed = CostAnalysisAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+    res.status(400).json({ error: "Malformed request payload" });
     return;
   }
 
@@ -142,7 +142,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 router.post("/ai/rfi/generate", requireAuth, requireCompany, async (req, res) => {
   const parsed = RFIAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+    res.status(400).json({ error: "Malformed request payload" });
     return;
   }
 
