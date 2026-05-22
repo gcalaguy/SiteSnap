@@ -82,8 +82,17 @@ async function storeChunks(
   // Generate embeddings in one batch call for efficiency
   const embeddings = await generateEmbeddings(chunks);
   const hasEmbeddings = embeddings !== null && embeddings.length === chunks.length;
+
+  // When embeddings are expected to be available, failure to generate them is a hard error.
+  // We must NOT store chunks without vectors, because that would silently mark the doc as
+  // "indexed" while semantic search cannot actually find it. The caller will see chunkCount=0
+  // and the UI can show "Re-index" so the user can retry.
   if (!hasEmbeddings && embeddingsEnabled()) {
-    logger.warn({ docId, chunkCount: chunks.length }, "Embedding generation returned mismatch/null; storing chunks without vectors");
+    logger.error(
+      { docId, chunkCount: chunks.length, embeddingsNull: embeddings === null },
+      "Embedding generation failed or returned mismatch. Aborting chunk storage so doc stays un-indexed."
+    );
+    return 0;
   }
 
   let stored = 0;
@@ -97,6 +106,7 @@ async function storeChunks(
           [projectId, companyId, docId, i, chunks[i], JSON.stringify(vec)]
         );
       } else {
+        // Only store without vectors when embeddings are globally disabled (full-text only mode)
         await pool.query(
           "INSERT INTO document_chunks (project_id, company_id, doc_id, chunk_index, content) VALUES ($1,$2,$3,$4,$5)",
           [projectId, companyId, docId, i, chunks[i]]
@@ -208,14 +218,16 @@ async function fullTextSearch(projectId: number, queryText: string, limit = 8): 
   }
 }
 
+type HybridResult = { results: ChunkResult[]; semantic: boolean };
+
 /**
  * Hybrid search: tries vector similarity first (if available), then falls back to full-text.
- * Returns deduplicated chunks per document, highest similarity first.
+ * Returns deduplicated chunks per document, highest similarity first,
+ * plus a `semantic` flag indicating whether the results came from vector search.
  */
-async function hybridSearch(projectId: number, queryText: string, limit = 8): Promise<ChunkResult[]> {
+async function hybridSearch(projectId: number, queryText: string, limit = 8): Promise<HybridResult> {
   const vecResults = await vectorSearch(projectId, queryText, limit);
   if (vecResults.length > 0) {
-    // Deduplicate by doc, keep best similarity per doc
     const byDoc = new Map<number, ChunkResult>();
     for (const c of vecResults) {
       const existing = byDoc.get(c.doc_id);
@@ -223,9 +235,13 @@ async function hybridSearch(projectId: number, queryText: string, limit = 8): Pr
         byDoc.set(c.doc_id, c);
       }
     }
-    return [...byDoc.values()].sort((a, b) => b.similarity - a.similarity);
+    return {
+      results: [...byDoc.values()].sort((a, b) => b.similarity - a.similarity),
+      semantic: true,
+    };
   }
-  return fullTextSearch(projectId, queryText, limit);
+  const ftResults = await fullTextSearch(projectId, queryText, limit);
+  return { results: ftResults, semantic: false };
 }
 
 // ── PDF / Word Text Extraction ────────────────────────────────────────────────
@@ -393,8 +409,10 @@ router.post("/search", requireAuth, requireCompany, async (req, res) => {
   }
 
   // Try hybrid search (vector + full-text) on document chunks
+  let searchUsedVectors = false;
   try {
-    const chunks = await hybridSearch(projectId, query.trim(), 10);
+    const { results: chunks, semantic: usedVectors } = await hybridSearch(projectId, query.trim(), 10);
+    searchUsedVectors = usedVectors;
     if (chunks.length > 0) {
       // Group by doc and return unique doc results
       const byDoc = new Map<number, { doc_id: number; filename: string; file_type: string; maxSim: number; excerpt: string }>();
@@ -418,7 +436,8 @@ router.post("/search", requireAuth, requireCompany, async (req, res) => {
         ? `Found ${enriched.length} relevant document${enriched.length > 1 ? "s" : ""}.`
         : "No closely matching documents found.";
 
-      res.json({ results: enriched, answer, semantic: embeddingsEnabled() });
+      // semantic = true only when vector search actually contributed results
+      res.json({ results: enriched, answer, semantic: searchUsedVectors });
       return;
     }
   } catch (err) {
@@ -486,8 +505,10 @@ Be concise, professional, and construction-industry aware. Use CAD for currency 
 If the answer is not in the provided material, say so honestly. Do not guess or hallucinate.`;
 
   // ── Attempt hybrid RAG (vector + full-text) ───────────────────────────────
+  let usedSemanticRag = false;
   try {
-    const chunks = await hybridSearch(projectId, question.trim(), 8);
+    const { results: chunks, semantic } = await hybridSearch(projectId, question.trim(), 8);
+    usedSemanticRag = semantic;
 
     if (chunks.length > 0) {
       const context = chunks.map((c, i) =>
@@ -519,7 +540,8 @@ If the answer is not in the provided material, say so honestly. Do not guess or 
         }
       }
 
-      res.json({ answer, citations: [...citedDocs.values()], ragEnabled: true });
+      // ragEnabled reflects whether semantic vector search actually contributed
+      res.json({ answer, citations: [...citedDocs.values()], ragEnabled: usedSemanticRag });
       return;
     }
   } catch (err) {
