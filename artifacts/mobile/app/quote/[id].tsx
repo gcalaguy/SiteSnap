@@ -17,6 +17,7 @@ import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import * as XLSX from "xlsx";
 import { useColors } from "@/hooks/useColors";
+import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   useGetQuote,
   useSubmitQuoteForApproval,
@@ -141,10 +142,11 @@ export default function QuoteDetailScreen() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: quote, isLoading } = useGetQuote(projectId, quoteId, {
+  const { data: quote, isLoading, dataUpdatedAt } = useGetQuote(projectId, quoteId, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { enabled: quoteId > 0 } as any,
   });
+  const updatedLabel = useRelativeTime(dataUpdatedAt || null);
   const submitQuote = useSubmitQuoteForApproval();
   const unsubmitQuote = useUnsubmitQuote();
   const convertQuote = useConvertQuoteToInvoice();
@@ -377,6 +379,9 @@ export default function QuoteDetailScreen() {
             </View>
           </View>
           <Text style={[styles.quoteNum, { color: colors.mutedForeground }]}>{quote.quoteNumber}</Text>
+          {!!updatedLabel && (
+            <Text style={[styles.updatedLabel, { color: colors.mutedForeground }]}>{updatedLabel}</Text>
+          )}
 
           {/* Submitted notice */}
           {quote.status === "pending_approval" && (
@@ -583,6 +588,7 @@ const styles = StyleSheet.create({
   titleCard: { borderRadius: 12, padding: 16, borderWidth: 1, gap: 4 },
   quoteTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   quoteNum: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  updatedLabel: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 4 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   submittedBanner: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, padding: 10, borderRadius: 8, borderWidth: 1 },

@@ -18,6 +18,7 @@ import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import * as XLSX from "xlsx";
 import { useColors } from "@/hooks/useColors";
+import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   useGetInvoice,
   useMarkInvoiceSent,
@@ -130,7 +131,8 @@ export default function InvoiceDetailScreen() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: invoice, isLoading } = useGetInvoice(invoiceId);
+  const { data: invoice, isLoading, dataUpdatedAt } = useGetInvoice(invoiceId);
+  const updatedLabel = useRelativeTime(dataUpdatedAt || null);
   const { data: me } = useGetMe();
   const markSent = useMarkInvoiceSent();
   const markPaid = useMarkInvoicePaid();
@@ -348,6 +350,9 @@ export default function InvoiceDetailScreen() {
             </View>
           </View>
           <Text style={[styles.invoiceNum, { color: colors.mutedForeground }]}>{invoice.invoiceNumber}</Text>
+          {!!updatedLabel && (
+            <Text style={[styles.updatedLabel, { color: colors.mutedForeground }]}>{updatedLabel}</Text>
+          )}
           {(invoice as any).signedAt && (
             <View style={[styles.submittedBanner, { backgroundColor: "#DCFCE7", borderColor: "#86EFAC" }]}>
               <Feather name="shield" size={13} color="#16A34A" />
@@ -526,6 +531,7 @@ const styles = StyleSheet.create({
   titleCard: { borderRadius: 12, padding: 16, borderWidth: 1 },
   invoiceTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   invoiceNum: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 4 },
+  updatedLabel: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 4 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   section: { borderRadius: 12, padding: 16, borderWidth: 1 },
