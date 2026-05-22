@@ -352,6 +352,29 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Company Settings — owners only */}
+        {me?.role === "owner" && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Administration</Text>
+            <TouchableOpacity
+              style={[styles.featureBanner, { backgroundColor: colors.sidebar }]}
+              onPress={() => router.push("/settings" as any)}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
+                <Feather name="settings" size={22} color="#D4AF37" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.featureBannerTitle}>Company Settings</Text>
+                <Text style={styles.featureBannerSub}>Billing seats · Email · QuickBooks</Text>
+              </View>
+              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
+                <Feather name="arrow-right" size={14} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Account */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Account</Text>
