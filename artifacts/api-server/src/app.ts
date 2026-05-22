@@ -126,14 +126,18 @@ app.use(
     },
   }),
 );
+// Per-route body-size overrides (must come BEFORE the global limit below)
+// /api/ai/transcribe accepts base64-encoded audio recordings
 app.use("/api/ai/transcribe", express.json({ limit: "20mb" }));
+// /api/ai/photo-summary accepts base64-encoded images
 app.use("/api/ai/photo-summary", express.json({ limit: "50mb" }));
-app.use("/api/invoices", express.json({ limit: "10mb" }));
-app.use("/api/timesheets", express.json({ limit: "10mb" }));
-app.use("/api/quotes", express.json({ limit: "10mb" }));
-app.use("/api/public", express.json({ limit: "10mb" }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Invoice send-email embeds a base64 PDF attachment
+app.use("/api/invoices/:id/send-email", express.json({ limit: "10mb" }));
+
+// Global body-size limit — protects all other routes from oversized payloads.
+// Routes that legitimately need more space have a per-route override above.
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
 // Resolve publishable key from host (supports custom domains)
 app.use(
