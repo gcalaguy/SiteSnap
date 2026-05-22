@@ -19,6 +19,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { openStorageFile } from "@/utils/openStorageFile";
+import { withAiRetry } from "@/src/utils/aiRetry";
+import { RetrySnackbar } from "@/components/RetrySnackbar";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type DocStatus = "pending" | "processing" | "ready" | "failed";
@@ -360,6 +362,8 @@ function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; i
   const [messages, setMessages] = useState<QAMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [aiRetrying, setAiRetrying] = useState(false);
+  const [aiWaiting, setAiWaiting] = useState(false);
   const [ragActive, setRagActive] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -372,14 +376,22 @@ function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; i
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
     try {
       const history = messages.slice(-10);
-      const data = await customFetch(`/api/projects/${projectId}/documents/qa`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, history }),
-      }) as QAResponse;
+      const data = await withAiRetry(
+        () => customFetch(`/api/projects/${projectId}/documents/qa`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: q, history }),
+        }) as Promise<QAResponse>,
+        () => { setAiRetrying(true); setAiWaiting(false); },
+        () => { setAiWaiting(true); setAiRetrying(false); },
+      );
+      setAiRetrying(false);
+      setAiWaiting(false);
       if (data.ragEnabled) setRagActive(true);
       setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations, ragEnabled: data.ragEnabled, hasChunks: data.hasChunks, hasAnalyzedDocsWithNoChunks: data.hasAnalyzedDocsWithNoChunks }]);
     } catch {
+      setAiRetrying(false);
+      setAiWaiting(false);
       setMessages(m => [...m, { role: "assistant", text: "Sorry, Q&A failed. Please try again." }]);
     } finally {
       setLoading(false);
@@ -474,8 +486,13 @@ function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; i
             ))}
             {loading && (
               <View style={{ alignItems: "flex-start" }}>
-                <View style={[docStyles.bubble, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}>
+                <View style={[docStyles.bubble, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 6 }]}>
                   <ActivityIndicator size={14} color={colors.primary} />
+                  {(aiRetrying || aiWaiting) && (
+                    <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                      {aiWaiting ? "Waiting for connection…" : "Retrying…"}
+                    </Text>
+                  )}
                 </View>
               </View>
             )}

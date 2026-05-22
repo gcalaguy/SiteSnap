@@ -7,6 +7,8 @@ import {
 import * as Haptics from "expo-haptics";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import React, { useRef, useState, useCallback, useEffect } from "react";
+import { withAiRetry } from "@/src/utils/aiRetry";
+import { RetrySnackbar } from "@/components/RetrySnackbar";
 import {
   ActivityIndicator,
   Alert,
@@ -130,6 +132,8 @@ export default function AskScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [aiRetrying, setAiRetrying] = useState(false);
+  const [aiWaiting, setAiWaiting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
@@ -202,17 +206,24 @@ export default function AskScreen() {
 
       try {
         const domain = process.env.EXPO_PUBLIC_DOMAIN;
-        const data = await customFetch<{ reply: string }>(
-          `https://${domain}/api/ai/assistant`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messages: newHistory.map((m) => ({ role: m.role, content: m.content })),
-              context: buildContext(),
-            }),
-          },
+        const data = await withAiRetry(
+          () =>
+            customFetch<{ reply: string }>(
+              `https://${domain}/api/ai/assistant`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  messages: newHistory.map((m) => ({ role: m.role, content: m.content })),
+                  context: buildContext(),
+                }),
+              },
+            ),
+          () => { setAiRetrying(true); setAiWaiting(false); },
+          () => { setAiWaiting(true); setAiRetrying(false); },
         );
+        setAiRetrying(false);
+        setAiWaiting(false);
         const assistantMsg: Message = {
           id: `${Date.now()}-a`,
           role: "assistant",
@@ -221,6 +232,8 @@ export default function AskScreen() {
         setMessages((prev) => [...prev, assistantMsg]);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } catch {
+        setAiRetrying(false);
+        setAiWaiting(false);
         const errMsg: Message = {
           id: `${Date.now()}-e`,
           role: "assistant",
@@ -520,6 +533,11 @@ export default function AskScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      <RetrySnackbar
+        visible={aiRetrying || aiWaiting}
+        message={aiWaiting ? "Waiting for connection…" : "Poor connection detected, retrying…"}
+      />
     </KeyboardAvoidingView>
   );
 }
