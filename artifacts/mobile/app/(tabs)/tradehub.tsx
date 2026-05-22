@@ -24,6 +24,7 @@ import {
   useListTradehubFeed,
   useCreateTradehubPost,
   useReactToTradehubPost,
+  getListTradehubFeedQueryKey,
   TradehubPost,
   ListTradehubFeedType,
 } from "@workspace/api-client-react";
@@ -89,7 +90,7 @@ export default function TradeHubScreen() {
   const react = useReactToTradehubPost({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["tradehubFeed"] });
+        queryClient.invalidateQueries({ queryKey: getListTradehubFeedQueryKey() });
       },
     },
   });
@@ -97,7 +98,7 @@ export default function TradeHubScreen() {
   const createPost = useCreateTradehubPost({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["tradehubFeed"] });
+        queryClient.invalidateQueries({ queryKey: getListTradehubFeedQueryKey() });
         setShowCreate(false);
         setNewTitle("");
         setNewContent("");

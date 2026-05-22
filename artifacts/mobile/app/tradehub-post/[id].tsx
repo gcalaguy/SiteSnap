@@ -27,6 +27,8 @@ import {
   useDeleteTradehubPost,
   useGetMe,
   customFetch,
+  getGetTradehubPostQueryKey,
+  getListTradehubFeedQueryKey,
   TradehubPostDetail,
   TradehubComment,
 } from "@workspace/api-client-react";
@@ -86,8 +88,8 @@ export default function TradeHubPostScreen() {
   const reactMutation = useReactToTradehubPost({
     mutation: {
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ["tradehubPost", postId] });
-        qc.invalidateQueries({ queryKey: ["tradehubFeed"] });
+        qc.invalidateQueries({ queryKey: getGetTradehubPostQueryKey(postId) });
+        qc.invalidateQueries({ queryKey: getListTradehubFeedQueryKey() });
       },
     },
   });
@@ -100,8 +102,8 @@ export default function TradeHubPostScreen() {
       }),
     onSuccess: () => {
       setComment("");
-      qc.invalidateQueries({ queryKey: ["tradehubPost", postId] });
-      qc.invalidateQueries({ queryKey: ["tradehubFeed"] });
+      qc.invalidateQueries({ queryKey: getGetTradehubPostQueryKey(postId) });
+      qc.invalidateQueries({ queryKey: getListTradehubFeedQueryKey() });
     },
     onError: () => Alert.alert("Error", "Failed to post comment."),
   });
@@ -111,7 +113,7 @@ export default function TradeHubPostScreen() {
       onSuccess: () => {
         setShowApply(false);
         setApplyMsg("");
-        qc.invalidateQueries({ queryKey: ["tradehubPost", postId] });
+        qc.invalidateQueries({ queryKey: getGetTradehubPostQueryKey(postId) });
         Alert.alert("Applied!", "Your application has been sent.");
       },
       onError: (err: any) => Alert.alert("Error", err?.message ?? "Could not apply."),
@@ -121,7 +123,7 @@ export default function TradeHubPostScreen() {
   const deleteMutation = useDeleteTradehubPost({
     mutation: {
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ["tradehubFeed"] });
+        qc.invalidateQueries({ queryKey: getListTradehubFeedQueryKey() });
         router.back();
       },
       onError: () => Alert.alert("Error", "Failed to delete post."),

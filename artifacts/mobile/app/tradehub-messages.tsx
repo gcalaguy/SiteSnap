@@ -25,6 +25,8 @@ import {
   useCreateTradehubConversation,
   useSearchTradehubUsers,
   useMarkTradehubConversationRead,
+  getListTradehubConversationsQueryKey,
+  getListTradehubMessagesQueryKey,
   TradehubConversation,
   TradehubMessage,
 } from "@workspace/api-client-react";
@@ -75,8 +77,10 @@ export default function TradehubMessagesScreen() {
     mutation: {
       onSuccess: () => {
         setMessage("");
-        queryClient.invalidateQueries({ queryKey: ["tradehubMessages"] });
-        queryClient.invalidateQueries({ queryKey: ["tradehubConversations"] });
+        if (activeConv) {
+          queryClient.invalidateQueries({ queryKey: getListTradehubMessagesQueryKey(activeConv) });
+        }
+        queryClient.invalidateQueries({ queryKey: getListTradehubConversationsQueryKey() });
       },
       onError: () => Alert.alert("Error", "Failed to send message."),
     },
@@ -90,7 +94,7 @@ export default function TradehubMessagesScreen() {
         setSearch("");
         setSelectedUser(null);
         setNewMsg("");
-        queryClient.invalidateQueries({ queryKey: ["tradehubConversations"] });
+        queryClient.invalidateQueries({ queryKey: getListTradehubConversationsQueryKey() });
         if (convId) setActiveConv(convId);
       },
       onError: (err: any) => Alert.alert("Error", err?.message ?? "Failed to start conversation."),
@@ -99,7 +103,7 @@ export default function TradehubMessagesScreen() {
 
   const markRead = useMarkTradehubConversationRead({
     mutation: {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehubConversations"] }),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTradehubConversationsQueryKey() }),
     },
   });
 
@@ -266,7 +270,7 @@ export default function TradehubMessagesScreen() {
               </TouchableOpacity>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>New Message</Text>
               <TouchableOpacity
-                onPress={() => selectedUser && createConvMutation.mutate({ data: { recipientId: selectedUser.id, message: newMsg.trim() || "Hi" } })}
+                onPress={() => selectedUser && createConvMutation.mutate({ data: { recipientId: selectedUser.userId, message: newMsg.trim() || "Hi" } })}
                 disabled={!selectedUser || createConvMutation.isPending}
               >
                 {createConvMutation.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Text style={[styles.postBtn, { color: selectedUser ? colors.primary : colors.mutedForeground }]}>Start</Text>}
@@ -292,7 +296,7 @@ export default function TradehubMessagesScreen() {
                       {searchLoading && <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} />}
                       <FlatList
                         data={users}
-                        keyExtractor={(u: any) => String(u.id)}
+                        keyExtractor={(u: any) => String(u.userId)}
                         renderItem={({ item }: { item: any }) => (
                           <TouchableOpacity
                             style={[styles.userRow, { borderBottomColor: colors.border }]}

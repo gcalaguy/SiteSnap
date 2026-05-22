@@ -22,6 +22,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListTradehubJobs,
   useApplyToTradehubJob,
+  getListTradehubJobsQueryKey,
   TradehubPost,
 } from "@workspace/api-client-react";
 
@@ -68,7 +69,7 @@ export default function TradehubJobsScreen() {
       onSuccess: () => {
         setApplyPost(null);
         setApplyMsg("");
-        queryClient.invalidateQueries({ queryKey: ["tradehubJobs"] });
+        queryClient.invalidateQueries({ queryKey: getListTradehubJobsQueryKey() });
         Alert.alert("Applied!", "Your application has been sent.");
       },
       onError: (err: any) => Alert.alert("Error", err?.message ?? "Could not apply."),
