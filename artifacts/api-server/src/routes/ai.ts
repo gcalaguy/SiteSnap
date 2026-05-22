@@ -8,34 +8,34 @@ import { canSearchWeb, recordWebSearch } from "../lib/webSearchRateLimiter.js";
 
 const router = Router();
 
-const DailyReportAIInput = z.object({
-  projectName: z.string(),
-  rawInput: z.string(),
-  reportDate: z.string(),
-  crewCount: z.coerce.number().optional(),
+const DailyReportAIInput = z.strictObject({
+  projectName: z.string().min(1).max(200),
+  rawInput: z.string().min(1).max(5000),
+  reportDate: z.string().min(1).max(20),
+  crewCount: z.coerce.number().min(0).max(9999).optional(),
 });
 
-const CostAnalysisAIInput = z.object({
-  projectName: z.string(),
-  labourCost: z.coerce.number(),
-  materialsCost: z.coerce.number(),
-  equipmentCost: z.coerce.number(),
-  otherCost: z.coerce.number(),
-  budget: z.union([z.coerce.number(), z.null()]).optional(),
-  notes: z.string().optional(),
+const CostAnalysisAIInput = z.strictObject({
+  projectName: z.string().min(1).max(200),
+  labourCost: z.coerce.number().min(0),
+  materialsCost: z.coerce.number().min(0),
+  equipmentCost: z.coerce.number().min(0),
+  otherCost: z.coerce.number().min(0),
+  budget: z.union([z.coerce.number().min(0), z.null()]).optional(),
+  notes: z.string().max(1000).optional(),
 });
 
-const RFIAIInput = z.object({
-  projectName: z.string(),
-  subject: z.string(),
-  description: z.string(),
+const RFIAIInput = z.strictObject({
+  projectName: z.string().min(1).max(200),
+  subject: z.string().min(1).max(500),
+  description: z.string().min(1).max(3000),
 });
 
 // ── Daily Report AI Agent ────────────────────────────────────────────────────
 router.post("/ai/daily-report/generate", requireAuth, requireCompany, async (req, res) => {
   const parsed = DailyReportAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Malformed request payload" });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 
@@ -86,7 +86,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 router.post("/ai/cost-analysis/generate", requireAuth, requireCompany, async (req, res) => {
   const parsed = CostAnalysisAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Malformed request payload" });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 
@@ -142,7 +142,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 router.post("/ai/rfi/generate", requireAuth, requireCompany, async (req, res) => {
   const parsed = RFIAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Malformed request payload" });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 
@@ -189,17 +189,23 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 });
 
 // ── AI Assistant (chat) ───────────────────────────────────────────────────────
-const AssistantInput = z.object({
+const AssistantInput = z.strictObject({
   messages: z
-    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
-    .min(1),
-  context: z.string().optional().nullable(),
+    .array(
+      z.strictObject({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().min(1).max(4000),
+      }),
+    )
+    .min(1)
+    .max(50),
+  context: z.string().max(5000).optional().nullable(),
 });
 
 router.post("/ai/assistant", requireAuth, requireCompany, async (req, res) => {
   const parsed = AssistantInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 
@@ -257,16 +263,16 @@ Today's date: ${new Date().toLocaleDateString("en-CA")}`;
 });
 
 // ── Quote AI Agent ────────────────────────────────────────────────────────────
-const QuoteAIInput = z.object({
-  voiceInput: z.string().min(1),
-  projectName: z.string().optional().nullable(),
-  clientName: z.string().optional().nullable(),
+const QuoteAIInput = z.strictObject({
+  voiceInput: z.string().min(1).max(3000),
+  projectName: z.string().max(200).optional().nullable(),
+  clientName: z.string().max(200).optional().nullable(),
 });
 
 router.post("/ai/quote/generate", requireAuth, requireCompany, async (req, res) => {
   const parsed = QuoteAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 
@@ -330,16 +336,16 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 });
 
 // ── Invoice AI Agent ──────────────────────────────────────────────────────────
-const InvoiceAIInput = z.object({
-  voiceInput: z.string().min(1),
-  projectName: z.string().optional().nullable(),
-  clientName: z.string().optional().nullable(),
+const InvoiceAIInput = z.strictObject({
+  voiceInput: z.string().min(1).max(3000),
+  projectName: z.string().max(200).optional().nullable(),
+  clientName: z.string().max(200).optional().nullable(),
 });
 
 router.post("/ai/invoice/generate", requireAuth, requireCompany, async (req, res) => {
   const parsed = InvoiceAIInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 
@@ -403,15 +409,15 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 });
 
 // ── Voice Transcription ───────────────────────────────────────────────────────
-const TranscribeInput = z.object({
-  audio: z.string().min(1),
-  format: z.string().optional().default("webm"),
+const TranscribeInput = z.strictObject({
+  audio: z.string().min(1).max(10_000_000),
+  format: z.string().max(10).optional().default("webm"),
 });
 
 router.post("/ai/transcribe", requireAuth, async (req, res) => {
   const parsed = TranscribeInput.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body: audio (base64 string) is required" });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 
@@ -477,13 +483,13 @@ If you cannot answer a question about Site Snap features, or if the user reports
 
 Keep responses concise, friendly, and practical. Use bullet points for steps. Never make up features that don't exist.`;
 
-const HelpChatBody = z.object({
+const HelpChatBody = z.strictObject({
   message: z.string().min(1).max(2000),
   history: z
     .array(
-      z.object({
+      z.strictObject({
         role: z.enum(["user", "assistant"]),
-        content: z.string(),
+        content: z.string().max(4000),
       }),
     )
     .max(20)
@@ -493,7 +499,7 @@ const HelpChatBody = z.object({
 router.post("/help/chat", requireAuth, async (req, res) => {
   const parsed = HelpChatBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body" });
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
     return;
   }
 
@@ -524,11 +530,19 @@ router.post("/help/chat", requireAuth, async (req, res) => {
 });
 
 // ── POST /ai/foreman-briefing — daily AI briefing for foreman ─────────────────
+const ForemanBriefingInput = z.strictObject({});
+
 router.post(
   "/ai/foreman-briefing",
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
+    const parsed = ForemanBriefingInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
+      return;
+    }
+
     const { db, inspectionsTable, inspectionAlertsTable, projectsTable, tasksTable, dailyReportsTable } =
       await import("@workspace/db");
     const { eq, and, lt, ne, inArray, desc, sql } = await import("drizzle-orm");
@@ -696,9 +710,9 @@ Keep total output under 200 words. Only include sections that have relevant data
 );
 
 // ── Voice Command Classification ─────────────────────────────────────────────
-const VoiceClassifyInput = z.object({
+const VoiceClassifyInput = z.strictObject({
   transcript: z.string().min(1).max(500),
-  projectNames: z.array(z.string()).optional().default([]),
+  projectNames: z.array(z.string().max(200)).max(100).optional().default([]),
 });
 
 router.post(
@@ -708,7 +722,7 @@ router.post(
     const parsed = VoiceClassifyInput.safeParse(req.body);
     if (!parsed.success) {
       req.log?.warn({ issues: parsed.error.issues }, "voice-classify: invalid body");
-      res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
+      res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
       return;
     }
 
