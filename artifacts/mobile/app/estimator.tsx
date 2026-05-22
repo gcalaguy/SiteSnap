@@ -27,6 +27,7 @@ import { useLocalSearchParams } from "expo-router";
 import { WebView } from "react-native-webview";
 
 const GOLD = "#C9A84C";
+const PROMPT_MAX = 5000;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -304,7 +305,13 @@ export default function EstimatorScreen() {
       setParams(data);
       setStep(2);
     },
-    onError: (err: any) => Alert.alert("Parse Error", err?.message ?? "Failed to parse description"),
+    onError: (err: any) => {
+      const data = err?.data as { error?: string; details?: unknown } | null | undefined;
+      const topMsg = data?.error ?? err?.message ?? "Failed to parse description";
+      const details = Array.isArray(data?.details) && data.details.length > 0 ? data.details[0] : null;
+      const detailMsg = typeof details === "string" ? details : (typeof details === "object" && details !== null ? (details as any).message ?? null : null);
+      Alert.alert("Parse Error", detailMsg ? `${topMsg}: ${detailMsg}` : topMsg);
+    },
   });
 
   const calculateMutation = useMutation({
@@ -368,6 +375,13 @@ export default function EstimatorScreen() {
 
   const handleTranscript = useCallback(async (text: string) => {
     setFreeText(text);
+    if (text.length > PROMPT_MAX) {
+      Alert.alert(
+        "Transcript too long",
+        `Your recording was transcribed to ${text.length.toLocaleString()} characters, which exceeds the ${PROMPT_MAX.toLocaleString()}-character limit. Please shorten your description and try again.`,
+      );
+      return;
+    }
     parseMutation.mutate(text);
   }, []);
 
@@ -390,6 +404,10 @@ export default function EstimatorScreen() {
     if (inputMode === "text") {
       if (freeText.trim().length < 10) {
         Alert.alert("Too short", "Please describe your project in at least 10 characters.");
+        return;
+      }
+      if (freeText.length > PROMPT_MAX) {
+        Alert.alert("Description too long", `Please shorten your description to ${PROMPT_MAX.toLocaleString()} characters or fewer.`);
         return;
       }
       parseMutation.mutate(freeText.trim());
@@ -612,7 +630,7 @@ export default function EstimatorScreen() {
           {/* Free Text mode */}
           {inputMode === "text" && (
             <>
-              <View style={[s.textareaWrap, { borderColor: c.border, backgroundColor: c.input }]}>
+              <View style={[s.textareaWrap, { borderColor: freeText.length > PROMPT_MAX ? colors.destructive : c.border, backgroundColor: c.input }]}>
                 <TextInput
                   style={[s.textarea, { color: c.foreground }]}
                   placeholder="e.g. Finish a 1,200 sqft basement in Toronto with a bedroom, bathroom, and bar area. Mid-range finishes, LVP flooring."
@@ -622,6 +640,7 @@ export default function EstimatorScreen() {
                   multiline
                   numberOfLines={5}
                   textAlignVertical="top"
+                  maxLength={PROMPT_MAX}
                 />
                 <TouchableOpacity
                   onPress={handleMicPress}
@@ -635,6 +654,9 @@ export default function EstimatorScreen() {
                   />
                 </TouchableOpacity>
               </View>
+              <Text style={[{ fontSize: 11, textAlign: "right", marginTop: 2 }, freeText.length >= PROMPT_MAX ? { color: colors.destructive, fontWeight: "600" } : freeText.length >= PROMPT_MAX * 0.8 ? { color: "#F59E0B" } : { color: c.mutedForeground }]}>
+                {freeText.length.toLocaleString()}/{PROMPT_MAX.toLocaleString()}
+              </Text>
               {voiceRecorder.state === "recording" && (
                 <View style={s.voiceIndicator}>
                   <View style={s.voiceDot} />

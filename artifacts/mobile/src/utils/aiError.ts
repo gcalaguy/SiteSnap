@@ -23,14 +23,14 @@ export function getAiErrorMessage(
     const body = err.data as ApiErrorBody | null;
     const message = body?.error?.trim() || fallback;
 
-    if (__DEV__ && body?.details && body.details.length > 0) {
-      const details = body.details
-        .map((d) => {
-          const path = d.path && d.path.length > 0 ? d.path.join(".") : "(root)";
-          return `• ${path}: ${d.message ?? d.code ?? "invalid"}`;
-        })
-        .join("\n");
-      return `${message}\n\n[Dev] Field errors:\n${details}`;
+    if (body?.details && body.details.length > 0) {
+      const firstDetail = body.details[0];
+      const detailMsg =
+        firstDetail.message ??
+        (firstDetail.path && firstDetail.path.length > 0
+          ? firstDetail.path.join(".")
+          : undefined);
+      if (detailMsg) return `${message}: ${detailMsg}`;
     }
 
     return message;

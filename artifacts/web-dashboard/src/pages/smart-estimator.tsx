@@ -459,6 +459,9 @@ const BLANK_MODEL_FORM = {
   notes: "",
 };
 
+const PROMPT_MAX = 5000;
+const HINT_MAX = 2000;
+
 export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwnerOrForeman?: boolean }) {
   const { toast } = useToast();
   const handleError = useApiError();
@@ -773,10 +776,18 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
         toast({ title: "Please describe your project", description: "Enter at least 10 characters.", variant: "destructive" });
         return;
       }
+      if (freeText.length > PROMPT_MAX) {
+        toast({ title: "Description too long", description: `Please shorten your description to ${PROMPT_MAX.toLocaleString()} characters or fewer.`, variant: "destructive" });
+        return;
+      }
       parseMutation.mutate(freeText.trim());
     } else if (inputMode === "file") {
       if (!uploadFile) {
         toast({ title: "Please select a file", description: "Upload a PDF, image, or document.", variant: "destructive" });
+        return;
+      }
+      if (uploadHint.length > HINT_MAX) {
+        toast({ title: "Context too long", description: `Please shorten additional context to ${HINT_MAX.toLocaleString()} characters or fewer.`, variant: "destructive" });
         return;
       }
       parseFromFileMutation.mutate({ file: uploadFile, hint: uploadHint });
@@ -1269,11 +1280,17 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                   value={freeText}
                   onChange={(e) => setFreeText(e.target.value)}
                   className="min-h-[120px] resize-none"
+                  maxLength={PROMPT_MAX}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Describe the project scope, size, finish quality, and any specific requirements.
-                  The AI will extract the parameters — pricing comes from our database.
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    Describe the project scope, size, finish quality, and any specific requirements.
+                    The AI will extract the parameters — pricing comes from our database.
+                  </p>
+                  <p className={`text-xs shrink-0 tabular-nums ${freeText.length >= PROMPT_MAX ? "text-destructive font-medium" : freeText.length >= PROMPT_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                    {freeText.length.toLocaleString()}/{PROMPT_MAX.toLocaleString()}
+                  </p>
+                </div>
               </div>
             ) : inputMode === "file" ? (
               <div className="space-y-3">
@@ -1332,7 +1349,11 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                     value={uploadHint}
                     onChange={(e) => setUploadHint(e.target.value)}
                     className="min-h-[72px] resize-none text-sm"
+                    maxLength={HINT_MAX}
                   />
+                  <p className={`text-xs text-right tabular-nums ${uploadHint.length >= HINT_MAX ? "text-destructive font-medium" : uploadHint.length >= HINT_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                    {uploadHint.length.toLocaleString()}/{HINT_MAX.toLocaleString()}
+                  </p>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   AI reads the file and extracts the project scope — pricing always comes from our database.

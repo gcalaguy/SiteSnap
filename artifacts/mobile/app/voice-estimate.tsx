@@ -55,6 +55,8 @@ type EstimateResult = {
   costModelUsed: { name: string };
 };
 
+const PROMPT_MAX = 5000;
+
 const PROJECT_TYPE_LABELS: Record<string, string> = {
   residential_new_build: "Residential New Build",
   renovation_residential: "Residential Renovation",
@@ -116,6 +118,11 @@ export default function VoiceEstimateScreen() {
 
   const handleTranscript = useCallback(async (text: string) => {
     setTranscript(text);
+    if (text.length > PROMPT_MAX) {
+      setError(`Your recording is ${text.length.toLocaleString()} characters, which exceeds the ${PROMPT_MAX.toLocaleString()}-character limit. Please describe the project more briefly and try again.`);
+      setStep("idle");
+      return;
+    }
     setStep("parsing");
     setError(null);
     try {
@@ -333,9 +340,14 @@ export default function VoiceEstimateScreen() {
                 <Feather name="check-circle" size={15} color={colors.primary} /> Parsed Parameters
               </Text>
               {transcript ? (
-                <Text style={[styles.transcriptText, { color: colors.mutedForeground }]} numberOfLines={3}>
-                  "{transcript}"
-                </Text>
+                <>
+                  <Text style={[styles.transcriptText, { color: colors.mutedForeground }]} numberOfLines={3}>
+                    "{transcript}"
+                  </Text>
+                  <Text style={[{ fontSize: 11, textAlign: "right", marginTop: 2 }, transcript.length >= PROMPT_MAX ? { color: "#EF4444", fontWeight: "600" } : transcript.length >= PROMPT_MAX * 0.8 ? { color: "#F59E0B" } : { color: colors.mutedForeground }]}>
+                    {transcript.length.toLocaleString()}/{PROMPT_MAX.toLocaleString()}
+                  </Text>
+                </>
               ) : null}
               <View style={styles.paramRow}>
                 <Text style={[styles.paramLabel, { color: colors.mutedForeground }]}>Project Type</Text>
