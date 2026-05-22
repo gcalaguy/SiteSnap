@@ -90,6 +90,7 @@ export default function VoiceEstimateScreen() {
 
   const [step, setStep] = useState<Step>("idle");
   const [retrying, setRetrying] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [params, setParams] = useState<ParsedParams | null>(null);
   const [result, setResult] = useState<EstimateResult | null>(null);
@@ -127,6 +128,7 @@ export default function VoiceEstimateScreen() {
     }
     setStep("parsing");
     setRetrying(false);
+    setWaiting(false);
     setError(null);
     try {
       const data = await withAiRetry(
@@ -135,7 +137,8 @@ export default function VoiceEstimateScreen() {
             method: "POST",
             body: JSON.stringify({ prompt: text }),
           }),
-        () => setRetrying(true),
+        () => { setRetrying(true); setWaiting(false); },
+        () => { setWaiting(true); setRetrying(false); },
       );
       setParams(data);
       setStep("reviewing");
@@ -144,6 +147,7 @@ export default function VoiceEstimateScreen() {
       setStep("idle");
     } finally {
       setRetrying(false);
+      setWaiting(false);
     }
   }, []);
 
@@ -165,6 +169,7 @@ export default function VoiceEstimateScreen() {
     if (!params) return;
     setStep("calculating");
     setRetrying(false);
+    setWaiting(false);
     setError(null);
     try {
       const data = await withAiRetry(
@@ -179,7 +184,8 @@ export default function VoiceEstimateScreen() {
               margin_pct: params.confidence > 80 ? 15 : 20,
             }),
           }),
-        () => setRetrying(true),
+        () => { setRetrying(true); setWaiting(false); },
+        () => { setWaiting(true); setRetrying(false); },
       );
       setResult(data);
       setStep("result");
@@ -188,6 +194,7 @@ export default function VoiceEstimateScreen() {
       setStep("reviewing");
     } finally {
       setRetrying(false);
+      setWaiting(false);
     }
   };
 
@@ -226,6 +233,8 @@ export default function VoiceEstimateScreen() {
 
   const handleReset = () => {
     setStep("idle");
+    setRetrying(false);
+    setWaiting(false);
     setTranscript("");
     setParams(null);
     setResult(null);
@@ -343,11 +352,13 @@ export default function VoiceEstimateScreen() {
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-              {retrying || voiceRecorder.state === "retrying"
-                ? "Retrying…"
-                : step === "parsing"
-                  ? "Analysing your description…"
-                  : "Calculating estimate…"}
+              {waiting || voiceRecorder.state === "waiting"
+                ? "Waiting for connection…"
+                : retrying || voiceRecorder.state === "retrying"
+                  ? "Retrying…"
+                  : step === "parsing"
+                    ? "Analysing your description…"
+                    : "Calculating estimate…"}
             </Text>
           </View>
         )}

@@ -78,6 +78,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiRetrying, setAiRetrying] = useState(false);
+  const [aiWaiting, setAiWaiting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<number, string>>({});
 
@@ -109,6 +110,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
     }
     setAiLoading(true);
     setAiRetrying(false);
+    setAiWaiting(false);
     try {
       const data = await withAiRetry(
         () =>
@@ -117,7 +119,8 @@ export function QuotesTab({ projectId }: { projectId: number }) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ voiceInput: description, clientName: clientName || undefined }),
           }),
-        () => setAiRetrying(true),
+        () => { setAiRetrying(true); setAiWaiting(false); },
+        () => { setAiWaiting(true); setAiRetrying(false); },
       );
       setAiResult(data);
       setStep("preview");
@@ -127,6 +130,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
     } finally {
       setAiLoading(false);
       setAiRetrying(false);
+      setAiWaiting(false);
     }
   }, [description, clientName]);
 
@@ -451,7 +455,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                     <Feather name={isRecording ? "mic-off" : "mic"} size={24} color="#FFFFFF" />
                   </View>
                   <Text style={[styles.voiceBtnText, { color: isRecording ? "#DC2626" : colors.primary }]}>
-                    {isVoiceRetrying ? "Retrying…" : isTranscribing ? "Transcribing…" : isRecording ? "Tap to stop" : "Tap to record voice"}
+                    {voiceState === "waiting" ? "Waiting for connection…" : isVoiceRetrying ? "Retrying…" : isTranscribing ? "Transcribing…" : isRecording ? "Tap to stop" : "Tap to record voice"}
                   </Text>
                   {isRecording && <View style={[styles.recordingDot, { backgroundColor: "#DC2626" }]} />}
                 </TouchableOpacity>
@@ -467,7 +471,7 @@ export function QuotesTab({ projectId }: { projectId: number }) {
                     <Feather name="zap" size={18} color={description.trim() ? "#FFFFFF" : colors.mutedForeground} />
                   )}
                   <Text style={[styles.generateBtnText, { color: description.trim() && !aiLoading ? "#FFFFFF" : colors.mutedForeground }]}>
-                    {aiRetrying ? "Retrying…" : aiLoading ? "AI generating…" : "Generate with AI"}
+                    {aiWaiting ? "Waiting for connection…" : aiRetrying ? "Retrying…" : aiLoading ? "AI generating…" : "Generate with AI"}
                   </Text>
                 </TouchableOpacity>
               </>

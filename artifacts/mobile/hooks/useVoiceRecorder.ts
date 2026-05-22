@@ -10,7 +10,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 import { withAiRetry } from "@/src/utils/aiRetry";
 
-export type VoiceState = "idle" | "recording" | "transcribing" | "retrying";
+export type VoiceState = "idle" | "recording" | "transcribing" | "retrying" | "waiting";
 
 export interface UseVoiceRecorderReturn {
   state: VoiceState;
@@ -77,6 +77,7 @@ export function useVoiceRecorder(
             body: JSON.stringify({ audio: base64, format: "m4a" }),
           }),
         () => setState("retrying"),
+        () => setState("waiting"),
       );
       console.log("[voiceRecorder] transcribe result:", result);
 
