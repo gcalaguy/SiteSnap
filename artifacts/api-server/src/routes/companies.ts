@@ -14,7 +14,7 @@ import {
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
-import { CreateCompanyBody, UpdateMemberRoleBody } from "@workspace/api-zod";
+import { CreateCompanyBody, UpdateMemberRoleBody, UpdateCompanyDocumentSettingsBody } from "@workspace/api-zod";
 import crypto from "crypto";
 
 const router = Router();
@@ -212,25 +212,36 @@ router.patch("/companies/:companyId/document-settings", requireAuth, requireComp
     return;
   }
 
+  const parsed = UpdateCompanyDocumentSettingsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() });
+    return;
+  }
+
+  const body = parsed.data;
   const update: Record<string, unknown> = {};
 
-  if (typeof req.body?.quoteNumberPrefix === "string") {
-    update.quoteNumberPrefix = req.body.quoteNumberPrefix.trim() || "QUO";
+  if (typeof body.quoteNumberPrefix === "string") {
+    update.quoteNumberPrefix = body.quoteNumberPrefix.trim() || "QUO";
   }
-  if (typeof req.body?.invoiceNumberPrefix === "string") {
-    update.invoiceNumberPrefix = req.body.invoiceNumberPrefix.trim() || "INV";
+  if (typeof body.invoiceNumberPrefix === "string") {
+    update.invoiceNumberPrefix = body.invoiceNumberPrefix.trim() || "INV";
   }
-  if (typeof req.body?.quoteStartNumber === "number") {
-    update.quoteStartNumber = Math.max(1, Math.floor(req.body.quoteStartNumber));
+  if (typeof body.quoteStartNumber === "number") {
+    update.quoteStartNumber = Math.max(1, Math.floor(body.quoteStartNumber));
   }
-  if (typeof req.body?.invoiceStartNumber === "number") {
-    update.invoiceStartNumber = Math.max(1, Math.floor(req.body.invoiceStartNumber));
+  if (typeof body.invoiceStartNumber === "number") {
+    update.invoiceStartNumber = Math.max(1, Math.floor(body.invoiceStartNumber));
   }
-  if (typeof req.body?.defaultQuoteTerms === "string") {
-    update.defaultQuoteTerms = req.body.defaultQuoteTerms.trim() || null;
+  if (body.defaultQuoteTerms !== undefined) {
+    update.defaultQuoteTerms = typeof body.defaultQuoteTerms === "string"
+      ? body.defaultQuoteTerms.trim() || null
+      : null;
   }
-  if (typeof req.body?.defaultInvoiceNotes === "string") {
-    update.defaultInvoiceNotes = req.body.defaultInvoiceNotes.trim() || null;
+  if (body.defaultInvoiceNotes !== undefined) {
+    update.defaultInvoiceNotes = typeof body.defaultInvoiceNotes === "string"
+      ? body.defaultInvoiceNotes.trim() || null
+      : null;
   }
 
   if (Object.keys(update).length === 0) {
