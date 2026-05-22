@@ -115,12 +115,13 @@ export default function VaultScreen() {
       });
 
       // 3. Save vault entry
+      const objectId = objectPath.replace("/objects/", "");
       await customFetch("/api/worker/vault/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           documentType: docType,
-          fileUrl: `/api/storage/objects/${objectPath}`,
+          fileUrl: `/api/storage/objects/${objectId}`,
           filePath: objectPath,
         }),
       });

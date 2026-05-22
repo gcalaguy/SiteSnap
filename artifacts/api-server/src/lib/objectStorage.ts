@@ -174,18 +174,23 @@ export class ObjectStorageService {
     }
 
     const url = new URL(rawPath);
-    const rawObjectPath = url.pathname;
+    const rawObjectPath = url.pathname; // always starts with "/"
 
     let objectEntityDir = this.getPrivateObjectDir();
     if (!objectEntityDir.endsWith("/")) {
       objectEntityDir = `${objectEntityDir}/`;
     }
 
-    if (!rawObjectPath.startsWith(objectEntityDir)) {
+    // url.pathname always starts with "/"; objectEntityDir may not.
+    // Normalize both for reliable comparison.
+    const pathForCompare = rawObjectPath.replace(/^\/+/, "");
+    const dirForCompare = objectEntityDir.replace(/^\/+/, "");
+
+    if (!pathForCompare.startsWith(dirForCompare)) {
       return rawObjectPath;
     }
 
-    const entityId = rawObjectPath.slice(objectEntityDir.length);
+    const entityId = pathForCompare.slice(dirForCompare.length);
     return `/objects/${entityId}`;
   }
 

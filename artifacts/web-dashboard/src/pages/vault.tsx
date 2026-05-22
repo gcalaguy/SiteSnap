@@ -289,7 +289,7 @@ export default function WorkerDocumentsPage() {
                   rel="noopener noreferrer"
                   className="text-sm text-[#C9A84C] hover:underline break-all"
                 >
-                  {selectedDoc.fileUrl}
+                  Open document
                 </a>
               </div>
               <div className="flex gap-2 pt-2">
