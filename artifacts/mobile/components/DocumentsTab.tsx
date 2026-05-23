@@ -269,21 +269,35 @@ function SearchPanel({ projectId }: { projectId: number }) {
   const colors = useColors();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const [result, setResult] = useState<SearchResponse | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   async function run() {
     if (!query.trim() || loading) return;
     setLoading(true);
+    setRetrying(false);
+    setWaiting(false);
+    setSearchError(null);
     setResult(null);
     try {
-      const data = await customFetch(`/api/projects/${projectId}/documents/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: query.trim() }),
-      }) as SearchResponse;
+      const data = await withAiRetry(
+        () => customFetch(`/api/projects/${projectId}/documents/search`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: query.trim() }),
+        }) as Promise<SearchResponse>,
+        () => { setRetrying(true); setWaiting(false); },
+        () => { setWaiting(true); setRetrying(false); },
+      );
+      setRetrying(false);
+      setWaiting(false);
       setResult(data);
-    } catch {
-      setResult({ results: [], answer: "Search failed. Please try again." });
+    } catch (err) {
+      setRetrying(false);
+      setWaiting(false);
+      setSearchError(getAiErrorMessage(err, "Search failed. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -298,7 +312,7 @@ function SearchPanel({ projectId }: { projectId: number }) {
           placeholder="Search docs… e.g. 'concrete receipts'"
           placeholderTextColor={colors.mutedForeground}
           value={query}
-          onChangeText={setQuery}
+          onChangeText={t => { setQuery(t); if (searchError) setSearchError(null); }}
           onSubmitEditing={run}
           returnKeyType="search"
         />
@@ -313,6 +327,31 @@ function SearchPanel({ projectId }: { projectId: number }) {
             : <Feather name="search" size={13} color="#fff" />}
         </Pressable>
       </View>
+
+      {loading && (retrying || waiting) && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
+          <ActivityIndicator size={13} color={colors.primary} />
+          <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+            {waiting ? "Waiting for connection…" : "Poor connection detected, retrying…"}
+          </Text>
+        </View>
+      )}
+
+      {searchError && !loading && (
+        <View style={[docStyles.qaErrorBox, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+          <View style={docStyles.qaErrorTop}>
+            <Feather name="alert-circle" size={15} color="#EF4444" />
+            <Text style={docStyles.qaErrorMsg}>{searchError}</Text>
+          </View>
+          <Pressable
+            onPress={() => { setSearchError(null); void run(); }}
+            style={[docStyles.qaRetryBtn, { backgroundColor: colors.primary }]}
+          >
+            <Feather name="refresh-cw" size={13} color="#FFFFFF" />
+            <Text style={docStyles.qaRetryBtnText}>Tap to retry</Text>
+          </Pressable>
+        </View>
+      )}
 
       {result && (
         <View style={{ gap: 8 }}>
