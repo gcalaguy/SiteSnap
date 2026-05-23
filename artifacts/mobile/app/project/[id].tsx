@@ -13,7 +13,7 @@ import {
   customFetch,
 } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -1153,15 +1153,26 @@ export default function ProjectDetailScreen() {
     }
   }, [visibleTabs, activeTab]);
 
-  const { data: project, isLoading } = useGetProject(projectId);
-  const { data: summary } = useGetProjectSummary(projectId);
+  const { data: project, isLoading, refetch: refetchProject } = useGetProject(projectId);
+  const { data: summary, refetch: refetchSummary } = useGetProjectSummary(projectId);
   const { data: reports, refetch: refetchReports } = useListDailyReports(projectId);
   const { data: tasks, refetch: refetchTasks } = useListTasks(projectId);
-  const { data: rfis } = useListRFIs(
+  const { data: rfis, refetch: refetchRfis } = useListRFIs(
     projectId,
     rfiStatusFilter !== "all" ? { status: rfiStatusFilter as "open" | "in_review" | "answered" | "closed" } : undefined,
   );
-  const { data: scans } = useListScans({ projectId });
+  const { data: scans, refetch: refetchScans } = useListScans({ projectId });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchProject();
+      refetchSummary();
+      refetchReports();
+      refetchTasks();
+      refetchRfis();
+      refetchScans();
+    }, [refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchScans]),
+  );
 
   const { data: scanUrlData, isLoading: scanUrlLoading, error: scanUrlError } = useGetScanUrl(
     viewingScanId ?? 0,
