@@ -96,14 +96,17 @@ export type VoiceIntent =
 
 /* ─── Router patterns ─────────────────────────────────────────────────────── */
 
+// Navigation patterns are intentionally anchored (^ and $) or require a navigation verb prefix.
+// This prevents "add an update to project X" from matching "Projects" navigation, etc.
+const NAV_PREFIX = "(?:(?:go|navigate|switch)\\s+to\\s+|open\\s+|show(?:\\s+me)?\\s+|take\\s+me\\s+to\\s+)?";
 const ROUTE_PATTERNS: Array<{ pattern: RegExp; target: RouteTarget }> = [
-  { pattern: /calculat/i, target: "Calculators" },
-  { pattern: /schedule|calendar/i, target: "Schedule" },
-  { pattern: /\bprojects?\b/i, target: "Projects" },
-  { pattern: /\b(chat|ask|assistant)\b/i, target: "Ask" },
-  { pattern: /\bmy\s+tasks?\b|\btasks?\b.*\b(list|page)\b/i, target: "Tasks" },
-  { pattern: /\binvoices?\b/i, target: "Invoices" },
-  { pattern: /\breports?\b|\btoday'?s\s+reports?\b/i, target: "Reports" },
+  { pattern: new RegExp(`^${NAV_PREFIX}calculat\\w*$`, "i"), target: "Calculators" },
+  { pattern: new RegExp(`^${NAV_PREFIX}(?:schedule|calendar)$`, "i"), target: "Schedule" },
+  { pattern: new RegExp(`^${NAV_PREFIX}projects?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Projects" },
+  { pattern: new RegExp(`^${NAV_PREFIX}(?:chat|ask|assistant)$`, "i"), target: "Ask" },
+  { pattern: new RegExp(`^${NAV_PREFIX}(?:my\\s+)?tasks?(?:\\s+(?:list|page))?$`, "i"), target: "Tasks" },
+  { pattern: new RegExp(`^${NAV_PREFIX}invoices?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Invoices" },
+  { pattern: new RegExp(`^${NAV_PREFIX}(?:today'?s\\s+)?reports?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Reports" },
 ];
 
 // \b after notes? prevents backtracking from "notes" to "note", ensuring the full word is matched.
@@ -176,6 +179,22 @@ type DailyLogPattern = {
 };
 
 const DAILY_LOG_PATTERNS: DailyLogPattern[] = [
+  // "add an update to [the] [project] [name][: / with / that] [notes]"
+  { pattern: /add\s+(?:an?\s+)?update\s+to\s+(?:the\s+)?(?:project\s+)?(.+?)\s*(?:[:\-]|with\s+|that\s+|about\s+)(.+)/i, notesGroup: 2, projectGroup: 1 },
+  // "add an update to [project]" (no explicit notes)
+  { pattern: /add\s+(?:an?\s+)?update\s+to\s+(?:the\s+)?(?:project\s+)?(.+)/i, notesGroup: null, projectGroup: 1 },
+  // "update project [name][: / with / that] [notes]"
+  { pattern: /^update\s+(?:the\s+)?project\s+(.+?)\s*(?:[:\-]|with\s+|that\s+)(.+)/i, notesGroup: 2, projectGroup: 1 },
+  // "update project [name]" (no notes)
+  { pattern: /^update\s+(?:the\s+)?project\s+(.+)/i, notesGroup: null, projectGroup: 1 },
+  // "add a report/log/daily update for/on [project][: / with / that] [notes]"
+  { pattern: /add\s+(?:a\s+)?(?:report|log|daily\s+update)\s+(?:for|to|on)\s+(?:the\s+)?(?:project\s+)?(.+?)\s*(?:[:\-]|with\s+|that\s+|about\s+)(.+)/i, notesGroup: 2, projectGroup: 1 },
+  // "add a report/log for [project]" (no notes)
+  { pattern: /add\s+(?:a\s+)?(?:report|log|daily\s+update)\s+(?:for|to|on)\s+(?:the\s+)?(?:project\s+)?(.+)/i, notesGroup: null, projectGroup: 1 },
+  // "create a [daily] report/log for/on [project][: / with / that] [notes]"
+  { pattern: /create\s+(?:a\s+)?(?:daily\s+)?(?:report|log)\s+(?:for|on|to)\s+(?:the\s+)?(?:project\s+)?(.+?)\s*(?:[:\-]|with\s+|that\s+)(.+)/i, notesGroup: 2, projectGroup: 1 },
+  // "create a report for [project]" (no notes)
+  { pattern: /create\s+(?:a\s+)?(?:daily\s+)?(?:report|log)\s+(?:for|on|to)\s+(?:the\s+)?(?:project\s+)?(.+)/i, notesGroup: null, projectGroup: 1 },
   // "update the 123 Basement project with/that [notes]"
   { pattern: /^update\s+(?:the\s+)?(.+?)\s+(?:project\s+)?(?:with|that|,)\s+(.+)/i, notesGroup: 2, projectGroup: 1 },
   // "update [project]" (no notes — require ≥4 chars to reduce false matches on generic words)
