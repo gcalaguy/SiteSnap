@@ -27,7 +27,7 @@ import { z } from "zod";
 const router = Router();
 
 const CreatePostBody = z.object({
-  type: z.enum(["discussion", "job", "safety_alert", "tool_review", "calculation"]).optional(),
+  type: z.enum(["discussion", "job", "showcase", "safety_alert", "tool_review", "calculation"]).optional(),
   title: z.string().min(1).max(200),
   content: z.string().min(1).max(5000),
   trade: z.string().max(100).optional(),

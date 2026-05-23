@@ -104,7 +104,10 @@ export default function TradeHubScreen() {
         setNewContent("");
         setNewType("discussion");
       },
-      onError: () => Alert.alert("Failed to post", "Please try again."),
+      onError: (err: any) => {
+        const msg = err?.message || "Please try again.";
+        Alert.alert("Failed to post", msg);
+      },
     },
   });
 
