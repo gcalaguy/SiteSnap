@@ -185,8 +185,12 @@ export default function NewInvoice() {
                 placeholder="Payment terms, additional info…"
                 rows={3}
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e) => setNotes(e.target.value.slice(0, 3000))}
+                maxLength={3000}
               />
+              <p className={`text-xs text-right tabular-nums ${notes.length >= 3000 ? "text-destructive font-medium" : notes.length >= 3000 * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                {notes.length.toLocaleString()}/3,000
+              </p>
             </div>
           </CardContent>
         </Card>

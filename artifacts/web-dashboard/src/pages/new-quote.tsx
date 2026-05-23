@@ -248,11 +248,15 @@ export default function NewQuote() {
               <Textarea
                 id="notes"
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e) => setNotes(e.target.value.slice(0, 3000))}
                 placeholder="Initial scope or any notes..."
                 rows={3}
+                maxLength={3000}
                 className="resize-none mt-1"
               />
+              <p className={`text-xs mt-1 text-right tabular-nums ${notes.length >= 3000 ? "text-destructive font-medium" : notes.length >= 3000 * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                {notes.length.toLocaleString()}/3,000
+              </p>
             </div>
             <div className="flex gap-3 pt-2">
               <Button
