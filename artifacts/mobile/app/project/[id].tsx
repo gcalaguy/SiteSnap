@@ -1133,9 +1133,7 @@ export default function ProjectDetailScreen() {
   const TAB_PERMISSION_MAP: Partial<Record<Tab, keyof typeof perms>> = {
     Quotes: "viewQuotes",
     Timesheets: "viewTimesheets",
-    Documents: "viewDocuments",
     Schedules: "viewSchedules",
-    Messages: "viewClientMessages",
   };
 
   const visibleTabs = TABS.filter((tab) => {
