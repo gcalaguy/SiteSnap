@@ -1199,8 +1199,7 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
   });
 
   const editableMembers = members.filter(
-    (m: UserWithCompany) =>
-      m.id !== ownerId && (m.role === "worker" || m.role === "foreman")
+    (m: UserWithCompany) => m.id !== ownerId
   );
 
   const { data: rawPerms, isLoading: permsLoading } = useGetMemberPermissions(
@@ -1241,13 +1240,14 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
     },
   });
 
+  // Worker defaults — must stay in sync with WORKER_DEFAULTS in api-server/src/lib/permissionGate.ts
   const defaultPermissions: MemberPermissions = {
     viewQuotes: false,
     viewTimesheets: true,
     viewFinancials: false,
     viewDocuments: true,
     viewSchedules: true,
-    viewClientMessages: false,
+    viewClientMessages: true,
     viewRiskTab: true,
     viewSafetyTab: true,
     viewInspectTab: true,
@@ -1265,8 +1265,20 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
     viewAskAI: true,
   };
 
+  const allTruePermissions: MemberPermissions = {
+    viewQuotes: true, viewTimesheets: true, viewFinancials: true, viewDocuments: true,
+    viewSchedules: true, viewClientMessages: true, viewRiskTab: true, viewSafetyTab: true,
+    viewInspectTab: true, manageQuotes: true, submitExpenses: true, viewAllProjects: true,
+    viewDailyLog: true, viewReports: true, viewRFIs: true, viewPhotos: true, viewVault: true,
+    viewEstimator: true, viewSiteScan: true, viewTradeHub: true, viewAskAI: true,
+  };
+
+  const selectedMember = editableMembers.find((m) => m.id === selectedUserId);
+  const selectedRole = selectedMember?.role ?? "worker";
+
   const hasCustomPerms = rawPerms != null && Object.keys(rawPerms).length > 0;
-  const resolved = (hasCustomPerms ? rawPerms : defaultPermissions) as MemberPermissions;
+  const roleDefaults = selectedRole === "worker" ? defaultPermissions : allTruePermissions;
+  const resolved = (hasCustomPerms ? rawPerms : roleDefaults) as MemberPermissions;
 
   function toggle(key: keyof MemberPermissions) {
     if (!selectedUserId) return;
@@ -1276,7 +1288,7 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
 
   function resetToDefaults() {
     if (!selectedUserId) return;
-    setPerms.mutate({ companyId, userId: selectedUserId, data: defaultPermissions });
+    setPerms.mutate({ companyId, userId: selectedUserId, data: roleDefaults });
   }
 
   return (
@@ -1292,7 +1304,7 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
           <div>
             <CardTitle className="text-sm font-semibold">Member Permissions</CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              Choose which tabs and features workers can access.
+              Choose which tabs and features each team member can access. Owners and foremen see everything by default.
             </CardDescription>
           </div>
         </div>
@@ -1309,7 +1321,7 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
             {/* Member list */}
             <div className="sm:w-56 shrink-0 space-y-1">
               {editableMembers.length === 0 && (
-                <p className="text-sm text-muted-foreground">No workers or foremen to manage.</p>
+                <p className="text-sm text-muted-foreground">No other members to manage.</p>
               )}
               {editableMembers.map((m: UserWithCompany) => (
                 <button

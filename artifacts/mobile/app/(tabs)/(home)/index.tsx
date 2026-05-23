@@ -2,11 +2,13 @@ import {
   useGetDashboardSummary, useGetRecentActivity, useListProjects,
   useGetMe, useListCompanyMembers, customFetch,
   useListAllRFIs,
+  getGetMeQueryKey,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { RFIListItem } from "@workspace/api-client-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import React, { useEffect, useState, useCallback } from "react";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import {
   ActivityIndicator,
@@ -561,7 +563,18 @@ export default function DashboardScreen() {
   ).length;
 
   const refreshing = summaryLoading || activityLoading || projectsLoading;
-  const handleRefresh = () => { refetchSummary(); refetchActivity(); refetchProjects(); refetchRfis(); };
+  const qc = useQueryClient();
+  const handleRefresh = () => {
+    refetchSummary(); refetchActivity(); refetchProjects(); refetchRfis();
+    qc.invalidateQueries({ queryKey: getGetMeQueryKey() });
+  };
+
+  // Refetch permissions every time the home screen gains focus (e.g. after editing in web)
+  useFocusEffect(
+    useCallback(() => {
+      qc.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    }, [qc]),
+  );
 
   const firstName = me?.firstName ?? "there";
   const perms = usePermissions();
