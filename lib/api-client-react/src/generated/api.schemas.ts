@@ -2872,6 +2872,13 @@ export type MarkTradehubConversationRead200 = {
   ok: boolean;
 };
 
+export type ListInspectionsParams = {
+  /**
+   * Filter inspections to a specific project
+   */
+  projectId?: number;
+};
+
 export type SubmitInspection200 = {
   ok: boolean;
 };

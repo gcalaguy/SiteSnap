@@ -132,6 +132,7 @@ import type {
   ListDailyLogsParams,
   ListFilesParams,
   ListFormSubmissionsParams,
+  ListInspectionsParams,
   ListRFIsParams,
   ListSafetySignoffsParams,
   ListScansParams,
@@ -19530,41 +19531,57 @@ export const useMarkTradehubConversationRead = <
 /**
  * @summary List all inspections for the current company
  */
-export const getListInspectionsUrl = () => {
-  return `/api/inspections`;
+export const getListInspectionsUrl = (params?: ListInspectionsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/inspections?${stringifiedParams}`
+    : `/api/inspections`;
 };
 
 export const listInspections = async (
+  params?: ListInspectionsParams,
   options?: RequestInit,
 ): Promise<InspectionRow[]> => {
-  return customFetch<InspectionRow[]>(getListInspectionsUrl(), {
+  return customFetch<InspectionRow[]>(getListInspectionsUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListInspectionsQueryKey = () => {
-  return [`/api/inspections`] as const;
+export const getListInspectionsQueryKey = (params?: ListInspectionsParams) => {
+  return [`/api/inspections`, ...(params ? [params] : [])] as const;
 };
 
 export const getListInspectionsQueryOptions = <
   TData = Awaited<ReturnType<typeof listInspections>>,
   TError = ErrorType<void>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listInspections>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: ListInspectionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listInspections>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListInspectionsQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getListInspectionsQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listInspections>>> = ({
     signal,
-  }) => listInspections({ signal, ...requestOptions });
+  }) => listInspections(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listInspections>>,
@@ -19585,15 +19602,18 @@ export type ListInspectionsQueryError = ErrorType<void>;
 export function useListInspections<
   TData = Awaited<ReturnType<typeof listInspections>>,
   TError = ErrorType<void>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listInspections>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListInspectionsQueryOptions(options);
+>(
+  params?: ListInspectionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listInspections>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListInspectionsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -6112,6 +6112,13 @@ export const MarkTradehubConversationReadResponse = zod.object({
 /**
  * @summary List all inspections for the current company
  */
+export const ListInspectionsQueryParams = zod.object({
+  projectId: zod.coerce
+    .number()
+    .optional()
+    .describe("Filter inspections to a specific project"),
+});
+
 export const ListInspectionsResponseItem = zod.object({
   inspection: zod.object({
     id: zod.number(),

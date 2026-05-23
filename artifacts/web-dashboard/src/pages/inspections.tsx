@@ -321,9 +321,16 @@ export default function InspectionsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
 
-  const { data: rawInspections = [], isLoading } = useListInspections();
+  const { data: rawInspections = [], isLoading } = useListInspections(
+    projectFilter !== "all"
+      ? { projectId: parseInt(projectFilter) }
+      : undefined,
+  );
   const { data: rawAlerts = [] } = useListInspectionAlerts();
+  const { data: projectsData } = useListProjects();
+  const projects = (projectsData as any)?.projects ?? (Array.isArray(projectsData) ? projectsData : []);
 
   const markReadMutation = useMarkInspectionAlertRead({
     mutation: {
@@ -414,6 +421,17 @@ export default function InspectionsPage() {
                 <SelectItem value="all">All Statuses</SelectItem>
                 {Object.entries(statusConfig).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="All projects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                {projects.map((p: any) => (
+                  <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

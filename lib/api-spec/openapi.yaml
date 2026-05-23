@@ -4735,6 +4735,12 @@ paths:
       operationId: listInspections
       tags: [inspections]
       summary: List all inspections for the current company
+      parameters:
+        - in: query
+          name: projectId
+          schema:
+            type: integer
+          description: Filter inspections to a specific project
       responses:
         "200":
           description: Inspection rows

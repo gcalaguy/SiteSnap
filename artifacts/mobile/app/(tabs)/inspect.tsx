@@ -518,10 +518,18 @@ export default function InspectScreen() {
   const [selected, setSelected] = useState<InspectionRow | null>(null);
   const [alertsExpanded, setAlertsExpanded] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [projectFilter, setProjectFilter] = useState<number | null>(null);
+
+  const { data: projects = [] } = useListProjects();
 
   const { data: rows = [], isLoading } = useQuery<InspectionRow[]>({
-    queryKey: ["inspections-mobile"],
-    queryFn: () => customFetch("/api/inspections"),
+    queryKey: ["inspections-mobile", projectFilter],
+    queryFn: () =>
+      customFetch(
+        projectFilter
+          ? `/api/inspections?projectId=${projectFilter}`
+          : "/api/inspections",
+      ),
     refetchInterval: 60_000,
   });
 
@@ -626,6 +634,47 @@ export default function InspectScreen() {
                 })}
               </View>
             )}
+          </View>
+        )}
+
+        {/* Project Filter */}
+        {(projects as any[]).length > 1 && (
+          <View style={{ marginBottom: 16 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Pressable
+                  onPress={() => setProjectFilter(null)}
+                  style={[
+                    styles.typePill,
+                    {
+                      backgroundColor: projectFilter === null ? colors.primary : colors.card,
+                      borderColor: projectFilter === null ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={{ fontSize: 13, color: projectFilter === null ? "#fff" : colors.text, fontFamily: "Inter_600SemiBold" }}>
+                    All Projects
+                  </Text>
+                </Pressable>
+                {(projects as any[]).map((p: any) => (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => setProjectFilter(p.id)}
+                    style={[
+                      styles.typePill,
+                      {
+                        backgroundColor: projectFilter === p.id ? colors.primary : colors.card,
+                        borderColor: projectFilter === p.id ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 13, color: projectFilter === p.id ? "#fff" : colors.text, fontFamily: "Inter_600SemiBold" }}>
+                      {p.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
           </View>
         )}
 
