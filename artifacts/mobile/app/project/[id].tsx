@@ -1105,6 +1105,7 @@ export default function ProjectDetailScreen() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
+  const [rfiStatusFilter, setRfiStatusFilter] = useState<"all" | "open" | "in_review" | "answered" | "closed">("all");
 
   // Scan viewer state
   const [viewingScanId, setViewingScanId] = useState<number | null>(null);
@@ -1156,7 +1157,10 @@ export default function ProjectDetailScreen() {
   const { data: summary } = useGetProjectSummary(projectId);
   const { data: reports, refetch: refetchReports } = useListDailyReports(projectId);
   const { data: tasks, refetch: refetchTasks } = useListTasks(projectId);
-  const { data: rfis } = useListRFIs(projectId);
+  const { data: rfis } = useListRFIs(
+    projectId,
+    rfiStatusFilter !== "all" ? { status: rfiStatusFilter as "open" | "in_review" | "answered" | "closed" } : undefined,
+  );
   const { data: scans } = useListScans({ projectId });
 
   const { data: scanUrlData, isLoading: scanUrlLoading, error: scanUrlError } = useGetScanUrl(
@@ -1576,11 +1580,47 @@ export default function ProjectDetailScreen() {
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
             Requests for Information
           </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {(["all", "open", "in_review", "answered", "closed"] as const).map((s) => {
+                const label =
+                  s === "all" ? "All" :
+                  s === "open" ? "Open" :
+                  s === "in_review" ? "In Review" :
+                  s === "answered" ? "Answered" : "Closed";
+                const active = rfiStatusFilter === s;
+                return (
+                  <Pressable
+                    key={s}
+                    onPress={() => setRfiStatusFilter(s)}
+                    style={[
+                      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+                      {
+                        backgroundColor: active ? colors.primary : colors.muted,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        { fontSize: 13, fontFamily: "Inter_500Medium" },
+                        { color: active ? "#FFFFFF" : colors.mutedForeground },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
           {(rfis ?? []).length === 0 ? (
             <View style={styles.rfiEmpty}>
               <Feather name="alert-circle" size={32} color={colors.border} />
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                No RFIs for this project
+                {rfiStatusFilter !== "all"
+                  ? `No ${rfiStatusFilter === "open" ? "open" : rfiStatusFilter === "in_review" ? "in-review" : rfiStatusFilter === "answered" ? "answered" : "closed"} RFIs`
+                  : "No RFIs for this project"}
               </Text>
             </View>
           ) : (

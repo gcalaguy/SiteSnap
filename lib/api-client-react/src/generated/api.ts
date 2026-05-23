@@ -132,6 +132,7 @@ import type {
   ListDailyLogsParams,
   ListFilesParams,
   ListFormSubmissionsParams,
+  ListRFIsParams,
   ListSafetySignoffsParams,
   ListScansParams,
   ListSitePhotosParams,
@@ -9563,22 +9564,41 @@ export function useListAllRFIs<
 /**
  * @summary List RFIs for a project
  */
-export const getListRFIsUrl = (projectId: number) => {
-  return `/api/projects/${projectId}/rfis`;
+export const getListRFIsUrl = (projectId: number, params?: ListRFIsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/projects/${projectId}/rfis?${stringifiedParams}`
+    : `/api/projects/${projectId}/rfis`;
 };
 
 export const listRFIs = async (
   projectId: number,
+  params?: ListRFIsParams,
   options?: RequestInit,
 ): Promise<Rfi[]> => {
-  return customFetch<Rfi[]>(getListRFIsUrl(projectId), {
+  return customFetch<Rfi[]>(getListRFIsUrl(projectId, params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListRFIsQueryKey = (projectId: number) => {
-  return [`/api/projects/${projectId}/rfis`] as const;
+export const getListRFIsQueryKey = (
+  projectId: number,
+  params?: ListRFIsParams,
+) => {
+  return [
+    `/api/projects/${projectId}/rfis`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getListRFIsQueryOptions = <
@@ -9586,6 +9606,7 @@ export const getListRFIsQueryOptions = <
   TError = ErrorType<unknown>,
 >(
   projectId: number,
+  params?: ListRFIsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listRFIs>>,
@@ -9597,11 +9618,12 @@ export const getListRFIsQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListRFIsQueryKey(projectId);
+  const queryKey =
+    queryOptions?.queryKey ?? getListRFIsQueryKey(projectId, params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listRFIs>>> = ({
     signal,
-  }) => listRFIs(projectId, { signal, ...requestOptions });
+  }) => listRFIs(projectId, params, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -9627,6 +9649,7 @@ export function useListRFIs<
   TError = ErrorType<unknown>,
 >(
   projectId: number,
+  params?: ListRFIsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listRFIs>>,
@@ -9636,7 +9659,7 @@ export function useListRFIs<
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListRFIsQueryOptions(projectId, options);
+  const queryOptions = getListRFIsQueryOptions(projectId, params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

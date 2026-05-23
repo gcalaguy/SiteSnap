@@ -2136,6 +2136,13 @@ paths:
       summary: List RFIs for a project
       parameters:
         - $ref: "#/components/parameters/projectId"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, in_review, answered, closed]
+          description: Filter RFIs by status
       responses:
         "200":
           description: RFI list

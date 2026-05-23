@@ -2780,6 +2780,13 @@ export const ListRFIsParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const ListRFIsQueryParams = zod.object({
+  status: zod
+    .enum(["open", "in_review", "answered", "closed"])
+    .optional()
+    .describe("Filter RFIs by status"),
+});
+
 export const listRFIsResponseSubmittedByPreferredLanguageDefault = `en`;
 
 export const ListRFIsResponseItem = zod.object({

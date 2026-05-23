@@ -739,7 +739,11 @@ export default function ProjectDetail() {
   const { data: summary } = useGetProjectSummary(projectId);
   const { data: reports } = useListDailyReports(projectId);
   const { data: costAnalyses } = useListCostAnalyses(projectId);
-  const { data: rfis } = useListRFIs(projectId);
+  const [rfiStatusFilter, setRfiStatusFilter] = useState<"all" | "open" | "in_review" | "answered" | "closed">("all");
+  const { data: rfis } = useListRFIs(
+    projectId,
+    rfiStatusFilter !== "all" ? { status: rfiStatusFilter as "open" | "in_review" | "answered" | "closed" } : undefined,
+  );
 
   const selectedMember = selectedWorkerId ? members.find((m) => m.id === selectedWorkerId) : null;
 
@@ -1554,6 +1558,31 @@ export default function ProjectDetail() {
               <Plus className="mr-2 h-4 w-4" /> Create RFI
             </Button>
           </div>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(["all", "open", "in_review", "answered", "closed"] as const).map((s) => {
+              const label =
+                s === "all" ? "All" :
+                s === "open" ? "Open" :
+                s === "in_review" ? "In Review" :
+                s === "answered" ? "Answered" : "Closed";
+              const active = rfiStatusFilter === s;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setRfiStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted text-muted-foreground border-border hover:border-foreground/30"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
           {rfis?.length === 0 ? (
             <div className="text-center p-8 border rounded-md bg-card">
               <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground mb-3" />

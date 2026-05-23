@@ -2607,6 +2607,23 @@ export const ListAllRFIsStatus = {
   closed: "closed",
 } as const;
 
+export type ListRFIsParams = {
+  /**
+   * Filter RFIs by status
+   */
+  status?: ListRFIsStatus;
+};
+
+export type ListRFIsStatus =
+  (typeof ListRFIsStatus)[keyof typeof ListRFIsStatus];
+
+export const ListRFIsStatus = {
+  open: "open",
+  in_review: "in_review",
+  answered: "answered",
+  closed: "closed",
+} as const;
+
 export type DeleteRFI200 = {
   ok?: boolean;
 };
