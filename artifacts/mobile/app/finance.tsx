@@ -496,10 +496,20 @@ export default function FinanceScreen() {
               placeholder={isTranscribing ? "Transcribing…" : "Tap the mic to record, or type the job description here…"}
               placeholderTextColor={colors.mutedForeground}
               value={voiceTranscript}
-              onChangeText={setVoiceTranscript}
+              onChangeText={(text) => setVoiceTranscript(text.slice(0, 3000))}
               multiline
               editable={!isTranscribing}
+              maxLength={3000}
             />
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 4 }}>
+              <Text style={{
+                fontSize: 12,
+                fontFamily: "Inter_500Medium",
+                color: voiceTranscript.length >= 3000 ? "#EF4444" : voiceTranscript.length >= 3000 * 0.8 ? "#F59E0B" : colors.mutedForeground,
+              }}>
+                {voiceTranscript.length}/3,000
+              </Text>
+            </View>
 
             {/* Record button */}
             <Pressable

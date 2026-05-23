@@ -936,32 +936,38 @@ export default function QuoteDetail() {
             <Textarea
               placeholder="e.g. We need to pour a concrete foundation 30 feet by 40 feet, 8 inches deep. Labour for 4 guys for 2 days, plus concrete pump rental..."
               value={voiceText}
-              onChange={(e) => setVoiceText(e.target.value)}
+              onChange={(e) => setVoiceText(e.target.value.slice(0, 3000))}
               rows={3}
+              maxLength={3000}
               className="resize-none bg-background"
             />
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={isRecording ? stopRecording : startRecording}
-                className={isRecording ? "border-red-300 text-red-600 hover:bg-red-50" : ""}
-              >
-                {isRecording ? (
-                  <><MicOff className="h-4 w-4 mr-1.5" /> Stop Recording</>
-                ) : (
-                  <><Mic className="h-4 w-4 mr-1.5" /> Record Voice</>
-                )}
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleAIFill}
-                disabled={aiLoading || !voiceText.trim()}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                {aiLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1.5" />}
-                {aiLoading ? "Generating…" : "Generate Items"}
-              </Button>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={isRecording ? stopRecording : startRecording}
+                  className={isRecording ? "border-red-300 text-red-600 hover:bg-red-50" : ""}
+                >
+                  {isRecording ? (
+                    <><MicOff className="h-4 w-4 mr-1.5" /> Stop Recording</>
+                  ) : (
+                    <><Mic className="h-4 w-4 mr-1.5" /> Record Voice</>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleAIFill}
+                  disabled={aiLoading || !voiceText.trim()}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  {aiLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1.5" />}
+                  {aiLoading ? "Generating…" : "Generate Items"}
+                </Button>
+              </div>
+              <p className={`text-xs shrink-0 tabular-nums ${voiceText.length >= 3000 ? "text-destructive font-medium" : voiceText.length >= 3000 * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                {voiceText.length.toLocaleString()}/3,000
+              </p>
             </div>
           </CardContent>
         </Card>
