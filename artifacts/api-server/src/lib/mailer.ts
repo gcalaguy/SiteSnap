@@ -10,6 +10,10 @@ interface EmailPayload {
   subject: string;
   html: string;
   attachments?: EmailAttachment[];
+  /** Per-company API key override (falls back to RESEND_API_KEY env var). */
+  apiKey?: string | null;
+  /** Per-company from address override (falls back to DIGEST_FROM_EMAIL env var). */
+  from?: string | null;
 }
 
 export class ResendSandboxError extends Error {
@@ -25,9 +29,9 @@ export class ResendSandboxError extends Error {
 }
 
 export async function sendEmail(payload: EmailPayload): Promise<void> {
-  const apiKey = process.env["RESEND_API_KEY"];
+  const apiKey = payload.apiKey || process.env["RESEND_API_KEY"];
   const from =
-    process.env["DIGEST_FROM_EMAIL"] ?? "Site Snap <onboarding@resend.dev>";
+    payload.from || process.env["DIGEST_FROM_EMAIL"] || "Site Snap <onboarding@resend.dev>";
 
   if (!apiKey) {
     logger.warn("RESEND_API_KEY not set — skipping email send");

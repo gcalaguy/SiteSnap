@@ -13,7 +13,12 @@ export async function sendDigestForAllCompanies(): Promise<{
   errors: number;
 }> {
   const companies = await db
-    .select({ id: companiesTable.id, name: companiesTable.name })
+    .select({
+      id: companiesTable.id,
+      name: companiesTable.name,
+      digestFromEmail: companiesTable.digestFromEmail,
+      resendApiKey: companiesTable.resendApiKey,
+    })
     .from(companiesTable);
 
   let sent = 0;
@@ -39,7 +44,7 @@ export async function sendDigestForAllCompanies(): Promise<{
       const subject = `Site Snap Daily Digest — ${digest.date}`;
       const to = digest.recipients.map((r) => r.email);
 
-      await sendEmail({ to, subject, html });
+      await sendEmail({ to, subject, html, from: company.digestFromEmail, apiKey: company.resendApiKey });
       logger.info(
         { companyId: company.id, companyName: company.name, recipients: to.length },
         "Digest sent",

@@ -29,7 +29,14 @@ router.post("/digest/preview", requireAuth, requireCompany, async (req, res) => 
 
 router.post("/digest/send-now", requireAuth, requireCompany, async (req, res) => {
   const companyId = (req as any).companyId as number;
-  const digest = await buildDigest(companyId);
+
+  const [[company], digest] = await Promise.all([
+    db
+      .select({ digestFromEmail: companiesTable.digestFromEmail, resendApiKey: companiesTable.resendApiKey })
+      .from(companiesTable)
+      .where(eq(companiesTable.id, companyId)),
+    buildDigest(companyId),
+  ]);
 
   if (!digest) {
     res.status(404).json({ error: "No active projects or recipients" });
@@ -46,7 +53,7 @@ router.post("/digest/send-now", requireAuth, requireCompany, async (req, res) =>
   const to = digest.recipients.map((r) => r.email);
 
   try {
-    await sendEmail({ to, subject, html });
+    await sendEmail({ to, subject, html, from: company?.digestFromEmail, apiKey: company?.resendApiKey });
     res.json({ sent: to.length, recipients: to });
   } catch (err) {
     if (err instanceof ResendSandboxError) {
