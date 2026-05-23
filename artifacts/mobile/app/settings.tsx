@@ -327,6 +327,20 @@ export default function SettingsScreen() {
       {/* Billing & Seats */}
       <View style={styles.section}>
         <SectionHeader label="Billing & Seats" />
+        {!seatsLoading &&
+          seats != null &&
+          seats.maxSeats !== "unlimited" &&
+          seats.currentSeats / Number(seats.maxSeats) >= 0.8 && (
+            <View style={[styles.seatWarningBanner, { borderColor: "#FDE68A", backgroundColor: "#FFFBEB" }]}>
+              <Feather name="alert-triangle" size={15} color="#D97706" />
+              <Text style={styles.seatWarningText}>
+                <Text style={{ fontFamily: "Inter_600SemiBold", color: "#92400E" }}>Seats nearly full — </Text>
+                <Text style={{ color: "#B45309" }}>
+                  {seats.currentSeats} of {seats.maxSeats} seats used. Consider upgrading your plan.
+                </Text>
+              </Text>
+            </View>
+          )}
         <InfoRow
           icon="users"
           label="Seat Usage"
@@ -700,5 +714,19 @@ const styles = StyleSheet.create({
   qbBtnText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+  seatWarningBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+  },
+  seatWarningText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
   },
 });

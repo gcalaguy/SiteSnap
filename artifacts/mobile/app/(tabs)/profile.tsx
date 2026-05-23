@@ -1,4 +1,4 @@
-import { useGetMe, customFetch, useSetActiveCompany, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useGetMe, customFetch, useSetActiveCompany, getGetMeQueryKey, useGetBillingSeats } from "@workspace/api-client-react";
 import { signOut } from "@/utils/auth";
 import { useRouter } from "expo-router";
 import { getAiErrorMessage } from "@/src/utils/aiError";
@@ -83,8 +83,20 @@ export default function ProfileScreen() {
 
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const isWorker = me?.role === "worker";
+  const isOwner = me?.role === "owner";
 
   const activeCompanyId = me?.activeCompanyId;
+
+  const { data: seats } = useGetBillingSeats({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { enabled: isOwner } as any,
+  });
+
+  const showSeatWarning =
+    isOwner &&
+    seats != null &&
+    seats.maxSeats !== "unlimited" &&
+    seats.currentSeats / Number(seats.maxSeats) >= 0.8;
   const memberships = me?.memberships ?? [];
   const hasMultipleCompanies = memberships.length > 1;
 
@@ -288,6 +300,26 @@ export default function ProfileScreen() {
               )}
             </TouchableOpacity>
           </View>
+        )}
+
+        {/* Seat usage warning — owners only */}
+        {showSeatWarning && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => router.push("/settings" as any)}
+            style={[styles.seatWarningBanner]}
+          >
+            <View style={styles.seatWarningIcon}>
+              <Feather name="alert-triangle" size={18} color="#D97706" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.seatWarningTitle}>Seats nearly full</Text>
+              <Text style={styles.seatWarningBody}>
+                {seats!.currentSeats} of {seats!.maxSeats} seats used. Upgrade your plan before you hit the limit.
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color="#D97706" />
+          </TouchableOpacity>
         )}
 
         {/* Quick Create — owners & foremen only */}
@@ -662,6 +694,41 @@ const styles = StyleSheet.create({
   referralLinkText: { fontSize: 12, fontFamily: "Inter_400Regular" },
   referralBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 8 },
   referralBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
+
+  // Seat warning banner
+  seatWarningBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    backgroundColor: "#FFFBEB",
+  },
+  seatWarningIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FEF3C7",
+  },
+  seatWarningTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: "#92400E",
+    marginBottom: 2,
+  },
+  seatWarningBody: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: "#B45309",
+    lineHeight: 17,
+  },
 
   // Quick Create
   quickRow: { flexDirection: "row", gap: 12, marginBottom: 10 },
