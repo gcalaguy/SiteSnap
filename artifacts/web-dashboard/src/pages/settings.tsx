@@ -11,6 +11,7 @@ import {
   useUpdateCompanyLogo,
   useUpdateCompanyQuoteTemplate,
   useUpdateCompanyInvoiceTemplate,
+  useRequestUploadUrl,
 } from "@workspace/api-client-react";
 import type { MemberPermissions, UserWithCompany } from "@workspace/api-client-react";
 import { PricingSettingsBody } from "@/pages/pricing-manager";
@@ -684,17 +685,14 @@ function CompanyLogoCard({ company }: { company: any }) {
     : null;
 
   const updateLogo = useUpdateCompanyLogo();
+  const requestUploadUrl = useRequestUploadUrl();
 
   async function handleLogoUpload(file: File) {
     setUploading(true);
     try {
-      const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
-        "/api/storage/uploads/request-url",
-        {
-          method: "POST",
-          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-        }
-      );
+      const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
+        data: { name: file.name, size: file.size, contentType: file.type },
+      });
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
       await updateLogo.mutateAsync({ companyId: company.id, data: { logoPath: objectPath } });
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
@@ -781,6 +779,7 @@ function DocumentTemplatesCard({ company }: { company: any }) {
 
   const updateQuoteTemplate = useUpdateCompanyQuoteTemplate();
   const updateInvoiceTemplate = useUpdateCompanyInvoiceTemplate();
+  const requestUploadUrl = useRequestUploadUrl();
 
   function templateUrl(path: string | null | undefined) {
     if (!path) return null;
@@ -790,10 +789,9 @@ function DocumentTemplatesCard({ company }: { company: any }) {
   async function handleUpload(file: File, type: "quote" | "invoice") {
     setUploadingType(type);
     try {
-      const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
-        "/api/storage/uploads/request-url",
-        { method: "POST", body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }
-      );
+      const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
+        data: { name: file.name, size: file.size, contentType: file.type },
+      });
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
       if (type === "quote") {
         await updateQuoteTemplate.mutateAsync({ companyId: company.id, data: { templatePath: objectPath } });
