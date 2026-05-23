@@ -14,6 +14,7 @@ import {
   useRequestUploadUrl,
 } from "@workspace/api-client-react";
 import type { MemberPermissions, UserWithCompany } from "@workspace/api-client-react";
+import { UpdateCompanyDocumentSettingsBody } from "@workspace/api-zod";
 import { PricingSettingsBody } from "@/pages/pricing-manager";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -920,7 +921,7 @@ function DocumentTemplatesCard({ company }: { company: any }) {
 
 // ── Document Numbering & Terms Card ──────────────────────────────────────────
 
-const docSettingsSchema = z.object({
+const docSettingsSchema = UpdateCompanyDocumentSettingsBody.extend({
   quoteNumberPrefix: z
     .string()
     .min(1, "Quote prefix is required")
@@ -987,18 +988,21 @@ function DocumentNumberingCard({ company }: { company: any }) {
 
   async function handleSave() {
     if (!companyId) return;
+    const payload = {
+      quoteNumberPrefix: quotePrefix.trim(),
+      invoiceNumberPrefix: invoicePrefix.trim(),
+      quoteStartNumber: Math.max(1, Number(quoteStart) || 1),
+      invoiceStartNumber: Math.max(1, Number(invoiceStart) || 1),
+      defaultQuoteTerms: quoteTerms.trim() || null,
+      defaultInvoiceNotes: invoiceNotes.trim() || null,
+    };
+    const validation = docSettingsSchema.safeParse(payload);
+    if (!validation.success) {
+      toast({ title: "Please fix the highlighted errors before saving", variant: "destructive" });
+      return;
+    }
     try {
-      await saveDocSettings.mutateAsync({
-        companyId,
-        data: {
-          quoteNumberPrefix: quotePrefix.trim(),
-          invoiceNumberPrefix: invoicePrefix.trim(),
-          quoteStartNumber: Math.max(1, Number(quoteStart) || 1),
-          invoiceStartNumber: Math.max(1, Number(invoiceStart) || 1),
-          defaultQuoteTerms: quoteTerms.trim() || null,
-          defaultInvoiceNotes: invoiceNotes.trim() || null,
-        },
-      });
+      await saveDocSettings.mutateAsync({ companyId, data: payload });
       queryClient.invalidateQueries({ queryKey: getGetCompanySettingsQueryKey(companyId!) });
       toast({ title: "Document settings saved" });
     } catch (e: any) {
