@@ -1,12 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { FeatureGuard } from "@/components/FeatureGuard";
 import { useQuery } from "@tanstack/react-query";
-import {
-  useGetDashboardSummary,
-  useListProjects,
-  useGetRecentActivity,
-  customFetch,
-} from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -132,7 +127,7 @@ function AIChatInner() {
             reply: string;
           }>("/api/conversations", {
             method: "POST",
-            body: JSON.stringify({ message: trimmed, context: buildContext() }),
+            body: JSON.stringify({ message: trimmed }),
           });
           setActiveConversationId(result.conversation.id);
           setMessages(result.messages);
@@ -144,7 +139,7 @@ function AIChatInner() {
             aiMessage: ChatMessage;
           }>(`/api/conversations/${activeConversationId}/messages`, {
             method: "POST",
-            body: JSON.stringify({ content: trimmed, context: buildContext() }),
+            body: JSON.stringify({ content: trimmed }),
           });
           setMessages((prev) => {
             const filtered = prev.filter((m) => m.id !== tempId);
@@ -159,7 +154,7 @@ function AIChatInner() {
         setIsLoading(false);
       }
     },
-    [activeConversationId, isLoading, buildContext, refetchConversations, toast],
+    [activeConversationId, isLoading, refetchConversations, toast],
   );
 
   const deleteConversation = useCallback(

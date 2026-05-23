@@ -414,21 +414,34 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 });
 
 // ── Voice Transcription ───────────────────────────────────────────────────────
-const TranscribeInput = z.strictObject({
+import multer from "multer";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+
+const TranscribeJsonInput = z.strictObject({
   audio: z.string().min(1).max(10_000_000),
   format: z.string().max(10).optional().default("webm"),
 });
 
-router.post("/ai/transcribe", requireAuth, requireAiQuota, async (req, res) => {
-  const parsed = TranscribeInput.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
-    return;
-  }
+router.post("/ai/transcribe", requireAuth, requireAiQuota, upload.single("file"), async (req, res) => {
+  let audioBuffer: Buffer;
 
   try {
-    const raw = Buffer.from(parsed.data.audio, "base64");
-    const { buffer, format } = await ensureCompatibleFormat(raw);
+    // 1) multipart/form-data upload (mobile voice recorder)
+    if (req.file) {
+      audioBuffer = req.file.buffer;
+    }
+    // 2) JSON body with base64 audio (web dashboard)
+    else {
+      const parsed = TranscribeJsonInput.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
+        return;
+      }
+      audioBuffer = Buffer.from(parsed.data.audio, "base64");
+    }
+
+    const { buffer, format } = await ensureCompatibleFormat(audioBuffer);
     const text = await speechToText(buffer, format);
     res.json({ text });
   } catch (err: unknown) {

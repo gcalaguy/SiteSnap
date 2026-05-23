@@ -1,9 +1,4 @@
-import {
-  useGetDashboardSummary,
-  useGetRecentActivity,
-  useListProjects,
-  customFetch,
-} from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { chatWithAssistantBodyMessagesItemContentMax as MESSAGE_MAX } from "@workspace/api-zod";
 import * as Haptics from "expo-haptics";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -161,39 +156,6 @@ export default function AskScreen() {
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
-  const { data: summary } = useGetDashboardSummary();
-  const { data: projects } = useListProjects();
-  const { data: activity } = useGetRecentActivity();
-
-  const buildContext = useCallback(() => {
-    const activeProjects = (projects ?? []).filter(
-      (p) => p.status !== "completed" && p.status !== "cancelled",
-    );
-    return JSON.stringify({
-      activeProjects: activeProjects.map((p) => ({
-        name: p.name,
-        city: p.city,
-        province: p.province,
-        status: p.status,
-      })),
-      dashboardSummary: summary
-        ? {
-            activeProjects: summary.activeProjects,
-            totalProjects: summary.totalProjects,
-            reportsThisWeek: summary.reportsThisWeek,
-            openRFIs: summary.openRFIs,
-            totalSpentThisMonth: summary.totalSpentThisMonth,
-            teamMemberCount: summary.teamMemberCount,
-          }
-        : null,
-      recentActivity: (activity ?? []).slice(0, 5).map((a) => ({
-        type: a.type,
-        description: a.description,
-        project: a.projectName,
-      })),
-    });
-  }, [summary, projects, activity]);
-
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -218,7 +180,6 @@ export default function AskScreen() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   messages: newHistory.map((m) => ({ role: m.role, content: m.content })),
-                  context: buildContext(),
                 }),
               },
             ),
