@@ -430,19 +430,25 @@ function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; i
         </div>
       )}
 
-      <div className="flex gap-2">
-        <Textarea
-          className="flex-1 min-h-[36px] max-h-24 text-sm resize-none"
-          placeholder="Ask a question about your documents…"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }}
-          rows={1}
-        />
-        <VoiceNoteButton onTranscript={t => setInput(q => q ? `${q} ${t}` : t)} disabled={loading} />
-        <Button size="icon" onClick={ask} disabled={loading || !input.trim()} className="shrink-0">
-          <Send className="h-4 w-4" />
-        </Button>
+      <div className="space-y-1">
+        <div className="flex gap-2">
+          <Textarea
+            className="flex-1 min-h-[36px] max-h-24 text-sm resize-none"
+            placeholder="Ask a question about your documents…"
+            value={input}
+            onChange={e => setInput(e.target.value.slice(0, 2000))}
+            maxLength={2000}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }}
+            rows={1}
+          />
+          <VoiceNoteButton onTranscript={t => setInput(q => { const next = q ? `${q} ${t}` : t; return next.slice(0, 2000); })} disabled={loading} />
+          <Button size="icon" onClick={ask} disabled={loading || !input.trim()} className="shrink-0">
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+        <p className={`text-xs text-right tabular-nums ${input.length >= 2000 ? "text-destructive font-medium" : input.length >= 2000 * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+          {input.length.toLocaleString()}/2,000
+        </p>
       </div>
     </div>
   );

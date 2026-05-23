@@ -500,25 +500,37 @@ function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; i
         </ScrollView>
       )}
 
-      <View style={[docStyles.inputRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <TextInput
-          style={[docStyles.textInput, { color: colors.foreground, flex: 1, marginLeft: 10 }]}
-          placeholder="Ask about your documents…"
-          placeholderTextColor={colors.mutedForeground}
-          value={input}
-          onChangeText={setInput}
-          onSubmitEditing={ask}
-          returnKeyType="send"
-          multiline
-        />
-        <VoiceMicButton onTranscript={t => setInput(q => q ? `${q} ${t}` : t)} disabled={loading} />
-        <Pressable
-          onPress={ask}
-          disabled={loading || !input.trim()}
-          style={[docStyles.sendBtn, { backgroundColor: colors.primary, opacity: (loading || !input.trim()) ? 0.5 : 1 }]}
-        >
-          <Feather name="send" size={13} color="#fff" />
-        </Pressable>
+      <View>
+        <View style={[docStyles.inputRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <TextInput
+            style={[docStyles.textInput, { color: colors.foreground, flex: 1, marginLeft: 10 }]}
+            placeholder="Ask about your documents…"
+            placeholderTextColor={colors.mutedForeground}
+            value={input}
+            onChangeText={(text) => setInput(text.slice(0, 2000))}
+            maxLength={2000}
+            onSubmitEditing={ask}
+            returnKeyType="send"
+            multiline
+          />
+          <VoiceMicButton onTranscript={t => setInput(q => { const next = q ? `${q} ${t}` : t; return next.slice(0, 2000); })} disabled={loading} />
+          <Pressable
+            onPress={ask}
+            disabled={loading || !input.trim()}
+            style={[docStyles.sendBtn, { backgroundColor: colors.primary, opacity: (loading || !input.trim()) ? 0.5 : 1 }]}
+          >
+            <Feather name="send" size={13} color="#fff" />
+          </Pressable>
+        </View>
+        <Text style={{
+          fontSize: 11,
+          fontFamily: "Inter_500Medium",
+          color: input.length >= 2000 ? "#EF4444" : input.length >= 2000 * 0.8 ? "#F59E0B" : colors.mutedForeground,
+          textAlign: "right",
+          marginTop: 3,
+        }}>
+          {input.length}/2,000
+        </Text>
       </View>
     </View>
   );
