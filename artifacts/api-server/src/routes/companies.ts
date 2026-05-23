@@ -14,7 +14,14 @@ import {
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
-import { CreateCompanyBody, UpdateMemberRoleBody, UpdateCompanyDocumentSettingsBody } from "@workspace/api-zod";
+import {
+  CreateCompanyBody,
+  UpdateMemberRoleBody,
+  UpdateCompanyDocumentSettingsBody,
+  UpdateCompanyLogoBody,
+  UpdateCompanyQuoteTemplateBody,
+  UpdateCompanyInvoiceTemplateBody,
+} from "@workspace/api-zod";
 import crypto from "crypto";
 
 const router = Router();
@@ -151,11 +158,14 @@ router.patch("/companies/:companyId/logo", requireAuth, requireCompany, async (r
     return;
   }
 
-  const logoPath = typeof req.body?.logoPath === "string" ? req.body.logoPath : null;
-  if (!logoPath) {
-    res.status(400).json({ error: "logoPath is required" });
+  const parsed = UpdateCompanyLogoBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() });
     return;
   }
+
+  // Empty string clears the logo (removes it); any non-empty path sets it
+  const logoPath = parsed.data.logoPath || null;
 
   const [updated] = await db
     .update(companiesTable)
@@ -174,7 +184,14 @@ router.patch("/companies/:companyId/quote-template", requireAuth, requireCompany
     return;
   }
 
-  const templatePath = typeof req.body?.templatePath === "string" ? req.body.templatePath || null : null;
+  const parsed = UpdateCompanyQuoteTemplateBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() });
+    return;
+  }
+
+  // Empty string is treated the same as null — clears the template
+  const templatePath = parsed.data.templatePath || null;
 
   const [updated] = await db
     .update(companiesTable)
@@ -193,7 +210,14 @@ router.patch("/companies/:companyId/invoice-template", requireAuth, requireCompa
     return;
   }
 
-  const templatePath = typeof req.body?.templatePath === "string" ? req.body.templatePath || null : null;
+  const parsed = UpdateCompanyInvoiceTemplateBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() });
+    return;
+  }
+
+  // Empty string is treated the same as null — clears the template
+  const templatePath = parsed.data.templatePath || null;
 
   const [updated] = await db
     .update(companiesTable)
