@@ -685,6 +685,7 @@ export const invoicesTable = pgTable("invoices", {
   index("idx_invoices_status").on(t.status),
   index("idx_invoices_quote_id").on(t.quoteId),
   index("idx_invoices_company_id_status").on(t.companyId, t.status),
+  index("idx_invoices_company_id_project_id").on(t.companyId, t.projectId),
 ]);
 
 export const insertInvoiceSchema = createInsertSchema(invoicesTable).omit({
@@ -1342,6 +1343,7 @@ export const changeOrdersTable = pgTable("change_orders", {
   index("idx_change_orders_project_id").on(t.projectId),
   index("idx_change_orders_status").on(t.status),
   index("idx_change_orders_company_id_status").on(t.companyId, t.status),
+  index("idx_change_orders_company_id_project_id").on(t.companyId, t.projectId),
 ]);
 export type ChangeOrder = typeof changeOrdersTable.$inferSelect;
 
