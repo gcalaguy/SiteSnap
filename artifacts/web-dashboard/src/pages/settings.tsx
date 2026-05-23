@@ -25,7 +25,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera, Hash, Save, Download, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 const GOLD = "#C9A84C";
@@ -919,6 +920,27 @@ function DocumentTemplatesCard({ company }: { company: any }) {
 
 // ── Document Numbering & Terms Card ──────────────────────────────────────────
 
+const docSettingsSchema = z.object({
+  quoteNumberPrefix: z
+    .string()
+    .min(1, "Quote prefix is required")
+    .max(10, "Max 10 characters")
+    .regex(/^\S+$/, "No spaces allowed"),
+  invoiceNumberPrefix: z
+    .string()
+    .min(1, "Invoice prefix is required")
+    .max(10, "Max 10 characters")
+    .regex(/^\S+$/, "No spaces allowed"),
+  quoteStartNumber: z
+    .number()
+    .int("Must be a whole number")
+    .min(1, "Must be at least 1"),
+  invoiceStartNumber: z
+    .number()
+    .int("Must be a whole number")
+    .min(1, "Must be at least 1"),
+});
+
 function DocumentNumberingCard({ company }: { company: any }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -936,6 +958,21 @@ function DocumentNumberingCard({ company }: { company: any }) {
   const [invoiceNotes, setInvoiceNotes] = useState("");
 
   const saveDocSettings = useUpdateCompanyDocumentSettings();
+
+  const errors = useMemo(() => {
+    const result = docSettingsSchema.safeParse({
+      quoteNumberPrefix: quotePrefix.trim(),
+      invoiceNumberPrefix: invoicePrefix.trim(),
+      quoteStartNumber: quoteStart,
+      invoiceStartNumber: invoiceStart,
+    });
+    if (result.success) return {} as Record<string, string>;
+    return Object.fromEntries(
+      result.error.issues.map((e) => [String(e.path[0]), e.message])
+    );
+  }, [quotePrefix, invoicePrefix, quoteStart, invoiceStart]);
+
+  const hasErrors = Object.keys(errors).length > 0;
 
   useEffect(() => {
     if (settings) {
@@ -1000,25 +1037,75 @@ function DocumentNumberingCard({ company }: { company: any }) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Quote Prefix</Label>
-                  <Input value={quotePrefix} onChange={(e) => setQuotePrefix(e.target.value)} placeholder="QUO" />
-                  <p className="text-xs text-muted-foreground">e.g., QUO, ABC, 2026-Q</p>
+                  <Input
+                    value={quotePrefix}
+                    onChange={(e) => setQuotePrefix(e.target.value)}
+                    placeholder="QUO"
+                    className={cn(errors.quoteNumberPrefix && "border-destructive focus-visible:ring-destructive")}
+                  />
+                  {errors.quoteNumberPrefix ? (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      {errors.quoteNumberPrefix}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">e.g., QUO, ABC, 2026-Q</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Quote Start Number</Label>
-                  <Input type="number" min={1} value={quoteStart} onChange={(e) => setQuoteStart(Number(e.target.value))} />
-                  <p className="text-xs text-muted-foreground">First quote will be {quotePrefix || "QUO"}-{String(quoteStart).padStart(4, "0")}</p>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={quoteStart}
+                    onChange={(e) => setQuoteStart(Number(e.target.value))}
+                    className={cn(errors.quoteStartNumber && "border-destructive focus-visible:ring-destructive")}
+                  />
+                  {errors.quoteStartNumber ? (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      {errors.quoteStartNumber}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">First quote will be {quotePrefix || "QUO"}-{String(quoteStart).padStart(4, "0")}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Invoice Prefix</Label>
-                  <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value)} placeholder="INV" />
-                  <p className="text-xs text-muted-foreground">e.g., INV, 2026-INV</p>
+                  <Input
+                    value={invoicePrefix}
+                    onChange={(e) => setInvoicePrefix(e.target.value)}
+                    placeholder="INV"
+                    className={cn(errors.invoiceNumberPrefix && "border-destructive focus-visible:ring-destructive")}
+                  />
+                  {errors.invoiceNumberPrefix ? (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      {errors.invoiceNumberPrefix}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">e.g., INV, 2026-INV</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Invoice Start Number</Label>
-                  <Input type="number" min={1} value={invoiceStart} onChange={(e) => setInvoiceStart(Number(e.target.value))} />
-                  <p className="text-xs text-muted-foreground">First invoice will be {invoicePrefix || "INV"}-{String(invoiceStart).padStart(4, "0")}</p>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={invoiceStart}
+                    onChange={(e) => setInvoiceStart(Number(e.target.value))}
+                    className={cn(errors.invoiceStartNumber && "border-destructive focus-visible:ring-destructive")}
+                  />
+                  {errors.invoiceStartNumber ? (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      {errors.invoiceStartNumber}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">First invoice will be {invoicePrefix || "INV"}-{String(invoiceStart).padStart(4, "0")}</p>
+                  )}
                 </div>
               </div>
               <Separator />
@@ -1042,7 +1129,13 @@ function DocumentNumberingCard({ company }: { company: any }) {
                 />
                 <p className="text-xs text-muted-foreground">Appears in the Notes / Terms section of every invoice PDF.</p>
               </div>
-              <Button onClick={handleSave} disabled={saveDocSettings.isPending} className="gap-2">
+              {hasErrors && (
+                <p className="text-sm text-destructive flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  Fix the errors above before saving.
+                </p>
+              )}
+              <Button onClick={handleSave} disabled={hasErrors || saveDocSettings.isPending} className="gap-2">
                 {saveDocSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Save Document Settings
               </Button>
