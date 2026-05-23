@@ -1,7 +1,8 @@
 import { useListProjects, useListTasks, useUpdateTask, useGetMe, customFetch } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
+import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   ActivityIndicator,
   Platform,
@@ -255,6 +256,8 @@ const styles = StyleSheet.create({
   projectSelector: { flexDirection: "row", gap: 8 },
   projectTab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   projectTabText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  updatedRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 20, paddingVertical: 4 },
+  updatedText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#9CA3AF" },
   sectionHeader: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: "row", alignItems: "center", gap: 6 },
   sectionLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5 },
   sectionCount: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
@@ -306,10 +309,18 @@ function WorkerTasksScreen() {
   const projectMap: Record<number, string> = {};
   (projects ?? []).forEach((p) => { projectMap[p.id] = p.name; });
 
-  const { data: tasks, isLoading, refetch } = useQuery<Task[]>({
+  const { data: tasks, isLoading, refetch, dataUpdatedAt } = useQuery<Task[]>({
     queryKey: ["my-tasks"],
     queryFn: () => customFetch<Task[]>("/api/dashboard/my-tasks"),
   });
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetch(); } finally { setRefreshing(false); }
+  }, [refetch]);
+  const relativeTime = useRelativeTime(dataUpdatedAt || null);
+  const updatedLabel = refreshing ? "Refreshing…" : relativeTime;
 
   const updateTask = useUpdateTask();
 
@@ -334,7 +345,7 @@ function WorkerTasksScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
     >
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
@@ -351,6 +362,13 @@ function WorkerTasksScreen() {
         </View>
         <StatusFilterPills value={statusFilter} onChange={setStatusFilter} />
       </View>
+
+      {updatedLabel ? (
+        <View style={styles.updatedRow}>
+          <Feather name="clock" size={11} color="#9CA3AF" />
+          <Text style={styles.updatedText}>{updatedLabel}</Text>
+        </View>
+      ) : null}
 
       {isLoading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
@@ -392,7 +410,7 @@ function OwnerTasksScreen() {
   const resolvedProjectId = selectedProjectId;
   const projectIds = allProjects.map((p) => p.id);
 
-  const { data: tasks, isLoading: tasksLoading, refetch } = useQuery<Task[]>({
+  const { data: tasks, isLoading: tasksLoading, refetch, dataUpdatedAt: tasksUpdatedAt } = useQuery<Task[]>({
     queryKey: ["tasks", "accessible", statusFilter],
     queryFn: async () => {
       const results = await Promise.all(
@@ -408,6 +426,14 @@ function OwnerTasksScreen() {
     },
     enabled: projectIds.length > 0,
   });
+  const [taskRefreshing, setTaskRefreshing] = useState(false);
+  const handleTaskRefresh = useCallback(async () => {
+    setTaskRefreshing(true);
+    try { await refetch(); } finally { setTaskRefreshing(false); }
+  }, [refetch]);
+  const tasksRelTime = useRelativeTime(tasksUpdatedAt || null);
+  const tasksUpdatedLabel = taskRefreshing ? "Refreshing…" : tasksRelTime;
+
   const updateTask = useUpdateTask();
 
   const handleToggle = (task: Task) => {
@@ -438,7 +464,7 @@ function OwnerTasksScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={tasksLoading} onRefresh={refetch} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={taskRefreshing} onRefresh={handleTaskRefresh} tintColor={colors.primary} />}
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
     >
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
@@ -505,6 +531,13 @@ function OwnerTasksScreen() {
           </ScrollView>
         )}
       </View>
+
+      {tasksUpdatedLabel ? (
+        <View style={styles.updatedRow}>
+          <Feather name="clock" size={11} color="#9CA3AF" />
+          <Text style={styles.updatedText}>{tasksUpdatedLabel}</Text>
+        </View>
+      ) : null}
 
       {!allProjects.length ? (
         <View style={styles.noProjectBanner}>

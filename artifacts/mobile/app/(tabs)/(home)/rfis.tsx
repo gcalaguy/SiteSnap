@@ -7,7 +7,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   ActivityIndicator,
   Alert,
@@ -418,10 +419,18 @@ export default function AllRFIsScreen() {
   const [showNewRFI, setShowNewRFI] = useState(false);
 
   // Server-side filtering: projectId and status passed as query params
-  const { data, isLoading, refetch } = useListAllRFIs({
+  const { data, isLoading, refetch, dataUpdatedAt } = useListAllRFIs({
     projectId: selectedProject ?? undefined,
     status: statusFilter !== "all" ? statusFilter : undefined,
   });
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetch(); } finally { setRefreshing(false); }
+  }, [refetch]);
+  const relativeTime = useRelativeTime(dataUpdatedAt || null);
+  const updatedLabel = refreshing ? "Refreshing…" : relativeTime;
 
   // Load projects independently so the picker stays populated when a filter is active
   const { data: projectsData } = useListProjects();
@@ -470,7 +479,7 @@ export default function AllRFIsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
       >
         {/* Header */}
@@ -676,6 +685,13 @@ export default function AllRFIsScreen() {
           )}
         </View>
 
+        {updatedLabel ? (
+          <View style={styles.updatedRow}>
+            <Feather name="clock" size={11} color="#9CA3AF" />
+            <Text style={styles.updatedText}>{updatedLabel}</Text>
+          </View>
+        ) : null}
+
         {/* List */}
         <View style={styles.listContainer}>
           {isLoading ? (
@@ -738,6 +754,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, marginTop: 12,
   },
 
+  updatedRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 4 },
+  updatedText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#9CA3AF" },
   statsRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
   statChip: {
     flexDirection: "row", alignItems: "center", gap: 4,

@@ -1,6 +1,7 @@
 import { useListAllDailyReports, useListProjects } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   ActivityIndicator,
   Platform,
@@ -162,11 +163,19 @@ export default function AllReportsScreen() {
   );
 
   // Server-side filtering: projectId, from, to passed as query params
-  const { data, isLoading, refetch } = useListAllDailyReports({
+  const { data, isLoading, refetch, dataUpdatedAt } = useListAllDailyReports({
     projectId: selectedProject ?? undefined,
     from: dateRange.from,
     to: dateRange.to,
   });
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetch(); } finally { setRefreshing(false); }
+  }, [refetch]);
+  const relativeTime = useRelativeTime(dataUpdatedAt || null);
+  const updatedLabel = refreshing ? "Refreshing…" : relativeTime;
 
   // Load projects for the picker independently of the filtered result set
   const { data: projectsData } = useListProjects();
@@ -197,7 +206,7 @@ export default function AllReportsScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
     >
       {/* Header */}
@@ -351,6 +360,13 @@ export default function AllReportsScreen() {
         )}
       </View>
 
+      {updatedLabel ? (
+        <View style={styles.updatedRow}>
+          <Feather name="clock" size={11} color="#9CA3AF" />
+          <Text style={styles.updatedText}>{updatedLabel}</Text>
+        </View>
+      ) : null}
+
       {/* List */}
       <View style={styles.listContainer}>
         {isLoading ? (
@@ -401,6 +417,8 @@ const styles = StyleSheet.create({
   filterPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   filterPillText: { fontSize: 13, fontFamily: "Inter_500Medium" },
 
+  updatedRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 4 },
+  updatedText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#9CA3AF" },
   listContainer: { paddingHorizontal: 16, paddingTop: 8 },
   loader: { paddingVertical: 40 },
 
