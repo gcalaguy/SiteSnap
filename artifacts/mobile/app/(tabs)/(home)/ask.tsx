@@ -205,7 +205,7 @@ export default function AskScreen() {
         setLoading(false);
       }
     },
-    [messages, loading, buildContext],
+    [messages, loading],
   );
 
   // Auto-send a question routed here from the voice command FAB (?q=...)
