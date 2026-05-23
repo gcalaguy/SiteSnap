@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceNoteButton } from "./VoiceNoteButton";
+import { getAiErrorMessage } from "@/hooks/useApiError";
 import {
   Upload, FileText, Image, Trash2, Sparkles, Download,
   Loader2, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
@@ -371,8 +372,8 @@ function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; i
       }) as QAResponse;
       setHistory([...next, { role: "ai", text: res.answer, citations: res.citations, ragEnabled: res.ragEnabled, hasChunks: res.hasChunks, hasAnalyzedDocsWithNoChunks: res.hasAnalyzedDocsWithNoChunks }]);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    } catch {
-      toast({ title: "Q&A failed", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Q&A failed", description: getAiErrorMessage(err), variant: "destructive" });
       setHistory([...next, { role: "ai", text: "Sorry, I could not answer that." }]);
     } finally {
       setLoading(false);
