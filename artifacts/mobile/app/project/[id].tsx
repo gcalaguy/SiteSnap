@@ -556,16 +556,15 @@ const schedSt = StyleSheet.create({
     padding: 14,
     alignItems: "flex-start",
     gap: 6,
+    borderWidth: 1,
   },
   statValue: {
     fontSize: 26,
     fontFamily: "Inter_700Bold",
-    color: "#FFFFFF",
   },
   statLabel: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.65)",
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
@@ -1458,15 +1457,15 @@ export default function ProjectDetailScreen() {
             <>
               {/* Summary stat cards */}
               <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
-                <View style={[schedSt.statCard, { backgroundColor: colors.sidebar, flex: 1 }]}>
-                  <Feather name="users" size={18} color="#C9A84C" />
-                  <Text style={schedSt.statValue}>{scheduleAssignments.length}</Text>
-                  <Text style={schedSt.statLabel}>Workers Scheduled</Text>
+                <View style={[schedSt.statCard, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}>
+                  <Feather name="users" size={18} color={colors.primary} />
+                  <Text style={[schedSt.statValue, { color: colors.foreground }]}>{scheduleAssignments.length}</Text>
+                  <Text style={[schedSt.statLabel, { color: colors.mutedForeground }]}>Workers Scheduled</Text>
                 </View>
-                <View style={[schedSt.statCard, { backgroundColor: colors.sidebar, flex: 1 }]}>
-                  <Feather name="calendar" size={18} color="#C9A84C" />
-                  <Text style={schedSt.statValue}>{scheduleEvents.length}</Text>
-                  <Text style={schedSt.statLabel}>Events</Text>
+                <View style={[schedSt.statCard, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}>
+                  <Feather name="calendar" size={18} color={colors.primary} />
+                  <Text style={[schedSt.statValue, { color: colors.foreground }]}>{scheduleEvents.length}</Text>
+                  <Text style={[schedSt.statLabel, { color: colors.mutedForeground }]}>Events</Text>
                 </View>
               </View>
 

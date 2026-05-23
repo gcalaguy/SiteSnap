@@ -28,7 +28,7 @@ export default function ScheduleScreen() {
         }}
         activeOpacity={0.8}
       >
-        <Text style={styles.buttonText}>Go Back</Text>
+        <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>Go Back</Text>
       </TouchableOpacity>
     </ScrollView>
   );

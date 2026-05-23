@@ -208,7 +208,7 @@ export default function AllReportsScreen() {
   const hasDateFilter = datePreset !== null;
   const hasActiveFilter = selectedProject !== null || hasDateFilter || search.trim().length > 0;
 
-  const onDateChange = useCallback((date?: Date) => {
+  const onDateChange = useCallback((event: unknown, date?: Date) => {
     if (date) {
       const iso = date.toISOString().split("T")[0];
       if (pickerMode === "from") setCustomFrom(iso);
@@ -393,6 +393,7 @@ export default function AllReportsScreen() {
             value={pickerDate}
             mode="date"
             display="default"
+            themeVariant="dark"
             onValueChange={onDateChange}
             onDismiss={() => setShowDatePicker(false)}
           />
@@ -424,6 +425,7 @@ export default function AllReportsScreen() {
                   value={pickerDate}
                   mode="date"
                   display="spinner"
+                  themeVariant="dark"
                   onValueChange={(event, date) => date && setPickerDate(date)}
                   style={{ width: "100%" }}
                 />
