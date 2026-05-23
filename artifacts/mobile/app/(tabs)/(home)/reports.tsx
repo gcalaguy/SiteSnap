@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   ActivityIndicator,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -17,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import type { DailyReportListItem } from "@workspace/api-client-react";
 
 // ── Date range filter ─────────────────────────────────────────────────────────
@@ -156,6 +158,11 @@ export default function AllReportsScreen() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
+  // Date picker state
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<"from" | "to">("from");
+  const [pickerDate, setPickerDate] = useState(new Date());
+
   // Compute YYYY-MM-DD strings for server-side filtering
   const dateRange = useMemo(
     () => getDateRangeStrings(datePreset, customFrom, customTo),
@@ -200,6 +207,19 @@ export default function AllReportsScreen() {
 
   const hasDateFilter = datePreset !== null;
   const hasActiveFilter = selectedProject !== null || hasDateFilter || search.trim().length > 0;
+
+  const onDateChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
+    if (event.type === "dismissed") {
+      setShowDatePicker(false);
+      return;
+    }
+    if (date) {
+      const iso = date.toISOString().split("T")[0];
+      if (pickerMode === "from") setCustomFrom(iso);
+      else setCustomTo(iso);
+    }
+    if (Platform.OS === "android") setShowDatePicker(false);
+  }, [pickerMode]);
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
@@ -322,26 +342,36 @@ export default function AllReportsScreen() {
           </View>
         </ScrollView>
 
-        {/* Custom date inputs */}
+        {/* Custom date picker */}
         {datePreset === "custom" && (
           <View style={styles.customDateRow}>
-            <TextInput
-              style={[styles.dateInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="From (YYYY-MM-DD)"
-              placeholderTextColor={colors.mutedForeground}
-              value={customFrom}
-              onChangeText={setCustomFrom}
-              keyboardType="numbers-and-punctuation"
-            />
+            <Pressable
+              onPress={() => {
+                setPickerMode("from");
+                setPickerDate(customFrom ? new Date(customFrom) : new Date());
+                setShowDatePicker(true);
+              }}
+              style={[styles.dateInput, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              <Feather name="calendar" size={14} color={colors.primary} />
+              <Text style={{ color: customFrom ? colors.foreground : colors.mutedForeground, fontSize: 14 }}>
+                {customFrom || "From date"}
+              </Text>
+            </Pressable>
             <Text style={[styles.dateSep, { color: colors.mutedForeground }]}>–</Text>
-            <TextInput
-              style={[styles.dateInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="To (YYYY-MM-DD)"
-              placeholderTextColor={colors.mutedForeground}
-              value={customTo}
-              onChangeText={setCustomTo}
-              keyboardType="numbers-and-punctuation"
-            />
+            <Pressable
+              onPress={() => {
+                setPickerMode("to");
+                setPickerDate(customTo ? new Date(customTo) : new Date());
+                setShowDatePicker(true);
+              }}
+              style={[styles.dateInput, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              <Feather name="calendar" size={14} color={colors.primary} />
+              <Text style={{ color: customTo ? colors.foreground : colors.mutedForeground, fontSize: 14 }}>
+                {customTo || "To date"}
+              </Text>
+            </Pressable>
           </View>
         )}
 
