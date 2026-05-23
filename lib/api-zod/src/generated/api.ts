@@ -1438,6 +1438,15 @@ export const GetMeResponse = zod
           manageQuotes: zod.boolean().optional(),
           submitExpenses: zod.boolean().optional(),
           viewAllProjects: zod.boolean().optional(),
+          viewDailyLog: zod.boolean().optional(),
+          viewReports: zod.boolean().optional(),
+          viewRFIs: zod.boolean().optional(),
+          viewPhotos: zod.boolean().optional(),
+          viewVault: zod.boolean().optional(),
+          viewEstimator: zod.boolean().optional(),
+          viewSiteScan: zod.boolean().optional(),
+          viewTradeHub: zod.boolean().optional(),
+          viewAskAI: zod.boolean().optional(),
         })
         .optional()
         .describe("Resolved role-based permissions for the active company"),
@@ -1525,6 +1534,15 @@ export const SetActiveCompanyResponse = zod
           manageQuotes: zod.boolean().optional(),
           submitExpenses: zod.boolean().optional(),
           viewAllProjects: zod.boolean().optional(),
+          viewDailyLog: zod.boolean().optional(),
+          viewReports: zod.boolean().optional(),
+          viewRFIs: zod.boolean().optional(),
+          viewPhotos: zod.boolean().optional(),
+          viewVault: zod.boolean().optional(),
+          viewEstimator: zod.boolean().optional(),
+          viewSiteScan: zod.boolean().optional(),
+          viewTradeHub: zod.boolean().optional(),
+          viewAskAI: zod.boolean().optional(),
         })
         .optional()
         .describe("Resolved role-based permissions for the active company"),
@@ -1608,6 +1626,15 @@ export const AcceptTermsResponse = zod
           manageQuotes: zod.boolean().optional(),
           submitExpenses: zod.boolean().optional(),
           viewAllProjects: zod.boolean().optional(),
+          viewDailyLog: zod.boolean().optional(),
+          viewReports: zod.boolean().optional(),
+          viewRFIs: zod.boolean().optional(),
+          viewPhotos: zod.boolean().optional(),
+          viewVault: zod.boolean().optional(),
+          viewEstimator: zod.boolean().optional(),
+          viewSiteScan: zod.boolean().optional(),
+          viewTradeHub: zod.boolean().optional(),
+          viewAskAI: zod.boolean().optional(),
         })
         .optional()
         .describe("Resolved role-based permissions for the active company"),
@@ -1781,6 +1808,15 @@ export const ListCompanyMembersResponseItem = zod
           manageQuotes: zod.boolean().optional(),
           submitExpenses: zod.boolean().optional(),
           viewAllProjects: zod.boolean().optional(),
+          viewDailyLog: zod.boolean().optional(),
+          viewReports: zod.boolean().optional(),
+          viewRFIs: zod.boolean().optional(),
+          viewPhotos: zod.boolean().optional(),
+          viewVault: zod.boolean().optional(),
+          viewEstimator: zod.boolean().optional(),
+          viewSiteScan: zod.boolean().optional(),
+          viewTradeHub: zod.boolean().optional(),
+          viewAskAI: zod.boolean().optional(),
         })
         .optional()
         .describe("Resolved role-based permissions for the active company"),
@@ -1884,6 +1920,15 @@ export const UpdateMemberRoleResponse = zod
           manageQuotes: zod.boolean().optional(),
           submitExpenses: zod.boolean().optional(),
           viewAllProjects: zod.boolean().optional(),
+          viewDailyLog: zod.boolean().optional(),
+          viewReports: zod.boolean().optional(),
+          viewRFIs: zod.boolean().optional(),
+          viewPhotos: zod.boolean().optional(),
+          viewVault: zod.boolean().optional(),
+          viewEstimator: zod.boolean().optional(),
+          viewSiteScan: zod.boolean().optional(),
+          viewTradeHub: zod.boolean().optional(),
+          viewAskAI: zod.boolean().optional(),
         })
         .optional()
         .describe("Resolved role-based permissions for the active company"),
@@ -1911,6 +1956,15 @@ export const GetMemberPermissionsResponse = zod.object({
   manageQuotes: zod.boolean().optional(),
   submitExpenses: zod.boolean().optional(),
   viewAllProjects: zod.boolean().optional(),
+  viewDailyLog: zod.boolean().optional(),
+  viewReports: zod.boolean().optional(),
+  viewRFIs: zod.boolean().optional(),
+  viewPhotos: zod.boolean().optional(),
+  viewVault: zod.boolean().optional(),
+  viewEstimator: zod.boolean().optional(),
+  viewSiteScan: zod.boolean().optional(),
+  viewTradeHub: zod.boolean().optional(),
+  viewAskAI: zod.boolean().optional(),
 });
 
 /**
@@ -1934,6 +1988,15 @@ export const SetMemberPermissionsBody = zod.object({
   manageQuotes: zod.boolean().optional(),
   submitExpenses: zod.boolean().optional(),
   viewAllProjects: zod.boolean().optional(),
+  viewDailyLog: zod.boolean().optional(),
+  viewReports: zod.boolean().optional(),
+  viewRFIs: zod.boolean().optional(),
+  viewPhotos: zod.boolean().optional(),
+  viewVault: zod.boolean().optional(),
+  viewEstimator: zod.boolean().optional(),
+  viewSiteScan: zod.boolean().optional(),
+  viewTradeHub: zod.boolean().optional(),
+  viewAskAI: zod.boolean().optional(),
 });
 
 export const SetMemberPermissionsResponse = zod.object({
@@ -1949,6 +2012,15 @@ export const SetMemberPermissionsResponse = zod.object({
   manageQuotes: zod.boolean().optional(),
   submitExpenses: zod.boolean().optional(),
   viewAllProjects: zod.boolean().optional(),
+  viewDailyLog: zod.boolean().optional(),
+  viewReports: zod.boolean().optional(),
+  viewRFIs: zod.boolean().optional(),
+  viewPhotos: zod.boolean().optional(),
+  viewVault: zod.boolean().optional(),
+  viewEstimator: zod.boolean().optional(),
+  viewSiteScan: zod.boolean().optional(),
+  viewTradeHub: zod.boolean().optional(),
+  viewAskAI: zod.boolean().optional(),
 });
 
 /**
@@ -2434,6 +2506,15 @@ export const AcceptInvitationResponse = zod
           manageQuotes: zod.boolean().optional(),
           submitExpenses: zod.boolean().optional(),
           viewAllProjects: zod.boolean().optional(),
+          viewDailyLog: zod.boolean().optional(),
+          viewReports: zod.boolean().optional(),
+          viewRFIs: zod.boolean().optional(),
+          viewPhotos: zod.boolean().optional(),
+          viewVault: zod.boolean().optional(),
+          viewEstimator: zod.boolean().optional(),
+          viewSiteScan: zod.boolean().optional(),
+          viewTradeHub: zod.boolean().optional(),
+          viewAskAI: zod.boolean().optional(),
         })
         .optional()
         .describe("Resolved role-based permissions for the active company"),

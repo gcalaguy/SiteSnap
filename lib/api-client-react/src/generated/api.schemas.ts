@@ -145,6 +145,15 @@ export interface MemberPermissions {
   manageQuotes?: boolean;
   submitExpenses?: boolean;
   viewAllProjects?: boolean;
+  viewDailyLog?: boolean;
+  viewReports?: boolean;
+  viewRFIs?: boolean;
+  viewPhotos?: boolean;
+  viewVault?: boolean;
+  viewEstimator?: boolean;
+  viewSiteScan?: boolean;
+  viewTradeHub?: boolean;
+  viewAskAI?: boolean;
 }
 
 export type CompanyEstimatorConfigProjectTypeLabels = { [key: string]: string };

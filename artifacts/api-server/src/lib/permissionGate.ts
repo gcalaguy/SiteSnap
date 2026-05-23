@@ -14,6 +14,15 @@ const WORKER_DEFAULTS: Record<keyof MemberPermissions, boolean> = {
   manageQuotes:       false,
   submitExpenses:     true,
   viewAllProjects:    false,
+  viewDailyLog:       true,
+  viewReports:        true,
+  viewRFIs:           true,
+  viewPhotos:         true,
+  viewVault:          true,
+  viewEstimator:      true,
+  viewSiteScan:       true,
+  viewTradeHub:       true,
+  viewAskAI:          true,
 };
 
 /**

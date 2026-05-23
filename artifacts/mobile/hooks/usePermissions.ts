@@ -13,6 +13,15 @@ const ALL_TRUE = {
   manageQuotes: true,
   submitExpenses: true,
   viewAllProjects: true,
+  viewDailyLog: true,
+  viewReports: true,
+  viewRFIs: true,
+  viewPhotos: true,
+  viewVault: true,
+  viewEstimator: true,
+  viewSiteScan: true,
+  viewTradeHub: true,
+  viewAskAI: true,
 };
 
 export type PermissionKey = keyof typeof ALL_TRUE;

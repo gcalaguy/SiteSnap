@@ -1254,6 +1254,15 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
     manageQuotes: false,
     submitExpenses: true,
     viewAllProjects: false,
+    viewDailyLog: true,
+    viewReports: true,
+    viewRFIs: true,
+    viewPhotos: true,
+    viewVault: true,
+    viewEstimator: true,
+    viewSiteScan: true,
+    viewTradeHub: true,
+    viewAskAI: true,
   };
 
   const hasCustomPerms = rawPerms != null && Object.keys(rawPerms).length > 0;
@@ -1393,6 +1402,15 @@ const PERMISSION_FIELDS: { key: keyof MemberPermissions; label: string; desc: st
   { key: "viewSafetyTab", label: "Safety Tab", desc: "Top-level Safety tab (mobile)." },
   { key: "viewInspectTab", label: "Inspect Tab", desc: "Top-level Inspection tab (mobile)." },
   { key: "viewAllProjects", label: "All Projects", desc: "See every project, not just assigned ones (mobile)." },
+  { key: "viewDailyLog", label: "Daily Log", desc: "Daily log quick action (mobile)." },
+  { key: "viewReports", label: "Reports", desc: "Reports quick action (mobile)." },
+  { key: "viewRFIs", label: "RFIs", desc: "RFIs quick action (mobile)." },
+  { key: "viewPhotos", label: "Photos", desc: "Photo quick action (mobile)." },
+  { key: "viewVault", label: "Vault", desc: "Vault quick action (mobile)." },
+  { key: "viewEstimator", label: "Estimator", desc: "Estimator quick action (mobile)." },
+  { key: "viewSiteScan", label: "3D Site Scan", desc: "3D site scan quick action (mobile)." },
+  { key: "viewTradeHub", label: "TradeHub", desc: "TradeHub quick action (mobile)." },
+  { key: "viewAskAI", label: "Ask AI", desc: "Ask AI quick action (mobile)." },
 ];
 
 // ── Media Hub Test Card ──────────────────────────────────────────────────────

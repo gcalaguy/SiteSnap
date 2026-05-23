@@ -5173,6 +5173,24 @@ components:
           type: boolean
         viewAllProjects:
           type: boolean
+        viewDailyLog:
+          type: boolean
+        viewReports:
+          type: boolean
+        viewRFIs:
+          type: boolean
+        viewPhotos:
+          type: boolean
+        viewVault:
+          type: boolean
+        viewEstimator:
+          type: boolean
+        viewSiteScan:
+          type: boolean
+        viewTradeHub:
+          type: boolean
+        viewAskAI:
+          type: boolean
 
     UserWithCompany:
       allOf:

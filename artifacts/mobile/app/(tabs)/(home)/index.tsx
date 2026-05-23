@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -143,36 +144,48 @@ function AiBriefingCard({ colors }: { colors: any }) {
 
 // ── Quick Actions ────────────────────────────────────────────────────────────
 
-const QUICK_ACTIONS_WORKER = [
+type QuickAction = {
+  label: string;
+  icon: string;
+  path: string;
+  color: string;
+  permKey?: import("@/hooks/usePermissions").PermissionKey;
+};
+
+const ALL_ACTIONS: QuickAction[] = [
   { label: "My Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
-  { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6" },
-  { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9" },
-  { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b" },
-  { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4" },
+  { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6", permKey: "viewDailyLog" },
+  { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9", permKey: "viewReports" },
+  { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b", permKey: "viewRFIs" },
+  { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4", permKey: "viewPhotos" },
   { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
-  { label: "Vault", icon: "lock", path: "/vault", color: "#16a34a" },
-  { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
-  { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4" },
-  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37" },
-  { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
+  { label: "Vault", icon: "lock", path: "/vault", color: "#16a34a", permKey: "viewVault" },
+  { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C", permKey: "viewEstimator" },
+  { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4", permKey: "viewSiteScan" },
+  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37", permKey: "viewTradeHub" },
+  { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899", permKey: "viewAskAI" },
 ];
 
-const QUICK_ACTIONS_OWNER = [
+const OWNER_ACTIONS: QuickAction[] = [
   { label: "Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
   { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
-  { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9" },
-  { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b" },
-  { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6" },
-  { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4" },
+  { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9", permKey: "viewReports" },
+  { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b", permKey: "viewRFIs" },
+  { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6", permKey: "viewDailyLog" },
+  { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4", permKey: "viewPhotos" },
   { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
-  { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C" },
-  { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4" },
-  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37" },
-  { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899" },
+  { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C", permKey: "viewEstimator" },
+  { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4", permKey: "viewSiteScan" },
+  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37", permKey: "viewTradeHub" },
+  { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899", permKey: "viewAskAI" },
 ];
 
 function QuickActionsGrid({ isWorker, colors, router }: { isWorker: boolean; colors: any; router: any }) {
-  const actions = isWorker ? QUICK_ACTIONS_WORKER : QUICK_ACTIONS_OWNER;
+  const perms = usePermissions();
+  const raw = isWorker ? ALL_ACTIONS : OWNER_ACTIONS;
+  const actions = raw.filter(
+    (a) => !a.permKey || perms[a.permKey]
+  );
   return (
     <View style={styles.quickGrid}>
       {actions.map((action) => (

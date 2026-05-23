@@ -128,6 +128,15 @@ export const memberPermissionsSchema = z.object({
   manageQuotes: z.boolean().optional(),
   submitExpenses: z.boolean().optional(),
   viewAllProjects: z.boolean().optional(),
+  viewDailyLog: z.boolean().optional(),
+  viewReports: z.boolean().optional(),
+  viewRFIs: z.boolean().optional(),
+  viewPhotos: z.boolean().optional(),
+  viewVault: z.boolean().optional(),
+  viewEstimator: z.boolean().optional(),
+  viewSiteScan: z.boolean().optional(),
+  viewTradeHub: z.boolean().optional(),
+  viewAskAI: z.boolean().optional(),
 });
 export type MemberPermissions = z.infer<typeof memberPermissionsSchema>;
 

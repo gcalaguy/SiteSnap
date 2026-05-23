@@ -154,6 +154,8 @@ router.get("/users/me", requireAuth, async (req, res) => {
     "viewQuotes","viewTimesheets","viewFinancials","viewDocuments","viewSchedules",
     "viewClientMessages","viewRiskTab","viewSafetyTab","viewInspectTab",
     "manageQuotes","submitExpenses","viewAllProjects",
+    "viewDailyLog","viewReports","viewRFIs","viewPhotos","viewVault",
+    "viewEstimator","viewSiteScan","viewTradeHub","viewAskAI",
   ] as const;
   const resolvedPerms = role === "owner"
     ? undefined
@@ -167,6 +169,8 @@ router.get("/users/me", requireAuth, async (req, res) => {
             viewDocuments:true, viewSchedules:true, viewClientMessages:true,
             viewRiskTab:true, viewSafetyTab:true, viewInspectTab:true,
             manageQuotes:false, submitExpenses:true, viewAllProjects:false,
+            viewDailyLog:true, viewReports:true, viewRFIs:true, viewPhotos:true,
+            viewVault:true, viewEstimator:true, viewSiteScan:true, viewTradeHub:true, viewAskAI:true,
           };
           return [k, explicit !== undefined ? explicit : defaults[k]];
         }),
