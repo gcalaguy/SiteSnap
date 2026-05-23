@@ -454,7 +454,7 @@ function ForemanBriefingCard() {
   const generate = useMutation({
     mutationKey: ["foreman-briefing"],
     mutationFn: (): Promise<{ briefing: string; generatedAt: string }> =>
-      customFetch("/api/ai/foreman-briefing", { method: "POST" }),
+      customFetch("/api/ai/foreman-briefing", { method: "POST", body: "{}", headers: { "Content-Type": "application/json" } }),
     onSuccess: (data) => {
       qc.setQueryData(["foreman-briefing-cache"], data);
     },
