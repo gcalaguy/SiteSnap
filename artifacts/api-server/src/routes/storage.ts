@@ -8,7 +8,7 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
 import { requireAuth, requireCompany } from "../lib/auth";
-import { db, fileAttachmentsTable, projectDocumentsTable, projectsTable, workerDocumentsTable, sitePhotosTable } from "@workspace/db";
+import { db, fileAttachmentsTable, projectDocumentsTable, projectsTable, workerDocumentsTable, sitePhotosTable, dailyReportPhotosTable, dailyReportsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -165,6 +165,18 @@ router.get(
           .where(and(eq(sitePhotosTable.imageUrl, objectPath), eq(projectsTable.companyId, req.companyId!)))
           .limit(1);
         isOwner = !!sitePhoto;
+      }
+
+      // Check daily report photos
+      if (!isOwner) {
+        const [dailyReportPhoto] = await db
+          .select({ id: dailyReportPhotosTable.id })
+          .from(dailyReportPhotosTable)
+          .innerJoin(dailyReportsTable, eq(dailyReportsTable.id, dailyReportPhotosTable.reportId))
+          .innerJoin(projectsTable, eq(projectsTable.id, dailyReportsTable.projectId))
+          .where(and(eq(dailyReportPhotosTable.objectPath, objectPath), eq(projectsTable.companyId, req.companyId!)))
+          .limit(1);
+        isOwner = !!dailyReportPhoto;
       }
 
       if (!isOwner) {
