@@ -6,6 +6,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { searchWeb, formatSearchContext, webSearchEnabled } from "../lib/webSearch.js";
 import { canSearchWeb, recordWebSearch } from "../lib/webSearchRateLimiter.js";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
+import { buildTenantContext } from "../lib/buildTenantContext";
 
 const router = Router();
 
@@ -210,11 +211,14 @@ router.post("/ai/assistant", requireAuth, requireCompany, requireAiQuota, async 
     return;
   }
 
-  const { messages, context } = parsed.data;
+  const { messages } = parsed.data;
 
   let webSearchContext = "";
   let quotaNote = "";
   const companyId = req.companyId;
+
+  // Fetch live tenant context from the database (ignores any stale client-supplied context)
+  const tenantContext = companyId ? await buildTenantContext(companyId, null) : "";
 
   if (companyId && webSearchEnabled() && canSearchWeb(companyId)) {
     const lastUser = [...messages].reverse().find(m => m.role === "user");
@@ -241,7 +245,7 @@ You help with:
 
 Keep responses concise and practical. Use plain language suited for field workers. If specific project data is provided in the context below, reference it in your answers.
 
-${context ? `\n--- Company & Project Context ---\n${context}\n---` : ""}${webSearchContext}${quotaNote}
+${tenantContext ? `\n--- Company & Project Context ---\n${tenantContext}\n---` : ""}${webSearchContext}${quotaNote}
 
 Today's date: ${new Date().toLocaleDateString("en-CA")}`;
 

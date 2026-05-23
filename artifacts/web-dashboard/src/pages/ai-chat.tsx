@@ -78,10 +78,6 @@ function AIChatInner() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  const { data: summary } = useGetDashboardSummary();
-  const { data: projects } = useListProjects();
-  const { data: activity } = useGetRecentActivity();
-
   const {
     data: conversations = [],
     refetch: refetchConversations,
@@ -89,28 +85,6 @@ function AIChatInner() {
     queryKey: ["conversations"],
     queryFn: () => customFetch<ConversationSummary[]>("/api/conversations"),
   });
-
-  const buildContext = useCallback(() => {
-    const activeProjects = (projects ?? []).filter((p) => p.status === "active");
-    return JSON.stringify({
-      activeProjects: activeProjects.map((p) => ({
-        name: p.name,
-        city: p.city,
-        status: p.status,
-      })),
-      dashboardSummary: summary
-        ? {
-            activeProjects: summary.activeProjects,
-            totalProjects: summary.totalProjects,
-            reportsThisWeek: summary.reportsThisWeek,
-            openRFIs: summary.openRFIs,
-          }
-        : null,
-      recentActivity: (activity ?? [])
-        .slice(0, 5)
-        .map((a) => ({ type: a.type, description: a.description })),
-    });
-  }, [summary, projects, activity]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

@@ -1,0 +1,1 @@
+- [AI tenant context injection](ai-tenant-context.md) — full DB snapshot is built server-side and injected into the AI system prompt automatically; clients no longer need to pass `context`.
