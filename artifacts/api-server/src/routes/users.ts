@@ -3,6 +3,7 @@ import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable 
 import { eq, and, gt } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { resolvePermission } from "../lib/permissionGate";
 import { SyncUserBody } from "@workspace/api-zod";
 import { getCompanyFeatureKeys } from "../lib/featureGate";
 
@@ -116,6 +117,7 @@ router.get("/users/me", requireAuth, async (req, res) => {
       companyId: userMembershipsTable.companyId,
       role: userMembershipsTable.role,
       isActive: userMembershipsTable.isActive,
+      permissions: userMembershipsTable.permissions,
       createdAt: userMembershipsTable.createdAt,
       companyName: companiesTable.name,
     })
@@ -160,20 +162,10 @@ router.get("/users/me", requireAuth, async (req, res) => {
   const resolvedPerms = role === "owner"
     ? undefined
     : Object.fromEntries(
-        permKeys.map((k) => {
-          const explicit = activeMembership
-            ? (req.userPermissions as any)?.[k]
-            : undefined;
-          const defaults: Record<string,boolean> = {
-            viewQuotes:false, viewTimesheets:true, viewFinancials:false,
-            viewDocuments:true, viewSchedules:true, viewClientMessages:true,
-            viewRiskTab:true, viewSafetyTab:true, viewInspectTab:true,
-            manageQuotes:false, submitExpenses:true, viewAllProjects:false,
-            viewDailyLog:true, viewReports:true, viewRFIs:true, viewPhotos:true,
-            viewVault:true, viewEstimator:true, viewSiteScan:true, viewTradeHub:true, viewAskAI:true,
-          };
-          return [k, explicit !== undefined ? explicit : defaults[k]];
-        }),
+        permKeys.map((k) => [
+          k,
+          resolvePermission(k, role, activeMembership?.permissions ?? null),
+        ]),
       );
 
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");

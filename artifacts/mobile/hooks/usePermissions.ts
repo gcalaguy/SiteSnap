@@ -15,12 +15,12 @@ const ALL_TRUE = {
   viewAllProjects: true,
   viewDailyLog: true,
   viewReports: true,
-  viewRFIs: true,
+  viewRFIs: false,
   viewPhotos: true,
-  viewVault: true,
-  viewEstimator: true,
-  viewSiteScan: true,
-  viewTradeHub: true,
+  viewVault: false,
+  viewEstimator: false,
+  viewSiteScan: false,
+  viewTradeHub: false,
   viewAskAI: true,
 };
 
