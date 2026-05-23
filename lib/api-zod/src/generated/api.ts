@@ -302,13 +302,15 @@ export const RecordPaymentParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const recordPaymentBodyNotesMax = 1000;
+
 export const RecordPaymentBody = zod.object({
   amount: zod.number(),
   method: zod
     .enum(["cash", "cheque", "e-transfer", "credit_card", "other"])
     .optional(),
   paidAt: zod.string().optional(),
-  notes: zod.string().nullish(),
+  notes: zod.string().max(recordPaymentBodyNotesMax).nullish(),
 });
 
 /**
@@ -345,12 +347,18 @@ export const ListChangeOrdersResponse = zod.array(ListChangeOrdersResponseItem);
 /**
  * @summary Create a change order
  */
+export const createChangeOrderBodyTitleMax = 300;
+
+export const createChangeOrderBodyDescriptionMax = 3000;
+
+export const createChangeOrderBodyNotesMax = 5000;
+
 export const CreateChangeOrderBody = zod.object({
   projectId: zod.number(),
-  title: zod.string(),
-  description: zod.string().nullish(),
+  title: zod.string().max(createChangeOrderBodyTitleMax),
+  description: zod.string().max(createChangeOrderBodyDescriptionMax).nullish(),
   amount: zod.number(),
-  notes: zod.string().nullish(),
+  notes: zod.string().max(createChangeOrderBodyNotesMax).nullish(),
 });
 
 /**
@@ -383,9 +391,13 @@ export const UpdateChangeOrderParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const updateChangeOrderBodyTitleMax = 300;
+
+export const updateChangeOrderBodyDescriptionMax = 3000;
+
 export const UpdateChangeOrderBody = zod.object({
-  title: zod.string().optional(),
-  description: zod.string().nullish(),
+  title: zod.string().max(updateChangeOrderBodyTitleMax).optional(),
+  description: zod.string().max(updateChangeOrderBodyDescriptionMax).nullish(),
   amount: zod.number().optional(),
   notes: zod.string().nullish(),
 });
@@ -478,10 +490,14 @@ export const ListBuilderEstimatesResponse = zod.array(
 /**
  * @summary Create a new estimate
  */
+export const createBuilderEstimateBodyTitleMax = 300;
+
+export const createBuilderEstimateBodyNotesMax = 5000;
+
 export const CreateBuilderEstimateBody = zod.object({
-  title: zod.string(),
+  title: zod.string().max(createBuilderEstimateBodyTitleMax),
   projectId: zod.number().nullish(),
-  notes: zod.string().nullish(),
+  notes: zod.string().max(createBuilderEstimateBodyNotesMax).nullish(),
   items: zod
     .array(
       zod.object({
@@ -539,10 +555,14 @@ export const UpdateBuilderEstimateParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const updateBuilderEstimateBodyTitleMax = 300;
+
+export const updateBuilderEstimateBodyNotesMax = 5000;
+
 export const UpdateBuilderEstimateBody = zod.object({
-  title: zod.string().optional(),
+  title: zod.string().max(updateBuilderEstimateBodyTitleMax).optional(),
   projectId: zod.number().nullish(),
-  notes: zod.string().nullish(),
+  notes: zod.string().max(updateBuilderEstimateBodyNotesMax).nullish(),
 });
 
 export const UpdateBuilderEstimateResponse = zod
@@ -909,9 +929,13 @@ export const ListLeadsResponse = zod.array(ListLeadsResponseItem);
 /**
  * @summary Create a new lead
  */
+export const createLeadBodyTitleMax = 300;
+
+export const createLeadBodyNotesMax = 5000;
+
 export const CreateLeadBody = zod.object({
   contactId: zod.number(),
-  title: zod.string(),
+  title: zod.string().max(createLeadBodyTitleMax),
   source: zod
     .enum(["referral", "website", "ads", "social_media", "cold_call", "other"])
     .optional(),
@@ -926,7 +950,7 @@ export const CreateLeadBody = zod.object({
       "lost",
     ])
     .optional(),
-  notes: zod.string().nullish(),
+  notes: zod.string().max(createLeadBodyNotesMax).nullish(),
 });
 
 /**
@@ -988,9 +1012,13 @@ export const UpdateLeadParams = zod.object({
   leadId: zod.coerce.number(),
 });
 
+export const updateLeadBodyTitleMax = 300;
+
+export const updateLeadBodyNotesMax = 5000;
+
 export const UpdateLeadBody = zod.object({
   contactId: zod.number().optional(),
-  title: zod.string().optional(),
+  title: zod.string().max(updateLeadBodyTitleMax).optional(),
   source: zod
     .enum(["referral", "website", "ads", "social_media", "cold_call", "other"])
     .optional(),
@@ -1005,7 +1033,7 @@ export const UpdateLeadBody = zod.object({
       "lost",
     ])
     .optional(),
-  notes: zod.string().nullish(),
+  notes: zod.string().max(updateLeadBodyNotesMax).nullish(),
 });
 
 export const UpdateLeadResponse = zod.object({
@@ -1080,12 +1108,14 @@ export const ListLeadActivitiesParams = zod.object({
   leadId: zod.coerce.number(),
 });
 
+export const listLeadActivitiesResponseNotesMax = 5000;
+
 export const ListLeadActivitiesResponseItem = zod.object({
   id: zod.number(),
   leadId: zod.number(),
   userId: zod.number(),
   type: zod.enum(["call", "email", "meeting", "note"]),
-  notes: zod.string(),
+  notes: zod.string().max(listLeadActivitiesResponseNotesMax),
   createdAt: zod.coerce.date(),
   user: zod
     .object({
@@ -1106,9 +1136,11 @@ export const CreateLeadActivityParams = zod.object({
   leadId: zod.coerce.number(),
 });
 
+export const createLeadActivityBodyNotesMax = 5000;
+
 export const CreateLeadActivityBody = zod.object({
   type: zod.enum(["call", "email", "meeting", "note"]),
-  notes: zod.string(),
+  notes: zod.string().max(createLeadActivityBodyNotesMax),
 });
 
 /**

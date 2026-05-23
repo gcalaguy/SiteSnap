@@ -1196,6 +1196,7 @@ export interface RecordPaymentBody {
   amount: number;
   method?: RecordPaymentBodyMethod;
   paidAt?: string;
+  /** @maxLength 1000 */
   notes?: string | null;
 }
 
@@ -1235,14 +1236,19 @@ export interface ChangeOrderRecord {
 
 export interface CreateChangeOrderBody {
   projectId: number;
+  /** @maxLength 300 */
   title: string;
+  /** @maxLength 3000 */
   description?: string | null;
   amount: number;
+  /** @maxLength 5000 */
   notes?: string | null;
 }
 
 export interface UpdateChangeOrderBody {
+  /** @maxLength 300 */
   title?: string;
+  /** @maxLength 3000 */
   description?: string | null;
   amount?: number;
   notes?: string | null;
@@ -1283,15 +1289,19 @@ export interface EstimateItemBody {
 }
 
 export interface CreateBuilderEstimateBody {
+  /** @maxLength 300 */
   title: string;
   projectId?: number | null;
+  /** @maxLength 5000 */
   notes?: string | null;
   items?: EstimateItemBody[];
 }
 
 export interface UpdateBuilderEstimateBody {
+  /** @maxLength 300 */
   title?: string;
   projectId?: number | null;
+  /** @maxLength 5000 */
   notes?: string | null;
 }
 
@@ -1469,10 +1479,12 @@ export const CreateLeadBodyStage = {
 
 export interface CreateLeadBody {
   contactId: number;
+  /** @maxLength 300 */
   title: string;
   source?: CreateLeadBodySource;
   estimatedValue?: number | null;
   stage?: CreateLeadBodyStage;
+  /** @maxLength 5000 */
   notes?: string | null;
 }
 
@@ -1502,10 +1514,12 @@ export const UpdateLeadBodyStage = {
 
 export interface UpdateLeadBody {
   contactId?: number;
+  /** @maxLength 300 */
   title?: string;
   source?: UpdateLeadBodySource;
   estimatedValue?: number | null;
   stage?: UpdateLeadBodyStage;
+  /** @maxLength 5000 */
   notes?: string | null;
 }
 
@@ -1536,6 +1550,7 @@ export interface LeadActivity {
   leadId: number;
   userId: number;
   type: LeadActivityType;
+  /** @maxLength 5000 */
   notes: string;
   createdAt: string;
   user?: LeadActivityUser;
@@ -1553,6 +1568,7 @@ export const CreateActivityBodyType = {
 
 export interface CreateActivityBody {
   type: CreateActivityBodyType;
+  /** @maxLength 5000 */
   notes: string;
 }
 

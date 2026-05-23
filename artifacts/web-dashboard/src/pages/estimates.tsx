@@ -7,6 +7,8 @@ import { downloadEstimatePDF, downloadEstimateDocx, printEstimate, type CompanyI
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
+import { updateBuilderEstimateBodyNotesMax as NOTES_MAX } from "@workspace/api-zod";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -755,7 +757,7 @@ function EstimateEditor({
       {/* Notes */}
       <div className="space-y-1.5">
         <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes / Exclusions</label>
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="resize-none text-sm min-h-[72px]" placeholder="Any important caveats, exclusions, or clarifications…" />
+        <CharCountedTextarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={NOTES_MAX} className="resize-none text-sm min-h-[72px]" placeholder="Any important caveats, exclusions, or clarifications…" />
       </div>
 
       {/* Actions */}

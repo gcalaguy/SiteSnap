@@ -6848,6 +6848,7 @@ components:
           type: string
         notes:
           type: string
+          maxLength: 1000
           nullable: true
 
     InvoicePaymentSummary:
@@ -6915,13 +6916,16 @@ components:
           type: integer
         title:
           type: string
+          maxLength: 300
         description:
           type: string
+          maxLength: 3000
           nullable: true
         amount:
           type: number
         notes:
           type: string
+          maxLength: 5000
           nullable: true
 
     UpdateChangeOrderBody:
@@ -6929,8 +6933,10 @@ components:
       properties:
         title:
           type: string
+          maxLength: 300
         description:
           type: string
+          maxLength: 3000
           nullable: true
         amount:
           type: number
@@ -6999,11 +7005,13 @@ components:
       properties:
         title:
           type: string
+          maxLength: 300
         projectId:
           type: integer
           nullable: true
         notes:
           type: string
+          maxLength: 5000
           nullable: true
         items:
           type: array
@@ -7015,11 +7023,13 @@ components:
       properties:
         title:
           type: string
+          maxLength: 300
         projectId:
           type: integer
           nullable: true
         notes:
           type: string
+          maxLength: 5000
           nullable: true
 
     EstimateItemBody:
@@ -7213,6 +7223,7 @@ components:
           type: integer
         title:
           type: string
+          maxLength: 300
         source:
           type: string
           enum: [referral, website, ads, social_media, cold_call, other]
@@ -7224,6 +7235,7 @@ components:
           enum: [new_lead, contacted, estimate_scheduled, proposal_sent, won, lost]
         notes:
           type: string
+          maxLength: 5000
           nullable: true
 
     UpdateLeadBody:
@@ -7233,6 +7245,7 @@ components:
           type: integer
         title:
           type: string
+          maxLength: 300
         source:
           type: string
           enum: [referral, website, ads, social_media, cold_call, other]
@@ -7244,6 +7257,7 @@ components:
           enum: [new_lead, contacted, estimate_scheduled, proposal_sent, won, lost]
         notes:
           type: string
+          maxLength: 5000
           nullable: true
 
     ConvertLeadBody:
@@ -7272,6 +7286,7 @@ components:
           enum: [call, email, meeting, note]
         notes:
           type: string
+          maxLength: 5000
         createdAt:
           type: string
           format: date-time
@@ -7295,6 +7310,7 @@ components:
           enum: [call, email, meeting, note]
         notes:
           type: string
+          maxLength: 5000
 
     Contact:
       type: object

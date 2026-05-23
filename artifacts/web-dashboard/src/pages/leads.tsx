@@ -16,7 +16,12 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
+import {
+  createLeadBodyNotesMax as LEAD_NOTES_MAX,
+  updateLeadBodyNotesMax as EDIT_NOTES_MAX,
+  createLeadActivityBodyNotesMax as ACTIVITY_NOTES_MAX,
+} from "@workspace/api-zod";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -545,9 +550,10 @@ export default function Leads() {
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>
-              <Textarea
+              <CharCountedTextarea
                 placeholder="Any relevant details…"
                 rows={3}
+                maxLength={LEAD_NOTES_MAX}
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               />
@@ -851,7 +857,7 @@ function LeadDetail({
           </div>
           {notesEditing ? (
             <div className="space-y-2">
-              <Textarea rows={4} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} className="text-sm" />
+              <CharCountedTextarea rows={4} maxLength={EDIT_NOTES_MAX} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} className="text-sm" />
               <div className="flex gap-2">
                 <Button size="sm" onClick={saveNotes} style={{ background: GOLD, color: BLACK }} className="font-semibold">Save</Button>
                 <Button size="sm" variant="outline" onClick={() => setNotesEditing(false)}>Cancel</Button>
@@ -902,8 +908,9 @@ function LeadDetail({
                 </button>
               ))}
             </div>
-            <Textarea
+            <CharCountedTextarea
               rows={2}
+              maxLength={ACTIVITY_NOTES_MAX}
               placeholder="What happened? Add details…"
               value={activityForm.notes}
               onChange={(e) => setActivityForm((f) => ({ ...f, notes: e.target.value }))}

@@ -25,7 +25,12 @@ import type {
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
+import {
+  recordPaymentBodyNotesMax as PAYMENT_NOTES_MAX,
+  createChangeOrderBodyDescriptionMax as CO_DESC_MAX,
+  createChangeOrderBodyNotesMax as CO_NOTES_MAX,
+} from "@workspace/api-zod";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -661,7 +666,7 @@ function FinancialsInner() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>
-              <Textarea placeholder="e.g. Deposit received..." rows={2} value={paymentForm.notes} onChange={(e) => setPaymentForm((f) => ({ ...f, notes: e.target.value }))} />
+              <CharCountedTextarea placeholder="e.g. Deposit received..." rows={2} maxLength={PAYMENT_NOTES_MAX} value={paymentForm.notes} onChange={(e) => setPaymentForm((f) => ({ ...f, notes: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
@@ -701,7 +706,7 @@ function FinancialsInner() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Description</label>
-              <Textarea placeholder="Describe the extra scope..." rows={2} value={coForm.description} onChange={(e) => setCoForm((f) => ({ ...f, description: e.target.value }))} />
+              <CharCountedTextarea placeholder="Describe the extra scope..." rows={2} maxLength={CO_DESC_MAX} value={coForm.description} onChange={(e) => setCoForm((f) => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Amount (CAD) *</label>
@@ -709,7 +714,7 @@ function FinancialsInner() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>
-              <Input placeholder="Any other notes..." value={coForm.notes} onChange={(e) => setCoForm((f) => ({ ...f, notes: e.target.value }))} />
+              <CharCountedTextarea placeholder="Any other notes..." rows={2} maxLength={CO_NOTES_MAX} value={coForm.notes} onChange={(e) => setCoForm((f) => ({ ...f, notes: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
