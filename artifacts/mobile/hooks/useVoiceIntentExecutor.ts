@@ -31,6 +31,7 @@ export interface ExecutorCallbacks {
   onSafetyLog?: (action: Extract<SingleAction, { type: "SAFETY_LOG" }>) => Promise<void> | void;
   onNavigate?: (target: string) => void;
   onAddNote?: (payload: string) => void;
+  onAskAssistant?: (question: string) => void;
   onUnknown?: (transcript: string) => void;
 }
 
@@ -54,6 +55,13 @@ export function useVoiceIntentExecutor(
           setState("error");
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           callbacks.onUnknown?.(transcript);
+          return;
+        }
+
+        if (intent.intent === "ASK_ASSISTANT") {
+          setState("done");
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          callbacks.onAskAssistant?.(intent.question);
           return;
         }
 

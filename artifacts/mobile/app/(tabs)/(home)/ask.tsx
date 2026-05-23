@@ -36,7 +36,7 @@ import {
   setAudioModeAsync,
 } from "expo-audio";
 import * as FileSystem from "expo-file-system/legacy";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 type Message = {
   id: string;
@@ -128,6 +128,7 @@ export default function AskScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { q: voiceQuestion } = useLocalSearchParams<{ q?: string }>();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -245,6 +246,17 @@ export default function AskScreen() {
     },
     [messages, loading, buildContext],
   );
+
+  // Auto-send a question routed here from the voice command FAB (?q=...)
+  const autoSentRef = useRef(false);
+  useEffect(() => {
+    if (!voiceQuestion || autoSentRef.current) return;
+    autoSentRef.current = true;
+    const q = voiceQuestion;
+    const t = setTimeout(() => { void sendMessage(q); }, 200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // fire once on mount only
 
   const stopRecording = useCallback(async () => {
     if (autoStopTimerRef.current) {

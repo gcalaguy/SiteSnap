@@ -476,6 +476,15 @@ export function GlobalVoiceCommandFAB() {
       }
     },
     onAddNote: (payload) => addResult("file-text", "Note", payload.slice(0, 60), "ok"),
+    onAskAssistant: (question) => {
+      addResult("cpu", "AI Assistant", question.slice(0, 60), "ok");
+      setTimeout(() => {
+        handleClose();
+        router.push(
+          `/(tabs)/(home)/ask?q=${encodeURIComponent(question)}` as Parameters<typeof router.push>[0],
+        );
+      }, 700);
+    },
     onUnknown: (t) => addResult("help-circle", "Unrecognized", t.slice(0, 60), "error"),
   });
 

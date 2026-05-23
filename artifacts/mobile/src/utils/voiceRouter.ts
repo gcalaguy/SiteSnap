@@ -91,6 +91,7 @@ export type VoiceIntent =
   | { intent: "DATA_ENTRY"; action: "ADD_NOTE"; payload: string; confidence: "high" | "low" }
   | { intent: "SINGLE_ACTION"; action: SingleAction; confidence: "high" | "low" }
   | { intent: "COMPOUND_ACTION"; actions: SingleAction[]; confidence: "high" | "low" }
+  | { intent: "ASK_ASSISTANT"; question: string; confidence: "high" | "low" }
   | { intent: "UNKNOWN"; transcript: string; confidence: "low" };
 
 /* ─── Router patterns ─────────────────────────────────────────────────────── */
@@ -467,6 +468,7 @@ const LLMResultSchema = z.object({
   subject: z.string().optional(),
   item: z.string().optional(),
   target: z.string().optional(),
+  question: z.string().optional(),
 });
 
 type LLMResult = z.infer<typeof LLMResultSchema>;
@@ -577,6 +579,12 @@ async function classifyWithLLM(
           return { intent: "NAVIGATE", target: result.target, confidence: "low" };
         }
         break;
+      case "ASK_ASSISTANT":
+        return {
+          intent: "ASK_ASSISTANT",
+          question: result.question ?? transcript,
+          confidence: "low",
+        };
     }
   } catch (err) {
     const { getAiErrorMessage } = await import("./aiError");
@@ -664,7 +672,16 @@ export async function interpretVoiceCommand(
     }
   }
 
-  // 5. LLM fallback — handles any phrasing the regex couldn't classify
+  // 5. Question / knowledge fast-path — save an LLM round-trip for obvious questions
+  // Matches "What are...", "How do I...", "Why is...", sentences ending with "?", etc.
+  const QUESTION_STARTERS = /^(?:what|how|why|when|where|who|which)\s+(?:is|are|does|do|should|can|could|would|will|was|were|has|have|had|are the)\b/i;
+  const isObviousQuestion = raw.trim().endsWith("?") || QUESTION_STARTERS.test(normalized);
+  if (isObviousQuestion) {
+    console.log("[voiceRouter] question fast-path -> ASK_ASSISTANT");
+    return { intent: "ASK_ASSISTANT", question: raw, confidence: "high" };
+  }
+
+  // 6. LLM fallback — handles any phrasing the regex couldn't classify
   console.log("[voiceRouter] falling through to LLM fallback");
   return classifyWithLLM(raw, projectNames);
 }
