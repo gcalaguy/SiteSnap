@@ -62,6 +62,61 @@ const STATUS_FILTERS: { label: string; value: RFIStatus | "all" }[] = [
   { label: "Closed", value: "closed" },
 ];
 
+// ── Date range filter ─────────────────────────────────────────────────────────
+
+type DatePreset = "this_week" | "this_month" | "last_30" | "custom";
+
+const DATE_PRESETS: { label: string; value: DatePreset }[] = [
+  { label: "This week", value: "this_week" },
+  { label: "This month", value: "this_month" },
+  { label: "Last 30 days", value: "last_30" },
+  { label: "Custom…", value: "custom" },
+];
+
+function getDateBounds(
+  preset: DatePreset | null,
+  customFrom: string,
+  customTo: string,
+): { fromDate: Date | null; toDate: Date | null } {
+  const now = new Date();
+  if (preset === "this_week") {
+    const d = new Date(now);
+    d.setDate(now.getDate() - now.getDay());
+    d.setHours(0, 0, 0, 0);
+    return { fromDate: d, toDate: null };
+  }
+  if (preset === "this_month") {
+    return { fromDate: new Date(now.getFullYear(), now.getMonth(), 1), toDate: null };
+  }
+  if (preset === "last_30") {
+    const d = new Date(now);
+    d.setDate(now.getDate() - 30);
+    d.setHours(0, 0, 0, 0);
+    return { fromDate: d, toDate: null };
+  }
+  if (preset === "custom") {
+    const f = customFrom.trim() ? new Date(customFrom.trim()) : null;
+    const t = customTo.trim() ? new Date(customTo.trim()) : null;
+    if (t && !isNaN(t.getTime())) t.setHours(23, 59, 59, 999);
+    return {
+      fromDate: f && !isNaN(f.getTime()) ? f : null,
+      toDate: t && !isNaN(t.getTime()) ? t : null,
+    };
+  }
+  return { fromDate: null, toDate: null };
+}
+
+function presetLabel(preset: DatePreset, customFrom: string, customTo: string): string {
+  if (preset === "this_week") return "This week";
+  if (preset === "this_month") return "This month";
+  if (preset === "last_30") return "Last 30 days";
+  if (preset === "custom") {
+    const parts = [customFrom.trim(), customTo.trim()].filter(Boolean);
+    return parts.length === 2 ? `${parts[0]} – ${parts[1]}` : parts[0] ?? "Custom";
+  }
+  return "";
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(d: string) {
@@ -359,6 +414,9 @@ export default function AllRFIsScreen() {
   const [statusFilter, setStatusFilter] = useState<RFIStatus | "all">(
     (initialStatus as RFIStatus | undefined) ?? "all",
   );
+  const [datePreset, setDatePreset] = useState<DatePreset | null>(null);
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [showNewRFI, setShowNewRFI] = useState(false);
 
   const rfis = (data ?? []) as RFIListItem[];
@@ -373,6 +431,11 @@ export default function AllRFIsScreen() {
     return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
   }, [rfis]);
 
+  const { fromDate, toDate } = useMemo(
+    () => getDateBounds(datePreset, customFrom, customTo),
+    [datePreset, customFrom, customTo],
+  );
+
   const filtered = useMemo(() => {
     let list = rfis;
     if (selectedProject !== null) {
@@ -380,6 +443,12 @@ export default function AllRFIsScreen() {
     }
     if (statusFilter !== "all") {
       list = list.filter((r) => r.status === statusFilter);
+    }
+    if (fromDate) {
+      list = list.filter((r) => new Date(r.createdAt) >= fromDate);
+    }
+    if (toDate) {
+      list = list.filter((r) => new Date(r.createdAt) <= toDate);
     }
     const q = search.trim().toLowerCase();
     if (q) {
@@ -392,7 +461,9 @@ export default function AllRFIsScreen() {
       );
     }
     return list;
-  }, [rfis, search, selectedProject, statusFilter]);
+  }, [rfis, search, selectedProject, statusFilter, fromDate, toDate]);
+
+  const hasDateFilter = datePreset !== null;
 
   const openCount = rfis.filter((r) => r.status === "open" || r.status === "in_review").length;
   const overdueCount = rfis.filter((r) => isOverdue(r.dueDate) && r.status !== "closed" && r.status !== "answered").length;
@@ -531,6 +602,84 @@ export default function AllRFIsScreen() {
               </View>
             </ScrollView>
           )}
+
+          {/* Date range filter */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+            <View style={styles.filterRow}>
+              <View style={[styles.dateFilterLabel, { backgroundColor: colors.muted }]}>
+                <Feather name="calendar" size={11} color={colors.mutedForeground} />
+              </View>
+              {DATE_PRESETS.map((p) => (
+                <Pressable
+                  key={p.value}
+                  onPress={() => {
+                    if (datePreset === p.value) {
+                      setDatePreset(null);
+                      setCustomFrom("");
+                      setCustomTo("");
+                    } else {
+                      setDatePreset(p.value);
+                      if (p.value !== "custom") { setCustomFrom(""); setCustomTo(""); }
+                    }
+                  }}
+                  style={[
+                    styles.filterPill,
+                    {
+                      backgroundColor: datePreset === p.value ? "#6366f1" : colors.muted,
+                      borderColor: datePreset === p.value ? "#6366f1" : colors.border,
+                      flexDirection: "row", alignItems: "center", gap: 4,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.filterPillText, { color: datePreset === p.value ? "#fff" : colors.mutedForeground }]}>
+                    {p.label}
+                  </Text>
+                  {datePreset === p.value && (
+                    <Feather name="x" size={12} color="#fff" />
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* Custom date inputs */}
+          {datePreset === "custom" && (
+            <View style={styles.customDateRow}>
+              <TextInput
+                style={[styles.dateInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                placeholder="From (YYYY-MM-DD)"
+                placeholderTextColor={colors.mutedForeground}
+                value={customFrom}
+                onChangeText={setCustomFrom}
+                keyboardType="numbers-and-punctuation"
+              />
+              <Text style={[styles.dateSep, { color: colors.mutedForeground }]}>–</Text>
+              <TextInput
+                style={[styles.dateInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                placeholder="To (YYYY-MM-DD)"
+                placeholderTextColor={colors.mutedForeground}
+                value={customTo}
+                onChangeText={setCustomTo}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+          )}
+
+          {/* Active date chip summary (non-custom) */}
+          {hasDateFilter && datePreset !== "custom" && (
+            <View style={{ marginTop: 6 }}>
+              <TouchableOpacity
+                style={[styles.activeDateChip, { backgroundColor: "#6366f112", borderColor: "#6366f140" }]}
+                onPress={() => setDatePreset(null)}
+              >
+                <Feather name="calendar" size={12} color="#6366f1" />
+                <Text style={[styles.activeDateChipText, { color: "#6366f1" }]}>
+                  {presetLabel(datePreset, customFrom, customTo)}
+                </Text>
+                <Feather name="x" size={12} color="#6366f1" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* List */}
@@ -647,6 +796,24 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 32 },
   emptyText: { fontSize: 16, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 12 },
   emptySubText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6, lineHeight: 20 },
+
+  dateFilterLabel: {
+    width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center",
+  },
+  customDateRow: {
+    flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8,
+  },
+  dateInput: {
+    flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7,
+    fontSize: 12, fontFamily: "Inter_400Regular",
+  },
+  dateSep: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  activeDateChip: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 20, borderWidth: 1,
+  },
+  activeDateChipText: { fontSize: 12, fontFamily: "Inter_500Medium" },
 
   // Modal
   modalHeader: {
