@@ -5,7 +5,7 @@ import { sendPushNotification } from "./push";
 interface NotifyOptions {
   userId: number;
   actorUserId?: number;
-  type: "task" | "rfi" | "inspection" | "message";
+  type: "task" | "rfi" | "inspection" | "message" | "tradehub_message" | "tradehub_post";
   title: string;
   body: string;
   referenceId: number;

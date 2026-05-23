@@ -21,6 +21,7 @@ import {
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { logger } from "../lib/logger";
+import { notify } from "../lib/notify";
 import { z } from "zod";
 
 const router = Router();
@@ -351,6 +352,14 @@ router.post("/tradehub/posts/:id/comments", requireAuth, async (req, res) => {
         type: "comment",
         referenceId: postId,
         message: `${author?.firstName ?? "Someone"} commented on your post: "${post.title}"`,
+      }).catch(() => {});
+      notify({
+        userId: post.userId,
+        actorUserId: req.userId,
+        type: "tradehub_post",
+        title: "New comment on your TradeHub post",
+        body: `${author?.firstName ?? "Someone"} commented on your post: "${post.title}"`,
+        referenceId: postId,
       }).catch(() => {});
     }
 
@@ -1066,6 +1075,14 @@ router.post("/tradehub/conversations", requireAuth, async (req, res) => {
       referenceId: conversationId,
       message: `${senderName} sent you a message on TradeHub`,
     }).catch(() => {});
+    notify({
+      userId: recipientId,
+      actorUserId: req.userId,
+      type: "tradehub_message",
+      title: "New TradeHub message",
+      body: `${senderName} sent you a message on TradeHub`,
+      referenceId: conversationId,
+    }).catch(() => {});
 
     res.json({ conversationId });
   } catch (err: any) {
@@ -1225,11 +1242,20 @@ router.post("/tradehub/conversations/:id/messages", requireAuth, async (req, res
       const [senderProfile] = await db.select().from(tradehubProfilesTable).where(eq(tradehubProfilesTable.userId, req.userId!));
       const [senderUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
       const name = senderProfile?.displayName ?? `${senderUser?.firstName ?? ""}`.trim();
+      const preview = `${content.trim().slice(0, 60)}${content.trim().length > 60 ? "…" : ""}`;
       await db.insert(tradehubNotificationsTable).values({
         userId: other.userId,
         type: "message",
         referenceId: convId,
-        message: `${name}: ${content.trim().slice(0, 60)}${content.trim().length > 60 ? "…" : ""}`,
+        message: `${name}: ${preview}`,
+      }).catch(() => {});
+      notify({
+        userId: other.userId,
+        actorUserId: req.userId,
+        type: "tradehub_message",
+        title: "New TradeHub message",
+        body: `${name}: ${preview}`,
+        referenceId: convId,
       }).catch(() => {});
     }
 

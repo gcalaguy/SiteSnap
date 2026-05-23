@@ -376,9 +376,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 ) : (
                   notifications.slice(0, 10).map((n) => {
                     const isMsg = n.type === "message";
-                    const NotifIcon = isMsg ? Bot : n.type === "rfi" ? MessageSquare : Bell;
-                    const href = isMsg
-                      ? `${basePath}/ai-chat`
+                    const NotifIcon =
+                      isMsg ? Bot
+                      : n.type === "rfi" ? MessageSquare
+                      : n.type === "tradehub_message" ? MessageSquare
+                      : n.type === "tradehub_post" ? Hammer
+                      : Bell;
+                    const href =
+                      isMsg ? `${basePath}/ai-chat`
+                      : n.type === "tradehub_message" ? `${basePath}/tradehub/messages/${n.referenceId}`
+                      : n.type === "tradehub_post" ? `${basePath}/tradehub/posts/${n.referenceId}`
                       : n.projectId
                         ? `${basePath}/projects/${n.projectId}`
                         : undefined;
