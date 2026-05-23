@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -131,7 +131,8 @@ export default function InvoiceDetailScreen() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: invoice, isLoading, dataUpdatedAt } = useGetInvoice(invoiceId);
+  const { data: invoice, isLoading, dataUpdatedAt, refetch } = useGetInvoice(invoiceId);
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
   const updatedLabel = useRelativeTime(dataUpdatedAt || null);
   const { data: me } = useGetMe();
   const markSent = useMarkInvoiceSent();

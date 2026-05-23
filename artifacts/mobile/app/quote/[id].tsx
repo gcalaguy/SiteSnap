@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -142,10 +142,11 @@ export default function QuoteDetailScreen() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: quote, isLoading, dataUpdatedAt } = useGetQuote(projectId, quoteId, {
+  const { data: quote, isLoading, dataUpdatedAt, refetch } = useGetQuote(projectId, quoteId, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { enabled: quoteId > 0 } as any,
   });
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
   const updatedLabel = useRelativeTime(dataUpdatedAt || null);
   const submitQuote = useSubmitQuoteForApproval();
   const unsubmitQuote = useUnsubmitQuote();
