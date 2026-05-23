@@ -405,8 +405,6 @@ export default function AllRFIsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { data, isLoading, refetch } = useListAllRFIs();
-
   const { status: initialStatus } = useLocalSearchParams<{ status?: string }>();
 
   const [search, setSearch] = useState("");
@@ -419,31 +417,26 @@ export default function AllRFIsScreen() {
   const [customTo, setCustomTo] = useState("");
   const [showNewRFI, setShowNewRFI] = useState(false);
 
-  const rfis = (data ?? []) as RFIListItem[];
+  // Server-side filtering: projectId and status passed as query params
+  const { data, isLoading, refetch } = useListAllRFIs({
+    projectId: selectedProject ?? undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+  });
 
-  const projects = useMemo(() => {
-    const seen = new Map<number, string>();
-    for (const r of rfis) {
-      if (!seen.has(r.projectId) && r.projectName) {
-        seen.set(r.projectId, r.projectName);
-      }
-    }
-    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
-  }, [rfis]);
+  // Load projects independently so the picker stays populated when a filter is active
+  const { data: projectsData } = useListProjects();
+  const projects = (projectsData ?? []) as { id: number; name: string; status: string }[];
+
+  const rfis = (data ?? []) as RFIListItem[];
 
   const { fromDate, toDate } = useMemo(
     () => getDateBounds(datePreset, customFrom, customTo),
     [datePreset, customFrom, customTo],
   );
 
+  // Date range and text search stay client-side (API has no date params for RFIs)
   const filtered = useMemo(() => {
     let list = rfis;
-    if (selectedProject !== null) {
-      list = list.filter((r) => r.projectId === selectedProject);
-    }
-    if (statusFilter !== "all") {
-      list = list.filter((r) => r.status === statusFilter);
-    }
     if (fromDate) {
       list = list.filter((r) => new Date(r.createdAt) >= fromDate);
     }
@@ -461,9 +454,10 @@ export default function AllRFIsScreen() {
       );
     }
     return list;
-  }, [rfis, search, selectedProject, statusFilter, fromDate, toDate]);
+  }, [rfis, search, fromDate, toDate]);
 
   const hasDateFilter = datePreset !== null;
+  const hasActiveFilter = selectedProject !== null || statusFilter !== "all" || hasDateFilter || search.trim().length > 0;
 
   const openCount = rfis.filter((r) => r.status === "open" || r.status === "in_review").length;
   const overdueCount = rfis.filter((r) => isOverdue(r.dueDate) && r.status !== "closed" && r.status !== "answered").length;
@@ -690,16 +684,14 @@ export default function AllRFIsScreen() {
             <View style={styles.emptyContainer}>
               <Feather name="alert-circle" size={40} color={colors.border} />
               <Text style={[styles.emptyText, { color: colors.foreground }]}>
-                {search || selectedProject !== null || statusFilter !== "all"
-                  ? "No RFIs match your filters"
-                  : "No RFIs yet"}
+                {hasActiveFilter ? "No RFIs match your filters" : "No RFIs yet"}
               </Text>
               <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
-                {search || selectedProject !== null || statusFilter !== "all"
-                  ? "Try adjusting your search or filters"
+                {hasActiveFilter
+                  ? "Try adjusting your project, status, or search filter"
                   : "RFIs submitted across all projects will appear here"}
               </Text>
-              {!search && selectedProject === null && statusFilter === "all" && (
+              {!hasActiveFilter && (
                 <TouchableOpacity
                   style={[styles.emptyNewBtn, { backgroundColor: colors.primary }]}
                   onPress={() => setShowNewRFI(true)}
