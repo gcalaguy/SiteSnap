@@ -359,7 +359,7 @@ router.post(
     }
     const updated = updatedRows[0];
     const companyName = await getCompanyName(updated.companyId);
-    res.json(publicQuotePayload(updated as unknown as Record<string, unknown>, companyName));
+    res.json(await publicQuotePayload(updated as unknown as Record<string, unknown>, companyName));
   }),
 );
 
@@ -432,7 +432,7 @@ router.post(
     }
     const updated = updatedRows[0];
     const companyName = await getCompanyName(updated.companyId);
-    res.json(publicInvoicePayload(updated as unknown as Record<string, unknown>, companyName));
+    res.json(await publicInvoicePayload(updated as unknown as Record<string, unknown>, companyName));
 
     // Send confirmation emails (fire-and-forget; errors are logged, not surfaced to client)
     sendInvoiceSignedEmails(

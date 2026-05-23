@@ -1,14 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import multer from "multer";
 import { openai, speechToText, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { searchWeb, formatSearchContext, webSearchEnabled } from "../lib/webSearch.js";
 import { canSearchWeb, recordWebSearch } from "../lib/webSearchRateLimiter.js";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
-
-const voiceUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -418,40 +415,23 @@ const TranscribeInput = z.strictObject({
   format: z.string().max(10).optional().default("webm"),
 });
 
-// Accepts EITHER:
-//   - multipart/form-data with a "file" field  (mobile — Expo Go FormData pattern)
-//   - application/json with { audio: base64, format }  (web dashboard legacy)
-router.post(
-  "/ai/transcribe",
-  requireAuth,
-  requireAiQuota,
-  voiceUpload.single("file"),
-  async (req, res) => {
-    try {
-      let raw: Buffer;
-
-      if (req.file) {
-        // Multipart path — buffer already in memory courtesy of multer
-        raw = req.file.buffer;
-      } else {
-        // JSON base64 path — used by the web dashboard
-        const parsed = TranscribeInput.safeParse(req.body);
-        if (!parsed.success) {
-          res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
-          return;
-        }
-        raw = Buffer.from(parsed.data.audio, "base64");
-      }
-
-      const { buffer, format } = await ensureCompatibleFormat(raw);
-      const text = await speechToText(buffer, format);
-      res.json({ text });
-    } catch (err: unknown) {
-      req.log?.error({ err }, "Transcription failed");
-      res.status(500).json({ error: "Transcription failed" });
-    }
+router.post("/ai/transcribe", requireAuth, requireAiQuota, async (req, res) => {
+  const parsed = TranscribeInput.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
+    return;
   }
-);
+
+  try {
+    const raw = Buffer.from(parsed.data.audio, "base64");
+    const { buffer, format } = await ensureCompatibleFormat(raw);
+    const text = await speechToText(buffer, format);
+    res.json({ text });
+  } catch (err: unknown) {
+    req.log?.error({ err }, "Transcription failed");
+    res.status(500).json({ error: "Transcription failed" });
+  }
+});
 
 // ── POST /api/help/chat — Site Snap in-app help assistant ───────────────────
 const HELP_SYSTEM_PROMPT = `You are the Site Snap Help Assistant — a friendly, concise support agent who helps users understand and use the Site Snap construction management platform.
@@ -775,15 +755,12 @@ Intent types and their required fields:
 - CREATE_RFI: { "intent": "CREATE_RFI", "subject": string, "project": string|null }
 - MATERIAL_ALERT: { "intent": "MATERIAL_ALERT", "item": string, "project": string|null }
 - NAVIGATE: { "intent": "NAVIGATE", "target": "Calculators"|"Schedule"|"Projects"|"Ask"|"Tasks"|"Invoices"|"Reports" }
-- ASK_ASSISTANT: { "intent": "ASK_ASSISTANT", "question": string }
 - UNKNOWN: { "intent": "UNKNOWN" }
 
 Rules:
 - For ADD_DAILY_LOG with no notes content, use "Update logged via voice" as the notes value.
 - If a project name is mentioned, extract it as closely as possible to the known project list. Set to null if uncertain.
 - "I" or "me" as the worker means LOG_OWN_HOURS.
-- If the transcript is a question, knowledge query, building code reference, how-to, what-is, regulatory, safety question, or anything that is not a direct action command, use ASK_ASSISTANT and set "question" to the full transcript text.
-- Only use UNKNOWN if the transcript is completely unintelligible or too ambiguous to classify at all.
 - If no intent can be confidently determined, return UNKNOWN.
 
 Transcript: "${transcript}"`;
@@ -812,7 +789,6 @@ Transcript: "${transcript}"`;
           subject: z.string().optional(),
           item: z.string().optional(),
           target: z.string().optional(),
-          question: z.string().optional(),
         });
         const validated = VoiceClassifyOutputSchema.safeParse(raw);
         res.json(validated.success ? validated.data : { intent: "UNKNOWN" });

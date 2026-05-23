@@ -36,6 +36,17 @@ interface PublicQuote {
   terms?: string | null;
 }
 
+const safeDateFmt = (value: string | Date | null | undefined, pattern: string): string => {
+  if (!value) return "";
+  try {
+    const d = typeof value === "string" ? new Date(value) : value;
+    if (isNaN(d.getTime())) return "";
+    return format(d, pattern);
+  } catch {
+    return "";
+  }
+};
+
 const fmtCAD = (v: string | number) =>
   new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 
@@ -163,8 +174,9 @@ export default function PublicQuotePage() {
               <span className="text-2xl font-bold text-primary">{fmtCAD(quote.total)}</span>
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              For {quote.clientName} · Issued {format(new Date(quote.createdAt), "MMMM d, yyyy")}
-              {quote.validUntil ? ` · Valid until ${format(new Date(quote.validUntil), "MMM d, yyyy")}` : ""}
+              For {quote.clientName}
+              {quote.createdAt ? ` · Issued ${safeDateFmt(quote.createdAt, "MMMM d, yyyy")}` : ""}
+              {quote.validUntil ? ` · Valid until ${safeDateFmt(quote.validUntil, "MMM d, yyyy")}` : ""}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
