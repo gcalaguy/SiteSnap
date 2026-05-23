@@ -99,6 +99,13 @@
       "when": 1779540000,
       "tag": "0013_trade_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1748044800000,
+      "tag": "0014_email_config_columns",
+      "breakpoints": true
     }
   ]
 }

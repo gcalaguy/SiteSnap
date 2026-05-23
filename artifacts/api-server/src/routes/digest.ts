@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
-import { requireAuth, requireCompany } from "../lib/auth.js";
+import { requireAuth, requireCompany, requireOwner } from "../lib/auth.js";
 import { buildDigest } from "../lib/digest.js";
 import { buildDigestHtml } from "../lib/digestTemplate.js";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
@@ -88,7 +88,7 @@ router.get("/settings/email-config", requireAuth, requireCompany, async (req, re
   res.json(buildEmailConfigResponse(company));
 });
 
-router.patch("/settings/email-config", requireAuth, requireCompany, async (req, res) => {
+router.patch("/settings/email-config", requireAuth, requireCompany, requireOwner, async (req, res) => {
   const companyId = (req as any).companyId as number;
   const { fromEmail, resendApiKey } = req.body as { fromEmail?: string | null; resendApiKey?: string | null };
 

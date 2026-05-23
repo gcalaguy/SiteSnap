@@ -2,7 +2,6 @@ import React from "react";
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -12,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -268,7 +268,7 @@ export default function SettingsScreen() {
     setQbConnecting(true);
     try {
       const result = await getQuickBooksAuthUrl();
-      await Linking.openURL(result.url);
+      await WebBrowser.openBrowserAsync(result.url);
     } catch {
       Alert.alert("Connection Failed", "Could not fetch the QuickBooks authorization URL. Please try again.");
     } finally {
