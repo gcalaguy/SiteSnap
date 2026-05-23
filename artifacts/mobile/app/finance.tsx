@@ -20,7 +20,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes, useListChangeOrders } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { getAiErrorMessage } from "@/src/utils/aiError";
@@ -139,11 +139,6 @@ export default function FinanceScreen() {
   const [invRefreshing, setInvRefreshing] = useState(false);
   const [qRefreshing, setQRefreshing] = useState(false);
 
-  // Change orders state
-  const [changeOrders, setChangeOrders] = useState<any[]>([]);
-  const [coLoading, setCoLoading] = useState(false);
-  const [coRefreshing, setCoRefreshing] = useState(false);
-  const [coUpdatedAt, setCoUpdatedAt] = useState<number | null>(null);
   const [sigCOId, setSigCOId] = useState<number | null>(null);
 
   const createInvoice = useMutation({
@@ -157,10 +152,11 @@ export default function FinanceScreen() {
 
   const { data: invoices, isLoading: invLoading, isError: invError, error: invErrorObj, refetch: refetchInv, dataUpdatedAt: invUpdatedAt } = useListAllInvoices({});
   const { data: quotes, isLoading: qLoading, isError: qError, error: qErrorObj, refetch: refetchQ, dataUpdatedAt: qUpdatedAt } = useListAllQuotes({});
+  const { data: changeOrders, isLoading: coLoading, isRefetching: coRefreshing, refetch: refetchCO, dataUpdatedAt: coDataUpdatedAt } = useListChangeOrders();
 
   const invRelativeTime = useRelativeTime(invUpdatedAt || null);
   const qRelativeTime = useRelativeTime(qUpdatedAt || null);
-  const coRelativeTime = useRelativeTime(coUpdatedAt);
+  const coRelativeTime = useRelativeTime(coDataUpdatedAt || null);
 
   // Debug: log quote fetch errors to help diagnose empty-list issues
   React.useEffect(() => {
@@ -195,36 +191,13 @@ export default function FinanceScreen() {
     }
   }, [refetchQ]);
 
-  // Load change orders
-  // silent=true skips the loading/refreshing spinners (used for background focus refetch)
-  const loadChangeOrders = useCallback(async (isRefresh = false, silent = false) => {
-    if (isRefresh) {
-      setCoRefreshing(true);
-    } else if (!silent) {
-      setCoLoading(true);
-    }
-    try {
-      const data = await customFetch("/api/change-orders") as any[];
-      setChangeOrders(data ?? []);
-      setCoUpdatedAt(Date.now());
-    } catch { /* ignore */ }
-    finally {
-      setCoLoading(false);
-      setCoRefreshing(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (tab === "change-orders") loadChangeOrders();
-  }, [tab, loadChangeOrders]);
-
   // Silently refetch all three data sources whenever the screen comes into focus
   useFocusEffect(
     useCallback(() => {
       refetchInv();
       refetchQ();
-      loadChangeOrders(false, true);
-    }, [refetchInv, refetchQ, loadChangeOrders]),
+      refetchCO();
+    }, [refetchInv, refetchQ, refetchCO]),
   );
 
   async function saveSignature(coId: number, base64: string) {
@@ -234,7 +207,7 @@ export default function FinanceScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientSignatureData: base64, signedAt: new Date().toISOString() }),
       });
-      setChangeOrders((prev) => prev.map((co) => co.id === coId ? { ...co, clientSignatureData: base64, signedAt: new Date().toISOString() } : co));
+      await refetchCO();
       Alert.alert("Signature saved");
     } catch {
       Alert.alert("Failed to save signature");
@@ -406,13 +379,13 @@ export default function FinanceScreen() {
           <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
         ) : (
           <FlatList
-            data={changeOrders}
+            data={changeOrders ?? []}
             keyExtractor={(item) => String(item.id)}
             contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
             ListEmptyComponent={
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No change orders yet</Text>
             }
-            refreshControl={<RefreshControl refreshing={coRefreshing} onRefresh={() => loadChangeOrders(true)} tintColor={colors.primary} />}
+            refreshControl={<RefreshControl refreshing={coRefreshing} onRefresh={() => refetchCO()} tintColor={colors.primary} />}
             renderItem={({ item }: { item: any }) => {
               const statusColor = item.status === "approved" ? "#22C55E" : item.status === "rejected" ? "#EF4444" : "#F59E0B";
               const statusLabel = item.status === "approved" ? "Approved" : item.status === "rejected" ? "Rejected" : "Pending";
