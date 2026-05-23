@@ -212,6 +212,7 @@ import type {
   UpdateBuilderEstimateBody,
   UpdateChangeOrderBody,
   UpdateDailyLogBody,
+  UpdateEmailConfig,
   UpdateFormSubmissionStatusBody,
   UpdateInvitationBody,
   UpdateInvoiceBody,
@@ -6202,6 +6203,92 @@ export function useGetEmailConfig<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update the outbound email configuration
+ */
+export const getUpdateEmailConfigUrl = () => {
+  return `/api/settings/email-config`;
+};
+
+export const updateEmailConfig = async (
+  updateEmailConfig: UpdateEmailConfig,
+  options?: RequestInit,
+): Promise<EmailConfig> => {
+  return customFetch<EmailConfig>(getUpdateEmailConfigUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateEmailConfig),
+  });
+};
+
+export const getUpdateEmailConfigMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmailConfig>>,
+    TError,
+    { data: BodyType<UpdateEmailConfig> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEmailConfig>>,
+  TError,
+  { data: BodyType<UpdateEmailConfig> },
+  TContext
+> => {
+  const mutationKey = ["updateEmailConfig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEmailConfig>>,
+    { data: BodyType<UpdateEmailConfig> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateEmailConfig(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEmailConfigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEmailConfig>>
+>;
+export type UpdateEmailConfigMutationBody = BodyType<UpdateEmailConfig>;
+export type UpdateEmailConfigMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update the outbound email configuration
+ */
+export const useUpdateEmailConfig = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmailConfig>>,
+    TError,
+    { data: BodyType<UpdateEmailConfig> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEmailConfig>>,
+  TError,
+  { data: BodyType<UpdateEmailConfig> },
+  TContext
+> => {
+  return useMutation(getUpdateEmailConfigMutationOptions(options));
+};
 
 /**
  * @summary Get QuickBooks connection status for the current company

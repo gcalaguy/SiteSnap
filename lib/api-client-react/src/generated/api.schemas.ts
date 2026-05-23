@@ -2678,6 +2678,11 @@ export interface EmailConfig {
   resendKeySet: boolean;
 }
 
+export interface UpdateEmailConfig {
+  fromEmail?: string | null;
+  resendApiKey?: string | null;
+}
+
 export interface QuickBooksConnection {
   realmId: string;
   environment: string;

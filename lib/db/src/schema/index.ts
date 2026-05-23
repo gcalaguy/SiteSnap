@@ -78,6 +78,8 @@ export const companiesTable = pgTable("companies", {
   invoiceStartNumber: integer("invoice_start_number").default(1),
   defaultQuoteTerms: text("default_quote_terms"),
   defaultInvoiceNotes: text("default_invoice_notes"),
+  digestFromEmail: text("digest_from_email"),
+  resendApiKey: text("resend_api_key"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

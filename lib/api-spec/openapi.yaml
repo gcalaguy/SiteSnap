@@ -1411,6 +1411,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmailConfig"
+    patch:
+      operationId: updateEmailConfig
+      tags: [settings]
+      summary: Update the outbound email configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmailConfig"
+      responses:
+        "200":
+          description: Updated email configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailConfig"
 
   # ── QuickBooks ────────────────────────────────────────────────────────────────
   /quickbooks/status:
@@ -8803,6 +8820,16 @@ components:
           type: boolean
         resendKeySet:
           type: boolean
+
+    UpdateEmailConfig:
+      type: object
+      properties:
+        fromEmail:
+          type: string
+          nullable: true
+        resendApiKey:
+          type: string
+          nullable: true
 
     QuickBooksConnection:
       type: object

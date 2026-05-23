@@ -1,9 +1,11 @@
 import { Router } from "express";
+import { eq } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth.js";
 import { buildDigest } from "../lib/digest.js";
 import { buildDigestHtml } from "../lib/digestTemplate.js";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
 import { sendDigestForAllCompanies } from "../cron.js";
+import { db, companiesTable } from "@workspace/db";
 
 const router = Router();
 
@@ -61,11 +63,56 @@ router.post("/digest/send-now", requireAuth, requireCompany, async (req, res) =>
   }
 });
 
-router.get("/settings/email-config", requireAuth, requireCompany, (req, res) => {
-  const raw = process.env["DIGEST_FROM_EMAIL"] ?? "";
+function buildEmailConfigResponse(company: { digestFromEmail: string | null; resendApiKey: string | null }) {
+  const dbFrom = company.digestFromEmail ?? "";
+  const envFrom = process.env["DIGEST_FROM_EMAIL"] ?? "";
+  const raw = dbFrom || envFrom;
   const isDefault = !raw || raw === "Site Snap <onboarding@resend.dev>";
   const fromEmail = isDefault ? "onboarding@resend.dev (Resend default)" : raw;
-  res.json({ fromEmail, isCustomDomain: !isDefault, resendKeySet: !!process.env["RESEND_API_KEY"] });
+  const resendKeySet = !!(company.resendApiKey || process.env["RESEND_API_KEY"]);
+  return { fromEmail, isCustomDomain: !isDefault, resendKeySet };
+}
+
+router.get("/settings/email-config", requireAuth, requireCompany, async (req, res) => {
+  const companyId = (req as any).companyId as number;
+  const [company] = await db
+    .select({ digestFromEmail: companiesTable.digestFromEmail, resendApiKey: companiesTable.resendApiKey })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, companyId));
+
+  if (!company) {
+    res.status(404).json({ error: "Company not found" });
+    return;
+  }
+
+  res.json(buildEmailConfigResponse(company));
+});
+
+router.patch("/settings/email-config", requireAuth, requireCompany, async (req, res) => {
+  const companyId = (req as any).companyId as number;
+  const { fromEmail, resendApiKey } = req.body as { fromEmail?: string | null; resendApiKey?: string | null };
+
+  const updates: Partial<typeof companiesTable.$inferInsert> = {};
+  if (fromEmail !== undefined) updates.digestFromEmail = fromEmail ?? null;
+  if (resendApiKey !== undefined) updates.resendApiKey = resendApiKey ?? null;
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(companiesTable)
+    .set(updates)
+    .where(eq(companiesTable.id, companyId))
+    .returning({ digestFromEmail: companiesTable.digestFromEmail, resendApiKey: companiesTable.resendApiKey });
+
+  if (!updated) {
+    res.status(404).json({ error: "Company not found" });
+    return;
+  }
+
+  res.json(buildEmailConfigResponse(updated));
 });
 
 export default router;

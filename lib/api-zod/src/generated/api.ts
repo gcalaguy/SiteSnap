@@ -1972,6 +1972,20 @@ export const GetEmailConfigResponse = zod.object({
 });
 
 /**
+ * @summary Update the outbound email configuration
+ */
+export const UpdateEmailConfigBody = zod.object({
+  fromEmail: zod.string().nullish(),
+  resendApiKey: zod.string().nullish(),
+});
+
+export const UpdateEmailConfigResponse = zod.object({
+  fromEmail: zod.string(),
+  isCustomDomain: zod.boolean(),
+  resendKeySet: zod.boolean(),
+});
+
+/**
  * @summary Get QuickBooks connection status for the current company
  */
 export const GetQuickBooksStatusResponse = zod.object({
