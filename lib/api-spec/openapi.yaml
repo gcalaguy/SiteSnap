@@ -2419,6 +2419,13 @@ paths:
           required: true
           schema:
             type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [todo, in_progress, done]
+          description: Filter tasks by status
       responses:
         "200":
           description: Task list

@@ -2619,6 +2619,22 @@ export type MarkNotificationRead200 = {
   ok?: boolean;
 };
 
+export type ListTasksParams = {
+  /**
+   * Filter tasks by status
+   */
+  status?: ListTasksStatus;
+};
+
+export type ListTasksStatus =
+  (typeof ListTasksStatus)[keyof typeof ListTasksStatus];
+
+export const ListTasksStatus = {
+  todo: "todo",
+  in_progress: "in_progress",
+  done: "done",
+} as const;
+
 export type ListScansParams = {
   projectId?: number;
 };

@@ -135,6 +135,7 @@ import type {
   ListSafetySignoffsParams,
   ListScansParams,
   ListSitePhotosParams,
+  ListTasksParams,
   ListTimesheetsParams,
   ListTradeReviewsParams,
   ListTradehubFeedParams,
@@ -10881,22 +10882,44 @@ export const useMarkNotificationRead = <
 /**
  * @summary List all tasks for a project
  */
-export const getListTasksUrl = (projectId: number) => {
-  return `/api/projects/${projectId}/tasks`;
+export const getListTasksUrl = (
+  projectId: number,
+  params?: ListTasksParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/projects/${projectId}/tasks?${stringifiedParams}`
+    : `/api/projects/${projectId}/tasks`;
 };
 
 export const listTasks = async (
   projectId: number,
+  params?: ListTasksParams,
   options?: RequestInit,
 ): Promise<Task[]> => {
-  return customFetch<Task[]>(getListTasksUrl(projectId), {
+  return customFetch<Task[]>(getListTasksUrl(projectId, params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListTasksQueryKey = (projectId: number) => {
-  return [`/api/projects/${projectId}/tasks`] as const;
+export const getListTasksQueryKey = (
+  projectId: number,
+  params?: ListTasksParams,
+) => {
+  return [
+    `/api/projects/${projectId}/tasks`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getListTasksQueryOptions = <
@@ -10904,6 +10927,7 @@ export const getListTasksQueryOptions = <
   TError = ErrorType<unknown>,
 >(
   projectId: number,
+  params?: ListTasksParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listTasks>>,
@@ -10915,11 +10939,12 @@ export const getListTasksQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListTasksQueryKey(projectId);
+  const queryKey =
+    queryOptions?.queryKey ?? getListTasksQueryKey(projectId, params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listTasks>>> = ({
     signal,
-  }) => listTasks(projectId, { signal, ...requestOptions });
+  }) => listTasks(projectId, params, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -10945,6 +10970,7 @@ export function useListTasks<
   TError = ErrorType<unknown>,
 >(
   projectId: number,
+  params?: ListTasksParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listTasks>>,
@@ -10954,7 +10980,7 @@ export function useListTasks<
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListTasksQueryOptions(projectId, options);
+  const queryOptions = getListTasksQueryOptions(projectId, params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -3147,6 +3147,13 @@ export const ListTasksParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const ListTasksQueryParams = zod.object({
+  status: zod
+    .enum(["todo", "in_progress", "done"])
+    .optional()
+    .describe("Filter tasks by status"),
+});
+
 export const ListTasksResponseItem = zod.object({
   id: zod.number(),
   projectId: zod.number(),

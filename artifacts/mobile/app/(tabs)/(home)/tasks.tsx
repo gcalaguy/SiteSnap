@@ -29,12 +29,20 @@ type Task = {
 };
 
 type FilterMode = "all" | "mine";
+type StatusFilter = "all" | "todo" | "in_progress" | "done";
 
 const PRIORITY_CONFIG = {
   high: { color: "#EF4444", label: "High" },
   medium: { color: "#F59E0B", label: "Medium" },
   low: { color: "#6B7280", label: "Low" },
 };
+
+const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "todo", label: "To Do" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "done", label: "Done" },
+];
 
 function FilterToggle({
   mode,
@@ -84,6 +92,47 @@ function FilterToggle({
         );
       })}
     </View>
+  );
+}
+
+function StatusFilterPills({
+  value,
+  onChange,
+}: {
+  value: StatusFilter;
+  onChange: (v: StatusFilter) => void;
+}) {
+  const colors = useColors();
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+      <View style={[styles.filterRow, { marginBottom: 0 }]}>
+        {STATUS_FILTER_OPTIONS.map((opt) => {
+          const active = value === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              onPress={() => onChange(opt.value)}
+              style={[
+                styles.filterPill,
+                {
+                  backgroundColor: active ? colors.primary : colors.muted,
+                  borderColor: active ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterPillText,
+                  { color: active ? "#FFFFFF" : colors.mutedForeground },
+                ]}
+              >
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -251,6 +300,7 @@ function WorkerTasksScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const { data: projects } = useListProjects();
   const projectMap: Record<number, string> = {};
@@ -274,9 +324,10 @@ function WorkerTasksScreen() {
   };
 
   const allTasks = tasks ?? [];
-  const inProgress = allTasks.filter((t) => t.status === "in_progress");
-  const todo = allTasks.filter((t) => t.status === "todo");
-  const done = allTasks.filter((t) => t.status === "done");
+  const visible = statusFilter === "all" ? allTasks : allTasks.filter((t) => t.status === statusFilter);
+  const inProgress = visible.filter((t) => t.status === "in_progress");
+  const todo = visible.filter((t) => t.status === "todo");
+  const done = visible.filter((t) => t.status === "done");
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
   return (
@@ -298,16 +349,21 @@ function WorkerTasksScreen() {
             </Text>
           )}
         </View>
+        <StatusFilterPills value={statusFilter} onChange={setStatusFilter} />
       </View>
 
       {isLoading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
-      ) : allTasks.length === 0 ? (
+      ) : visible.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Feather name="check-square" size={40} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.foreground }]}>No tasks assigned to you</Text>
+          <Text style={[styles.emptyText, { color: colors.foreground }]}>
+            {statusFilter !== "all" ? `No ${statusFilter === "todo" ? "to do" : statusFilter === "in_progress" ? "in-progress" : "done"} tasks` : "No tasks assigned to you"}
+          </Text>
           <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
-            When a foreman assigns a task to you, it will appear here.
+            {statusFilter !== "all"
+              ? "Try a different filter above."
+              : "When a foreman assigns a task to you, it will appear here."}
           </Text>
         </View>
       ) : (
@@ -330,16 +386,23 @@ function OwnerTasksScreen() {
   const { data: projects, isLoading: projectsLoading } = useListProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
-  // Use all projects in selector (not just "active")
   const allProjects = projects ?? [];
   const resolvedProjectId = selectedProjectId;
   const projectIds = allProjects.map((p) => p.id);
+
   const { data: tasks, isLoading: tasksLoading, refetch } = useQuery<Task[]>({
-    queryKey: ["tasks", "accessible"],
+    queryKey: ["tasks", "accessible", statusFilter],
     queryFn: async () => {
       const results = await Promise.all(
-        projectIds.map((projectId) => customFetch<Task[]>(`/api/projects/${projectId}/tasks`)),
+        projectIds.map((projectId) => {
+          const url =
+            statusFilter !== "all"
+              ? `/api/projects/${projectId}/tasks?status=${statusFilter}`
+              : `/api/projects/${projectId}/tasks`;
+          return customFetch<Task[]>(url);
+        }),
       );
       return results.flat();
     },
@@ -387,6 +450,7 @@ function OwnerTasksScreen() {
         </View>
 
         <FilterToggle mode={filterMode} onChange={setFilterMode} mineCount={myTasksAll.length} />
+        <StatusFilterPills value={statusFilter} onChange={setStatusFilter} />
 
         {projectsLoading ? (
           <ActivityIndicator color={colors.primary} />
@@ -456,7 +520,13 @@ function OwnerTasksScreen() {
         <View style={styles.emptyContainer}>
           <Feather name={filterMode === "mine" ? "user-check" : "check-square"} size={40} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.foreground }]}>
-            {filterMode === "mine" ? "Nothing assigned to you" : "No tasks for this project"}
+            {filterMode === "mine" && statusFilter !== "all"
+              ? `No ${statusFilter === "todo" ? "to do" : statusFilter === "in_progress" ? "in-progress" : "done"} tasks assigned to you`
+              : filterMode === "mine"
+              ? "Nothing assigned to you"
+              : statusFilter !== "all"
+              ? `No ${statusFilter === "todo" ? "to do" : statusFilter === "in_progress" ? "in-progress" : "done"} tasks`
+              : "No tasks for this project"}
           </Text>
         </View>
       ) : (

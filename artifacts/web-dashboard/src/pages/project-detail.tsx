@@ -213,7 +213,11 @@ function TasksTab({ projectId, selectedWorkerId, members }: {
   members: Member[];
 }) {
   const { toast } = useToast();
-  const { data: allTasks = [], isLoading, dataUpdatedAt } = useListTasks(projectId);
+  const [statusFilter, setStatusFilter] = useState<Task["status"] | "all">("all");
+  const { data: allTasks = [], isLoading, dataUpdatedAt } = useListTasks(
+    projectId,
+    statusFilter !== "all" ? { status: statusFilter } : undefined,
+  );
 
   const [lastUpdatedLabel, setLastUpdatedLabel] = useState<string>("");
 
@@ -350,13 +354,40 @@ function TasksTab({ projectId, selectedWorkerId, members }: {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2 mb-4">
+        {(["all", "todo", "in_progress", "done"] as const).map((s) => {
+          const label =
+            s === "all" ? "All" :
+            s === "todo" ? "To Do" :
+            s === "in_progress" ? "In Progress" : "Done";
+          const active = statusFilter === s;
+          return (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted text-muted-foreground border-border hover:border-foreground/30"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
       {isLoading ? (
         <div className="text-center p-8 text-muted-foreground animate-pulse">Loading tasks...</div>
       ) : tasks.length === 0 ? (
         <div className="text-center p-8 border rounded-md bg-card">
           <CheckSquare className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
           <p className="font-medium">
-            {selectedWorkerId ? `No tasks assigned to ${workerName}` : "No tasks yet"}
+            {selectedWorkerId
+              ? `No tasks assigned to ${workerName}`
+              : statusFilter !== "all"
+              ? `No ${statusFilter === "todo" ? "to do" : statusFilter === "in_progress" ? "in-progress" : "done"} tasks`
+              : "No tasks yet"}
           </p>
           <p className="text-sm text-muted-foreground mt-1">
             {selectedWorkerId
@@ -365,8 +396,8 @@ function TasksTab({ projectId, selectedWorkerId, members }: {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {columns.map((col) => {
+        <div className={statusFilter === "all" ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "space-y-2"}>
+          {(statusFilter === "all" ? columns : columns.filter((c) => c.key === statusFilter)).map((col) => {
             const colTasks = byStatus(col.key);
             return (
               <div key={col.key} className={`rounded-lg border p-3 ${col.color}`}>
