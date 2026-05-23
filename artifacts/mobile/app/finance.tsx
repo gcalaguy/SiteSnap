@@ -407,7 +407,10 @@ export default function FinanceScreen() {
               const statusColor = item.status === "approved" ? "#22C55E" : item.status === "rejected" ? "#EF4444" : "#F59E0B";
               const statusLabel = item.status === "approved" ? "Approved" : item.status === "rejected" ? "Rejected" : "Pending";
               return (
-                <View style={[styles.coCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Pressable
+                  style={({ pressed }) => [styles.coCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+                  onPress={() => router.push(`/change-order/${item.id}`)}
+                >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>
@@ -416,7 +419,10 @@ export default function FinanceScreen() {
                         <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
                       </View>
                     </View>
-                    <Text style={[styles.rowAmount, { color: colors.primary }]}>{fmtCAD(item.amount)}</Text>
+                    <View style={{ alignItems: "flex-end", gap: 4 }}>
+                      <Text style={[styles.rowAmount, { color: colors.primary }]}>{fmtCAD(item.amount)}</Text>
+                      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                    </View>
                   </View>
                   {item.clientSignatureData && (
                     <View style={{ marginTop: 8 }}>
@@ -427,14 +433,14 @@ export default function FinanceScreen() {
                   )}
                   {item.status === "approved" && !item.clientSignatureData && (
                     <Pressable
-                      onPress={() => setSigCOId(item.id)}
+                      onPress={(e) => { e.stopPropagation?.(); setSigCOId(item.id); }}
                       style={[styles.signBtn, { borderColor: colors.primary }]}
                     >
                       <Feather name="edit-3" size={14} color={colors.primary} />
                       <Text style={{ fontSize: 12, color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Collect Signature</Text>
                     </Pressable>
                   )}
-                </View>
+                </Pressable>
               );
             }}
           />
