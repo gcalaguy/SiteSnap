@@ -1134,13 +1134,15 @@ export default function ProjectDetailScreen() {
     Quotes: "viewQuotes",
     Timesheets: "viewTimesheets",
     Schedules: "viewSchedules",
+    Documents: "viewDocuments",
+    Hours: "viewTimesheets",
+    Messages: "viewClientMessages",
+    RFIs: "viewRFIs",
   };
 
   const visibleTabs = TABS.filter((tab) => {
     const key = TAB_PERMISSION_MAP[tab];
     if (key) return perms[key];
-    // Workers never see RFIs (existing behaviour)
-    if (isWorker && tab === "RFIs") return false;
     return true;
   });
 
@@ -1259,8 +1261,8 @@ export default function ProjectDetailScreen() {
       {summary && (
         <View style={styles.statsRow}>
           <StatPill label="Reports" value={String(summary.reportCount ?? 0)} icon="file-text" />
-          {!isWorker && <StatPill label="RFIs" value={String(summary.openRFICount ?? 0)} icon="alert-circle" />}
-          {!isWorker && <StatPill label="Spend" value={formatCurrency(summary.totalSpent)} icon="dollar-sign" />}
+          {perms.viewRFIs && <StatPill label="RFIs" value={String(summary.openRFICount ?? 0)} icon="alert-circle" />}
+          {perms.viewFinancials && <StatPill label="Spend" value={formatCurrency(summary.totalSpent)} icon="dollar-sign" />}
         </View>
       )}
 
@@ -1310,13 +1312,13 @@ export default function ProjectDetailScreen() {
                   <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.openRFICount ?? 0}</Text>
                   <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Open RFIs</Text>
                 </View>
-                {!isWorker && (
+                {perms.viewRFIs && (
                   <View style={[styles.overviewCell, { borderRightColor: colors.border }]}>
                     <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.closedRFICount ?? 0}</Text>
                     <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Closed RFIs</Text>
                   </View>
                 )}
-                {!isWorker && (
+                {perms.viewFinancials && (
                   <View style={styles.overviewCell}>
                     <Text style={[styles.overviewValue, { color: colors.primary }]}>{formatCurrency(summary.totalSpent)}</Text>
                     <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Total Spent</Text>

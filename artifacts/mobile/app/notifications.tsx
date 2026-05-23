@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface AppNotification {
   id: number;
@@ -110,6 +111,8 @@ export default function NotificationsScreen() {
     },
   });
 
+  const perms = usePermissions();
+
   const handlePress = async (item: AppNotification) => {
     if (!item.isRead) {
       await customFetch(`/api/notifications/${item.id}/read`, { method: "PATCH" }).catch(() => {});
@@ -117,7 +120,7 @@ export default function NotificationsScreen() {
       queryClient.invalidateQueries({ queryKey: ["notifications", "unread"] });
     }
     if (item.type === "message") {
-      router.push("/(tabs)/(home)/ask" as any);
+      if (perms.viewAskAI) router.push("/(tabs)/(home)/ask" as any);
     } else if (item.projectId) {
       router.push(`/project/${item.projectId}` as any);
     }

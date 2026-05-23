@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
@@ -81,6 +82,7 @@ export default function ProfileScreen() {
   const setActiveCompany = useSetActiveCompany();
   const [showCompanyPicker, setShowCompanyPicker] = useState(false);
 
+  const perms = usePermissions();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const isWorker = me?.role === "worker";
   const isOwner = me?.role === "owner";
@@ -322,8 +324,8 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Quick Create — owners & foremen only */}
-        {isOwnerOrForeman && (
+        {/* Quick Create — shown if viewFinancials is enabled */}
+        {perms.viewFinancials && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Quick Create</Text>
 

@@ -564,6 +564,7 @@ export default function DashboardScreen() {
   const handleRefresh = () => { refetchSummary(); refetchActivity(); refetchProjects(); refetchRfis(); };
 
   const firstName = me?.firstName ?? "there";
+  const perms = usePermissions();
   const isWorker = me?.role === "worker";
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const allProjects = projects ?? [];
@@ -609,8 +610,8 @@ export default function DashboardScreen() {
         <WeatherWidget />
       </View>
 
-      {/* AI Daily Briefing — owners & foremen only */}
-      {isOwnerOrForeman && <AiBriefingCard colors={colors} />}
+      {/* AI Daily Briefing — shown if viewAskAI is enabled */}
+      {perms.viewAskAI && <AiBriefingCard colors={colors} />}
 
       {/* Quick Actions */}
       <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
@@ -629,19 +630,23 @@ export default function DashboardScreen() {
           icon="folder"
           onPress={() => router.push("/projects")}
         />
-        <SummaryCard
-          title="Reports This Week"
-          value={summaryLoading ? "—" : String(summary?.reportsThisWeek ?? 0)}
-          subtitle="Daily reports submitted"
-          icon="file-text"
-          onPress={() => router.push("/log")}
-        />
-        <RFISummaryCard
-          openCount={rfiOpenCount}
-          overdueCount={rfiOverdueCount}
-          loading={rfiLoading}
-          onPress={() => router.push({ pathname: "/rfis", params: { status: "open" } } as any)}
-        />
+        {perms.viewReports && (
+          <SummaryCard
+            title="Reports This Week"
+            value={summaryLoading ? "—" : String(summary?.reportsThisWeek ?? 0)}
+            subtitle="Daily reports submitted"
+            icon="file-text"
+            onPress={() => router.push("/log")}
+          />
+        )}
+        {perms.viewRFIs && (
+          <RFISummaryCard
+            openCount={rfiOpenCount}
+            overdueCount={rfiOverdueCount}
+            loading={rfiLoading}
+            onPress={() => router.push({ pathname: "/rfis", params: { status: "open" } } as any)}
+          />
+        )}
         {!isWorker && (
           <SummaryCard
             title="Team Members"
@@ -653,8 +658,8 @@ export default function DashboardScreen() {
         )}
       </View>
 
-      {/* Finance Quick Access — owners and foremen only */}
-      {isOwnerOrForeman && (
+      {/* Finance Quick Access — shown if viewFinancials is enabled */}
+      {perms.viewFinancials && (
         <Pressable
           style={({ pressed }) => [
             styles.financeCard,
@@ -674,8 +679,8 @@ export default function DashboardScreen() {
         </Pressable>
       )}
 
-      {/* Voice Estimator — owners and foremen only */}
-      {!isWorker && (
+      {/* Voice Estimator — shown if viewEstimator is enabled */}
+      {perms.viewEstimator && (
         <Pressable
           style={({ pressed }) => [
             styles.voiceEstimateCard,
