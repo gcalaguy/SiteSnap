@@ -352,22 +352,6 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Tools</Text>
           <TouchableOpacity
             style={[styles.featureBanner, { backgroundColor: colors.sidebar }]}
-            onPress={() => router.push("/tradehub")}
-            activeOpacity={0.85}
-          >
-            <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-              <Feather name="globe" size={22} color="#D4AF37" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.featureBannerTitle}>TradeHub</Text>
-              <Text style={styles.featureBannerSub}>Canadian Trades Community</Text>
-            </View>
-            <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
-              <Feather name="arrow-right" size={14} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.featureBanner, { backgroundColor: colors.sidebar, marginTop: 8 }]}
             onPress={() => router.push("/calculators")}
             activeOpacity={0.85}
           >
