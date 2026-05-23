@@ -8,7 +8,7 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
 import { requireAuth, requireCompany } from "../lib/auth";
-import { db, fileAttachmentsTable, projectDocumentsTable, projectsTable } from "@workspace/db";
+import { db, fileAttachmentsTable, projectDocumentsTable, projectsTable, workerDocumentsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -144,6 +144,16 @@ router.get(
           .where(and(eq(projectDocumentsTable.objectPath, objectPath), eq(projectsTable.companyId, req.companyId!)))
           .limit(1);
         isOwner = !!projectDoc;
+      }
+
+      // Also check worker documents vault
+      if (!isOwner) {
+        const [workerDoc] = await db
+          .select({ id: workerDocumentsTable.id })
+          .from(workerDocumentsTable)
+          .where(and(eq(workerDocumentsTable.filePath, objectPath), eq(workerDocumentsTable.companyId, req.companyId!)))
+          .limit(1);
+        isOwner = !!workerDoc;
       }
 
       if (!isOwner) {
