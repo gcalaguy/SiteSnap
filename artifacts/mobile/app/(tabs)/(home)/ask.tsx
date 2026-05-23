@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { withAiRetry } from "@/src/utils/aiRetry";
+import { getAiErrorMessage } from "@/src/utils/aiError";
 import { RetrySnackbar } from "@/components/RetrySnackbar";
 import {
   ActivityIndicator,
@@ -133,6 +134,7 @@ export default function AskScreen() {
   const [loading, setLoading] = useState(false);
   const [aiRetrying, setAiRetrying] = useState(false);
   const [aiWaiting, setAiWaiting] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
@@ -196,6 +198,7 @@ export default function AskScreen() {
       const trimmed = text.trim();
       if (!trimmed || loading) return;
 
+      setChatError(null);
       const userMsg: Message = { id: `${Date.now()}-u`, role: "user", content: trimmed };
       const newHistory = [...messages, userMsg];
       setMessages(newHistory);
@@ -230,15 +233,12 @@ export default function AskScreen() {
         };
         setMessages((prev) => [...prev, assistantMsg]);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
+      } catch (err) {
         setAiRetrying(false);
         setAiWaiting(false);
-        const errMsg: Message = {
-          id: `${Date.now()}-e`,
-          role: "assistant",
-          content: "Something went wrong reaching the server. Please check your connection.",
-        };
-        setMessages((prev) => [...prev, errMsg]);
+        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
+        setInput(trimmed);
+        setChatError(getAiErrorMessage(err));
       } finally {
         setLoading(false);
       }
@@ -457,6 +457,23 @@ export default function AskScreen() {
         <View style={[styles.errorBanner, { backgroundColor: "rgba(239,68,68,0.10)" }]}>
           <Feather name="alert-circle" size={13} color="#EF4444" />
           <Text style={styles.errorBannerText}>{transcriptionError}</Text>
+        </View>
+      )}
+
+      {/* Chat send error box with retry */}
+      {chatError && !loading && (
+        <View style={[styles.chatErrorBox, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+          <View style={styles.chatErrorTop}>
+            <Feather name="alert-circle" size={15} color="#EF4444" />
+            <Text style={styles.chatErrorMsg}>{chatError}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => { setChatError(null); sendMessage(input); }}
+            style={[styles.chatRetryBtn, { backgroundColor: colors.primary }]}
+          >
+            <Feather name="refresh-cw" size={13} color="#FFFFFF" />
+            <Text style={styles.chatRetryBtnText}>Tap to retry</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -690,4 +707,16 @@ const styles = StyleSheet.create({
     color: "#EF4444",
     flex: 1,
   },
+  chatErrorBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+    marginHorizontal: 12,
+    marginBottom: 4,
+  },
+  chatErrorTop: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  chatErrorMsg: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C", lineHeight: 19 },
+  chatRetryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 14 },
+  chatRetryBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
 });

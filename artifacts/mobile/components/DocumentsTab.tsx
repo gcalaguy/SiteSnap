@@ -20,6 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { openStorageFile } from "@/utils/openStorageFile";
 import { withAiRetry } from "@/src/utils/aiRetry";
+import { getAiErrorMessage } from "@/src/utils/aiError";
 import { RetrySnackbar } from "@/components/RetrySnackbar";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -369,6 +370,7 @@ function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
   const [loading, setLoading] = useState(false);
   const [aiRetrying, setAiRetrying] = useState(false);
   const [aiWaiting, setAiWaiting] = useState(false);
+  const [qaError, setQaError] = useState<string | null>(null);
   const [ragActive, setRagActive] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -379,6 +381,7 @@ function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
   async function ask() {
     const q = input.trim();
     if (!q || loading) return;
+    setQaError(null);
     setInput("");
     setMessages(m => [...m, { role: "user", text: q }]);
     setLoading(true);
@@ -397,9 +400,11 @@ function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
       clearRetry();
       if (data.ragEnabled) setRagActive(true);
       setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations, ragEnabled: data.ragEnabled, hasChunks: data.hasChunks, hasAnalyzedDocsWithNoChunks: data.hasAnalyzedDocsWithNoChunks }]);
-    } catch {
+    } catch (err) {
       clearRetry();
-      setMessages(m => [...m, { role: "assistant", text: "Sorry, Q&A failed. Please try again." }]);
+      setMessages(m => m.slice(0, -1));
+      setInput(q);
+      setQaError(getAiErrorMessage(err));
     } finally {
       setLoading(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
@@ -505,6 +510,22 @@ function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
             )}
           </View>
         </ScrollView>
+      )}
+
+      {qaError && !loading && (
+        <View style={[docStyles.qaErrorBox, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+          <View style={docStyles.qaErrorTop}>
+            <Feather name="alert-circle" size={15} color="#EF4444" />
+            <Text style={docStyles.qaErrorMsg}>{qaError}</Text>
+          </View>
+          <Pressable
+            onPress={() => { setQaError(null); void ask(); }}
+            style={[docStyles.qaRetryBtn, { backgroundColor: colors.primary }]}
+          >
+            <Feather name="refresh-cw" size={13} color="#FFFFFF" />
+            <Text style={docStyles.qaRetryBtnText}>Tap to retry</Text>
+          </Pressable>
+        </View>
       )}
 
       <View>
@@ -1037,4 +1058,9 @@ const docStyles = StyleSheet.create({
   citationText: { fontSize: 10, fontFamily: "Inter_500Medium", maxWidth: 140 },
   starterChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
   starterText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  qaErrorBox: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 10, marginBottom: 6 },
+  qaErrorTop: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  qaErrorMsg: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C", lineHeight: 19 },
+  qaRetryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 14 },
+  qaRetryBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
 });
