@@ -18,7 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import type { DailyReportListItem } from "@workspace/api-client-react";
 
 // ── Date range filter ─────────────────────────────────────────────────────────
@@ -208,11 +208,7 @@ export default function AllReportsScreen() {
   const hasDateFilter = datePreset !== null;
   const hasActiveFilter = selectedProject !== null || hasDateFilter || search.trim().length > 0;
 
-  const onDateChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
-    if (event.type === "dismissed") {
-      setShowDatePicker(false);
-      return;
-    }
+  const onDateChange = useCallback((date?: Date) => {
     if (date) {
       const iso = date.toISOString().split("T")[0];
       if (pickerMode === "from") setCustomFrom(iso);
@@ -390,6 +386,51 @@ export default function AllReportsScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* DateTimePicker — Android inline */}
+        {showDatePicker && Platform.OS === "android" && (
+          <DateTimePicker
+            value={pickerDate}
+            mode="date"
+            display="default"
+            onValueChange={onDateChange}
+            onDismiss={() => setShowDatePicker(false)}
+          />
+        )}
+
+        {/* DateTimePicker — iOS modal */}
+        {Platform.OS === "ios" && (
+          <Modal visible={showDatePicker} transparent animationType="slide" onRequestClose={() => setShowDatePicker(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+                <View style={styles.modalHeader}>
+                  <Pressable onPress={() => setShowDatePicker(false)} hitSlop={8}>
+                    <Text style={[styles.modalCancel, { color: colors.mutedForeground }]}>Cancel</Text>
+                  </Pressable>
+                  <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select Date</Text>
+                  <Pressable
+                    onPress={() => {
+                      const iso = pickerDate.toISOString().split("T")[0];
+                      if (pickerMode === "from") setCustomFrom(iso);
+                      else setCustomTo(iso);
+                      setShowDatePicker(false);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Text style={[styles.modalDone, { color: colors.primary }]}>Done</Text>
+                  </Pressable>
+                </View>
+                <DateTimePicker
+                  value={pickerDate}
+                  mode="date"
+                  display="spinner"
+                  onValueChange={(event, date) => date && setPickerDate(date)}
+                  style={{ width: "100%" }}
+                />
+              </View>
+            </View>
+          </Modal>
+        )}
       </View>
 
       {updatedLabel ? (
@@ -489,8 +530,8 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8,
   },
   dateInput: {
-    flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7,
-    fontSize: 12, fontFamily: "Inter_400Regular",
+    flex: 1, flexDirection: "row", alignItems: "center", gap: 8,
+    borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9,
   },
   dateSep: { fontSize: 14, fontFamily: "Inter_400Regular" },
   activeDateChip: {
@@ -499,4 +540,14 @@ const styles = StyleSheet.create({
     borderRadius: 20, borderWidth: 1,
   },
   activeDateChipText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "#00000066" },
+  modalSheet: { borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 20 },
+  modalHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB",
+  },
+  modalCancel: { fontSize: 15, fontFamily: "Inter_400Regular" },
+  modalTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  modalDone: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });
