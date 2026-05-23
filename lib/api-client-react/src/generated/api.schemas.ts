@@ -662,7 +662,10 @@ export const CreateTaskBodyPriority = {
 } as const;
 
 export interface CreateTaskBody {
-  /** @maxLength 200 */
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
   title: string;
   /** @maxLength 2000 */
   description?: string;
@@ -690,7 +693,10 @@ export const UpdateTaskBodyPriority = {
 } as const;
 
 export interface UpdateTaskBody {
-  /** @maxLength 200 */
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
   title?: string;
   /** @maxLength 2000 */
   description?: string;
@@ -821,13 +827,54 @@ export interface ProjectDocument {
 }
 
 export interface RegisterDocumentBody {
-  /** @maxLength 500 */
+  /**
+   * @minLength 1
+   * @maxLength 500
+   */
   filename: string;
-  /** @maxLength 100 */
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
   fileType: string;
-  /** @maxLength 1000 */
+  /**
+   * @minLength 1
+   * @maxLength 1000
+   */
   objectPath: string;
   fileSize?: number;
+}
+
+export interface SearchDocumentsBody {
+  /**
+   * @minLength 2
+   * @maxLength 1000
+   */
+  query: string;
+}
+
+export type QAHistoryItemRole =
+  (typeof QAHistoryItemRole)[keyof typeof QAHistoryItemRole];
+
+export const QAHistoryItemRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface QAHistoryItem {
+  role: QAHistoryItemRole;
+  /** @maxLength 4000 */
+  text: string;
+}
+
+export interface QADocumentsBody {
+  /**
+   * @minLength 3
+   * @maxLength 2000
+   */
+  question: string;
+  /** @maxItems 20 */
+  history?: QAHistoryItem[];
 }
 
 export interface QuoteLineItem {
@@ -885,9 +932,15 @@ export interface Quote {
 }
 
 export interface CreateQuoteBody {
-  /** @maxLength 300 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   title: string;
-  /** @maxLength 300 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   clientName: string;
   /** @maxLength 300 */
   clientEmail?: string | null;
@@ -911,9 +964,15 @@ export interface CreateQuoteBody {
 }
 
 export interface UpdateQuoteBody {
-  /** @maxLength 300 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   title?: string;
-  /** @maxLength 300 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   clientName?: string;
   /** @maxLength 300 */
   clientEmail?: string | null;
@@ -1006,16 +1065,24 @@ export interface Timesheet {
 export interface ApproveTimesheetBody {
   /**
    * Base64-encoded data URL (PNG) of the approver's signature
+   * @minLength 50
    * @maxLength 2000000
    */
   signatureData: string;
-  /** @maxLength 120 */
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
   signerName?: string | null;
   /** @maxLength 1000 */
   notes?: string | null;
 }
 
 export interface SubmitTimesheetBody {
+  /**
+   * Date string in YYYY-MM-DD format
+   * @pattern ^\d{4}-\d{2}-\d{2}$
+   */
   weekStart: string;
   totalHours: number;
   hourlyRate?: number | null;
@@ -1090,7 +1157,10 @@ export const CreateFormBodyCategory = {
 export type CreateFormBodySchema = { [key: string]: unknown };
 
 export interface CreateFormBody {
-  /** @maxLength 200 */
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
   name: string;
   category: CreateFormBodyCategory;
   schema: CreateFormBodySchema;
@@ -1524,7 +1594,10 @@ export const CreateLeadBodyStage = {
 
 export interface CreateLeadBody {
   contactId: number;
-  /** @maxLength 300 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   title: string;
   source?: CreateLeadBodySource;
   estimatedValue?: number | null;
@@ -1559,7 +1632,10 @@ export const UpdateLeadBodyStage = {
 
 export interface UpdateLeadBody {
   contactId?: number;
-  /** @maxLength 300 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   title?: string;
   source?: UpdateLeadBodySource;
   estimatedValue?: number | null;
@@ -1569,11 +1645,20 @@ export interface UpdateLeadBody {
 }
 
 export interface ConvertLeadBody {
-  /** @maxLength 500 */
+  /**
+   * @minLength 1
+   * @maxLength 500
+   */
   address: string;
-  /** @maxLength 100 */
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
   city: string;
-  /** @maxLength 100 */
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
   province: string;
 }
 
@@ -1640,7 +1725,10 @@ export const CreateContactBodyComplianceStatus = {
 } as const;
 
 export interface CreateContactBody {
-  /** @maxLength 200 */
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
   name: string;
   /** @maxLength 200 */
   company?: string | null;
@@ -1820,9 +1908,15 @@ export interface CostModelsResponse {
 }
 
 export interface CreateInvoiceBody {
-  /** @maxLength 300 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   title: string;
-  /** @maxLength 300 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   clientName: string;
   /** @maxLength 300 */
   clientEmail?: string | null;
@@ -1834,9 +1928,15 @@ export interface CreateInvoiceBody {
 }
 
 export interface UpdateInvoiceBody {
-  /** @maxLength 300 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   title?: string;
-  /** @maxLength 300 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   clientName?: string;
   /** @maxLength 300 */
   clientEmail?: string | null;

@@ -10,16 +10,10 @@ import { ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
 import { convertPDFPagesToImages } from "../lib/pdfOcr.js";
 import { generateEmbeddings, embeddingsEnabled } from "../lib/embeddingsClient.js";
+import { RegisterDocumentBody } from "@workspace/api-zod";
 
 const router = Router({ mergeParams: true });
 const objectStorageService = new ObjectStorageService();
-
-const RegisterDocumentBody = z.strictObject({
-  filename: z.string().min(1).max(500),
-  fileType: z.string().min(1).max(100),
-  objectPath: z.string().min(1).max(1000),
-  fileSize: z.number().int().positive().optional(),
-});
 
 const SearchDocumentsBody = z.strictObject({
   query: z.string().min(2).max(1000),

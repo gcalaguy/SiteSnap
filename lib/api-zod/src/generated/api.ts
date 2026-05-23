@@ -26,7 +26,7 @@ export const ListFormsResponse = zod.array(ListFormsResponseItem);
 export const createFormBodyNameMax = 200;
 
 export const CreateFormBody = zod.object({
-  name: zod.string().max(createFormBodyNameMax),
+  name: zod.string().min(1).max(createFormBodyNameMax),
   category: zod.enum(["safety", "injury", "hazard", "toolbox"]),
   schema: zod.object({}).passthrough(),
 });
@@ -57,7 +57,7 @@ export const UpdateFormParams = zod.object({
 export const updateFormBodyNameMax = 200;
 
 export const UpdateFormBody = zod.object({
-  name: zod.string().max(updateFormBodyNameMax),
+  name: zod.string().min(1).max(updateFormBodyNameMax),
   category: zod.enum(["safety", "injury", "hazard", "toolbox"]),
   schema: zod.object({}).passthrough(),
 });
@@ -1011,7 +1011,7 @@ export const createLeadBodyNotesMax = 5000;
 
 export const CreateLeadBody = zod.object({
   contactId: zod.number(),
-  title: zod.string().max(createLeadBodyTitleMax),
+  title: zod.string().min(1).max(createLeadBodyTitleMax),
   source: zod
     .enum(["referral", "website", "ads", "social_media", "cold_call", "other"])
     .optional(),
@@ -1094,7 +1094,7 @@ export const updateLeadBodyNotesMax = 5000;
 
 export const UpdateLeadBody = zod.object({
   contactId: zod.number().optional(),
-  title: zod.string().max(updateLeadBodyTitleMax).optional(),
+  title: zod.string().min(1).max(updateLeadBodyTitleMax).optional(),
   source: zod
     .enum(["referral", "website", "ads", "social_media", "cold_call", "other"])
     .optional(),
@@ -1178,9 +1178,9 @@ export const convertLeadBodyCityMax = 100;
 export const convertLeadBodyProvinceMax = 100;
 
 export const ConvertLeadBody = zod.object({
-  address: zod.string().max(convertLeadBodyAddressMax),
-  city: zod.string().max(convertLeadBodyCityMax),
-  province: zod.string().max(convertLeadBodyProvinceMax),
+  address: zod.string().min(1).max(convertLeadBodyAddressMax),
+  city: zod.string().min(1).max(convertLeadBodyCityMax),
+  province: zod.string().min(1).max(convertLeadBodyProvinceMax),
 });
 
 /**
@@ -1264,7 +1264,7 @@ export const createContactBodyEmailMax = 300;
 export const createContactBodyNotesMax = 5000;
 
 export const CreateContactBody = zod.object({
-  name: zod.string().max(createContactBodyNameMax),
+  name: zod.string().min(1).max(createContactBodyNameMax),
   company: zod.string().max(createContactBodyCompanyMax).nullish(),
   phone: zod.string().max(createContactBodyPhoneMax).nullish(),
   email: zod.string().max(createContactBodyEmailMax).nullish(),
@@ -1318,7 +1318,7 @@ export const updateContactBodyEmailMax = 300;
 export const updateContactBodyNotesMax = 5000;
 
 export const UpdateContactBody = zod.object({
-  name: zod.string().max(updateContactBodyNameMax),
+  name: zod.string().min(1).max(updateContactBodyNameMax),
   company: zod.string().max(updateContactBodyCompanyMax).nullish(),
   phone: zod.string().max(updateContactBodyPhoneMax).nullish(),
   email: zod.string().max(updateContactBodyEmailMax).nullish(),
@@ -3412,7 +3412,7 @@ export const createTaskBodyTitleMax = 200;
 export const createTaskBodyDescriptionMax = 2000;
 
 export const CreateTaskBody = zod.object({
-  title: zod.string().max(createTaskBodyTitleMax),
+  title: zod.string().min(1).max(createTaskBodyTitleMax),
   description: zod.string().max(createTaskBodyDescriptionMax).optional(),
   assignedToUserId: zod.number().optional(),
   priority: zod.enum(["low", "medium", "high"]).optional(),
@@ -3432,7 +3432,7 @@ export const updateTaskBodyTitleMax = 200;
 export const updateTaskBodyDescriptionMax = 2000;
 
 export const UpdateTaskBody = zod.object({
-  title: zod.string().max(updateTaskBodyTitleMax).optional(),
+  title: zod.string().min(1).max(updateTaskBodyTitleMax).optional(),
   description: zod.string().max(updateTaskBodyDescriptionMax).optional(),
   assignedToUserId: zod.number().nullish(),
   status: zod.enum(["todo", "in_progress", "done"]).optional(),
@@ -3539,9 +3539,9 @@ export const registerDocumentBodyFileTypeMax = 100;
 export const registerDocumentBodyObjectPathMax = 1000;
 
 export const RegisterDocumentBody = zod.object({
-  filename: zod.string().max(registerDocumentBodyFilenameMax),
-  fileType: zod.string().max(registerDocumentBodyFileTypeMax),
-  objectPath: zod.string().max(registerDocumentBodyObjectPathMax),
+  filename: zod.string().min(1).max(registerDocumentBodyFilenameMax),
+  fileType: zod.string().min(1).max(registerDocumentBodyFileTypeMax),
+  objectPath: zod.string().min(1).max(registerDocumentBodyObjectPathMax),
   fileSize: zod.number().optional(),
 });
 
@@ -3833,8 +3833,8 @@ export const createQuoteBodyLineItemsMax = 100;
 export const createQuoteBodyNotesMax = 5000;
 
 export const CreateQuoteBody = zod.object({
-  title: zod.string().max(createQuoteBodyTitleMax),
-  clientName: zod.string().max(createQuoteBodyClientNameMax),
+  title: zod.string().min(1).max(createQuoteBodyTitleMax),
+  clientName: zod.string().min(1).max(createQuoteBodyClientNameMax),
   clientEmail: zod.string().max(createQuoteBodyClientEmailMax).nullish(),
   clientCompanyName: zod
     .string()
@@ -3958,8 +3958,8 @@ export const updateQuoteBodyLineItemsMax = 100;
 export const updateQuoteBodyNotesMax = 5000;
 
 export const UpdateQuoteBody = zod.object({
-  title: zod.string().max(updateQuoteBodyTitleMax).optional(),
-  clientName: zod.string().max(updateQuoteBodyClientNameMax).optional(),
+  title: zod.string().min(1).max(updateQuoteBodyTitleMax).optional(),
+  clientName: zod.string().min(1).max(updateQuoteBodyClientNameMax).optional(),
   clientEmail: zod.string().max(updateQuoteBodyClientEmailMax).nullish(),
   clientCompanyName: zod
     .string()
@@ -4410,12 +4410,18 @@ export const ListTimesheetsResponse = zod.array(ListTimesheetsResponseItem);
 /**
  * @summary Submit a timesheet for a week
  */
+export const submitTimesheetBodyWeekStartRegExp = new RegExp(
+  "^\\d{4}-\\d{2}-\\d{2}$",
+);
 export const submitTimesheetBodyDescriptionMax = 2000;
 
 export const submitTimesheetBodyNotesMax = 1000;
 
 export const SubmitTimesheetBody = zod.object({
-  weekStart: zod.coerce.date(),
+  weekStart: zod
+    .string()
+    .regex(submitTimesheetBodyWeekStartRegExp)
+    .describe("Date string in YYYY-MM-DD format"),
   totalHours: zod.number(),
   hourlyRate: zod.number().nullish(),
   description: zod.string().max(submitTimesheetBodyDescriptionMax).nullish(),
@@ -4477,6 +4483,7 @@ export const ApproveTimesheetParams = zod.object({
   timesheetId: zod.coerce.number(),
 });
 
+export const approveTimesheetBodySignatureDataMin = 50;
 export const approveTimesheetBodySignatureDataMax = 2000000;
 
 export const approveTimesheetBodySignerNameMax = 120;
@@ -4486,9 +4493,14 @@ export const approveTimesheetBodyNotesMax = 1000;
 export const ApproveTimesheetBody = zod.object({
   signatureData: zod
     .string()
+    .min(approveTimesheetBodySignatureDataMin)
     .max(approveTimesheetBodySignatureDataMax)
     .describe("Base64-encoded data URL (PNG) of the approver's signature"),
-  signerName: zod.string().max(approveTimesheetBodySignerNameMax).nullish(),
+  signerName: zod
+    .string()
+    .min(1)
+    .max(approveTimesheetBodySignerNameMax)
+    .nullish(),
   notes: zod.string().max(approveTimesheetBodyNotesMax).nullish(),
 });
 
@@ -4717,8 +4729,8 @@ export const createInvoiceBodyLineItemsMax = 100;
 export const createInvoiceBodyNotesMax = 5000;
 
 export const CreateInvoiceBody = zod.object({
-  title: zod.string().max(createInvoiceBodyTitleMax),
-  clientName: zod.string().max(createInvoiceBodyClientNameMax),
+  title: zod.string().min(1).max(createInvoiceBodyTitleMax),
+  clientName: zod.string().min(1).max(createInvoiceBodyClientNameMax),
   clientEmail: zod.string().max(createInvoiceBodyClientEmailMax).nullish(),
   lineItems: zod
     .array(
@@ -4811,8 +4823,12 @@ export const updateInvoiceBodyLineItemsMax = 100;
 export const updateInvoiceBodyNotesMax = 5000;
 
 export const UpdateInvoiceBody = zod.object({
-  title: zod.string().max(updateInvoiceBodyTitleMax).optional(),
-  clientName: zod.string().max(updateInvoiceBodyClientNameMax).optional(),
+  title: zod.string().min(1).max(updateInvoiceBodyTitleMax).optional(),
+  clientName: zod
+    .string()
+    .min(1)
+    .max(updateInvoiceBodyClientNameMax)
+    .optional(),
   clientEmail: zod.string().max(updateInvoiceBodyClientEmailMax).nullish(),
   lineItems: zod
     .array(

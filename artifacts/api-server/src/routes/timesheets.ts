@@ -7,6 +7,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { getClientInfo } from "../lib/clientInfo";
 import { z } from "zod";
+import { ApproveTimesheetBody } from "@workspace/api-zod";
 
 const router = Router();
 
@@ -21,15 +22,6 @@ const SubmitTimesheetBody = z.object({
 
 const ReviewBody = z.object({
   notes: z.string().max(1000).optional(),
-});
-
-const ApproveBody = z.object({
-  notes: z.string().max(1000).optional(),
-  signatureData: z
-    .string()
-    .min(50, "signatureData (data URL) is required")
-    .max(2_000_000, "signature too large"),
-  signerName: z.string().min(1).max(120).optional(),
 });
 
 async function withReviewer(timesheet: Record<string, unknown>, reviewedByUserId: number | null) {
@@ -161,7 +153,7 @@ router.get("/timesheets/:timesheetId", requireAuth, requireCompany, requirePermi
 // POST /timesheets/:timesheetId/approve
 router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   const id = parseInt(req.params.timesheetId as string);
-  const parsed = ApproveBody.safeParse(req.body);
+  const parsed = ApproveTimesheetBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "A signature is required to approve a timesheet", details: parsed.error.flatten() });
     return;

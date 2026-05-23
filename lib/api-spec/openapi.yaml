@@ -5946,6 +5946,7 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
           maxLength: 200
         description:
           type: string
@@ -5964,6 +5965,7 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
           maxLength: 200
         description:
           type: string
@@ -6180,15 +6182,52 @@ components:
       properties:
         filename:
           type: string
+          minLength: 1
           maxLength: 500
         fileType:
           type: string
+          minLength: 1
           maxLength: 100
         objectPath:
           type: string
+          minLength: 1
           maxLength: 1000
         fileSize:
           type: integer
+
+    SearchDocumentsBody:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 2
+          maxLength: 1000
+
+    QAHistoryItem:
+      type: object
+      required: [role, text]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        text:
+          type: string
+          maxLength: 4000
+
+    QADocumentsBody:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+          minLength: 3
+          maxLength: 2000
+        history:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/QAHistoryItem"
 
     # ── Quotes ──────────────────────────────────────────────────────────────────
 
@@ -6308,9 +6347,11 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
           maxLength: 300
         clientName:
           type: string
+          minLength: 1
           maxLength: 300
         clientEmail:
           type: string
@@ -6359,9 +6400,11 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
           maxLength: 300
         clientName:
           type: string
+          minLength: 1
           maxLength: 300
         clientEmail:
           type: string
@@ -6537,10 +6580,12 @@ components:
       properties:
         signatureData:
           type: string
+          minLength: 50
           maxLength: 2000000
           description: Base64-encoded data URL (PNG) of the approver's signature
         signerName:
           type: string
+          minLength: 1
           maxLength: 120
           nullable: true
         notes:
@@ -6554,7 +6599,8 @@ components:
       properties:
         weekStart:
           type: string
-          format: date
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Date string in YYYY-MM-DD format
         totalHours:
           type: number
         hourlyRate:
@@ -6678,6 +6724,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 200
         category:
           type: string
@@ -7268,6 +7315,7 @@ components:
           type: integer
         title:
           type: string
+          minLength: 1
           maxLength: 300
         source:
           type: string
@@ -7290,6 +7338,7 @@ components:
           type: integer
         title:
           type: string
+          minLength: 1
           maxLength: 300
         source:
           type: string
@@ -7311,12 +7360,15 @@ components:
       properties:
         address:
           type: string
+          minLength: 1
           maxLength: 500
         city:
           type: string
+          minLength: 1
           maxLength: 100
         province:
           type: string
+          minLength: 1
           maxLength: 100
 
     LeadActivity:
@@ -7409,6 +7461,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
           maxLength: 200
         company:
           type: string
@@ -7633,9 +7686,11 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
           maxLength: 300
         clientName:
           type: string
+          minLength: 1
           maxLength: 300
         clientEmail:
           type: string
@@ -7660,9 +7715,11 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
           maxLength: 300
         clientName:
           type: string
+          minLength: 1
           maxLength: 300
         clientEmail:
           type: string
