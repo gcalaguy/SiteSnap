@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { FileText, Search, ExternalLink, Users, Cloud, X } from "lucide-react";
+import { FileText, Search, ExternalLink, User, Cloud, X } from "lucide-react";
 import { useState } from "react";
 
 export default function ReportsPage() {
@@ -151,8 +151,8 @@ export default function ReportsPage() {
                         </span>
                       )}
                       <span className="flex items-center gap-1 text-xs text-[#121212]/60 font-medium">
-                        <Users className="h-3.5 w-3.5" style={{ color: "#D4AF37" }} />
-                        {report.crewCount} crew
+                        <User className="h-3.5 w-3.5" style={{ color: "#D4AF37" }} />
+                        {report.submittedByName}
                       </span>
                     </div>
                     <p className="text-sm text-[#121212]/80 line-clamp-2">{report.workPerformed}</p>

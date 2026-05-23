@@ -1140,7 +1140,12 @@ export default function ProjectDetail() {
                       <div className="flex justify-between items-start mb-2">
                         <span className="font-bold text-lg">{format(new Date(report.reportDate), "MMM d, yyyy")}</span>
                         <div className="flex items-center gap-2">
-                          {report.crewCount != null && <Badge variant="outline">Crew: {report.crewCount}</Badge>}
+                          {report.submittedBy && (
+                            <Badge variant="outline" className="gap-1">
+                              <User className="h-3 w-3" />
+                              {report.submittedBy.firstName} {report.submittedBy.lastName}
+                            </Badge>
+                          )}
                           {photos.length > 0 && (
                             <Badge variant="secondary" className="gap-1">
                               <span>📷</span> {photos.length}

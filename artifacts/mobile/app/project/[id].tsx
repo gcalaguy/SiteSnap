@@ -138,11 +138,11 @@ function ReportRow({ report }: { report: any }) {
 
         {/* Meta row */}
         <View style={styles.reportMetaRow}>
-          {report.crewCount != null && (
+          {submittedBy && (
             <View style={styles.reportMetaChip}>
-              <Feather name="users" size={11} color={colors.mutedForeground} />
-              <Text style={[styles.reportSub, { color: colors.mutedForeground }]}>
-                {report.crewCount}
+              <Feather name="user" size={11} color={colors.mutedForeground} />
+              <Text style={[styles.reportSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {submittedBy}
               </Text>
             </View>
           )}

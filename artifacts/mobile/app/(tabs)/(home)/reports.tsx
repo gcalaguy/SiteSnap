@@ -116,12 +116,10 @@ function ReportRow({ report, onPressProject }: { report: DailyReportListItem; on
               </Text>
             </View>
           )}
+          <Feather name="user" size={11} color={colors.mutedForeground} />
           <Text style={[styles.meta, { color: colors.mutedForeground }]} numberOfLines={1}>
             {report.submittedByName}
           </Text>
-          <Text style={[styles.metaDot, { color: colors.border }]}>·</Text>
-          <Feather name="users" size={11} color={colors.mutedForeground} />
-          <Text style={[styles.meta, { color: colors.mutedForeground }]}>{report.crewCount}</Text>
           {!!report.weather && (
             <>
               <Text style={[styles.metaDot, { color: colors.border }]}>·</Text>
