@@ -357,7 +357,12 @@ const MOBILE_QA_STARTERS = [
   "Any outstanding change orders?",
 ];
 
-function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; indexedCount: number; totalCount: number }) {
+function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
+  projectId: number;
+  indexedCount: number;
+  totalCount: number;
+  onRetryChange?: (retrying: boolean, waiting: boolean) => void;
+}) {
   const colors = useColors();
   const [messages, setMessages] = useState<QAMessage[]>([]);
   const [input, setInput] = useState("");
@@ -366,6 +371,10 @@ function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; i
   const [aiWaiting, setAiWaiting] = useState(false);
   const [ragActive, setRagActive] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+
+  function setRetrying(v: boolean) { setAiRetrying(v); onRetryChange?.(v, false); }
+  function setWaiting(v: boolean) { setAiWaiting(v); onRetryChange?.(false, v); }
+  function clearRetry() { setAiRetrying(false); setAiWaiting(false); onRetryChange?.(false, false); }
 
   async function ask() {
     const q = input.trim();
@@ -382,16 +391,14 @@ function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; i
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question: q, history }),
         }) as Promise<QAResponse>,
-        () => { setAiRetrying(true); setAiWaiting(false); },
-        () => { setAiWaiting(true); setAiRetrying(false); },
+        () => { setRetrying(true); setAiWaiting(false); },
+        () => { setWaiting(true); setAiRetrying(false); },
       );
-      setAiRetrying(false);
-      setAiWaiting(false);
+      clearRetry();
       if (data.ragEnabled) setRagActive(true);
       setMessages(m => [...m, { role: "assistant", text: data.answer, citations: data.citations, ragEnabled: data.ragEnabled, hasChunks: data.hasChunks, hasAnalyzedDocsWithNoChunks: data.hasAnalyzedDocsWithNoChunks }]);
     } catch {
-      setAiRetrying(false);
-      setAiWaiting(false);
+      clearRetry();
       setMessages(m => [...m, { role: "assistant", text: "Sorry, Q&A failed. Please try again." }]);
     } finally {
       setLoading(false);
@@ -550,6 +557,13 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
   const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
   const [reindexingIds, setReindexingIds] = useState<Set<number>>(new Set());
   const [mode, setMode] = useState<"list" | "search" | "qa">("list");
+  const [qaRetrying, setQaRetrying] = useState(false);
+  const [qaWaiting, setQaWaiting] = useState(false);
+
+  const handleQaRetryChange = useCallback((retrying: boolean, waiting: boolean) => {
+    setQaRetrying(retrying);
+    setQaWaiting(waiting);
+  }, []);
 
   const docQueryKey = ["documents", projectId];
 
@@ -794,7 +808,12 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
                 <Text style={[docStyles.aiBadgeText, { color: colors.primary }]}>AI</Text>
               </View>
             </View>
-            <QAPanel projectId={projectId} indexedCount={indexedCount} totalCount={docs.length} />
+            <QAPanel
+              projectId={projectId}
+              indexedCount={indexedCount}
+              totalCount={docs.length}
+              onRetryChange={handleQaRetryChange}
+            />
           </View>
         )}
 
@@ -942,6 +961,11 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
           </>
         )}
       </View>
+
+      <RetrySnackbar
+        visible={qaRetrying || qaWaiting}
+        message={qaWaiting ? "Waiting for connection…" : "Poor connection detected, retrying…"}
+      />
     </KeyboardAvoidingView>
   );
 }

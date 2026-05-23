@@ -266,14 +266,21 @@ export default function AskScreen() {
       });
 
       const domain = process.env.EXPO_PUBLIC_DOMAIN;
-      const result = await customFetch<{ text: string }>(
-        `https://${domain}/api/ai/transcribe`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audio: base64, format: "m4a" }),
-        },
+      const result = await withAiRetry(
+        () =>
+          customFetch<{ text: string }>(
+            `https://${domain}/api/ai/transcribe`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ audio: base64, format: "m4a" }),
+            },
+          ),
+        () => { setAiRetrying(true); setAiWaiting(false); },
+        () => { setAiWaiting(true); setAiRetrying(false); },
       );
+      setAiRetrying(false);
+      setAiWaiting(false);
 
       if (result.text) {
         setInput((prev) => {
@@ -283,6 +290,8 @@ export default function AskScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch {
+      setAiRetrying(false);
+      setAiWaiting(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setTranscriptionError("Transcription failed. Please try again.");
     } finally {
