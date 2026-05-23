@@ -1,11 +1,14 @@
 import { Router } from "express";
 import { z } from "zod";
+import multer from "multer";
 import { openai, speechToText, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { searchWeb, formatSearchContext, webSearchEnabled } from "../lib/webSearch.js";
 import { canSearchWeb, recordWebSearch } from "../lib/webSearchRateLimiter.js";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
+
+const voiceUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -415,23 +418,40 @@ const TranscribeInput = z.strictObject({
   format: z.string().max(10).optional().default("webm"),
 });
 
-router.post("/ai/transcribe", requireAuth, requireAiQuota, async (req, res) => {
-  const parsed = TranscribeInput.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
-    return;
-  }
+// Accepts EITHER:
+//   - multipart/form-data with a "file" field  (mobile — Expo Go FormData pattern)
+//   - application/json with { audio: base64, format }  (web dashboard legacy)
+router.post(
+  "/ai/transcribe",
+  requireAuth,
+  requireAiQuota,
+  voiceUpload.single("file"),
+  async (req, res) => {
+    try {
+      let raw: Buffer;
 
-  try {
-    const raw = Buffer.from(parsed.data.audio, "base64");
-    const { buffer, format } = await ensureCompatibleFormat(raw);
-    const text = await speechToText(buffer, format);
-    res.json({ text });
-  } catch (err: unknown) {
-    req.log?.error({ err }, "Transcription failed");
-    res.status(500).json({ error: "Transcription failed" });
+      if (req.file) {
+        // Multipart path — buffer already in memory courtesy of multer
+        raw = req.file.buffer;
+      } else {
+        // JSON base64 path — used by the web dashboard
+        const parsed = TranscribeInput.safeParse(req.body);
+        if (!parsed.success) {
+          res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
+          return;
+        }
+        raw = Buffer.from(parsed.data.audio, "base64");
+      }
+
+      const { buffer, format } = await ensureCompatibleFormat(raw);
+      const text = await speechToText(buffer, format);
+      res.json({ text });
+    } catch (err: unknown) {
+      req.log?.error({ err }, "Transcription failed");
+      res.status(500).json({ error: "Transcription failed" });
+    }
   }
-});
+);
 
 // ── POST /api/help/chat — Site Snap in-app help assistant ───────────────────
 const HELP_SYSTEM_PROMPT = `You are the Site Snap Help Assistant — a friendly, concise support agent who helps users understand and use the Site Snap construction management platform.
