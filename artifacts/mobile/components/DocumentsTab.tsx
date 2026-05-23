@@ -14,7 +14,8 @@ import {
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import { customFetch, useListDocuments, useGetMe } from "@workspace/api-client-react";
+import { customFetch, useListDocuments, useGetMe, getListDocumentsQueryKey } from "@workspace/api-client-react";
+import { useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
@@ -607,7 +608,13 @@ function QAPanel({ projectId, indexedCount, totalCount, onRetryChange }: {
 export function DocumentsTab({ projectId, clientUploads }: { projectId: number; clientUploads: any[] }) {
   const colors = useColors();
   const queryClient = useQueryClient();
-  const { data: documents } = useListDocuments(projectId);
+  const { data: documents, refetch: refetchDocs } = useListDocuments(projectId);
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchDocs();
+    }, [refetchDocs]),
+  );
   const docs: ProjectDoc[] = (documents as unknown as ProjectDoc[]) ?? [];
 
   const { data: me } = useGetMe();
@@ -625,7 +632,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
     setQaWaiting(waiting);
   }, []);
 
-  const docQueryKey = ["documents", projectId];
+  const docQueryKey = getListDocumentsQueryKey(projectId);
 
   const triggerAnalyze = useCallback(async (doc: ProjectDoc) => {
     setAnalyzingIds(prev => new Set(prev).add(doc.id));

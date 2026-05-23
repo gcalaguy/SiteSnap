@@ -7,7 +7,7 @@ const WORKER_DEFAULTS: Record<keyof MemberPermissions, boolean> = {
   viewFinancials:     false,
   viewDocuments:      true,
   viewSchedules:      true,
-  viewClientMessages: false,
+  viewClientMessages: true,
   viewRiskTab:        true,
   viewSafetyTab:      true,
   viewInspectTab:     true,

@@ -164,7 +164,7 @@ router.get("/users/me", requireAuth, async (req, res) => {
             : undefined;
           const defaults: Record<string,boolean> = {
             viewQuotes:false, viewTimesheets:true, viewFinancials:false,
-            viewDocuments:true, viewSchedules:true, viewClientMessages:false,
+            viewDocuments:true, viewSchedules:true, viewClientMessages:true,
             viewRiskTab:true, viewSafetyTab:true, viewInspectTab:true,
             manageQuotes:false, submitExpenses:true, viewAllProjects:false,
           };
