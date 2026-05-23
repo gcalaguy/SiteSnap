@@ -641,6 +641,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
       return customFetch<ParsedParams>("/api/estimator/parse-from-file", {
         method: "POST",
         body: formData,
+        timeoutMs: 60_000,
       });
     },
     onSuccess: (data) => {

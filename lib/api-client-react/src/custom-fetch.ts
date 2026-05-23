@@ -1,5 +1,6 @@
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
+  timeoutMs?: number;
 };
 
 export type ErrorType<T = unknown> = ApiError<T>;
@@ -363,7 +364,7 @@ export async function customFetch<T = unknown>(
   options: CustomFetchOptions = {},
 ): Promise<T> {
   input = applyBaseUrl(input);
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const { responseType = "auto", timeoutMs, headers: headersInit, ...init } = options;
 
   const method = resolveMethod(input, init.method);
 
@@ -412,7 +413,7 @@ export async function customFetch<T = unknown>(
     try {
       const response = await withTimeout(
         fetch(input, { ...init, method, headers }),
-        DEFAULT_TIMEOUT_MS,
+        timeoutMs ?? DEFAULT_TIMEOUT_MS,
       );
 
       if (!response.ok) {
