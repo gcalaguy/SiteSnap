@@ -45,7 +45,9 @@ export const CreateScanBodySourceType = {
 } as const;
 
 export interface CreateScanBody {
+  /** @maxLength 2000 */
   objectPath: string;
+  /** @maxLength 500 */
   fileName: string;
   fileSizeBytes?: number | null;
   sourceType?: CreateScanBodySourceType;
@@ -189,17 +191,25 @@ export const SyncUserBodyPreferredLanguage = {
 } as const;
 
 export interface SyncUserBody {
+  /** @maxLength 200 */
   clerkUserId: string;
+  /** @maxLength 300 */
   email: string;
+  /** @maxLength 100 */
   firstName: string;
+  /** @maxLength 100 */
   lastName: string;
   preferredLanguage?: SyncUserBodyPreferredLanguage;
 }
 
 export interface CreateCompanyBody {
+  /** @maxLength 200 */
   name: string;
+  /** @maxLength 100 */
   province: string;
+  /** @maxLength 100 */
   city: string;
+  /** @maxLength 50 */
   phone?: string;
 }
 
@@ -250,6 +260,7 @@ export const CreateInvitationBodyPreferredLanguage = {
 } as const;
 
 export interface CreateInvitationBody {
+  /** @maxLength 300 */
   email: string;
   role: UserRole;
   preferredLanguage?: CreateInvitationBodyPreferredLanguage;
@@ -297,26 +308,36 @@ export interface Project {
 }
 
 export interface CreateProjectBody {
+  /** @maxLength 300 */
   name: string;
+  /** @maxLength 500 */
   address: string;
+  /** @maxLength 100 */
   city: string;
+  /** @maxLength 100 */
   province: string;
   status?: ProjectStatus;
   startDate?: string;
   endDate?: string;
   budget?: number;
+  /** @maxLength 5000 */
   description?: string;
 }
 
 export interface UpdateProjectBody {
+  /** @maxLength 300 */
   name?: string;
+  /** @maxLength 500 */
   address?: string;
+  /** @maxLength 100 */
   city?: string;
+  /** @maxLength 100 */
   province?: string;
   status?: ProjectStatus;
   startDate?: string;
   endDate?: string;
   budget?: number;
+  /** @maxLength 5000 */
   description?: string;
 }
 
@@ -398,12 +419,15 @@ export interface CostAnalysis {
 }
 
 export interface CreateCostAnalysisBody {
+  /** @maxLength 200 */
   periodLabel: string;
   labourCost: number;
   materialsCost: number;
   equipmentCost: number;
   otherCost: number;
+  /** @maxLength 5000 */
   notes?: string;
+  /** @maxLength 5000 */
   aiAnalysis?: string;
 }
 
@@ -736,7 +760,9 @@ export interface DailyReportPhoto {
 }
 
 export interface AddPhotoBody {
+  /** @maxLength 2000 */
   objectPath: string;
+  /** @maxLength 500 */
   caption?: string;
 }
 
@@ -1064,6 +1090,7 @@ export const CreateFormBodyCategory = {
 export type CreateFormBodySchema = { [key: string]: unknown };
 
 export interface CreateFormBody {
+  /** @maxLength 200 */
   name: string;
   category: CreateFormBodyCategory;
   schema: CreateFormBodySchema;
@@ -1152,9 +1179,12 @@ export const RegisterFileBodyEntityType = {
 export interface RegisterFileBody {
   entityType: RegisterFileBodyEntityType;
   entityId: number;
+  /** @maxLength 500 */
   fileName: string;
   fileSize?: number | null;
+  /** @maxLength 200 */
   mimeType?: string | null;
+  /** @maxLength 2000 */
   objectPath: string;
 }
 
@@ -1251,6 +1281,7 @@ export interface UpdateChangeOrderBody {
   /** @maxLength 3000 */
   description?: string | null;
   amount?: number;
+  /** @maxLength 5000 */
   notes?: string | null;
 }
 
@@ -1280,7 +1311,9 @@ export type BuilderEstimateWithItems = BuilderEstimate & {
 };
 
 export interface EstimateItemBody {
+  /** @maxLength 300 */
   name: string;
+  /** @maxLength 500 */
   description?: string | null;
   quantity?: number;
   unitCost?: number;
@@ -1294,6 +1327,7 @@ export interface CreateBuilderEstimateBody {
   projectId?: number | null;
   /** @maxLength 5000 */
   notes?: string | null;
+  /** @maxItems 200 */
   items?: EstimateItemBody[];
 }
 
@@ -1318,8 +1352,11 @@ export type EstimateTemplateWithItems = EstimateTemplate & {
 };
 
 export interface CreateEstimateTemplateBody {
+  /** @maxLength 300 */
   name: string;
+  /** @maxLength 500 */
   description?: string | null;
+  /** @maxItems 200 */
   items: EstimateItemBody[];
 }
 
@@ -1353,8 +1390,11 @@ export type ProposalWithEstimate = ProposalRecord & {
 };
 
 export interface ConvertEstimateBody {
+  /** @maxLength 300 */
   clientName?: string | null;
+  /** @maxLength 300 */
   clientEmail?: string | null;
+  /** @maxLength 5000 */
   notes?: string | null;
 }
 
@@ -1369,14 +1409,19 @@ export const UpdateProposalBodyStatus = {
 } as const;
 
 export interface UpdateProposalBody {
+  /** @maxLength 300 */
   title?: string;
+  /** @maxLength 300 */
   clientName?: string | null;
+  /** @maxLength 300 */
   clientEmail?: string | null;
+  /** @maxLength 5000 */
   notes?: string | null;
   status?: UpdateProposalBodyStatus;
 }
 
 export interface ApproveProposalBody {
+  /** @maxLength 200 */
   approvedByName: string;
 }
 
@@ -1524,8 +1569,11 @@ export interface UpdateLeadBody {
 }
 
 export interface ConvertLeadBody {
+  /** @maxLength 500 */
   address: string;
+  /** @maxLength 100 */
   city: string;
+  /** @maxLength 100 */
   province: string;
 }
 
@@ -1592,14 +1640,19 @@ export const CreateContactBodyComplianceStatus = {
 } as const;
 
 export interface CreateContactBody {
+  /** @maxLength 200 */
   name: string;
+  /** @maxLength 200 */
   company?: string | null;
+  /** @maxLength 50 */
   phone?: string | null;
+  /** @maxLength 300 */
   email?: string | null;
   type?: CreateContactBodyType;
   coiExpiration?: string | null;
   workersCompClearanceExpiration?: string | null;
   complianceStatus?: CreateContactBodyComplianceStatus;
+  /** @maxLength 5000 */
   notes?: string | null;
 }
 
@@ -1723,11 +1776,16 @@ export const AddonBodyCostType = {
 } as const;
 
 export interface AddonBody {
+  /** @maxLength 200 */
   name?: string;
+  /** @maxLength 200 */
   addonKey?: string;
+  /** @maxLength 500 */
   description?: string | null;
   costType?: AddonBodyCostType;
+  /** @maxLength 50 */
   amount?: string;
+  /** @maxLength 500 */
   applicableTypes?: string | null;
 }
 
@@ -1862,9 +1920,15 @@ export interface UpdateSafetySignoffBody {
 }
 
 export interface ExportSheetsBody {
-  /** Google Sheets spreadsheet ID */
+  /**
+   * Google Sheets spreadsheet ID
+   * @maxLength 200
+   */
   spreadsheetId: string;
-  /** A1 notation range to start appending (default "Sheet1!A1") */
+  /**
+   * A1 notation range to start appending (default "Sheet1!A1")
+   * @maxLength 200
+   */
   range?: string;
 }
 
@@ -1894,8 +1958,12 @@ export type CalendarEventBodyAttendeesItem = {
 };
 
 export interface CalendarEventBody {
-  /** Event title */
+  /**
+   * Event title
+   * @maxLength 300
+   */
   summary: string;
+  /** @maxLength 2000 */
   description?: string | null;
   start: CalendarEventBodyStart;
   end: CalendarEventBodyEnd;
@@ -2386,10 +2454,14 @@ export const CreateInspectionItemBodySeverity = {
 } as const;
 
 export interface CreateInspectionItemBody {
-  /** @minLength 1 */
+  /**
+   * @minLength 1
+   * @maxLength 300
+   */
   itemName: string;
   status?: CreateInspectionItemBodyStatus;
   severity?: CreateInspectionItemBodySeverity;
+  /** @maxLength 2000 */
   comment?: string;
 }
 
@@ -2411,7 +2483,10 @@ export interface CreateInspectionBody {
   projectId?: number | null;
   inspectionType: CreateInspectionBodyInspectionType;
   date: string;
-  /** @minItems 1 */
+  /**
+   * @minItems 1
+   * @maxItems 200
+   */
   items: CreateInspectionItemBody[];
   submit?: boolean;
 }

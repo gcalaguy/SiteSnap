@@ -4975,8 +4975,10 @@ components:
       properties:
         objectPath:
           type: string
+          maxLength: 2000
         fileName:
           type: string
+          maxLength: 500
         fileSizeBytes:
           type: integer
           nullable: true
@@ -5168,12 +5170,16 @@ components:
       properties:
         clerkUserId:
           type: string
+          maxLength: 200
         email:
           type: string
+          maxLength: 300
         firstName:
           type: string
+          maxLength: 100
         lastName:
           type: string
+          maxLength: 100
         preferredLanguage:
           type: string
           enum: [en, it, pt, es]
@@ -5223,12 +5229,16 @@ components:
       properties:
         name:
           type: string
+          maxLength: 200
         province:
           type: string
+          maxLength: 100
         city:
           type: string
+          maxLength: 100
         phone:
           type: string
+          maxLength: 50
       required: [name, province, city]
 
     UpdateMemberRoleBody:
@@ -5275,6 +5285,7 @@ components:
       properties:
         email:
           type: string
+          maxLength: 300
         role:
           $ref: "#/components/schemas/UserRole"
         preferredLanguage:
@@ -5340,12 +5351,16 @@ components:
       properties:
         name:
           type: string
+          maxLength: 300
         address:
           type: string
+          maxLength: 500
         city:
           type: string
+          maxLength: 100
         province:
           type: string
+          maxLength: 100
         status:
           $ref: "#/components/schemas/ProjectStatus"
         startDate:
@@ -5358,6 +5373,7 @@ components:
           type: number
         description:
           type: string
+          maxLength: 5000
       required: [name, address, city, province]
 
     UpdateProjectBody:
@@ -5365,12 +5381,16 @@ components:
       properties:
         name:
           type: string
+          maxLength: 300
         address:
           type: string
+          maxLength: 500
         city:
           type: string
+          maxLength: 100
         province:
           type: string
+          maxLength: 100
         status:
           $ref: "#/components/schemas/ProjectStatus"
         startDate:
@@ -5383,6 +5403,7 @@ components:
           type: number
         description:
           type: string
+          maxLength: 5000
 
     ProjectSummary:
       type: object
@@ -5556,6 +5577,7 @@ components:
       properties:
         periodLabel:
           type: string
+          maxLength: 200
         labourCost:
           type: number
         materialsCost:
@@ -5566,8 +5588,10 @@ components:
           type: number
         notes:
           type: string
+          maxLength: 5000
         aiAnalysis:
           type: string
+          maxLength: 5000
       required: [periodLabel, labourCost, materialsCost, equipmentCost, otherCost]
 
     RFIListItem:
@@ -6077,8 +6101,10 @@ components:
       properties:
         objectPath:
           type: string
+          maxLength: 2000
         caption:
           type: string
+          maxLength: 500
 
     # ── AI Assistant ───────────────────────────────────────────────────────────
     ChatMessage:
@@ -6652,6 +6678,7 @@ components:
       properties:
         name:
           type: string
+          maxLength: 200
         category:
           type: string
           enum: [safety, injury, hazard, toolbox]
@@ -6778,14 +6805,17 @@ components:
           type: integer
         fileName:
           type: string
+          maxLength: 500
         fileSize:
           type: integer
           nullable: true
         mimeType:
           type: string
+          maxLength: 200
           nullable: true
         objectPath:
           type: string
+          maxLength: 2000
 
     FinancialSummary:
       type: object
@@ -6942,6 +6972,7 @@ components:
           type: number
         notes:
           type: string
+          maxLength: 5000
           nullable: true
 
     BuilderEstimate:
@@ -7015,6 +7046,7 @@ components:
           nullable: true
         items:
           type: array
+          maxItems: 200
           items:
             $ref: "#/components/schemas/EstimateItemBody"
 
@@ -7038,8 +7070,10 @@ components:
       properties:
         name:
           type: string
+          maxLength: 300
         description:
           type: string
+          maxLength: 500
           nullable: true
         quantity:
           type: number
@@ -7083,11 +7117,14 @@ components:
       properties:
         name:
           type: string
+          maxLength: 300
         description:
           type: string
+          maxLength: 500
           nullable: true
         items:
           type: array
+          maxItems: 200
           items:
             $ref: "#/components/schemas/EstimateItemBody"
 
@@ -7144,12 +7181,15 @@ components:
       properties:
         clientName:
           type: string
+          maxLength: 300
           nullable: true
         clientEmail:
           type: string
+          maxLength: 300
           nullable: true
         notes:
           type: string
+          maxLength: 5000
           nullable: true
 
     UpdateProposalBody:
@@ -7157,14 +7197,18 @@ components:
       properties:
         title:
           type: string
+          maxLength: 300
         clientName:
           type: string
+          maxLength: 300
           nullable: true
         clientEmail:
           type: string
+          maxLength: 300
           nullable: true
         notes:
           type: string
+          maxLength: 5000
           nullable: true
         status:
           type: string
@@ -7176,6 +7220,7 @@ components:
       properties:
         approvedByName:
           type: string
+          maxLength: 200
 
     LeadWithContact:
       type: object
@@ -7266,10 +7311,13 @@ components:
       properties:
         address:
           type: string
+          maxLength: 500
         city:
           type: string
+          maxLength: 100
         province:
           type: string
+          maxLength: 100
 
     LeadActivity:
       type: object
@@ -7361,14 +7409,18 @@ components:
       properties:
         name:
           type: string
+          maxLength: 200
         company:
           type: string
+          maxLength: 200
           nullable: true
         phone:
           type: string
+          maxLength: 50
           nullable: true
         email:
           type: string
+          maxLength: 300
           nullable: true
         type:
           type: string
@@ -7386,6 +7438,7 @@ components:
           enum: [compliant, non_compliant, warning]
         notes:
           type: string
+          maxLength: 5000
           nullable: true
 
     CostModelRecord:
@@ -7432,23 +7485,31 @@ components:
       properties:
         projectType:
           type: string
+          maxLength: 100
         finishLevel:
           type: string
           enum: [basic, standard, premium, luxury]
         name:
           type: string
+          maxLength: 200
         baseCostPerSqft:
           type: string
+          maxLength: 50
         laborCostPerSqft:
           type: string
+          maxLength: 50
         materialCostPerSqft:
           type: string
+          maxLength: 50
         overheadPct:
           type: string
+          maxLength: 50
         contingencyPct:
           type: string
+          maxLength: 50
         notes:
           type: string
+          maxLength: 5000
           nullable: true
         sourceType:
           type: string
@@ -7456,6 +7517,7 @@ components:
           default: manual
         sourceId:
           type: string
+          maxLength: 100
           nullable: true
 
     ImportItemBody:
@@ -7463,23 +7525,31 @@ components:
       properties:
         projectType:
           type: string
+          maxLength: 100
         finishLevel:
           type: string
           enum: [basic, standard, premium, luxury]
         name:
           type: string
+          maxLength: 200
         baseCostPerSqft:
           type: string
+          maxLength: 50
         laborCostPerSqft:
           type: string
+          maxLength: 50
         materialCostPerSqft:
           type: string
+          maxLength: 50
         overheadPct:
           type: string
+          maxLength: 50
         contingencyPct:
           type: string
+          maxLength: 50
         notes:
           type: string
+          maxLength: 5000
           nullable: true
         sourceType:
           type: string
@@ -7487,6 +7557,7 @@ components:
           default: manual
         sourceId:
           type: string
+          maxLength: 100
           nullable: true
 
     AddonRecord:
@@ -7519,18 +7590,23 @@ components:
       properties:
         name:
           type: string
+          maxLength: 200
         addonKey:
           type: string
+          maxLength: 200
         description:
           type: string
+          maxLength: 500
           nullable: true
         costType:
           type: string
           enum: [flat, per_sqft]
         amount:
           type: string
+          maxLength: 50
         applicableTypes:
           type: string
+          maxLength: 500
           nullable: true
 
     CostModelsResponse:
@@ -7770,9 +7846,11 @@ components:
         spreadsheetId:
           type: string
           description: Google Sheets spreadsheet ID
+          maxLength: 200
         range:
           type: string
           description: A1 notation range to start appending (default "Sheet1!A1")
+          maxLength: 200
 
     ExportSheetsResponse:
       type: object
@@ -7794,8 +7872,10 @@ components:
         summary:
           type: string
           description: Event title
+          maxLength: 300
         description:
           type: string
+          maxLength: 2000
           nullable: true
         start:
           type: object
@@ -8519,6 +8599,7 @@ components:
         itemName:
           type: string
           minLength: 1
+          maxLength: 300
         status:
           type: string
           enum: [pass, fail, na]
@@ -8529,6 +8610,7 @@ components:
           default: low
         comment:
           type: string
+          maxLength: 2000
 
     CreateInspectionBody:
       type: object
@@ -8544,6 +8626,7 @@ components:
           type: string
         items:
           type: array
+          maxItems: 200
           items:
             $ref: "#/components/schemas/CreateInspectionItemBody"
           minItems: 1
