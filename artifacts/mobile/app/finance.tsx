@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
@@ -196,10 +196,11 @@ export default function FinanceScreen() {
   }, [refetchQ]);
 
   // Load change orders
-  const loadChangeOrders = useCallback(async (isRefresh = false) => {
+  // silent=true skips the loading/refreshing spinners (used for background focus refetch)
+  const loadChangeOrders = useCallback(async (isRefresh = false, silent = false) => {
     if (isRefresh) {
       setCoRefreshing(true);
-    } else {
+    } else if (!silent) {
       setCoLoading(true);
     }
     try {
@@ -216,6 +217,15 @@ export default function FinanceScreen() {
   React.useEffect(() => {
     if (tab === "change-orders") loadChangeOrders();
   }, [tab, loadChangeOrders]);
+
+  // Silently refetch all three data sources whenever the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refetchInv();
+      refetchQ();
+      loadChangeOrders(false, true);
+    }, [refetchInv, refetchQ, loadChangeOrders]),
+  );
 
   async function saveSignature(coId: number, base64: string) {
     try {
