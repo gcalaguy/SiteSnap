@@ -164,7 +164,7 @@ const ALL_ACTIONS: QuickAction[] = [
   { label: "Vault", icon: "lock", path: "/vault", color: "#16a34a", permKey: "viewVault" },
   { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C", permKey: "viewEstimator" },
   { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4", permKey: "viewSiteScan" },
-  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37", permKey: "viewTradeHub" },
+  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899", permKey: "viewAskAI" },
 ];
 
@@ -178,7 +178,7 @@ const OWNER_ACTIONS: QuickAction[] = [
   { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
   { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C", permKey: "viewEstimator" },
   { label: "3D Site Scan", icon: "box", path: "/scan-gallery", color: "#06b6d4", permKey: "viewSiteScan" },
-  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37", permKey: "viewTradeHub" },
+  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37" },
   { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899", permKey: "viewAskAI" },
 ];
 
