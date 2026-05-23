@@ -1,4 +1,4 @@
-import { useListAllDailyReports } from "@workspace/api-client-react";
+import { useListAllDailyReports, useListProjects } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -29,37 +29,35 @@ const DATE_PRESETS: { label: string; value: DatePreset }[] = [
   { label: "Custom…", value: "custom" },
 ];
 
-function getDateBounds(
+function getDateRangeStrings(
   preset: DatePreset | null,
   customFrom: string,
   customTo: string,
-): { fromDate: Date | null; toDate: Date | null } {
+): { from?: string; to?: string } {
+  if (!preset) return {};
   const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
   if (preset === "this_week") {
     const d = new Date(now);
     d.setDate(now.getDate() - now.getDay());
-    d.setHours(0, 0, 0, 0);
-    return { fromDate: d, toDate: null };
+    return { from: d.toISOString().split("T")[0], to: todayStr };
   }
   if (preset === "this_month") {
-    return { fromDate: new Date(now.getFullYear(), now.getMonth(), 1), toDate: null };
+    const d = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { from: d.toISOString().split("T")[0], to: todayStr };
   }
   if (preset === "last_30") {
     const d = new Date(now);
     d.setDate(now.getDate() - 30);
-    d.setHours(0, 0, 0, 0);
-    return { fromDate: d, toDate: null };
+    return { from: d.toISOString().split("T")[0], to: todayStr };
   }
   if (preset === "custom") {
-    const f = customFrom.trim() ? new Date(customFrom.trim()) : null;
-    const t = customTo.trim() ? new Date(customTo.trim()) : null;
-    if (t && !isNaN(t.getTime())) t.setHours(23, 59, 59, 999);
     return {
-      fromDate: f && !isNaN(f.getTime()) ? f : null,
-      toDate: t && !isNaN(t.getTime()) ? t : null,
+      from: customFrom.trim() || undefined,
+      to: customTo.trim() || undefined,
     };
   }
-  return { fromDate: null, toDate: null };
+  return {};
 }
 
 function presetLabel(preset: DatePreset, customFrom: string, customTo: string): string {
@@ -151,56 +149,46 @@ export default function AllReportsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { data, isLoading, refetch } = useListAllDailyReports();
-
   const [search, setSearch] = useState("");
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
   const [datePreset, setDatePreset] = useState<DatePreset | null>(null);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
-  const reports = (data ?? []) as DailyReportListItem[];
-
-  const projects = useMemo(() => {
-    const seen = new Map<number, string>();
-    for (const r of reports) {
-      if (!seen.has(r.projectId) && r.projectName) {
-        seen.set(r.projectId, r.projectName);
-      }
-    }
-    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
-  }, [reports]);
-
-  const { fromDate, toDate } = useMemo(
-    () => getDateBounds(datePreset, customFrom, customTo),
+  // Compute YYYY-MM-DD strings for server-side filtering
+  const dateRange = useMemo(
+    () => getDateRangeStrings(datePreset, customFrom, customTo),
     [datePreset, customFrom, customTo],
   );
 
+  // Server-side filtering: projectId, from, to passed as query params
+  const { data, isLoading, refetch } = useListAllDailyReports({
+    projectId: selectedProject ?? undefined,
+    from: dateRange.from,
+    to: dateRange.to,
+  });
+
+  // Load projects for the picker independently of the filtered result set
+  const { data: projectsData } = useListProjects();
+  const projects = (projectsData ?? []) as { id: number; name: string; status: string }[];
+
+  const reports = (data ?? []) as DailyReportListItem[];
+
+  // Only text search remains client-side (API has no search param)
   const filtered = useMemo(() => {
-    let list = reports;
-    if (selectedProject !== null) {
-      list = list.filter((r) => r.projectId === selectedProject);
-    }
-    if (fromDate) {
-      list = list.filter((r) => new Date(r.reportDate) >= fromDate);
-    }
-    if (toDate) {
-      list = list.filter((r) => new Date(r.reportDate) <= toDate);
-    }
     const q = search.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (r) =>
-          r.workPerformed.toLowerCase().includes(q) ||
-          (r.projectName ?? "").toLowerCase().includes(q) ||
-          r.submittedByName.toLowerCase().includes(q) ||
-          (r.issues ?? "").toLowerCase().includes(q),
-      );
-    }
-    return list;
-  }, [reports, search, selectedProject, fromDate, toDate]);
+    if (!q) return reports;
+    return reports.filter(
+      (r) =>
+        r.workPerformed.toLowerCase().includes(q) ||
+        (r.projectName ?? "").toLowerCase().includes(q) ||
+        r.submittedByName.toLowerCase().includes(q) ||
+        (r.issues ?? "").toLowerCase().includes(q),
+    );
+  }, [reports, search]);
 
   const hasDateFilter = datePreset !== null;
+  const hasActiveFilter = selectedProject !== null || hasDateFilter || search.trim().length > 0;
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
@@ -371,11 +359,11 @@ export default function AllReportsScreen() {
           <View style={styles.emptyContainer}>
             <Feather name="file-text" size={40} color={colors.border} />
             <Text style={[styles.emptyText, { color: colors.foreground }]}>
-              {search || selectedProject !== null ? "No reports match your search" : "No daily reports yet"}
+              {hasActiveFilter ? "No reports match your filters" : "No daily reports yet"}
             </Text>
             <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
-              {search || selectedProject !== null
-                ? "Try adjusting your search or project filter"
+              {hasActiveFilter
+                ? "Try adjusting your project, date, or search filter"
                 : "Reports submitted across all projects will appear here"}
             </Text>
           </View>
