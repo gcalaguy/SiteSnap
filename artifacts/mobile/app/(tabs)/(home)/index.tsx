@@ -1,7 +1,9 @@
 import {
   useGetDashboardSummary, useGetRecentActivity, useListProjects,
   useGetMe, useListCompanyMembers, customFetch,
+  useListAllRFIs,
 } from "@workspace/api-client-react";
+import type { RFIListItem } from "@workspace/api-client-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -192,6 +194,67 @@ function QuickActionsGrid({ isWorker, colors, router }: { isWorker: boolean; col
         </TouchableOpacity>
       ))}
     </View>
+  );
+}
+
+// ── RFI Summary card ──────────────────────────────────────────────────────────
+
+function isOverdue(dueDate?: string | null): boolean {
+  if (!dueDate) return false;
+  return new Date(dueDate) < new Date();
+}
+
+function RFISummaryCard({
+  openCount,
+  overdueCount,
+  loading,
+  onPress,
+}: {
+  openCount: number;
+  overdueCount: number;
+  loading: boolean;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+
+  function handlePress() {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  }
+
+  return (
+    <TouchableOpacity
+      style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: overdueCount > 0 ? "#fca5a540" : colors.border }]}
+      onPress={handlePress}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={`Open RFIs: ${openCount}.${overdueCount > 0 ? ` ${overdueCount} overdue.` : ""} Tap to view.`}
+    >
+      <View style={styles.summaryCardTop}>
+        <Text style={[styles.summaryCardTitle, { color: colors.mutedForeground }]}>Open RFIs</Text>
+        <View style={[styles.summaryCardIconBg, { backgroundColor: "#f59e0b1A" }]}>
+          <Feather name="alert-circle" size={16} color="#f59e0b" />
+        </View>
+      </View>
+      <Text style={[styles.summaryCardValue, { color: colors.foreground }]}>
+        {loading ? "—" : String(openCount)}
+      </Text>
+      <View style={styles.summaryCardBottom}>
+        {!loading && overdueCount > 0 ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Feather name="alert-triangle" size={12} color="#ef4444" />
+            <Text style={[styles.summaryCardSubtitle, { color: "#ef4444", fontFamily: "Inter_600SemiBold" }]}>
+              {overdueCount} overdue
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.summaryCardSubtitle, { color: colors.mutedForeground }]}>
+            {loading ? "" : "No overdue items"}
+          </Text>
+        )}
+        <Feather name="chevron-right" size={14} color={colors.primary} />
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -477,8 +540,15 @@ export default function DashboardScreen() {
   });
   const unreadCount = unreadData?.count ?? 0;
 
+  const { data: rfiData, isLoading: rfiLoading, refetch: refetchRfis } = useListAllRFIs();
+  const allRfis = (rfiData ?? []) as RFIListItem[];
+  const rfiOpenCount = allRfis.filter((r) => r.status === "open" || r.status === "in_review").length;
+  const rfiOverdueCount = allRfis.filter(
+    (r) => isOverdue(r.dueDate) && r.status !== "closed" && r.status !== "answered",
+  ).length;
+
   const refreshing = summaryLoading || activityLoading || projectsLoading;
-  const handleRefresh = () => { refetchSummary(); refetchActivity(); refetchProjects(); };
+  const handleRefresh = () => { refetchSummary(); refetchActivity(); refetchProjects(); refetchRfis(); };
 
   const firstName = me?.firstName ?? "there";
   const isWorker = me?.role === "worker";
@@ -552,6 +622,12 @@ export default function DashboardScreen() {
           subtitle="Daily reports submitted"
           icon="file-text"
           onPress={() => router.push("/log")}
+        />
+        <RFISummaryCard
+          openCount={rfiOpenCount}
+          overdueCount={rfiOverdueCount}
+          loading={rfiLoading}
+          onPress={() => router.push({ pathname: "/rfis", params: { status: "open" } } as any)}
         />
         {!isWorker && (
           <SummaryCard

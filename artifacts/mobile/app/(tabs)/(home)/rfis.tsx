@@ -5,7 +5,7 @@ import {
   getListAllRFIsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useMemo, useState } from "react";
 import {
@@ -352,9 +352,13 @@ export default function AllRFIsScreen() {
 
   const { data, isLoading, refetch } = useListAllRFIs();
 
+  const { status: initialStatus } = useLocalSearchParams<{ status?: string }>();
+
   const [search, setSearch] = useState("");
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
-  const [statusFilter, setStatusFilter] = useState<RFIStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<RFIStatus | "all">(
+    (initialStatus as RFIStatus | undefined) ?? "all",
+  );
   const [showNewRFI, setShowNewRFI] = useState(false);
 
   const rfis = (data ?? []) as RFIListItem[];
