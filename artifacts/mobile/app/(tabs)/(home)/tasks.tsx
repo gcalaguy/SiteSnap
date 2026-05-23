@@ -1,6 +1,6 @@
 import { useListProjects, useListTasks, useUpdateTask, useGetMe, customFetch } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
@@ -322,6 +322,8 @@ function WorkerTasksScreen() {
   const relativeTime = useRelativeTime(dataUpdatedAt || null);
   const updatedLabel = refreshing ? "Refreshing…" : relativeTime;
 
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+
   const updateTask = useUpdateTask();
 
   const handleToggle = (task: Task) => {
@@ -433,6 +435,8 @@ function OwnerTasksScreen() {
   }, [refetch]);
   const tasksRelTime = useRelativeTime(tasksUpdatedAt || null);
   const tasksUpdatedLabel = taskRefreshing ? "Refreshing…" : tasksRelTime;
+
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   const updateTask = useUpdateTask();
 

@@ -1,5 +1,5 @@
 import { useListAllDailyReports, useListProjects } from "@workspace/api-client-react";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
@@ -176,6 +176,8 @@ export default function AllReportsScreen() {
   }, [refetch]);
   const relativeTime = useRelativeTime(dataUpdatedAt || null);
   const updatedLabel = refreshing ? "Refreshing…" : relativeTime;
+
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   // Load projects for the picker independently of the filtered result set
   const { data: projectsData } = useListProjects();
