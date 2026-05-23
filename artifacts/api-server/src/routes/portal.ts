@@ -123,7 +123,6 @@ router.get(
   "/projects/:projectId/portal/messages",
   requireAuth,
   requireCompany,
-  requirePermission("viewClientMessages"),
   async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
@@ -161,7 +160,6 @@ router.post(
   "/projects/:projectId/portal/messages",
   requireAuth,
   requireCompany,
-  requirePermission("viewClientMessages"),
   async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }

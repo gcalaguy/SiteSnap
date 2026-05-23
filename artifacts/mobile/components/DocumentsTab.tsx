@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system/legacy";
 import { customFetch, useListDocuments, useGetMe, getListDocumentsQueryKey } from "@workspace/api-client-react";
 import { useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -674,21 +673,15 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
         const filename = asset.fileName ?? `photo_${Date.now()}.${ext}`;
         const fileSize = asset.fileSize ?? undefined;
 
-        // 1. Request presigned upload URL
-        const { uploadURL, objectPath } = await customFetch("/api/storage/uploads/request-url", {
+        // 1. Upload via multipart form (works reliably in Expo Go)
+        const formData = new FormData();
+        formData.append("file", { uri: asset.uri, name: filename, type: mimeType } as unknown as Blob);
+        const { objectPath } = await customFetch<{ objectPath: string }>("/api/storage/uploads/file", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: filename, size: fileSize ?? 0, contentType: mimeType }),
-        }) as { uploadURL: string; objectPath: string };
-
-        // 2. Upload binary to storage
-        await FileSystem.uploadAsync(uploadURL, asset.uri, {
-          httpMethod: "PUT",
-          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-          headers: { "Content-Type": mimeType },
+          body: formData,
         });
 
-        // 3. Register document
+        // 2. Register document
         const doc = await customFetch(`/api/projects/${projectId}/documents`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -697,7 +690,7 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
 
         queryClient.invalidateQueries({ queryKey: docQueryKey });
 
-        // 4. Auto-analyze images
+        // 3. Auto-analyze images
         setAnalyzingIds(prev => new Set(prev).add(doc.id));
         try {
           const updated = await customFetch(`/api/projects/${projectId}/documents/${doc.id}/analyze`, {
@@ -730,20 +723,15 @@ export function DocumentsTab({ projectId, clientUploads }: { projectId: number; 
     const asset = result.assets[0];
     setUploading(true);
     try {
-      const ext = "jpg";
       const mimeType = "image/jpeg";
-      const filename = `site_photo_${Date.now()}.${ext}`;
+      const filename = `site_photo_${Date.now()}.jpg`;
 
-      const { uploadURL, objectPath } = await customFetch("/api/storage/uploads/request-url", {
+      // Upload via multipart form (works reliably in Expo Go)
+      const formData = new FormData();
+      formData.append("file", { uri: asset.uri, name: filename, type: mimeType } as unknown as Blob);
+      const { objectPath } = await customFetch<{ objectPath: string }>("/api/storage/uploads/file", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: filename, size: asset.fileSize ?? 0, contentType: mimeType }),
-      }) as { uploadURL: string; objectPath: string };
-
-      await FileSystem.uploadAsync(uploadURL, asset.uri, {
-        httpMethod: "PUT",
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: { "Content-Type": mimeType },
+        body: formData,
       });
 
       const doc = await customFetch(`/api/projects/${projectId}/documents`, {
