@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 
-const RESPONSE_MAX = 3_000;
+import { updateRFIBodyResponseMax as RESPONSE_MAX } from "@workspace/api-zod";
 
 type RFIStatus = "open" | "in_review" | "resolved" | "closed";
 

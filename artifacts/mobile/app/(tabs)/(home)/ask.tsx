@@ -4,6 +4,7 @@ import {
   useListProjects,
   customFetch,
 } from "@workspace/api-client-react";
+import { chatWithAssistantBodyMessagesItemContentMax as MESSAGE_MAX } from "@workspace/api-zod";
 import * as Haptics from "expo-haptics";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import React, { useRef, useState, useCallback, useEffect } from "react";
@@ -121,8 +122,6 @@ function RecordingPulse({ color }: { color: string }) {
     />
   );
 }
-
-const MESSAGE_MAX = 4_000;
 
 export default function AskScreen() {
   const colors = useColors();

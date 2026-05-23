@@ -2517,16 +2517,33 @@ export const CreateDailyReportParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const createDailyReportBodyWeatherMax = 500;
+
+export const createDailyReportBodyTemperatureMax = 50;
+
+export const createDailyReportBodyWorkPerformedMax = 5000;
+
+export const createDailyReportBodyMaterialsUsedMax = 5000;
+
+export const createDailyReportBodyEquipmentMax = 5000;
+
+export const createDailyReportBodyIssuesMax = 5000;
+
+export const createDailyReportBodyAiSummaryMax = 5000;
+
 export const CreateDailyReportBody = zod.object({
   reportDate: zod.coerce.date(),
-  weather: zod.string().optional(),
-  temperature: zod.string().optional(),
+  weather: zod.string().max(createDailyReportBodyWeatherMax).optional(),
+  temperature: zod.string().max(createDailyReportBodyTemperatureMax).optional(),
   crewCount: zod.number(),
-  workPerformed: zod.string(),
-  materialsUsed: zod.string().optional(),
-  equipment: zod.string().optional(),
-  issues: zod.string().optional(),
-  aiSummary: zod.string().optional(),
+  workPerformed: zod.string().max(createDailyReportBodyWorkPerformedMax),
+  materialsUsed: zod
+    .string()
+    .max(createDailyReportBodyMaterialsUsedMax)
+    .optional(),
+  equipment: zod.string().max(createDailyReportBodyEquipmentMax).optional(),
+  issues: zod.string().max(createDailyReportBodyIssuesMax).optional(),
+  aiSummary: zod.string().max(createDailyReportBodyAiSummaryMax).optional(),
 });
 
 /**
@@ -2582,16 +2599,33 @@ export const UpdateDailyReportParams = zod.object({
   reportId: zod.coerce.number(),
 });
 
+export const updateDailyReportBodyWeatherMax = 500;
+
+export const updateDailyReportBodyTemperatureMax = 50;
+
+export const updateDailyReportBodyWorkPerformedMax = 5000;
+
+export const updateDailyReportBodyMaterialsUsedMax = 5000;
+
+export const updateDailyReportBodyEquipmentMax = 5000;
+
+export const updateDailyReportBodyIssuesMax = 5000;
+
+export const updateDailyReportBodyAiSummaryMax = 5000;
+
 export const UpdateDailyReportBody = zod.object({
   reportDate: zod.coerce.date(),
-  weather: zod.string().optional(),
-  temperature: zod.string().optional(),
+  weather: zod.string().max(updateDailyReportBodyWeatherMax).optional(),
+  temperature: zod.string().max(updateDailyReportBodyTemperatureMax).optional(),
   crewCount: zod.number(),
-  workPerformed: zod.string(),
-  materialsUsed: zod.string().optional(),
-  equipment: zod.string().optional(),
-  issues: zod.string().optional(),
-  aiSummary: zod.string().optional(),
+  workPerformed: zod.string().max(updateDailyReportBodyWorkPerformedMax),
+  materialsUsed: zod
+    .string()
+    .max(updateDailyReportBodyMaterialsUsedMax)
+    .optional(),
+  equipment: zod.string().max(updateDailyReportBodyEquipmentMax).optional(),
+  issues: zod.string().max(updateDailyReportBodyIssuesMax).optional(),
+  aiSummary: zod.string().max(updateDailyReportBodyAiSummaryMax).optional(),
 });
 
 export const updateDailyReportResponseSubmittedByPreferredLanguageDefault = `en`;
@@ -2833,13 +2867,19 @@ export const CreateRFIParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const createRFIBodySubjectMax = 500;
+
+export const createRFIBodyDescriptionMax = 3000;
+
+export const createRFIBodyAiDraftResponseMax = 3000;
+
 export const CreateRFIBody = zod.object({
-  subject: zod.string(),
-  description: zod.string(),
+  subject: zod.string().max(createRFIBodySubjectMax),
+  description: zod.string().max(createRFIBodyDescriptionMax),
   assignedToUserId: zod.number().optional(),
   priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
   dueDate: zod.coerce.date().optional(),
-  aiDraftResponse: zod.string().optional(),
+  aiDraftResponse: zod.string().max(createRFIBodyAiDraftResponseMax).optional(),
 });
 
 /**
@@ -2896,9 +2936,11 @@ export const UpdateRFIParams = zod.object({
   rfiId: zod.coerce.number(),
 });
 
+export const updateRFIBodyResponseMax = 3000;
+
 export const UpdateRFIBody = zod.object({
   status: zod.enum(["open", "in_review", "answered", "closed"]).optional(),
-  response: zod.string().optional(),
+  response: zod.string().max(updateRFIBodyResponseMax).optional(),
   assignedToUserId: zod.number().optional(),
   priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
   dueDate: zod.coerce.date().optional(),
@@ -3181,9 +3223,13 @@ export const CreateTaskParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const createTaskBodyTitleMax = 200;
+
+export const createTaskBodyDescriptionMax = 2000;
+
 export const CreateTaskBody = zod.object({
-  title: zod.string(),
-  description: zod.string().optional(),
+  title: zod.string().max(createTaskBodyTitleMax),
+  description: zod.string().max(createTaskBodyDescriptionMax).optional(),
   assignedToUserId: zod.number().optional(),
   priority: zod.enum(["low", "medium", "high"]).optional(),
   dueDate: zod.string().optional(),
@@ -3197,9 +3243,13 @@ export const UpdateTaskParams = zod.object({
   taskId: zod.coerce.number(),
 });
 
+export const updateTaskBodyTitleMax = 200;
+
+export const updateTaskBodyDescriptionMax = 2000;
+
 export const UpdateTaskBody = zod.object({
-  title: zod.string().optional(),
-  description: zod.string().optional(),
+  title: zod.string().max(updateTaskBodyTitleMax).optional(),
+  description: zod.string().max(updateTaskBodyDescriptionMax).optional(),
   assignedToUserId: zod.number().nullish(),
   status: zod.enum(["todo", "in_progress", "done"]).optional(),
   priority: zod.enum(["low", "medium", "high"]).optional(),

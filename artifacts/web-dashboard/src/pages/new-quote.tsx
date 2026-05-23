@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useCreateQuote, useGetMe } from "@workspace/api-client-react";
+import { createQuoteBodyNotesMax as NOTES_MAX } from "@workspace/api-zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -248,14 +249,14 @@ export default function NewQuote() {
               <Textarea
                 id="notes"
                 value={notes}
-                onChange={(e) => setNotes(e.target.value.slice(0, 3000))}
+                onChange={(e) => setNotes(e.target.value.slice(0, NOTES_MAX))}
                 placeholder="Initial scope or any notes..."
                 rows={3}
-                maxLength={3000}
+                maxLength={NOTES_MAX}
                 className="resize-none mt-1"
               />
-              <p className={`text-xs mt-1 text-right tabular-nums ${notes.length >= 3000 ? "text-destructive font-medium" : notes.length >= 3000 * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
-                {notes.length.toLocaleString()}/3,000
+              <p className={`text-xs mt-1 text-right tabular-nums ${notes.length >= NOTES_MAX ? "text-destructive font-medium" : notes.length >= NOTES_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                {notes.length.toLocaleString()}/{NOTES_MAX.toLocaleString()}
               </p>
             </div>
             <div className="flex gap-3 pt-2">

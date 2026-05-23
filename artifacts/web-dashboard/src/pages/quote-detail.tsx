@@ -14,6 +14,7 @@ import {
   customFetch,
   type Quote,
 } from "@workspace/api-client-react";
+import { generateQuoteAIBodyVoiceInputMax } from "@workspace/api-zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -936,9 +937,9 @@ export default function QuoteDetail() {
             <Textarea
               placeholder="e.g. We need to pour a concrete foundation 30 feet by 40 feet, 8 inches deep. Labour for 4 guys for 2 days, plus concrete pump rental..."
               value={voiceText}
-              onChange={(e) => setVoiceText(e.target.value.slice(0, 3000))}
+              onChange={(e) => setVoiceText(e.target.value.slice(0, generateQuoteAIBodyVoiceInputMax))}
               rows={3}
-              maxLength={3000}
+              maxLength={generateQuoteAIBodyVoiceInputMax}
               className="resize-none bg-background"
             />
             <div className="flex items-center justify-between">
@@ -965,8 +966,8 @@ export default function QuoteDetail() {
                   {aiLoading ? "Generating…" : "Generate Items"}
                 </Button>
               </div>
-              <p className={`text-xs shrink-0 tabular-nums ${voiceText.length >= 3000 ? "text-destructive font-medium" : voiceText.length >= 3000 * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
-                {voiceText.length.toLocaleString()}/3,000
+              <p className={`text-xs shrink-0 tabular-nums ${voiceText.length >= generateQuoteAIBodyVoiceInputMax ? "text-destructive font-medium" : voiceText.length >= generateQuoteAIBodyVoiceInputMax * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                {voiceText.length.toLocaleString()}/{generateQuoteAIBodyVoiceInputMax.toLocaleString()}
               </p>
             </div>
           </CardContent>

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
+import { createDailyLogBodyNotesMax as NOTES_MAX } from "@workspace/api-zod";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -76,9 +77,9 @@ function LogEditForm({
     <div className="space-y-3">
       <CharCountedTextarea
         value={notes}
-        onChange={(e) => setNotes(e.target.value.slice(0, 5000))}
+        onChange={(e) => setNotes(e.target.value.slice(0, NOTES_MAX))}
         placeholder="Notes"
-        maxLength={5000}
+        maxLength={NOTES_MAX}
         rows={3}
         className="border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
       />

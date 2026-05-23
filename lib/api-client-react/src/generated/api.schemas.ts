@@ -366,13 +366,20 @@ export interface DailyReport {
 
 export interface CreateDailyReportBody {
   reportDate: string;
+  /** @maxLength 500 */
   weather?: string;
+  /** @maxLength 50 */
   temperature?: string;
   crewCount: number;
+  /** @maxLength 5000 */
   workPerformed: string;
+  /** @maxLength 5000 */
   materialsUsed?: string;
+  /** @maxLength 5000 */
   equipment?: string;
+  /** @maxLength 5000 */
   issues?: string;
+  /** @maxLength 5000 */
   aiSummary?: string;
 }
 
@@ -450,16 +457,20 @@ export interface Rfi {
 }
 
 export interface CreateRFIBody {
+  /** @maxLength 500 */
   subject: string;
+  /** @maxLength 3000 */
   description: string;
   assignedToUserId?: number;
   priority?: RFIPriority;
   dueDate?: string;
+  /** @maxLength 3000 */
   aiDraftResponse?: string;
 }
 
 export interface UpdateRFIBody {
   status?: RFIStatus;
+  /** @maxLength 3000 */
   response?: string;
   assignedToUserId?: number;
   priority?: RFIPriority;
@@ -627,7 +638,9 @@ export const CreateTaskBodyPriority = {
 } as const;
 
 export interface CreateTaskBody {
+  /** @maxLength 200 */
   title: string;
+  /** @maxLength 2000 */
   description?: string;
   assignedToUserId?: number;
   priority?: CreateTaskBodyPriority;
@@ -653,7 +666,9 @@ export const UpdateTaskBodyPriority = {
 } as const;
 
 export interface UpdateTaskBody {
+  /** @maxLength 200 */
   title?: string;
+  /** @maxLength 2000 */
   description?: string;
   assignedToUserId?: number | null;
   status?: UpdateTaskBodyStatus;

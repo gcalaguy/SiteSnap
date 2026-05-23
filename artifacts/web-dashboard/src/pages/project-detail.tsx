@@ -56,13 +56,16 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFo
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
+import {
+  createTaskBodyDescriptionMax as TASK_DESC_MAX,
+  createRFIBodyDescriptionMax as RFI_DESC_MAX,
+  updateRFIBodyResponseMax as RFI_RESPONSE_MAX,
+  createDailyReportBodyWorkPerformedMax as REPORT_FIELD_MAX,
+} from "@workspace/api-zod";
+
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
-const TASK_DESC_MAX = 2_000;
 const ASSIGN_NOTES_MAX = 1_000;
-const RFI_DESC_MAX = 3_000;
-const RFI_RESPONSE_MAX = 3_000;
-const REPORT_FIELD_MAX = 5_000;
 
 type Task = {
   id: number;

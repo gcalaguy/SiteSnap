@@ -17,8 +17,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft, Loader2, Sparkles } from "lucide-react";
 import { getAiErrorMessage } from "@/hooks/useApiError";
 
-const SUBJECT_MAX = 500;
-const DESCRIPTION_MAX = 3_000;
+import {
+  createRFIBodySubjectMax as SUBJECT_MAX,
+  createRFIBodyDescriptionMax as DESCRIPTION_MAX,
+} from "@workspace/api-zod";
 
 const rfiSchema = z.object({
   subject: z.string().min(2, "Required"),

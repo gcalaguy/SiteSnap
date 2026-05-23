@@ -17,11 +17,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft, Loader2, Sparkles, Camera, X, Upload, Mic, MicOff } from "lucide-react";
 
-const RAW_INPUT_MAX = 5_000;
-const WORK_MAX = 5_000;
-const MATERIALS_MAX = 2_000;
-const EQUIPMENT_MAX = 1_000;
-const ISSUES_MAX = 2_000;
+import {
+  createDailyReportBodyWorkPerformedMax as WORK_MAX,
+  createDailyReportBodyMaterialsUsedMax as MATERIALS_MAX,
+  createDailyReportBodyEquipmentMax as EQUIPMENT_MAX,
+  createDailyReportBodyIssuesMax as ISSUES_MAX,
+  generateDailyReportAIBodyRawInputMax as RAW_INPUT_MAX,
+} from "@workspace/api-zod";
 
 const reportSchema = z.object({
   reportDate: z.string(),

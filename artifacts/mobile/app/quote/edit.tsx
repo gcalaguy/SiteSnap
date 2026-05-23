@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { updateQuoteBodyTitleMax } from "@workspace/api-zod";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -275,7 +276,7 @@ export default function QuoteEditScreen() {
               placeholder="e.g. Basement Renovation Quote"
               placeholderTextColor={colors.mutedForeground}
               style={[styles.input, { color: colors.foreground }]}
-              maxLength={200}
+              maxLength={updateQuoteBodyTitleMax}
             />
             <VoiceMic target="title" active={isRecording && voiceTarget === "title"} />
           </View>

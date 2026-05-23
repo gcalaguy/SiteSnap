@@ -5497,20 +5497,27 @@ components:
           format: date
         weather:
           type: string
+          maxLength: 500
         temperature:
           type: string
+          maxLength: 50
         crewCount:
           type: integer
         workPerformed:
           type: string
+          maxLength: 5000
         materialsUsed:
           type: string
+          maxLength: 5000
         equipment:
           type: string
+          maxLength: 5000
         issues:
           type: string
+          maxLength: 5000
         aiSummary:
           type: string
+          maxLength: 5000
       required: [reportDate, crewCount, workPerformed]
 
     # ── Cost Analyses ─────────────────────────────────────────────────────────
@@ -5650,8 +5657,10 @@ components:
       properties:
         subject:
           type: string
+          maxLength: 500
         description:
           type: string
+          maxLength: 3000
         assignedToUserId:
           type: integer
         priority:
@@ -5661,6 +5670,7 @@ components:
           format: date
         aiDraftResponse:
           type: string
+          maxLength: 3000
       required: [subject, description]
 
     UpdateRFIBody:
@@ -5670,6 +5680,7 @@ components:
           $ref: "#/components/schemas/RFIStatus"
         response:
           type: string
+          maxLength: 3000
         assignedToUserId:
           type: integer
         priority:
@@ -5911,8 +5922,10 @@ components:
       properties:
         title:
           type: string
+          maxLength: 200
         description:
           type: string
+          maxLength: 2000
         assignedToUserId:
           type: integer
         priority:
@@ -5927,8 +5940,10 @@ components:
       properties:
         title:
           type: string
+          maxLength: 200
         description:
           type: string
+          maxLength: 2000
         assignedToUserId:
           type: integer
           nullable: true

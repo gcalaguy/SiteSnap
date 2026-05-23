@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 
-const NOTES_MAX = 2_000;
+import { createDailyLogBodyNotesMax as NOTES_MAX } from "@workspace/api-zod";
 
 export default function FieldDailyLogScreen() {
   const colors = useColors();
