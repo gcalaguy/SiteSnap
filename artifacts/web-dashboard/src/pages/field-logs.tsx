@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -73,10 +74,12 @@ function LogEditForm({
 
   return (
     <div className="space-y-3">
-      <Input
+      <CharCountedTextarea
         value={notes}
-        onChange={(e) => setNotes(e.target.value)}
+        onChange={(e) => setNotes(e.target.value.slice(0, 5000))}
         placeholder="Notes"
+        maxLength={5000}
+        rows={3}
         className="border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
       />
       <div className="flex gap-2">
