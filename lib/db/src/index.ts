@@ -17,7 +17,7 @@ export const pool = new Pool({
     : { rejectUnauthorized: false },
   max: process.env.NODE_ENV === "production" ? 20 : 5,
   idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 2_000,
 });
 export const db = drizzle(pool, { schema });
 
