@@ -48,6 +48,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import ProjectLiteDocument from "@/components/pdf/ProjectLiteDocument";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Pencil, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert, MessageCircle, ScanLine, Printer } from "lucide-react";
@@ -742,6 +744,7 @@ export default function ProjectDetail() {
   const { data: summary } = useGetProjectSummary(projectId);
   const { data: reports } = useListDailyReports(projectId);
   const { data: costAnalyses } = useListCostAnalyses(projectId);
+  const { data: allProjectTasks = [] } = useListTasks(projectId);
   const [rfiStatusFilter, setRfiStatusFilter] = useState<"all" | "open" | "in_review" | "answered" | "closed">("all");
   const { data: rfis } = useListRFIs(
     projectId,
@@ -2050,21 +2053,27 @@ export default function ProjectDetail() {
               </div>
             ))}
           </div>
-          <SheetFooter>
+          <SheetFooter className="flex flex-col gap-2">
             <Button variant="outline" onClick={() => setShowPrintSheet(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={() => {
-                const qs = new URLSearchParams();
-                Object.entries(printSections).forEach(([k, v]) => qs.set(k, String(v)));
-                const url = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/projects/${projectId}/print?${qs.toString()}`;
-                window.open(url, "_blank");
-                setShowPrintSheet(false);
-              }}
+            <PDFDownloadLink
+              document={
+                <ProjectLiteDocument
+                  project={project}
+                  summary={summary}
+                  tasks={allProjectTasks as Task[]}
+                  reports={reports ?? []}
+                  rfis={rfis ?? []}
+                  members={members}
+                  sections={printSections}
+                />
+              }
+              fileName={`${project.name.replace(/[^a-zA-Z0-9]/g, "_")}_Report.pdf`}
+              className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors w-full"
             >
-              Open Print Preview
-            </Button>
+              {({ loading }) => (loading ? "Generating PDF..." : "Download PDF")}
+            </PDFDownloadLink>
           </SheetFooter>
         </SheetContent>
       </Sheet>
