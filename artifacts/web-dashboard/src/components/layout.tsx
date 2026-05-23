@@ -155,7 +155,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING" }] : []),
     { name: "Field Logs", href: "/field-logs", icon: FileText, badge: 0, featureKey: "Safety" },
     { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "Safety" },
-    ...(isOwnerOrForeman ? [{ name: "Inspections", href: "/inspections", icon: ClipboardCheck, badge: 0, featureKey: "INSPECTIONS" }] : []),
     ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TradeHub" }] : []),
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT" },
     ...(isOwnerOrForeman ? [{ name: "Worker Documents", href: "/worker-documents", icon: ShieldCheck, badge: 0, featureKey: "Safety" }] : []),
