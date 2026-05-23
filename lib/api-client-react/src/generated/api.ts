@@ -207,6 +207,8 @@ import type {
   TradehubPostDetail,
   TradehubProfile,
   TradehubUserSearchResult,
+  TranscribeAudio200,
+  TranscribeBody,
   UpdateBuilderEstimateBody,
   UpdateChangeOrderBody,
   UpdateDailyLogBody,
@@ -10352,6 +10354,92 @@ export const useGenerateRFIAI = <
   TContext
 > => {
   return useMutation(getGenerateRFIAIMutationOptions(options));
+};
+
+/**
+ * @summary Transcribe a base64-encoded audio recording to text
+ */
+export const getTranscribeAudioUrl = () => {
+  return `/api/ai/transcribe`;
+};
+
+export const transcribeAudio = async (
+  transcribeBody: TranscribeBody,
+  options?: RequestInit,
+): Promise<TranscribeAudio200> => {
+  return customFetch<TranscribeAudio200>(getTranscribeAudioUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(transcribeBody),
+  });
+};
+
+export const getTranscribeAudioMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transcribeAudio>>,
+    TError,
+    { data: BodyType<TranscribeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof transcribeAudio>>,
+  TError,
+  { data: BodyType<TranscribeBody> },
+  TContext
+> => {
+  const mutationKey = ["transcribeAudio"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof transcribeAudio>>,
+    { data: BodyType<TranscribeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return transcribeAudio(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TranscribeAudioMutationResult = NonNullable<
+  Awaited<ReturnType<typeof transcribeAudio>>
+>;
+export type TranscribeAudioMutationBody = BodyType<TranscribeBody>;
+export type TranscribeAudioMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Transcribe a base64-encoded audio recording to text
+ */
+export const useTranscribeAudio = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transcribeAudio>>,
+    TError,
+    { data: BodyType<TranscribeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof transcribeAudio>>,
+  TError,
+  { data: BodyType<TranscribeBody> },
+  TContext
+> => {
+  return useMutation(getTranscribeAudioMutationOptions(options));
 };
 
 /**

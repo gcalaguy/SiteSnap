@@ -3281,6 +3281,34 @@ export const GenerateRFIAIResponse = zod.object({
 });
 
 /**
+ * @summary Transcribe a base64-encoded audio recording to text
+ */
+export const transcribeAudioBodyAudioMax = 10000000;
+
+export const transcribeAudioBodyFormatMax = 10;
+
+export const TranscribeAudioBody = zod.object({
+  audio: zod
+    .string()
+    .min(1)
+    .max(transcribeAudioBodyAudioMax)
+    .describe(
+      "Base64-encoded audio recording (WebM, MP4, etc.) — max ~7.5 MB binary",
+    ),
+  format: zod
+    .string()
+    .max(transcribeAudioBodyFormatMax)
+    .optional()
+    .describe(
+      'Audio container format hint (e.g. \"webm\", \"mp4\"). Defaults to \"webm\".',
+    ),
+});
+
+export const TranscribeAudioResponse = zod.object({
+  text: zod.string(),
+});
+
+/**
  * @summary Get company-wide dashboard summary (active projects, reports this week, pending RFIs, spend totals)
  */
 export const GetDashboardSummaryResponse = zod.object({
@@ -5005,8 +5033,14 @@ export const SendInvoiceEmailParams = zod.object({
   invoiceId: zod.coerce.number(),
 });
 
+export const sendInvoiceEmailBodyPdfBase64Max = 15000000;
+
 export const SendInvoiceEmailBody = zod.object({
-  pdfBase64: zod.string().describe("Base64-encoded PDF bytes"),
+  pdfBase64: zod
+    .string()
+    .min(1)
+    .max(sendInvoiceEmailBodyPdfBase64Max)
+    .describe("Base64-encoded PDF bytes — max ~11 MB binary"),
 });
 
 export const SendInvoiceEmailResponse = zod.object({

@@ -2306,6 +2306,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/AIGeneratedRFI"
 
+  /ai/transcribe:
+    post:
+      operationId: transcribeAudio
+      tags: [ai]
+      summary: Transcribe a base64-encoded audio recording to text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranscribeBody"
+      responses:
+        "200":
+          description: Transcribed text
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [text]
+                properties:
+                  text:
+                    type: string
+
   # ── Dashboard ──────────────────────────────────────────────────────────────
   /dashboard/summary:
     get:
@@ -3468,12 +3491,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [pdfBase64]
-              properties:
-                pdfBase64:
-                  type: string
-                  description: Base64-encoded PDF bytes
+              $ref: "#/components/schemas/SendInvoiceEmailBody"
       responses:
         "200":
           description: Email sent
@@ -6141,6 +6159,30 @@ components:
       properties:
         reply:
           type: string
+
+    TranscribeBody:
+      type: object
+      required: [audio]
+      properties:
+        audio:
+          type: string
+          minLength: 1
+          maxLength: 10000000
+          description: Base64-encoded audio recording (WebM, MP4, etc.) — max ~7.5 MB binary
+        format:
+          type: string
+          maxLength: 10
+          description: Audio container format hint (e.g. "webm", "mp4"). Defaults to "webm".
+
+    SendInvoiceEmailBody:
+      type: object
+      required: [pdfBase64]
+      properties:
+        pdfBase64:
+          type: string
+          minLength: 1
+          maxLength: 15000000
+          description: Base64-encoded PDF bytes — max ~11 MB binary
 
     # ── Documents ──────────────────────────────────────────────────────────────
     ProjectDocument:

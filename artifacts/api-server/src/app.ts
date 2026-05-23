@@ -131,8 +131,8 @@ app.use(
 app.use("/api/ai/transcribe", express.json({ limit: "20mb" }));
 // /api/ai/photo-summary accepts base64-encoded images
 app.use("/api/ai/photo-summary", express.json({ limit: "50mb" }));
-// Invoice send-email embeds a base64 PDF attachment
-app.use("/api/invoices/:id/send-email", express.json({ limit: "10mb" }));
+// Invoice send-email embeds a base64 PDF attachment (up to ~11 MB binary → ~15 M base64 chars)
+app.use("/api/invoices/:id/send-email", express.json({ limit: "20mb" }));
 
 // Global body-size limit — protects all other routes from oversized payloads.
 // Routes that legitimately need more space have a per-route override above.

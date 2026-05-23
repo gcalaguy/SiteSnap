@@ -800,6 +800,29 @@ export interface AIAssistantResponse {
   reply: string;
 }
 
+export interface TranscribeBody {
+  /**
+   * Base64-encoded audio recording (WebM, MP4, etc.) — max ~7.5 MB binary
+   * @minLength 1
+   * @maxLength 10000000
+   */
+  audio: string;
+  /**
+   * Audio container format hint (e.g. "webm", "mp4"). Defaults to "webm".
+   * @maxLength 10
+   */
+  format?: string;
+}
+
+export interface SendInvoiceEmailBody {
+  /**
+   * Base64-encoded PDF bytes — max ~11 MB binary
+   * @minLength 1
+   * @maxLength 15000000
+   */
+  pdfBase64: string;
+}
+
 export type ProjectDocumentStatus =
   (typeof ProjectDocumentStatus)[keyof typeof ProjectDocumentStatus];
 
@@ -2852,6 +2875,10 @@ export type DeleteRFI200 = {
   ok?: boolean;
 };
 
+export type TranscribeAudio200 = {
+  text: string;
+};
+
 export type MarkAllNotificationsRead200 = {
   ok?: boolean;
 };
@@ -2934,11 +2961,6 @@ export const ListAllInvoicesStatus = {
   overdue: "overdue",
   cancelled: "cancelled",
 } as const;
-
-export type SendInvoiceEmailBody = {
-  /** Base64-encoded PDF bytes */
-  pdfBase64: string;
-};
 
 export type SendInvoiceEmail200 = {
   ok?: boolean;
