@@ -1702,16 +1702,25 @@ export const CostModelBodySourceType = {
 } as const;
 
 export interface CostModelBody {
+  /** @maxLength 100 */
   projectType?: string;
   finishLevel?: CostModelBodyFinishLevel;
+  /** @maxLength 200 */
   name?: string;
+  /** @maxLength 50 */
   baseCostPerSqft?: string;
+  /** @maxLength 50 */
   laborCostPerSqft?: string;
+  /** @maxLength 50 */
   materialCostPerSqft?: string;
+  /** @maxLength 50 */
   overheadPct?: string;
+  /** @maxLength 50 */
   contingencyPct?: string;
+  /** @maxLength 5000 */
   notes?: string | null;
   sourceType?: CostModelBodySourceType;
+  /** @maxLength 100 */
   sourceId?: string | null;
 }
 
@@ -1735,16 +1744,25 @@ export const ImportItemBodySourceType = {
 } as const;
 
 export interface ImportItemBody {
+  /** @maxLength 100 */
   projectType?: string;
   finishLevel?: ImportItemBodyFinishLevel;
+  /** @maxLength 200 */
   name?: string;
+  /** @maxLength 50 */
   baseCostPerSqft?: string;
+  /** @maxLength 50 */
   laborCostPerSqft?: string;
+  /** @maxLength 50 */
   materialCostPerSqft?: string;
+  /** @maxLength 50 */
   overheadPct?: string;
+  /** @maxLength 50 */
   contingencyPct?: string;
+  /** @maxLength 5000 */
   notes?: string | null;
   sourceType?: ImportItemBodySourceType;
+  /** @maxLength 100 */
   sourceId?: string | null;
 }
 

@@ -5058,22 +5058,51 @@ export const ListCostModelsResponse = zod.object({
 /**
  * @summary Create a new cost model
  */
+export const createCostModelBodyProjectTypeMax = 100;
+
+export const createCostModelBodyNameMax = 200;
+
+export const createCostModelBodyBaseCostPerSqftMax = 50;
+
+export const createCostModelBodyLaborCostPerSqftMax = 50;
+
+export const createCostModelBodyMaterialCostPerSqftMax = 50;
+
+export const createCostModelBodyOverheadPctMax = 50;
+
+export const createCostModelBodyContingencyPctMax = 50;
+
+export const createCostModelBodyNotesMax = 5000;
+
 export const createCostModelBodySourceTypeDefault = `manual`;
+export const createCostModelBodySourceIdMax = 100;
 
 export const CreateCostModelBody = zod.object({
-  projectType: zod.string().optional(),
+  projectType: zod.string().max(createCostModelBodyProjectTypeMax).optional(),
   finishLevel: zod.enum(["basic", "standard", "premium", "luxury"]).optional(),
-  name: zod.string().optional(),
-  baseCostPerSqft: zod.string().optional(),
-  laborCostPerSqft: zod.string().optional(),
-  materialCostPerSqft: zod.string().optional(),
-  overheadPct: zod.string().optional(),
-  contingencyPct: zod.string().optional(),
-  notes: zod.string().nullish(),
+  name: zod.string().max(createCostModelBodyNameMax).optional(),
+  baseCostPerSqft: zod
+    .string()
+    .max(createCostModelBodyBaseCostPerSqftMax)
+    .optional(),
+  laborCostPerSqft: zod
+    .string()
+    .max(createCostModelBodyLaborCostPerSqftMax)
+    .optional(),
+  materialCostPerSqft: zod
+    .string()
+    .max(createCostModelBodyMaterialCostPerSqftMax)
+    .optional(),
+  overheadPct: zod.string().max(createCostModelBodyOverheadPctMax).optional(),
+  contingencyPct: zod
+    .string()
+    .max(createCostModelBodyContingencyPctMax)
+    .optional(),
+  notes: zod.string().max(createCostModelBodyNotesMax).nullish(),
   sourceType: zod
     .enum(["manual", "quote", "invoice"])
     .default(createCostModelBodySourceTypeDefault),
-  sourceId: zod.string().nullish(),
+  sourceId: zod.string().max(createCostModelBodySourceIdMax).nullish(),
 });
 
 /**
@@ -5083,22 +5112,51 @@ export const UpdateCostModelParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const updateCostModelBodyProjectTypeMax = 100;
+
+export const updateCostModelBodyNameMax = 200;
+
+export const updateCostModelBodyBaseCostPerSqftMax = 50;
+
+export const updateCostModelBodyLaborCostPerSqftMax = 50;
+
+export const updateCostModelBodyMaterialCostPerSqftMax = 50;
+
+export const updateCostModelBodyOverheadPctMax = 50;
+
+export const updateCostModelBodyContingencyPctMax = 50;
+
+export const updateCostModelBodyNotesMax = 5000;
+
 export const updateCostModelBodySourceTypeDefault = `manual`;
+export const updateCostModelBodySourceIdMax = 100;
 
 export const UpdateCostModelBody = zod.object({
-  projectType: zod.string().optional(),
+  projectType: zod.string().max(updateCostModelBodyProjectTypeMax).optional(),
   finishLevel: zod.enum(["basic", "standard", "premium", "luxury"]).optional(),
-  name: zod.string().optional(),
-  baseCostPerSqft: zod.string().optional(),
-  laborCostPerSqft: zod.string().optional(),
-  materialCostPerSqft: zod.string().optional(),
-  overheadPct: zod.string().optional(),
-  contingencyPct: zod.string().optional(),
-  notes: zod.string().nullish(),
+  name: zod.string().max(updateCostModelBodyNameMax).optional(),
+  baseCostPerSqft: zod
+    .string()
+    .max(updateCostModelBodyBaseCostPerSqftMax)
+    .optional(),
+  laborCostPerSqft: zod
+    .string()
+    .max(updateCostModelBodyLaborCostPerSqftMax)
+    .optional(),
+  materialCostPerSqft: zod
+    .string()
+    .max(updateCostModelBodyMaterialCostPerSqftMax)
+    .optional(),
+  overheadPct: zod.string().max(updateCostModelBodyOverheadPctMax).optional(),
+  contingencyPct: zod
+    .string()
+    .max(updateCostModelBodyContingencyPctMax)
+    .optional(),
+  notes: zod.string().max(updateCostModelBodyNotesMax).nullish(),
   sourceType: zod
     .enum(["manual", "quote", "invoice"])
     .default(updateCostModelBodySourceTypeDefault),
-  sourceId: zod.string().nullish(),
+  sourceId: zod.string().max(updateCostModelBodySourceIdMax).nullish(),
 });
 
 export const updateCostModelResponseSourceTypeDefault = `manual`;
@@ -5136,22 +5194,57 @@ export const DeleteCostModelResponse = zod.object({
 /**
  * @summary Import a line item from a quote or invoice into the Pricing DB
  */
+export const importCostModelItemBodyProjectTypeMax = 100;
+
+export const importCostModelItemBodyNameMax = 200;
+
+export const importCostModelItemBodyBaseCostPerSqftMax = 50;
+
+export const importCostModelItemBodyLaborCostPerSqftMax = 50;
+
+export const importCostModelItemBodyMaterialCostPerSqftMax = 50;
+
+export const importCostModelItemBodyOverheadPctMax = 50;
+
+export const importCostModelItemBodyContingencyPctMax = 50;
+
+export const importCostModelItemBodyNotesMax = 5000;
+
 export const importCostModelItemBodySourceTypeDefault = `manual`;
+export const importCostModelItemBodySourceIdMax = 100;
 
 export const ImportCostModelItemBody = zod.object({
-  projectType: zod.string().optional(),
+  projectType: zod
+    .string()
+    .max(importCostModelItemBodyProjectTypeMax)
+    .optional(),
   finishLevel: zod.enum(["basic", "standard", "premium", "luxury"]).optional(),
-  name: zod.string().optional(),
-  baseCostPerSqft: zod.string().optional(),
-  laborCostPerSqft: zod.string().optional(),
-  materialCostPerSqft: zod.string().optional(),
-  overheadPct: zod.string().optional(),
-  contingencyPct: zod.string().optional(),
-  notes: zod.string().nullish(),
+  name: zod.string().max(importCostModelItemBodyNameMax).optional(),
+  baseCostPerSqft: zod
+    .string()
+    .max(importCostModelItemBodyBaseCostPerSqftMax)
+    .optional(),
+  laborCostPerSqft: zod
+    .string()
+    .max(importCostModelItemBodyLaborCostPerSqftMax)
+    .optional(),
+  materialCostPerSqft: zod
+    .string()
+    .max(importCostModelItemBodyMaterialCostPerSqftMax)
+    .optional(),
+  overheadPct: zod
+    .string()
+    .max(importCostModelItemBodyOverheadPctMax)
+    .optional(),
+  contingencyPct: zod
+    .string()
+    .max(importCostModelItemBodyContingencyPctMax)
+    .optional(),
+  notes: zod.string().max(importCostModelItemBodyNotesMax).nullish(),
   sourceType: zod
     .enum(["manual", "quote", "invoice"])
     .default(importCostModelItemBodySourceTypeDefault),
-  sourceId: zod.string().nullish(),
+  sourceId: zod.string().max(importCostModelItemBodySourceIdMax).nullish(),
 });
 
 /**
