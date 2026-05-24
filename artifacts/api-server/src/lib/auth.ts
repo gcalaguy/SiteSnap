@@ -3,7 +3,7 @@ import { db, usersTable, userMembershipsTable } from "@workspace/db";
 import type { MemberPermissions } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
-import { getCompanyFeatureKeys } from "./featureGate";
+import { getCompanyFeatureKeys, isEnterprisePlan } from "./featureGate";
 
 declare global {
   namespace Express {
@@ -150,6 +150,13 @@ export const requireAuditAccess = async (
 
   if (!req.companyId) {
     res.status(403).json({ error: "No company associated with this account" });
+    return;
+  }
+
+  // Explicit Enterprise plan check — Audit Vault is an Enterprise-only feature
+  const enterprise = await isEnterprisePlan(req.companyId);
+  if (!enterprise) {
+    res.status(403).json({ error: "Audit Vault requires an Enterprise plan" });
     return;
   }
 

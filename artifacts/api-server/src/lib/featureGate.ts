@@ -5,9 +5,28 @@ import type { Request, Response, NextFunction } from "express";
 const ENTERPRISE_ONLY_FEATURES = ["RISK_DASHBOARD", "FINANCIALS", "AUDIT_VAULT"];
 
 /**
+ * Returns whether the company's active subscription is on an Enterprise plan.
+ */
+export async function isEnterprisePlan(companyId: number): Promise<boolean> {
+  const rows = await db
+    .select({ planSlug: plansTable.slug })
+    .from(subscriptionsTable)
+    .innerJoin(plansTable, eq(plansTable.id, subscriptionsTable.planId))
+    .where(
+      and(
+        eq(subscriptionsTable.companyId, companyId),
+        eq(subscriptionsTable.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  return rows[0]?.planSlug?.toLowerCase() === "enterprise";
+}
+
+/**
  * Returns the effective feature keys for a company.
  * Priority: custom activeFeatures override → plan-based features.
- * Enterprise-only features (RISK_DASHBOARD, FINANCIALS) are stripped for non-Enterprise tenants.
+ * Enterprise-only features are stripped for non-Enterprise tenants.
  */
 export async function getCompanyFeatureKeys(companyId: number): Promise<string[]> {
   const [company] = await db
@@ -41,6 +60,7 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
   if (isEnterprise) {
     if (!keys.includes("RISK_DASHBOARD")) keys.push("RISK_DASHBOARD");
     if (!keys.includes("FINANCIALS")) keys.push("FINANCIALS");
+    if (!keys.includes("AUDIT_VAULT")) keys.push("AUDIT_VAULT");
     return keys;
   }
 
