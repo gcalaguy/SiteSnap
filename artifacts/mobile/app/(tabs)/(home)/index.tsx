@@ -156,7 +156,6 @@ type QuickAction = {
 
 const ALL_ACTIONS: QuickAction[] = [
   { label: "My Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
-  { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6", permKey: "viewDailyLog" },
   { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9", permKey: "viewReports" },
   { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b", permKey: "viewRFIs" },
   { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4", permKey: "viewPhotos" },
@@ -173,7 +172,6 @@ const OWNER_ACTIONS: QuickAction[] = [
   { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
   { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9", permKey: "viewReports" },
   { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b", permKey: "viewRFIs" },
-  { label: "Daily Log", icon: "file-text", path: "/field-daily-log", color: "#3b82f6", permKey: "viewDailyLog" },
   { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4", permKey: "viewPhotos" },
   { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
   { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C", permKey: "viewEstimator" },

@@ -13,7 +13,6 @@ const ALL_TRUE = {
   manageQuotes: true,
   submitExpenses: true,
   viewAllProjects: true,
-  viewDailyLog: true,
   viewReports: true,
   viewRFIs: true,
   viewPhotos: true,
