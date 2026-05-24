@@ -28,11 +28,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "N/A";
-  const safeDate = new Date(dateStr);
-  return isNaN(safeDate.getTime()) ? "N/A" : safeDate.toLocaleDateString("en-CA");
-}
+const renderSafeDate = (dateString: any) => {
+  if (!dateString) return 'N/A';
+  try {
+    const d = new Date(dateString);
+    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' });
+  } catch (e) {
+    return 'N/A';
+  }
+};
 
 interface WorkerGroup {
   workerId: number;
@@ -224,7 +228,7 @@ export default function WorkerDocumentsPage() {
                                   </Badge>
                                 </td>
                                 <td className="px-4 py-3 text-[#0A0A0A]/60">
-                                  {formatDate(d.createdAt)}
+                                  {renderSafeDate(d.createdAt)}
                                 </td>
                                 <td className="px-5 py-3 text-right">
                                   <Button
@@ -277,7 +281,7 @@ export default function WorkerDocumentsPage() {
                 </div>
                 <div>
                   <p className="text-xs text-[#0A0A0A]/40">Uploaded</p>
-                  <p className="text-sm font-medium mt-1 text-[#0A0A0A]">{formatDate(selectedDoc.createdAt)}</p>
+                  <p className="text-sm font-medium mt-1 text-[#0A0A0A]">{renderSafeDate(selectedDoc.createdAt)}</p>
                 </div>
               </div>
               <div>
