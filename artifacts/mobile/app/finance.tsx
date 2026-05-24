@@ -995,6 +995,7 @@ export default function FinanceScreen() {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
+                      companyId: me?.companyId ? parseInt(me.companyId, 10) : 1,
                       projectId: pid,
                       title: createSubject.trim(),
                       question: createDescription.trim(),
