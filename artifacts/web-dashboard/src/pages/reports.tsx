@@ -32,6 +32,7 @@ export default function ReportsPage() {
     const q = search.toLowerCase();
     return (
       r.workPerformed.toLowerCase().includes(q) ||
+      (r.notes ?? "").toLowerCase().includes(q) ||
       (r.projectName ?? "").toLowerCase().includes(q) ||
       r.submittedByName.toLowerCase().includes(q)
     );
@@ -156,6 +157,9 @@ export default function ReportsPage() {
                       </span>
                     </div>
                     <p className="text-sm text-[#121212]/80 line-clamp-2">{report.workPerformed}</p>
+                    {report.notes && (
+                      <p className="text-xs text-blue-600 mt-1 line-clamp-1 font-medium">🎤 {report.notes}</p>
+                    )}
                     {report.issues && (
                       <p className="text-xs text-red-600 mt-1 line-clamp-1 font-medium">⚠ {report.issues}</p>
                     )}

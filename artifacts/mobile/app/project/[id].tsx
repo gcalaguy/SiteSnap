@@ -734,7 +734,7 @@ function ReportsTabSection({
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     createReport.mutate(
-      { projectId, data: { reportDate: today, workPerformed: notes, crewCount: 1 } },
+      { projectId, data: { reportDate: today, workPerformed: notes, notes: notes || undefined, crewCount: 1 } },
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

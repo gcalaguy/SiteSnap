@@ -372,6 +372,7 @@ export default function LogScreen() {
       weather: weather || undefined,
       crewCount: parseInt(crewCount, 10) || 1,
       workPerformed: notes,
+      notes: notes || undefined,
       aiSummary: aiSummary || undefined,
     };
 

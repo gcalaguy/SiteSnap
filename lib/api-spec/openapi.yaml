@@ -5516,6 +5516,9 @@ components:
         issues:
           type: string
           nullable: true
+        notes:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -5550,6 +5553,9 @@ components:
           type: string
           nullable: true
         issues:
+          type: string
+          nullable: true
+        notes:
           type: string
           nullable: true
         aiSummary:
@@ -5587,6 +5593,9 @@ components:
           type: string
           maxLength: 5000
         issues:
+          type: string
+          maxLength: 5000
+        notes:
           type: string
           maxLength: 5000
         aiSummary:

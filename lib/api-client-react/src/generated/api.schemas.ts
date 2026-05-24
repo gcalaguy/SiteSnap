@@ -374,6 +374,7 @@ export interface DailyReportListItem {
   crewCount: number;
   workPerformed: string;
   issues?: string | null;
+  notes?: string | null;
   createdAt: string;
 }
 
@@ -389,6 +390,7 @@ export interface DailyReport {
   materialsUsed?: string | null;
   equipment?: string | null;
   issues?: string | null;
+  notes?: string | null;
   aiSummary?: string | null;
   createdAt: string;
   submittedBy?: User | null;
@@ -409,6 +411,8 @@ export interface CreateDailyReportBody {
   equipment?: string;
   /** @maxLength 5000 */
   issues?: string;
+  /** @maxLength 5000 */
+  notes?: string;
   /** @maxLength 5000 */
   aiSummary?: string;
 }

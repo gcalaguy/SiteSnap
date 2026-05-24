@@ -40,6 +40,7 @@ allDailyReportsRouter.get(
         crewCount: dailyReportsTable.crewCount,
         workPerformed: dailyReportsTable.workPerformed,
         issues: dailyReportsTable.issues,
+        notes: dailyReportsTable.notes,
         createdAt: dailyReportsTable.createdAt,
         submittedByFirstName: usersTable.firstName,
         submittedByLastName: usersTable.lastName,
@@ -60,6 +61,7 @@ allDailyReportsRouter.get(
       crewCount: r.crewCount,
       workPerformed: r.workPerformed,
       issues: r.issues ?? null,
+      notes: r.notes ?? null,
       createdAt: r.createdAt,
       submittedByName: r.submittedByFirstName && r.submittedByLastName
         ? `${r.submittedByFirstName} ${r.submittedByLastName}`
@@ -122,6 +124,8 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets")
 });
 
 // POST /projects/:projectId/daily-reports
+// Upsert: if a report already exists for the given date, append incoming notes
+// to the existing record instead of creating a duplicate.
 router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
@@ -134,13 +138,67 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
   }
 
   const { reportDate, ...restInsert } = parsed.data;
+  const dateStr = reportDate instanceof Date ? reportDate.toISOString().split("T")[0] : reportDate;
+
+  // Look for an existing report for this project + date
+  const [existing] = await db
+    .select()
+    .from(dailyReportsTable)
+    .where(
+      and(
+        eq(dailyReportsTable.projectId, projectId),
+        eq(dailyReportsTable.reportDate, dateStr)
+      )
+    )
+    .limit(1);
+
+  if (existing) {
+    // Append incoming notes / workPerformed to the existing report
+    const newNotes = restInsert.notes
+      ? existing.notes
+        ? `${existing.notes}\n\n${restInsert.notes}`
+        : restInsert.notes
+      : existing.notes;
+
+    const newWorkPerformed = restInsert.workPerformed
+      ? existing.workPerformed
+        ? `${existing.workPerformed}\n\n${restInsert.workPerformed}`
+        : restInsert.workPerformed
+      : existing.workPerformed;
+
+    const [updated] = await db
+      .update(dailyReportsTable)
+      .set({
+        workPerformed: newWorkPerformed,
+        notes: newNotes,
+        materialsUsed: restInsert.materialsUsed ?? existing.materialsUsed,
+        equipment: restInsert.equipment ?? existing.equipment,
+        issues: restInsert.issues ?? existing.issues,
+        crewCount: restInsert.crewCount ?? existing.crewCount,
+        weather: restInsert.weather ?? existing.weather,
+        temperature: restInsert.temperature ?? existing.temperature,
+      })
+      .where(eq(dailyReportsTable.id, existing.id))
+      .returning();
+
+    const [submittedBy] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, updated.submittedByUserId))
+      .limit(1);
+
+    res.status(200).json({ ...updated, submittedBy: submittedBy ?? null });
+    return;
+  }
+
+  // No existing report for today — create a new one
   const [report] = await db
     .insert(dailyReportsTable)
     .values({
       ...restInsert,
       projectId,
       submittedByUserId: req.userId!,
-      reportDate: reportDate instanceof Date ? reportDate.toISOString().split("T")[0] : reportDate,
+      reportDate: dateStr,
     })
     .returning();
 

@@ -18,6 +18,7 @@ interface DailyReport {
   materialsUsed?: string | null;
   equipment?: string | null;
   issues?: string | null;
+  notes?: string | null;
   aiSummary?: string | null;
   photos?: ReportPhoto[];
   submittedBy?: {
@@ -67,6 +68,15 @@ export default function DailyReportsSection({ reports }: DailyReportsSectionProp
           )}
 
           <Text style={[styles.text, { marginTop: 6 }]}>{report.workPerformed}</Text>
+
+          {report.notes && (
+            <View style={{ marginTop: 4, backgroundColor: "#eff6ff", padding: 6, borderRadius: 3 }}>
+              <Text style={[styles.smallText, { color: "#2563eb", fontFamily: "Helvetica-Bold" }]}>
+                Voice Notes
+              </Text>
+              <Text style={[styles.smallText, { color: "#1e3a8a" }]}>{report.notes}</Text>
+            </View>
+          )}
 
           {(report.weather || report.temperature) && (
             <View style={[styles.row, { marginTop: 4 }]}>

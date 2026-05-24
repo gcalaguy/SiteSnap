@@ -57,6 +57,7 @@ interface ReportItem {
   materialsUsed?: string | null;
   equipment?: string | null;
   issues?: string | null;
+  notes?: string | null;
   aiSummary?: string | null;
   submittedBy?: { firstName?: string | null; lastName?: string | null } | null;
 }
@@ -273,6 +274,12 @@ export default function ProjectLiteDocument({
                     </Text>
                   )}
                   <Text style={{ fontSize: 10, marginTop: 4, lineHeight: 1.3 }}>{report.workPerformed}</Text>
+                  {report.notes && (
+                    <View style={{ marginTop: 3, backgroundColor: "#eff6ff", padding: 4, borderRadius: 2 }}>
+                      <Text style={{ fontSize: 9, color: "#2563eb", fontFamily: "Helvetica-Bold" }}>Voice Notes</Text>
+                      <Text style={{ fontSize: 9, color: "#1e3a8a" }}>{report.notes}</Text>
+                    </View>
+                  )}
                   {(report.weather || report.temperature) && (
                     <View style={[styles.row, { marginTop: 3 }]}>
                       {report.weather && <Text style={styles.small}>Weather: {report.weather}</Text>}

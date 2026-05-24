@@ -2726,6 +2726,7 @@ export const ListAllDailyReportsResponseItem = zod.object({
   crewCount: zod.number(),
   workPerformed: zod.string(),
   issues: zod.string().nullish(),
+  notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListAllDailyReportsResponse = zod.array(
@@ -2753,6 +2754,7 @@ export const ListDailyReportsResponseItem = zod.object({
   materialsUsed: zod.string().nullish(),
   equipment: zod.string().nullish(),
   issues: zod.string().nullish(),
+  notes: zod.string().nullish(),
   aiSummary: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   submittedBy: zod
@@ -2796,6 +2798,8 @@ export const createDailyReportBodyEquipmentMax = 5000;
 
 export const createDailyReportBodyIssuesMax = 5000;
 
+export const createDailyReportBodyNotesMax = 5000;
+
 export const createDailyReportBodyAiSummaryMax = 5000;
 
 export const CreateDailyReportBody = zod.object({
@@ -2810,6 +2814,7 @@ export const CreateDailyReportBody = zod.object({
     .optional(),
   equipment: zod.string().max(createDailyReportBodyEquipmentMax).optional(),
   issues: zod.string().max(createDailyReportBodyIssuesMax).optional(),
+  notes: zod.string().max(createDailyReportBodyNotesMax).optional(),
   aiSummary: zod.string().max(createDailyReportBodyAiSummaryMax).optional(),
 });
 
@@ -2835,6 +2840,7 @@ export const GetDailyReportResponse = zod.object({
   materialsUsed: zod.string().nullish(),
   equipment: zod.string().nullish(),
   issues: zod.string().nullish(),
+  notes: zod.string().nullish(),
   aiSummary: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   submittedBy: zod
@@ -2878,6 +2884,8 @@ export const updateDailyReportBodyEquipmentMax = 5000;
 
 export const updateDailyReportBodyIssuesMax = 5000;
 
+export const updateDailyReportBodyNotesMax = 5000;
+
 export const updateDailyReportBodyAiSummaryMax = 5000;
 
 export const UpdateDailyReportBody = zod.object({
@@ -2892,6 +2900,7 @@ export const UpdateDailyReportBody = zod.object({
     .optional(),
   equipment: zod.string().max(updateDailyReportBodyEquipmentMax).optional(),
   issues: zod.string().max(updateDailyReportBodyIssuesMax).optional(),
+  notes: zod.string().max(updateDailyReportBodyNotesMax).optional(),
   aiSummary: zod.string().max(updateDailyReportBodyAiSummaryMax).optional(),
 });
 
@@ -2909,6 +2918,7 @@ export const UpdateDailyReportResponse = zod.object({
   materialsUsed: zod.string().nullish(),
   equipment: zod.string().nullish(),
   issues: zod.string().nullish(),
+  notes: zod.string().nullish(),
   aiSummary: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   submittedBy: zod

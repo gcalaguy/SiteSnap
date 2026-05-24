@@ -34,6 +34,7 @@ const reportSchema = z.object({
   materialsUsed: z.string().optional(),
   equipment: z.string().optional(),
   issues: z.string().optional(),
+  notes: z.string().optional(),
   aiSummary: z.string().optional(),
 });
 
@@ -78,6 +79,7 @@ export default function NewReport() {
       materialsUsed: "",
       equipment: "",
       issues: "",
+      notes: "",
       aiSummary: "",
     },
   });
@@ -420,6 +422,26 @@ export default function NewReport() {
                       <div className="flex justify-end">
                         <p className={`text-xs tabular-nums ${(field.value?.length ?? 0) >= EQUIPMENT_MAX ? "text-destructive font-medium" : (field.value?.length ?? 0) >= EQUIPMENT_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
                           {(field.value?.length ?? 0).toLocaleString()}/{EQUIPMENT_MAX.toLocaleString()}
+                        </p>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="notes" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes (Voice / Streaming)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          className="min-h-[60px]"
+                          maxLength={ISSUES_MAX}
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value.slice(0, ISSUES_MAX))}
+                        />
+                      </FormControl>
+                      <div className="flex justify-end">
+                        <p className={`text-xs tabular-nums ${(field.value?.length ?? 0) >= ISSUES_MAX ? "text-destructive font-medium" : (field.value?.length ?? 0) >= ISSUES_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                          {(field.value?.length ?? 0).toLocaleString()}/{ISSUES_MAX.toLocaleString()}
                         </p>
                       </div>
                       <FormMessage />

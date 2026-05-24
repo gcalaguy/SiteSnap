@@ -52,7 +52,7 @@ import { PDFDownloadLink } from "@react-pdf/renderer";
 import ProjectLiteDocument from "@/components/pdf/ProjectLiteDocument";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Pencil, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert, MessageCircle, ScanLine, Printer } from "lucide-react";
+import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Pencil, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert, MessageCircle, ScanLine, Printer, Mic } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1228,6 +1228,16 @@ export default function ProjectDetail() {
                                 <Wrench className="h-3.5 w-3.5" /> Equipment
                               </p>
                               <p className="text-sm text-muted-foreground">{report.equipment}</p>
+                            </div>
+                          )}
+
+                          {/* Voice / Streaming Notes */}
+                          {report.notes && (
+                            <div className="bg-blue-950/20 border border-blue-900/40 rounded-md p-3">
+                              <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1 mb-0.5">
+                                <Mic className="h-3.5 w-3.5" /> Voice Notes
+                              </p>
+                              <p className="text-sm text-blue-800 dark:text-blue-300">{report.notes}</p>
                             </div>
                           )}
 

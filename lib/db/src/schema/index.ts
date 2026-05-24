@@ -231,6 +231,7 @@ export const dailyReportsTable = pgTable("daily_reports", {
   materialsUsed: text("materials_used"),
   equipment: text("equipment"),
   issues: text("issues"),
+  notes: text("notes"),
   aiSummary: text("ai_summary"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [

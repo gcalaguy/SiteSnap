@@ -420,9 +420,9 @@ export function GlobalVoiceCommandFAB() {
           throw new Error("User cancelled project selection");
         }
       }
-      // When no specific notes were extracted, preserve the raw voice transcript
-      // so crews can see exactly what they said instead of a generic placeholder.
-      const workPerformed = action.notes === "Update logged via voice"
+      // Send voice notes to the backend so they append to today's existing
+      // daily report instead of creating an isolated new record.
+      const notes = action.notes === "Update logged via voice"
         ? action.transcript
         : action.notes;
       try {
@@ -431,7 +431,8 @@ export function GlobalVoiceCommandFAB() {
           data: {
             reportDate: new Date().toISOString().split("T")[0],
             crewCount: 1,
-            workPerformed,
+            workPerformed: "Voice update",
+            notes,
           },
         });
         qc.invalidateQueries({ queryKey: getListDailyReportsQueryKey(proj.id) });
