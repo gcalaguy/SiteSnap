@@ -10,9 +10,12 @@ import { Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useOfflineQueue } from "@/context/OfflineQueueContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useGetMe } from "@workspace/api-client-react";
 
 function NativeTabLayout() {
   const perms = usePermissions();
+  const { data: me } = useGetMe();
+  const isOwner = me?.role === "owner";
   return (
     <View style={{ flex: 1 }}>
       <NativeTabs>
@@ -42,6 +45,12 @@ function NativeTabLayout() {
           <Icon sf={{ default: "globe", selected: "globe.fill" }} />
           <Label>TradeHub</Label>
         </NativeTabs.Trigger>
+        {isOwner && (
+          <NativeTabs.Trigger name="admin-hub">
+            <Icon sf={{ default: "gearshape.2", selected: "gearshape.2.fill" }} />
+            <Label>Admin Hub</Label>
+          </NativeTabs.Trigger>
+        )}
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
@@ -68,6 +77,8 @@ function ClassicTabLayout() {
   const isWeb = Platform.OS === "web";
   const { pendingCount } = useOfflineQueue();
   const perms = usePermissions();
+  const { data: me } = useGetMe();
+  const isOwner = me?.role === "owner";
 
   return (
     <View style={{ flex: 1 }}>
@@ -146,6 +157,16 @@ function ClassicTabLayout() {
           title: "TradeHub",
           tabBarIcon: ({ color }) =>
             isIOS ? <SymbolView name="globe" tintColor={color} size={24} /> : <Feather name="globe" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="admin-hub"
+        options={{
+          href: isOwner ? undefined : null,
+          tabBarItemStyle: isOwner ? {} : { display: "none" },
+          title: "Admin Hub",
+          tabBarIcon: ({ color }) =>
+            isIOS ? <SymbolView name="gearshape.2" tintColor={color} size={24} /> : <Feather name="grid" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
