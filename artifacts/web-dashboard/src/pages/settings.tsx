@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera, Hash, Save, Download, Calculator } from "lucide-react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera, Hash, Save, Download, Calculator, Crown, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { z } from "zod";
@@ -363,6 +363,7 @@ function AccountingCard() {
   const companyId = company?.id;
   const [collapsed, setCollapsed] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const { data: seatInfo } = useGetBillingSeats();
 
   const { data: exportRows, isLoading: exportLoading } = useGetAccountingExportData(companyId ?? 0, {
     query: { queryKey: getGetAccountingExportDataQueryKey(companyId ?? 0), enabled: !!companyId && !collapsed },
@@ -474,6 +475,11 @@ function AccountingCard() {
 
           {/* QuickBooks Integration (moved inside Accounting card) */}
           <QuickBooksCard />
+
+          <Separator />
+
+          {/* Compliance & Audit Vault (Enterprise-only) */}
+          {seatInfo?.planName?.toLowerCase() === "enterprise" ? <AuditVaultCard /> : <UpgradeToEnterpriseBanner />}
         </CardContent>
       )}
     </Card>
@@ -671,6 +677,50 @@ function QuickBooksCard() {
       </CardContent>
       )}
     </Card>
+  );
+}
+
+// ── Audit Vault Card (Enterprise-only) ─────────────────────────────────────────
+
+function AuditVaultCard() {
+  const [, navigate] = useLocation();
+  return (
+    <div className="rounded-md border border-border bg-muted/20 p-4 space-y-3">
+      <div className="flex items-start gap-2">
+        <Archive className="h-5 w-5 mt-0.5 shrink-0 text-primary" />
+        <div className="space-y-1">
+          <p className="text-sm font-semibold">Compliance & Audit Vault</p>
+          <p className="text-xs text-muted-foreground">
+            Central pane to view, save, and print verified snapshots of all active projects, financials, timesheets, and security logs for official audits.
+          </p>
+        </div>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2"
+        onClick={() => navigate("/audit-vault")}
+      >
+        <Archive className="h-4 w-4" />
+        Open Audit Vault
+      </Button>
+    </div>
+  );
+}
+
+function UpgradeToEnterpriseBanner() {
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 p-4 space-y-2">
+      <div className="flex items-start gap-2">
+        <Crown className="h-5 w-5 mt-0.5 shrink-0 text-amber-600" />
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-amber-800">Enterprise Feature</p>
+          <p className="text-xs text-amber-700">
+            Compliance & Audit Vault is available on the Enterprise plan. Upgrade to unlock audit-ready snapshots, security logs, and verified project archives.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 

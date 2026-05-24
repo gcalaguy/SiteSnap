@@ -2,7 +2,7 @@ import { db, subscriptionsTable, planFeaturesTable, featuresTable, companiesTabl
 import { eq, and } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
 
-const ENTERPRISE_ONLY_FEATURES = ["RISK_DASHBOARD", "FINANCIALS"];
+const ENTERPRISE_ONLY_FEATURES = ["RISK_DASHBOARD", "FINANCIALS", "AUDIT_VAULT"];
 
 /**
  * Returns the effective feature keys for a company.
