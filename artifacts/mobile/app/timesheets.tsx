@@ -176,7 +176,7 @@ export default function TimesheetsScreen() {
           {timesheets.map((ts) => {
             const statusColor = STATUS_COLORS[ts.status] ?? "#6B7280";
             const isEditing = editingId === ts.id;
-            const showActions = canManage && ts.status === "submitted";
+            const showActions = canManage;
 
             return (
               <View
