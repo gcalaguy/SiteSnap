@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,13 +8,23 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
-import { useListTimesheets, useGetMe } from "@workspace/api-client-react";
+import {
+  useListTimesheets,
+  useGetMe,
+  useApproveTimesheet,
+  useDenyTimesheet,
+  getListTimesheetsQueryKey,
+  customFetch,
+} from "@workspace/api-client-react";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "#6B7280",
@@ -29,7 +39,7 @@ function formatWeekRange(startStr: string): string {
   end.setDate(start.getDate() + 6);
   const fmt = (d: Date) =>
     d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-  return `${fmt(start)} – ${fmt(end)}`;
+  return `${fmt(start)} \u2013 ${fmt(end)}`;
 }
 
 export default function TimesheetsScreen() {
@@ -37,8 +47,11 @@ export default function TimesheetsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { data: me } = useGetMe();
+  const qc = useQueryClient();
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editHours, setEditHours] = useState("");
 
   const {
     data: timesheetsData,
@@ -51,9 +64,59 @@ export default function TimesheetsScreen() {
 
   const timesheets = (timesheetsData ?? []) as any[];
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+  const canManage = me?.role === "owner";
 
   const statuses = ["all", "draft", "submitted", "approved", "denied"];
   const topInset = Platform.OS === "web" ? 67 : insets.top;
+
+  const approveMutation = useApproveTimesheet({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+        Alert.alert("Approved", "Timesheet approved.");
+      },
+      onError: () => Alert.alert("Error", "Failed to approve timesheet."),
+    },
+  });
+
+  const denyMutation = useDenyTimesheet({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+        Alert.alert("Rejected", "Timesheet rejected.");
+      },
+      onError: () => Alert.alert("Error", "Failed to reject timesheet."),
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: { totalHours?: number; description?: string | null } }) =>
+      customFetch(`/api/timesheets/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+      setEditingId(null);
+      setEditHours("");
+      Alert.alert("Updated", "Timesheet hours updated.");
+    },
+    onError: () => Alert.alert("Error", "Failed to update timesheet."),
+  });
+
+  const handleEdit = useCallback((ts: any) => {
+    setEditingId(ts.id);
+    setEditHours(ts.totalHours ?? "");
+  }, []);
+
+  const handleSaveEdit = useCallback((id: number) => {
+    const h = parseFloat(editHours);
+    if (!editHours || isNaN(h) || h <= 0 || h > 168) {
+      Alert.alert("Invalid hours", "Enter hours between 0.5 and 168");
+      return;
+    }
+    editMutation.mutate({ id, body: { totalHours: h } });
+  }, [editHours, editMutation]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -112,6 +175,9 @@ export default function TimesheetsScreen() {
         >
           {timesheets.map((ts) => {
             const statusColor = STATUS_COLORS[ts.status] ?? "#6B7280";
+            const isEditing = editingId === ts.id;
+            const showActions = canManage && ts.status === "submitted";
+
             return (
               <View
                 key={ts.id}
@@ -127,16 +193,92 @@ export default function TimesheetsScreen() {
                     </Text>
                   </View>
                 </View>
+
                 <View style={styles.cardBottom}>
-                  <Text style={[styles.cardHours, { color: colors.mutedForeground }]}>
-                    {ts.totalHours ?? "0"} hours
-                  </Text>
+                  {isEditing ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                      <TextInput
+                        value={editHours}
+                        onChangeText={setEditHours}
+                        keyboardType="decimal-pad"
+                        style={[styles.editInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+                        autoFocus
+                      />
+                      <TouchableOpacity onPress={() => handleSaveEdit(ts.id)}>
+                        <Feather name="check" size={18} color="#22C55E" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => { setEditingId(null); setEditHours(""); }}>
+                        <Feather name="x" size={18} color={colors.mutedForeground} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <Text style={[styles.cardHours, { color: colors.mutedForeground }]}>
+                      {ts.totalHours ?? "0"} hours
+                    </Text>
+                  )}
                   {ts.user && (
                     <Text style={[styles.cardUser, { color: colors.mutedForeground }]}>
                       {ts.user.firstName} {ts.user.lastName}
                     </Text>
                   )}
                 </View>
+
+                {/* Owner actions */}
+                {canManage && (
+                  <View style={styles.actionRow}>
+                    {showActions && (
+                      <>
+                        <TouchableOpacity
+                          style={[styles.actionBtn, { backgroundColor: "#22C55E15" }]}
+                          onPress={() => {
+                            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            approveMutation.mutate({ timesheetId: ts.id, data: { signatureData: "" } });
+                          }}
+                          disabled={approveMutation.isPending}
+                        >
+                          {approveMutation.isPending ? (
+                            <ActivityIndicator size="small" color="#22C55E" />
+                          ) : (
+                            <>
+                              <Feather name="check-circle" size={13} color="#22C55E" />
+                              <Text style={[styles.actionText, { color: "#22C55E" }]}>Approve</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionBtn, { backgroundColor: "#EF444415" }]}
+                          onPress={() => {
+                            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            denyMutation.mutate({ timesheetId: ts.id, data: { notes: "" } });
+                          }}
+                          disabled={denyMutation.isPending}
+                        >
+                          {denyMutation.isPending ? (
+                            <ActivityIndicator size="small" color="#EF4444" />
+                          ) : (
+                            <>
+                              <Feather name="x-circle" size={13} color="#EF4444" />
+                              <Text style={[styles.actionText, { color: "#EF4444" }]}>Reject</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    {!isEditing && (
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: `${colors.primary}15` }]}
+                        onPress={() => {
+                          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          handleEdit(ts);
+                        }}
+                        disabled={editMutation.isPending}
+                      >
+                        <Feather name="edit-2" size={13} color={colors.primary} />
+                        <Text style={[styles.actionText, { color: colors.primary }]}>Edit</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </View>
             );
           })}
@@ -186,4 +328,30 @@ const styles = StyleSheet.create({
   cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 },
   cardHours: { fontSize: 13, fontFamily: "Inter_400Regular" },
   cardUser: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  editInput: {
+    width: 80,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+  },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  actionText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
 });

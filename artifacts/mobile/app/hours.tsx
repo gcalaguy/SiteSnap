@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,24 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  TextInput,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
-import { useListTimesheets, useListProjects, useGetMe } from "@workspace/api-client-react";
+import {
+  useListTimesheets,
+  useListProjects,
+  useGetMe,
+  useApproveTimesheet,
+  useDenyTimesheet,
+  getListTimesheetsQueryKey,
+  customFetch,
+} from "@workspace/api-client-react";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "#6B7280",
@@ -30,7 +41,7 @@ function formatWeekRange(startStr: string): string {
   end.setDate(start.getDate() + 6);
   const fmt = (d: Date) =>
     d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-  return `${fmt(start)} – ${fmt(end)}`;
+  return `${fmt(start)} \u2013 ${fmt(end)}`;
 }
 
 export default function HoursScreen() {
@@ -38,8 +49,11 @@ export default function HoursScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { data: me } = useGetMe();
+  const qc = useQueryClient();
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editHours, setEditHours] = useState("");
 
   const {
     data: timesheetsData,
@@ -61,9 +75,8 @@ export default function HoursScreen() {
   const unassigned: any[] = [];
   for (const ts of timesheets) {
     const pid = ts.projectId ?? 0;
-    if (pid === 0) {
-      unassigned.push(ts);
-    } else {
+    if (pid === 0) unassigned.push(ts);
+    else {
       if (!byProject[pid]) byProject[pid] = [];
       byProject[pid].push(ts);
     }
@@ -73,6 +86,152 @@ export default function HoursScreen() {
   const statuses = ["all", "draft", "submitted", "approved", "denied"];
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+  const canManage = me?.role === "owner";
+
+  const approveMutation = useApproveTimesheet({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+        Alert.alert("Approved", "Timesheet approved.");
+      },
+      onError: () => Alert.alert("Error", "Failed to approve timesheet."),
+    },
+  });
+
+  const denyMutation = useDenyTimesheet({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+        Alert.alert("Rejected", "Timesheet rejected.");
+      },
+      onError: () => Alert.alert("Error", "Failed to reject timesheet."),
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: { totalHours?: number; description?: string | null } }) =>
+      customFetch(`/api/timesheets/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+      setEditingId(null);
+      setEditHours("");
+      Alert.alert("Updated", "Timesheet hours updated.");
+    },
+    onError: () => Alert.alert("Error", "Failed to update timesheet."),
+  });
+
+  const handleEdit = useCallback((ts: any) => {
+    setEditingId(ts.id);
+    setEditHours(ts.totalHours ?? "");
+  }, []);
+
+  const handleSaveEdit = useCallback((id: number) => {
+    const h = parseFloat(editHours);
+    if (!editHours || isNaN(h) || h <= 0 || h > 168) {
+      Alert.alert("Invalid hours", "Enter hours between 0.5 and 168");
+      return;
+    }
+    editMutation.mutate({ id, body: { totalHours: h } });
+  }, [editHours, editMutation]);
+
+  const renderEntryRow = (ts: any) => {
+    const statusColor = STATUS_COLORS[ts.status] ?? "#6B7280";
+    const isEditing = editingId === ts.id;
+    const showActions = canManage && ts.status === "submitted";
+
+    return (
+      <View key={ts.id} style={{ gap: 6 }}>
+        <View style={styles.entryRow}>
+          <Text style={[styles.entryWeek, { color: colors.mutedForeground }]}>
+            {formatWeekRange(ts.weekStart)}
+          </Text>
+          {isEditing ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1, justifyContent: "flex-end" }}>
+              <TextInput
+                value={editHours}
+                onChangeText={setEditHours}
+                keyboardType="decimal-pad"
+                style={[styles.editInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+                autoFocus
+              />
+              <TouchableOpacity onPress={() => handleSaveEdit(ts.id)}>
+                <Feather name="check" size={16} color="#22C55E" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setEditingId(null); setEditHours(""); }}>
+                <Feather name="x" size={16} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <Text style={[styles.entryHours, { color: colors.foreground }]}>{ts.totalHours}h</Text>
+              <View style={[styles.statusBadge, { backgroundColor: `${statusColor}18` }]}>
+                <Text style={[styles.statusText, { color: statusColor }]}>{ts.status}</Text>
+              </View>
+            </>
+          )}
+        </View>
+
+        {canManage && (
+          <View style={styles.actionRow}>
+            {showActions && (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: "#22C55E15" }]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    approveMutation.mutate({ timesheetId: ts.id, data: { signatureData: "" } });
+                  }}
+                  disabled={approveMutation.isPending}
+                >
+                  {approveMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#22C55E" />
+                  ) : (
+                    <>
+                      <Feather name="check-circle" size={12} color="#22C55E" />
+                      <Text style={[styles.actionText, { color: "#22C55E" }]}>Approve</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: "#EF444415" }]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    denyMutation.mutate({ timesheetId: ts.id, data: { notes: "" } });
+                  }}
+                  disabled={denyMutation.isPending}
+                >
+                  {denyMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#EF4444" />
+                  ) : (
+                    <>
+                      <Feather name="x-circle" size={12} color="#EF4444" />
+                      <Text style={[styles.actionText, { color: "#EF4444" }]}>Reject</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+            {!isEditing && (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: `${colors.primary}15` }]}
+                onPress={() => {
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleEdit(ts);
+                }}
+                disabled={editMutation.isPending}
+              >
+                <Feather name="edit-2" size={12} color={colors.primary} />
+                <Text style={[styles.actionText, { color: colors.primary }]}>Edit</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -142,21 +301,8 @@ export default function HoursScreen() {
                 {entries.length === 0 ? (
                   <Text style={[styles.cardEmpty, { color: colors.mutedForeground }]}>No timesheets yet</Text>
                 ) : (
-                  <View style={{ gap: 6, marginTop: 4 }}>
-                    {entries.map((ts: any) => {
-                      const statusColor = STATUS_COLORS[ts.status] ?? "#6B7280";
-                      return (
-                        <View key={ts.id} style={styles.entryRow}>
-                          <Text style={[styles.entryWeek, { color: colors.mutedForeground }]}>
-                            {formatWeekRange(ts.weekStart)}
-                          </Text>
-                          <Text style={[styles.entryHours, { color: colors.foreground }]}>{ts.totalHours}h</Text>
-                          <View style={[styles.statusBadge, { backgroundColor: `${statusColor}18` }]}>
-                            <Text style={[styles.statusText, { color: statusColor }]}>{ts.status}</Text>
-                          </View>
-                        </View>
-                      );
-                    })}
+                  <View style={{ gap: 10, marginTop: 4 }}>
+                    {entries.map((ts: any) => renderEntryRow(ts))}
                   </View>
                 )}
               </View>
@@ -172,21 +318,8 @@ export default function HoursScreen() {
                   {unassigned.reduce((s, ts) => s + (parseFloat(ts.totalHours) || 0), 0).toFixed(1)}h
                 </Text>
               </View>
-              <View style={{ gap: 6, marginTop: 4 }}>
-                {unassigned.map((ts) => {
-                  const statusColor = STATUS_COLORS[ts.status] ?? "#6B7280";
-                  return (
-                    <View key={ts.id} style={styles.entryRow}>
-                      <Text style={[styles.entryWeek, { color: colors.mutedForeground }]}>
-                        {formatWeekRange(ts.weekStart)}
-                      </Text>
-                      <Text style={[styles.entryHours, { color: colors.foreground }]}>{ts.totalHours}h</Text>
-                      <View style={[styles.statusBadge, { backgroundColor: `${statusColor}18` }]}>
-                        <Text style={[styles.statusText, { color: statusColor }]}>{ts.status}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
+              <View style={{ gap: 10, marginTop: 4 }}>
+                {unassigned.map((ts) => renderEntryRow(ts))}
               </View>
             </View>
           )}
@@ -249,4 +382,31 @@ const styles = StyleSheet.create({
   entryHours: { fontSize: 12, fontFamily: "Inter_600SemiBold", width: 42 },
   statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   statusText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  editInput: {
+    width: 60,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 2,
+    paddingLeft: 0,
+  },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  actionText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
 });
