@@ -108,7 +108,6 @@ function ClassicTabLayout() {
           ) : null,
       }}
     >
-      {/* ── Visible tabs ── */}
       <Tabs.Screen
         name="(home)"
         options={{
