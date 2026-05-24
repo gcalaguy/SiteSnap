@@ -1,10 +1,13 @@
-import { db, subscriptionsTable, planFeaturesTable, featuresTable, companiesTable } from "@workspace/db";
+import { db, subscriptionsTable, planFeaturesTable, featuresTable, companiesTable, plansTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
+
+const ENTERPRISE_ONLY_FEATURES = ["RISK_DASHBOARD", "FINANCIALS"];
 
 /**
  * Returns the effective feature keys for a company.
  * Priority: custom activeFeatures override → plan-based features.
+ * Enterprise-only features (RISK_DASHBOARD, FINANCIALS) are stripped for non-Enterprise tenants.
  */
 export async function getCompanyFeatureKeys(companyId: number): Promise<string[]> {
   const [company] = await db
@@ -18,10 +21,11 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
   }
 
   const rows = await db
-    .select({ key: featuresTable.key })
+    .select({ key: featuresTable.key, planSlug: plansTable.slug })
     .from(subscriptionsTable)
     .innerJoin(planFeaturesTable, eq(planFeaturesTable.planId, subscriptionsTable.planId))
     .innerJoin(featuresTable, eq(featuresTable.id, planFeaturesTable.featureId))
+    .innerJoin(plansTable, eq(plansTable.id, subscriptionsTable.planId))
     .where(
       and(
         eq(subscriptionsTable.companyId, companyId),
@@ -29,7 +33,14 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
         eq(featuresTable.isEnabled, true),
       ),
     );
-  return rows.map((r) => r.key);
+
+  const isEnterprise = rows.length > 0 && rows[0].planSlug === "enterprise";
+  const keys = rows.map((r) => r.key);
+
+  if (!isEnterprise) {
+    return keys.filter((k) => !ENTERPRISE_ONLY_FEATURES.includes(k));
+  }
+  return keys;
 }
 
 /**

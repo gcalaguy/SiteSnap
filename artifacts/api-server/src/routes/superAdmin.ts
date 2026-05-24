@@ -820,7 +820,7 @@ router.post("/admin/seed", ...guard, async (req, res) => {
     }
 
     const proKeys = ["SCHEDULING", "AI_ESTIMATING", "CLIENT_PORTAL", "REPORTING", "QUICKBOOKS", "AI_CHAT",
-      "SITE_VISION_AI", "TRADEHUB", "FINANCIALS", "RISK_DASHBOARD", "SAFETY_FORMS", "DAILY_REPORTS", "RFIS",
+      "SITE_VISION_AI", "TRADEHUB", "SAFETY_FORMS", "DAILY_REPORTS", "RFIS",
       "TEAM_MANAGEMENT", "INVOICES", "QUOTES", "CRM_LEADS", "SMART_ESTIMATOR"];
     if (pro) {
       const vals = proKeys.map((k) => get(k)).filter(Boolean);
