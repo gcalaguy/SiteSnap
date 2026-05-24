@@ -67,7 +67,12 @@ export default function WorkerDocumentsPage() {
   const [selectedDoc, setSelectedDoc] = useState<WorkerDocumentEnriched | null>(null);
 
   const { data: docs = [], isLoading, error } = useListAllWorkerDocuments({
-    query: { enabled: user != null, queryKey: getListAllWorkerDocumentsQueryKey() },
+    query: {
+      enabled: user != null,
+      queryKey: getListAllWorkerDocumentsQueryKey(),
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    },
   });
 
   const deleteDocument = useDeleteWorkerDocument({
