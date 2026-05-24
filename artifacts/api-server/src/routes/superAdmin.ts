@@ -477,6 +477,14 @@ router.get("/admin/tenants", ...guard, async (req, res) => {
   res.json(result);
 });
 
+// POST /admin/tenants/:id/reissue-link — regenerate onboarding link for an existing tenant
+router.post("/admin/tenants/:id/reissue-link", ...guard, async (req, res) => {
+  const companyId = Number(req.params.id);
+  const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
+  if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
+  res.json({ companyId, link: `${req.protocol}://${req.get("host")}/onboarding?companyId=${companyId}` });
+});
+
 // GET /admin/tenants/:id — tenant detail with users
 router.get("/admin/tenants/:id", ...guard, async (req, res) => {
   const companyId = Number(req.params.id);

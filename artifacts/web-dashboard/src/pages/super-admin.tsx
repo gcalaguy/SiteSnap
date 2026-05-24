@@ -97,6 +97,7 @@ type ManageSectionsProps = {
   onEditFeature: (feature: Feature) => void;
   onEditTenant: (tenant: TenantRow | TenantDetail) => void;
   onDeleteTenant: (tenant: TenantRow | TenantDetail) => void;
+  onReissueLink: (tenant: TenantRow | TenantDetail) => void;
   onEditTenantUser: (userId: number, role: string) => void;
   onDeleteTenantUser: (userId: number) => void;
   onDeleteFeature: (feature: Feature) => void;
@@ -277,6 +278,8 @@ function ManageTab() {
   const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
   const [memberForm, setMemberForm] = useState({ firstName: "", lastName: "", email: "", role: "worker" });
   const [collapsed, setCollapsed] = useState({ plans: true, features: true, tenants: true });
+  const [reissueOpen, setReissueOpen] = useState(false);
+  const [reissuedLink, setReissuedLink] = useState<string | null>(null);
 
   const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
   const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
@@ -331,6 +334,11 @@ function ManageTab() {
     onError: (e: any) => toast({ title: "Remove failed", description: e.message, variant: "destructive" }),
   });
   const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
+  const reissueLink = useMutation({
+    mutationFn: (id: number) => customFetch<{ link: string }>(`/api/admin/tenants/${id}/reissue-link`, { method: "POST" }),
+    onSuccess: (data) => { setReissuedLink(data.link); setReissueOpen(true); toast({ title: "Link reissued" }); },
+    onError: (e: any) => toast({ title: "Reissue failed", description: e.message, variant: "destructive" }),
+  });
   const saveMember = useMutation({
     mutationFn: ({ userId, payload }: { userId: number; payload: { firstName: string; lastName: string; email: string } }) =>
       customFetch(`/api/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(payload) }),
@@ -377,6 +385,7 @@ function ManageTab() {
             onEditFeature={(f) => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "", isEnabled: f.isEnabled }); setFeatureOpen(true); }}
             onEditTenant={(t) => { setEditingTenantId(t.id); setSelectedTenantUserId(""); setSelectedTenantUserRole("worker"); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "" }); setTenantOpen(true); }}
             onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
+            onReissueLink={(t) => reissueLink.mutate(t.id)}
             onDeleteFeature={(f) => deleteFeature.mutate(f.id)}
             onEditTenantUser={(userId, role) => {
               const u = tenantDetail?.users.find((x) => x.id === userId);
@@ -459,11 +468,32 @@ function ManageTab() {
         }}
         isSaving={saveMember.isPending || saveTenantUserRole.isPending}
       />
+      {reissueOpen && reissuedLink && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
+            <h3 className="text-lg font-semibold text-[#121212]">Reissued Sign-up Link</h3>
+            <p className="text-sm text-gray-500 font-semibold">Copy the link below and share it with the company owner.</p>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
+                <div className="text-xs font-semibold uppercase tracking-wider text-green-600 mb-1">Shareable Link</div>
+                <div className="break-all text-sm text-[#121212]">{reissuedLink}</div>
+              </div>
+              <div className="flex gap-2">
+                <Button className="flex-1 bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => { navigator.clipboard.writeText(reissuedLink); toast({ title: "Link copied to clipboard" }); }}><Copy className="h-4 w-4 mr-2" />Copy Link</Button>
+                <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setReissueOpen(false)}>Close</Button>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => { const subject = encodeURIComponent("Your Site Snap company sign-up link"); const body = encodeURIComponent(`Hi,\n\nHere is your updated sign-up link for Site Snap:\n\n${reissuedLink}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Send via Email</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, onEditTenantUser, onDeleteTenantUser, onDeleteFeature, collapsed, setCollapsed }: ManageSectionsProps) {
+function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, onReissueLink, onEditTenantUser, onDeleteTenantUser, onDeleteFeature, collapsed, setCollapsed }: ManageSectionsProps) {
   return (
     <div className="space-y-6">
       <Card className="border-gray-200 bg-white text-[#121212]">
@@ -556,6 +586,7 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => onEditTenant(tenantDetail)}>Edit Tenant</Button>
+                  <Button variant="outline" className="border-green-600/40 text-green-600 hover:bg-green-50" onClick={() => onReissueLink(tenantDetail)}>Reissue Link</Button>
                   <Button variant="outline" className="border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => onDeleteTenant(tenantDetail)}>Delete Tenant</Button>
                 </div>
               </div>
