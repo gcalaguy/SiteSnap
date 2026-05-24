@@ -16,11 +16,11 @@ import {
 } from "react-native";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes, useListChangeOrders, useCreateChangeOrder, getListChangeOrdersQueryKey, useListAllRFIs } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes, useListChangeOrders, useCreateChangeOrder, getListChangeOrdersQueryKey, useListAllRFIs, useListProjects } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { getAiErrorMessage } from "@/src/utils/aiError";
@@ -160,6 +160,7 @@ export default function FinanceScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
+  const { projectId: activeProjectId } = useLocalSearchParams<{ projectId?: string }>();
 
   const { data: me } = useGetMe();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
@@ -236,6 +237,7 @@ export default function FinanceScreen() {
   const { data: quotes, isLoading: qLoading, isError: qError, error: qErrorObj, refetch: refetchQ, dataUpdatedAt: qUpdatedAt } = useListAllQuotes({});
   const { data: changeOrders, isLoading: coLoading, isRefetching: coRefreshing, refetch: refetchCO, dataUpdatedAt: coDataUpdatedAt } = useListChangeOrders();
   const { data: rfis, isLoading: rfiLoading, isError: rfiError, refetch: refetchRfi, dataUpdatedAt: rfiUpdatedAt } = useListAllRFIs({});
+  const { data: projects } = useListProjects();
 
   const invRelativeTime = useRelativeTime(invUpdatedAt || null);
   const qRelativeTime = useRelativeTime(qUpdatedAt || null);
@@ -930,15 +932,35 @@ export default function FinanceScreen() {
             </Pressable>
           </View>
           <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>Project ID</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="e.g. 1"
-              placeholderTextColor={colors.mutedForeground}
-              value={createProjectId}
-              onChangeText={setCreateProjectId}
-              keyboardType="number-pad"
-            />
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Project</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ flexDirection: "row", gap: 8, marginBottom: 12 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {(projects ?? []).map((p: any) => {
+                const selected = String(createProjectId) === String(p.id);
+                return (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => setCreateProjectId(String(p.id))}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: selected ? colors.primary : colors.border,
+                      backgroundColor: selected ? `${colors.primary}18` : colors.card,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: selected ? colors.primary : colors.mutedForeground }}>
+                      {p.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
             <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Subject / Title</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
@@ -960,8 +982,11 @@ export default function FinanceScreen() {
             <Pressable
               style={[styles.createBtn, { backgroundColor: colors.primary, opacity: createSaving ? 0.7 : 1 }]}
               onPress={async () => {
-                const pid = parseInt(createProjectId);
-                if (!pid || isNaN(pid)) { Alert.alert("Enter a valid Project ID"); return; }
+                let pid = parseInt(createProjectId, 10);
+                if (!pid || isNaN(pid)) {
+                  pid = parseInt(activeProjectId ?? "", 10);
+                }
+                if (!pid || isNaN(pid)) { Alert.alert("Enter a valid Project"); return; }
                 if (!createSubject.trim()) { Alert.alert("Enter a subject"); return; }
                 if (!createDescription.trim()) { Alert.alert("Enter a description"); return; }
                 setCreateSaving(true);
