@@ -1648,3 +1648,33 @@ export const insertMediaHubPhotoSchema = createInsertSchema(mediaHubPhotosTable)
 });
 export type InsertMediaHubPhoto = z.infer<typeof insertMediaHubPhotoSchema>;
 export type MediaHubPhoto = typeof mediaHubPhotosTable.$inferSelect;
+
+// ── Audit Logs ────────────────────────────────────────────────────────────────
+
+export const auditLogsTable = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" }),
+  userName: text("user_name").notNull(),
+  userRole: text("user_role").notNull(),
+  action: text("action").notNull(),
+  details: text("details").notNull(),
+  projectName: text("project_name"),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("idx_audit_logs_company_id").on(t.companyId),
+  index("idx_audit_logs_user_id").on(t.userId),
+  index("idx_audit_logs_created_at").on(t.createdAt),
+]);
+
+export const insertAuditLogSchema = createInsertSchema(auditLogsTable).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogsTable.$inferSelect;

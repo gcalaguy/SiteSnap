@@ -5,6 +5,7 @@ import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth"
 import { requirePermission } from "../lib/permissionGate";
 import { CreateDailyReportBody, UpdateDailyReportBody } from "@workspace/api-zod";
 import { asyncHandler } from "../lib/asyncHandler";
+import { logAuditEventFromRequest } from "../utils/logger";
 
 // GET /daily-reports — all daily reports across all projects for the authenticated company
 export const allDailyReportsRouter = Router();
@@ -187,6 +188,8 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
       .where(eq(usersTable.id, updated.submittedByUserId))
       .limit(1);
 
+    logAuditEventFromRequest(req, "Daily Report Updated", `Updated daily report for ${dateStr} in project ${projectId}`).catch(() => {});
+
     res.status(200).json({ ...updated, submittedBy: submittedBy ?? null });
     return;
   }
@@ -207,6 +210,8 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
     .from(usersTable)
     .where(eq(usersTable.id, req.userId!))
     .limit(1);
+
+  logAuditEventFromRequest(req, "Daily Report Created", `Submitted daily report for ${dateStr} in project ${projectId}`).catch(() => {});
 
   res.status(201).json({ ...report, submittedBy: submittedBy ?? null });
 });

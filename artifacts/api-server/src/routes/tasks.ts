@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { db, tasksTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { notify } from "../lib/notify";
+import { logAuditEventFromRequest } from "../utils/logger";
 import { z } from "zod";
 
 const router = Router({ mergeParams: true });
@@ -101,6 +102,8 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     }).catch(() => {});
   }
 
+  logAuditEventFromRequest(req, "Task Created", `Created task "${title}" in project ${projectId}`).catch(() => {});
+
   res.status(201).json(task);
 });
 
@@ -152,6 +155,8 @@ router.patch("/:taskId", requireAuth, requireCompany, async (req, res) => {
     }).catch(() => {});
   }
 
+  logAuditEventFromRequest(req, "Task Updated", `Updated task "${task.title}" in project ${projectId}`).catch(() => {});
+
   res.json(task);
 });
 
@@ -167,6 +172,8 @@ router.delete("/:taskId", requireAuth, requireCompany, async (req, res) => {
   await db
     .delete(tasksTable)
     .where(and(eq(tasksTable.id, taskId), eq(tasksTable.projectId, projectId)));
+
+  logAuditEventFromRequest(req, "Task Deleted", `Deleted task ID ${taskId} in project ${projectId}`).catch(() => {});
 
   res.status(204).send();
 });

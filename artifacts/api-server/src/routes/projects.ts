@@ -24,6 +24,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../lib/errors";
+import { logAuditEventFromRequest } from "../utils/logger";
 
 const router = Router();
 
@@ -133,6 +134,8 @@ router.post(
       );
     }
 
+    logAuditEventFromRequest(req, "Project Created", `Created project "${project.name}"`, { projectName: project.name }).catch(() => {});
+
     res.status(201).json(project);
   }),
 );
@@ -217,6 +220,8 @@ router.put(
 
     if (!project) throw new NotFoundError("Project not found");
 
+    logAuditEventFromRequest(req, "Project Updated", `Updated project "${project.name}"`, { projectName: project.name }).catch(() => {});
+
     res.json(project);
   }),
 );
@@ -234,6 +239,8 @@ router.delete(
     await db
       .delete(projectsTable)
       .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)));
+
+    logAuditEventFromRequest(req, "Project Deleted", `Deleted project ID ${projectId}`).catch(() => {});
 
     res.status(204).send();
   }),

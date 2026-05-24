@@ -6,6 +6,7 @@ import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
 import { sendReminderForInvoice } from "../lib/invoiceReminders.js";
+import { logAuditEventFromRequest } from "../utils/logger";
 import { format } from "date-fns";
 import { z } from "zod";
 
@@ -100,6 +101,8 @@ router.post("/invoices", requireAuth, requireCompany, requirePermission("viewFin
     createdByUserId: req.userId!,
     publicToken: randomUUID(),
   }).returning();
+
+  logAuditEventFromRequest(req, "Invoice Created", `Created invoice "${invoice.title}" (${invoice.invoiceNumber})`).catch(() => {});
 
   res.status(201).json(invoice);
 });
@@ -205,6 +208,9 @@ router.put("/invoices/:invoiceId", requireAuth, requireCompany, requirePermissio
   if (total !== undefined) updates.total = total?.toFixed(2);
 
   const [updated] = await db.update(invoicesTable).set(updates).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!))).returning();
+
+  logAuditEventFromRequest(req, "Invoice Updated", `Updated invoice "${updated.title}" (${updated.invoiceNumber})`).catch(() => {});
+
   res.json(updated);
 });
 
@@ -246,6 +252,9 @@ router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, async
   const [updated] = await db.update(invoicesTable)
     .set({ status: "sent", sentAt: now, updatedAt: now })
     .where(eq(invoicesTable.id, invoiceId)).returning();
+
+  logAuditEventFromRequest(req, "Invoice Marked Sent", `Marked invoice "${updated.title}" (${updated.invoiceNumber}) as sent`).catch(() => {});
+
   res.json(updated);
 });
 
