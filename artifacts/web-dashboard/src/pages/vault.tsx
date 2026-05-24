@@ -32,8 +32,8 @@ const renderSafeDate = (dateString: any) => {
   if (!dateString) return 'N/A';
   try {
     const d = new Date(dateString);
-    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' });
-  } catch (e) {
+    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
+  } catch {
     return 'N/A';
   }
 };
