@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { requireAuth, requireSuperAdmin } from "../lib/auth";
+import { requireAuth, requireAuditAccess } from "../lib/auth";
 
 const router = Router();
-const guard = [requireAuth, requireSuperAdmin];
+const guard = [requireAuth, requireAuditAccess];
 
 interface AuditLogEntry {
   id: number;
+  companyId: number;
   timestamp: string;
   userName: string;
   userRole: string;
@@ -17,6 +18,7 @@ interface AuditLogEntry {
 const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
   {
     id: 1,
+    companyId: 1,
     timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
     userName: "Gigi Construction",
     userRole: "foreman",
@@ -26,6 +28,7 @@ const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
   },
   {
     id: 2,
+    companyId: 1,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
     userName: "Marcus Chen",
     userRole: "owner",
@@ -35,6 +38,7 @@ const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
   },
   {
     id: 3,
+    companyId: 2,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
     userName: "Sarah O'Brien",
     userRole: "worker",
@@ -44,6 +48,7 @@ const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
   },
   {
     id: 4,
+    companyId: 2,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     userName: "Ahmad Hassan",
     userRole: "foreman",
@@ -53,6 +58,7 @@ const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
   },
   {
     id: 5,
+    companyId: 1,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
     userName: "Jessica Li",
     userRole: "owner",
@@ -62,9 +68,18 @@ const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
   },
 ];
 
-// GET /api/audit-logs — read-only audit log viewer (super-admin only)
-router.get("/audit-logs", ...guard, async (_req, res) => {
-  const sorted = [...MOCK_AUDIT_LOGS].sort(
+// GET /api/audit-logs — read-only audit log viewer
+// Super admins see all logs; Enterprise tenant owners see only their own company’s logs.
+router.get("/audit-logs", ...guard, async (req, res) => {
+  const isSuperAdmin = req.systemRole === "super_admin";
+  const companyId = req.companyId;
+
+  let logs = MOCK_AUDIT_LOGS;
+  if (!isSuperAdmin && companyId != null) {
+    logs = logs.filter((log) => log.companyId === companyId);
+  }
+
+  const sorted = [...logs].sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
   );
   res.json(sorted);

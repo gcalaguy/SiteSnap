@@ -3,6 +3,7 @@ import { db, usersTable, userMembershipsTable } from "@workspace/db";
 import type { MemberPermissions } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
+import { getCompanyFeatureKeys } from "./featureGate";
 
 declare global {
   namespace Express {
@@ -123,6 +124,41 @@ export const requireSuperAdmin = (
     res.status(403).json({ error: "Super admin access required" });
     return;
   }
+  next();
+};
+
+/**
+ * Middleware: allow access if user is a Super Admin, OR if they are an
+ * Owner/Admin of an Enterprise tenant with the AUDIT_VAULT feature enabled.
+ */
+export const requireAuditAccess = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  // Super admins always pass
+  if (req.systemRole === "super_admin") {
+    next();
+    return;
+  }
+
+  // Must be an owner-level role in a company
+  if (req.userRole !== "owner" && req.userRole !== "foreman") {
+    res.status(403).json({ error: "Insufficient permissions" });
+    return;
+  }
+
+  if (!req.companyId) {
+    res.status(403).json({ error: "No company associated with this account" });
+    return;
+  }
+
+  const keys = await getCompanyFeatureKeys(req.companyId);
+  if (!keys.includes("AUDIT_VAULT")) {
+    res.status(403).json({ error: "Audit Vault is not included in your current plan" });
+    return;
+  }
+
   next();
 };
 
