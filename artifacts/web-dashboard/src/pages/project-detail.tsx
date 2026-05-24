@@ -570,6 +570,7 @@ export default function ProjectDetail() {
   const [expandedCostId, setExpandedCostId] = useState<number | null>(null);
   const [expandedRfiId, setExpandedRfiId] = useState<number | null>(null);
 
+  const [activeTab, setActiveTab] = useState("overview");
   const [editingReportId, setEditingReportId] = useState<number | null>(null);
   const [editReportWork, setEditReportWork] = useState("");
   const [editReportMaterials, setEditReportMaterials] = useState("");
@@ -927,7 +928,7 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
           <TabsList className="inline-flex w-max min-w-full h-10">
             <TabsTrigger value="overview" className="px-4 whitespace-nowrap">Overview</TabsTrigger>
@@ -973,23 +974,41 @@ export default function ProjectDetail() {
                 icon: FileText,
                 value: String(filteredReports.length),
                 sub: filteredReports.length > 0 ? `Last: ${format(new Date((filteredReports[0] as any).reportDate), "MMM d")}` : null,
+                onClick: () => setActiveTab("reports"),
               },
               {
                 label: "Open RFIs",
                 icon: AlertTriangle,
                 value: String(summary?.openRFICount || 0),
                 sub: `${summary?.closedRFICount || 0} closed`,
+                onClick: () => setActiveTab("rfis"),
               },
-            ].map(({ label, icon: Icon, value, sub }) => (
-              <div key={label} className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
-                  <Icon size={15} style={{ color: GOLD }} />
+            ].map(({ label, icon: Icon, value, sub, onClick }) => {
+              const content = (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
+                    <Icon size={15} style={{ color: GOLD }} />
+                  </div>
+                  <p className="text-2xl font-bold text-white">{value}</p>
+                  {sub && <p className="text-xs mt-1" style={{ color: "#71717a" }}>{sub}</p>}
+                </>
+              );
+              return onClick ? (
+                <button
+                  key={label}
+                  onClick={onClick}
+                  className="rounded-xl p-4 text-left cursor-pointer hover:opacity-90 transition-opacity"
+                  style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}
+                >
+                  {content}
+                </button>
+              ) : (
+                <div key={label} className="rounded-xl p-4" style={{ background: BLACK, boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+                  {content}
                 </div>
-                <p className="text-2xl font-bold text-white">{value}</p>
-                {sub && <p className="text-xs mt-1" style={{ color: "#71717a" }}>{sub}</p>}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Task Overview */}
