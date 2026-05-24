@@ -25,9 +25,6 @@ const TILE_GROUPS: { title: string; tiles: HubTile[] }[] = [
   {
     title: "Financials",
     tiles: [
-      { label: "Quotes & Approvals", icon: "file-text", route: "/finance", color: "#3B82F6" },
-      { label: "Invoices & Payments", icon: "dollar-sign", route: "/finance", color: "#22C55E" },
-      { label: "Change Orders", icon: "git-pull-request", route: "/finance", color: "#F59E0B" },
       { label: "Project Financials", icon: "pie-chart", route: "/finance", color: "#8B5CF6" },
     ],
   },
