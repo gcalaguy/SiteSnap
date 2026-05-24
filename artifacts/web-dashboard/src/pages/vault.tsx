@@ -29,9 +29,9 @@ import {
 } from "@/components/ui/dialog";
 
 function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-CA");
+  if (!dateStr) return "N/A";
+  const safeDate = new Date(dateStr);
+  return isNaN(safeDate.getTime()) ? "N/A" : safeDate.toLocaleDateString("en-CA");
 }
 
 interface WorkerGroup {
