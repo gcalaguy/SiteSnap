@@ -11,6 +11,16 @@ import { format } from "date-fns";
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
 
+const renderSafeTimestamp = (dateString: any) => {
+  if (!dateString) return "N/A";
+  try {
+    const d = new Date(dateString);
+    return isNaN(d.getTime()) ? "N/A" : format(d, "MMM d, yyyy h:mm a");
+  } catch {
+    return "N/A";
+  }
+};
+
 interface AuditLogEntry {
   id: number;
   createdAt: string;
@@ -146,7 +156,7 @@ export default function AuditVaultPage() {
                   {filtered.map((log) => (
                     <tr key={log.id} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
                       <td className="py-3 pr-4 text-xs text-muted-foreground whitespace-nowrap">
-                        {format(new Date(log.createdAt), "MMM d, yyyy h:mm a")}
+                        {renderSafeTimestamp(log.createdAt)}
                       </td>
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-2">
