@@ -331,6 +331,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
                 value={selectedDate}
                 mode="date"
                 display="default"
+                themeVariant="dark"
                 onChange={onDateChange}
                 maximumDate={new Date()}
               />
@@ -359,6 +360,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
                       value={tempDate}
                       mode="date"
                       display="spinner"
+                      themeVariant="dark"
                       onChange={onDateChange}
                       maximumDate={new Date()}
                       style={{ width: "100%" }}
