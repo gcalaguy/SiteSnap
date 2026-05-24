@@ -39,6 +39,7 @@ const TILE_GROUPS: { title: string; tiles: HubTile[] }[] = [
     title: "Team",
     tiles: [
       { label: "Contacts Directory", icon: "book", route: "/contacts", color: "#C9A84C" },
+      { label: "Team Management", icon: "users", route: "/settings", color: "#C9A84C" },
     ],
   },
 ];

@@ -20,12 +20,12 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes, useListChangeOrders, useCreateChangeOrder, getListChangeOrdersQueryKey } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes, useListChangeOrders, useCreateChangeOrder, getListChangeOrdersQueryKey, useListAllRFIs } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 
-type TabKey = "invoices" | "quotes" | "change-orders";
+type TabKey = "invoices" | "quotes" | "change-orders" | "rfis";
 
 const INVOICE_STATUS_COLORS: Record<string, string> = {
   draft: "#6B7280",
@@ -102,6 +102,50 @@ function QuoteRow({ item }: { item: any }) {
   );
 }
 
+const RFI_STATUS_COLORS: Record<string, string> = {
+  open: "#3b82f6",
+  in_review: "#f59e0b",
+  answered: "#22c55e",
+  closed: "#6b7280",
+};
+const RFI_STATUS_LABELS: Record<string, string> = {
+  open: "Open", in_review: "In Review", answered: "Answered", closed: "Closed",
+};
+const RFI_PRIORITY_COLORS: Record<string, string> = {
+  low: "#6b7280", medium: "#f59e0b", high: "#ef4444", urgent: "#dc2626",
+};
+
+function RFIRow({ item }: { item: any }) {
+  const colors = useColors();
+  const router = useRouter();
+  const statusColor = RFI_STATUS_COLORS[item.status] ?? "#6b7280";
+  const priorityColor = RFI_PRIORITY_COLORS[item.priority] ?? "#6b7280";
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.row, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+      onPress={() => router.push(`/rfi/${item.id}`)}
+    >
+      <View style={{ flex: 1, gap: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{item.subject}</Text>
+        </View>
+        <Text style={[styles.rowSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+          {item.rfiNumber} · {item.projectName ?? "Project #" + item.projectId}
+        </Text>
+        <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+          <View style={[styles.badge, { backgroundColor: `${statusColor}18` }]}>
+            <Text style={[styles.badgeText, { color: statusColor }]}>{RFI_STATUS_LABELS[item.status] ?? item.status}</Text>
+          </View>
+          <View style={[styles.badge, { backgroundColor: `${priorityColor}18` }]}>
+            <Text style={[styles.badgeText, { color: priorityColor }]}>{item.priority ?? "medium"}</Text>
+          </View>
+        </View>
+      </View>
+      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+    </Pressable>
+  );
+}
+
 type AIResult = {
   title?: string;
   clientName?: string;
@@ -140,6 +184,7 @@ export default function FinanceScreen() {
   const [qRefreshing, setQRefreshing] = useState(false);
 
   const [sigCOId, setSigCOId] = useState<number | null>(null);
+  const [rfiRefreshing, setRfiRefreshing] = useState(false);
 
   // Create Change Order form state
   const [showCOForm, setShowCOForm] = useState(false);
@@ -176,10 +221,12 @@ export default function FinanceScreen() {
   const { data: invoices, isLoading: invLoading, isError: invError, error: invErrorObj, refetch: refetchInv, dataUpdatedAt: invUpdatedAt } = useListAllInvoices({});
   const { data: quotes, isLoading: qLoading, isError: qError, error: qErrorObj, refetch: refetchQ, dataUpdatedAt: qUpdatedAt } = useListAllQuotes({});
   const { data: changeOrders, isLoading: coLoading, isRefetching: coRefreshing, refetch: refetchCO, dataUpdatedAt: coDataUpdatedAt } = useListChangeOrders();
+  const { data: rfis, isLoading: rfiLoading, isError: rfiError, refetch: refetchRfi, dataUpdatedAt: rfiUpdatedAt } = useListAllRFIs({});
 
   const invRelativeTime = useRelativeTime(invUpdatedAt || null);
   const qRelativeTime = useRelativeTime(qUpdatedAt || null);
   const coRelativeTime = useRelativeTime(coDataUpdatedAt || null);
+  const rfiRelativeTime = useRelativeTime(rfiUpdatedAt || null);
 
   // Debug: log quote fetch errors to help diagnose empty-list issues
   React.useEffect(() => {
@@ -214,13 +261,23 @@ export default function FinanceScreen() {
     }
   }, [refetchQ]);
 
-  // Silently refetch all three data sources whenever the screen comes into focus
+  const handleRefreshRfi = useCallback(async () => {
+    setRfiRefreshing(true);
+    try {
+      await refetchRfi();
+    } finally {
+      setRfiRefreshing(false);
+    }
+  }, [refetchRfi]);
+
+  // Silently refetch all data sources whenever the screen comes into focus
   useFocusEffect(
     useCallback(() => {
       refetchInv();
       refetchQ();
       refetchCO();
-    }, [refetchInv, refetchQ, refetchCO]),
+      refetchRfi();
+    }, [refetchInv, refetchQ, refetchCO, refetchRfi]),
   );
 
   async function saveSignature(coId: number, base64: string) {
@@ -322,10 +379,10 @@ export default function FinanceScreen() {
 
       {/* Tabs */}
       <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        {(["invoices", "quotes", "change-orders"] as TabKey[]).map((t) => (
+        {(["invoices", "quotes", "change-orders", "rfis"] as TabKey[]).map((t) => (
           <Pressable key={t} style={styles.tabBtn} onPress={() => setTab(t)}>
             <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.mutedForeground }]}>
-              {t === "invoices" ? "Invoices" : t === "quotes" ? "Quotes" : "Change Orders"}
+              {t === "invoices" ? "Invoices" : t === "quotes" ? "Quotes" : t === "change-orders" ? "Change Orders" : "RFIs"}
             </Text>
             {tab === t && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
           </Pressable>
@@ -334,8 +391,8 @@ export default function FinanceScreen() {
 
       {/* Last updated label */}
       {(() => {
-        const isRefreshing = tab === "invoices" ? invRefreshing : tab === "quotes" ? qRefreshing : coRefreshing;
-        const relTime = tab === "invoices" ? invRelativeTime : tab === "quotes" ? qRelativeTime : coRelativeTime;
+        const isRefreshing = tab === "invoices" ? invRefreshing : tab === "quotes" ? qRefreshing : tab === "change-orders" ? coRefreshing : rfiRefreshing;
+        const relTime = tab === "invoices" ? invRelativeTime : tab === "quotes" ? qRelativeTime : tab === "change-orders" ? coRelativeTime : rfiRelativeTime;
         const label = isRefreshing ? "Refreshing…" : relTime;
         if (!label) return null;
         return (
@@ -397,7 +454,7 @@ export default function FinanceScreen() {
             refreshControl={<RefreshControl refreshing={qRefreshing} onRefresh={handleRefreshQ} tintColor={colors.primary} />}
           />
         )
-      ) : (
+      ) : tab === "change-orders" ? (
         coLoading ? (
           <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
         ) : (
@@ -451,6 +508,31 @@ export default function FinanceScreen() {
             }}
           />
         )
+      ) : (
+        rfiLoading ? (
+          <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+        ) : rfiError ? (
+          <View style={styles.center}>
+            <Feather name="alert-circle" size={28} color="#EF4444" />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground, marginTop: 12 }]}>
+              Failed to load RFIs
+            </Text>
+            <Pressable onPress={() => refetchRfi()} style={{ marginTop: 12 }}>
+              <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <FlatList
+            data={rfis ?? []}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => <RFIRow item={item} />}
+            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+            ListEmptyComponent={
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No RFIs yet</Text>
+            }
+            refreshControl={<RefreshControl refreshing={rfiRefreshing} onRefresh={handleRefreshRfi} tintColor={colors.primary} />}
+          />
+        )
       )}
 
       {/* Signature Canvas Modal */}
@@ -463,32 +545,34 @@ export default function FinanceScreen() {
       />
 
       {/* FABs */}
-      <View style={[styles.fabRow, { bottom: insets.bottom + 20 }]}>
-        {tab === "change-orders" ? (
+      {tab !== "rfis" && (
+        <View style={[styles.fabRow, { bottom: insets.bottom + 20 }]}>
+          {tab === "change-orders" ? (
+            <Pressable
+              style={[styles.fabSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => setShowCOForm(true)}
+            >
+              <Feather name="plus" size={18} color={colors.primary} />
+              <Text style={[styles.fabSecondaryText, { color: colors.primary }]}>Change Order</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[styles.fabSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => openVoiceModal("quote")}
+            >
+              <Feather name="mic" size={18} color={colors.primary} />
+              <Text style={[styles.fabSecondaryText, { color: colors.primary }]}>Voice Quote</Text>
+            </Pressable>
+          )}
           <Pressable
-            style={[styles.fabSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => setShowCOForm(true)}
+            style={[styles.fab, { backgroundColor: colors.primary }]}
+            onPress={() => openVoiceModal("invoice")}
           >
-            <Feather name="plus" size={18} color={colors.primary} />
-            <Text style={[styles.fabSecondaryText, { color: colors.primary }]}>Change Order</Text>
+            <Feather name="mic" size={20} color="#FFFFFF" />
+            <Text style={styles.fabText}>Voice Invoice</Text>
           </Pressable>
-        ) : (
-          <Pressable
-            style={[styles.fabSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => openVoiceModal("quote")}
-          >
-            <Feather name="mic" size={18} color={colors.primary} />
-            <Text style={[styles.fabSecondaryText, { color: colors.primary }]}>Voice Quote</Text>
-          </Pressable>
-        )}
-        <Pressable
-          style={[styles.fab, { backgroundColor: colors.primary }]}
-          onPress={() => openVoiceModal("invoice")}
-        >
-          <Feather name="mic" size={20} color="#FFFFFF" />
-          <Text style={styles.fabText}>Voice Invoice</Text>
-        </Pressable>
-      </View>
+        </View>
+      )}
 
       {/* Voice / AI Modal */}
       <Modal visible={showVoiceModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowVoiceModal(false)}>
