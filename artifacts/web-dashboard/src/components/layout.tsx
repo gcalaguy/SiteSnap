@@ -141,13 +141,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0 },
-    ...(isOwnerOrForeman ? [{ name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "INSPECTIONS" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "RISK_DASHBOARD" }] : []),
     { name: "Projects", href: "/projects", icon: Building2, badge: 0 },
     { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge },
     { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge },
     ...(isOwnerOrForeman ? [{ name: "Proposals", href: "/proposals", icon: FileSignature, badge: 0, featureKey: "Proposals" }] : []),
     { name: "Estimating", href: "/estimates", icon: Calculator, badge: 0 },
-    ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0, featureKey: "Financials" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0, featureKey: "FINANCIALS" }] : []),
     { name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "Contacts" },
     { name: "Leads", href: "/leads", icon: TrendingUp, badge: 0, featureKey: "Contacts" },
     ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, featureKey: "Calculator" }] : []),
