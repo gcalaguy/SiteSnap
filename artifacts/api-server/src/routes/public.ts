@@ -7,6 +7,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { getClientInfo } from "../lib/clientInfo";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
 import { logger } from "../lib/logger.js";
+import { buildInvoicePdfBuffer } from "../lib/invoicePdf.js";
 
 const router = Router();
 
@@ -236,17 +237,104 @@ function buildInvoiceSignedOwnerHtml(invoice: {
   `;
 }
 
-async function sendInvoiceSignedEmails(invoice: {
-  id: number;
-  invoiceNumber: string;
+function buildQuoteSignedClientHtml(quote: {
+  quoteNumber: string;
   clientName: string;
-  clientEmail: string | null;
   total: string | number;
   signerName: string;
   signedAt: Date;
-  companyId: number;
-}, companyName: string): Promise<void> {
+}, companyName: string): string {
+  const timestamp = quote.signedAt.toUTCString();
+  const safeCompanyName = escapeHtml(companyName);
+  const safeQuoteNumber = escapeHtml(quote.quoteNumber);
+  const safeClientName = escapeHtml(quote.clientName);
+  const safeSignerName = escapeHtml(quote.signerName);
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#172034;">
+      <div style="background:#D4AF37;padding:24px 32px;border-radius:8px 8px 0 0;">
+        <h1 style="color:#fff;margin:0;font-size:22px;">${safeCompanyName}</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:14px;">Quote Approved — ${safeQuoteNumber}</p>
+      </div>
+      <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        <p style="margin:0 0 16px;">Hi ${safeClientName},</p>
+        <p style="margin:0 0 24px;">Thank you for approving quote <strong>${safeQuoteNumber}</strong>. Here is a summary for your records.</p>
+        <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:4px 0 0 0;color:#6b7280;font-size:13px;">Quote Number</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-left:none;border-radius:0 4px 0 0;font-size:13px;font-weight:600;">${safeQuoteNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;color:#6b7280;font-size:13px;">Total</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;font-size:13px;font-weight:600;color:#D4AF37;">${fmtCAD(quote.total)}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;color:#6b7280;font-size:13px;">Approved By</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;font-size:13px;font-weight:600;">${safeSignerName}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 0 4px;color:#6b7280;font-size:13px;">Approved At (UTC)</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;border-radius:0 0 4px 0;font-size:13px;">${timestamp}</td>
+          </tr>
+        </table>
+        <p style="margin:0;font-size:13px;color:#6b7280;">Please keep this email as your confirmation. If you have any questions, reply to this email or contact <strong>${safeCompanyName}</strong> directly.</p>
+        <p style="margin:16px 0 0;font-size:13px;font-weight:600;">${safeCompanyName}</p>
+      </div>
+      <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0;">Powered by Site Snap</p>
+    </div>
+  `;
+}
+
+async function sendInvoiceSignedEmails(
+  invoice: {
+    id: number;
+    invoiceNumber: string;
+    clientName: string;
+    clientEmail: string | null;
+    total: string | number;
+    signerName: string;
+    signedAt: Date;
+    companyId: number;
+    lineItems: unknown;
+    subtotal: string | number;
+    taxRate: string | number;
+    taxAmount: string | number;
+    notes?: string | null;
+    dueDate?: string | null;
+    createdAt: string;
+  },
+  companyName: string,
+  company?: { address?: string | null; phone?: string | null; defaultInvoiceNotes?: string | null } | null,
+): Promise<void> {
   const ownerEmail = await getCompanyOwnerEmail(invoice.companyId);
+
+  // Build PDF buffer server-side
+  let pdfBase64: string | undefined;
+  try {
+    const pdfBuffer = await buildInvoicePdfBuffer({
+      invoiceNumber: invoice.invoiceNumber,
+      title: invoice.invoiceNumber,
+      clientName: invoice.clientName,
+      clientEmail: invoice.clientEmail,
+      status: "signed",
+      lineItems: (invoice.lineItems as any[]) ?? [],
+      subtotal: invoice.subtotal,
+      taxRate: invoice.taxRate,
+      taxAmount: invoice.taxAmount,
+      total: invoice.total,
+      notes: invoice.notes,
+      dueDate: invoice.dueDate,
+      createdAt: invoice.createdAt,
+      companyName,
+      companyAddress: company?.address ?? null,
+      companyPhone: company?.phone ?? null,
+      signerName: invoice.signerName,
+      signedAt: invoice.signedAt,
+      defaultNotes: company?.defaultInvoiceNotes ?? null,
+    });
+    pdfBase64 = pdfBuffer.toString("base64");
+  } catch (pdfErr) {
+    logger.error({ err: pdfErr, invoiceId: invoice.id }, "Failed to generate signed invoice PDF");
+  }
 
   const emailPromises: Promise<void>[] = [];
 
@@ -257,13 +345,23 @@ async function sendInvoiceSignedEmails(invoice: {
         to: [invoice.clientEmail],
         subject: `Invoice ${invoice.invoiceNumber} — Signature Confirmed`,
         html: clientHtml,
+        ...(pdfBase64
+          ? {
+              attachments: [
+                {
+                  filename: `${invoice.invoiceNumber}.pdf`,
+                  content: pdfBase64,
+                },
+              ],
+            }
+          : {}),
       }).catch((err) => {
         if (err instanceof ResendSandboxError) {
           logger.warn({ invoiceId: invoice.id, sandboxWarning: err.message }, "Invoice signed client email sandboxed");
         } else {
           logger.error({ err, invoiceId: invoice.id }, "Failed to send invoice signed client email");
         }
-      })
+      }),
     );
   }
 
@@ -280,7 +378,7 @@ async function sendInvoiceSignedEmails(invoice: {
         } else {
           logger.error({ err, invoiceId: invoice.id }, "Failed to send invoice signed owner email");
         }
-      })
+      }),
     );
   }
 
@@ -360,6 +458,31 @@ router.post(
     const updated = updatedRows[0];
     const companyName = await getCompanyName(updated.companyId);
     res.json(await publicQuotePayload(updated as unknown as Record<string, unknown>, companyName));
+
+    // Send confirmation email to client (fire-and-forget)
+    if (updated.clientEmail) {
+      const html = buildQuoteSignedClientHtml(
+        {
+          quoteNumber: updated.quoteNumber,
+          clientName: updated.clientName,
+          total: updated.total,
+          signerName: updated.signerName ?? parsed.data.signerName,
+          signedAt: updated.signedAt ?? info.signedAt,
+        },
+        companyName ?? "Site Snap",
+      );
+      sendEmail({
+        to: [updated.clientEmail],
+        subject: `Quote ${updated.quoteNumber} — Approved`,
+        html,
+      }).catch((err) => {
+        if (err instanceof ResendSandboxError) {
+          logger.warn({ quoteId: updated.id, sandboxWarning: err.message }, "Quote signed client email sandboxed");
+        } else {
+          logger.error({ err, quoteId: updated.id }, "Failed to send quote signed client email");
+        }
+      });
+    }
   }),
 );
 
@@ -434,6 +557,18 @@ router.post(
     const companyName = await getCompanyName(updated.companyId);
     res.json(await publicInvoicePayload(updated as unknown as Record<string, unknown>, companyName));
 
+    // Fetch company details for PDF & email
+    const [company] = await db
+      .select({
+        name: companiesTable.name,
+        address: companiesTable.address,
+        phone: companiesTable.phone,
+        defaultInvoiceNotes: companiesTable.defaultInvoiceNotes,
+      })
+      .from(companiesTable)
+      .where(eq(companiesTable.id, updated.companyId))
+      .limit(1);
+
     // Send confirmation emails (fire-and-forget; errors are logged, not surfaced to client)
     sendInvoiceSignedEmails(
       {
@@ -445,8 +580,16 @@ router.post(
         signerName: updated.signerName ?? parsed.data.signerName,
         signedAt: updated.signedAt ?? info.signedAt,
         companyId: updated.companyId,
+        lineItems: updated.lineItems,
+        subtotal: updated.subtotal,
+        taxRate: updated.taxRate,
+        taxAmount: updated.taxAmount,
+        notes: updated.notes,
+        dueDate: updated.dueDate,
+        createdAt: String(updated.createdAt),
       },
-      companyName ?? "Site Snap"
+      company?.name ?? companyName ?? "Site Snap",
+      company ?? null,
     ).catch((err) => {
       logger.error({ err, invoiceId: updated.id }, "Unexpected error in sendInvoiceSignedEmails");
     });
