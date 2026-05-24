@@ -7,7 +7,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   ShieldAlert, AlertTriangle, Flame, CircleDot, ChevronRight, ChevronLeft,
   Bell, Check, Eye, TrendingUp, BarChart3, Loader2,
@@ -87,11 +87,11 @@ function ScoreBar({ score, riskLevel }: { score?: number | null; riskLevel?: str
 // ── Stat Card ──────────────────────────────────────────────────────────────────
 
 function StatCard({
-  label, value, sub, icon: Icon, accent, isAlert = false,
-}: { label: string; value: string | number; sub: string; icon: React.ElementType; accent: string; isAlert?: boolean }) {
-  return (
+  label, value, sub, icon: Icon, accent, isAlert = false, href,
+}: { label: string; value: string | number; sub: string; icon: React.ElementType; accent: string; isAlert?: boolean; href?: string }) {
+  const inner = (
     <Card
-      className="transition-all duration-150"
+      className={`transition-all duration-150 ${href ? "cursor-pointer hover:brightness-110" : ""}`}
       style={{
         background: isAlert ? `${accent}0c` : BLACK,
         border: isAlert ? `1px solid ${accent}35` : "none",
@@ -110,6 +110,8 @@ function StatCard({
       </CardContent>
     </Card>
   );
+  if (href) return <Link href={href}>{inner}</Link>;
+  return inner;
 }
 
 // ── Risk Trend Chart ───────────────────────────────────────────────────────────
@@ -252,6 +254,7 @@ const PAGE_SIZE = 8;
 
 function InspectionTable({ rows }: { rows: InspectionRow[] }) {
   const [page, setPage] = useState(0);
+  const [, setLocation] = useLocation();
   const totalPages = Math.ceil(rows.length / PAGE_SIZE);
   const pageRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
@@ -283,7 +286,11 @@ function InspectionTable({ rows }: { rows: InspectionRow[] }) {
               {pageRows.map((row) => {
                 const insp = row.inspection;
                 return (
-                  <tr key={insp.id} className="hover:bg-white/3 transition-colors">
+                  <tr
+                    key={insp.id}
+                    className="hover:bg-white/3 transition-colors cursor-pointer"
+                    onClick={() => setLocation("/inspections")}
+                  >
                     <td className="px-6 py-3">
                       <div>
                         <p className="text-white text-sm font-medium truncate max-w-36">{row.project?.name ?? "—"}</p>
@@ -305,7 +312,11 @@ function InspectionTable({ rows }: { rows: InspectionRow[] }) {
                     </td>
                     <td className="px-4 py-3">
                       <Link href="/inspections">
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-zinc-500 hover:text-white">
+                        <Button
+                          size="sm" variant="ghost"
+                          className="h-7 w-7 p-0 text-zinc-500 hover:text-white"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
                       </Link>
@@ -549,24 +560,27 @@ function RiskDashboardInner() {
           <div className="grid gap-4 grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Total Inspections" value={total} sub="last 30 days"
-              icon={ShieldAlert} accent={GOLD}
+              icon={ShieldAlert} accent={GOLD} href="/inspections"
             />
             <StatCard
               label="High Risk Jobs" value={highRisk}
               sub={highRisk === 0 ? "All clear" : `${health?.critical ?? 0} critical · ${health?.high ?? 0} high`}
               icon={AlertTriangle} accent={highRisk > 0 ? "#ea580c" : GOLD} isAlert={highRisk > 0}
+              href="/inspections"
             />
             <StatCard
               label="Critical Alerts" value={data?.alerts.critical ?? 0}
               sub={data?.alerts.critical ? "Requires immediate action" : "No critical alerts"}
               icon={Flame} accent={(data?.alerts.critical ?? 0) > 0 ? "#dc2626" : GOLD}
               isAlert={(data?.alerts.critical ?? 0) > 0}
+              href="/inspections"
             />
             <StatCard
               label="Avg Risk Score"
               value={avgScore != null ? `${avgScore}/10` : "—"}
               sub={avgScore == null ? "No scored inspections" : avgScore >= 7 ? "Action recommended" : avgScore >= 4 ? "Monitor closely" : "Looking good"}
               icon={CircleDot} accent={scoreColor}
+              href="/inspections"
             />
           </div>
 
