@@ -115,15 +115,14 @@ const RFI_PRIORITY_COLORS: Record<string, string> = {
   low: "#6b7280", medium: "#f59e0b", high: "#ef4444", urgent: "#dc2626",
 };
 
-function RFIRow({ item }: { item: any }) {
+function RFIRow({ item, onPress }: { item: any; onPress: (item: any) => void }) {
   const colors = useColors();
-  const router = useRouter();
   const statusColor = RFI_STATUS_COLORS[item.status] ?? "#6b7280";
   const priorityColor = RFI_PRIORITY_COLORS[item.priority] ?? "#6b7280";
   return (
     <Pressable
       style={({ pressed }) => [styles.row, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
-      onPress={() => router.push(`/rfi/${item.id}`)}
+      onPress={() => onPress(item)}
     >
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -185,6 +184,21 @@ export default function FinanceScreen() {
 
   const [sigCOId, setSigCOId] = useState<number | null>(null);
   const [rfiRefreshing, setRfiRefreshing] = useState(false);
+
+  // RFI modal state
+  const [showRFIModal, setShowRFIModal] = useState(false);
+  const [selectedRFI, setSelectedRFI] = useState<any>(null);
+  const [rfiEditTitle, setRfiEditTitle] = useState("");
+  const [rfiEditQuestion, setRfiEditQuestion] = useState("");
+  const [rfiEditStatus, setRfiEditStatus] = useState("open");
+  const [rfiSaving, setRfiSaving] = useState(false);
+
+  // Create RFI modal state
+  const [showCreateRFIModal, setShowCreateRFIModal] = useState(false);
+  const [createProjectId, setCreateProjectId] = useState("");
+  const [createSubject, setCreateSubject] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createSaving, setCreateSaving] = useState(false);
 
   // Create Change Order form state
   const [showCOForm, setShowCOForm] = useState(false);
@@ -525,7 +539,18 @@ export default function FinanceScreen() {
           <FlatList
             data={rfis ?? []}
             keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => <RFIRow item={item} />}
+            renderItem={({ item }) => (
+              <RFIRow
+                item={item}
+                onPress={(rfi) => {
+                  setSelectedRFI(rfi);
+                  setRfiEditTitle(rfi.subject ?? "");
+                  setRfiEditQuestion(rfi.description ?? "");
+                  setRfiEditStatus(rfi.status ?? "open");
+                  setShowRFIModal(true);
+                }}
+              />
+            )}
             contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
             ListEmptyComponent={
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No RFIs yet</Text>
@@ -545,7 +570,22 @@ export default function FinanceScreen() {
       />
 
       {/* FABs */}
-      {tab !== "rfis" && (
+      {tab === "rfis" && me?.role === "owner" ? (
+        <View style={[styles.fabRow, { bottom: insets.bottom + 20 }]}>
+          <Pressable
+            style={[styles.fab, { backgroundColor: colors.primary }]}
+            onPress={() => {
+              setCreateProjectId("");
+              setCreateSubject("");
+              setCreateDescription("");
+              setShowCreateRFIModal(true);
+            }}
+          >
+            <Feather name="plus" size={20} color="#FFFFFF" />
+            <Text style={styles.fabText}>Create RFI</Text>
+          </Pressable>
+        </View>
+      ) : tab !== "rfis" && (
         <View style={[styles.fabRow, { bottom: insets.bottom + 20 }]}>
           {tab === "change-orders" ? (
             <Pressable
@@ -759,6 +799,196 @@ export default function FinanceScreen() {
             >
               {coSaving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Feather name="plus" size={18} color="#FFFFFF" />}
               <Text style={styles.createBtnText}>{coSaving ? "Creating…" : "Create Change Order"}</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* RFI Detail / Edit Modal */}
+      <Modal visible={showRFIModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowRFIModal(false)}>
+        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>RFI Details</Text>
+            <Pressable onPress={() => setShowRFIModal(false)} hitSlop={10}>
+              <Feather name="x" size={22} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+            {selectedRFI && (
+              <>
+                <Text style={[styles.label, { color: colors.mutedForeground }]}>RFI Number</Text>
+                <Text style={{ fontSize: 15, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 12 }}>{selectedRFI.rfiNumber}</Text>
+
+                <Text style={[styles.label, { color: colors.mutedForeground }]}>Title / Subject</Text>
+                {me?.role === "owner" ? (
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                    value={rfiEditTitle}
+                    onChangeText={setRfiEditTitle}
+                    placeholder="RFI title..."
+                    placeholderTextColor={colors.mutedForeground}
+                  />
+                ) : (
+                  <Text style={{ fontSize: 15, fontFamily: "Inter_400Regular", color: colors.foreground, marginBottom: 12 }}>{selectedRFI.subject}</Text>
+                )}
+
+                <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Question / Description</Text>
+                {me?.role === "owner" ? (
+                  <TextInput
+                    style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                    value={rfiEditQuestion}
+                    onChangeText={setRfiEditQuestion}
+                    placeholder="Describe the question..."
+                    placeholderTextColor={colors.mutedForeground}
+                    multiline
+                    numberOfLines={4}
+                  />
+                ) : (
+                  <Text style={{ fontSize: 14, fontFamily: "Inter_400Regular", color: colors.foreground, marginBottom: 12, lineHeight: 22 }}>{selectedRFI.description}</Text>
+                )}
+
+                <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Status</Text>
+                {me?.role === "owner" ? (
+                  <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                    {(["open", "in_review", "answered", "closed"] as const).map((s) => (
+                      <Pressable
+                        key={s}
+                        onPress={() => setRfiEditStatus(s)}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: rfiEditStatus === s ? colors.primary : colors.border,
+                          backgroundColor: rfiEditStatus === s ? `${colors.primary}18` : colors.card,
+                        }}
+                      >
+                        <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: rfiEditStatus === s ? colors.primary : colors.mutedForeground }}>
+                          {s === "open" ? "Open" : s === "in_review" ? "In Review" : s === "answered" ? "Answered" : "Closed"}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 14, fontFamily: "Inter_400Regular", color: colors.foreground, marginBottom: 12 }}>{RFI_STATUS_LABELS[selectedRFI.status] ?? selectedRFI.status}</Text>
+                )}
+
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginBottom: 4 }}>
+                  Project: {selectedRFI.projectName ?? "Project #" + selectedRFI.projectId}
+                </Text>
+                <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                  Submitted by: {selectedRFI.submittedByName}
+                </Text>
+
+                {me?.role === "owner" && (
+                  <Pressable
+                    style={[styles.createBtn, { backgroundColor: colors.primary, opacity: rfiSaving ? 0.7 : 1 }]}
+                    onPress={async () => {
+                      if (!selectedRFI) return;
+                      setRfiSaving(true);
+                      try {
+                        await customFetch(`/api/projects/${selectedRFI.projectId}/rfis/${selectedRFI.id}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            subject: rfiEditTitle.trim(),
+                            description: rfiEditQuestion.trim(),
+                            status: rfiEditStatus,
+                          }),
+                        });
+                        await refetchRfi();
+                        qc.invalidateQueries({ queryKey: ["/api/rfis"] });
+                        setShowRFIModal(false);
+                        Alert.alert("Saved", "RFI updated successfully.");
+                      } catch {
+                        Alert.alert("Failed to save RFI changes.");
+                      } finally {
+                        setRfiSaving(false);
+                      }
+                    }}
+                    disabled={rfiSaving}
+                  >
+                    {rfiSaving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Feather name="check" size={18} color="#FFFFFF" />}
+                    <Text style={styles.createBtnText}>{rfiSaving ? "Saving…" : "Save Changes"}</Text>
+                  </Pressable>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Create RFI Modal */}
+      <Modal visible={showCreateRFIModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreateRFIModal(false)}>
+        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>New RFI</Text>
+            <Pressable onPress={() => setShowCreateRFIModal(false)} hitSlop={10}>
+              <Feather name="x" size={22} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Project ID</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="e.g. 1"
+              placeholderTextColor={colors.mutedForeground}
+              value={createProjectId}
+              onChangeText={setCreateProjectId}
+              keyboardType="number-pad"
+            />
+            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Subject / Title</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="e.g. Foundation wall reinforcement detail"
+              placeholderTextColor={colors.mutedForeground}
+              value={createSubject}
+              onChangeText={setCreateSubject}
+            />
+            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Question / Description</Text>
+            <TextInput
+              style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="Describe the question or issue..."
+              placeholderTextColor={colors.mutedForeground}
+              value={createDescription}
+              onChangeText={setCreateDescription}
+              multiline
+              numberOfLines={4}
+            />
+            <Pressable
+              style={[styles.createBtn, { backgroundColor: colors.primary, opacity: createSaving ? 0.7 : 1 }]}
+              onPress={async () => {
+                const pid = parseInt(createProjectId);
+                if (!pid || isNaN(pid)) { Alert.alert("Enter a valid Project ID"); return; }
+                if (!createSubject.trim()) { Alert.alert("Enter a subject"); return; }
+                if (!createDescription.trim()) { Alert.alert("Enter a description"); return; }
+                setCreateSaving(true);
+                try {
+                  await customFetch(`/api/projects/${pid}/rfis`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      subject: createSubject.trim(),
+                      description: createDescription.trim(),
+                    }),
+                  });
+                  await refetchRfi();
+                  qc.invalidateQueries({ queryKey: ["/api/rfis"] });
+                  setShowCreateRFIModal(false);
+                  setCreateProjectId(""); setCreateSubject(""); setCreateDescription("");
+                  Alert.alert("Created", "RFI created successfully.");
+                } catch {
+                  Alert.alert("Failed to create RFI.");
+                } finally {
+                  setCreateSaving(false);
+                }
+              }}
+              disabled={createSaving}
+            >
+              {createSaving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Feather name="plus" size={18} color="#FFFFFF" />}
+              <Text style={styles.createBtnText}>{createSaving ? "Creating…" : "Create RFI"}</Text>
             </Pressable>
           </ScrollView>
         </View>
