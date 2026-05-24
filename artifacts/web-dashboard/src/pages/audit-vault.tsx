@@ -13,7 +13,7 @@ const BLACK = "#111111";
 
 interface AuditLogEntry {
   id: number;
-  timestamp: string;
+  createdAt: string;
   userName: string;
   userRole: string;
   action: string;
@@ -146,7 +146,7 @@ export default function AuditVaultPage() {
                   {filtered.map((log) => (
                     <tr key={log.id} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
                       <td className="py-3 pr-4 text-xs text-muted-foreground whitespace-nowrap">
-                        {format(new Date(log.timestamp), "MMM d, yyyy h:mm a")}
+                        {format(new Date(log.createdAt), "MMM d, yyyy h:mm a")}
                       </td>
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-2">
