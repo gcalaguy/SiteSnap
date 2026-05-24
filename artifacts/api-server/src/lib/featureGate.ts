@@ -34,13 +34,17 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
       ),
     );
 
-  const isEnterprise = rows.length > 0 && rows[0].planSlug.toLowerCase() === "enterprise";
+  const planSlug = rows.length > 0 ? rows[0].planSlug : null;
+  const isEnterprise = planSlug?.toLowerCase() === "enterprise";
   const keys = rows.map((r) => r.key);
 
-  if (!isEnterprise) {
-    return keys.filter((k) => !ENTERPRISE_ONLY_FEATURES.includes(k));
+  if (isEnterprise) {
+    if (!keys.includes("RISK_DASHBOARD")) keys.push("RISK_DASHBOARD");
+    if (!keys.includes("FINANCIALS")) keys.push("FINANCIALS");
+    return keys;
   }
-  return keys;
+
+  return keys.filter((k) => !ENTERPRISE_ONLY_FEATURES.includes(k));
 }
 
 /**

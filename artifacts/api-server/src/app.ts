@@ -156,5 +156,5 @@ app.use("/api", router);
 // Catches any error thrown or passed to next() from routes/middlewares above.
 app.use(errorHandler);
 
-// Force refresh: feature-gate cache rebuild — ensure workspace backend memory is fully refreshed
+// Force refresh: feature-gate compiler aligned — workspace backend memory hot-reload
 export default app;
