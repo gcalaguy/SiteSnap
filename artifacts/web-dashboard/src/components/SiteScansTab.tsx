@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   useListScans,
   useUpdateScan,
@@ -153,25 +153,34 @@ function ScanViewerDialog({ scan, open, onOpenChange }: ScanViewerDialogProps) {
   const [scanUrl, setScanUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleOpen(isOpen: boolean) {
-    if (isOpen && scanUrl === null) {
-      setLoading(true);
-      try {
-        const res = await customFetch<{ url: string }>(`/api/scans/${scan.id}/url`);
-        setScanUrl(res.url);
-      } catch {
-        toast({ title: "Could not load 3D scan", variant: "destructive" });
-        return;
-      } finally {
-        setLoading(false);
-      }
+  // Fetch the signed URL whenever the dialog is opened
+  useEffect(() => {
+    if (!open) {
+      setScanUrl(null);
+      return;
     }
-    if (!isOpen) setScanUrl(null);
-    onOpenChange(isOpen);
-  }
+    if (scanUrl !== null) return; // already loaded
+
+    let cancelled = false;
+    setLoading(true);
+    customFetch<{ url: string }>(`/api/scans/${scan.id}/url`)
+      .then((res) => {
+        if (!cancelled) setScanUrl(res.url);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          toast({ title: "Could not load 3D scan", variant: "destructive" });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, scan.id]);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-4 py-3 border-b border-border flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-sm">
