@@ -246,6 +246,9 @@ router.post("/users/accept-terms", requireAuth, async (req, res) => {
 // GET /users/me/features — list feature keys the company's active plan includes
 router.get("/users/me/features", requireAuth, requireCompany, async (req, res) => {
   const features = await getCompanyFeatureKeys(req.companyId!);
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
   res.json({ features });
 });
 

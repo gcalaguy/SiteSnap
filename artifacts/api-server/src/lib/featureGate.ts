@@ -34,7 +34,7 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
       ),
     );
 
-  const isEnterprise = rows.length > 0 && rows[0].planSlug === "enterprise";
+  const isEnterprise = rows.length > 0 && rows[0].planSlug.toLowerCase() === "enterprise";
   const keys = rows.map((r) => r.key);
 
   if (!isEnterprise) {
