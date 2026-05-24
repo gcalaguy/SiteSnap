@@ -17,6 +17,7 @@ import type { MemberPermissions, UserWithCompany } from "@workspace/api-client-r
 import { UpdateCompanyDocumentSettingsBody } from "@workspace/api-zod";
 import { PricingSettingsBody } from "@/pages/pricing-manager";
 import { useToast } from "@/hooks/use-toast";
+import { useCompanyFeatures } from "@/components/FeatureGuard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
@@ -364,6 +365,11 @@ function AccountingCard() {
   const [collapsed, setCollapsed] = useState(true);
   const [exporting, setExporting] = useState(false);
   const { data: seatInfo } = useGetBillingSeats();
+  const { data: featureData } = useCompanyFeatures(companyId);
+
+  const hasVaultAccess =
+    featureData?.features?.includes("AUDIT_VAULT") ||
+    seatInfo?.planName?.toLowerCase() === "enterprise";
 
   const { data: exportRows, isLoading: exportLoading } = useGetAccountingExportData(companyId ?? 0, {
     query: { queryKey: getGetAccountingExportDataQueryKey(companyId ?? 0), enabled: !!companyId && !collapsed },
@@ -479,7 +485,7 @@ function AccountingCard() {
           <Separator />
 
           {/* Compliance & Audit Vault (Enterprise-only) */}
-          {seatInfo?.planName?.toLowerCase() === "enterprise" ? <AuditVaultCard /> : <UpgradeToEnterpriseBanner />}
+          {hasVaultAccess ? <AuditVaultCard /> : <UpgradeToEnterpriseBanner />}
         </CardContent>
       )}
     </Card>
