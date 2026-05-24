@@ -203,6 +203,15 @@ function ReportRow({ report }: { report: any }) {
                 <Text style={[styles.reportDetailText, { color: colors.foreground, marginTop: 4 }]}>{report.aiSummary}</Text>
               </View>
             )}
+            {!!report.notes && (
+              <View style={styles.reportDetailRow}>
+                <Feather name="mic" size={13} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Voice Notes</Text>
+                  <Text style={[styles.reportDetailText, { color: colors.foreground }]}>{report.notes}</Text>
+                </View>
+              </View>
+            )}
 
             {/* Photo thumbnails */}
             {photos.length > 0 && (
