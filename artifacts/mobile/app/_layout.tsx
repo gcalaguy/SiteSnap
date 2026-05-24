@@ -114,9 +114,15 @@ function RootLayoutNav() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      try { SplashScreen.hideAsync(); } catch {}
-    }
+    (async () => {
+      if (fontsLoaded || fontError) {
+        try {
+          await SplashScreen.hideAsync();
+        } catch (e) {
+          console.warn("Splash screen hidden early or not registered:", e);
+        }
+      }
+    })();
   }, [fontsLoaded, fontError]);
 
   // Auto-sync DB user when Clerk session is available
