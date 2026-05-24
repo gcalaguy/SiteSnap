@@ -21,8 +21,6 @@ import {
   useListTimesheets,
   useListProjects,
   useGetMe,
-  useApproveTimesheet,
-  useDenyTimesheet,
   getListTimesheetsQueryKey,
   customFetch,
 } from "@workspace/api-client-react";
@@ -34,6 +32,10 @@ const STATUS_COLORS: Record<string, string> = {
   approved: "#22C55E",
   denied: "#EF4444",
 };
+
+// Minimal 1x1 transparent PNG base64 data URL (exceeds server minLength 50)
+const DUMMY_SIGNATURE =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 function formatWeekRange(startStr: string): string {
   const start = new Date(startStr);
@@ -88,23 +90,39 @@ export default function HoursScreen() {
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const canManage = me?.role === "owner";
 
-  const approveMutation = useApproveTimesheet({
-    mutation: {
-      onSuccess: () => {
-        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
-        Alert.alert("Approved", "Timesheet approved.");
-      },
-      onError: () => Alert.alert("Error", "Failed to approve timesheet."),
+  const approveMutation = useMutation({
+    mutationFn: (id: number) =>
+      customFetch(`/api/timesheets/${id}/approve`, {
+        method: "POST",
+        body: JSON.stringify({ signatureData: DUMMY_SIGNATURE }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+      Alert.alert("Approved", "Timesheet approved.");
+    },
+    onError: (err: any) => {
+      const msg = err?.status === 409
+        ? "Only submitted timesheets can be approved."
+        : "Failed to approve timesheet.";
+      Alert.alert("Error", msg);
     },
   });
 
-  const denyMutation = useDenyTimesheet({
-    mutation: {
-      onSuccess: () => {
-        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
-        Alert.alert("Rejected", "Timesheet rejected.");
-      },
-      onError: () => Alert.alert("Error", "Failed to reject timesheet."),
+  const denyMutation = useMutation({
+    mutationFn: (id: number) =>
+      customFetch(`/api/timesheets/${id}/deny`, {
+        method: "POST",
+        body: JSON.stringify({ notes: "" }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+      Alert.alert("Rejected", "Timesheet rejected.");
+    },
+    onError: (err: any) => {
+      const msg = err?.status === 409
+        ? "Only submitted timesheets can be rejected."
+        : "Failed to reject timesheet.";
+      Alert.alert("Error", msg);
     },
   });
 
@@ -140,7 +158,6 @@ export default function HoursScreen() {
   const renderEntryRow = (ts: any) => {
     const statusColor = STATUS_COLORS[ts.status] ?? "#6B7280";
     const isEditing = editingId === ts.id;
-    const showActions = canManage;
 
     return (
       <View key={ts.id} style={{ gap: 6 }}>
@@ -176,44 +193,40 @@ export default function HoursScreen() {
 
         {canManage && (
           <View style={styles.actionRow}>
-            {showActions && (
-              <>
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: "#22C55E15" }]}
-                  onPress={() => {
-                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    approveMutation.mutate({ timesheetId: ts.id, data: { signatureData: "" } });
-                  }}
-                  disabled={approveMutation.isPending}
-                >
-                  {approveMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#22C55E" />
-                  ) : (
-                    <>
-                      <Feather name="check-circle" size={12} color="#22C55E" />
-                      <Text style={[styles.actionText, { color: "#22C55E" }]}>Approve</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: "#EF444415" }]}
-                  onPress={() => {
-                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    denyMutation.mutate({ timesheetId: ts.id, data: { notes: "" } });
-                  }}
-                  disabled={denyMutation.isPending}
-                >
-                  {denyMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#EF4444" />
-                  ) : (
-                    <>
-                      <Feather name="x-circle" size={12} color="#EF4444" />
-                      <Text style={[styles.actionText, { color: "#EF4444" }]}>Reject</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: "#22C55E15" }]}
+              onPress={() => {
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                approveMutation.mutate(ts.id);
+              }}
+              disabled={approveMutation.isPending}
+            >
+              {approveMutation.isPending ? (
+                <ActivityIndicator size="small" color="#22C55E" />
+              ) : (
+                <>
+                  <Feather name="check-circle" size={12} color="#22C55E" />
+                  <Text style={[styles.actionText, { color: "#22C55E" }]}>Approve</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: "#EF444415" }]}
+              onPress={() => {
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                denyMutation.mutate(ts.id);
+              }}
+              disabled={denyMutation.isPending}
+            >
+              {denyMutation.isPending ? (
+                <ActivityIndicator size="small" color="#EF4444" />
+              ) : (
+                <>
+                  <Feather name="x-circle" size={12} color="#EF4444" />
+                  <Text style={[styles.actionText, { color: "#EF4444" }]}>Reject</Text>
+                </>
+              )}
+            </TouchableOpacity>
             {!isEditing && (
               <TouchableOpacity
                 style={[styles.actionBtn, { backgroundColor: `${colors.primary}15` }]}
