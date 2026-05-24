@@ -991,15 +991,12 @@ export default function FinanceScreen() {
                 if (!createDescription.trim()) { Alert.alert("Enter a description"); return; }
                 setCreateSaving(true);
                 try {
-                  await customFetch(`/api/rfis`, {
+                  await customFetch(`/api/projects/${pid}/rfis`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      companyId: me?.companyId ? parseInt(me.companyId, 10) : 1,
-                      projectId: pid,
-                      title: createSubject.trim(),
-                      question: createDescription.trim(),
-                      status: "open",
+                      subject: createSubject.trim(),
+                      description: createDescription.trim(),
                     }),
                   });
                   await refetchRfi();
