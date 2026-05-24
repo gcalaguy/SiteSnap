@@ -50,6 +50,7 @@ import productivityIntegrationsRouter from "./integrations/productivity";
 import mediaHubRouter from "./mediaHub";
 import workerVaultRouter from "./workerVault";
 import tradeReviewsRouter from "./tradeReviews";
+import auditLogsRouter from "./auditLogs";
 
 const router: IRouter = Router();
 
@@ -108,5 +109,6 @@ router.use(productivityIntegrationsRouter);
 router.use(mediaHubRouter);
 router.use(workerVaultRouter);
 router.use(tradeReviewsRouter);
+router.use(auditLogsRouter);
 
 export default router;
