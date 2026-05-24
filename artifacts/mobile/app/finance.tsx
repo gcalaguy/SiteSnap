@@ -971,8 +971,8 @@ export default function FinanceScreen() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       projectId: pid,
-                      subject: createSubject.trim(),
-                      description: createDescription.trim(),
+                      title: createSubject.trim(),
+                      question: createDescription.trim(),
                       status: "open",
                     }),
                   });
