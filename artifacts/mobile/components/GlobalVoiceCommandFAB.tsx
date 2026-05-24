@@ -431,7 +431,7 @@ export function GlobalVoiceCommandFAB() {
           data: {
             reportDate: new Date().toISOString().split("T")[0],
             crewCount: 1,
-            workPerformed: "Voice update",
+            workPerformed: notes || action.transcript,
             notes,
           },
         });

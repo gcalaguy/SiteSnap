@@ -129,6 +129,11 @@ function ReportRow({ report, onPressProject }: { report: DailyReportListItem; on
           )}
         </View>
 
+        {!!report.notes && (
+          <Text style={[styles.notesPreview, { color: colors.mutedForeground }]} numberOfLines={2}>
+            {report.notes}
+          </Text>
+        )}
         {!!report.issues && (
           <View style={[styles.issueRow, { borderLeftColor: "#f59e0b" }]}>
             <Text style={[styles.issueText, { color: "#92400e" }]} numberOfLines={1}>
@@ -199,7 +204,8 @@ export default function AllReportsScreen() {
         r.workPerformed.toLowerCase().includes(q) ||
         (r.projectName ?? "").toLowerCase().includes(q) ||
         r.submittedByName.toLowerCase().includes(q) ||
-        (r.issues ?? "").toLowerCase().includes(q),
+        (r.issues ?? "").toLowerCase().includes(q) ||
+        (r.notes ?? "").toLowerCase().includes(q),
     );
   }, [reports, search]);
 
@@ -513,6 +519,8 @@ const styles = StyleSheet.create({
   projectChipText: { fontSize: 11, fontFamily: "Inter_600SemiBold", maxWidth: 120 },
   meta: { fontSize: 12, fontFamily: "Inter_400Regular" },
   metaDot: { fontSize: 12 },
+
+  notesPreview: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18, marginTop: 4 },
 
   issueRow: {
     marginTop: 6, paddingLeft: 8, borderLeftWidth: 2,
