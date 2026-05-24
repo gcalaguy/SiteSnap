@@ -20,7 +20,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes, useListChangeOrders } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes, useListChangeOrders, useCreateChangeOrder, getListChangeOrdersQueryKey } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { getAiErrorMessage } from "@/src/utils/aiError";
@@ -140,6 +140,29 @@ export default function FinanceScreen() {
   const [qRefreshing, setQRefreshing] = useState(false);
 
   const [sigCOId, setSigCOId] = useState<number | null>(null);
+
+  // Create Change Order form state
+  const [showCOForm, setShowCOForm] = useState(false);
+  const [coProjectId, setCoProjectId] = useState("");
+  const [coTitle, setCoTitle] = useState("");
+  const [coDescription, setCoDescription] = useState("");
+  const [coAmount, setCoAmount] = useState("");
+  const [coNotes, setCoNotes] = useState("");
+  const [coSaving, setCoSaving] = useState(false);
+
+  const createChangeOrder = useCreateChangeOrder({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListChangeOrdersQueryKey() });
+        refetchCO();
+        setShowCOForm(false);
+        setCoProjectId(""); setCoTitle(""); setCoDescription(""); setCoAmount(""); setCoNotes("");
+        Alert.alert("Created", "Change order created successfully.");
+      },
+      onError: () => Alert.alert("Failed to create change order"),
+      onSettled: () => setCoSaving(false),
+    },
+  });
 
   const createInvoice = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
@@ -441,13 +464,23 @@ export default function FinanceScreen() {
 
       {/* FABs */}
       <View style={[styles.fabRow, { bottom: insets.bottom + 20 }]}>
-        <Pressable
-          style={[styles.fabSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => openVoiceModal("quote")}
-        >
-          <Feather name="mic" size={18} color={colors.primary} />
-          <Text style={[styles.fabSecondaryText, { color: colors.primary }]}>Voice Quote</Text>
-        </Pressable>
+        {tab === "change-orders" ? (
+          <Pressable
+            style={[styles.fabSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => setShowCOForm(true)}
+          >
+            <Feather name="plus" size={18} color={colors.primary} />
+            <Text style={[styles.fabSecondaryText, { color: colors.primary }]}>Change Order</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[styles.fabSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => openVoiceModal("quote")}
+          >
+            <Feather name="mic" size={18} color={colors.primary} />
+            <Text style={[styles.fabSecondaryText, { color: colors.primary }]}>Voice Quote</Text>
+          </Pressable>
+        )}
         <Pressable
           style={[styles.fab, { backgroundColor: colors.primary }]}
           onPress={() => openVoiceModal("invoice")}
@@ -567,6 +600,82 @@ export default function FinanceScreen() {
                 </Pressable>
               </View>
             )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Create Change Order Modal */}
+      <Modal visible={showCOForm} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCOForm(false)}>
+        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>New Change Order</Text>
+            <Pressable onPress={() => setShowCOForm(false)} hitSlop={10}>
+              <Feather name="x" size={22} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Project ID</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="e.g. 1"
+              placeholderTextColor={colors.mutedForeground}
+              value={coProjectId}
+              onChangeText={setCoProjectId}
+              keyboardType="number-pad"
+            />
+            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Title</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="e.g. Additional drywall scope"
+              placeholderTextColor={colors.mutedForeground}
+              value={coTitle}
+              onChangeText={setCoTitle}
+            />
+            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Description</Text>
+            <TextInput
+              style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="Describe the scope change..."
+              placeholderTextColor={colors.mutedForeground}
+              value={coDescription}
+              onChangeText={setCoDescription}
+              multiline
+              numberOfLines={3}
+            />
+            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Amount (CAD)</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="e.g. 2500.00"
+              placeholderTextColor={colors.mutedForeground}
+              value={coAmount}
+              onChangeText={setCoAmount}
+              keyboardType="decimal-pad"
+            />
+            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Notes</Text>
+            <TextInput
+              style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="Internal notes (optional)..."
+              placeholderTextColor={colors.mutedForeground}
+              value={coNotes}
+              onChangeText={setCoNotes}
+              multiline
+              numberOfLines={2}
+            />
+            <Pressable
+              style={[styles.createBtn, { backgroundColor: colors.primary, opacity: coSaving ? 0.7 : 1 }]}
+              onPress={() => {
+                const pid = parseInt(coProjectId);
+                const amt = parseFloat(coAmount);
+                if (!pid || isNaN(pid)) { Alert.alert("Enter a valid Project ID"); return; }
+                if (!coTitle.trim()) { Alert.alert("Enter a title"); return; }
+                if (!coAmount || isNaN(amt) || amt <= 0) { Alert.alert("Enter a valid amount"); return; }
+                setCoSaving(true);
+                createChangeOrder.mutate({ data: { projectId: pid, title: coTitle.trim(), description: coDescription.trim() || null, amount: amt, notes: coNotes.trim() || null } });
+              }}
+              disabled={coSaving}
+            >
+              {coSaving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Feather name="plus" size={18} color="#FFFFFF" />}
+              <Text style={styles.createBtnText}>{coSaving ? "Creating…" : "Create Change Order"}</Text>
+            </Pressable>
           </ScrollView>
         </View>
       </Modal>

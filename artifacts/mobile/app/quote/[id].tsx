@@ -24,6 +24,9 @@ import {
   useUnsubmitQuote,
   useConvertQuoteToInvoice,
   useDeleteQuote,
+  useApproveQuote,
+  useRejectQuote,
+  useGetMe,
   getGetQuoteQueryKey,
   getListAllQuotesQueryKey,
   getListQuotesQueryKey,
@@ -148,10 +151,14 @@ export default function QuoteDetailScreen() {
   });
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
   const updatedLabel = useRelativeTime(dataUpdatedAt || null);
+  const { data: me } = useGetMe();
+  const isAuthorized = me?.role === "owner" || me?.role === "foreman";
   const submitQuote = useSubmitQuoteForApproval();
   const unsubmitQuote = useUnsubmitQuote();
   const convertQuote = useConvertQuoteToInvoice();
   const deleteQuote = useDeleteQuote();
+  const approveQuote = useApproveQuote();
+  const rejectQuote = useRejectQuote();
 
   const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
 
@@ -315,6 +322,44 @@ export default function QuoteDetailScreen() {
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
   const isEditable = quote?.status === "draft" || quote?.status === "rejected";
   const isSubmitted = quote?.status === "pending_approval";
+
+  const handleApproveQuote = useCallback(() => {
+    if (!isAuthorized) return;
+    Alert.alert("Approve Quote?", `Approve ${quote?.quoteNumber}?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Approve", onPress: () => {
+          approveQuote.mutate({ projectId, quoteId }, {
+            onSuccess: () => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert("Approved", "Quote has been approved.");
+              invalidate();
+            },
+            onError: () => Alert.alert("Failed to approve quote"),
+          });
+        },
+      },
+    ]);
+  }, [quote, isAuthorized, projectId, quoteId, approveQuote]);
+
+  const handleRejectQuote = useCallback(() => {
+    if (!isAuthorized) return;
+    Alert.alert("Reject Quote?", `Send ${quote?.quoteNumber} back for revision?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Reject", style: "destructive", onPress: () => {
+          rejectQuote.mutate({ projectId, quoteId, data: { reason: "" } }, {
+            onSuccess: () => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert("Rejected", "Quote sent back for revision.");
+              invalidate();
+            },
+            onError: () => Alert.alert("Failed to reject quote"),
+          });
+        },
+      },
+    ]);
+  }, [quote, isAuthorized, projectId, quoteId, rejectQuote]);
 
   if (isLoading) {
     return (
@@ -542,6 +587,33 @@ export default function QuoteDetailScreen() {
                   }
                   <Text style={[styles.actionBtnText, { color: "#2563EB" }]}>Unsubmit (Back to Draft)</Text>
                 </Pressable>
+              )}
+              {/* Approve / Reject (pending_approval, owner/foreman only) */}
+              {isSubmitted && isAuthorized && (
+                <>
+                  <Pressable
+                    style={[styles.actionBtnFull, { backgroundColor: "#DCFCE7", borderColor: "#86EFAC", borderTopWidth: 1 }]}
+                    onPress={handleApproveQuote}
+                    disabled={approveQuote.isPending}
+                  >
+                    {approveQuote.isPending
+                      ? <ActivityIndicator color="#16A34A" size="small" />
+                      : <Feather name="check-circle" size={18} color="#16A34A" />
+                    }
+                    <Text style={[styles.actionBtnText, { color: "#16A34A" }]}>Approve Quote</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.actionBtnFull, { backgroundColor: "#FEF2F2", borderColor: "#FECACA", borderTopWidth: 1 }]}
+                    onPress={handleRejectQuote}
+                    disabled={rejectQuote.isPending}
+                  >
+                    {rejectQuote.isPending
+                      ? <ActivityIndicator color="#DC2626" size="small" />
+                      : <Feather name="x-circle" size={18} color="#DC2626" />
+                    }
+                    <Text style={[styles.actionBtnText, { color: "#DC2626" }]}>Reject Quote</Text>
+                  </Pressable>
+                </>
               )}
               {/* Convert to invoice */}
               {quote.status === "approved" && (

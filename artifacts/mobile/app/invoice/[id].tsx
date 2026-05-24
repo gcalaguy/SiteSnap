@@ -135,6 +135,7 @@ export default function InvoiceDetailScreen() {
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
   const updatedLabel = useRelativeTime(dataUpdatedAt || null);
   const { data: me } = useGetMe();
+  const isAuthorized = me?.role === "owner" || me?.role === "foreman";
   const markSent = useMarkInvoiceSent();
   const markPaid = useMarkInvoicePaid();
   const sendEmail = useSendInvoiceEmail();
@@ -142,6 +143,7 @@ export default function InvoiceDetailScreen() {
 
   const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
   const [emailing, setEmailing] = useState(false);
+  const [invoiceActionLoading, setInvoiceActionLoading] = useState<string | null>(null);
 
   const companyName = (me as any)?.company?.name ?? "Site Snap";
 
@@ -241,32 +243,38 @@ export default function InvoiceDetailScreen() {
   }, [invoice, lineItems, companyName, invoiceId, sendEmail]);
 
   const handleMarkSent = useCallback(() => {
+    if (!isAuthorized) { Alert.alert("Only owners and foremen can mark invoices as sent."); return; }
     Alert.alert("Mark as Sent?", `This confirms you have sent ${invoice?.invoiceNumber} to ${invoice?.clientName}.`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Mark Sent", onPress: () => {
+          setInvoiceActionLoading("sent");
           markSent.mutate({ invoiceId }, {
             onSuccess: () => { Alert.alert("Invoice marked as sent"); invalidate(); },
             onError: () => Alert.alert("Failed to update invoice"),
+            onSettled: () => setInvoiceActionLoading(null),
           });
         }
       },
     ]);
-  }, [invoice, invoiceId, markSent]);
+  }, [invoice, invoiceId, markSent, isAuthorized]);
 
   const handleMarkPaid = useCallback(() => {
+    if (!isAuthorized) { Alert.alert("Only owners and foremen can mark invoices as paid."); return; }
     Alert.alert("Mark as Paid?", `Record payment received for ${invoice?.invoiceNumber}.`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Mark Paid", style: "default", onPress: () => {
+          setInvoiceActionLoading("paid");
           markPaid.mutate({ invoiceId }, {
             onSuccess: () => { Alert.alert("Invoice marked as paid!"); invalidate(); },
             onError: () => Alert.alert("Failed to update invoice"),
+            onSettled: () => setInvoiceActionLoading(null),
           });
         }
       },
     ]);
-  }, [invoice, invoiceId, markPaid]);
+  }, [invoice, invoiceId, markPaid, isAuthorized]);
 
   const handleSendReminder = useCallback(() => {
     if (!invoice?.clientEmail) { Alert.alert("No client email on this invoice."); return; }
@@ -494,24 +502,30 @@ export default function InvoiceDetailScreen() {
               </Pressable>
             )}
 
-            {invoice.status === "draft" && (
+            {isAuthorized && invoice.status === "draft" && (
               <Pressable
                 style={[styles.actionBtnFull, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={handleMarkSent}
-                disabled={markSent.isPending}
+                disabled={markSent.isPending || invoiceActionLoading === "sent"}
               >
-                {markSent.isPending ? <ActivityIndicator color="#3B82F6" size="small" /> : <Feather name="send" size={18} color="#3B82F6" />}
+                {(markSent.isPending || invoiceActionLoading === "sent")
+                  ? <ActivityIndicator color="#3B82F6" size="small" />
+                  : <Feather name="send" size={18} color="#3B82F6" />
+                }
                 <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Mark Sent</Text>
               </Pressable>
             )}
 
-            {(invoice.status === "sent" || invoice.status === "overdue") && (
+            {isAuthorized && (invoice.status === "sent" || invoice.status === "overdue") && (
               <Pressable
                 style={[styles.actionBtnFull, { backgroundColor: "#22C55E18", borderColor: "#22C55E40" }]}
                 onPress={handleMarkPaid}
-                disabled={markPaid.isPending}
+                disabled={markPaid.isPending || invoiceActionLoading === "paid"}
               >
-                {markPaid.isPending ? <ActivityIndicator color="#22C55E" size="small" /> : <Feather name="check-circle" size={18} color="#22C55E" />}
+                {(markPaid.isPending || invoiceActionLoading === "paid")
+                  ? <ActivityIndicator color="#22C55E" size="small" />
+                  : <Feather name="check-circle" size={18} color="#22C55E" />
+                }
                 <Text style={[styles.actionBtnText, { color: "#22C55E" }]}>Mark Paid</Text>
               </Pressable>
             )}

@@ -18,6 +18,9 @@ import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   customFetch,
   useGetChangeOrder,
+  useApproveChangeOrder,
+  useRejectChangeOrder,
+  useGetMe,
   getGetChangeOrderQueryKey,
   getListChangeOrdersQueryKey,
 } from "@workspace/api-client-react";
@@ -67,8 +70,13 @@ export default function ChangeOrderDetailScreen() {
   const router = useRouter();
   const qc = useQueryClient();
 
+  const { data: me } = useGetMe();
+  const isAuthorized = me?.role === "owner" || me?.role === "foreman";
   const { data: changeOrder, isLoading, dataUpdatedAt } = useGetChangeOrder(changeOrderId);
   const updatedLabel = useRelativeTime(dataUpdatedAt || null);
+
+  const approveChangeOrder = useApproveChangeOrder();
+  const rejectChangeOrder = useRejectChangeOrder();
 
   const [showSig, setShowSig] = useState(false);
   const [savingSig, setSavingSig] = useState(false);
@@ -97,6 +105,36 @@ export default function ChangeOrderDetailScreen() {
   }
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
+
+  const handleApproveCO = () => {
+    if (!isAuthorized) return;
+    Alert.alert("Approve Change Order?", "This will mark the change order as approved.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Approve", onPress: () => {
+          approveChangeOrder.mutate({ id: changeOrderId }, {
+            onSuccess: () => { invalidate(); Alert.alert("Approved", "Change order has been approved."); },
+            onError: () => Alert.alert("Failed to approve change order"),
+          });
+        },
+      },
+    ]);
+  };
+
+  const handleRejectCO = () => {
+    if (!isAuthorized) return;
+    Alert.alert("Reject Change Order?", "This will reject the change order.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Reject", style: "destructive", onPress: () => {
+          rejectChangeOrder.mutate({ id: changeOrderId }, {
+            onSuccess: () => { invalidate(); Alert.alert("Rejected", "Change order has been rejected."); },
+            onError: () => Alert.alert("Failed to reject change order"),
+          });
+        },
+      },
+    ]);
+  };
 
   if (isLoading) {
     return (
@@ -208,6 +246,45 @@ export default function ChangeOrderDetailScreen() {
             </Text>
           </Section>
         ) : null}
+
+        {/* Owner/Foreman approval actions */}
+        {changeOrder.status === "pending" && isAuthorized && (
+          <View style={[styles.actionGroup, { borderColor: colors.border }]}>
+            <Text style={[styles.actionGroupTitle, { color: colors.mutedForeground }]}>REVIEW</Text>
+            <View style={{ flexDirection: "row", gap: 12, padding: 14, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Pressable
+                style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, backgroundColor: "#DCFCE7", borderRadius: 10, borderWidth: 1, borderColor: "#86EFAC" }}
+                onPress={handleApproveCO}
+                disabled={approveChangeOrder.isPending}
+              >
+                {approveChangeOrder.isPending ? <ActivityIndicator color="#16A34A" size="small" /> : <Feather name="check-circle" size={18} color="#16A34A" />}
+                <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#16A34A" }}>Approve</Text>
+              </Pressable>
+              <Pressable
+                style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, backgroundColor: "#FEF2F2", borderRadius: 10, borderWidth: 1, borderColor: "#FECACA" }}
+                onPress={handleRejectCO}
+                disabled={rejectChangeOrder.isPending}
+              >
+                {rejectChangeOrder.isPending ? <ActivityIndicator color="#DC2626" size="small" /> : <Feather name="x-circle" size={18} color="#DC2626" />}
+                <Text style={{ fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#DC2626" }}>Reject</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* Owner/Foreman modify action — only for pending change orders */}
+        {isAuthorized && changeOrder.status === "pending" && (
+          <View style={[styles.actionGroup, { borderColor: colors.border }]}>
+            <Text style={[styles.actionGroupTitle, { color: colors.mutedForeground }]}>MANAGE</Text>
+            <Pressable
+              style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => Alert.alert("Modify Change Order", "Direct editing is coming soon. Please contact support for now.")}
+            >
+              <Feather name="edit-2" size={18} color={colors.primary} />
+              <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Modify Change Order</Text>
+            </Pressable>
+          </View>
+        )}
 
         {(changeOrder as any).clientSignatureData ? (
           <Section title="CLIENT SIGNATURE">

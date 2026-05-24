@@ -12,7 +12,7 @@ import {
   Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { customFetch, useGetMe, useListTimesheets, useSubmitTimesheet, getListTimesheetsQueryKey } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListTimesheets, useSubmitTimesheet, useApproveTimesheet, useDenyTimesheet, getListTimesheetsQueryKey } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 
@@ -95,6 +95,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
   const colors = useColors();
   const qc = useQueryClient();
   const { data: me } = useGetMe();
+  const isAuthorized = me?.role === "owner" || me?.role === "foreman";
 
   const [selectedMonday, setSelectedMonday] = useState<Date>(() => getMondayOfWeek(new Date()));
   const weekISO = toISO(selectedMonday);
@@ -155,6 +156,29 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
     setUserEditedHours(true);
     setShowForm(true);
   }, []);
+
+  const approveTimesheetMutation = useApproveTimesheet({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+        Alert.alert("Approved", "Timesheet has been approved.");
+      },
+      onError: () => Alert.alert("Error", "Failed to approve timesheet."),
+    },
+  });
+
+  const denyTimesheetMutation = useDenyTimesheet({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+        Alert.alert("Denied", "Timesheet has been denied.");
+      },
+      onError: () => Alert.alert("Error", "Failed to deny timesheet."),
+    },
+  });
+
+  // Debounce guard for rapid field taps
+  const [debounceTimers, setDebounceTimers] = useState<Record<number, ReturnType<typeof setTimeout>>>({});
 
   const submitMutation = useSubmitTimesheet({
     mutation: {
@@ -248,6 +272,33 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
       ],
     );
   }, [deleteMutation]);
+
+  // Debounced approve / deny to prevent rapid double-taps
+  const debouncedApprove = useCallback((id: number) => {
+    if (debounceTimers[id]) return;
+    const timer = setTimeout(() => {
+      setDebounceTimers((prev) => { const n = { ...prev }; delete n[id]; return n; });
+      approveTimesheetMutation.mutate({ timesheetId: id, data: { signatureData: "" } }, {
+        onSettled: () => {
+          setDebounceTimers((prev) => { const n = { ...prev }; delete n[id]; return n; });
+        },
+      });
+    }, 300);
+    setDebounceTimers((prev) => ({ ...prev, [id]: timer }));
+  }, [debounceTimers, approveTimesheetMutation]);
+
+  const debouncedDeny = useCallback((id: number) => {
+    if (debounceTimers[id]) return;
+    const timer = setTimeout(() => {
+      setDebounceTimers((prev) => { const n = { ...prev }; delete n[id]; return n; });
+      denyTimesheetMutation.mutate({ timesheetId: id, data: { notes: "" } }, {
+        onSettled: () => {
+          setDebounceTimers((prev) => { const n = { ...prev }; delete n[id]; return n; });
+        },
+      });
+    }, 300);
+    setDebounceTimers((prev) => ({ ...prev, [id]: timer }));
+  }, [debounceTimers, denyTimesheetMutation]);
 
   return (
     <KeyboardAvoidingView
@@ -563,6 +614,28 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
                     <Text style={[s.notesText, { color: ts.status === "denied" ? "#DC2626" : colors.foreground }]}>
                       {ts.status === "denied" ? "Reason: " : "Note: "}{ts.notes}
                     </Text>
+                  </View>
+                )}
+
+                {/* Owner/Foreman approval actions */}
+                {isAuthorized && ts.status === "submitted" && (
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                    <Pressable
+                      style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, backgroundColor: "#DCFCE7", borderRadius: 8, borderWidth: 1, borderColor: "#86EFAC" }}
+                      onPress={() => debouncedApprove(ts.id)}
+                      disabled={approveTimesheetMutation.isPending || !!debounceTimers[ts.id]}
+                    >
+                      {approveTimesheetMutation.isPending ? <ActivityIndicator color="#16A34A" size="small" /> : <Feather name="check-circle" size={14} color="#16A34A" />}
+                      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#16A34A" }}>Approve</Text>
+                    </Pressable>
+                    <Pressable
+                      style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, backgroundColor: "#FEF2F2", borderRadius: 8, borderWidth: 1, borderColor: "#FECACA" }}
+                      onPress={() => debouncedDeny(ts.id)}
+                      disabled={denyTimesheetMutation.isPending || !!debounceTimers[ts.id]}
+                    >
+                      {denyTimesheetMutation.isPending ? <ActivityIndicator color="#DC2626" size="small" /> : <Feather name="x-circle" size={14} color="#DC2626" />}
+                      <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#DC2626" }}>Deny</Text>
+                    </Pressable>
                   </View>
                 )}
               </View>
