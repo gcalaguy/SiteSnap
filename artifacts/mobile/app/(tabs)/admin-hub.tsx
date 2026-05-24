@@ -34,8 +34,8 @@ const TILE_GROUPS: { title: string; tiles: HubTile[] }[] = [
   {
     title: "Operations",
     tiles: [
-      { label: "Timesheet Overview", icon: "clipboard", route: "/projects", color: "#0EA5E9" },
-      { label: "Hours Tracking", icon: "clock", route: "/projects", color: "#06B6D4" },
+      { label: "Timesheet Overview", icon: "clipboard", route: "/timesheets", color: "#0EA5E9" },
+      { label: "Hours Tracking", icon: "clock", route: "/hours", color: "#06B6D4" },
       { label: "Master Schedule", icon: "calendar", route: "/schedule", color: "#EC4899" },
     ],
   },
@@ -59,7 +59,7 @@ function Tile({ tile }: { tile: HubTile }) {
       ]}
       onPress={() => {
         if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push(tile.route as any);
+        router.navigate(tile.route as any);
       }}
     >
       <View style={[styles.tileIconBg, { backgroundColor: `${tile.color}18` }]}>

@@ -200,7 +200,10 @@ function RootLayoutNav() {
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="rfi/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="sync-queue" options={{ headerShown: false, presentation: "modal" }} />
-        <Stack.Screen name="schedule" options={{ headerShown: true, title: "Assigned Schedule", headerStyle: { backgroundColor: "#0A0A0A" }, headerTintColor: "#FFFFFF" }} />
+        <Stack.Screen name="schedule" options={{ headerShown: false }} />
+        <Stack.Screen name="timesheets" options={{ headerShown: false }} />
+        <Stack.Screen name="hours" options={{ headerShown: false }} />
+        <Stack.Screen name="contacts" options={{ headerShown: false }} />
         <Stack.Screen name="tradehub-post/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="estimator" options={{ headerShown: true, title: "Estimator", headerStyle: { backgroundColor: "#0A0A0A" }, headerTintColor: "#FFFFFF" }} />
         <Stack.Screen name="finance" options={{ headerShown: false }} />

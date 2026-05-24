@@ -3,7 +3,6 @@ import {
   View,
   Text,
   ScrollView,
-  Pressable,
   TouchableOpacity,
   StyleSheet,
   Platform,
@@ -15,31 +14,25 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
-import { useListProjects, useGetMe } from "@workspace/api-client-react";
+import { useListTimesheets, useGetMe } from "@workspace/api-client-react";
 
 const STATUS_COLORS: Record<string, string> = {
-  planning: "#3B82F6",
-  active: "#22C55E",
-  completed: "#6B7280",
-  on_hold: "#F59E0B",
+  draft: "#6B7280",
+  submitted: "#3B82F6",
+  approved: "#22C55E",
+  denied: "#EF4444",
 };
 
-function fmtDate(dateStr?: string | null): string {
-  if (!dateStr) return "TBD";
-  return new Date(dateStr).toLocaleDateString("en-CA", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+function formatWeekRange(startStr: string): string {
+  const start = new Date(startStr);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+  return `${fmt(start)} – ${fmt(end)}`;
 }
 
-function daysUntil(dateStr?: string | null): number | null {
-  if (!dateStr) return null;
-  const diff = new Date(dateStr).getTime() - Date.now();
-  return Math.ceil(diff / 86_400_000);
-}
-
-export default function ScheduleScreen() {
+export default function TimesheetsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -48,17 +41,18 @@ export default function ScheduleScreen() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const {
-    data: projectsData,
+    data: timesheetsData,
     isLoading,
     refetch,
     isRefetching,
-  } = useListProjects();
+  } = useListTimesheets({
+    status: statusFilter !== "all" ? statusFilter : undefined,
+  });
 
-  const projects = (projectsData ?? []) as any[];
-  const filtered = statusFilter === "all" ? projects : projects.filter((p) => p.status === statusFilter);
+  const timesheets = (timesheetsData ?? []) as any[];
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
-  const statuses = ["all", "planning", "active", "on_hold", "completed"];
+  const statuses = ["all", "draft", "submitted", "approved", "denied"];
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
   return (
@@ -66,10 +60,8 @@ export default function ScheduleScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInset + 12, backgroundColor: colors.sidebar }]}>
         <View>
-          <Text style={styles.headerTitle}>Master Schedule</Text>
-          <Text style={styles.headerSub}>
-            {isOwnerOrForeman ? "All projects & timelines" : "My assigned schedule"}
-          </Text>
+          <Text style={styles.headerTitle}>Timesheets</Text>
+          <Text style={styles.headerSub}>{isOwnerOrForeman ? "All company timesheets" : "My timesheets"}</Text>
         </View>
       </View>
 
@@ -83,7 +75,6 @@ export default function ScheduleScreen() {
         {statuses.map((s) => {
           const active = statusFilter === s;
           const color = s === "all" ? colors.primary : STATUS_COLORS[s] ?? colors.primary;
-          const label = s === "all" ? "All" : s === "on_hold" ? "On Hold" : s.charAt(0).toUpperCase() + s.slice(1);
           return (
             <TouchableOpacity
               key={s}
@@ -93,7 +84,9 @@ export default function ScheduleScreen() {
                 { borderColor: active ? color : colors.border, backgroundColor: active ? `${color}15` : colors.card },
               ]}
             >
-              <Text style={[styles.filterChipText, { color: active ? color : colors.mutedForeground }]}>{label}</Text>
+              <Text style={[styles.filterChipText, { color: active ? color : colors.mutedForeground }]}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </Text>
             </TouchableOpacity>
           );
         })}
@@ -104,11 +97,11 @@ export default function ScheduleScreen() {
         <View style={styles.loading}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
-      ) : filtered.length === 0 ? (
+      ) : timesheets.length === 0 ? (
         <View style={styles.empty}>
-          <Feather name="calendar" size={40} color={colors.border} />
+          <Feather name="clipboard" size={40} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            {statusFilter !== "all" ? `No ${statusFilter.replace("_", " ")} projects` : "No projects yet"}
+            {statusFilter !== "all" ? `No ${statusFilter} timesheets` : "No timesheets yet"}
           </Text>
         </View>
       ) : (
@@ -117,55 +110,34 @@ export default function ScheduleScreen() {
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
           contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, gap: 10 }}
         >
-          {filtered.map((p) => {
-            const statusColor = STATUS_COLORS[p.status] ?? "#6B7280";
-            const start = p.startDate ? fmtDate(p.startDate) : "TBD";
-            const end = p.endDate ? fmtDate(p.endDate) : "TBD";
-            const remaining = daysUntil(p.endDate);
-
+          {timesheets.map((ts) => {
+            const statusColor = STATUS_COLORS[ts.status] ?? "#6B7280";
             return (
-              <Pressable
-                key={p.id}
-                style={({ pressed }) => [
-                  styles.card,
-                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-                ]}
-                onPress={() => {
-                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push(`/project/${p.id}`);
-                }}
+              <View
+                key={ts.id}
+                style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
               >
                 <View style={styles.cardTop}>
-                  <Text style={[styles.cardName, { color: colors.foreground }]} numberOfLines={1}>
-                    {p.name}
+                  <Text style={[styles.cardWeek, { color: colors.foreground }]}>
+                    {formatWeekRange(ts.weekStart)}
                   </Text>
                   <View style={[styles.statusBadge, { backgroundColor: `${statusColor}18` }]}>
                     <Text style={[styles.statusText, { color: statusColor }]}>
-                      {p.status === "on_hold" ? "On Hold" : p.status?.charAt(0).toUpperCase() + p.status?.slice(1)}
+                      {ts.status?.charAt(0).toUpperCase() + ts.status?.slice(1)}
                     </Text>
                   </View>
                 </View>
-
-                <View style={styles.cardTimeline}>
-                  <View style={styles.timelineRow}>
-                    <Feather name="play-circle" size={12} color={colors.mutedForeground} />
-                    <Text style={[styles.timelineText, { color: colors.mutedForeground }]}>Start: {start}</Text>
-                  </View>
-                  <View style={styles.timelineRow}>
-                    <Feather name="flag" size={12} color={colors.mutedForeground} />
-                    <Text style={[styles.timelineText, { color: colors.mutedForeground }]}>End: {end}</Text>
-                  </View>
-                </View>
-
-                {remaining != null && remaining > 0 && p.status !== "completed" && (
-                  <Text style={[styles.remainingText, { color: statusColor }]}>
-                    {remaining} day{remaining === 1 ? "" : "s"} remaining
+                <View style={styles.cardBottom}>
+                  <Text style={[styles.cardHours, { color: colors.mutedForeground }]}>
+                    {ts.totalHours ?? "0"} hours
                   </Text>
-                )}
-                {remaining != null && remaining <= 0 && p.status !== "completed" && (
-                  <Text style={[styles.remainingText, { color: "#EF4444" }]}>Overdue by {Math.abs(remaining)} day{Math.abs(remaining) === 1 ? "" : "s"}</Text>
-                )}
-              </Pressable>
+                  {ts.user && (
+                    <Text style={[styles.cardUser, { color: colors.mutedForeground }]}>
+                      {ts.user.firstName} {ts.user.lastName}
+                    </Text>
+                  )}
+                </View>
+              </View>
             );
           })}
         </ScrollView>
@@ -208,11 +180,10 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  cardName: { fontSize: 15, fontFamily: "Inter_600SemiBold", flex: 1 },
+  cardWeek: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   statusText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  cardTimeline: { gap: 4, marginTop: 2 },
-  timelineRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  timelineText: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  remainingText: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginTop: 2 },
+  cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 },
+  cardHours: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  cardUser: { fontSize: 12, fontFamily: "Inter_400Regular" },
 });
