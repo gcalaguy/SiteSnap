@@ -433,6 +433,21 @@ router.put("/admin/plans/:id/features", ...guard, async (req, res) => {
   res.json({ ok: true, planId, featureIds });
 });
 
+// POST /admin/plans/:planId/features — replace feature set for a plan (validated)
+const PlanFeaturesBody = z.object({
+  featureIds: z.array(z.number().int().positive()),
+});
+
+router.post("/admin/plans/:planId/features", ...guard, async (req, res) => {
+  const planId = Number(req.params.planId);
+  const { featureIds } = PlanFeaturesBody.parse(req.body);
+  await db.delete(planFeaturesTable).where(eq(planFeaturesTable.planId, planId));
+  if (featureIds.length > 0) {
+    await db.insert(planFeaturesTable).values(featureIds.map((fid) => ({ planId, featureId: fid })));
+  }
+  res.status(200).json({ ok: true, planId, featureIds });
+});
+
 // ── Tenants ─────────────────────────────────────────────────────────────────────
 
 // POST /admin/tenants — super-admin creates a company (no owner yet)

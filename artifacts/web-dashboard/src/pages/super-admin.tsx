@@ -101,6 +101,7 @@ type ManageSectionsProps = {
   onEditTenantUser: (userId: number, role: string) => void;
   onDeleteTenantUser: (userId: number) => void;
   onDeleteFeature: (feature: Feature) => void;
+  onToggleFeaturePlan: (featureId: number, planId: number, checked: boolean) => void;
   collapsed: { plans: boolean; features: boolean; tenants: boolean };
   setCollapsed: (value: { plans: boolean; features: boolean; tenants: boolean }) => void;
 };
@@ -308,6 +309,12 @@ function ManageTab() {
   const deletePlan = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/plans/${id}`, { method: "DELETE" }), onSuccess: () => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan deleted" }); }, onError: (e: any) => toast({ title: "Plan delete failed", description: e.message, variant: "destructive" }) });
   const saveFeature = useMutation({ mutationFn: () => { const payload = { ...featureForm, description: featureForm.description || null }; return editingFeatureId ? customFetch(`/api/admin/features/${editingFeatureId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/features", { method: "POST", body: JSON.stringify(payload) }); }, onSuccess: () => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); refresh(); toast({ title: "Feature saved" }); }, onError: (e: any) => toast({ title: "Feature save failed", description: e.message, variant: "destructive" }) });
   const deleteFeature = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/features/${id}`, { method: "DELETE" }), onSuccess: () => { refresh(); toast({ title: "Feature deleted" }); }, onError: (e: any) => toast({ title: "Feature delete failed", description: e.message, variant: "destructive" }) });
+  const assignPlanFeatures = useMutation({
+    mutationFn: ({ planId, featureIds }: { planId: number; featureIds: number[] }) =>
+      customFetch(`/api/admin/plans/${planId}/features`, { method: "POST", body: JSON.stringify({ featureIds }) }),
+    onSuccess: () => { refresh(); toast({ title: "Feature assignments updated" }); },
+    onError: (e: any) => toast({ title: "Assignment failed", description: e.message, variant: "destructive" }),
+  });
   const saveTenant = useMutation({
     mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}/subscription`, {
       method: "PATCH",
@@ -387,6 +394,12 @@ function ManageTab() {
             onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
             onReissueLink={(t) => reissueLink.mutate(t.id)}
             onDeleteFeature={(f) => deleteFeature.mutate(f.id)}
+            onToggleFeaturePlan={(featureId, planId, checked) => {
+              const plan = plans.find((p) => p.id === planId);
+              if (!plan) return;
+              const nextIds = checked ? [...new Set([...plan.featureIds, featureId])] : plan.featureIds.filter((id) => id !== featureId);
+              assignPlanFeatures.mutate({ planId, featureIds: nextIds });
+            }}
             onEditTenantUser={(userId, role) => {
               const u = tenantDetail?.users.find((x) => x.id === userId);
               if (u) {
@@ -493,7 +506,7 @@ function ManageTab() {
   );
 }
 
-function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, onReissueLink, onEditTenantUser, onDeleteTenantUser, onDeleteFeature, collapsed, setCollapsed }: ManageSectionsProps) {
+function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, onReissueLink, onEditTenantUser, onDeleteTenantUser, onDeleteFeature, onToggleFeaturePlan, collapsed, setCollapsed }: ManageSectionsProps) {
   return (
     <div className="space-y-6">
       <Card className="border-gray-200 bg-white text-[#121212]">
@@ -533,24 +546,56 @@ function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPla
           </div>
         </CardHeader>
         {!collapsed.features && <CardContent>
-          <div className="space-y-2">
-            {features.map((f) => (
-              <div key={f.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 hover:bg-gray-50">
-                <button className="flex-1 text-left" onClick={() => onEditFeature(f)}>
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-[#121212]">{f.name}</span>
-                    <Badge className={f.isEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}>{f.isEnabled ? "Enabled" : "Disabled"}</Badge>
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">{f.key}</div>
-                </button>
-                <div className="ml-2 flex items-center gap-1">
-                  <button onClick={() => onEditFeature(f)} className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#D4AF37]"><Pencil className="h-3.5 w-3.5" /></button>
-                  <button onClick={() => onDeleteFeature(f)} className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
-                </div>
-              </div>
-            ))}
-            <Button className="mt-3 bg-[#D4AF37] text-white font-bold hover:bg-[#b5922e]" onClick={onOpenFeature}>New Feature</Button>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="py-2 pr-4 text-left font-semibold text-[#121212]">Feature</th>
+                  {plans.map((p) => (
+                    <th key={p.id} className="px-2 py-2 text-center text-xs font-semibold text-gray-600">{p.name}</th>
+                  ))}
+                  <th className="px-2 py-2 text-right"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {features.map((f) => (
+                  <tr key={f.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-2 pr-4">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => onEditFeature(f)} className="text-left">
+                          <span className="font-semibold text-[#121212]">{f.name}</span>
+                        </button>
+                        <Badge className={f.isEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}>{f.isEnabled ? "Enabled" : "Disabled"}</Badge>
+                      </div>
+                      <div className="text-xs text-gray-500">{f.key}</div>
+                    </td>
+                    {plans.map((p) => {
+                      const checked = p.featureIds.includes(f.id);
+                      return (
+                        <td key={`${f.id}-${p.id}`} className="px-2 py-2 text-center">
+                          <label className="inline-flex cursor-pointer items-center">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => onToggleFeaturePlan(f.id, p.id, e.target.checked)}
+                              className="h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                            />
+                          </label>
+                        </td>
+                      );
+                    })}
+                    <td className="px-2 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => onEditFeature(f)} className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#D4AF37]"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => onDeleteFeature(f)} className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+          <Button className="mt-3 bg-[#D4AF37] text-white font-bold hover:bg-[#b5922e]" onClick={onOpenFeature}>New Feature</Button>
         </CardContent>}
       </Card>
 
