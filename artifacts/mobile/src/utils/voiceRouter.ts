@@ -98,7 +98,7 @@ export type VoiceIntent =
 
 // Navigation patterns are intentionally anchored (^ and $) or require a navigation verb prefix.
 // This prevents "add an update to project X" from matching "Projects" navigation, etc.
-const NAV_PREFIX = "(?:(?:go|navigate|switch)\\s+to\\s+|open\\s+|show(?:\\s+me)?\\s+|take\\s+me\\s+to\\s+)?";
+const NAV_PREFIX = "(?:(?:go|navigate|switch)\\s+to\\s+|open\\s+|show(?:\\s+me)?\\s+|take\\s+me\\s+to\\s+)?(?:the\\s+)?";
 const ROUTE_PATTERNS: Array<{ pattern: RegExp; target: RouteTarget }> = [
   { pattern: new RegExp(`^${NAV_PREFIX}calculat\\w*$`, "i"), target: "Calculators" },
   { pattern: new RegExp(`^${NAV_PREFIX}(?:schedule|calendar)$`, "i"), target: "Schedule" },
@@ -507,7 +507,12 @@ async function classifyWithLLM(
     const parsed = LLMResultSchema.safeParse(raw);
     if (!parsed.success) {
       console.warn("[voiceRouter] LLM response schema mismatch:", parsed.error.issues);
-      return { intent: "UNKNOWN", transcript, confidence: "low" };
+      return {
+        intent: "DATA_ENTRY",
+        action: "ADD_NOTE",
+        payload: transcript,
+        confidence: "low",
+      };
     }
     const result: LLMResult = parsed.data;
     const project = result.project ?? null;
@@ -618,7 +623,12 @@ async function classifyWithLLM(
     console.error("[voiceRouter] classifyWithLLM error:", msg);
   }
 
-  return { intent: "UNKNOWN", transcript, confidence: "low" };
+  return {
+    intent: "DATA_ENTRY",
+    action: "ADD_NOTE",
+    payload: transcript,
+    confidence: "low",
+  };
 }
 
 /* ─── Main router ─────────────────────────────────────────────────────────── */

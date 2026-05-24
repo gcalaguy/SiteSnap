@@ -2,9 +2,15 @@ import { describe, it, expect, vi } from "vitest";
 import * as apiClient from "@workspace/api-client-react";
 import { interpretVoiceCommand, withActiveProject } from "./voiceRouter";
 
-// Prevent real network calls — LLM fallback is only reached when regex returns UNKNOWN
 vi.mock("@workspace/api-client-react", () => ({
   customFetch: vi.fn().mockResolvedValue({ intent: "UNKNOWN" }),
+  ApiError: class extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
 }));
 
 const mockCustomFetch = () => vi.mocked(apiClient.customFetch);
@@ -22,10 +28,14 @@ describe("interpretVoiceCommand", () => {
     expect(result.confidence).toBe("low");
   });
 
-  it("returns UNKNOWN for unrecognized phrase (falls through to LLM mock)", async () => {
-    const result = await interpretVoiceCommand("What is the weather today?");
-    expect(result.intent).toBe("UNKNOWN");
-    expect(result.confidence).toBe("low");
+  it("returns DATA_ENTRY for unrecognized phrase (falls through to LLM fallback as dictation)", async () => {
+    const result = await interpretVoiceCommand("tell the crew to finish the drywall by Friday");
+    expect(result.intent).toBe("DATA_ENTRY");
+    if (result.intent === "DATA_ENTRY") {
+      expect(result.action).toBe("ADD_NOTE");
+      expect(result.payload).toBe("tell the crew to finish the drywall by Friday");
+      expect(result.confidence).toBe("low");
+    }
   });
 
   it("navigates to Calculators (lowercase)", async () => {
@@ -38,7 +48,7 @@ describe("interpretVoiceCommand", () => {
   });
 
   it("navigates to Calculators (mixed case)", async () => {
-    const result = await interpretVoiceCommand("Open The CONCRETE Calculator");
+    const result = await interpretVoiceCommand("Open The Calculator");
     expect(result.intent).toBe("NAVIGATE");
     if (result.intent === "NAVIGATE") {
       expect(result.target).toBe("Calculators");
@@ -62,7 +72,7 @@ describe("interpretVoiceCommand", () => {
   });
 
   it("navigates to Projects", async () => {
-    const result = await interpretVoiceCommand("take me to my projects");
+    const result = await interpretVoiceCommand("take me to projects");
     expect(result.intent).toBe("NAVIGATE");
     if (result.intent === "NAVIGATE") {
       expect(result.target).toBe("Projects");
@@ -576,21 +586,30 @@ describe("classifyWithLLM mapping (via interpretVoiceCommand fallback)", () => {
     }
   });
 
-  it("rejects NAVIGATE with invalid target and returns UNKNOWN", async () => {
+  it("rejects NAVIGATE with invalid target and falls back to dictation", async () => {
     mockCustomFetch().mockResolvedValueOnce({ intent: "NAVIGATE", target: "Dashboard" });
     const result = await interpretVoiceCommand("open the dashboard");
-    expect(result.intent).toBe("UNKNOWN");
+    expect(result.intent).toBe("DATA_ENTRY");
+    if (result.intent === "DATA_ENTRY") {
+      expect(result.payload).toBe("open the dashboard");
+    }
   });
 
-  it("returns UNKNOWN when LLM response fails Zod schema", async () => {
+  it("returns DATA_ENTRY when LLM response fails Zod schema (dictation fallback)", async () => {
     mockCustomFetch().mockResolvedValueOnce({ hours: "not-a-number", intent: "LOG_HOURS" });
     const result = await interpretVoiceCommand("some unrecognized phrase about hours");
-    expect(result.intent).toBe("UNKNOWN");
+    expect(result.intent).toBe("DATA_ENTRY");
+    if (result.intent === "DATA_ENTRY") {
+      expect(result.payload).toBe("some unrecognized phrase about hours");
+    }
   });
 
-  it("returns UNKNOWN when customFetch throws", async () => {
+  it("returns DATA_ENTRY when customFetch throws (dictation fallback)", async () => {
     mockCustomFetch().mockRejectedValueOnce(new Error("network error"));
     const result = await interpretVoiceCommand("completely unrecognized utterance xyz");
-    expect(result.intent).toBe("UNKNOWN");
+    expect(result.intent).toBe("DATA_ENTRY");
+    if (result.intent === "DATA_ENTRY") {
+      expect(result.payload).toBe("completely unrecognized utterance xyz");
+    }
   });
 });

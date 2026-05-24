@@ -90,19 +90,17 @@ describe("Voice Router × Role Matrix", () => {
     const ctx = TENANT_CONTEXTS.owner;
 
     it("extracts project reference from estimation voice command via LLM path", async () => {
-      // "Create a new project estimate..." contains the word "project" — the
-      // regex engine matches it as a NAVIGATE intent before reaching the LLM.
-      // This confirms the router prioritizes route patterns; LLM only handles
-      // truly unrecognised phrasing.
+      // Phrases without a navigation prefix fall through to the LLM.
+      // When the LLM also cannot classify, the transcript is treated as plain
+      // dictation (DATA_ENTRY) rather than an error.
       const intent = await interpretVoiceCommand(
         "Create a new project estimate for 123 Basement at fifty dollars a square foot",
         ctx.projectNames,
       );
 
-      // "project" triggers the \bprojects?\b route pattern → NAVIGATE to Projects
-      expect(intent.intent).toBe("NAVIGATE");
-      if (intent.intent === "NAVIGATE") {
-        expect(intent.target).toBe("Projects");
+      expect(intent.intent).toBe("DATA_ENTRY");
+      if (intent.intent === "DATA_ENTRY") {
+        expect(intent.payload).toContain("project estimate");
       }
     });
 
@@ -119,22 +117,18 @@ describe("Voice Router × Role Matrix", () => {
       expect(filtered.intent).toBe("NAVIGATE");
     });
 
-    it("estimation + financial view: regex resolves the navigation intent before LLM, owner is permitted", async () => {
-      // The word "project" in the combined command triggers the \bprojects?\b
-      // route pattern. Navigation is matched before the LLM is ever called.
+    it("estimation + financial view: unrecognised phrasing falls back to dictation", async () => {
+      // Natural-language phrases without a navigation prefix do not match regex
+      // routes; they fall through to the LLM and ultimately become dictation.
       const intent = await interpretVoiceCommand(
         "Create a new project estimate for 123 Basement at fifty dollars a square foot and view financials",
         ctx.projectNames,
       );
 
-      expect(intent.intent).toBe("NAVIGATE");
-      if (intent.intent === "NAVIGATE") {
-        expect(intent.target).toBe("Projects");
+      expect(intent.intent).toBe("DATA_ENTRY");
+      if (intent.intent === "DATA_ENTRY") {
+        expect(intent.payload).toContain("project estimate");
       }
-
-      // Owner passes the RBAC gate for any navigation
-      const filtered = applyRbacFilter(intent, "owner");
-      expect(filtered.intent).not.toBe("RBAC_DENIED");
     });
 
     it("company-1 project namespace contains no company-2 projects (tenant boundary)", () => {
