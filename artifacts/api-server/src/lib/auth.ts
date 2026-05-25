@@ -73,18 +73,13 @@ export const requireAuth = async (
     req.companyId = fallbackMembership.companyId;
     req.userRole = fallbackMembership.role;
   } else {
-    // No memberships at all — user is not associated with any company
-    // Exception: allow unaffiliated users to claim a pre-created company
-    const isClaimRequest = req.method === "POST" && /^\/companies\/\d+\/claim$/.test(req.path);
-    if (isClaimRequest) {
-      req.companyId = null;
-      req.userRole = undefined;
-      next();
-      return;
-    }
-
-    req.log.warn({ userId: user.id }, "User has no company memberships");
-    res.status(403).json({ error: "No company association found" });
+    // No memberships at all — user is authenticated but not yet onboarded.
+    // Allow the request to proceed with no company context so that routes like
+    // GET /users/me and POST /companies remain reachable during the sign-up
+    // onboarding flow. Routes that require a company use requireCompany explicitly.
+    req.companyId = null;
+    req.userRole = undefined;
+    next();
     return;
   }
 
