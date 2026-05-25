@@ -450,8 +450,8 @@ export default function OnboardingPage() {
                           </FormItem>
                         )}
                       />
-                      <Button type="submit" className="w-full" disabled={createCompany.isPending}>
-                        {createCompany.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      <Button type="submit" className="w-full" disabled={syncUser.isPending || createCompany.isPending}>
+                        {(syncUser.isPending || createCompany.isPending) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         {clerkUser ? "Create Company" : "Continue to Sign Up"}
                       </Button>
                       {!clerkUser && (
