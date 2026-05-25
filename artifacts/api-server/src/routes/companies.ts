@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   db, usersTable, userMembershipsTable, companiesTable, invitationsTable,
+  subscriptionsTable, plansTable,
   rfisTable, tasksTable, quotesTable, invoicesTable, timesheetsTable,
   formSubmissionsTable, changeOrdersTable, dailyReportsTable,
   dailyReportPhotosTable, submissionCommentsTable, paymentsTable,
@@ -781,7 +782,7 @@ router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
     return;
   }
 
-  // Verify no user is already owner via memberships (Phase 0: also check legacy column)
+  // Verify no user is already owner via memberships
   const existingMembers = await db
     .select()
     .from(userMembershipsTable)
@@ -791,7 +792,45 @@ router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
     return;
   }
 
-  // Assign authenticated user as owner: write to memberships only (Phase 4)
+  // Extract onboarding fields from request body
+  const companyName = typeof req.body.companyName === "string"
+    ? req.body.companyName.trim()
+    : null;
+  const planTier = typeof req.body.planTier === "string"
+    ? req.body.planTier.trim().toLowerCase()
+    : "starter";
+
+  // Update company name if provided
+  if (companyName) {
+    await db
+      .update(companiesTable)
+      .set({ name: companyName })
+      .where(eq(companiesTable.id, companyId));
+  }
+
+  // Resolve plan tier and insert subscription
+  const [matchedPlan] = await db
+    .select()
+    .from(plansTable)
+    .where(eq(plansTable.slug, planTier))
+    .limit(1);
+  const fallbackPlan = matchedPlan
+    ? matchedPlan
+    : (await db.select().from(plansTable).where(eq(plansTable.slug, "starter")).limit(1))[0];
+
+  if (fallbackPlan) {
+    await db
+      .insert(subscriptionsTable)
+      .values({
+        companyId,
+        planId: fallbackPlan.id,
+        status: "active",
+        billingCycle: "monthly",
+      })
+      .onConflictDoNothing();
+  }
+
+  // Assign authenticated user as owner via memberships
   await db
     .insert(userMembershipsTable)
     .values({ userId: req.userId!, companyId, role: "owner", isActive: true })
@@ -802,7 +841,13 @@ router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, req.userId!))
     .returning();
 
-  res.json({ company, user: updatedUser });
+  const [updatedCompany] = await db
+    .select()
+    .from(companiesTable)
+    .where(eq(companiesTable.id, companyId))
+    .limit(1);
+
+  res.json({ company: updatedCompany, user: updatedUser });
 });
 
 export default router;

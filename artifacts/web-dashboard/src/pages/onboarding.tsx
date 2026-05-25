@@ -15,6 +15,13 @@ import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, KeyRound, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const companySchema = z.object({
   name: z.string().min(2, "Company name must be at least 2 characters"),
@@ -23,9 +30,15 @@ const companySchema = z.object({
   phone: z.string().optional(),
 });
 
+const claimSchema = z.object({
+  companyName: z.string().min(2, "Company name must be at least 2 characters"),
+  planTier: z.enum(["starter", "basic", "enterprise"]),
+});
+
 const INVITE_TOKEN_KEY = "sitesnap_pending_invite_token";
 const PENDING_COMPANY_KEY = "sitesnap_pending_company";
 const PENDING_CLAIM_KEY = "sitesnap_pending_claim";
+const PENDING_CLAIM_DATA_KEY = "sitesnap_pending_claim_data";
 
 export default function OnboardingPage() {
   const [, setLocation] = useLocation();
@@ -42,27 +55,16 @@ export default function OnboardingPage() {
   const { data: dbUser } = useGetMe({
     query: { queryKey: getGetMeQueryKey(), enabled: !!clerkUser },
   });
-  // Phase 2: prefer activeCompanyId for determining if user is already in a company
   const hasCompany = !!dbUser?.activeCompanyId;
   const isWorker = dbUser?.role === "worker";
 
+  // When companyId is present, show the claim form (override default tab)
+  const isClaimMode = !!resolvedClaimCompanyId;
   const [activeTab, setActiveTab] = useState(resolvedToken || isWorker ? "join" : "create");
 
-  // Force workers to the join tab
   useEffect(() => {
     if (isWorker) setActiveTab("join");
   }, [isWorker]);
-
-  // Early redirect: unauthenticated user with companyId → sign-up then auto-claim
-  useEffect(() => {
-    if (clerkUser || !resolvedClaimCompanyId) return;
-    toast({
-      title: "Create your account first",
-      description: "Sign up below — you'll be automatically assigned as the company owner.",
-    });
-    setLocation("/sign-up");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clerkUser, resolvedClaimCompanyId]);
 
   const createCompany = useCreateCompany();
   const acceptInvitation = useAcceptInvitation();
@@ -70,12 +72,12 @@ export default function OnboardingPage() {
 
   const form = useForm<z.infer<typeof companySchema>>({
     resolver: zodResolver(companySchema),
-    defaultValues: {
-      name: "",
-      province: "",
-      city: "",
-      phone: "",
-    },
+    defaultValues: { name: "", province: "", city: "", phone: "" },
+  });
+
+  const claimForm = useForm<z.infer<typeof claimSchema>>({
+    resolver: zodResolver(claimSchema),
+    defaultValues: { companyName: "", planTier: "starter" },
   });
 
   const [inviteToken, setInviteToken] = useState(resolvedToken);
@@ -83,15 +85,27 @@ export default function OnboardingPage() {
   if (urlToken) sessionStorage.setItem(INVITE_TOKEN_KEY, urlToken);
   if (urlCompanyId) sessionStorage.setItem(PENDING_CLAIM_KEY, urlCompanyId);
 
-  // Auto-resume pending company claim after sign-up redirect
-  const autoClaimed = useRef(false);
+  // ── Claim Flow ────────────────────────────────────────────────────────────
+  // If unauthenticated with a claim URL: redirect to sign-up, but persist the
+  // claim data so they can enter company name/plan after signing up.
   useEffect(() => {
-    if (!clerkUser || autoClaimed.current) return;
+    if (clerkUser || !resolvedClaimCompanyId) return;
+    toast({
+      title: "Create your account first",
+      description: "Sign up below — then you can name your workspace and pick a plan.",
+    });
+    setLocation("/sign-up");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerkUser, resolvedClaimCompanyId]);
+
+  // After sign-up, if a pending claim exists, stay on onboarding so the claim
+  // form renders. We used to auto-claim; now the user fills the form manually.
+  const claimSynced = useRef(false);
+  useEffect(() => {
+    if (!clerkUser || claimSynced.current) return;
     const claimId = sessionStorage.getItem(PENDING_CLAIM_KEY);
     if (!claimId) return;
-    autoClaimed.current = true;
-    sessionStorage.removeItem(PENDING_CLAIM_KEY);
-    // Sync user first (ensures DB user record exists), then claim
+    claimSynced.current = true;
     syncUser.mutate(
       {
         data: {
@@ -102,17 +116,64 @@ export default function OnboardingPage() {
         },
       },
       {
-        onSuccess: () => doClaimCompany(claimId),
-        onError: () => doClaimCompany(claimId),
+        onSuccess: () => {
+          // Do NOT auto-claim; let the claim form render below.
+          // Restore any previously entered claim data.
+          const saved = sessionStorage.getItem(PENDING_CLAIM_DATA_KEY);
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              claimForm.reset(parsed);
+            } catch { /* ignore */ }
+          }
+        },
+        onError: () => {
+          // Same path on error — show the claim form
+        },
       }
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clerkUser]);
 
-  // Auto-resume pending company creation after sign-up redirect (legacy self-serve flow)
+  function doClaimCompany(companyId: string, values: z.infer<typeof claimSchema>) {
+    customFetch(`/api/companies/${companyId}/claim`, {
+      method: "POST",
+      body: JSON.stringify(values),
+    })
+      .then(() => {
+        sessionStorage.removeItem(PENDING_CLAIM_KEY);
+        sessionStorage.removeItem(PENDING_CLAIM_DATA_KEY);
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        toast({ title: "Workspace created successfully" });
+        setLocation("/dashboard");
+      })
+      .catch((err: any) => {
+        toast({
+          title: "Failed to create workspace",
+          description: err?.message || "Company may already be claimed or invalid.",
+          variant: "destructive",
+        });
+      });
+  }
+
+  function onSubmitClaim(values: z.infer<typeof claimSchema>) {
+    if (!clerkUser) {
+      sessionStorage.setItem(PENDING_CLAIM_KEY, resolvedClaimCompanyId);
+      sessionStorage.setItem(PENDING_CLAIM_DATA_KEY, JSON.stringify(values));
+      toast({
+        title: "Create your account first",
+        description: "Sign up below — then you can finish creating your workspace.",
+      });
+      setLocation("/sign-up");
+      return;
+    }
+    doClaimCompany(resolvedClaimCompanyId, values);
+  }
+
+  // ── Create Flow (legacy self-serve) ─────────────────────────────────────
   const autoSubmitted = useRef(false);
   useEffect(() => {
-    if (!clerkUser || autoSubmitted.current || autoClaimed.current) return;
+    if (!clerkUser || autoSubmitted.current || claimSynced.current) return;
     const raw = sessionStorage.getItem(PENDING_COMPANY_KEY);
     if (!raw) return;
     try {
@@ -129,22 +190,6 @@ export default function OnboardingPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clerkUser]);
-
-  function doClaimCompany(companyId: string) {
-    customFetch(`/api/companies/${companyId}/claim`, { method: "POST" })
-      .then(() => {
-        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-        toast({ title: "Company claimed successfully" });
-        setLocation("/dashboard");
-      })
-      .catch((err: any) => {
-        toast({
-          title: "Failed to claim company",
-          description: err?.message || "Company may already be claimed or invalid.",
-          variant: "destructive",
-        });
-      });
-  }
 
   function doCreate(values: z.infer<typeof companySchema>) {
     createCompany.mutate(
@@ -181,6 +226,7 @@ export default function OnboardingPage() {
     doCreate(values);
   }
 
+  // ── Join Flow ─────────────────────────────────────────────────────────────
   function doAccept() {
     acceptInvitation.mutate(
       { token: inviteToken.trim() },
@@ -232,6 +278,7 @@ export default function OnboardingPage() {
     );
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/10 p-4">
       <div className="w-full max-w-md space-y-8">
@@ -241,129 +288,193 @@ export default function OnboardingPage() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Welcome to Site Snap</h1>
           <p className="mt-2 text-muted-foreground">
-            {isWorker
-              ? "Enter the invite token your owner or foreman sent you to join your team."
-              : "Let's get your workspace set up."}
+            {isClaimMode
+              ? "Let's finish setting up your workspace."
+              : isWorker
+                ? "Enter the invite token your owner or foreman sent you to join your team."
+                : "Let's get your workspace set up."}
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          {!isWorker && (
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="create">Create Company</TabsTrigger>
-              <TabsTrigger value="join">Join Existing</TabsTrigger>
-            </TabsList>
-          )}
-
-          <TabsContent value="create" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Create your company</CardTitle>
-                <CardDescription>You will be set as the owner.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmitCreate)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Acme Construction Ltd." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="city"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>City</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Toronto" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="province"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Province</FormLabel>
-                            <FormControl>
-                              <Input placeholder="ON" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number (Optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="555-123-4567" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button type="submit" className="w-full" disabled={createCompany.isPending}>
-                      {createCompany.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      {clerkUser ? "Create Company" : "Continue to Sign Up"}
-                    </Button>
-                    {!clerkUser && (
-                      <p className="text-center text-xs text-muted-foreground">
-                        You'll create your account on the next step, then your company will be set up automatically.
-                      </p>
+        {/* ── Claim Form (companyId in URL) ─────────────────────────────── */}
+        {isClaimMode && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Create your workspace</CardTitle>
+              <CardDescription>
+                Enter your company name and choose a plan. You'll be set as the owner.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...claimForm}>
+                <form onSubmit={claimForm.handleSubmit(onSubmitClaim)} className="space-y-4">
+                  <FormField
+                    control={claimForm.control}
+                    name="companyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Acme Construction Ltd." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="join" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Join a company</CardTitle>
-                <CardDescription>Enter the invite token provided by your foreman or owner.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={onJoin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="token">Invitation Token</Label>
-                    <div className="relative">
-                      <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="token"
-                        placeholder="Paste token here..."
-                        className="pl-9"
-                        value={inviteToken}
-                        onChange={(e) => setInviteToken(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={syncUser.isPending || acceptInvitation.isPending || !inviteToken}>
-                    {(syncUser.isPending || acceptInvitation.isPending) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Join Company
+                  />
+                  <FormField
+                    control={claimForm.control}
+                    name="planTier"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Plan Tier</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a plan" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="starter">Starter</SelectItem>
+                            <SelectItem value="basic">Basic</SelectItem>
+                            <SelectItem value="enterprise">Enterprise</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full" disabled={claimForm.formState.isSubmitting}>
+                    {claimForm.formState.isSubmitting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Create Workspace
                   </Button>
                 </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </Form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Create / Join Tabs (no companyId in URL) ──────────────────── */}
+        {!isClaimMode && (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            {!isWorker && (
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="create">Create Company</TabsTrigger>
+                <TabsTrigger value="join">Join Existing</TabsTrigger>
+              </TabsList>
+            )}
+
+            <TabsContent value="create" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Create your company</CardTitle>
+                  <CardDescription>You will be set as the owner.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmitCreate)} className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Acme Construction Ltd." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="city"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>City</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Toronto" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="province"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Province</FormLabel>
+                              <FormControl>
+                                <Input placeholder="ON" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone Number (Optional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="555-123-4567" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button type="submit" className="w-full" disabled={createCompany.isPending}>
+                        {createCompany.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {clerkUser ? "Create Company" : "Continue to Sign Up"}
+                      </Button>
+                      {!clerkUser && (
+                        <p className="text-center text-xs text-muted-foreground">
+                          You'll create your account on the next step, then your company will be set up automatically.
+                        </p>
+                      )}
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="join" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Join a company</CardTitle>
+                  <CardDescription>Enter the invite token provided by your foreman or owner.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={onJoin} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="token">Invitation Token</Label>
+                      <div className="relative">
+                        <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="token"
+                          placeholder="Paste token here..."
+                          className="pl-9"
+                          value={inviteToken}
+                          onChange={(e) => setInviteToken(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={syncUser.isPending || acceptInvitation.isPending || !inviteToken}>
+                      {(syncUser.isPending || acceptInvitation.isPending) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Join Company
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </div>
   );
