@@ -469,6 +469,22 @@ router.post("/admin/tenants", ...guard, async (req, res) => {
     referralCode,
   });
   const [company] = await db.insert(companiesTable).values(body).returning();
+
+  const planTier = typeof raw.planTier === "string" ? raw.planTier.trim().toLowerCase() : "starter";
+  const [matchedPlan] = await db.select().from(plansTable).where(eq(plansTable.slug, planTier)).limit(1);
+  const fallbackPlan = matchedPlan
+    ? matchedPlan
+    : (await db.select().from(plansTable).where(eq(plansTable.slug, "starter")).limit(1))[0];
+
+  if (fallbackPlan) {
+    await db.insert(subscriptionsTable).values({
+      companyId: company.id,
+      planId: fallbackPlan.id,
+      status: "active",
+      billingCycle: "monthly",
+    });
+  }
+
   res.status(201).json(company);
 });
 

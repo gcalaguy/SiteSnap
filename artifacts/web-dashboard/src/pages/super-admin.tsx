@@ -186,6 +186,7 @@ function CreateCompanyCard() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [companyForm, setCompanyForm] = useState({ name: "", province: "", city: "", phone: "" });
+  const [planTier, setPlanTier] = useState("starter");
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const createCompany = useMutation({
     mutationFn: () => customFetch<{ id: number }>("/api/admin/tenants", {
@@ -195,6 +196,7 @@ function CreateCompanyCard() {
         province: companyForm.province.trim(),
         city: companyForm.city.trim(),
         phone: companyForm.phone.trim() || undefined,
+        planTier,
       }),
     }),
     onSuccess: (data) => {
@@ -246,6 +248,18 @@ function CreateCompanyCard() {
                   <div><Label className="text-[#D4AF37]">Province</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.province} onChange={(e) => setCompanyForm({ ...companyForm, province: e.target.value })} placeholder="Ontario" /></div>
                 </div>
                 <div><Label className="text-[#D4AF37]">Phone</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} placeholder="(416) 555-0123" /></div>
+                <div>
+                  <Label className="text-[#D4AF37]">Plan Tier</Label>
+                  <select
+                    value={planTier}
+                    onChange={(e) => setPlanTier(e.target.value)}
+                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-[#121212] focus:border-[#D4AF37] focus:outline-none"
+                  >
+                    <option value="starter">Starter</option>
+                    <option value="basic">Basic</option>
+                    <option value="enterprise">Enterprise</option>
+                  </select>
+                </div>
                 <div className="mt-2 flex justify-end gap-2">
                   <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setOpen(false)}>Cancel</Button>
                   <Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !companyForm.name.trim() || !companyForm.city.trim() || !companyForm.province.trim()}>{createCompany.isPending ? "Creating\u2026" : "Create & Generate Link"}</Button>
