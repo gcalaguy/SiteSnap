@@ -183,7 +183,7 @@ export default function OnboardingPage() {
       autoSubmitted.current = true;
       sessionStorage.removeItem(PENDING_COMPANY_KEY);
       setTimeout(() => {
-        form.handleSubmit(doCreate)();
+        form.handleSubmit(syncThenCreate)();
       }, 300);
     } catch {
       sessionStorage.removeItem(PENDING_COMPANY_KEY);
@@ -213,6 +213,28 @@ export default function OnboardingPage() {
     );
   }
 
+  function syncThenCreate(values: z.infer<typeof companySchema>) {
+    if (!clerkUser) return;
+    if (dbUser) {
+      doCreate(values);
+      return;
+    }
+    syncUser.mutate(
+      {
+        data: {
+          clerkUserId: clerkUser.id,
+          email: clerkUser.primaryEmailAddress?.emailAddress || "",
+          firstName: clerkUser.firstName || "",
+          lastName: clerkUser.lastName || "",
+        },
+      },
+      {
+        onSuccess: () => doCreate(values),
+        onError: () => doCreate(values),
+      }
+    );
+  }
+
   function onSubmitCreate(values: z.infer<typeof companySchema>) {
     if (!clerkUser) {
       sessionStorage.setItem(PENDING_COMPANY_KEY, JSON.stringify(values));
@@ -223,7 +245,7 @@ export default function OnboardingPage() {
       setLocation("/sign-up");
       return;
     }
-    doCreate(values);
+    syncThenCreate(values);
   }
 
   // ── Join Flow ─────────────────────────────────────────────────────────────
