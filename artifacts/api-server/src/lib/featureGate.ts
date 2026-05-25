@@ -53,7 +53,18 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
       ),
     );
 
-  const planSlug = rows.length > 0 ? rows[0].planSlug : null;
+  // If no active subscription exists (e.g. newly created tenant), fall back
+  // to a default Starter-equivalent feature set so the user isn't 403-blocked.
+  if (rows.length === 0) {
+    const defaultKeys = [
+      "SCHEDULING", "DAILY_REPORTS", "TEAM_MANAGEMENT", "SAFETY_FORMS",
+      "RFIS", "AI_CHAT", "INVOICES", "QUOTES", "CRM_LEADS", "SMART_ESTIMATOR",
+      "CLIENT_PORTAL", "REPORTING", "QUICKBOOKS", "SITE_VISION_AI", "TRADEHUB",
+    ];
+    return defaultKeys.filter((k) => !ENTERPRISE_ONLY_FEATURES.includes(k));
+  }
+
+  const planSlug = rows[0].planSlug;
   const isEnterprise = planSlug?.toLowerCase() === "enterprise";
   const keys = rows.map((r) => r.key);
 

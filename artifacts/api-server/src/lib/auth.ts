@@ -1,7 +1,7 @@
 import { getAuth } from "@clerk/express";
-import { db, usersTable, userMembershipsTable } from "@workspace/db";
+import { db, usersTable, userMembershipsTable, companiesTable, subscriptionsTable, plansTable } from "@workspace/db";
 import type { MemberPermissions } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
 import { getCompanyFeatureKeys, isEnterprisePlan } from "./featureGate";
 
@@ -14,6 +14,7 @@ declare global {
       systemRole?: string | null;
       memberships?: Array<{ companyId: number; role: "owner" | "foreman" | "worker" }>;
       userPermissions?: MemberPermissions | null;
+      user?: { email?: string | null };
     }
   }
 }
@@ -83,6 +84,38 @@ export const requireAuth = async (
     (m) => m.companyId === req.companyId,
   );
   req.userPermissions = activeMembershipRow?.permissions ?? null;
+
+  // Auto-provision a default Starter subscription if the resolved company
+  // has none (e.g. super-admin-created tenants or edge-case onboarding flows).
+  if (req.companyId != null) {
+    try {
+      const [sub] = await db
+        .select({ id: subscriptionsTable.id })
+        .from(subscriptionsTable)
+        .where(eq(subscriptionsTable.companyId, req.companyId))
+        .limit(1);
+      if (!sub) {
+        const [starter] = await db
+          .select({ id: plansTable.id })
+          .from(plansTable)
+          .where(eq(plansTable.slug, "starter"))
+          .limit(1);
+        if (starter) {
+          await db
+            .insert(subscriptionsTable)
+            .values({
+              companyId: req.companyId,
+              planId: starter.id,
+              status: "active",
+              billingCycle: "monthly",
+            })
+            .onConflictDoNothing();
+        }
+      }
+    } catch (err: any) {
+      req.log.warn({ err: err.message }, "Failed to auto-provision default subscription");
+    }
+  }
 
   // Phase 3: Validate x-tenant-id header if present.
   // Clients send this header to explicitly declare which company context
