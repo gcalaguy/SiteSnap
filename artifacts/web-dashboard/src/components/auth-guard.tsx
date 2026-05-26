@@ -50,6 +50,27 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isSignedIn, clerkUser, clerkLoaded, dbUser, isError, syncUserMutation.isPending, refetch]);
 
+  // Eliminate 401 race: if Clerk session is valid but dbUser is still missing,
+  // force a background sync before any protected layout attempts to pull data.
+  useEffect(() => {
+    if (!isSignedIn || !clerkUser || !clerkLoaded) return;
+    if (syncUserMutation.isPending) return;
+    if (dbUser === undefined && !syncedRef.current) {
+      syncedRef.current = true;
+      syncUserMutation.mutate(
+        {
+          data: {
+            clerkUserId: clerkUser.id,
+            email: clerkUser.primaryEmailAddress?.emailAddress || "",
+            firstName: clerkUser.firstName || "",
+            lastName: clerkUser.lastName || "",
+          },
+        },
+        { onSuccess: () => refetch() },
+      );
+    }
+  }, [isSignedIn, clerkUser, clerkLoaded, dbUser, syncUserMutation, refetch]);
+
   // Company-based redirect — must be in useEffect, not during render
   // Phase 2: use activeCompanyId as the source of truth; fall back to legacy companyId
   useEffect(() => {

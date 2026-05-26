@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable } from "@workspace/db";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, ilike } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { resolvePermission } from "../lib/permissionGate";
@@ -14,7 +14,7 @@ async function autoAcceptPendingInvitation(userId: number, email: string) {
     .from(invitationsTable)
     .where(
       and(
-        eq(invitationsTable.email, email),
+        ilike(invitationsTable.email, email),
         eq(invitationsTable.status, "pending"),
         gt(invitationsTable.expiresAt, new Date()),
       ),

@@ -82,7 +82,7 @@ router.post(
       .insert(invitationsTable)
       .values({
         companyId: req.companyId!,
-        email: parsed.data.email,
+        email,
         role: parsed.data.role,
         preferredLanguage: parsed.data.preferredLanguage ?? "en",
         token,
@@ -160,7 +160,7 @@ router.patch(
     if (existing.status !== "pending") { res.status(409).json({ error: "Only pending invitations can be edited" }); return; }
 
     const updates: Record<string, unknown> = {};
-    if (email) updates.email = email;
+    if (email) updates.email = email.toLowerCase().trim();
     if (role && ["owner", "foreman", "worker"].includes(role)) updates.role = role;
     const { preferredLanguage } = req.body as { preferredLanguage?: string };
     if (preferredLanguage && ["en", "it", "pt", "es"].includes(preferredLanguage)) {

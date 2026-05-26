@@ -128,6 +128,8 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets")
 // Upsert: if a report already exists for the given date, append incoming notes
 // to the existing record instead of creating a duplicate.
 router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
+  if (!req.companyId) { res.status(403).json({ error: "No company associated with this account" }); return; }
+
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }

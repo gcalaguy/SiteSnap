@@ -62,6 +62,8 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
 
 // POST /projects/:projectId/tasks
 router.post("/", requireAuth, requireCompany, async (req, res) => {
+  if (!req.companyId) { res.status(403).json({ error: "No company associated with this account" }); return; }
+
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) {
     res.status(400).json({ error: "Invalid projectId" });
