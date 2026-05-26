@@ -4,7 +4,7 @@ import {
   customFetch,
 } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import * as FileSystem from "expo-file-system/legacy";
 import {
   KeyboardAvoidingView,
@@ -50,12 +50,22 @@ export default function FieldSafetyScreen() {
   const [signaturePaths, setSignaturePaths] = useState<string[]>([]);
   const [currentPath, setCurrentPath] = useState<Array<{ x: number; y: number }>>([]);
   const [uploading, setUploading] = useState(false);
+  const [pendingTimedOut, setPendingTimedOut] = useState(false);
 
   const createSignoff = useCreateSafetySignoff({
     mutation: {
       onSuccess: () => router.back(),
     },
   });
+
+  useEffect(() => {
+    if (!createSignoff.isPending) {
+      setPendingTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setPendingTimedOut(true), 5000);
+    return () => clearTimeout(timer);
+  }, [createSignoff.isPending]);
 
   function toggleAnswer(index: number, value: "yes" | "no") {
     setAnswers((prev) => ({ ...prev, [index]: value }));
@@ -349,13 +359,13 @@ export default function FieldSafetyScreen() {
         <TouchableOpacity
           onPress={submit}
           disabled={
-            !projectId || !allAnswered || !hasSignature || uploading || createSignoff.isPending
+            !projectId || !allAnswered || !hasSignature || uploading || (createSignoff.isPending && !pendingTimedOut)
           }
           style={[
             styles.submitBtn,
             {
               backgroundColor:
-                !projectId || !allAnswered || !hasSignature || uploading || createSignoff.isPending
+                !projectId || !allAnswered || !hasSignature || uploading || (createSignoff.isPending && !pendingTimedOut)
                   ? "#ccc"
                   : colors.primary,
             },
@@ -364,7 +374,7 @@ export default function FieldSafetyScreen() {
           <Text style={styles.submitText}>
             {uploading
               ? "Uploading..."
-              : createSignoff.isPending
+              : createSignoff.isPending && !pendingTimedOut
                 ? "Submitting..."
                 : "Complete Safety Check"}
           </Text>
