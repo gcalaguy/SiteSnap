@@ -1062,47 +1062,46 @@ export default function ProjectDetail() {
                     <CalendarDays className="h-4 w-4 text-primary" />
                     Assigned Workers
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">Workers currently scheduled on this project.</p>
+                  <p className="text-sm text-muted-foreground mt-1">Workers currently assigned to this project.</p>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => openAssignDialog()}>
+                <Button size="sm" variant="outline" onClick={() => { setAddMemberUserId(""); setShowAddMemberDialog(true); }}>
                   <Plus className="mr-1 h-3.5 w-3.5" /> Schedule Worker
                 </Button>
               </CardHeader>
               <CardContent>
-                {projectAssignments.length === 0 ? (
+                {(projectMembers as any[]).length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border border-dashed rounded-lg">
                     <Users className="h-8 w-8 mb-2 opacity-40" />
-                    <p className="text-sm font-medium">No workers scheduled yet</p>
+                    <p className="text-sm font-medium">No workers assigned yet</p>
                     <p className="text-xs mt-1">Click "Schedule Worker" to assign a team member.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {projectAssignments.map((a) => (
-                      <div key={a.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+                    {(projectMembers as any[]).map((m: any) => (
+                      <div key={m.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
                             <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
-                              {`${a.userFirstName?.[0] ?? ""}${a.userLastName?.[0] ?? ""}`.toUpperCase()}
+                              {getInitials(m)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <p className="text-sm font-medium">
-                              {a.userFirstName} {a.userLastName}
+                              {getMemberName(m)}
                             </p>
-                            <p className="text-xs text-muted-foreground capitalize">
-                              {a.userRole} · {format(new Date(a.startDate), "MMM d")} – {format(new Date(a.endDate), "MMM d, yyyy")}
+                            <p className="text-xs text-muted-foreground">
+                              {m.email}
                             </p>
-                            {a.notes && (
-                              <p className="text-xs text-muted-foreground italic mt-0.5">{a.notes}</p>
-                            )}
                           </div>
+                          <Badge variant="outline" className="capitalize text-xs ml-1">{m.role}</Badge>
                         </div>
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => removeAssignment.mutate(a.id)}
+                            onClick={() => removeProjectMember.mutate({ projectId, memberId: m.id })}
+                            disabled={removeProjectMember.isPending}
                           >
                             <X className="h-3.5 w-3.5" />
                           </Button>
