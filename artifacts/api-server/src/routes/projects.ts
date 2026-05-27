@@ -25,6 +25,7 @@ import {
   ValidationError,
 } from "../lib/errors";
 import { logAuditEventFromRequest } from "../utils/logger";
+import { getTenantFinancialSummaries } from "../services/dashboardMetrics";
 
 const router = Router();
 
@@ -34,9 +35,30 @@ router.get(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
+    const companyId = req.companyId!;
+
+    // Pre-fetch financial summaries for the tenant; failures are isolated so
+    // they never prevent the project list from returning.
+    let financialsMap = new Map<number, import("../services/dashboardMetrics").ProjectFinancials>();
+    try {
+      const summaries = await getTenantFinancialSummaries(String(companyId));
+      for (const s of summaries) {
+        financialsMap.set(s.projectId, s.financials);
+      }
+    } catch (err) {
+      // Aggregation errors must not crash the core project list response.
+      req.log?.warn({ err }, "dashboardMetrics: failed to load financial summaries");
+    }
+
+    function attachFinancials<T extends { id: number }>(projects: T[]) {
+      return projects.map((p) => ({
+        ...p,
+        financials: financialsMap.get(p.id) ?? null,
+      }));
+    }
+
     if (req.userRole === "worker" && !req.userPermissions?.viewAllProjects) {
       const userId = req.userId!;
-      const companyId = req.companyId!;
 
       const [memberRows, scheduleRows] = await Promise.all([
         db
@@ -64,16 +86,16 @@ router.get(
         .from(projectsTable)
         .where(and(eq(projectsTable.companyId, companyId), inArray(projectsTable.id, [...projectIdSet])));
 
-      res.json(projects);
+      res.json(attachFinancials(projects));
       return;
     }
 
     const projects = await db
       .select()
       .from(projectsTable)
-      .where(eq(projectsTable.companyId, req.companyId!));
+      .where(eq(projectsTable.companyId, companyId));
 
-    res.json(projects);
+    res.json(attachFinancials(projects));
   }),
 );
 
