@@ -1528,6 +1528,7 @@ function DriveSyncCard() {
   const [state, setState] = useState<DriveSyncState>({ enabled: false, handle: null, pathName: null });
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => {
     loadDriveSyncState().then((s) => {
@@ -1576,17 +1577,25 @@ function DriveSyncCard() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <HardDrive className="h-5 w-5 text-primary" />
-          Automated Network/Local Drive Sync
-        </CardTitle>
-        <CardDescription>
-          Automatically save copies of invoices, quotes, estimates, spreadsheets, and uploaded files
-          to a local folder or mapped network drive.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <button onClick={() => setCollapsed(c => !c)} className="w-full text-left">
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <HardDrive className="h-5 w-5 text-primary" />
+              Automated Network/Local Drive Sync
+            </CardTitle>
+            <CardDescription>
+              Automatically save copies of invoices, quotes, estimates, spreadsheets, and uploaded files
+              to a local folder or mapped network drive.
+            </CardDescription>
+          </div>
+          {collapsed
+            ? <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />
+            : <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0 ml-4" />}
+        </CardHeader>
+      </button>
+      {!collapsed && (
+        <CardContent className="space-y-4">
         {!supported && (
           <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 flex items-start gap-2">
             <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
@@ -1649,6 +1658,7 @@ function DriveSyncCard() {
           )}
         </div>
       </CardContent>
+    )}
     </Card>
   );
 }
