@@ -23,3 +23,5 @@ export const db = drizzle(pool, { schema });
 
 export * from "./schema";
 export * from "./helpers";
+export * from "./queryNormalizer";
+export * from "./vectorSearch";
