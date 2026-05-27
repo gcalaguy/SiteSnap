@@ -484,6 +484,7 @@ export function GlobalVoiceCommandFAB() {
         TradeHub: "/(tabs)/tradehub",
         Vault: "/vault",
         "Audit Vault": "/vault",
+        Gatekeeper: "/(tabs)/(home)/field-safety",
         AskAI: "/ai-chat",
         "AI Chat": "/ai-chat",
         Settings: "/settings",

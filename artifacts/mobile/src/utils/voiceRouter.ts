@@ -18,7 +18,9 @@ export type RouteTarget =
   | "FieldLogs"
   | "Safety"
   | "TradeHub"
-  | "Settings";
+  | "Settings"
+  | "Vault"
+  | "Gatekeeper";
 
 export type LogHoursAction = {
   type: "LOG_HOURS";
@@ -128,6 +130,12 @@ const ROUTE_PATTERNS: Array<{ pattern: RegExp; target: RouteTarget }> = [
   { pattern: new RegExp(`^${NAV_PREFIX}safety(?:\\s+and\\s+compliance)?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Safety" },
   { pattern: new RegExp(`^${NAV_PREFIX}trade\\s?hub(?:\\s+(?:list|page|screen))?$`, "i"), target: "TradeHub" },
   { pattern: new RegExp(`^${NAV_PREFIX}(?:team\\s+)?settings?$`, "i"), target: "Settings" },
+  // Vault — document scanning & upload phrases
+  { pattern: new RegExp(`^${NAV_PREFIX}(?:vault|worker\\s+documents?|audit\\s+vault|document\\s+vault)(?:\\s+(?:list|page|screen))?$`, "i"), target: "Vault" },
+  { pattern: /^(?:scan|upload)\s+(?:receipts?|invoices?|documents?|files?)$/i, target: "Vault" },
+  // Gatekeeper — morning safety questionnaire phrases
+  { pattern: new RegExp(`^${NAV_PREFIX}(?:morning\\s+)?gatekeeper(?:\\s+safety)?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Gatekeeper" },
+  { pattern: /^(?:morning\s+(?:questionnaire|checklist?|safety)|gatekeeper\s+safety|safety\s+questionnaire)$/i, target: "Gatekeeper" },
 ];
 
 // \b after notes? prevents backtracking from "notes" to "note", ensuring the full word is matched.
@@ -505,6 +513,8 @@ const ALL_ROUTE_TARGETS: readonly RouteTarget[] = [
   "Safety",
   "TradeHub",
   "Settings",
+  "Vault",
+  "Gatekeeper",
 ];
 
 function isValidRouteTarget(target: string): target is RouteTarget {
