@@ -2255,24 +2255,11 @@ export const UpdateCompanyInvoiceTemplateResponse = zod.object({
 });
 
 /**
- * @summary Get flat transaction journal rows for accountant CSV export
+ * @summary Download accountant export ZIP containing expense OCR CSV, approved timesheets CSV, and attachment copies
  */
 export const GetAccountingExportDataParams = zod.object({
   companyId: zod.coerce.number(),
 });
-
-export const GetAccountingExportDataResponseItem = zod.object({
-  date: zod.string(),
-  documentNumber: zod.string(),
-  projectSite: zod.string(),
-  accountCode: zod.string(),
-  vendorPayee: zod.string(),
-  grossAmount: zod.string(),
-  tax: zod.string(),
-});
-export const GetAccountingExportDataResponse = zod.array(
-  GetAccountingExportDataResponseItem,
-);
 
 /**
  * @summary Invite a team member via email

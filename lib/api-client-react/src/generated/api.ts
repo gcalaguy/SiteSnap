@@ -25,7 +25,6 @@ import type {
   AIGeneratedCostAnalysis,
   AIGeneratedDailyReport,
   AIGeneratedRFI,
-  AccountingExportRow,
   ActivityItem,
   AddPhotoBody,
   AddProjectMemberBody,
@@ -7124,7 +7123,7 @@ export const useUpdateCompanyInvoiceTemplate = <
 };
 
 /**
- * @summary Get flat transaction journal rows for accountant CSV export
+ * @summary Download accountant export ZIP containing expense OCR CSV, approved timesheets CSV, and attachment copies
  */
 export const getGetAccountingExportDataUrl = (companyId: number) => {
   return `/api/companies/${companyId}/accounting/export-data`;
@@ -7133,14 +7132,11 @@ export const getGetAccountingExportDataUrl = (companyId: number) => {
 export const getAccountingExportData = async (
   companyId: number,
   options?: RequestInit,
-): Promise<AccountingExportRow[]> => {
-  return customFetch<AccountingExportRow[]>(
-    getGetAccountingExportDataUrl(companyId),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
+): Promise<Blob> => {
+  return customFetch<Blob>(getGetAccountingExportDataUrl(companyId), {
+    ...options,
+    method: "GET",
+  });
 };
 
 export const getGetAccountingExportDataQueryKey = (companyId: number) => {
@@ -7189,7 +7185,7 @@ export type GetAccountingExportDataQueryResult = NonNullable<
 export type GetAccountingExportDataQueryError = ErrorType<void>;
 
 /**
- * @summary Get flat transaction journal rows for accountant CSV export
+ * @summary Download accountant export ZIP containing expense OCR CSV, approved timesheets CSV, and attachment copies
  */
 
 export function useGetAccountingExportData<

@@ -82,3 +82,10 @@ export async function mirrorCsvString(filename: string, csvText: string): Promis
     new Blob([csvText], { type: "text/csv;charset=utf-8;" }),
   );
 }
+
+/**
+ * Convenience: mirrors an arbitrary Blob (e.g. ZIP archive).
+ */
+export async function mirrorBlob(filename: string, blob: Blob): Promise<void> {
+  await mirrorToLocalDrive(filename, blob);
+}

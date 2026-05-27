@@ -2724,16 +2724,6 @@ export interface CompanySettings {
   defaultInvoiceNotes: string;
 }
 
-export interface AccountingExportRow {
-  date: string;
-  documentNumber: string;
-  projectSite: string;
-  accountCode: string;
-  vendorPayee: string;
-  grossAmount: string;
-  tax: string;
-}
-
 export interface QuickBooksAuthUrl {
   url: string;
 }

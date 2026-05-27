@@ -1,7 +1,7 @@
 import {
   useGetMe, customFetch, useListCompanyMembers, useGetMemberPermissions, useSetMemberPermissions,
   getListCompanyMembersQueryKey, getGetMemberPermissionsQueryKey,
-  useGetBillingSeats, useGetEmailConfig, useGetQuickBooksStatus, useGetCompanySettings, useGetAccountingExportData,
+  useGetBillingSeats, useGetEmailConfig, useGetQuickBooksStatus, useGetCompanySettings, useGetAccountingExportData, getAccountingExportData,
   getGetEmailConfigQueryKey, getGetQuickBooksStatusQueryKey, getGetCompanySettingsQueryKey, getGetAccountingExportDataQueryKey,
   getQuickBooksAuthUrl,
   useDisconnectQuickBooks,
@@ -35,7 +35,7 @@ import {
   isFileSystemAccessSupported,
   type DriveSyncState,
 } from "@/lib/driveSyncManager";
-import { mirrorCsvString } from "@/lib/driveSyncPipeline";
+import { mirrorBlob } from "@/lib/driveSyncPipeline";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -379,55 +379,25 @@ function AccountingCard() {
     featureData?.features?.includes("AUDIT_VAULT") ||
     seatInfo?.planName?.toLowerCase() === "enterprise";
 
-  const { data: exportRows, isLoading: exportLoading } = useGetAccountingExportData(companyId ?? 0, {
+  const { data: exportBlob, isLoading: exportLoading } = useGetAccountingExportData(companyId ?? 0, {
     query: { queryKey: getGetAccountingExportDataQueryKey(companyId ?? 0), enabled: !!companyId && !collapsed },
   });
-
-  function escapeCsv(val: string | number | null | undefined) {
-    const str = String(val ?? "");
-    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  }
-
-  async function downloadCsv() {
-    const rows = exportRows ?? [];
-    const header = ["Date", "Document Number", "Project Site", "Account Code", "Vendor/Payee", "Gross Amount", "Tax"];
-    const lines = [header.join(",")];
-
-    for (const row of rows) {
-      lines.push(
-        [
-          escapeCsv(row.date),
-          escapeCsv(row.documentNumber),
-          escapeCsv(row.projectSite),
-          escapeCsv(row.accountCode),
-          escapeCsv(row.vendorPayee),
-          escapeCsv(row.grossAmount),
-          escapeCsv(row.tax),
-        ].join(","),
-      );
-    }
-
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const filename = `site-snap-transaction-journal-${new Date().toISOString().split("T")[0]}.csv`;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    await mirrorCsvString(filename, lines.join("\n"));
-  }
 
   async function handleExport() {
     setExporting(true);
     try {
-      await downloadCsv();
+      const blob = exportBlob ?? await getAccountingExportData(companyId!);
+      const url = URL.createObjectURL(blob);
+      const filename = `site-snap-accountant-export-${new Date().toISOString().split("T")[0]}.zip`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      await mirrorBlob(filename, blob);
     } finally {
       setExporting(false);
     }
@@ -481,9 +451,9 @@ function AccountingCard() {
               </Button>
               {exportLoading && <span className="text-xs text-muted-foreground">Loading data...</span>}
             </div>
-            {(exportRows?.length ?? 0) > 0 && (
+            {exportBlob && (
               <p className="text-xs text-muted-foreground">
-                {exportRows!.length} transaction lines ready for export.
+                Accountant export ZIP ready for download.
               </p>
             )}
           </div>

@@ -1618,18 +1618,17 @@ paths:
     get:
       operationId: getAccountingExportData
       tags: [companies]
-      summary: Get flat transaction journal rows for accountant CSV export
+      summary: Download accountant export ZIP containing expense OCR CSV, approved timesheets CSV, and attachment copies
       parameters:
         - $ref: "#/components/parameters/companyId"
       responses:
         "200":
-          description: Transaction rows
+          description: ZIP archive with two CSVs and an attachments folder
           content:
-            application/json:
+            application/zip:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/AccountingExportRow"
+                type: string
+                format: binary
         "403":
           description: Access denied
 
@@ -8915,25 +8914,6 @@ components:
         defaultQuoteTerms:
           type: string
         defaultInvoiceNotes:
-          type: string
-
-    AccountingExportRow:
-      type: object
-      required: [date, documentNumber, projectSite, accountCode, vendorPayee, grossAmount, tax]
-      properties:
-        date:
-          type: string
-        documentNumber:
-          type: string
-        projectSite:
-          type: string
-        accountCode:
-          type: string
-        vendorPayee:
-          type: string
-        grossAmount:
-          type: string
-        tax:
           type: string
 
     QuickBooksAuthUrl:
