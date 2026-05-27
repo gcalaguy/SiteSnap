@@ -31,7 +31,7 @@ import {
 } from "@workspace/api-client-react";
 import type { Task } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useNavigationContainerRef } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -112,6 +112,7 @@ export function GlobalVoiceCommandFAB() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigationRef = useNavigationContainerRef();
   const params = useLocalSearchParams();
   const { isSignedIn } = useAuth();
   const qc = useQueryClient();
@@ -486,7 +487,12 @@ export function GlobalVoiceCommandFAB() {
         addResult("navigation", "Navigate", `Go to ${target}`, "ok");
         setTimeout(() => {
           handleClose();
-          router.push(pathMap[target] as Parameters<typeof router.push>[0]);
+          const push = () => router.push(pathMap[target] as Parameters<typeof router.push>[0]);
+          if (navigationRef.isReady()) {
+            push();
+          } else {
+            setTimeout(push, 100);
+          }
         }, 300);
       }
     },
@@ -495,9 +501,15 @@ export function GlobalVoiceCommandFAB() {
       addResult("cpu", "AI Assistant", question.slice(0, 60), "ok");
       setTimeout(() => {
         handleClose();
-        router.push(
-          `/(tabs)/(home)/ask?q=${encodeURIComponent(question)}` as Parameters<typeof router.push>[0],
-        );
+        const push = () =>
+          router.push(
+            `/(tabs)/(home)/ask?q=${encodeURIComponent(question)}` as Parameters<typeof router.push>[0],
+          );
+        if (navigationRef.isReady()) {
+          push();
+        } else {
+          setTimeout(push, 100);
+        }
       }, 700);
     },
     onUnknown: (t) => addResult("help-circle", "Unrecognized", t.slice(0, 60), "error"),
