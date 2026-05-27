@@ -7,7 +7,18 @@ export type RouteTarget =
   | "Ask"
   | "Tasks"
   | "Invoices"
-  | "Reports";
+  | "Reports"
+  | "Dashboard"
+  | "Risk"
+  | "Quotes"
+  | "Proposals"
+  | "Estimating"
+  | "Financials"
+  | "Hours"
+  | "FieldLogs"
+  | "Safety"
+  | "TradeHub"
+  | "Settings";
 
 export type LogHoursAction = {
   type: "LOG_HOURS";
@@ -100,13 +111,23 @@ export type VoiceIntent =
 // This prevents "add an update to project X" from matching "Projects" navigation, etc.
 const NAV_PREFIX = "(?:(?:go|navigate|switch)\\s+to\\s+|open\\s+|show(?:\\s+me)?\\s+|take\\s+me\\s+to\\s+)?(?:the\\s+)?";
 const ROUTE_PATTERNS: Array<{ pattern: RegExp; target: RouteTarget }> = [
+  { pattern: new RegExp(`^${NAV_PREFIX}dash(board)?$`, "i"), target: "Dashboard" },
+  { pattern: new RegExp(`^${NAV_PREFIX}risk(\\s+dash(board)?)?$`, "i"), target: "Risk" },
   { pattern: new RegExp(`^${NAV_PREFIX}calculat\\w*$`, "i"), target: "Calculators" },
   { pattern: new RegExp(`^${NAV_PREFIX}(?:schedule|calendar)$`, "i"), target: "Schedule" },
   { pattern: new RegExp(`^${NAV_PREFIX}projects?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Projects" },
   { pattern: new RegExp(`^${NAV_PREFIX}(?:chat|ask|assistant)$`, "i"), target: "Ask" },
   { pattern: new RegExp(`^${NAV_PREFIX}(?:my\\s+)?tasks?(?:\\s+(?:list|page))?$`, "i"), target: "Tasks" },
+  { pattern: new RegExp(`^${NAV_PREFIX}quotes?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Quotes" },
   { pattern: new RegExp(`^${NAV_PREFIX}invoices?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Invoices" },
-  { pattern: new RegExp(`^${NAV_PREFIX}(?:today'?s\\s+)?reports?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Reports" },
+  { pattern: new RegExp(`^${NAV_PREFIX}proposals?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Proposals" },
+  { pattern: new RegExp(`^${NAV_PREFIX}(?:estimat(e|ing)|smart\\s+estimator)$`, "i"), target: "Estimating" },
+  { pattern: new RegExp(`^${NAV_PREFIX}financials?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Financials" },
+  { pattern: new RegExp(`^${NAV_PREFIX}(?:hours?|timesheets?)(?:\\s+(?:list|page|screen))?$`, "i"), target: "Hours" },
+  { pattern: new RegExp(`^${NAV_PREFIX}(?:field\\s+logs?|daily\\s+logs?|reports?|today'?s\\s+reports?)(?:\\s+(?:list|page|screen))?$`, "i"), target: "FieldLogs" },
+  { pattern: new RegExp(`^${NAV_PREFIX}safety(?:\\s+and\\s+compliance)?(?:\\s+(?:list|page|screen))?$`, "i"), target: "Safety" },
+  { pattern: new RegExp(`^${NAV_PREFIX}trade\\s?hub(?:\\s+(?:list|page|screen))?$`, "i"), target: "TradeHub" },
+  { pattern: new RegExp(`^${NAV_PREFIX}(?:team\\s+)?settings?$`, "i"), target: "Settings" },
 ];
 
 // \b after notes? prevents backtracking from "notes" to "note", ensuring the full word is matched.
@@ -465,10 +486,29 @@ function tryParseCompound(text: string): SingleAction[] | null {
   return actions.length >= 2 ? actions : null;
 }
 
+const ALL_ROUTE_TARGETS: readonly RouteTarget[] = [
+  "Calculators",
+  "Schedule",
+  "Projects",
+  "Ask",
+  "Tasks",
+  "Invoices",
+  "Reports",
+  "Dashboard",
+  "Risk",
+  "Quotes",
+  "Proposals",
+  "Estimating",
+  "Financials",
+  "Hours",
+  "FieldLogs",
+  "Safety",
+  "TradeHub",
+  "Settings",
+];
+
 function isValidRouteTarget(target: string): target is RouteTarget {
-  return (["Calculators", "Schedule", "Projects", "Ask", "Tasks", "Invoices", "Reports"] as const).includes(
-    target as RouteTarget
-  );
+  return (ALL_ROUTE_TARGETS as readonly string[]).includes(target);
 }
 
 /* ─── LLM classify (fallback when regex fails) ───────────────────────────── */

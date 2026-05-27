@@ -463,17 +463,31 @@ export function GlobalVoiceCommandFAB() {
     onSafetyLog: ({ issue }) => addResult("alert-octagon", "Safety", issue, "ok"),
     onNavigate: (target) => {
       const pathMap: Record<string, string> = {
+        Dashboard: "/(tabs)/(home)",
+        Risk: "/(tabs)/risk",
         Calculators: "/calculators",
         Schedule: "/schedule",
         Projects: "/projects",
         Ask: "/(tabs)/(home)/ask",
         Tasks: "/(tabs)/(home)/tasks",
+        Quotes: "/finance",
         Invoices: "/finance",
+        Proposals: "/finance",
+        Estimating: "/estimator",
+        Financials: "/finance",
+        Hours: "/hours",
+        FieldLogs: "/log",
+        Safety: "/safety",
+        TradeHub: "/(tabs)/tradehub",
+        Settings: "/settings",
         Reports: "/log",
       };
       if (pathMap[target]) {
         addResult("navigation", "Navigate", `Go to ${target}`, "ok");
-        router.push(pathMap[target] as Parameters<typeof router.push>[0]);
+        setTimeout(() => {
+          handleClose();
+          router.push(pathMap[target] as Parameters<typeof router.push>[0]);
+        }, 300);
       }
     },
     onAddNote: (payload) => addResult("file-text", "Note", payload.slice(0, 60), "ok"),
