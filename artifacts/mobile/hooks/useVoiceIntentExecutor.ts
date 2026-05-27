@@ -9,6 +9,41 @@ import {
 } from "@/src/utils/voiceRouter";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 
+/**
+ * Quick-nav intercepts: checked BEFORE the full voiceRouter pipeline so these
+ * phrases cannot be accidentally swallowed by action parsers (e.g. daily-log).
+ * Each entry maps one or more phrases to the RouteTarget string that the FAB
+ * pathMap already handles.
+ */
+const QUICK_NAV_PATTERNS: Array<{ pattern: RegExp; target: string }> = [
+  // ── Vault / document scanning ──────────────────────────────────────────────
+  {
+    pattern: /^(?:(?:go|navigate|switch)\s+to\s+|open\s+|show(?:\s+me)?\s+|take\s+me\s+to\s+)?(?:the\s+)?(?:vault|worker\s+documents?|audit\s+vault|document\s+vault)(?:\s+(?:list|page|screen))?$/i,
+    target: "Vault",
+  },
+  {
+    pattern: /^(?:scan|upload)\s+(?:receipts?|invoices?|documents?|files?)$/i,
+    target: "Vault",
+  },
+  // ── Gatekeeper / morning safety questionnaire ──────────────────────────────
+  {
+    pattern: /^(?:(?:go|navigate|switch)\s+to\s+|open\s+|show(?:\s+me)?\s+|take\s+me\s+to\s+)?(?:the\s+)?(?:morning\s+)?gatekeeper(?:\s+safety)?(?:\s+(?:list|page|screen))?$/i,
+    target: "Gatekeeper",
+  },
+  {
+    pattern: /^(?:morning\s+(?:questionnaire|checklist?|safety)|gatekeeper\s+safety|safety\s+questionnaire)$/i,
+    target: "Gatekeeper",
+  },
+];
+
+function matchQuickNav(transcript: string): string | null {
+  const t = transcript.trim();
+  for (const { pattern, target } of QUICK_NAV_PATTERNS) {
+    if (pattern.test(t)) return target;
+  }
+  return null;
+}
+
 export type ExecutorState = "idle" | "parsing" | "executing" | "done" | "error";
 
 export interface UseVoiceIntentExecutorReturn {
@@ -45,6 +80,18 @@ export function useVoiceIntentExecutor(
     async (transcript: string, activeProject?: string | null, projectNames?: string[]) => {
       setState("parsing");
       setLastIntent(null);
+
+      // ── Quick-nav intercept ────────────────────────────────────────────────
+      // Checked BEFORE interpretVoiceCommand so scan/vault/gatekeeper phrases
+      // cannot be swallowed by the action-parser layer inside voiceRouter.
+      const quickTarget = matchQuickNav(transcript);
+      if (quickTarget !== null) {
+        console.log("[voiceExecutor] quickNav intercept ->", quickTarget);
+        setState("done");
+        await safeHaptics(Haptics.NotificationFeedbackType.Success);
+        callbacks.onNavigate?.(quickTarget);
+        return;
+      }
 
       try {
         const rawIntent = await interpretVoiceCommand(transcript, projectNames ?? []);
