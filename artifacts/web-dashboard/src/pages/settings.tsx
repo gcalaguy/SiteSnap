@@ -25,9 +25,17 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera, Hash, Save, Download, Calculator, Crown, Archive } from "lucide-react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera, Hash, Save, Download, Calculator, Crown, Archive, HardDrive, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, useMemo } from "react";
+import {
+  loadDriveSyncState,
+  saveDriveSyncState,
+  clearDriveSyncState,
+  isFileSystemAccessSupported,
+  type DriveSyncState,
+} from "@/lib/driveSyncManager";
+import { mirrorCsvString } from "@/lib/driveSyncPipeline";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -383,7 +391,7 @@ function AccountingCard() {
     return str;
   }
 
-  function downloadCsv() {
+  async function downloadCsv() {
     const rows = exportRows ?? [];
     const header = ["Date", "Document Number", "Project Site", "Account Code", "Vendor/Payee", "Gross Amount", "Tax"];
     const lines = [header.join(",")];
@@ -403,20 +411,23 @@ function AccountingCard() {
     }
 
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const filename = `site-snap-transaction-journal-${new Date().toISOString().split("T")[0]}.csv`;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `site-snap-transaction-journal-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+
+    await mirrorCsvString(filename, lines.join("\n"));
   }
 
   async function handleExport() {
     setExporting(true);
     try {
-      downloadCsv();
+      await downloadCsv();
     } finally {
       setExporting(false);
     }
@@ -1510,6 +1521,138 @@ function MediaHubTestCard() {
   );
 }
 
+// ── Drive Sync Card (Automated Network/Local Drive Backup) ───────────────────
+
+function DriveSyncCard() {
+  const { toast } = useToast();
+  const [state, setState] = useState<DriveSyncState>({ enabled: false, handle: null, pathName: null });
+  const [loading, setLoading] = useState(true);
+  const [selecting, setSelecting] = useState(false);
+
+  useEffect(() => {
+    loadDriveSyncState().then((s) => {
+      setState(s);
+      setLoading(false);
+    });
+  }, []);
+
+  async function handleToggle(checked: boolean) {
+    const next = { ...state, enabled: checked };
+    setState(next);
+    await saveDriveSyncState(next);
+    toast({ title: checked ? "Drive sync enabled" : "Drive sync disabled" });
+  }
+
+  async function handleSelectFolder() {
+    if (!isFileSystemAccessSupported()) {
+      toast({
+        title: "Browser not supported",
+        description: "Your browser does not support the File System Access API. Try Chrome or Edge.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSelecting(true);
+    try {
+      const handle = await (window as any).showDirectoryPicker();
+      const next: DriveSyncState = { enabled: true, handle, pathName: handle.name };
+      setState(next);
+      await saveDriveSyncState(next);
+      toast({ title: "Destination folder selected", description: handle.name });
+    } catch {
+      // user cancelled — no-op
+    } finally {
+      setSelecting(false);
+    }
+  }
+
+  async function handleClear() {
+    setState({ enabled: false, handle: null, pathName: null });
+    await clearDriveSyncState();
+    toast({ title: "Drive sync reset" });
+  }
+
+  const supported = isFileSystemAccessSupported();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <HardDrive className="h-5 w-5 text-primary" />
+          Automated Network/Local Drive Sync
+        </CardTitle>
+        <CardDescription>
+          Automatically save copies of invoices, quotes, estimates, spreadsheets, and uploaded files
+          to a local folder or mapped network drive.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!supported && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+            <span>
+              This feature requires a browser that supports the File System Access API
+              (e.g. Chrome or Edge). It will not work in Safari or Firefox.
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-3">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">Enable automatic sync</p>
+            <p className="text-xs text-muted-foreground">
+              Every PDF, Excel, Word, CSV, or image export/upload will be mirrored to the selected folder.
+            </p>
+          </div>
+          <button
+            onClick={() => handleToggle(!state.enabled)}
+            disabled={!supported || loading}
+            className={cn(
+              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              state.enabled ? "bg-primary" : "bg-input",
+              (!supported || loading) && "opacity-50 cursor-not-allowed"
+            )}
+            role="switch"
+            aria-checked={state.enabled}
+          >
+            <span
+              className={cn(
+                "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out",
+                state.enabled ? "translate-x-5" : "translate-x-0"
+              )}
+            />
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            className="gap-2"
+            disabled={!supported || selecting}
+            onClick={handleSelectFolder}
+          >
+            {selecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />}
+            {state.pathName ? "Change Destination Folder" : "Select Destination Folder"}
+          </Button>
+
+          {state.pathName && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{state.pathName}</span>
+              <button
+                onClick={handleClear}
+                className="text-xs text-destructive hover:underline"
+                title="Clear selected folder"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Settings Page ──────────────────────────────────────────────────────────────
 
 export default function Settings() {
@@ -1596,6 +1739,7 @@ export default function Settings() {
       {user?.role === "owner" && <PricingManagerCard />}
       <DigestCard />
       <AccountingCard />
+      {user?.role === "owner" && <DriveSyncCard />}
     </div>
   );
 }

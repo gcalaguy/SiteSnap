@@ -350,7 +350,12 @@ async function downloadInvoicePDF(invoice: Invoice, lineItems: LineItem[], compa
     loadTemplateDataUrl(templatePath),
     loadTemplateDataUrl(logoPath),
   ]);
-  buildPdfDoc(invoice, lineItems, companyName, templateDataUrl, logoDataUrl, defaultNotes).save(`${invoice.invoiceNumber}.pdf`);
+  const doc = buildPdfDoc(invoice, lineItems, companyName, templateDataUrl, logoDataUrl, defaultNotes);
+  const filename = `${invoice.invoiceNumber}.pdf`;
+  doc.save(filename);
+
+  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
+  await mirrorArrayBuffer(filename, doc.output("arraybuffer"), "application/pdf");
 }
 
 async function buildPdfBase64(invoice: Invoice, lineItems: LineItem[], companyName: string, templatePath?: string, logoPath?: string, defaultNotes?: string | null): Promise<string> {
@@ -500,7 +505,7 @@ export default function InvoiceDetail() {
     toast({ title: "PDF downloaded" });
   }
 
-  function handleDownloadXLSX() {
+  async function handleDownloadXLSX() {
     if (!invoice) return;
     const wsData = [
       ["Invoice Number", invoice.invoiceNumber],
@@ -529,8 +534,13 @@ export default function InvoiceDetail() {
     ws["!cols"] = [{ wch: 30 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Invoice");
-    XLSX.writeFile(wb, `${invoice.invoiceNumber}.xlsx`);
+    const xlsxFilename = `${invoice.invoiceNumber}.xlsx`;
+    XLSX.writeFile(wb, xlsxFilename);
     toast({ title: "Excel downloaded" });
+
+    const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
+    const xlsxBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    await mirrorArrayBuffer(xlsxFilename, xlsxBuffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   }
 
   function handleSendReminder() {

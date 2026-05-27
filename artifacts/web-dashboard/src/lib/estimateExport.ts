@@ -311,6 +311,9 @@ export async function downloadEstimatePDF(estimate: Estimate, open = false, logo
   } else {
     doc.save(filename);
   }
+
+  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
+  await mirrorArrayBuffer(filename, doc.output("arraybuffer"), "application/pdf");
 }
 
 // ── Word Export ───────────────────────────────────────────────────────────────
@@ -551,10 +554,14 @@ export async function downloadEstimateDocx(estimate: Estimate, logoDataUrl?: str
   const blob = await Packer.toBlob(doc);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
+  const docxFilename = `${estimate.title.replace(/[^a-z0-9]/gi, "_").slice(0, 50)}_estimate.docx`;
   a.href = url;
-  a.download = `${estimate.title.replace(/[^a-z0-9]/gi, "_").slice(0, 50)}_estimate.docx`;
+  a.download = docxFilename;
   a.click();
   URL.revokeObjectURL(url);
+
+  const { mirrorToLocalDrive } = await import("@/lib/driveSyncPipeline");
+  await mirrorToLocalDrive(docxFilename, blob);
 }
 
 // ── Print ─────────────────────────────────────────────────────────────────────

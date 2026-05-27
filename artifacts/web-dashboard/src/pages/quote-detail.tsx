@@ -363,7 +363,7 @@ function calcTotals(items: LineItem[], taxRate = 0.13) {
 
 type QuoteForExport = { quoteNumber: string; title: string; clientName: string; clientEmail?: string | null; status: string; createdAt: string; validUntil?: string | null; lineItems?: unknown; taxRate: string; subtotal: string; taxAmount: string; total: string };
 
-function downloadQuoteXLSX(quote: QuoteForExport) {
+async function downloadQuoteXLSX(quote: QuoteForExport) {
   const items = (quote.lineItems ?? []) as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[];
   const taxRate = parseFloat(quote.taxRate ?? "0.13");
   const wsData = [
@@ -386,7 +386,12 @@ function downloadQuoteXLSX(quote: QuoteForExport) {
   ws["!cols"] = [{ wch: 30 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Quote");
-  XLSX.writeFile(wb, `${quote.quoteNumber}.xlsx`);
+  const xlsxFilename = `${quote.quoteNumber}.xlsx`;
+  XLSX.writeFile(wb, xlsxFilename);
+
+  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
+  const xlsxBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  await mirrorArrayBuffer(xlsxFilename, xlsxBuffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
 
 export default function QuoteDetail() {
@@ -700,7 +705,7 @@ export default function QuoteDetail() {
             ]);
             const companyAddress = (me as any)?.company?.address ?? undefined;
             const companyPhone = (me as any)?.company?.phone ?? undefined;
-            buildQuotePdfDoc(
+            const pdf = buildQuotePdfDoc(
               {
                 quoteNumber: quote.quoteNumber,
                 title: effectiveTitle || quote.title,
@@ -722,8 +727,13 @@ export default function QuoteDetail() {
               companyAddress,
               companyPhone,
               (me as any)?.company?.defaultQuoteTerms,
-            ).save(`${quote.quoteNumber}.pdf`);
+            );
+            const pdfFilename = `${quote.quoteNumber}.pdf`;
+            pdf.save(pdfFilename);
             toast({ title: "PDF downloaded" });
+
+            const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
+            await mirrorArrayBuffer(pdfFilename, pdf.output("arraybuffer"), "application/pdf");
           }}>
             <Download className="h-4 w-4 mr-2" />
             PDF
