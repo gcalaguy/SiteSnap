@@ -11,6 +11,7 @@ import { GlobalVoiceCommandFAB } from "@/components/GlobalVoiceCommandFAB";
 import * as SecureStore from "expo-secure-store";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { I18nextProvider } from "react-i18next";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import i18n, { setAppLanguage } from "@/src/i18n";
 import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
 import { setTokenGetter, setSignOut } from "@/utils/auth";
@@ -189,7 +190,7 @@ function RootLayoutNav() {
   const needsTerms = !!me && !me.termsAcceptedAt;
 
   return (
-    <>
+    <KeyboardProvider>
       <TermsModal visible={needsTerms} />
       <View style={{ flex: 1 }}>
         <Stack screenOptions={{ headerBackTitle: "Back" }}>
@@ -219,7 +220,7 @@ function RootLayoutNav() {
       </Stack>
       <GlobalVoiceCommandFAB />
     </View>
-    </>
+    </KeyboardProvider>
   );
 }
 
