@@ -15,6 +15,8 @@ import { Feather } from "@expo/vector-icons";
 import { customFetch, useGetMe, useListTimesheets, useSubmitTimesheet, useApproveTimesheet, useDenyTimesheet, getListTimesheetsQueryKey } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+import { useFormDraft, clearFormDraft } from "@/hooks/useFormDraft";
+import { DraftBanner } from "@/components/DraftBanner";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -136,6 +138,35 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
     setShowForm(false);
   }, []);
 
+  // ── Draft recovery ────────────────────────────────────────────────────────
+  const draftPayload = {
+    weekISO,
+    totalHours,
+    hourlyRate,
+    description,
+    projectId,
+  };
+
+  const setDraftPayload = React.useCallback((saved: typeof draftPayload) => {
+    if (saved.weekISO) {
+      setSelectedMonday(getMondayOfWeek(new Date(saved.weekISO + "T00:00:00")));
+    }
+    setTotalHours(saved.totalHours ?? "");
+    setHourlyRate(saved.hourlyRate ?? "");
+    setDescription(saved.description ?? "");
+    setHoursError("");
+    setUserEditedHours(true);
+    setShowForm(true);
+  }, [projectId]);
+
+  const { hasDraft, restore, discard } = useFormDraft(
+    me?.id,
+    `timesheet:project:${projectId}`,
+    draftPayload,
+    setDraftPayload,
+    resetForm,
+  );
+
   const openNew = useCallback(() => {
     setEditingTimesheet(null);
     setTotalHours("");
@@ -185,6 +216,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
         resetForm();
+        clearFormDraft(me?.id, `timesheet:project:${projectId}`).catch(() => {});
         Alert.alert("Submitted!", "Your timesheet has been sent for review.");
       },
       onError: () => Alert.alert("Error", "Failed to submit timesheet. Please try again."),
@@ -336,6 +368,7 @@ export function TimesheetsTab({ projectId }: { projectId: number }) {
         {/* ── Submission / Edit form ────────────────────────────── */}
         {showForm && (
           <View style={[s.form, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <DraftBanner visible={hasDraft} onRestore={restore} onDiscard={discard} />
             <Text style={[s.formTitle, { color: colors.foreground }]}>
               {editingTimesheet ? "Edit Timesheet" : "Submit Timesheet"}
             </Text>

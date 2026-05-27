@@ -1,1 +1,2 @@
 - [AI tenant context injection](ai-tenant-context.md) — full DB snapshot is built server-side and injected into the AI system prompt automatically; clients no longer need to pass `context`.
+- [Mobile form draft recovery](mobile-form-drafts.md) — `AsyncStorage`-backed auto-save with 5s interval, keyed by `userId + formType`, using a shared `useFormDraft` hook + `DraftBanner` component. Pattern applied to daily reports and timesheets. No backend changes needed.

@@ -3,6 +3,7 @@ import {
   useCreateDailyReport,
   useGenerateDailyReportAI,
   useAddReportPhoto,
+  useGetMe,
   customFetch,
 } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
@@ -12,6 +13,8 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { useOfflineQueue, type QueuePhoto } from "@/context/OfflineQueueContext";
+import { useFormDraft, clearFormDraft } from "@/hooks/useFormDraft";
+import { DraftBanner } from "@/components/DraftBanner";
 import {
   ActivityIndicator,
   Alert,
@@ -193,6 +196,7 @@ const styles = StyleSheet.create({
 export default function LogScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { data: me } = useGetMe();
 
   const { data: projects, isLoading: projectsLoading } = useListProjects();
   const createReport = useCreateDailyReport();
@@ -210,6 +214,37 @@ export default function LogScreen() {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [uploading, setUploading] = useState(false);
 
+  // ── Draft recovery ────────────────────────────────────────────────────────
+  const draftPayload = {
+    selectedProjectId,
+    crewCount,
+    weather,
+    notes,
+    aiSummary,
+    photos: photos.map((p) => ({
+      uri: p.uri,
+      mimeType: p.mimeType,
+      fileName: p.fileName,
+      fileSize: p.fileSize,
+    })),
+  };
+
+  const setDraftPayload = React.useCallback((saved: typeof draftPayload) => {
+    setSelectedProjectId(saved.selectedProjectId ?? null);
+    setCrewCount(saved.crewCount ?? "1");
+    setWeather(saved.weather ?? "");
+    setNotes(saved.notes ?? "");
+    setAiSummary(saved.aiSummary ?? "");
+    setPhotos(
+      (saved.photos ?? []).map((p: any) => ({
+        uri: p.uri,
+        mimeType: p.mimeType ?? "image/jpeg",
+        fileName: p.fileName ?? `photo_${Date.now()}.jpg`,
+        fileSize: p.fileSize ?? 0,
+      })),
+    );
+  }, []);
+
   const voice = useVoiceRecorder((transcript) => {
     setNotes((prev) => (prev.trim() ? `${prev.trimEnd()} ${transcript}` : transcript));
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -217,13 +252,21 @@ export default function LogScreen() {
 
   const selectedProject = (projects ?? []).find((p) => p.id === selectedProjectId);
 
-  function resetForm() {
+  const resetForm = React.useCallback(() => {
     setNotes("");
     setAiSummary("");
     setWeather("");
     setCrewCount("1");
     setPhotos([]);
-  }
+  }, []);
+
+  const { hasDraft, restore, discard } = useFormDraft(
+    me?.id,
+    "daily-report",
+    draftPayload,
+    setDraftPayload,
+    resetForm,
+  );
 
   async function pickPhoto() {
     if (photos.length >= MAX_PHOTOS) {
@@ -381,6 +424,7 @@ export default function LogScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setSubmitted("offline");
       resetForm();
+      clearFormDraft(me?.id, "daily-report").catch(() => {});
       setTimeout(() => setSubmitted("none"), 5000);
       return;
     }
@@ -408,6 +452,7 @@ export default function LogScreen() {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           setSubmitted("online");
           resetForm();
+          clearFormDraft(me?.id, "daily-report").catch(() => {});
           setTimeout(() => setSubmitted("none"), 3000);
         },
         onError: async () => {
@@ -450,6 +495,9 @@ export default function LogScreen() {
           {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })}
         </Text>
       </View>
+
+      {/* Draft recovery banner */}
+      <DraftBanner visible={hasDraft} onRestore={restore} onDiscard={discard} />
 
       {/* Offline / syncing / failed banners */}
       {!isOnline && (
