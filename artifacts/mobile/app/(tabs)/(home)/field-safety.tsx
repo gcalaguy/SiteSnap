@@ -21,6 +21,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Path } from "react-native-svg";
+import NetInfo from "@react-native-community/netinfo";
+import { queueOffline, flushOfflineQueue } from "@/utils/offlineQueue";
 
 const QUESTIONS = [
   "Did you inspect all PPE before starting work?",
@@ -30,6 +32,37 @@ const QUESTIONS = [
 
 const CANVAS_W = Dimensions.get("window").width - 40;
 const CANVAS_H = 160;
+
+// ---------------------------------------------------------------------------
+// Finite State Machine type
+// ---------------------------------------------------------------------------
+//
+// The form submission lifecycle is modelled as a strict FSM with five states:
+//
+//   idle           – initial state; the user can fill in the form and submit.
+//   submitting     – an upload or API call is in flight; the button is locked.
+//   success        – the API accepted the submission; navigation happens next.
+//   error          – the API rejected the submission with a server-side error.
+//   offline_queued – no network (or timeout); the payload was queued locally.
+//
+// Valid transitions:
+//   idle           → submitting   (user presses Submit)
+//   submitting     → success      (mutateAsync resolves)
+//   submitting     → error        (mutateAsync rejects with a server error)
+//   submitting     → offline_queued (device offline or request timed out)
+//   error          → submitting   (user retries)
+//   offline_queued → submitting   (user retries after regaining connectivity)
+//   success        → (component unmounts via router.back())
+//
+type FormState =
+  | "idle"
+  | "submitting"
+  | "success"
+  | "error"
+  | "offline_queued";
+
+// How long (ms) to wait for the API before treating the request as a timeout.
+const SUBMIT_TIMEOUT_MS = 10_000;
 
 function pointsToSvgPath(points: Array<{ x: number; y: number }>): string {
   if (points.length === 0) return "";
@@ -48,24 +81,35 @@ export default function FieldSafetyScreen() {
   const [projectId, setProjectId] = useState<number | null>(null);
   const [answers, setAnswers] = useState<Record<number, "yes" | "no">>({});
   const [signaturePaths, setSignaturePaths] = useState<string[]>([]);
-  const [currentPath, setCurrentPath] = useState<Array<{ x: number; y: number }>>([]);
-  const [uploading, setUploading] = useState(false);
-  const [pendingTimedOut, setPendingTimedOut] = useState(false);
+  const [currentPath, setCurrentPath] = useState<
+    Array<{ x: number; y: number }>
+  >([]);
 
-  const createSignoff = useCreateSafetySignoff({
-    mutation: {
-      onSuccess: () => router.back(),
-    },
-  });
+  // Single FSM state replaces the old `uploading` + `pendingTimedOut` pair.
+  // Starting in 'idle' – the form is ready for user input.
+  const [formState, setFormState] = useState<FormState>("idle");
 
+  // useCreateSafetySignoff is kept for its mutateAsync; onSuccess navigation
+  // is now handled explicitly inside submit() after the FSM transitions to
+  // 'success', so no mutation-level callback is needed here.
+  const createSignoff = useCreateSafetySignoff();
+
+  // ---------------------------------------------------------------------------
+  // On mount: flush any safety forms that were queued while offline.
+  //
+  // We pass a wrapper that calls mutateAsync so the offline queue utility has
+  // access to the API without knowing about React Query internals.
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!createSignoff.isPending) {
-      setPendingTimedOut(false);
-      return;
-    }
-    const timer = setTimeout(() => setPendingTimedOut(true), 5000);
-    return () => clearTimeout(timer);
-  }, [createSignoff.isPending]);
+    flushOfflineQueue(async (data) => {
+      // data is the raw payload that was passed to queueOffline().
+      // It matches the shape expected by useCreateSafetySignoff exactly.
+      await createSignoff.mutateAsync({ data });
+    });
+    // createSignoff.mutateAsync is stable across renders; omitting from deps
+    // is intentional – we only want to flush once when the screen mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function toggleAnswer(index: number, value: "yes" | "no") {
     setAnswers((prev) => ({ ...prev, [index]: value }));
@@ -90,7 +134,7 @@ export default function FieldSafetyScreen() {
           return [];
         });
       },
-    }),
+    })
   ).current;
 
   function buildSignatureSvg(): string {
@@ -100,7 +144,10 @@ export default function FieldSafetyScreen() {
     }
     if (all.length === 0) return "";
     const paths = all
-      .map((d) => `<path d="${d}" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`)
+      .map(
+        (d) =>
+          `<path d="${d}" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
+      )
       .join("");
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS_W}" height="${CANVAS_H}" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}">${paths}</svg>`;
   }
@@ -120,24 +167,36 @@ export default function FieldSafetyScreen() {
       } as unknown as Blob);
       const { objectPath } = await customFetch<{ objectPath: string }>(
         "/api/storage/uploads/file",
-        { method: "POST", body: formData },
+        { method: "POST", body: formData }
       );
-      await FileSystem.deleteAsync(tmpFile, { idempotent: true }).catch(() => {});
+      await FileSystem.deleteAsync(tmpFile, { idempotent: true }).catch(
+        () => {}
+      );
       return objectPath;
     } catch {
       return null;
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // submit() – drives the FSM through each state transition.
+  // ---------------------------------------------------------------------------
   async function submit() {
     if (!projectId) return;
+
+    // ── Transition: idle | error | offline_queued → submitting ──────────────
+    // Lock the UI as soon as the user initiates a submission attempt.
+    setFormState("submitting");
+
+    // Build the SVG blob and upload it first (this is a precondition for the
+    // API call, not an FSM state itself – if the upload fails we still proceed
+    // with signatureUrl = null rather than aborting the whole submission).
     const svg = buildSignatureSvg();
     let signatureUrl: string | null = null;
 
     if (svg && signaturePaths.length > 0) {
-      setUploading(true);
       signatureUrl = await uploadSignatureSvg(svg);
-      setUploading(false);
+      // uploadSignatureSvg already swallows its own errors (returns null).
     }
 
     const responses: Record<string, string> = {};
@@ -145,17 +204,83 @@ export default function FieldSafetyScreen() {
       responses[q] = answers[i] ?? "no";
     });
 
-    createSignoff.mutate({
-      data: {
-        projectId,
-        responses,
-        signatureUrl,
-      },
-    });
+    const payload = { projectId, responses, signatureUrl };
+
+    // ── Pre-flight connectivity check ────────────────────────────────────────
+    // Check NetInfo before even attempting the API call.  If the device is
+    // already offline we skip the round-trip entirely and go straight to
+    // offline_queued.
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      // ── Transition: submitting → offline_queued (no connectivity) ──────────
+      // Persist the payload so flushOfflineQueue can retry when reconnected.
+      await queueOffline(payload);
+      setFormState("offline_queued");
+      return;
+    }
+
+    // ── API call with a hard timeout ─────────────────────────────────────────
+    // Race the real mutation against a timeout promise.  Whichever settles
+    // first determines the next state transition.
+    try {
+      await Promise.race([
+        createSignoff.mutateAsync({ data: payload }),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("timeout")),
+            SUBMIT_TIMEOUT_MS
+          )
+        ),
+      ]);
+
+      // ── Transition: submitting → success ────────────────────────────────────
+      // The API accepted the submission.  Navigate away immediately.
+      setFormState("success");
+      router.back();
+    } catch (err) {
+      // Distinguish between a network/timeout failure and a hard server error.
+      const isTimeout =
+        err instanceof Error && err.message === "timeout";
+
+      // Re-check connectivity in case the network dropped mid-request.
+      const netStateAfter = await NetInfo.fetch();
+      const isOffline = !netStateAfter.isConnected;
+
+      if (isTimeout || isOffline) {
+        // ── Transition: submitting → offline_queued (timeout or loss of net) ──
+        // The request could not complete.  Queue it for automatic retry.
+        await queueOffline(payload);
+        setFormState("offline_queued");
+      } else {
+        // ── Transition: submitting → error (server-side rejection) ─────────────
+        // The server was reachable but returned an error (e.g. 400/500).
+        // The user can read the error and retry from the idle-like error state.
+        setFormState("error");
+      }
+    }
   }
 
   const allAnswered = QUESTIONS.every((_, i) => answers[i] !== undefined);
   const hasSignature = signaturePaths.length > 0 || currentPath.length > 0;
+
+  // The button is disabled while a submission is in flight, after success
+  // (navigating away), or when the payload is already queued offline.
+  const isDisabled =
+    !projectId ||
+    !allAnswered ||
+    !hasSignature ||
+    formState === "submitting" ||
+    formState === "success" ||
+    formState === "offline_queued";
+
+  // Map each FSM state to the label the user sees on the submit button.
+  const submitLabel: Record<FormState, string> = {
+    idle: "Complete Safety Check",
+    submitting: "Submitting...",
+    success: "Complete Safety Check",
+    error: "Complete Safety Check",
+    offline_queued: "Queued Offline",
+  };
 
   return (
     <KeyboardAvoidingView
@@ -358,26 +483,15 @@ export default function FieldSafetyScreen() {
         {/* Submit */}
         <TouchableOpacity
           onPress={submit}
-          disabled={
-            !projectId || !allAnswered || !hasSignature || uploading || (createSignoff.isPending && !pendingTimedOut)
-          }
+          disabled={isDisabled}
           style={[
             styles.submitBtn,
             {
-              backgroundColor:
-                !projectId || !allAnswered || !hasSignature || uploading || (createSignoff.isPending && !pendingTimedOut)
-                  ? "#ccc"
-                  : colors.primary,
+              backgroundColor: isDisabled ? "#ccc" : colors.primary,
             },
           ]}
         >
-          <Text style={styles.submitText}>
-            {uploading
-              ? "Uploading..."
-              : createSignoff.isPending && !pendingTimedOut
-                ? "Submitting..."
-                : "Complete Safety Check"}
-          </Text>
+          <Text style={styles.submitText}>{submitLabel[formState]}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
