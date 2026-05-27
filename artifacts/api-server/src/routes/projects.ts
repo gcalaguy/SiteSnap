@@ -26,6 +26,12 @@ import {
 } from "../lib/errors";
 import { logAuditEventFromRequest } from "../utils/logger";
 import { getTenantFinancialSummaries } from "../services/dashboardMetrics";
+import {
+  validateWorkerCompliance,
+  getProjectsWithComplianceAlerts,
+  REQUIRED_COR_CREDENTIALS,
+} from "../services/complianceCheck";
+import { notify } from "../lib/notify";
 
 const router = Router();
 
@@ -86,7 +92,19 @@ router.get(
         .from(projectsTable)
         .where(and(eq(projectsTable.companyId, companyId), inArray(projectsTable.id, [...projectIdSet])));
 
-      res.json(attachFinancials(projects));
+      const projectIds = projects.map((p) => p.id);
+      let complianceAlertIds = new Set<number>();
+      try {
+        complianceAlertIds = await getProjectsWithComplianceAlerts(companyId, projectIds);
+      } catch {}
+
+      res.json(
+        projects.map((p) => ({
+          ...p,
+          financials: financialsMap.get(p.id) ?? null,
+          complianceAlert: complianceAlertIds.has(p.id),
+        })),
+      );
       return;
     }
 
@@ -95,7 +113,19 @@ router.get(
       .from(projectsTable)
       .where(eq(projectsTable.companyId, companyId));
 
-    res.json(attachFinancials(projects));
+    const projectIds = projects.map((p) => p.id);
+    let complianceAlertIds = new Set<number>();
+    try {
+      complianceAlertIds = await getProjectsWithComplianceAlerts(companyId, projectIds);
+    } catch {}
+
+    res.json(
+      projects.map((p) => ({
+        ...p,
+        financials: financialsMap.get(p.id) ?? null,
+        complianceAlert: complianceAlertIds.has(p.id),
+      })),
+    );
   }),
 );
 
@@ -386,18 +416,42 @@ router.post(
     if (!project) throw new NotFoundError("Project not found");
     if (!user) throw new NotFoundError("User not found in this company");
 
+    let member: any;
     try {
-      const [member] = await db
+      [member] = await db
         .insert(projectMembersTable)
         .values({ projectId, userId, companyId: req.companyId! })
         .returning();
-      res.status(201).json(member);
     } catch (e: any) {
       if (e.code === "23505") {
         throw new ConflictError("User is already assigned to this project");
       }
       throw e;
     }
+
+    // COR compliance check — fire-and-forget; never blocks the response.
+    validateWorkerCompliance(String(userId), String(projectId), req.companyId!)
+      .then(({ compliant, missingCredentials }) => {
+        if (!compliant) {
+          const workerName =
+            `${(user as any).users?.firstName ?? ""} ${(user as any).users?.lastName ?? ""}`.trim() ||
+            `Worker #${userId}`;
+          notify({
+            userId: req.userId!,
+            type: "inspection",
+            title: "COR Compliance Alert",
+            body:
+              `${workerName} is missing required Ontario IHSA safety credentials ` +
+              `(${missingCredentials.join(", ")}) for project "${project.name}" ` +
+              `(Workspace #${req.companyId}). Update records before site deployment.`,
+            referenceId: projectId,
+            projectId,
+          }).catch(() => {});
+        }
+      })
+      .catch(() => {});
+
+    res.status(201).json(member);
   }),
 );
 

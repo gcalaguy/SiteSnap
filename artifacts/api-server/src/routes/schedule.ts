@@ -4,6 +4,8 @@ import { eq, and, lte, gte, or } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";
+import { validateWorkerCompliance } from "../services/complianceCheck";
+import { notify } from "../lib/notify";
 
 const router = Router();
 
@@ -217,6 +219,30 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
       ),
     )
     .where(eq(workerSchedulesTable.id, row.id));
+
+  // COR compliance check for internal worker assignments — fire-and-forget.
+  if (userId && full) {
+    validateWorkerCompliance(String(userId), String(projectId), req.companyId!)
+      .then(({ compliant, missingCredentials }) => {
+        if (!compliant) {
+          const workerName =
+            [full.userFirstName, full.userLastName].filter(Boolean).join(" ") ||
+            `Worker #${userId}`;
+          notify({
+            userId: req.userId!,
+            type: "inspection",
+            title: "COR Compliance Alert",
+            body:
+              `${workerName} is missing required Ontario IHSA safety credentials ` +
+              `(${missingCredentials.join(", ")}) for project "${full.projectName ?? `#${projectId}`}" ` +
+              `(Workspace #${req.companyId}). Update records before site deployment.`,
+            referenceId: projectId,
+            projectId,
+          }).catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }
 
   res.status(201).json(full);
 });

@@ -412,14 +412,26 @@ export default function Projects() {
                         })()}
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold"
-                          style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}`, fontSize: 10 }}
-                        >
-                          {project.status === "cancelled" && <AlertCircle size={9} />}
-                          {project.status === "completed" && <CheckCircle2 size={9} />}
-                          {st.label}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold"
+                            style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}`, fontSize: 10 }}
+                          >
+                            {project.status === "cancelled" && <AlertCircle size={9} />}
+                            {project.status === "completed" && <CheckCircle2 size={9} />}
+                            {st.label}
+                          </span>
+                          {(project as any).complianceAlert === true && (
+                            <span
+                              title="One or more assigned workers have missing or expired COR/IHSA safety credentials. Review Worker Vault to resolve."
+                              className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-semibold cursor-default select-none"
+                              style={{ background: "#FEF3C7", color: "#D97706", border: "1px solid #FDE68A", fontSize: 10 }}
+                            >
+                              <AlertCircle size={9} />
+                              COR
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: isOverdue ? "#DC2626" : MUTED, fontSize: 11 }}>
                         {format(new Date(project.createdAt), "MMM d, yyyy")}
