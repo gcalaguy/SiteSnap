@@ -9,6 +9,8 @@ import { queryClient } from "@/lib/queryClient";
 import { getListDailyReportsQueryKey } from "@workspace/api-client-react";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { getAiErrorMessage } from "@/hooks/useApiError";
+import { useDraftRecovery } from "@/hooks/useDraftRecovery";
+import { DraftBanner } from "@/components/DraftBanner";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,6 +85,21 @@ export default function NewReport() {
       aiSummary: "",
     },
   });
+
+  const draft = useDraftRecovery(
+    `new-report:${projectId}`,
+    () => {
+      const vals = form.getValues();
+      return {
+        ...vals,
+        rawInput,
+      };
+    },
+    (state) => {
+      form.reset(state as z.infer<typeof reportSchema>);
+      if (typeof state.rawInput === "string") setRawInput(state.rawInput);
+    }
+  );
 
   async function handleAIGenerate() {
     if (!rawInput.trim() || !project) return;
@@ -208,6 +225,7 @@ export default function NewReport() {
           }
 
           toast({ title: "Report saved", description: photos.length > 0 ? `${photos.filter(Boolean).length} photo(s) attached.` : undefined });
+          draft.clearDraft();
           setLocation(`/projects/${projectId}`);
         },
         onError: (err: unknown) => {
@@ -230,6 +248,8 @@ export default function NewReport() {
           <p className="text-muted-foreground">{project?.name}</p>
         </div>
       </div>
+
+      <DraftBanner show={draft.showBanner} onRestore={draft.restoreDraft} onDiscard={draft.discardDraft} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-1 space-y-6">

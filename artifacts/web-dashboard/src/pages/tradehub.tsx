@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useDraftRecovery } from "@/hooks/useDraftRecovery";
+import { DraftBanner } from "@/components/DraftBanner";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -320,6 +322,20 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
   const [budget, setBudget] = useState("");
   const [jobType, setJobType] = useState("");
 
+  const draft = useDraftRecovery(
+    "tradehub-post",
+    () => ({ type, title, content, trade, province, budget, jobType }),
+    (state) => {
+      setType((state.type as string) || "discussion");
+      setTitle((state.title as string) || "");
+      setContent((state.content as string) || "");
+      setTrade((state.trade as string) || "");
+      setProvince((state.province as string) || "");
+      setBudget((state.budget as string) || "");
+      setJobType((state.jobType as string) || "");
+    }
+  );
+
   const createMutation = useMutation({
     mutationFn: () => customFetch("/api/tradehub/posts", {
       method: "POST",
@@ -329,6 +345,7 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
       queryClient.invalidateQueries({ queryKey: ["tradehub-feed"] });
       queryClient.invalidateQueries({ queryKey: ["tradehub-forum"] });
       toast({ title: "Post published to TradeHub!" });
+      draft.clearDraft();
       onClose();
       setTitle(""); setContent(""); setType("discussion");
     },
@@ -339,6 +356,7 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>New TradeHub Post</DialogTitle></DialogHeader>
+        <DraftBanner show={draft.showBanner} onRestore={draft.restoreDraft} onDiscard={draft.discardDraft} />
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-2">
             {(["discussion", "job", "showcase"] as const).map((t) => {
@@ -420,6 +438,21 @@ function CreateTenderModal({ open, onClose }: { open: boolean; onClose: () => vo
   const [province, setProvince] = useState("");
   const [trade, setTrade] = useState("");
 
+  const draft = useDraftRecovery(
+    "tradehub-tender",
+    () => ({ projectTitle, description, scopeOfWork, budgetEstimate, targetedStartDate, location, province, trade }),
+    (state) => {
+      setProjectTitle((state.projectTitle as string) || "");
+      setDescription((state.description as string) || "");
+      setScopeOfWork((state.scopeOfWork as string) || "");
+      setBudgetEstimate((state.budgetEstimate as string) || "");
+      setTargetedStartDate((state.targetedStartDate as string) || "");
+      setLocation((state.location as string) || "");
+      setProvince((state.province as string) || "");
+      setTrade((state.trade as string) || "");
+    }
+  );
+
   const createMutation = useMutation({
     mutationFn: () => customFetch("/api/tradehub/job-postings", {
       method: "POST",
@@ -428,6 +461,7 @@ function CreateTenderModal({ open, onClose }: { open: boolean; onClose: () => vo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tradehub-tenders"] });
       toast({ title: "Tender posted!" });
+      draft.clearDraft();
       onClose();
       setProjectTitle(""); setDescription(""); setScopeOfWork(""); setBudgetEstimate(""); setTargetedStartDate(""); setLocation(""); setProvince(""); setTrade("");
     },

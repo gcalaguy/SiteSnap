@@ -19,6 +19,8 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDraftRecovery } from "@/hooks/useDraftRecovery";
+import { DraftBanner } from "@/components/DraftBanner";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -170,6 +172,20 @@ export default function SafetySubmitPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
 
+  const draft = useDraftRecovery(
+    `safety-submit:${templateParam ?? "none"}`,
+    () => ({
+      formData,
+      selectedProjectId,
+      selectedContactId,
+    }),
+    (state) => {
+      if (state.formData && typeof state.formData === "object") setFormData(state.formData as Record<string, unknown>);
+      if (typeof state.selectedProjectId === "number" || state.selectedProjectId === null) setSelectedProjectId(state.selectedProjectId as number | null);
+      if (typeof state.selectedContactId === "number" || state.selectedContactId === null) setSelectedContactId(state.selectedContactId as number | null);
+    }
+  );
+
   const { data: templates = [], isLoading: loadingTemplates } = useQuery<FormTemplate[]>({
     queryKey: ["safety-templates"],
     queryFn: () => customFetch("/api/safety/templates"),
@@ -200,6 +216,7 @@ export default function SafetySubmitPage() {
       }),
     onSuccess: (data: any, vars) => {
       queryClient.invalidateQueries({ queryKey: ["safety-submissions"] });
+      draft.clearDraft();
       if (vars.status === "submitted") {
         toast({
           title: "Form Submitted",
@@ -256,6 +273,8 @@ export default function SafetySubmitPage() {
           <p className="text-sm text-muted-foreground">Fill out and submit a safety or incident form</p>
         </div>
       </div>
+
+      <DraftBanner show={draft.showBanner} onRestore={draft.restoreDraft} onDiscard={draft.discardDraft} />
 
       {/* Template Selection */}
       {!selectedTemplateId ? (

@@ -26,6 +26,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { useDraftRecovery } from "@/hooks/useDraftRecovery";
+import { DraftBanner } from "@/components/DraftBanner";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -196,11 +198,26 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
   const [budget, setBudget] = useState("");
   const [jobType, setJobType] = useState("");
 
+  const draft = useDraftRecovery(
+    "tradehub-feed-post",
+    () => ({ type, title, content, trade, province, budget, jobType }),
+    (state) => {
+      setType((state.type as string) || "discussion");
+      setTitle((state.title as string) || "");
+      setContent((state.content as string) || "");
+      setTrade((state.trade as string) || "");
+      setProvince((state.province as string) || "");
+      setBudget((state.budget as string) || "");
+      setJobType((state.jobType as string) || "");
+    }
+  );
+
   const createMutation = useCreateTradehubPost({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListTradehubFeedQueryKey() });
         toast({ title: "Post published to TradeHub!" });
+        draft.clearDraft();
         onClose();
         setTitle(""); setContent(""); setType("discussion");
       },
@@ -214,6 +231,7 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
         <DialogHeader>
           <DialogTitle>New TradeHub Post</DialogTitle>
         </DialogHeader>
+        <DraftBanner show={draft.showBanner} onRestore={draft.restoreDraft} onDiscard={draft.discardDraft} />
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-2">
             {(["discussion", "job", "showcase"] as const).map((t) => {

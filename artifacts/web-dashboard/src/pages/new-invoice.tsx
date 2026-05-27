@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, Loader2, ClipboardList, CheckCircle2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListAllInvoicesQueryKey } from "@workspace/api-client-react";
+import { useDraftRecovery } from "@/hooks/useDraftRecovery";
+import { DraftBanner } from "@/components/DraftBanner";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -48,6 +50,28 @@ export default function NewInvoice() {
   ]);
 
   const [selectedCOIds, setSelectedCOIds] = useState<Set<number>>(new Set());
+
+  const draft = useDraftRecovery(
+    "new-invoice",
+    () => ({
+      title,
+      clientName,
+      clientEmail,
+      notes,
+      dueDate,
+      lineItems,
+      selectedCOIds: Array.from(selectedCOIds),
+    }),
+    (state) => {
+      setTitle((state.title as string) || "");
+      setClientName((state.clientName as string) || "");
+      setClientEmail((state.clientEmail as string) || "");
+      setNotes((state.notes as string) || "");
+      setDueDate((state.dueDate as string) || "");
+      if (Array.isArray(state.lineItems)) setLineItems(state.lineItems as LineItem[]);
+      if (Array.isArray(state.selectedCOIds)) setSelectedCOIds(new Set(state.selectedCOIds as number[]));
+    }
+  );
 
   const { data: changeOrders = [] } = useListChangeOrders();
   const approvedCOs = changeOrders.filter((co) => co.status === "approved");
@@ -115,6 +139,7 @@ export default function NewInvoice() {
       });
       queryClient.invalidateQueries({ queryKey: getListAllInvoicesQueryKey({}) });
       toast({ title: "Invoice created", description: `${invoice.invoiceNumber} saved as draft` });
+      draft.clearDraft();
       setLocation(`/invoices/${invoice.id}`);
     } catch {
       toast({ title: "Failed to create invoice", variant: "destructive" });
@@ -132,6 +157,8 @@ export default function NewInvoice() {
           <p className="text-sm text-muted-foreground">Create a standalone invoice</p>
         </div>
       </div>
+
+      <DraftBanner show={draft.showBanner} onRestore={draft.restoreDraft} onDiscard={draft.discardDraft} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Client info */}

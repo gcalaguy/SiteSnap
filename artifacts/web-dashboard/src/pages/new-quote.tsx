@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, FileImage, Loader2, Settings } from "lucide-react";
+import { useDraftRecovery } from "@/hooks/useDraftRecovery";
+import { DraftBanner } from "@/components/DraftBanner";
 
 export default function NewQuote() {
   const [, setLocation] = useLocation();
@@ -29,6 +31,30 @@ export default function NewQuote() {
   const [clientPhone, setClientPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [validUntil, setValidUntil] = useState("");
+
+  const draft = useDraftRecovery(
+    "new-quote",
+    () => ({
+      title,
+      clientName,
+      clientEmail,
+      clientCompanyName,
+      clientAddress,
+      clientPhone,
+      notes,
+      validUntil,
+    }),
+    (state) => {
+      setTitle((state.title as string) || "");
+      setClientName((state.clientName as string) || "");
+      setClientEmail((state.clientEmail as string) || "");
+      setClientCompanyName((state.clientCompanyName as string) || "");
+      setClientAddress((state.clientAddress as string) || "");
+      setClientPhone((state.clientPhone as string) || "");
+      setNotes((state.notes as string) || "");
+      setValidUntil((state.validUntil as string) || "");
+    }
+  );
 
   const quoteTemplatePath: string | undefined = (me as any)?.company?.quoteTemplatePath ?? undefined;
   const templatePreviewUrl = quoteTemplatePath
@@ -62,6 +88,7 @@ export default function NewQuote() {
         },
       });
       toast({ title: "Quote created" });
+      draft.clearDraft();
       setLocation(`/quotes/${quote.id}`);
     } catch {
       toast({ title: "Failed to create quote", variant: "destructive" });
@@ -162,6 +189,8 @@ export default function NewQuote() {
           )}
         </CardContent>
       </Card>
+
+      <DraftBanner show={draft.showBanner} onRestore={draft.restoreDraft} onDiscard={draft.discardDraft} />
 
       <Card>
         <CardContent className="pt-6">
