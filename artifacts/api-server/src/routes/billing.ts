@@ -112,7 +112,9 @@ router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyn
         .where(eq(companiesTable.id, req.companyId!));
     }
 
-    const domain = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    const domain =
+      process.env.APP_BASE_URL ??
+      `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,

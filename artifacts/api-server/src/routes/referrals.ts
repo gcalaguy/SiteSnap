@@ -24,7 +24,9 @@ router.get("/referrals", requireAuth, requireCompany, async (req, res) => {
     .from(companiesTable)
     .where(eq(companiesTable.referredByCode, company.referralCode!));
 
-  const domain = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
+  const domain =
+    process.env.APP_BASE_URL ??
+    `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
   const referralLink = company.referralCode
     ? `${domain}/onboarding?ref=${company.referralCode}`
     : null;

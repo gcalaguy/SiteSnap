@@ -114,7 +114,10 @@ const ALLOWED_ORIGINS = process.env.REPLIT_DOMAINS
   ? process.env.REPLIT_DOMAINS.split(",").map((d) => `https://${d.trim()}`)
   : [];
 if (process.env.NODE_ENV !== "production") {
-  ALLOWED_ORIGINS.push("http://localhost:5173", "http://localhost:3000");
+  const devOrigins = process.env.CORS_DEV_ORIGINS
+    ? process.env.CORS_DEV_ORIGINS.split(",").map((o) => o.trim())
+    : ["http://localhost:5173", "http://localhost:3000"];
+  ALLOWED_ORIGINS.push(...devOrigins);
 }
 
 app.use(

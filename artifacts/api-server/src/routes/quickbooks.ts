@@ -16,6 +16,9 @@ function getClientSecret() {
   return process.env.QB_CLIENT_SECRET ?? "";
 }
 function getRedirectUri(req: any) {
+  if (process.env.APP_BASE_URL) {
+    return `${process.env.APP_BASE_URL}/api/quickbooks/callback`;
+  }
   const domains = (process.env.REPLIT_DOMAINS ?? "").split(",");
   const domain = domains[0]?.trim() || req.headers.host;
   return `https://${domain}/api/quickbooks/callback`;
@@ -164,9 +167,11 @@ router.get("/quickbooks/auth-url", requireAuth, requireCompany, requireOwner, (r
 router.get("/quickbooks/callback", async (req, res) => {
   const { code, realmId, state, error } = req.query as Record<string, string>;
 
-  const basePath = (process.env.REPLIT_DOMAINS ?? "").split(",")[0]?.trim()
-    ? `https://${(process.env.REPLIT_DOMAINS ?? "").split(",")[0]?.trim()}`
-    : "";
+  const basePath =
+    process.env.APP_BASE_URL ??
+    ((process.env.REPLIT_DOMAINS ?? "").split(",")[0]?.trim()
+      ? `https://${(process.env.REPLIT_DOMAINS ?? "").split(",")[0]?.trim()}`
+      : "");
 
   if (error) {
     res.redirect(`${basePath}/settings?qb=error&reason=${encodeURIComponent(error)}`);
