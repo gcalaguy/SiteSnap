@@ -53,28 +53,28 @@ export function useVoiceIntentExecutor(
 
         if (intent.intent === "UNKNOWN") {
           setState("error");
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          await safeHaptics(Haptics.NotificationFeedbackType.Error);
           callbacks.onUnknown?.(transcript);
           return;
         }
 
         if (intent.intent === "ASK_ASSISTANT") {
           setState("done");
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          await safeHaptics(Haptics.NotificationFeedbackType.Success);
           callbacks.onAskAssistant?.(intent.question);
           return;
         }
 
         if (intent.intent === "NAVIGATE") {
           setState("done");
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          await safeHaptics(Haptics.NotificationFeedbackType.Success);
           callbacks.onNavigate?.(intent.target);
           return;
         }
 
         if (intent.intent === "DATA_ENTRY") {
           setState("done");
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          await safeHaptics(Haptics.NotificationFeedbackType.Success);
           callbacks.onAddNote?.(intent.payload);
           return;
         }
@@ -85,7 +85,7 @@ export function useVoiceIntentExecutor(
           await runSingleAction(intent.action, callbacks);
           console.log("[voiceExecutor] SINGLE_ACTION done");
           setState("done");
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          await safeHaptics(Haptics.NotificationFeedbackType.Success);
           return;
         }
 
@@ -97,14 +97,14 @@ export function useVoiceIntentExecutor(
           }
           console.log("[voiceExecutor] COMPOUND_ACTION done");
           setState("done");
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          await safeHaptics(Haptics.NotificationFeedbackType.Success);
           return;
         }
       } catch (err) {
         const msg = getAiErrorMessage(err, "Voice command failed. Please try again.");
         console.error("[voiceExecutor] error:", msg);
         setState("error");
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        await safeHaptics(Haptics.NotificationFeedbackType.Error);
         Alert.alert("Command Failed", msg);
       }
     },
@@ -117,6 +117,14 @@ export function useVoiceIntentExecutor(
   }, []);
 
   return { state, lastIntent, execute, reset };
+}
+
+async function safeHaptics(type: Haptics.NotificationFeedbackType): Promise<void> {
+  try {
+    await Haptics.notificationAsync(type);
+  } catch (hapticErr) {
+    console.warn("[voiceExecutor] Haptics failed, continuing:", hapticErr);
+  }
 }
 
 async function runSingleAction(
