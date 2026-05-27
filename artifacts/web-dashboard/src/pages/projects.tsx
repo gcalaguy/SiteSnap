@@ -340,12 +340,13 @@ export default function Projects() {
               <thead>
                 <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
                   {[
-                    { label: "Project",   sortable: true,  col: "name" },
-                    { label: "Location",  sortable: false, col: "" },
-                    { label: "Budget",    sortable: true,  col: "budget" },
-                    { label: "Status",    sortable: false, col: "" },
-                    { label: "Created",   sortable: true,  col: "date" },
-                    { label: "",          sortable: false, col: "" },
+                    { label: "Project",        sortable: true,  col: "name" },
+                    { label: "Location",       sortable: false, col: "" },
+                    { label: "Budget",         sortable: true,  col: "budget" },
+                    { label: "Burn Velocity",  sortable: false, col: "" },
+                    { label: "Status",         sortable: false, col: "" },
+                    { label: "Created",        sortable: true,  col: "date" },
+                    { label: "",               sortable: false, col: "" },
                   ].map(({ label, sortable, col }) => (
                     <th
                       key={label || "actions"}
@@ -395,6 +396,20 @@ export default function Projects() {
                         ) : (
                           <span style={{ color: "#888888", fontSize: 12 }}>—</span>
                         )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const bv = (project as any).financials?.burnVelocity;
+                          if (bv == null || budget == null) {
+                            return <span style={{ color: "#888888", fontSize: 12 }}>—</span>;
+                          }
+                          const pct = Math.round(Number(bv));
+                          return (
+                            <span className="font-semibold" style={{ color: "#121212", fontSize: 12 }}>
+                              {pct}%
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         <span
