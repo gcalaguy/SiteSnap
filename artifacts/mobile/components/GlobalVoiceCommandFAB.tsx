@@ -114,7 +114,7 @@ export function GlobalVoiceCommandFAB() {
   const router = useRouter();
   const navigationRef = useNavigationContainerRef();
   const params = useLocalSearchParams();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, signOut } = useAuth();
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const { data: projects } = useListProjects();
@@ -466,6 +466,7 @@ export function GlobalVoiceCommandFAB() {
       const pathMap: Record<string, string> = {
         Dashboard: "/(tabs)/(home)",
         Risk: "/(tabs)/risk",
+        Calculator: "/calculators",
         Calculators: "/calculators",
         Schedule: "/schedule",
         Projects: "/projects",
@@ -479,10 +480,25 @@ export function GlobalVoiceCommandFAB() {
         Hours: "/hours",
         FieldLogs: "/log",
         Safety: "/safety",
+        "Safety & Compliance": "/safety",
         TradeHub: "/(tabs)/tradehub",
+        Vault: "/vault",
+        "Audit Vault": "/vault",
+        AskAI: "/ai-chat",
+        "AI Chat": "/ai-chat",
         Settings: "/settings",
         Reports: "/log",
       };
+
+      if (target === "Logout") {
+        addResult("log-out", "Logout", "Signing you out...", "ok");
+        setTimeout(() => {
+          handleClose();
+          void signOut();
+        }, 300);
+        return;
+      }
+
       if (pathMap[target]) {
         addResult("navigation", "Navigate", `Go to ${target}`, "ok");
         setTimeout(() => {
@@ -494,6 +510,8 @@ export function GlobalVoiceCommandFAB() {
             setTimeout(push, 100);
           }
         }, 300);
+      } else {
+        console.warn("[VoiceNav] Unmapped target:", target);
       }
     },
     onAddNote: (payload) => addResult("file-text", "Note", payload.slice(0, 60), "ok"),
