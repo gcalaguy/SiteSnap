@@ -7,7 +7,8 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepare": "husky"
   },
   "private": true,
   "pnpm": {
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@types/supertest": "^7.2.0",
+    "husky": "^9.1.7",
     "prettier": "^3.8.1",
     "supertest": "^7.2.2",
     "typescript": "~5.9.2",
