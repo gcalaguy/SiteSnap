@@ -222,7 +222,7 @@ export const dailyReportsTable = pgTable("daily_reports", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id")
     .notNull()
-    .references(() => projectsTable.id),
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
   submittedByUserId: integer("submitted_by_user_id")
     .notNull()
     .references(() => usersTable.id),
@@ -253,7 +253,7 @@ export const costAnalysesTable = pgTable("cost_analyses", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id")
     .notNull()
-    .references(() => projectsTable.id),
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
   periodLabel: text("period_label").notNull(),
   labourCost: numeric("labour_cost", { precision: 12, scale: 2 }).notNull(),
   materialsCost: numeric("materials_cost", {
@@ -283,7 +283,7 @@ export const rfisTable = pgTable("rfis", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id")
     .notNull()
-    .references(() => projectsTable.id),
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
   rfiNumber: text("rfi_number").notNull(),
   subject: text("subject").notNull(),
   description: text("description").notNull(),
@@ -451,7 +451,7 @@ export const tasksTable = pgTable("tasks", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id")
     .notNull()
-    .references(() => projectsTable.id),
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
   assignedToUserId: integer("assigned_to_user_id").references(
@@ -508,7 +508,7 @@ export const projectDocumentsTable = pgTable("project_documents", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id")
     .notNull()
-    .references(() => projectsTable.id),
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
   uploadedByUserId: integer("uploaded_by_user_id")
     .notNull()
     .references(() => usersTable.id),
@@ -537,9 +537,9 @@ export type ProjectDocument = typeof projectDocumentsTable.$inferSelect;
 
 export const documentChunksTable = pgTable("document_chunks", {
   id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull().references(() => projectsTable.id),
-  companyId: integer("company_id").notNull().references(() => companiesTable.id),
-  docId: integer("doc_id").notNull().references(() => projectDocumentsTable.id),
+  projectId: integer("project_id").notNull().references(() => projectsTable.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  docId: integer("doc_id").notNull().references(() => projectDocumentsTable.id, { onDelete: "cascade" }),
   chunkIndex: integer("chunk_index").notNull(),
   content: text("content").notNull(),
   embedding: vector("embedding", { dimensions: 1536 }),
@@ -758,7 +758,7 @@ export type ProjectMember = typeof projectMembersTable.$inferSelect;
 export const workerSchedulesTable = pgTable("worker_schedules", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
-  projectId: integer("project_id").notNull().references(() => projectsTable.id),
+  projectId: integer("project_id").notNull().references(() => projectsTable.id, { onDelete: "cascade" }),
   userId: integer("user_id").references(() => usersTable.id),
   contactId: integer("contact_id").references(() => contactsTable.id),
   startDate: date("start_date").notNull(),
@@ -776,7 +776,7 @@ export type WorkerSchedule = typeof workerSchedulesTable.$inferSelect;
 export const timeEntriesTable = pgTable("time_entries", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
-  projectId: integer("project_id").notNull().references(() => projectsTable.id),
+  projectId: integer("project_id").notNull().references(() => projectsTable.id, { onDelete: "cascade" }),
   userId: integer("user_id").notNull().references(() => usersTable.id),
   date: date("date").notNull(),
   hours: numeric("hours", { precision: 5, scale: 2 }).notNull(),
@@ -1064,7 +1064,7 @@ export const builderEstimateItemsTable = pgTable("builder_estimate_items", {
   id: serial("id").primaryKey(),
   estimateId: integer("estimate_id")
     .notNull()
-    .references(() => builderEstimatesTable.id),
+    .references(() => builderEstimatesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
   quantity: numeric("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
@@ -1089,7 +1089,7 @@ export const estimateTemplateItemsTable = pgTable("estimate_template_items", {
   id: serial("id").primaryKey(),
   templateId: integer("template_id")
     .notNull()
-    .references(() => estimateTemplatesTable.id),
+    .references(() => estimateTemplatesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
   quantity: numeric("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
@@ -1340,7 +1340,7 @@ export const changeOrdersTable = pgTable("change_orders", {
     .references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id")
     .notNull()
-    .references(() => projectsTable.id),
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
