@@ -98,7 +98,7 @@ export const usersTable = pgTable("users", {
   email: text("email").notNull().unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  activeCompanyId: integer("active_company_id").references(() => companiesTable.id),
+  activeCompanyId: integer("active_company_id").references(() => companiesTable.id, { onDelete: "set null" }),
   preferredLanguage: text("preferred_language").notNull().default("en"),
   systemRole: text("system_role"), // null = regular user, 'super_admin' = global admin
   pushToken: text("push_token"),
@@ -171,7 +171,7 @@ export const invitationsTable = pgTable("invitations", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   email: text("email").notNull(),
   role: userRoleEnum("role").notNull().default("worker"),
   preferredLanguage: text("preferred_language").notNull().default("en"),
@@ -193,7 +193,7 @@ export const projectsTable = pgTable("projects", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   address: text("address").notNull(),
   city: text("city").notNull(),
@@ -332,7 +332,7 @@ export const contactsTable = pgTable("contacts", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   company: text("company"),
   phone: text("phone"),
@@ -388,7 +388,7 @@ export const leadsTable = pgTable("leads", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   contactId: integer("contact_id")
     .notNull()
     .references(() => contactsTable.id),
@@ -557,7 +557,7 @@ export const notificationsTable = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
     .notNull()
-    .references(() => usersTable.id),
+    .references(() => usersTable.id, { onDelete: "cascade" }),
   type: text("type").notNull(), // "task" | "rfi"
   title: text("title").notNull(),
   body: text("body").notNull(),
@@ -606,7 +606,7 @@ export const CONSTRUCTION_COA_CODES = [
 
 export const quotesTable = pgTable("quotes", {
   id: serial("id").primaryKey(),
-  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id").references(() => projectsTable.id),
   quoteNumber: text("quote_number").notNull(),
   title: text("title").notNull(),
@@ -664,7 +664,7 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
 
 export const invoicesTable = pgTable("invoices", {
   id: serial("id").primaryKey(),
-  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id").references(() => projectsTable.id),
   quoteId: integer("quote_id").references(() => quotesTable.id),
   invoiceNumber: text("invoice_number").notNull(),
@@ -757,7 +757,7 @@ export type ProjectMember = typeof projectMembersTable.$inferSelect;
 
 export const workerSchedulesTable = pgTable("worker_schedules", {
   id: serial("id").primaryKey(),
-  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id").notNull().references(() => projectsTable.id),
   userId: integer("user_id").references(() => usersTable.id),
   contactId: integer("contact_id").references(() => contactsTable.id),
@@ -775,7 +775,7 @@ export type WorkerSchedule = typeof workerSchedulesTable.$inferSelect;
 
 export const timeEntriesTable = pgTable("time_entries", {
   id: serial("id").primaryKey(),
-  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id").notNull().references(() => projectsTable.id),
   userId: integer("user_id").notNull().references(() => usersTable.id),
   date: date("date").notNull(),
@@ -1051,7 +1051,7 @@ export const builderEstimatesTable = pgTable("builder_estimates", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id").references(() => projectsTable.id),
   title: text("title").notNull(),
   notes: text("notes"),
@@ -1078,7 +1078,7 @@ export const estimateTemplatesTable = pgTable("estimate_templates", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1160,7 +1160,7 @@ export type TradehubSavedCalculation = typeof tradehubSavedCalculationsTable.$in
 export const tradehubPostsTable = pgTable("tradehub_posts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
-  companyId: integer("company_id").references(() => companiesTable.id),
+  companyId: integer("company_id").references(() => companiesTable.id, { onDelete: "cascade" }),
   type: text("type").notNull().default("discussion"), // discussion | job | showcase
   title: text("title").notNull(),
   content: text("content").notNull(),
@@ -1209,7 +1209,7 @@ export const tradehubReactionsTable = pgTable(
 
 export const jobPostingsTable = pgTable("job_postings", {
   id: serial("id").primaryKey(),
-  companyId: integer("company_id").notNull().references(() => companiesTable.id),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
   createdBy: integer("created_by").notNull().references(() => usersTable.id),
   projectTitle: text("project_title").notNull(),
   description: text("description").notNull(),
@@ -1316,7 +1316,7 @@ export const paymentsTable = pgTable("payments", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   invoiceId: integer("invoice_id")
     .notNull()
     .references(() => invoicesTable.id),
@@ -1337,7 +1337,7 @@ export const changeOrdersTable = pgTable("change_orders", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
     .notNull()
-    .references(() => companiesTable.id),
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id")
     .notNull()
     .references(() => projectsTable.id),
