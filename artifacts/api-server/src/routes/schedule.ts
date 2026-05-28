@@ -275,10 +275,20 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
               `(Workspace #${req.companyId}). Update records before site deployment.`,
             referenceId: projectId,
             projectId,
-          }).catch(() => {});
+          }).catch((notifyErr) => {
+            console.error(
+              "[compliance:notify] Failed to send COR compliance alert after schedule assignment",
+              { userId, projectId, companyId: req.companyId, error: notifyErr },
+            );
+          });
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error(
+          "[compliance:check] Worker compliance validation failed during schedule assignment (fire-and-forget)",
+          { userId, projectId, companyId: req.companyId, error: err },
+        );
+      });
   }
 
   res.status(201).json(full);
