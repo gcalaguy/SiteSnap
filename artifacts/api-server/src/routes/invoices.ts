@@ -7,6 +7,7 @@ import { requirePermission } from "../lib/permissionGate";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
 import { sendReminderForInvoice } from "../lib/invoiceReminders.js";
 import { logAuditEventFromRequest } from "../utils/logger";
+import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { format } from "date-fns";
 import { z } from "zod";
 
@@ -104,6 +105,7 @@ router.post("/invoices", requireAuth, requireCompany, requirePermission("viewFin
 
   logAuditEventFromRequest(req, "Invoice Created", `Created invoice "${invoice.title}" (${invoice.invoiceNumber})`).catch(() => {});
 
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(invoice);
 });
 
@@ -211,6 +213,7 @@ router.put("/invoices/:invoiceId", requireAuth, requireCompany, requirePermissio
 
   logAuditEventFromRequest(req, "Invoice Updated", `Updated invoice "${updated.title}" (${updated.invoiceNumber})`).catch(() => {});
 
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 
@@ -255,6 +258,7 @@ router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, async
 
   logAuditEventFromRequest(req, "Invoice Marked Sent", `Marked invoice "${updated.title}" (${updated.invoiceNumber}) as sent`).catch(() => {});
 
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 
@@ -404,6 +408,7 @@ router.delete("/invoices/:invoiceId", requireAuth, requireCompany, async (req, r
     return;
   }
   await db.delete(invoicesTable).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)));
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(204).end();
 });
 
@@ -421,6 +426,7 @@ router.post("/invoices/:invoiceId/mark-paid", requireAuth, requireCompany, async
   const [updated] = await db.update(invoicesTable)
     .set({ status: "paid", paidAt: now, updatedAt: now })
     .where(eq(invoicesTable.id, invoiceId)).returning();
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 

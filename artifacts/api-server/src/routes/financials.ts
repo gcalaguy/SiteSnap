@@ -14,6 +14,7 @@ import {
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
+import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 
 import { z } from "zod";
 
@@ -174,6 +175,7 @@ router.post("/invoices/:id/payments", requireAuth, requireCompany, requirePermis
       .where(eq(invoicesTable.id, invoiceId));
   }
 
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(payment);
 });
 
@@ -188,6 +190,7 @@ router.delete("/payments/:id", requireAuth, requireCompany, requirePermission("v
     .returning();
 
   if (!deleted) { res.status(404).json({ error: "Payment not found" }); return; }
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(204).send();
 });
 
@@ -256,6 +259,7 @@ router.post("/change-orders", requireAuth, requireCompany, async (req, res) => {
     })
     .returning();
 
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(order);
 });
 
@@ -291,6 +295,7 @@ router.patch("/change-orders/:id", requireAuth, requireCompany, async (req, res)
     .returning();
 
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 
@@ -310,6 +315,7 @@ router.post("/change-orders/:id/approve", requireAuth, requireCompany, async (re
     .returning();
 
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 
@@ -329,6 +335,7 @@ router.post("/change-orders/:id/reject", requireAuth, requireCompany, async (req
     .returning();
 
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 
@@ -370,6 +377,7 @@ router.delete("/change-orders/:id", requireAuth, requireCompany, async (req, res
     .returning();
 
   if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(204).send();
 });
 
@@ -442,6 +450,7 @@ router.post("/invoices/from-proposal/:proposalId", requireAuth, requireCompany, 
     } as any)
     .returning();
 
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(invoice);
 });
 

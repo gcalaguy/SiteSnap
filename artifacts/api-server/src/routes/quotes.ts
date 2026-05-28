@@ -13,6 +13,7 @@ import { eq, and, count, desc, inArray, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { ConvertQuoteToInvoiceBody } from "@workspace/api-zod";
+import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { Resend } from "resend";
 import { z } from "zod";
 
@@ -235,6 +236,7 @@ router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"),
     publicToken: randomUUID(),
   }).returning();
 
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(quote);
 });
 
@@ -301,6 +303,7 @@ router.put("/:quoteId", requireAuth, requireCompany, requirePermission("manageQu
   }
 
   const [updated] = await db.update(quotesTable).set(updates).where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).returning();
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 
@@ -320,6 +323,7 @@ router.delete("/:quoteId", requireAuth, requireCompany, requirePermission("manag
   }
 
   await db.delete(quotesTable).where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!)));
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(204).send();
 });
 
@@ -348,6 +352,7 @@ router.post("/:quoteId/submit", requireAuth, requireCompany, async (req, res) =>
     companyId: updated.companyId,
   });
 
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 
@@ -363,6 +368,7 @@ router.post("/:quoteId/unsubmit", requireAuth, requireCompany, async (req, res) 
   const [updated] = await db.update(quotesTable)
     .set({ status: "draft", updatedAt: new Date() })
     .where(eq(quotesTable.id, quoteId)).returning();
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 
@@ -380,6 +386,7 @@ router.post("/:quoteId/approve", requireAuth, requireCompany, async (req, res) =
   const [updated] = await db.update(quotesTable)
     .set({ status: "approved", approvedByUserId: req.userId!, approvedAt: now, updatedAt: now })
     .where(eq(quotesTable.id, quoteId)).returning();
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 
@@ -399,6 +406,7 @@ router.post("/:quoteId/reject", requireAuth, requireCompany, async (req, res) =>
   const [updated] = await db.update(quotesTable)
     .set({ status: "rejected", notes: notes ?? existing.notes, updatedAt: new Date() })
     .where(eq(quotesTable.id, quoteId)).returning();
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
 
@@ -472,6 +480,7 @@ router.post("/:quoteId/convert-to-invoice", requireAuth, requireCompany, async (
     .set({ status: "converted", convertedAt: now, updatedAt: now })
     .where(eq(quotesTable.id, quoteId));
 
+  invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(invoice);
 });
 
