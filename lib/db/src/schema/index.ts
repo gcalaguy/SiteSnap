@@ -204,7 +204,10 @@ export const projectsTable = pgTable("projects", {
   budget: numeric("budget", { precision: 12, scale: 2 }),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_projects_company_id").on(t.companyId),
+  index("idx_projects_company_id_id").on(t.companyId, t.id),
+]);
 
 export const insertProjectSchema = createInsertSchema(projectsTable).omit({
   id: true,
@@ -762,7 +765,9 @@ export const workerSchedulesTable = pgTable("worker_schedules", {
   endDate: date("end_date").notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_worker_schedules_company_user_project").on(t.companyId, t.userId, t.projectId),
+]);
 
 export type WorkerSchedule = typeof workerSchedulesTable.$inferSelect;
 

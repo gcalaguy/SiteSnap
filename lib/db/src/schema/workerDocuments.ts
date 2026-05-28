@@ -32,6 +32,7 @@ export const workerDocumentsTable = pgTable(
     index("idx_worker_docs_company").on(table.companyId),
     index("idx_worker_docs_type").on(table.documentType),
     index("idx_worker_docs_status").on(table.status),
+    index("idx_worker_docs_company_worker").on(table.companyId, table.workerId),
   ],
 );
 
