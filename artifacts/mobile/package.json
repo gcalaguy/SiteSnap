@@ -64,6 +64,7 @@
     "date-fns": "^3.6.0",
     "expo-audio": "^1.1.1",
     "expo-auth-session": "^55.0.15",
+    "expo-av": "^16.0.8",
     "expo-camera": "^55.0.18",
     "expo-crypto": "~15.0.9",
     "expo-document-picker": "^55.0.13",
