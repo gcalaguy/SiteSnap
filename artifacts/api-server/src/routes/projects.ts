@@ -25,7 +25,7 @@ import {
   ValidationError,
 } from "../lib/errors";
 import { logAuditEventFromRequest } from "../utils/logger";
-import { getTenantFinancialSummaries } from "../services/dashboardMetrics";
+import { getTenantFinancialSummaries, type TenantFinancialSummary } from "../services/dashboardMetrics";
 import {
   validateWorkerCompliance,
   getProjectsWithComplianceAlerts,
@@ -45,7 +45,7 @@ router.get(
 
     // Pre-fetch financial summaries for the tenant; failures are isolated so
     // they never prevent the project list from returning.
-    let financialsMap = new Map<number, import("../services/dashboardMetrics").ProjectFinancials>();
+    let financialsMap = new Map<number, TenantFinancialSummary["financials"]>();
     try {
       const summaries = await getTenantFinancialSummaries(String(companyId));
       for (const s of summaries) {

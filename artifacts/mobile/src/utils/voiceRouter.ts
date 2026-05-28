@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 
-export type RouteTarget =
+type RouteTarget =
   | "Calculators"
   | "Schedule"
   | "Projects"
@@ -22,40 +22,40 @@ export type RouteTarget =
   | "Vault"
   | "Gatekeeper";
 
-export type LogHoursAction = {
+type LogHoursAction = {
   type: "LOG_HOURS";
   worker: string;
   hours: number;
   project: string | null;
 };
 
-export type LogOwnHoursAction = {
+type LogOwnHoursAction = {
   type: "LOG_OWN_HOURS";
   hours: number;
   project: string | null;
 };
 
-export type AddDailyLogAction = {
+type AddDailyLogAction = {
   type: "ADD_DAILY_LOG";
   project: string | null;
   notes: string;
   transcript: string;
 };
 
-export type MarkTaskDoneAction = {
+type MarkTaskDoneAction = {
   type: "MARK_TASK_DONE";
   taskName: string;
   project: string | null;
 };
 
-export type LogDelayAction = {
+type LogDelayAction = {
   type: "LOG_DELAY";
   hours: number;
   reason: string;
   project: string | null;
 };
 
-export type LogExpenseAction = {
+type LogExpenseAction = {
   type: "LOG_EXPENSE";
   amount: number;
   description: string;
@@ -63,25 +63,25 @@ export type LogExpenseAction = {
   project: string | null;
 };
 
-export type CreateRFIAction = {
+type CreateRFIAction = {
   type: "CREATE_RFI";
   subject: string;
   project: string | null;
 };
 
-export type MaterialAlertAction = {
+type MaterialAlertAction = {
   type: "MATERIAL_ALERT";
   item: string;
   project: string | null;
 };
 
-export type TriggerCameraAction = {
+type TriggerCameraAction = {
   type: "TRIGGER_CAMERA";
   context: string | null;
   project: string | null;
 };
 
-export type SafetyLogAction = {
+type SafetyLogAction = {
   type: "SAFETY_LOG";
   project: string | null;
   issue: string;

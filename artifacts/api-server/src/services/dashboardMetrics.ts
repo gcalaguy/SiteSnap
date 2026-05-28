@@ -11,7 +11,7 @@ import { logger } from "../lib/logger";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface ProjectFinancials {
+interface ProjectFinancials {
   approvedChangeOrderTotal: number;
   totalInvoiced: number;
   totalPaid: number;

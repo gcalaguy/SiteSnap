@@ -18,11 +18,6 @@ export interface WebSearchResult {
   score: number;
 }
 
-export interface WebSearchResponse {
-  query: string;
-  results: WebSearchResult[];
-}
-
 /** Check whether Tavily is configured. */
 export function webSearchEnabled(): boolean {
   return !!TAVILY_API_KEY && TAVILY_API_KEY.startsWith("tvly-");

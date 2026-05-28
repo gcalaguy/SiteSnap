@@ -151,4 +151,3 @@ export function SignaturePad({
   );
 }
 
-export default SignaturePad;

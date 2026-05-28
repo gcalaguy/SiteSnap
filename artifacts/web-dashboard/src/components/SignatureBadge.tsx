@@ -72,4 +72,3 @@ export function SignatureBadge({
   );
 }
 
-export default SignatureBadge;

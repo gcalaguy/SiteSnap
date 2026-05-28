@@ -2,7 +2,7 @@ import { db, usersTable, auditLogsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { Request } from "express";
 
-export interface AuditEventData {
+interface AuditEventData {
   userId: string;
   userName: string;
   userRole: string;
