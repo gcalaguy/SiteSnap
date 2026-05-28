@@ -1474,20 +1474,6 @@ export const scheduleEventAssigneesTable = pgTable("schedule_event_assignees", {
 
 export type ScheduleEventAssignee = typeof scheduleEventAssigneesTable.$inferSelect;
 
-// ── Task Dependencies ──────────────────────────────────────────────────────────
-
-export const taskDependenciesTable = pgTable(
-  "task_dependencies",
-  {
-    id: serial("id").primaryKey(),
-    taskId: integer("task_id").notNull().references(() => tasksTable.id, { onDelete: "cascade" }),
-    dependsOnTaskId: integer("depends_on_task_id").notNull().references(() => tasksTable.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (t) => [unique().on(t.taskId, t.dependsOnTaskId)],
-);
-
-export type TaskDependency = typeof taskDependenciesTable.$inferSelect;
 
 // ── AI Inspections ─────────────────────────────────────────────────────────────
 
