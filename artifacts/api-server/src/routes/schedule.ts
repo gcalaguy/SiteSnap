@@ -112,6 +112,15 @@ router.get("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asyn
 // Returns all assignments for a specific project
 router.get("/projects/:projectId/schedule", requireAuth, requireCompany, requirePermission("viewSchedules"), async (req, res) => {
   const projectId = Number(req.params.projectId);
+  if (isNaN(projectId)) { res.status(400).json({ error: "Invalid project ID" }); return; }
+
+  // Verify the project belongs to the authenticated tenant before returning any data.
+  const [ownedProject] = await db
+    .select({ id: projectsTable.id })
+    .from(projectsTable)
+    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!ownedProject) { res.status(404).json({ error: "Project not found" }); return; }
 
   const assignments = await db
     .select({
@@ -161,6 +170,34 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
   if (!userId && !contactId) {
     res.status(400).json({ error: "Either userId or contactId is required" });
     return;
+  }
+
+  // Verify the target project belongs to the authenticated tenant.
+  // companyId is NEVER read from the request body — it comes exclusively from the session.
+  const [ownedProject] = await db
+    .select({ id: projectsTable.id, name: projectsTable.name })
+    .from(projectsTable)
+    .where(and(eq(projectsTable.id, Number(projectId)), eq(projectsTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!ownedProject) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+
+  // Verify the target user is a member of the authenticated tenant (when scheduling an internal worker).
+  if (userId) {
+    const [membership] = await db
+      .select({ userId: userMembershipsTable.userId })
+      .from(userMembershipsTable)
+      .where(and(
+        eq(userMembershipsTable.userId, Number(userId)),
+        eq(userMembershipsTable.companyId, req.companyId!),
+      ))
+      .limit(1);
+    if (!membership) {
+      res.status(404).json({ error: "User not found in this company" });
+      return;
+    }
   }
 
   // If a contactId is provided, check compliance
