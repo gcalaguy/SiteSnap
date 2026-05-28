@@ -11,7 +11,6 @@
     "test": "vitest run tests/field-automation.test.ts"
   },
   "dependencies": {
-    "@clerk/backend": "^3.4.9",
     "@clerk/express": "^2.1.12",
     "@clerk/shared": "^4.9.0",
     "@google-cloud/storage": "^7.16.0",
@@ -20,10 +19,9 @@
     "@workspace/db": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
     "axios": "^1.8.4",
-    "cookie-parser": "^1.4.7",
     "cors": "^2",
     "date-fns": "^3.6.0",
-    "drizzle-orm": "catalog:",
+    "drizzle-orm": "^0.45.2",
     "express": "^5",
     "express-rate-limit": "^8.4.1",
     "google-auth-library": "^9.15.1",
@@ -52,6 +50,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/pdfkit": "^0.17.6",
     "@types/pngjs": "^6.0.5",
+    "drizzle-kit": "^0.31.10",
     "esbuild": "^0.27.3",
     "esbuild-plugin-pino": "^2.3.3",
     "pino-pretty": "^13",
