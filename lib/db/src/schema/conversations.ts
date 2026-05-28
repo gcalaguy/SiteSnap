@@ -1,11 +1,12 @@
 import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable, companiesTable } from "./index";
 
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  companyId: integer("company_id").notNull(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

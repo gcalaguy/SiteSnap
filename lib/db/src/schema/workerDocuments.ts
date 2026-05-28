@@ -9,13 +9,14 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable, companiesTable } from "./index";
 
 export const workerDocumentsTable = pgTable(
   "worker_documents",
   {
     id: serial("id").primaryKey(),
-    workerId: integer("worker_id").notNull(),
-    companyId: integer("company_id").notNull(),
+    workerId: integer("worker_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+    companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
     documentType: text("document_type").notNull(),
     fileUrl: text("file_url").notNull(),
     filePath: text("file_path"),

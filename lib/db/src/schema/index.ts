@@ -684,7 +684,7 @@ export const invoicesTable = pgTable("invoices", {
   reminderSentAt: timestamp("reminder_sent_at"),
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
   assignedToUserId: integer("assigned_to_user_id").references(() => usersTable.id),
-  proposalId: integer("proposal_id"),
+  proposalId: integer("proposal_id").references(() => proposalsTable.id, { onDelete: "set null" }),
   // E-signature audit trail
   signatureData: text("signature_data"),
   signerName: text("signer_name"),
@@ -966,7 +966,7 @@ export const formSubmissionsTable = pgTable("form_submissions", {
   templateId: integer("template_id").notNull().references(() => formTemplatesTable.id),
   userId: integer("user_id").notNull().references(() => usersTable.id),
   companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
-  projectId: integer("project_id"),
+  projectId: integer("project_id").references(() => projectsTable.id, { onDelete: "set null" }),
   contactId: integer("contact_id").references(() => contactsTable.id),
   data: json("data").notNull(),
   status: text("status").notNull().default("draft"), // draft | submitted | reviewed | approved
