@@ -17,11 +17,16 @@ function isServerDownError(err: unknown): boolean {
   return false;
 }
 
+const INITIAL_CHECK_DELAY_MS = 2_000;
+
 /**
  * Tracks whether the API server is reachable.
  *
+ * - Runs an initial health-check on mount so a rebuild already in progress is
+ *   detected even before any React Query request fires.
  * - Subscribes to React Query's query/mutation caches for network-level or 503 errors.
- * - When an error is detected it starts polling /api/healthz every 5 s.
+ * - When an error (or failed health-check) is detected it starts polling /api/healthz
+ *   every 5 s.
  * - When the health check succeeds it marks the server as up, stops polling,
  *   and invalidates all cached queries so stale data is refreshed automatically.
  */
@@ -61,6 +66,20 @@ export function useApiServerStatus(): { isDown: boolean } {
       }
     }, POLL_INTERVAL_MS);
   }, [markUp]);
+
+  // Initial health-check after a short delay so we catch a rebuild that's
+  // already in progress when the page first loads (before any RQ request fires).
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(HEALTH_URL, { method: "GET", cache: "no-store" });
+        if (!res.ok) markDown();
+      } catch {
+        markDown();
+      }
+    }, INITIAL_CHECK_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [markDown]);
 
   useEffect(() => {
     const queryCache = queryClient.getQueryCache();

@@ -1,9 +1,9 @@
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useApiServerStatus } from "@/hooks/useApiServerStatus";
 
 /**
- * Fixed top banner shown when the API server is unreachable.
- * Automatically dismisses once the server recovers.
+ * Fixed top banner shown when the API server is unreachable (e.g. rebuilding in dev).
+ * Automatically dismisses once the server responds again.
  */
 export function ApiServerBanner() {
   const { isDown } = useApiServerStatus();
@@ -12,13 +12,12 @@ export function ApiServerBanner() {
 
   return (
     <div
-      role="alert"
-      aria-live="assertive"
-      className="fixed top-0 inset-x-0 z-[9999] flex items-center justify-center gap-2 bg-orange-500 text-white text-sm font-medium px-4 py-2 shadow-md"
+      role="status"
+      aria-live="polite"
+      className="fixed top-0 inset-x-0 z-[9999] flex items-center justify-center gap-2 bg-amber-500 text-white text-sm font-medium px-4 py-2 shadow-md"
     >
-      <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <span>Server temporarily unavailable — reconnecting automatically</span>
-      <RefreshCw className="h-3.5 w-3.5 animate-spin ml-1 opacity-80" aria-hidden="true" />
+      <RefreshCw className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden="true" />
+      <span>API rebuilding&hellip; reconnecting automatically</span>
     </div>
   );
 }
