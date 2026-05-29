@@ -210,6 +210,12 @@ importers:
       resend:
         specifier: ^6.12.2
         version: 6.12.2
+      stripe:
+        specifier: ^22.1.0
+        version: 22.1.0(@types/node@25.3.5)
+      stripe-replit-sync:
+        specifier: ^1.0.0
+        version: 1.0.0(stripe@22.1.0(@types/node@25.3.5))
       zod:
         specifier: 'catalog:'
         version: 3.25.76
