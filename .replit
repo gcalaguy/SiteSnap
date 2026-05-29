@@ -11,26 +11,6 @@ env = { "CI" = "true" }
 [workflows]
 runButton = "Project"
 
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "check-api-externals"
-
-[[workflows.workflow]]
-name = "check-api-externals"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/scripts run check-api-externals"
-
-[workflows.workflow.metadata]
-isValidation = true
-
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
@@ -76,7 +56,6 @@ EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_YWJsZS1zdG9yay03My5jbGVyay5hY2NvdW5
 
 [nix]
 channel = "stable-25_05"
-packages = ["psmisc"]
 
 [objectStorage]
 defaultBucketID = "replit-objstore-3a414262-b75a-4ae6-a75f-e6d52f083b08"

@@ -6,7 +6,6 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "patch-stripe-metadata": "tsx ./src/patch-stripe-plan-metadata.ts",
-    "check-api-externals": "tsx ./src/check-api-externals.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

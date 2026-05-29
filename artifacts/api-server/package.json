@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bash ./dev.sh",
+    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -42,8 +42,6 @@
     "pino-http": "^10",
     "pngjs": "^7.0.0",
     "resend": "^6.12.2",
-    "stripe": "^22.1.0",
-    "stripe-replit-sync": "^1.0.0",
     "zod": "catalog:"
   },
   "devDependencies": {
