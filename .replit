@@ -56,6 +56,7 @@ EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_YWJsZS1zdG9yay03My5jbGVyay5hY2NvdW5
 
 [nix]
 channel = "stable-25_05"
+packages = ["psmisc"]
 
 [objectStorage]
 defaultBucketID = "replit-objstore-3a414262-b75a-4ae6-a75f-e6d52f083b08"
