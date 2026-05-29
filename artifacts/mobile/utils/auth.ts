@@ -1,3 +1,5 @@
+console.log("[auth.ts] Initializing auth utilities");
+
 let _signOut: (() => Promise<void>) | null = null;
 let _tokenGetter: (() => Promise<string | null>) | null = null;
 

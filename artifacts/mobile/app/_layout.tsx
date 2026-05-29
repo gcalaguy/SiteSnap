@@ -1,7 +1,7 @@
 import "@/src/i18n";
 import React, { useEffect, useRef, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { View } from "react-native";
+import { View, Text } from "react-native";
 import { ClerkProvider, useAuth, useUser } from "@clerk/clerk-expo";
 import { useGetMe, useSyncUser, getGetMeQueryKey, setAuthTokenGetter, setBaseUrl, setTenantIdGetter } from "@workspace/api-client-react";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
@@ -26,6 +26,39 @@ const tokenCache = {
 };
 
 try { SplashScreen.preventAutoHideAsync(); } catch {}
+
+function StartupTimeout({ children }: { children: React.ReactNode }) {
+  const [timedOut, setTimedOut] = useState(false);
+  const startMsRef = useRef(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (Date.now() - startMsRef.current >= 10_000) {
+        setTimedOut(true);
+        clearInterval(timer);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (timedOut) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: "#0A0A0A" }}>
+        <Text style={{ fontSize: 20, fontWeight: "700", color: "#EF4444", marginBottom: 12, fontFamily: "Inter_700Bold" }}>
+          Startup Timeout
+        </Text>
+        <Text style={{ fontSize: 14, color: "#FFFFFF", textAlign: "center", marginBottom: 8, fontFamily: "Inter_400Regular" }}>
+          The app did not finish starting within 10 seconds.
+        </Text>
+        <Text style={{ fontSize: 12, color: "#A3A3A3", textAlign: "center", fontFamily: "Inter_400Regular" }}>
+          Check that the dev server is running and the Clerk key is set.
+        </Text>
+      </View>
+    );
+  }
+
+  return <>{children}</>;
+}
 
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, getToken, signOut: clerkSignOut } = useAuth();
@@ -225,6 +258,14 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  console.log("[RootLayout] Root component reached — EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is:", process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const clerkKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  if (!clerkKey || clerkKey.trim() === "") {
+    throw new Error(
+      "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is missing or empty. The app cannot start without a valid Clerk publishable key."
+    );
+  }
+
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
   }));
@@ -239,12 +280,14 @@ export default function RootLayout() {
 
   return (
     <ClerkProvider
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+      publishableKey={clerkKey}
       tokenCache={tokenCache as any}
     >
       <QueryClientProvider client={queryClient}>
         <I18nextProvider i18n={i18n}>
-          <RootLayoutNav />
+          <StartupTimeout>
+            <RootLayoutNav />
+          </StartupTimeout>
         </I18nextProvider>
       </QueryClientProvider>
     </ClerkProvider>
