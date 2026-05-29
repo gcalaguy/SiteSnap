@@ -66,6 +66,7 @@ import PublicInvoicePage from "@/pages/public-invoice";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ApiServerBanner } from "@/components/ApiServerBanner";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -344,6 +345,7 @@ function ClerkProviderWithRoutes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <QueryClientProvider client={queryClient}>
+        <ApiServerBanner />
         <ClerkAuthTokenSetter />
         <TenantIdSetter />
         <ClerkQueryClientCacheInvalidator />

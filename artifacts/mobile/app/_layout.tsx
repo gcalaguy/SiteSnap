@@ -8,6 +8,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import * as SplashScreen from "expo-splash-screen";
 import { TermsModal } from "@/components/TermsModal";
 import { GlobalVoiceCommandFAB } from "@/components/GlobalVoiceCommandFAB";
+import { ApiServerBanner } from "@/components/ApiServerBanner";
 import * as SecureStore from "../shims/expo-secure-store";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { I18nextProvider } from "react-i18next";
@@ -192,6 +193,7 @@ function RootLayoutNav() {
   return (
     <KeyboardProvider>
       <TermsModal visible={needsTerms} />
+      <ApiServerBanner />
       <View style={{ flex: 1 }}>
         <Stack screenOptions={{ headerBackTitle: "Back" }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
