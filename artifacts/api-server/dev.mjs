@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { context as esbuildContext } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
+import { watch } from "node:fs";
 import { spawn } from "node:child_process";
 
 globalThis.require = createRequire(import.meta.url);
@@ -177,7 +178,33 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
   });
 
   await ctx.watch();
-  console.log("[dev] Watching src/ for changes — edit any file to trigger a rebuild.");
+  console.log("[dev] Watching src/ and workspace libs for changes — edit any file to trigger a rebuild.");
+
+  const workspaceRoot = path.resolve(artifactDir, "../..");
+  const libWatchPaths = [
+    path.resolve(workspaceRoot, "lib/db/src"),
+    path.resolve(workspaceRoot, "lib/api-zod/src"),
+  ];
+
+  let rebuildTimer = null;
+  function scheduleRebuild(changedPath) {
+    if (rebuildTimer) clearTimeout(rebuildTimer);
+    rebuildTimer = setTimeout(async () => {
+      rebuildTimer = null;
+      console.log(`[dev] Lib change detected (${changedPath}) — rebuilding...`);
+      try {
+        await ctx.rebuild();
+      } catch (_) {}
+    }, 200);
+  }
+
+  for (const libPath of libWatchPaths) {
+    watch(libPath, { recursive: true }, (eventType, filename) => {
+      if (filename && /\.[cm]?[tj]sx?$/.test(filename)) {
+        scheduleRebuild(path.join(libPath, filename));
+      }
+    });
+  }
 
   function shutdown() {
     console.log("[dev] Shutting down...");
