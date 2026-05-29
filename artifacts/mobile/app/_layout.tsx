@@ -8,7 +8,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import * as SplashScreen from "expo-splash-screen";
 import { TermsModal } from "@/components/TermsModal";
 import { GlobalVoiceCommandFAB } from "@/components/GlobalVoiceCommandFAB";
-import * as SecureStore from "expo-secure-store";
+import * as SecureStore from "../shims/expo-secure-store";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { I18nextProvider } from "react-i18next";
 import { KeyboardProvider } from "react-native-keyboard-controller";

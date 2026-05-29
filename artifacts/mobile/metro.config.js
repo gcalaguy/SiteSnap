@@ -3,6 +3,8 @@ const path = require("path");
 
 const config = getDefaultConfig(__dirname);
 
+config.watchFolders = [path.resolve(__dirname, "../..")];
+
 config.resolver = config.resolver ?? {};
 
 // Block Metro from watching pdf-parse tmp test directories (server-only package)
