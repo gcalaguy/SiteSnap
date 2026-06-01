@@ -60,3 +60,19 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 };
 
 module.exports = config;
+
+// Prevent core-js from polyfilling DOMException on Hermes
+// Hermes freezes DOMException constants — core-js assignment throws TypeError
+const originalResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (
+    moduleName.includes('web.dom-exception.constructor') ||
+    moduleName.includes('web.dom-exception.stack')
+  ) {
+    return {
+      filePath: require('path').resolve(__dirname, 'shims/core-js-dom-exception.js'),
+      type: 'sourceFile',
+    };
+  }
+  return originalResolveRequest(context, moduleName, platform);
+};
