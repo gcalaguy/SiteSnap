@@ -12,6 +12,7 @@ config.resolver.blockList = [
   /node_modules\/.pnpm\/vite@.*/,
   /node_modules\/.pnpm\/vitest@.*/,
   /.*\.test\.(ts|tsx|js|jsx)$/,
+  /node_modules\/@xmldom\/xmldom\/.*/,
 ];
 
 const workspacePackages = {
