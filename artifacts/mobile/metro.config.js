@@ -57,4 +57,16 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return context.resolveRequest(context, moduleName, platform);
 };
 
+// Register a global DOMException polyfill that runs before any app module. Hermes (Expo
+// Go / RN 0.81) does not install a global DOMException, but some deps reference
+// it (e.g. @clerk/shared telemetry's `instanceof DOMException` in a catch
+// block), which otherwise throws "Property 'DOMException' doesn't exist" at
+// startup. Registering as a Metro polyfill guarantees it runs before app code.
+config.serializer = config.serializer ?? {};
+const upstreamGetPolyfills = config.serializer.getPolyfills;
+config.serializer.getPolyfills = (options) => {
+  const basePolyfills = upstreamGetPolyfills ? upstreamGetPolyfills(options) : [];
+  return [...basePolyfills, path.resolve(__dirname, "polyfills/dom-exception.js")];
+};
+
 module.exports = config;
