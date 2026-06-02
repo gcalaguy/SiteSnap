@@ -617,6 +617,7 @@ export const quotesTable = pgTable("quotes", {
   clientPhone: text("client_phone"),
   status: quoteStatusEnum("status").notNull().default("draft"),
   voiceInput: text("voice_input"),
+  lineItems: jsonb("line_items").$type<QuoteLineItem[]>().notNull().default([]),
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
   taxRate: numeric("tax_rate", { precision: 5, scale: 4 }).notNull().default("0.1300"),
   taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).notNull().default("0"),
@@ -699,6 +700,7 @@ export const invoicesTable = pgTable("invoices", {
   clientName: text("client_name").notNull(),
   clientEmail: text("client_email"),
   status: invoiceStatusEnum("status").notNull().default("draft"),
+  lineItems: jsonb("line_items").$type<QuoteLineItem[]>().notNull().default([]),
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
   taxRate: numeric("tax_rate", { precision: 5, scale: 4 }).notNull().default("0.1300"),
   taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).notNull().default("0"),
@@ -1723,3 +1725,18 @@ export const insertAuditLogSchema = createInsertSchema(auditLogsTable).omit({
 });
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogsTable.$inferSelect;
+
+// ── AI Rate Limits ─────────────────────────────────────────────────────────────
+
+export const aiRateLimitsTable = pgTable(
+  "ai_rate_limits",
+  {
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companiesTable.id, { onDelete: "cascade" }),
+    dateKey: text("date_key").notNull(),
+    count: integer("count").notNull().default(0),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.companyId, t.dateKey] })],
+);
