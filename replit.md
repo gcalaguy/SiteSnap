@@ -93,7 +93,6 @@ Required Environment Variables:
 - **Stripe/`stripe-replit-sync` Bundling**: These libraries must be externalized in `esbuild` configuration as they rely on `__dirname` for loading migration files.
 - **Stripe Migration Conflict**: Ensure `stripe.invoice_status` enum is pre-created in the database before `stripe-replit-sync` migrations run to avoid conflicts with the public schema's `invoice_status`.
 - **Expo Go Compatibility**: Tab screens in the mobile app must *not* directly import from `@clerk/clerk-expo` due to `ExpoCryptoAES` native module issues. Use `@/utils/auth` and `customFetch` instead. Clear `/tmp/metro-cache` if Metro issues persist.
-- **`DOMException` on Hermes**: React Native 0.81 / Expo Go does not install a global `DOMException`, but some deps reference it (e.g. `@clerk/shared` telemetry runs `err instanceof DOMException` in a catch block), throwing `Property 'DOMException' doesn't exist` at startup. Fixed via a Metro polyfill: `artifacts/mobile/polyfills/dom-exception.js`, registered through `config.serializer.getPolyfills` in `metro.config.js` so it loads before any app/library module.
 - **`customFetch` Usage**: For non-generated API calls (e.g., AI chat), use the `customFetch` exported from `lib/api-client-react/src/index.ts` to ensure the Bearer token is automatically attached.
 
 ## Pointers

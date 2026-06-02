@@ -617,7 +617,7 @@ export const quotesTable = pgTable("quotes", {
   clientPhone: text("client_phone"),
   status: quoteStatusEnum("status").notNull().default("draft"),
   voiceInput: text("voice_input"),
-  lineItems: jsonb("line_items").$type<QuoteLineItem[]>().notNull().default([]),
+  lineItems: json("line_items").$type<QuoteLineItem[]>().notNull().default([]),
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
   taxRate: numeric("tax_rate", { precision: 5, scale: 4 }).notNull().default("0.1300"),
   taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).notNull().default("0"),
@@ -652,34 +652,6 @@ export const insertQuoteSchema = createInsertSchema(quotesTable).omit({
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
 export type Quote = typeof quotesTable.$inferSelect;
 
-// ── Quote Line Items ───────────────────────────────────────────────────────────
-
-export const quoteLineItemsTable = pgTable(
-  "quote_line_items",
-  {
-    id: serial("id").primaryKey(),
-    quoteId: integer("quote_id")
-      .notNull()
-      .references(() => quotesTable.id, { onDelete: "cascade" }),
-    description: text("description").notNull(),
-    quantity: numeric("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
-    unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (t) => [
-    index("idx_quote_line_items_quote_id").on(t.quoteId),
-  ],
-);
-
-export const insertQuoteLineItemSchema = createInsertSchema(quoteLineItemsTable).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type InsertQuoteLineItem = z.infer<typeof insertQuoteLineItemSchema>;
-export type QuoteLineItemRecord = typeof quoteLineItemsTable.$inferSelect;
-
 // ── Invoices ──────────────────────────────────────────────────────────────────
 
 export const invoiceStatusEnum = pgEnum("invoice_status", [
@@ -700,7 +672,7 @@ export const invoicesTable = pgTable("invoices", {
   clientName: text("client_name").notNull(),
   clientEmail: text("client_email"),
   status: invoiceStatusEnum("status").notNull().default("draft"),
-  lineItems: jsonb("line_items").$type<QuoteLineItem[]>().notNull().default([]),
+  lineItems: json("line_items").$type<QuoteLineItem[]>().notNull().default([]),
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
   taxRate: numeric("tax_rate", { precision: 5, scale: 4 }).notNull().default("0.1300"),
   taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).notNull().default("0"),
@@ -738,34 +710,6 @@ export const insertInvoiceSchema = createInsertSchema(invoicesTable).omit({
 });
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type Invoice = typeof invoicesTable.$inferSelect;
-
-// ── Invoice Line Items ─────────────────────────────────────────────────────────
-
-export const invoiceLineItemsTable = pgTable(
-  "invoice_line_items",
-  {
-    id: serial("id").primaryKey(),
-    invoiceId: integer("invoice_id")
-      .notNull()
-      .references(() => invoicesTable.id, { onDelete: "cascade" }),
-    description: text("description").notNull(),
-    quantity: numeric("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
-    unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (t) => [
-    index("idx_invoice_line_items_invoice_id").on(t.invoiceId),
-  ],
-);
-
-export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItemsTable).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type InsertInvoiceLineItem = z.infer<typeof insertInvoiceLineItemSchema>;
-export type InvoiceLineItemRecord = typeof invoiceLineItemsTable.$inferSelect;
 
 // ── QuickBooks Connections ─────────────────────────────────────────────────────
 
@@ -1725,18 +1669,3 @@ export const insertAuditLogSchema = createInsertSchema(auditLogsTable).omit({
 });
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogsTable.$inferSelect;
-
-// ── AI Rate Limits ─────────────────────────────────────────────────────────────
-
-export const aiRateLimitsTable = pgTable(
-  "ai_rate_limits",
-  {
-    companyId: integer("company_id")
-      .notNull()
-      .references(() => companiesTable.id, { onDelete: "cascade" }),
-    dateKey: text("date_key").notNull(),
-    count: integer("count").notNull().default(0),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.companyId, t.dateKey] })],
-);

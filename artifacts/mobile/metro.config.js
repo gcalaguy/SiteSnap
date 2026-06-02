@@ -12,14 +12,12 @@ config.resolver.blockList = [
   /node_modules\/.pnpm\/vite@.*/,
   /node_modules\/.pnpm\/vitest@.*/,
   /.*\.test\.(ts|tsx|js|jsx)$/,
-  /node_modules\/@xmldom\/xmldom\/.*/,
-  /node_modules\/.pnpm\/core-js[^/]*\/.*\/web\.dom-exception\.constructor\.js/,
-  /node_modules\/.pnpm\/core-js[^/]*\/.*\/web\.dom-exception\.stack\.js/,
 ];
 
 const workspacePackages = {
   "@workspace/api-client-react": path.resolve(__dirname, "../../lib/api-client-react/src/index.ts"),
   "@workspace/api-zod": path.resolve(__dirname, "../../lib/api-zod/src/index.ts"),
+  "@workspace/db": path.resolve(__dirname, "../../lib/db/src/index.ts"),
 };
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {

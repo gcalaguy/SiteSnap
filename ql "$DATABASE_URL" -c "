@@ -1,5 +1,0 @@
- id | template_id |   name   | description | quantity | unit_cost | margin | sort_order 
-----+-------------+----------+-------------+----------+-----------+--------+------------
-  1 |           1 | Counters |             |    1.000 |      0.00 |  20.00 |          0
-(1 row)
-
