@@ -1,11 +1,12 @@
 import { useState, useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   useGetMe,
   useListAllWorkerDocuments,
   useDeleteWorkerDocument,
   getListAllWorkerDocumentsQueryKey,
   type WorkerDocumentEnriched,
+  customFetch,
 } from "@workspace/api-client-react";
 import {
   ShieldCheck,
@@ -31,8 +32,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { customFetch } from "@workspace/api-client-react";
-
 const renderSafeDate = (dateString: any) => {
   if (!dateString) return 'N/A';
   try {
@@ -56,20 +55,6 @@ function isImageFile(doc: WorkerDocumentEnriched): boolean {
   );
 }
 
-function getPreviewPath(doc: WorkerDocumentEnriched): string | null {
-  const path = doc.filePath ?? doc.fileUrl;
-  if (!path) return null;
-  // Convert /objects/... paths to /api/storage/objects/... format
-  const normalized = path.replace(/^\//, "");
-  if (normalized.startsWith("objects/")) {
-    return `/api/storage/${normalized}`;
-  }
-  if (normalized.startsWith("api/storage/")) {
-    return `/${normalized}`;
-  }
-  return null;
-}
-
 function getSignedUrlPath(doc: WorkerDocumentEnriched): string | null {
   const path = doc.filePath ?? doc.fileUrl;
   if (!path) return null;
@@ -83,6 +68,51 @@ function getSignedUrlPath(doc: WorkerDocumentEnriched): string | null {
     return `/api/storage/objects/${rest}/signed-url`;
   }
   return null;
+}
+
+/** Fetch a signed GCS URL for a private storage object. Caches for 10 min. */
+function useSignedPhotoUrl(imagePath: string | null | undefined) {
+  const signedPath = imagePath
+    ? (() => {
+        const normalized = imagePath.replace(/^\//, "");
+        if (normalized.startsWith("objects/")) {
+          const rest = normalized.replace(/^objects\//, "");
+          return `/api/storage/objects/${rest}/signed-url`;
+        }
+        if (normalized.startsWith("api/storage/objects/")) {
+          const rest = normalized.replace(/^api\/storage\/objects\//, "");
+          return `/api/storage/objects/${rest}/signed-url`;
+        }
+        return null;
+      })()
+    : null;
+  return useQuery({
+    queryKey: ["vault-signed-url", imagePath],
+    queryFn: async () => {
+      if (!signedPath) return null;
+      const { url } = (await customFetch(signedPath)) as { url: string };
+      return url;
+    },
+    enabled: !!signedPath,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  });
+}
+
+function SignedPhotoThumbnail({ path, alt }: { path: string | null | undefined; alt: string }) {
+  const { data: signedUrl } = useSignedPhotoUrl(path);
+  if (!signedUrl) return null;
+  return (
+    <img
+      src={signedUrl}
+      alt={alt}
+      className="w-10 h-10 rounded-lg object-cover border border-[#E5E5E5] flex-shrink-0"
+      loading="lazy"
+      onError={(e) => {
+        (e.currentTarget as HTMLImageElement).style.display = "none";
+      }}
+    />
+  );
 }
 
 interface WorkerGroup {
@@ -284,7 +314,6 @@ export default function WorkerDocumentsPage() {
                           <tbody>
                             {group.docs.map((d) => {
                               const imageDoc = isImageFile(d);
-                              const previewPath = getPreviewPath(d);
                               return (
                                 <tr
                                   key={d.id}
@@ -293,23 +322,11 @@ export default function WorkerDocumentsPage() {
                                 >
                                   <td className="px-5 py-3">
                                     <div className="flex items-center gap-3">
-                                      {imageDoc && previewPath ? (
-                                        <img
-                                          src={previewPath}
-                                          alt={d.documentType}
-                                          className="w-10 h-10 rounded-lg object-cover border border-[#E5E5E5] flex-shrink-0"
-                                          loading="lazy"
-                                          onError={(e) => {
-                                            (e.currentTarget as HTMLImageElement).style.display = "none";
-                                          }}
-                                        />
+                                      {imageDoc ? (
+                                        <SignedPhotoThumbnail path={d.filePath ?? d.fileUrl} alt={d.documentType} />
                                       ) : (
                                         <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center flex-shrink-0">
-                                          {imageDoc ? (
-                                            <Image className="w-4 h-4 text-[#0A0A0A]/30" />
-                                          ) : (
-                                            <FileText className="w-4 h-4 text-[#0A0A0A]/30" />
-                                          )}
+                                          <FileText className="w-4 h-4 text-[#0A0A0A]/30" />
                                         </div>
                                       )}
                                       <div>
@@ -403,7 +420,7 @@ export default function WorkerDocumentsPage() {
                   <p className="text-xs text-[#0A0A0A]/40">File</p>
                   <div className="flex items-center gap-2 mt-1">
                     <a
-                      href={selectedDoc.fileUrl}
+                      href={signedUrl || selectedDoc.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-[#C9A84C] hover:underline break-all"

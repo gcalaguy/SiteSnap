@@ -86,6 +86,7 @@ type PortalData = {
     fileType: string;
     fileSize: number | null;
     aiSummary: string | null;
+    signedUrl: string | null;
     createdAt: string;
   }>;
   clientUploads: Array<{
@@ -656,11 +657,14 @@ export default function ClientPortal() {
                       </div>
                     </div>
                     <a
-                      href={`${BASE}/api/storage/objects/uploads/${doc.id}`}
+                      href={doc.signedUrl || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="shrink-0 p-1.5 rounded-md text-slate-400 hover:text-[#D4AF37] hover:bg-orange-50 transition-colors"
-                      title="Download"
+                      title={doc.signedUrl ? "Download" : "Download unavailable"}
+                      onClick={(e) => {
+                        if (!doc.signedUrl) e.preventDefault();
+                      }}
                     >
                       <ArrowDownToLine className="h-4 w-4" />
                     </a>

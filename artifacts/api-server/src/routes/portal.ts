@@ -257,17 +257,40 @@ router.get("/portal/:token", async (req, res) => {
   }));
 
   // Contractor documents
-  const documents = await db.select({
+  const rawDocuments = await db.select({
     id: projectDocumentsTable.id,
     filename: projectDocumentsTable.filename,
     fileType: projectDocumentsTable.fileType,
     fileSize: projectDocumentsTable.fileSize,
     aiSummary: projectDocumentsTable.aiSummary,
+    objectPath: projectDocumentsTable.objectPath,
     createdAt: projectDocumentsTable.createdAt,
   })
     .from(projectDocumentsTable)
     .where(eq(projectDocumentsTable.projectId, projectId))
     .orderBy(desc(projectDocumentsTable.createdAt));
+
+  const documents = await Promise.all(
+    rawDocuments.map(async (d) => {
+      let signedUrl: string | null = null;
+      if (d.objectPath) {
+        try {
+          signedUrl = await objectStorageService.getObjectEntityReadURL(d.objectPath, 900);
+        } catch {
+          signedUrl = null;
+        }
+      }
+      return {
+        id: d.id,
+        filename: d.filename,
+        fileType: d.fileType,
+        fileSize: d.fileSize,
+        aiSummary: d.aiSummary,
+        signedUrl,
+        createdAt: d.createdAt,
+      };
+    }),
+  );
 
   // Client uploads
   const clientUploads = await db.select().from(clientPortalUploadsTable)
