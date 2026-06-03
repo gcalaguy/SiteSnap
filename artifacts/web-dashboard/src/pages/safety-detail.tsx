@@ -3,6 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 import { format } from "date-fns";
 import {
   AlertTriangle,
@@ -73,6 +74,30 @@ const categoryColor: Record<string, string> = {
   hazard: "bg-orange-100 text-orange-700",
   toolbox: "bg-green-100 text-green-700",
 };
+
+function SignedPhotoLink({ photo }: { photo: { id: number; url: string; filename: string } }) {
+  const { data: signedUrl, isLoading } = useSignedUrl(photo.url);
+  if (isLoading) {
+    return (
+      <div className="rounded-lg aspect-square w-full bg-muted flex items-center justify-center">
+        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (!signedUrl) {
+    return (
+      <div className="rounded-lg aspect-square w-full bg-muted flex items-center justify-center text-[10px] text-muted-foreground">
+        No photo
+      </div>
+    );
+  }
+  return (
+    <a href={signedUrl} target="_blank" rel="noreferrer">
+      <img src={signedUrl} alt={photo.filename}
+        className="rounded-lg object-cover aspect-square w-full hover:opacity-90 transition-opacity border" />
+    </a>
+  );
+}
 
 function renderFieldValue(field: FormField, value: any): string {
   if (value === undefined || value === null || value === "") return "—";
@@ -601,10 +626,7 @@ export default function SafetyDetailPage() {
               <CardContent>
                 <div className="grid grid-cols-3 gap-3">
                   {submission.photos.map((photo) => (
-                    <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer">
-                      <img src={photo.url} alt={photo.filename}
-                        className="rounded-lg object-cover aspect-square w-full hover:opacity-90 transition-opacity border" />
-                    </a>
+                    <SignedPhotoLink key={photo.id} photo={photo} />
                   ))}
                 </div>
               </CardContent>

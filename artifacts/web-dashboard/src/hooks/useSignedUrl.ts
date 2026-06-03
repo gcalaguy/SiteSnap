@@ -33,6 +33,30 @@ export function useSignedUrl(objectPath: string | null | undefined) {
   });
 }
 
+/**
+ * For URLs that may be either storage paths (requiring a signed URL) or
+ * external/public URLs (use as-is). Returns the resolved URL plus loading
+ * state. Storage paths are converted to signed URLs; external URLs pass through.
+ */
+export function useSignedOrDirectUrl(url: string | null | undefined) {
+  const signedPath = getSignedUrlPath(url);
+  const query = useQuery({
+    queryKey: ["signed-url", url],
+    queryFn: async () => {
+      if (!signedPath) return null;
+      const { url } = (await customFetch(signedPath)) as { url: string };
+      return url;
+    },
+    enabled: !!signedPath,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  });
+
+  const isLoading = !!signedPath && query.isLoading;
+  const resolvedUrl = signedPath ? (query.data ?? null) : (url ?? null);
+  return { url: resolvedUrl, isLoading };
+}
+
 /** Download a file via its signed URL. Opens in a new tab. */
 export function useSignedDownload(objectPath: string | null | undefined) {
   const [isFetching, setIsFetching] = useState(false);

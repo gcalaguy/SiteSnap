@@ -263,10 +263,48 @@ export default function ProjectPrintPage() {
     );
   }
 
-  const enrichedReports = (reports ?? []).map((report) => ({
-    ...report,
-    photos: (report as DailyReport & { photos?: { id: number; objectPath: string; caption?: string | null }[] }).photos ?? [],
-  }));
+  const photoSignedUrlMap = useQuery({
+    queryKey: ["project-print-photo-urls", projectId],
+    queryFn: async () => {
+      const map: Record<string, string> = {};
+      for (const report of reports ?? []) {
+        const photos = (report as DailyReport & { photos?: { id: number; objectPath: string; caption?: string | null }[] }).photos ?? [];
+        for (const photo of photos) {
+          if (!photo.objectPath || map[photo.objectPath]) continue;
+          const path = photo.objectPath.replace(/^\//, "");
+          const rest = path.startsWith("objects/")
+            ? path.replace(/^objects\//, "")
+            : path.startsWith("api/storage/objects/")
+              ? path.replace(/^api\/storage\/objects\//, "")
+              : null;
+          if (!rest) continue;
+          try {
+            const { url } = (await customFetch(`/api/storage/objects/${rest}/signed-url`)) as { url: string };
+            map[photo.objectPath] = url;
+          } catch {
+            // leave unsigned — PDF will skip this photo
+          }
+        }
+      }
+      return map;
+    },
+    enabled: !!reports && reports.length > 0 && sections.reports,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  });
+
+  const signedUrlMap = photoSignedUrlMap.data ?? {};
+
+  const enrichedReports = (reports ?? []).map((report) => {
+    const photos = (report as DailyReport & { photos?: { id: number; objectPath: string; caption?: string | null }[] }).photos ?? [];
+    return {
+      ...report,
+      photos: photos.map((p) => ({
+        ...p,
+        signedUrl: signedUrlMap[p.objectPath] ?? undefined,
+      })),
+    };
+  });
 
   const fileName = `${project.name.replace(/[^a-zA-Z0-9]/g, "_")}_Report.pdf`;
 

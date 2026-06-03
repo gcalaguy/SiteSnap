@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/dialog";
 import { useDraftRecovery } from "@/hooks/useDraftRecovery";
 import { DraftBanner } from "@/components/DraftBanner";
+import { SignedAvatar } from "@/components/SignedAvatar";
+import { SignedImage } from "@/components/SignedImage";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -57,14 +59,13 @@ function Avatar({ profile, author, size = 10 }: { profile: Post["profile"]; auth
     ? profile.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : author ? `${author.firstName[0]}${author.lastName[0]}` : "??";
   const sz = `w-${size} h-${size}`;
-  if (profile?.avatarUrl) {
-    return <img src={profile.avatarUrl} className={`${sz} rounded-full object-cover flex-shrink-0`} alt="" />;
-  }
   return (
-    <div className={`${sz} rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0`}
-      style={{ background: GOLD, color: BLACK }}>
-      {initials}
-    </div>
+    <SignedAvatar
+      url={profile?.avatarUrl}
+      sizeClass={sz}
+      initials={initials}
+      style={{ background: GOLD, color: BLACK }}
+    />
   );
 }
 
@@ -143,7 +144,7 @@ function PostCard({ post, onReact }: { post: Post; onReact: (id: number) => void
         {post.media.length > 0 && (
           <div className={`mb-3 grid gap-1.5 rounded-lg overflow-hidden ${post.media.length === 1 ? "" : "grid-cols-2"}`}>
             {post.media.slice(0, 4).map((m) => (
-              <img key={m.id} src={m.url} className="object-cover w-full aspect-video" alt="" />
+              <SignedImage key={m.id} src={m.url} alt="" className="object-cover w-full aspect-video" />
             ))}
           </div>
         )}

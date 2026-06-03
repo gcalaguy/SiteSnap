@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SignedAvatar } from "@/components/SignedAvatar";
 
 const TRADES = ["Electrician","Plumber","HVAC","General Contractor","Carpenter","Welder","Roofer","Painter","Mason","Ironworker","Concrete","Landscaping","Other"];
 const PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
@@ -119,9 +120,11 @@ export default function TradehubJobsPage() {
                   <CardContent className="p-5">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 rounded-xl bg-green-50 border border-green-100 flex items-center justify-center flex-shrink-0">
-                        {job.profile?.avatarUrl
-                          ? <img src={job.profile.avatarUrl} className="w-12 h-12 rounded-xl object-cover" alt="" />
-                          : <span className="font-bold text-green-700 text-sm">{initials}</span>}
+                        <SignedAvatar
+                          url={job.profile?.avatarUrl}
+                          sizeClass="w-12 h-12"
+                          fallback={<span className="font-bold text-green-700 text-sm">{initials}</span>}
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-foreground text-base mb-1 hover:text-primary transition-colors">

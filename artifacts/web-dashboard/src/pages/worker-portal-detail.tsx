@@ -3,6 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 import { format } from "date-fns";
 import {
   Bot,
@@ -57,6 +58,33 @@ function renderValue(field: FormField, val: any): string {
   if (val === undefined || val === null || val === "") return "—";
   if (Array.isArray(val)) return val.join(", ") || "—";
   return String(val);
+}
+
+function SignedPhotoLink({ photo }: { photo: { id: number; url: string; filename: string } }) {
+  const { data: signedUrl, isLoading } = useSignedUrl(photo.url);
+  if (isLoading) {
+    return (
+      <div className="rounded-xl aspect-square w-full bg-gray-100 flex items-center justify-center">
+        <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+  if (!signedUrl) {
+    return (
+      <div className="rounded-xl aspect-square w-full bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
+        No photo
+      </div>
+    );
+  }
+  return (
+    <a href={signedUrl} target="_blank" rel="noreferrer">
+      <img
+        src={signedUrl}
+        alt={photo.filename}
+        className="rounded-xl object-cover aspect-square w-full border border-gray-100"
+      />
+    </a>
+  );
 }
 
 export default function WorkerPortalDetailPage() {
@@ -258,13 +286,7 @@ export default function WorkerPortalDetailPage() {
           <p className="text-sm font-semibold text-gray-700 mb-2">Photos</p>
           <div className="grid grid-cols-3 gap-2">
             {submission.photos.map((p) => (
-              <a key={p.id} href={p.url} target="_blank" rel="noreferrer">
-                <img
-                  src={p.url}
-                  alt={p.filename}
-                  className="rounded-xl object-cover aspect-square w-full border border-gray-100"
-                />
-              </a>
+              <SignedPhotoLink key={p.id} photo={p} />
             ))}
           </div>
         </div>

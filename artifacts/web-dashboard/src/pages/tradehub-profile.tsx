@@ -23,6 +23,7 @@ import {
   MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2, MessageCircle, Mic,
 } from "lucide-react";
 import { VoiceRecorder, VoicePlayer } from "@/components/voice-recorder";
+import { SignedAvatar } from "@/components/SignedAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -181,9 +182,7 @@ export default function TradehubProfilePage() {
             <CardContent className="pt-6">
               <div className="flex flex-col items-center text-center mb-4">
                 <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl mb-3">
-                  {displayData.avatarUrl
-                    ? <img src={displayData.avatarUrl} className="w-20 h-20 rounded-full object-cover" alt="" />
-                    : initials}
+                  <SignedAvatar url={displayData.avatarUrl} sizeClass="w-20 h-20" initials={initials} />
                 </div>
                 <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
                   {displayData.displayName}

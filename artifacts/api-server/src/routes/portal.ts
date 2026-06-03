@@ -38,8 +38,13 @@ async function resolveToken(token: string) {
   return row ?? null;
 }
 
-function photoUrl(objectPath: string): string {
-  return `/api/storage/objects/${objectPath.replace(/^\/objects\//, "")}`;
+async function photoUrl(objectPath: string): Promise<string> {
+  const cleanPath = objectPath.replace(/^\/objects\//, "");
+  try {
+    return await objectStorageService.getObjectEntityReadURL(`/objects/${cleanPath}`, 900);
+  } catch {
+    return "";
+  }
 }
 
 // ── POST /projects/:projectId/portal/token (auth) ─────────────────────────────
@@ -248,13 +253,15 @@ router.get("/portal/:token", async (req, res) => {
     .orderBy(desc(dailyReportPhotosTable.uploadedAt))
     .limit(30);
 
-  const photos = rawPhotos.map((p) => ({
-    id: p.id,
-    url: photoUrl(p.objectPath),
-    caption: p.caption,
-    uploadedAt: p.uploadedAt,
-    reportDate: p.reportDate,
-  }));
+  const photos = await Promise.all(
+    rawPhotos.map(async (p) => ({
+      id: p.id,
+      url: await photoUrl(p.objectPath),
+      caption: p.caption,
+      uploadedAt: p.uploadedAt,
+      reportDate: p.reportDate,
+    })),
+  );
 
   // Contractor documents
   const rawDocuments = await db.select({

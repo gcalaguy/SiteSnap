@@ -5,6 +5,7 @@ import { format } from "date-fns";
 interface ReportPhoto {
   id: number;
   objectPath: string;
+  signedUrl?: string;
   caption?: string | null;
 }
 
@@ -31,10 +32,11 @@ interface DailyReportsSectionProps {
   reports: DailyReport[];
 }
 
-function photoUrl(path: string) {
-  if (!path) return "";
-  if (path.startsWith("http")) return path;
-  return path.replace(/^\/objects\//, "/api/storage/objects/");
+function photoUrl(photo: ReportPhoto) {
+  if (photo.signedUrl) return photo.signedUrl;
+  if (!photo.objectPath) return "";
+  if (photo.objectPath.startsWith("http")) return photo.objectPath;
+  return "";
 }
 
 export default function DailyReportsSection({ reports }: DailyReportsSectionProps) {
@@ -120,7 +122,7 @@ export default function DailyReportsSection({ reports }: DailyReportsSectionProp
           {report.photos && report.photos.length > 0 && (
             <View style={{ marginTop: 8, flexDirection: "row", flexWrap: "wrap" }}>
               {report.photos.slice(0, 6).map((photo) => (
-                <Image key={photo.id} src={photoUrl(photo.objectPath)} style={styles.image} />
+                <Image key={photo.id} src={photoUrl(photo)} style={styles.image} />
               ))}
               {report.photos.length > 6 && (
                 <Text style={[styles.tinyText, { alignSelf: "center" }]}>

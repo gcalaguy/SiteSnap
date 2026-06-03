@@ -18,6 +18,7 @@ import { UpdateCompanyDocumentSettingsBody } from "@workspace/api-zod";
 import { PricingSettingsBody } from "@/pages/pricing-manager";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanyFeatures } from "@/components/FeatureGuard";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
@@ -719,10 +720,7 @@ function CompanyLogoCard({ company }: { company: any }) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const logoUrl = company.logoPath
-    ? company.logoPath.replace(/^\/objects\//, "/api/storage/objects/")
-    : null;
-
+  const { data: logoUrl, isLoading: logoUrlLoading } = useSignedUrl(company.logoPath);
   const updateLogo = useUpdateCompanyLogo();
   const requestUploadUrl = useRequestUploadUrl();
 
@@ -766,7 +764,11 @@ function CompanyLogoCard({ company }: { company: any }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {logoUrl ? (
+        {logoUrlLoading ? (
+          <div className="rounded-lg border border-border bg-muted/30 p-4 flex items-center justify-center h-28">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : logoUrl ? (
           <div className="relative rounded-lg border border-border bg-muted/30 p-4 flex items-center justify-center h-28">
             <img src={logoUrl} alt="Company logo" className="max-h-20 max-w-full object-contain" />
             <button
@@ -820,11 +822,6 @@ function DocumentTemplatesCard({ company }: { company: any }) {
   const updateInvoiceTemplate = useUpdateCompanyInvoiceTemplate();
   const requestUploadUrl = useRequestUploadUrl();
 
-  function templateUrl(path: string | null | undefined) {
-    if (!path) return null;
-    return path.replace(/^\/objects\//, "/api/storage/objects/");
-  }
-
   async function handleUpload(file: File, type: "quote" | "invoice") {
     setUploadingType(type);
     try {
@@ -860,20 +857,18 @@ function DocumentTemplatesCard({ company }: { company: any }) {
     }
   }
 
-  const quoteTemplateUrl = templateUrl(company.quoteTemplatePath);
-  const invoiceTemplateUrl = templateUrl(company.invoiceTemplatePath);
-
   function TemplateSection({
     type,
-    currentUrl,
+    templatePath,
     inputRef,
   }: {
     type: "quote" | "invoice";
-    currentUrl: string | null;
+    templatePath: string | null | undefined;
     inputRef: React.RefObject<HTMLInputElement | null>;
   }) {
     const label = type === "quote" ? "Quote Template" : "Invoice Template";
     const isUploading = uploadingType === type;
+    const { data: currentUrl, isLoading: currentUrlLoading } = useSignedUrl(templatePath);
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -891,7 +886,11 @@ function DocumentTemplatesCard({ company }: { company: any }) {
             </button>
           )}
         </div>
-        {currentUrl ? (
+        {currentUrlLoading ? (
+          <div className="rounded-lg border border-border bg-muted/20 p-5 flex items-center justify-center h-20">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : currentUrl ? (
           <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
             <img src={currentUrl} alt={`${label} preview`} className="w-full max-h-28 object-cover object-top" />
           </div>
@@ -946,9 +945,9 @@ function DocumentTemplatesCard({ company }: { company: any }) {
       </button>
       {!collapsed && (
         <CardContent className="space-y-6">
-          <TemplateSection type="quote" currentUrl={quoteTemplateUrl} inputRef={quoteInputRef} />
+          <TemplateSection type="quote" templatePath={company.quoteTemplatePath} inputRef={quoteInputRef} />
           <Separator />
-          <TemplateSection type="invoice" currentUrl={invoiceTemplateUrl} inputRef={invoiceInputRef} />
+          <TemplateSection type="invoice" templatePath={company.invoiceTemplatePath} inputRef={invoiceInputRef} />
           <p className="text-xs text-muted-foreground">PNG, JPG, or WebP · max 20 MB</p>
         </CardContent>
       )}

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { SignedImage } from "@/components/SignedImage";
 import {
   FileText,
   Calendar,
@@ -206,8 +207,8 @@ function PhotoLightbox({ photos, index, onClose, onNav }: {
         className="max-w-4xl max-h-[85vh] flex flex-col items-center gap-3"
         onClick={(e) => e.stopPropagation()}
       >
-        <img
-          src={`${BASE}${photo.url}`}
+        <SignedImage
+          src={photo.url}
           alt={photo.caption ?? "Site photo"}
           className="max-h-[75vh] max-w-full object-contain rounded-lg"
         />
@@ -461,8 +462,8 @@ export default function ClientPortal() {
                     className="group relative aspect-square rounded-lg overflow-hidden bg-slate-100 hover:ring-2 hover:ring-[#D4AF37] transition-all"
                     onClick={() => setLightboxIndex(i)}
                   >
-                    <img
-                      src={`${BASE}${photo.url}`}
+                    <SignedImage
+                      src={photo.url}
                       alt={photo.caption ?? "Site photo"}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       onError={(e) => {

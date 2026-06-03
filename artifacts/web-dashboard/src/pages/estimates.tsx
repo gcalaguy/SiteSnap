@@ -874,11 +874,8 @@ export default function EstimatesPage() {
     const logoPath = (me?.company as any)?.logoPath;
     if (!logoPath) return undefined;
     try {
-      const cleanPath = logoPath.replace(/^\/objects\//, "");
-      const token = await getToken();
-      const res = await fetch(`/api/storage/objects/${cleanPath}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const { url } = await customFetch(`/api/storage/objects/${logoPath.replace(/^\/objects\//, "")}/signed-url`) as { url: string };
+      const res = await fetch(url);
       if (!res.ok) return undefined;
       const blob = await res.blob();
       return new Promise<string>((resolve, reject) => {

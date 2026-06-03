@@ -29,6 +29,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { SignedAvatar } from "@/components/SignedAvatar";
+import { SignedImage } from "@/components/SignedImage";
 import { Label } from "@/components/ui/label";
 
 const typeConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -151,9 +153,7 @@ export default function TradehubPostPage() {
           <div className="flex items-start gap-4 mb-4">
             <Link href={`/tradehub/profile/${postData.userId}`}>
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold cursor-pointer hover:opacity-80 flex-shrink-0">
-                {postData.profile?.avatarUrl
-                  ? <img src={postData.profile.avatarUrl} className="w-12 h-12 rounded-full object-cover" alt="" />
-                  : initials}
+                <SignedAvatar url={postData.profile?.avatarUrl} sizeClass="w-12 h-12" initials={initials} />
               </div>
             </Link>
             <div className="flex-1">
@@ -204,7 +204,7 @@ export default function TradehubPostPage() {
           {postData.media?.length > 0 && (
             <div className="mt-4 grid grid-cols-2 gap-2">
               {postData.media.map((m: any) => (
-                <img key={m.id} src={m.url} className="rounded-lg object-cover w-full aspect-video" alt="" />
+                <SignedImage key={m.id} src={m.url} alt="" className="rounded-lg object-cover w-full aspect-video" />
               ))}
             </div>
           )}

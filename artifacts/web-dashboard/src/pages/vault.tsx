@@ -419,15 +419,24 @@ export default function WorkerDocumentsPage() {
                 <div>
                   <p className="text-xs text-[#0A0A0A]/40">File</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <a
-                      href={signedUrl || selectedDoc.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-[#C9A84C] hover:underline break-all"
-                    >
-                      Open document
-                    </a>
-                    <Download className="w-3 h-3 text-[#C9A84C]" />
+                    {loadingSignedUrl ? (
+                      <span className="text-sm text-[#0A0A0A]/40 flex items-center gap-1.5">
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        Loading link...
+                      </span>
+                    ) : signedUrl ? (
+                      <a
+                        href={signedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-[#C9A84C] hover:underline break-all"
+                      >
+                        Open document
+                      </a>
+                    ) : (
+                      <span className="text-sm text-[#0A0A0A]/40">Preview unavailable</span>
+                    )}
+                    {signedUrl && <Download className="w-3 h-3 text-[#C9A84C]" />}
                   </div>
                 </div>
               </div>
