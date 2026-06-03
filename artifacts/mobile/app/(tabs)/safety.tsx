@@ -79,7 +79,7 @@ const QUICK_CATS = [
  * `T00:00:00` to force local-time parsing, or parse components manually.
  */
 function parseISOToLocal(value: unknown): Date {
-  if (!value || typeof value !== "string") return new Date();
+  if (typeof value !== "string" || !value.trim()) return new Date();
   // If it's a datetime string (has "T"), append zero seconds to ensure
   // local-time parsing, then strip the timezone suffix if present.
   const clean = value.replace("Z", "");
@@ -110,7 +110,8 @@ function FieldRenderer({ field, value, onChange, colors }: {
     return `${y}-${m}-${d}`;
   }, [field.type]);
 
-  const onValueChange = useCallback((_event: DateTimePickerChangeEvent, date: Date) => {
+  const onValueChange = useCallback((_event: DateTimePickerChangeEvent, date?: Date) => {
+    if (date == null) return;
     if (Platform.OS === "android") {
       setShowDatePicker(false);
       onChange(formatDateValue(date));
