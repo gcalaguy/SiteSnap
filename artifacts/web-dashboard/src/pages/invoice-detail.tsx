@@ -44,7 +44,14 @@ function imgFmt(dataUrl: string): string {
 async function loadTemplateDataUrl(objectPath: string | null | undefined): Promise<string | undefined> {
   if (!objectPath) return undefined;
   try {
-    const url = objectPath.replace(/^\/objects\//, "/api/storage/objects/");
+    const path = objectPath.replace(/^\//, "");
+    const rest = path.startsWith("objects/")
+      ? path.replace(/^objects\//, "")
+      : path.startsWith("api/storage/objects/")
+        ? path.replace(/^api\/storage\/objects\//, "")
+        : null;
+    if (!rest) return undefined;
+    const { url } = (await customFetch(`/api/storage/objects/${rest}/signed-url`)) as { url: string };
     const res = await fetch(url);
     if (!res.ok) return undefined;
     const blob = await res.blob();

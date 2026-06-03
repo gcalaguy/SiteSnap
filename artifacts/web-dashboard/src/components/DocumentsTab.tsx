@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceNoteButton } from "./VoiceNoteButton";
 import { getAiErrorMessage } from "@/hooks/useApiError";
+import { useSignedDownload } from "@/hooks/useSignedUrl";
 import {
   Upload, FileText, Image, Trash2, Sparkles, Download,
   Loader2, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
@@ -696,7 +697,6 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
           {docs.map(doc => {
             const isAnalyzing = analyzingIds.has(doc.id);
             const displayStatus: DocStatus = isAnalyzing ? "processing" : doc.status;
-            const downloadPath = doc.objectPath.replace(/^\/objects\//, "/api/storage/objects/");
             const canAnalyze = !isAnalyzing && doc.status !== "processing" && doc.status !== "processing_ocr" && doc.status !== "ready";
 
             return (
@@ -751,11 +751,7 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
                           {reindexingIds.has(doc.id) ? "Indexing…" : "Re-index for AI"}
                         </Button>
                       )}
-                      <a href={downloadPath} target="_blank" rel="noopener noreferrer">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Download">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </a>
+                      <DocDownloadButton objectPath={doc.objectPath} />
                       {isOwnerOrForeman && (
                         <Button
                           variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
@@ -782,37 +778,48 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
             <h4 className="font-semibold text-sm">Client Uploads</h4>
             <span className="text-xs bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">{clientUploads.length}</span>
           </div>
-          {clientUploads.map(upload => {
-            const downloadPath = upload.objectPath.replace(/^\/objects\//, "/api/storage/objects/");
-            return (
-              <Card key={upload.id} className="border-blue-200 bg-blue-50/30">
-                <CardContent className="p-3.5">
-                  <div className="flex items-start gap-3">
-                    <FileIcon fileType={upload.fileType} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm truncate max-w-xs">{upload.filename}</span>
-                        <Badge variant="outline" className="border-blue-300 text-blue-700 text-xs gap-1">
-                          <UserCircle className="h-3 w-3" />From Client
-                        </Badge>
-                        {formatSize(upload.fileSize) && <span className="text-xs text-muted-foreground">{formatSize(upload.fileSize)}</span>}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {format(new Date(upload.createdAt), "MMM d, yyyy 'at' h:mm a")}
-                      </p>
+          {clientUploads.map(upload => (
+            <Card key={upload.id} className="border-blue-200 bg-blue-50/30">
+              <CardContent className="p-3.5">
+                <div className="flex items-start gap-3">
+                  <FileIcon fileType={upload.fileType} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm truncate max-w-xs">{upload.filename}</span>
+                      <Badge variant="outline" className="border-blue-300 text-blue-700 text-xs gap-1">
+                        <UserCircle className="h-3 w-3" />From Client
+                      </Badge>
+                      {formatSize(upload.fileSize) && <span className="text-xs text-muted-foreground">{formatSize(upload.fileSize)}</span>}
                     </div>
-                    <a href={downloadPath} target="_blank" rel="noopener noreferrer">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </a>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {format(new Date(upload.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  <DocDownloadButton objectPath={upload.objectPath} />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+function DocDownloadButton({ objectPath }: { objectPath: string }) {
+  const { open, isFetching } = useSignedDownload(objectPath);
+  return (
+    <button
+      onClick={open}
+      disabled={isFetching}
+      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+      title="Download"
+    >
+      {isFetching ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Download className="h-4 w-4" />
+      )}
+    </button>
   );
 }

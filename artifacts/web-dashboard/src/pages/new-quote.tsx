@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, FileImage, Loader2, Settings } from "lucide-react";
 import { useDraftRecovery } from "@/hooks/useDraftRecovery";
 import { DraftBanner } from "@/components/DraftBanner";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 
 export default function NewQuote() {
   const [, setLocation] = useLocation();
@@ -57,15 +58,11 @@ export default function NewQuote() {
   );
 
   const quoteTemplatePath: string | undefined = (me as any)?.company?.quoteTemplatePath ?? undefined;
-  const templatePreviewUrl = quoteTemplatePath
-    ? quoteTemplatePath.replace(/^\/objects\//, "/api/storage/objects/")
-    : undefined;
-
   const logoPath: string | undefined = (me as any)?.company?.logoPath ?? undefined;
-  const logoPreviewUrl = logoPath
-    ? logoPath.replace(/^\/objects\//, "/api/storage/objects/")
-    : undefined;
   const companyName: string = (me as any)?.company?.name ?? "Your Company";
+
+  const { data: templatePreviewUrl, isLoading: templateLoading } = useSignedUrl(quoteTemplatePath);
+  const { data: logoPreviewUrl, isLoading: logoLoading } = useSignedUrl(logoPath);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -145,6 +142,15 @@ export default function NewQuote() {
                 </button>
               </p>
             </div>
+          ) : templateLoading ? (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border shadow-sm h-32 flex items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Loading template preview...
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {/* Default gold header preview */}
@@ -158,6 +164,10 @@ export default function NewQuote() {
                       className="object-contain"
                       style={{ maxHeight: 40, maxWidth: 140 }}
                     />
+                  ) : logoLoading ? (
+                    <div className="w-10 h-10 flex items-center justify-center">
+                      <Loader2 className="h-4 w-4 animate-spin text-white/60" />
+                    </div>
                   ) : (
                     <span className="text-white font-bold text-base tracking-wide truncate max-w-[55%]">
                       {companyName}

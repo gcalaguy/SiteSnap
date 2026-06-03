@@ -45,49 +45,60 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+import { getSignedUrlPath, useSignedUrl } from "@/hooks/useSignedUrl";
 
-function storageViewUrl(raw: string | null | undefined): string {
-  if (!raw) return "";
-  if (raw.startsWith("/objects/")) {
-    return `${BASE}${raw.replace(/^\/objects\//, "/api/storage/objects/")}`;
-  }
-  return raw;
-}
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function isLegacySignature(url: string | null | undefined): boolean {
   return !url || url === "signed://digital" || url.startsWith("file://");
 }
 
-/** Convert an imageUrl or filePath into a signed-url endpoint path. */
-function getSignedUrlPath(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const normalized = raw.replace(/^\//, "");
-  if (normalized.startsWith("objects/")) {
-    const rest = normalized.replace(/^objects\//, "");
-    return `/api/storage/objects/${rest}/signed-url`;
+function SignatureImage({ signatureUrl }: { signatureUrl: string }) {
+  const { data: signedUrl, isLoading } = useSignedUrl(signatureUrl);
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-1 h-20 w-28 border rounded-md bg-green-50">
+        <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
-  if (normalized.startsWith("api/storage/objects/")) {
-    const rest = normalized.replace(/^api\/storage\/objects\//, "");
-    return `/api/storage/objects/${rest}/signed-url`;
+  if (signedUrl && signatureUrl.endsWith(".svg")) {
+    return (
+      <div
+        className="h-20 w-28 border rounded-md bg-white flex items-center justify-center overflow-hidden"
+        dangerouslySetInnerHTML={{
+          __html: `<img src="${signedUrl}" alt="Signature" style="max-height:100%;max-width:100%;object-fit:contain;" onerror="this.parentElement.innerHTML='<div class=\\'flex flex-col items-center justify-center gap-1 h-full w-full text-green-700\\'><svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'24\\' height=\\'24\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' class=\\'text-green-600\\'><path d=\\'M22 11.08V12a10 10 0 1 1-5.93-9.14\\'/><polyline points=\\'22 4 12 14.01 9 11.01\\'/></svg><span class=\\'text-[10px] font-medium\\'>Signed</span></div>';this.style.display='none'"/>`,
+        }}
+      />
+    );
   }
-  return null;
-}
-
-/** Fetch a signed GCS URL for a private storage object. Caches for 10 min. */
-function useSignedPhotoUrl(imageUrl: string | undefined | null) {
-  const signedPath = getSignedUrlPath(imageUrl);
-  return useQuery({
-    queryKey: ["signed-photo-url", imageUrl],
-    queryFn: async () => {
-      if (!signedPath) return null;
-      const { url } = (await customFetch(signedPath)) as { url: string };
-      return url;
-    },
-    enabled: !!signedPath,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 15 * 60 * 1000,    // 15 minutes
-  });
+  if (signedUrl) {
+    return (
+      <img
+        src={signedUrl}
+        alt="Signature"
+        className="h-20 w-28 object-contain border rounded-md bg-white"
+        onError={(e) => {
+          const el = e.target as HTMLImageElement;
+          el.style.display = "none";
+          const parent = el.parentElement;
+          if (parent) {
+            parent.innerHTML = `
+              <div class="flex flex-col items-center justify-center gap-1 h-20 w-28 text-green-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span class="text-[10px] font-medium">Signed</span>
+              </div>`;
+          }
+        }}
+      />
+    );
+  }
+  return (
+    <div className="flex flex-col items-center justify-center gap-1 h-20 w-28 border rounded-md bg-green-50">
+      <CheckCircle2 className="h-6 w-6 text-green-600" />
+      <span className="text-[10px] text-green-700 font-medium">Signed</span>
+    </div>
+  );
 }
 
 /** Single photo card with signed URL fetching. */
@@ -108,24 +119,19 @@ function PhotoCard({
   handleDelete: (type: string, id: number) => void;
   handleUpdatePhoto: (id: number, data: any) => void;
 }) {
-  const { data: signedUrl, isLoading } = useSignedPhotoUrl(photo.imageUrl);
-  const imgUrl = signedUrl || storageViewUrl(photo.imageUrl);
+  const { data: signedUrl, isLoading } = useSignedUrl(photo.imageUrl);
+  const imgUrl = signedUrl || undefined;
 
   const onClick = async () => {
-    if (!imgUrl) return;
-    if (photo.imageUrl) {
-      const sp = getSignedUrlPath(photo.imageUrl);
-      if (sp) {
-        try {
-          const { url } = (await customFetch(sp)) as { url: string };
-          setLightboxUrl(url);
-          return;
-        } catch {
-          // fall back to direct URL
-        }
-      }
+    if (!photo.imageUrl) return;
+    const sp = getSignedUrlPath(photo.imageUrl);
+    if (!sp) return;
+    try {
+      const { url } = (await customFetch(sp)) as { url: string };
+      setLightboxUrl(url);
+    } catch {
+      // silently fail
     }
-    setLightboxUrl(imgUrl);
   };
 
   return (
@@ -683,31 +689,8 @@ export default function FieldLogsPage() {
                                 Signed
                               </span>
                             </div>
-                          ) : s.signatureUrl && s.signatureUrl.endsWith(".svg") ? (
-                            <div
-                              className="h-20 w-28 border rounded-md bg-white flex items-center justify-center overflow-hidden"
-                              dangerouslySetInnerHTML={{
-                                __html: `<img src="${storageViewUrl(s.signatureUrl)}" alt="Signature" style="max-height:100%;max-width:100%;object-fit:contain;" onerror="this.parentElement.innerHTML='<div class=\\'flex flex-col items-center justify-center gap-1 h-full w-full text-green-700\\'><svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'24\\' height=\\'24\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' class=\\'text-green-600\\'><path d=\\'M22 11.08V12a10 10 0 1 1-5.93-9.14\\'/><polyline points=\\'22 4 12 14.01 9 11.01\\'/></svg><span class=\\'text-[10px] font-medium\\'>Signed</span></div>';this.style.display='none'"/>`,
-                              }}
-                            />
                           ) : s.signatureUrl ? (
-                            <img
-                              src={storageViewUrl(s.signatureUrl)}
-                              alt="Signature"
-                              className="h-20 w-28 object-contain border rounded-md bg-white"
-                              onError={(e) => {
-                                const el = e.target as HTMLImageElement;
-                                el.style.display = "none";
-                                const parent = el.parentElement;
-                                if (parent) {
-                                  parent.innerHTML = `
-                                    <div class="flex flex-col items-center justify-center gap-1 h-20 w-28 text-green-700">
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                                      <span class="text-[10px] font-medium">Signed</span>
-                                    </div>`;
-                                }
-                              }}
-                            />
+                            <SignatureImage signatureUrl={s.signatureUrl} />
                           ) : null}
                           {isOwner && (
                             <div className="flex items-center gap-1">

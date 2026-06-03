@@ -1274,26 +1274,9 @@ export default function ProjectDetail() {
                             <div>
                               <p className="text-xs font-semibold text-foreground mb-2">Site Photos</p>
                               <div className="flex flex-wrap gap-2">
-                                {photos.map((photo: any) => {
-                                  const src = photo.objectPath.replace(/^\/objects\//, "/api/storage/objects/");
-                                  return (
-                                    <a
-                                      key={photo.id}
-                                      href={src}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="block"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <img
-                                        src={src}
-                                        alt={photo.caption ?? "Site photo"}
-                                        className="h-24 w-24 object-cover rounded-md border border-border hover:opacity-80 transition-opacity"
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                      />
-                                    </a>
-                                  );
-                                })}
+                                {photos.map((photo: any) => (
+                                  <PhotoThumbnail key={photo.id} photo={photo} />
+                                ))}
                               </div>
                             </div>
                           )}
@@ -1313,18 +1296,9 @@ export default function ProjectDetail() {
                         <>
                           {photos.length > 0 && (
                             <div className="mt-3 flex flex-wrap gap-2">
-                              {photos.slice(0, 3).map((photo: any) => {
-                                const src = photo.objectPath.replace(/^\/objects\//, "/api/storage/objects/");
-                                return (
-                                  <img
-                                    key={photo.id}
-                                    src={src}
-                                    alt={photo.caption ?? "Site photo"}
-                                    className="h-16 w-16 object-cover rounded-md border border-border opacity-80"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                  />
-                                );
-                              })}
+                              {photos.slice(0, 3).map((photo: any) => (
+                                <PhotoThumbnail key={photo.id} photo={photo} compact />
+                              ))}
                               {photos.length > 3 && (
                                 <div className="h-16 w-16 rounded-md border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground font-medium">
                                   +{photos.length - 3}
@@ -2111,5 +2085,59 @@ export default function ProjectDetail() {
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+/** Photo thumbnail that fetches a signed URL before rendering.
+ *  Ensures private-storage images never hit the server with raw paths.
+ */
+function PhotoThumbnail({ photo, compact }: { photo: any; compact?: boolean }) {
+  const { data: signedUrl, isLoading } = useQuery({
+    queryKey: ["signed-photo-url", photo.objectPath],
+    queryFn: async () => {
+      const path = photo.objectPath?.replace(/^\//, "");
+      if (!path) return null;
+      const rest = path.startsWith("objects/")
+        ? path.replace(/^objects\//, "")
+        : path.startsWith("api/storage/objects/")
+          ? path.replace(/^api\/storage\/objects\//, "")
+          : null;
+      if (!rest) return null;
+      const { url } = (await customFetch(`/api/storage/objects/${rest}/signed-url`)) as { url: string };
+      return url;
+    },
+    enabled: !!photo.objectPath,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  });
+
+  const sizeClass = compact ? "h-16 w-16" : "h-24 w-24";
+
+  if (isLoading) {
+    return (
+      <div className={`${sizeClass} rounded-md border border-border bg-muted flex items-center justify-center`}>
+        <div className="w-4 h-4 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!signedUrl) {
+    return (
+      <div className={`${sizeClass} rounded-md border border-border bg-muted flex items-center justify-center text-[10px] text-muted-foreground`}>
+        No photo
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={signedUrl}
+      alt={photo.caption ?? "Site photo"}
+      className={`${sizeClass} object-cover rounded-md border border-border opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
+      onClick={(e) => {
+        e.stopPropagation();
+        window.open(signedUrl, "_blank", "noopener,noreferrer");
+      }}
+    />
   );
 }

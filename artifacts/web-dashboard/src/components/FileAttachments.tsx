@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
+import { useSignedDownload } from "@/hooks/useSignedUrl";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,8 +28,6 @@ import {
   Download,
 } from "lucide-react";
 import { format } from "date-fns";
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type FileAttachment = {
   id: number;
@@ -165,10 +164,6 @@ export default function FileAttachments({ entityType, entityId, readOnly = false
     }
   }
 
-  function getDownloadUrl(objectPath: string) {
-    return `${BASE}/api/storage/objects${objectPath.replace(/^\/objects/, "")}`;
-  }
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -235,16 +230,7 @@ export default function FileAttachments({ entityType, entityId, readOnly = false
                 </p>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
-                <a
-                  href={getDownloadUrl(f.objectPath)}
-                  download={f.fileName}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
-                  title="Download"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </a>
+                <DownloadButton objectPath={f.objectPath} fileName={f.fileName} />
                 {!readOnly && (
                   <button
                     onClick={() => setDeleteId(f.id)}
@@ -280,5 +266,23 @@ export default function FileAttachments({ entityType, entityId, readOnly = false
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function DownloadButton({ objectPath, fileName }: { objectPath: string; fileName: string }) {
+  const { open, isFetching } = useSignedDownload(objectPath);
+  return (
+    <button
+      onClick={open}
+      disabled={isFetching}
+      className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+      title="Download"
+    >
+      {isFetching ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Download className="h-3.5 w-3.5" />
+      )}
+    </button>
   );
 }
