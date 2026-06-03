@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   Modal,
 } from "react-native";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import DateTimePicker, { DateTimePickerChangeEvent } from "@react-native-community/datetimepicker";
 import { Feather } from "@expo/vector-icons";
 import { customFetch, useGetMe, useListQuotes, getListTimesheetsQueryKey } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -208,13 +208,17 @@ export function HoursTab({ projectId }: { projectId: number }) {
   }, [me?.id, isPrivileged]);
 
   // Date picker handlers
-  const onDateChange = useCallback((_event: DateTimePickerEvent, date?: Date) => {
+  const onValueChange = useCallback((_event: DateTimePickerChangeEvent, date: Date) => {
     if (Platform.OS === "android") {
       setShowDatePicker(false);
-      if (_event.type === "set" && date) setSelectedDate(date);
+      setSelectedDate(date);
     } else {
-      if (date) setTempDate(date);
+      setTempDate(date);
     }
+  }, []);
+
+  const onDismiss = useCallback(() => {
+    setShowDatePicker(false);
   }, []);
 
   const confirmIOSDate = useCallback(() => {
@@ -332,7 +336,8 @@ export function HoursTab({ projectId }: { projectId: number }) {
                 mode="date"
                 display="default"
                 themeVariant="dark"
-                onChange={onDateChange}
+                onValueChange={onValueChange}
+                onDismiss={onDismiss}
                 maximumDate={new Date()}
               />
             )}
@@ -361,7 +366,8 @@ export function HoursTab({ projectId }: { projectId: number }) {
                       mode="date"
                       display="spinner"
                       themeVariant="dark"
-                      onChange={onDateChange}
+                      onValueChange={onValueChange}
+                      onDismiss={onDismiss}
                       maximumDate={new Date()}
                       style={{ width: "100%" }}
                     />

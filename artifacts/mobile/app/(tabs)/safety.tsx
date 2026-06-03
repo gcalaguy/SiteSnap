@@ -21,7 +21,7 @@ import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import * as Haptics from "expo-haptics";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import DateTimePicker, { DateTimePickerChangeEvent } from "@react-native-community/datetimepicker";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -78,8 +78,8 @@ const QUICK_CATS = [
  * shifts to the wrong local date in timezones west of GMT. We append
  * `T00:00:00` to force local-time parsing, or parse components manually.
  */
-function parseISOToLocal(value: string): Date {
-  if (!value) return new Date();
+function parseISOToLocal(value: unknown): Date {
+  if (!value || typeof value !== "string") return new Date();
   // If it's a datetime string (has "T"), append zero seconds to ensure
   // local-time parsing, then strip the timezone suffix if present.
   const clean = value.replace("Z", "");
@@ -110,14 +110,18 @@ function FieldRenderer({ field, value, onChange, colors }: {
     return `${y}-${m}-${d}`;
   }, [field.type]);
 
-  const onDateChange = useCallback((_event: DateTimePickerEvent, date?: Date) => {
+  const onValueChange = useCallback((_event: DateTimePickerChangeEvent, date: Date) => {
     if (Platform.OS === "android") {
       setShowDatePicker(false);
-      if (_event.type === "set" && date) onChange(formatDateValue(date));
-    } else if (date) {
+      onChange(formatDateValue(date));
+    } else {
       setTempDate(date);
     }
   }, [formatDateValue, onChange]);
+
+  const onDismiss = useCallback(() => {
+    setShowDatePicker(false);
+  }, []);
 
   if (field.type === "textarea") {
     return (
@@ -159,7 +163,8 @@ function FieldRenderer({ field, value, onChange, colors }: {
             mode={isDateTime ? "datetime" : "date"}
             display="default"
             themeVariant="dark"
-            onChange={onDateChange}
+            onValueChange={onValueChange}
+            onDismiss={onDismiss}
           />
         )}
 
@@ -187,7 +192,8 @@ function FieldRenderer({ field, value, onChange, colors }: {
                   mode={isDateTime ? "datetime" : "date"}
                   display="spinner"
                   themeVariant="dark"
-                  onChange={onDateChange}
+                  onValueChange={onValueChange}
+                  onDismiss={onDismiss}
                   style={{ width: "100%" }}
                 />
               </View>
