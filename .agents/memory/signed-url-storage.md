@@ -8,7 +8,8 @@ description: How to display images from private GCS storage when direct auth URL
 **Solution:** Use the signed URL endpoint `GET /api/storage/objects/{path}/signed-url` which returns a temporary GCS signed URL (15-minute expiry). This URL is unauthenticated — the browser or image component can load it directly.
 
 **Architecture:**
-- API endpoint: `GET /api/storage/objects/:path/signed-url` in `storage.ts` (lines 211-292)
+- API endpoint: `GET /api/storage/objects/*path/signed-url` in `storage.ts` — note the wildcard `*path` (not `:path`) which matches multi-segment paths like `uploads/uuid-xxx`
+- **Critical:** The signed-url route must be mounted BEFORE the general `*path` wildcard route in the Express router, or it will be shadowed by the more generic catch-all route
 - Ownership verification: checks all storage tables (fileAttachments, projectDocuments, workerDocuments, sitePhotos, dailyReportPhotos)
 - Backend uses `getSignedURL` from Replit object storage sidecar
 - Client fetches signed URL via `customFetch` (Bearer token attached), then uses the returned URL for the actual image
