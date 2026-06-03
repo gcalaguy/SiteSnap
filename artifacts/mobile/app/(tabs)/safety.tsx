@@ -72,25 +72,41 @@ const QUICK_CATS = [
   { key: "toolbox", label: "Toolbox Talk",    ...CAT_COLORS.toolbox,  icon: "tool" },
 ];
 
+/**
+ * Parse an ISO date/datetime string into a local Date object without
+ * UTC offset bugs. `new Date("2025-06-04")` parses as UTC midnight, which
+ * shifts to the wrong local date in timezones west of GMT. We append
+ * `T00:00:00` to force local-time parsing, or parse components manually.
+ */
+function parseISOToLocal(value: string): Date {
+  if (!value) return new Date();
+  // If it's a datetime string (has "T"), append zero seconds to ensure
+  // local-time parsing, then strip the timezone suffix if present.
+  const clean = value.replace("Z", "");
+  if (clean.includes("T")) {
+    return new Date(clean + ":00");
+  }
+  // Date-only: force local time by appending T00:00:00
+  return new Date(clean + "T00:00:00");
+}
+
 // ── Field renderer ─────────────────────────────────────────────────────────────
 
 function FieldRenderer({ field, value, onChange, colors }: {
   field: FormField; value: any; onChange: (v: any) => void; colors: any;
 }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tempDate, setTempDate] = useState<Date>(value ? new Date(value) : new Date());
+  const [tempDate, setTempDate] = useState<Date>(value ? parseISOToLocal(value) : new Date());
+
   const formatDateValue = useCallback((date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
     if (field.type === "datetime-local") {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, "0");
-      const d = String(date.getDate()).padStart(2, "0");
       const h = String(date.getHours()).padStart(2, "0");
       const min = String(date.getMinutes()).padStart(2, "0");
       return `${y}-${m}-${d}T${h}:${min}`;
     }
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
   }, [field.type]);
 
@@ -119,19 +135,20 @@ function FieldRenderer({ field, value, onChange, colors }: {
   }
 
   if (field.type === "date" || field.type === "datetime-local") {
+    const isDateTime = field.type === "datetime-local";
     const displayValue = value ? String(value) : "";
     return (
       <>
         <Pressable
           onPress={() => {
-            setTempDate(displayValue ? new Date(displayValue) : new Date());
+            setTempDate(displayValue ? parseISOToLocal(displayValue) : new Date());
             setShowDatePicker(true);
           }}
           style={[styles.dateField, { backgroundColor: colors.background, borderColor: colors.border }]}
         >
           <Feather name="calendar" size={15} color={colors.primary} />
           <Text style={[styles.dateFieldText, { color: displayValue ? colors.foreground : colors.mutedForeground }]}>
-            {displayValue || (field.type === "datetime-local" ? "Select date & time" : "Select date")}
+            {displayValue || (isDateTime ? "Select date & time" : "Select date")}
           </Text>
           <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
         </Pressable>
@@ -139,8 +156,9 @@ function FieldRenderer({ field, value, onChange, colors }: {
         {showDatePicker && Platform.OS === "android" && (
           <DateTimePicker
             value={tempDate}
-            mode="date"
+            mode={isDateTime ? "datetime" : "date"}
             display="default"
+            themeVariant="dark"
             onChange={onDateChange}
           />
         )}
@@ -153,7 +171,7 @@ function FieldRenderer({ field, value, onChange, colors }: {
                   <Pressable onPress={() => setShowDatePicker(false)} hitSlop={8}>
                     <Text style={[styles.modalCancel, { color: colors.mutedForeground }]}>Cancel</Text>
                   </Pressable>
-                  <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select Date</Text>
+                  <Text style={[styles.modalTitle, { color: colors.foreground }]}>{isDateTime ? "Select Date & Time" : "Select Date"}</Text>
                   <Pressable
                     onPress={() => {
                       onChange(formatDateValue(tempDate));
@@ -166,8 +184,9 @@ function FieldRenderer({ field, value, onChange, colors }: {
                 </View>
                 <DateTimePicker
                   value={tempDate}
-                  mode="date"
+                  mode={isDateTime ? "datetime" : "date"}
                   display="spinner"
+                  themeVariant="dark"
                   onChange={onDateChange}
                   style={{ width: "100%" }}
                 />
