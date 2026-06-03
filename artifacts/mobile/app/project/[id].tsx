@@ -27,7 +27,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Image,
   Linking,
   Modal,
   Platform,
@@ -45,13 +44,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
-
-function photoUrl(objectPath: string): string {
-  const base = process.env.EXPO_PUBLIC_DOMAIN
-    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-    : "";
-  return `${base}${objectPath.replace(/^\/objects\//, "/api/storage/objects/")}`;
-}
+import { PhotoThumbnail, PhotoLightbox } from "@/components/PhotoThumbnail";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "#22C55E",
@@ -223,22 +216,14 @@ function ReportRow({ report }: { report: any }) {
                   </Text>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
-                  {photos.map((photo: any) => {
-                    const uri = photoUrl(photo.objectPath);
-                    return (
-                      <Pressable
-                        key={photo.id}
-                        onPress={() => setLightboxPhoto(uri)}
-                        style={{ marginRight: 8 }}
-                      >
-                        <Image
-                          source={{ uri }}
-                          style={{ width: 80, height: 80, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}
-                          resizeMode="cover"
-                        />
-                      </Pressable>
-                    );
-                  })}
+                  {photos.map((photo: any) => (
+                    <PhotoThumbnail
+                      key={photo.id}
+                      objectPath={photo.objectPath}
+                      size={80}
+                      onPress={() => setLightboxPhoto(photo.objectPath)}
+                    />
+                  ))}
                 </ScrollView>
               </View>
             )}
@@ -261,23 +246,11 @@ function ReportRow({ report }: { report: any }) {
       </View>
 
       {/* Fullscreen photo lightbox */}
-      <Modal visible={lightboxPhoto !== null} transparent animationType="fade" onRequestClose={() => setLightboxPhoto(null)}>
-        <Pressable
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", alignItems: "center", justifyContent: "center" }}
-          onPress={() => setLightboxPhoto(null)}
-        >
-          {lightboxPhoto && (
-            <Image
-              source={{ uri: lightboxPhoto }}
-              style={{ width: "95%", height: "75%", borderRadius: 10 }}
-              resizeMode="contain"
-            />
-          )}
-          <View style={{ position: "absolute", top: 52, right: 20 }}>
-            <Feather name="x" size={28} color="#fff" />
-          </View>
-        </Pressable>
-      </Modal>
+      <PhotoLightbox
+        objectPath={lightboxPhoto}
+        visible={lightboxPhoto !== null}
+        onClose={() => setLightboxPhoto(null)}
+      />
 
       {/* Expand chevron */}
       <Feather

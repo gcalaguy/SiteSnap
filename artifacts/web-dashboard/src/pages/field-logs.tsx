@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   useListDailyLogs,
   useListSitePhotos,
@@ -8,6 +9,7 @@ import {
   getListDailyLogsQueryKey,
   getListSitePhotosQueryKey,
   getListSafetySignoffsQueryKey,
+  customFetch,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import {
@@ -55,6 +57,190 @@ function storageViewUrl(raw: string | null | undefined): string {
 
 function isLegacySignature(url: string | null | undefined): boolean {
   return !url || url === "signed://digital" || url.startsWith("file://");
+}
+
+/** Convert an imageUrl or filePath into a signed-url endpoint path. */
+function getSignedUrlPath(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const normalized = raw.replace(/^\//, "");
+  if (normalized.startsWith("objects/")) {
+    const rest = normalized.replace(/^objects\//, "");
+    return `/api/storage/objects/${rest}/signed-url`;
+  }
+  if (normalized.startsWith("api/storage/objects/")) {
+    const rest = normalized.replace(/^api\/storage\/objects\//, "");
+    return `/api/storage/objects/${rest}/signed-url`;
+  }
+  return null;
+}
+
+/** Fetch a signed GCS URL for a private storage object. Caches for 10 min. */
+function useSignedPhotoUrl(imageUrl: string | undefined | null) {
+  const signedPath = getSignedUrlPath(imageUrl);
+  return useQuery({
+    queryKey: ["signed-photo-url", imageUrl],
+    queryFn: async () => {
+      if (!signedPath) return null;
+      const { url } = (await customFetch(signedPath)) as { url: string };
+      return url;
+    },
+    enabled: !!signedPath,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 15 * 60 * 1000,    // 15 minutes
+  });
+}
+
+/** Single photo card with signed URL fetching. */
+function PhotoCard({
+  photo,
+  isOwner,
+  editingPhotoId,
+  setEditingPhotoId,
+  setLightboxUrl,
+  handleDelete,
+  handleUpdatePhoto,
+}: {
+  photo: any;
+  isOwner: boolean;
+  editingPhotoId: number | null;
+  setEditingPhotoId: (id: number | null) => void;
+  setLightboxUrl: (url: string | null) => void;
+  handleDelete: (type: string, id: number) => void;
+  handleUpdatePhoto: (id: number, data: any) => void;
+}) {
+  const { data: signedUrl, isLoading } = useSignedPhotoUrl(photo.imageUrl);
+  const imgUrl = signedUrl || storageViewUrl(photo.imageUrl);
+
+  const onClick = async () => {
+    if (!imgUrl) return;
+    if (photo.imageUrl) {
+      const sp = getSignedUrlPath(photo.imageUrl);
+      if (sp) {
+        try {
+          const { url } = (await customFetch(sp)) as { url: string };
+          setLightboxUrl(url);
+          return;
+        } catch {
+          // fall back to direct URL
+        }
+      }
+    }
+    setLightboxUrl(imgUrl);
+  };
+
+  return (
+    <Card
+      className="border-[#D4AF37]/10 overflow-hidden cursor-pointer group"
+      onClick={onClick}
+    >
+      <div className="aspect-square bg-gray-100 relative overflow-hidden">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-full w-full text-muted-foreground text-xs gap-1">
+            <div className="w-6 h-6 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+            <span>Loading...</span>
+          </div>
+        ) : imgUrl ? (
+          <img
+            src={imgUrl}
+            alt="Site photo"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+              const parent = (e.target as HTMLImageElement).parentElement;
+              if (parent) {
+                parent.innerHTML = `
+                  <div class="flex flex-col items-center justify-center h-full w-full text-muted-foreground text-xs gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                    Photo unavailable
+                  </div>`;
+              }
+            }}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full w-full text-muted-foreground text-xs gap-1">
+            <Camera className="h-6 w-6" />
+            <span>No image URL</span>
+          </div>
+        )}
+        {photo.markupData && (
+          <Badge className="absolute top-2 right-2 bg-[#D4AF37] text-white text-[10px]">
+            Marked up
+          </Badge>
+        )}
+        {isOwner && (
+          <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingPhotoId(photo.id);
+              }}
+              className="p-1 rounded bg-white/90 hover:bg-white shadow text-[#D4AF37]"
+              title="Edit"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete("photo", photo.id);
+              }}
+              className="p-1 rounded bg-white/90 hover:bg-white shadow text-red-500"
+              title="Delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+      <CardContent className="p-3">
+        {editingPhotoId === photo.id ? (
+          <div className="space-y-2">
+            <Input
+              defaultValue={photo.roomLocation || ""}
+              placeholder="Room / Location"
+              className="text-xs border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
+              data-photo-id={photo.id}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const val = (e.target as HTMLInputElement).value;
+                  handleUpdatePhoto(photo.id, { roomLocation: val });
+                }
+              }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const el = document.querySelector(
+                    `[data-photo-id="${photo.id}"]`
+                  ) as HTMLInputElement;
+                  if (el) handleUpdatePhoto(photo.id, { roomLocation: el.value });
+                }}
+                className="px-2 py-1 text-[10px] rounded bg-[#D4AF37] text-white hover:bg-[#C9A02F]"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditingPhotoId(null)}
+                className="px-2 py-1 text-[10px] rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-0.5">
+            <p className="text-xs font-medium text-[#0A0A0A]">
+              {photo.roomLocation || "Untitled"}
+            </p>
+            <p className="text-[10px] text-[#0A0A0A]/50">
+              {format(new Date(photo.createdAt), "MMM d, h:mm a")}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 /** Owner-only inline edit form for a daily log. */
@@ -384,119 +570,18 @@ export default function FieldLogsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {photos.map((photo) => {
-                const imgUrl = storageViewUrl(photo.imageUrl);
-                return (
-                  <Card
-                    key={photo.id}
-                    className="border-[#D4AF37]/10 overflow-hidden cursor-pointer group"
-                    onClick={() => imgUrl && setLightboxUrl(imgUrl)}
-                  >
-                    <div className="aspect-square bg-gray-100 relative overflow-hidden">
-                      {imgUrl ? (
-                        <img
-                          src={imgUrl}
-                          alt="Site photo"
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                            const parent = (e.target as HTMLImageElement)
-                              .parentElement;
-                            if (parent) {
-                              parent.innerHTML = `
-                                <div class="flex flex-col items-center justify-center h-full w-full text-muted-foreground text-xs gap-1">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-                                  Photo unavailable
-                                </div>`;
-                            }
-                          }}
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full w-full text-muted-foreground text-xs gap-1">
-                          <Camera className="h-6 w-6" />
-                          <span>No image URL</span>
-                        </div>
-                      )}
-                      {photo.markupData && (
-                        <Badge className="absolute top-2 right-2 bg-[#D4AF37] text-white text-[10px]">
-                          Marked up
-                        </Badge>
-                      )}
-                      {isOwner && (
-                        <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingPhotoId(photo.id);
-                            }}
-                            className="p-1 rounded bg-white/90 hover:bg-white shadow text-[#D4AF37]"
-                            title="Edit"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete("photo", photo.id);
-                            }}
-                            className="p-1 rounded bg-white/90 hover:bg-white shadow text-red-500"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <CardContent className="p-3">
-                      {editingPhotoId === photo.id ? (
-                        <div className="space-y-2">
-                          <Input
-                            defaultValue={photo.roomLocation || ""}
-                            placeholder="Room / Location"
-                            className="text-xs border-[#D4AF37]/20 focus-visible:ring-[#D4AF37]"
-                            data-photo-id={photo.id}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                const val = (e.target as HTMLInputElement).value;
-                                handleUpdatePhoto(photo.id, { roomLocation: val });
-                              }
-                            }}
-                          />
-                          <div className="flex gap-2 justify-end">
-                            <button
-                              onClick={() => setEditingPhotoId(null)}
-                              className="px-2 py-1 text-[10px] rounded border border-[#D4AF37]/20"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={() => {
-                                const input = document.querySelector(`[data-photo-id="${photo.id}"]`) as HTMLInputElement;
-                                handleUpdatePhoto(photo.id, { roomLocation: input?.value || "" });
-                              }}
-                              className="px-2 py-1 text-[10px] rounded bg-[#D4AF37] text-white"
-                            >
-                              Save
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3" />
-                            {photo.roomLocation || "No location"}
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            {format(new Date(photo.createdAt), "MMM d, h:mm a")}
-                          </p>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {photos.map((photo) => (
+                <PhotoCard
+                  key={photo.id}
+                  photo={photo}
+                  isOwner={isOwner}
+                  editingPhotoId={editingPhotoId}
+                  setEditingPhotoId={setEditingPhotoId}
+                  setLightboxUrl={setLightboxUrl}
+                  handleDelete={handleDelete}
+                  handleUpdatePhoto={handleUpdatePhoto}
+                />
+              ))}
             </div>
           )}
         </TabsContent>

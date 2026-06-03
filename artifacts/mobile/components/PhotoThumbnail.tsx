@@ -44,13 +44,14 @@ export function PhotoThumbnail({ objectPath, size = 80, onPress }: PhotoThumbnai
 }
 
 interface PhotoLightboxProps {
-  signedUrl: string | null;
+  objectPath: string | null;
   visible: boolean;
   onClose: () => void;
 }
 
-export function PhotoLightbox({ signedUrl, visible, onClose }: PhotoLightboxProps) {
+export function PhotoLightbox({ objectPath, visible, onClose }: PhotoLightboxProps) {
   const [loading, setLoading] = useState(true);
+  const { signedUrl, isLoading } = useSignedPhotoUrl(objectPath);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -58,7 +59,9 @@ export function PhotoLightbox({ signedUrl, visible, onClose }: PhotoLightboxProp
         style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", alignItems: "center", justifyContent: "center" }}
         onPress={onClose}
       >
-        {signedUrl && (
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#fff" />
+        ) : signedUrl ? (
           <>
             {loading && (
               <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
@@ -72,6 +75,10 @@ export function PhotoLightbox({ signedUrl, visible, onClose }: PhotoLightboxProp
               onLoad={() => setLoading(false)}
             />
           </>
+        ) : (
+          <View style={{ alignItems: "center" }}>
+            <Feather name="image" size={48} color="rgba(255,255,255,0.4)" />
+          </View>
         )}
         <View style={{ position: "absolute", top: 52, right: 20 }}>
           <Feather name="x" size={28} color="#fff" />
