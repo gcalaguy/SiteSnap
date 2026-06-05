@@ -879,19 +879,21 @@ function EstimateBuilder({
       </div>
 
       {/* Line items table */}
-      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #E5E5E5" }}>
+      <div className="rounded-xl" style={{ border: "1px solid #E5E5E5" }}>
         {/* Header */}
-        <div
-          className="grid text-xs font-bold uppercase tracking-wide px-3 py-2.5"
-          style={{ gridTemplateColumns: "1fr 80px 100px 70px 80px 80px 32px", background: BLACK, color: "#aaa" }}
-        >
-          <span>Item</span>
-          <span className="text-right">Qty</span>
-          <span className="text-right">Unit Cost</span>
-          <span className="text-right">Margin %</span>
-          <span className="text-right">Total Cost</span>
-          <span className="text-right" style={{ color: GOLD }}>Revenue</span>
-          <span />
+        <div className="flex items-center justify-between px-3 py-2.5 gap-2 rounded-t-xl" style={{ background: BLACK }}>
+          <div className="flex items-center text-xs font-bold uppercase tracking-wide gap-2 flex-1" style={{ color: "#aaa" }}>
+            <span className="flex-1 min-w-0">Item</span>
+            <span className="w-12 text-right shrink-0">Qty</span>
+            <span className="w-16 text-right shrink-0">Cost</span>
+            <span className="w-12 text-right shrink-0">Margin</span>
+            <span className="w-16 text-right shrink-0">Total</span>
+            <span className="w-16 text-right shrink-0" style={{ color: GOLD }}>Revenue</span>
+            <span className="w-8 shrink-0" />
+          </div>
+          <Button size="sm" variant="outline" onClick={addItem} disabled={isAdding} className="text-xs border-gray-600 text-white hover:bg-white/10 hover:text-white" style={{ background: "transparent" }}>
+            {isAdding ? <Loader2 size={12} className="animate-spin" /> : <><Plus size={12} /> Add Item</>}
+          </Button>
         </div>
 
         {/* Rows */}
@@ -900,32 +902,27 @@ function EstimateBuilder({
         ) : items.map((item) => {
           const { cost, revenue } = calcItem(item);
           return (
-            <div
-              key={item.id}
-              className="grid items-center px-3 py-2 bg-white hover:bg-gray-50 border-b border-gray-100"
-              style={{ gridTemplateColumns: "1fr 80px 100px 70px 80px 80px 32px" }}
-            >
-              {/* Name */}
-              <div>
+            <div key={item.id} className="flex items-center px-3 py-2 bg-white hover:bg-gray-50 border-b border-gray-100 gap-2">
+              {/* Name + Description */}
+              <div className="flex-1 min-w-0">
                 {editRow?.id === item.id && editRow.field === "name" ? (
-                  <Input
-                    className="h-7 text-sm"
-                    autoFocus
-                    value={editVal}
-                    onChange={(e) => setEditVal(e.target.value)}
-                    onBlur={() => updateItemField(item, "name", editVal)}
-                    onKeyDown={(e) => { if (e.key === "Enter") updateItemField(item, "name", editVal); if (e.key === "Escape") setEditRow(null); }}
-                  />
+                  <Input className="h-7 text-sm" autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => updateItemField(item, "name", editVal)} onKeyDown={(e) => { if (e.key === "Enter") updateItemField(item, "name", editVal); if (e.key === "Escape") setEditRow(null); }} />
+                ) : editRow?.id === item.id && editRow.field === "description" ? (
+                  <Input className="h-7 text-sm" autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => updateItemField(item, "description", editVal)} onKeyDown={(e) => { if (e.key === "Enter") updateItemField(item, "description", editVal); if (e.key === "Escape") setEditRow(null); }} />
                 ) : (
                   <div className="cursor-pointer" onClick={() => { setEditRow({ id: item.id, field: "name" }); setEditVal(item.name); }}>
-                    <p className="text-sm font-medium">{item.name}</p>
-                    {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
+                    <p className="text-sm font-medium truncate">{item.name}</p>
+                    {item.description ? (
+                      <p className="text-xs text-muted-foreground truncate" onClick={(e) => { e.stopPropagation(); setEditRow({ id: item.id, field: "description" }); setEditVal(item.description || ""); }}>{item.description}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground/50 italic" onClick={(e) => { e.stopPropagation(); setEditRow({ id: item.id, field: "description" }); setEditVal(""); }}>Click to add description</p>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Qty */}
-              <div className="text-right">
+              <div className="w-12 text-right shrink-0">
                 {editRow?.id === item.id && editRow.field === "quantity" ? (
                   <Input className="h-7 text-sm text-right w-full" autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => updateItemField(item, "quantity", editVal)} onKeyDown={(e) => { if (e.key === "Enter") updateItemField(item, "quantity", editVal); if (e.key === "Escape") setEditRow(null); }} />
                 ) : (
@@ -934,7 +931,7 @@ function EstimateBuilder({
               </div>
 
               {/* Unit cost */}
-              <div className="text-right">
+              <div className="w-16 text-right shrink-0">
                 {editRow?.id === item.id && editRow.field === "unitCost" ? (
                   <Input className="h-7 text-sm text-right w-full" autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => updateItemField(item, "unitCost", editVal)} onKeyDown={(e) => { if (e.key === "Enter") updateItemField(item, "unitCost", editVal); if (e.key === "Escape") setEditRow(null); }} />
                 ) : (
@@ -943,7 +940,7 @@ function EstimateBuilder({
               </div>
 
               {/* Margin */}
-              <div className="text-right">
+              <div className="w-12 text-right shrink-0">
                 {editRow?.id === item.id && editRow.field === "margin" ? (
                   <Input className="h-7 text-sm text-right w-full" autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => updateItemField(item, "margin", editVal)} onKeyDown={(e) => { if (e.key === "Enter") updateItemField(item, "margin", editVal); if (e.key === "Escape") setEditRow(null); }} />
                 ) : (
@@ -952,13 +949,13 @@ function EstimateBuilder({
               </div>
 
               {/* Total cost */}
-              <div className="text-right text-sm text-muted-foreground">{cad(cost)}</div>
+              <div className="w-16 text-right shrink-0 text-sm text-muted-foreground">{cad(cost)}</div>
 
               {/* Revenue */}
-              <div className="text-right text-sm font-semibold" style={{ color: GOLD }}>{cad(revenue)}</div>
+              <div className="w-16 text-right shrink-0 text-sm font-semibold" style={{ color: GOLD }}>{cad(revenue)}</div>
 
               {/* Delete */}
-              <div className="flex justify-end">
+              <div className="w-8 shrink-0 flex justify-end">
                 <button onClick={() => deleteItem(item.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                   <Trash2 size={13} />
                 </button>
@@ -969,14 +966,12 @@ function EstimateBuilder({
 
         {/* Add row */}
         <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 space-y-2">
-          <div className="grid items-center gap-1" style={{ gridTemplateColumns: "1fr 80px 100px 70px 80px 80px 64px" }}>
-            <Input className="h-7 text-sm" placeholder="Item name…" value={addRow.name} onChange={(e) => setAddRow((r) => ({ ...r, name: e.target.value }))} onKeyDown={(e) => e.key === "Enter" && addItem()} />
-            <Input className="h-7 text-sm text-right" placeholder="Qty" value={addRow.quantity} onChange={(e) => setAddRow((r) => ({ ...r, quantity: e.target.value }))} />
-            <Input className="h-7 text-sm text-right" placeholder="Unit cost" value={addRow.unitCost} onChange={(e) => setAddRow((r) => ({ ...r, unitCost: e.target.value }))} />
-            <Input className="h-7 text-sm text-right" placeholder="%" value={addRow.margin} onChange={(e) => setAddRow((r) => ({ ...r, margin: e.target.value }))} />
-            <span />
-            <span />
-            <Button size="sm" className="h-7 w-full text-xs font-semibold" style={{ background: GOLD, color: BLACK }} onClick={addItem} disabled={isAdding}>
+          <div className="flex items-center gap-2">
+            <Input className="h-7 text-sm flex-1 min-w-0" placeholder="Item name…" value={addRow.name} onChange={(e) => setAddRow((r) => ({ ...r, name: e.target.value }))} onKeyDown={(e) => e.key === "Enter" && addItem()} />
+            <Input className="h-7 text-sm text-right w-12 shrink-0" placeholder="Qty" value={addRow.quantity} onChange={(e) => setAddRow((r) => ({ ...r, quantity: e.target.value }))} />
+            <Input className="h-7 text-sm text-right w-16 shrink-0" placeholder="Cost" value={addRow.unitCost} onChange={(e) => setAddRow((r) => ({ ...r, unitCost: e.target.value }))} />
+            <Input className="h-7 text-sm text-right w-12 shrink-0" placeholder="%" value={addRow.margin} onChange={(e) => setAddRow((r) => ({ ...r, margin: e.target.value }))} />
+            <Button size="sm" className="h-7 text-xs font-semibold shrink-0 px-2" style={{ background: GOLD, color: BLACK }} onClick={addItem} disabled={isAdding}>
               {isAdding ? <Loader2 size={12} className="animate-spin" /> : <><Plus size={12} className="mr-0.5" /> Add</>}
             </Button>
           </div>
