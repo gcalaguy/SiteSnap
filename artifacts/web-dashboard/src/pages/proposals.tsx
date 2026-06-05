@@ -968,19 +968,19 @@ function EstimateBuilder({
         })}
 
         {/* Add row */}
-        <div className="grid items-center gap-1 px-3 py-2 bg-gray-50 border-t border-gray-200" style={{ gridTemplateColumns: "1fr 80px 100px 70px 80px 80px 64px" }}>
-          <div className="flex flex-col gap-1">
+        <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 space-y-2">
+          <div className="grid items-center gap-1" style={{ gridTemplateColumns: "1fr 80px 100px 70px 80px 80px 64px" }}>
             <Input className="h-7 text-sm" placeholder="Item name…" value={addRow.name} onChange={(e) => setAddRow((r) => ({ ...r, name: e.target.value }))} onKeyDown={(e) => e.key === "Enter" && addItem()} />
-            <Input className="h-7 text-sm text-muted-foreground" placeholder="Item description…" value={addRow.description} onChange={(e) => setAddRow((r) => ({ ...r, description: e.target.value }))} />
+            <Input className="h-7 text-sm text-right" placeholder="Qty" value={addRow.quantity} onChange={(e) => setAddRow((r) => ({ ...r, quantity: e.target.value }))} />
+            <Input className="h-7 text-sm text-right" placeholder="Unit cost" value={addRow.unitCost} onChange={(e) => setAddRow((r) => ({ ...r, unitCost: e.target.value }))} />
+            <Input className="h-7 text-sm text-right" placeholder="%" value={addRow.margin} onChange={(e) => setAddRow((r) => ({ ...r, margin: e.target.value }))} />
+            <span />
+            <span />
+            <Button size="sm" className="h-7 w-full text-xs font-semibold" style={{ background: GOLD, color: BLACK }} onClick={addItem} disabled={isAdding}>
+              {isAdding ? <Loader2 size={12} className="animate-spin" /> : <><Plus size={12} className="mr-0.5" /> Add</>}
+            </Button>
           </div>
-          <Input className="h-7 text-sm text-right" placeholder="Qty" value={addRow.quantity} onChange={(e) => setAddRow((r) => ({ ...r, quantity: e.target.value }))} />
-          <Input className="h-7 text-sm text-right" placeholder="Unit cost" value={addRow.unitCost} onChange={(e) => setAddRow((r) => ({ ...r, unitCost: e.target.value }))} />
-          <Input className="h-7 text-sm text-right" placeholder="%" value={addRow.margin} onChange={(e) => setAddRow((r) => ({ ...r, margin: e.target.value }))} />
-          <span />
-          <span />
-          <Button size="sm" className="h-7 w-full text-xs font-semibold" style={{ background: GOLD, color: BLACK }} onClick={addItem} disabled={isAdding}>
-            {isAdding ? <Loader2 size={12} className="animate-spin" /> : <><Plus size={12} className="mr-0.5" /> Add</>}
-          </Button>
+          <Input className="h-7 text-sm w-full" placeholder="Item description (optional)…" value={addRow.description} onChange={(e) => setAddRow((r) => ({ ...r, description: e.target.value }))} />
         </div>
 
         {/* Totals footer */}
