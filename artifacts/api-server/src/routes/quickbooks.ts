@@ -122,22 +122,26 @@ async function findOrCreateCustomer(conn: Awaited<ReturnType<typeof getValidToke
 }
 
 // ── GET /api/quickbooks/status ────────────────────────────────────────────────
-router.get("/quickbooks/status", requireAuth, requireCompany, async (req, res) => {
-  const [conn] = await db
-    .select({
-      realmId: quickbooksConnectionsTable.realmId,
-      environment: quickbooksConnectionsTable.environment,
-      lastInvoiceSyncAt: quickbooksConnectionsTable.lastInvoiceSyncAt,
-      lastCostSyncAt: quickbooksConnectionsTable.lastCostSyncAt,
-      syncedInvoiceCount: quickbooksConnectionsTable.syncedInvoiceCount,
-      syncedCostCount: quickbooksConnectionsTable.syncedCostCount,
-      connectedAt: quickbooksConnectionsTable.connectedAt,
-    })
-    .from(quickbooksConnectionsTable)
-    .where(eq(quickbooksConnectionsTable.companyId, req.companyId!))
-    .limit(1);
+router.get("/quickbooks/status", requireAuth, async (req, res) => {
+  let conn = null;
+  if (req.companyId) {
+    const [row] = await db
+      .select({
+        realmId: quickbooksConnectionsTable.realmId,
+        environment: quickbooksConnectionsTable.environment,
+        lastInvoiceSyncAt: quickbooksConnectionsTable.lastInvoiceSyncAt,
+        lastCostSyncAt: quickbooksConnectionsTable.lastCostSyncAt,
+        syncedInvoiceCount: quickbooksConnectionsTable.syncedInvoiceCount,
+        syncedCostCount: quickbooksConnectionsTable.syncedCostCount,
+        connectedAt: quickbooksConnectionsTable.connectedAt,
+      })
+      .from(quickbooksConnectionsTable)
+      .where(eq(quickbooksConnectionsTable.companyId, req.companyId))
+      .limit(1);
+    conn = row ?? null;
+  }
 
-  res.json({ connected: !!conn, connection: conn ?? null, configured: !!(getClientId() && getClientSecret()) });
+  res.json({ connected: !!conn, connection: conn, configured: !!(getClientId() && getClientSecret()) });
 });
 
 // ── GET /api/quickbooks/auth-url ─────────────────────────────────────────────
