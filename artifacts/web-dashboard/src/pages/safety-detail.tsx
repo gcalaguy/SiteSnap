@@ -390,91 +390,94 @@ export default function SafetyDetailPage() {
     onError: () => toast({ title: "Error", description: "Failed to submit review.", variant: "destructive" }),
   });
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     if (!submission) return;
-    import("jspdf").then(({ default: jsPDF }) => {
-      const doc = new jsPDF();
-      const fields = submission.template?.schema?.fields ?? [];
-      let y = 20;
-      const lm = 20;
-      const pw = 170;
+    const { default: jsPDF } = await import("jspdf");
+    const doc = new jsPDF();
+    const fields = submission.template?.schema?.fields ?? [];
+    let y = 20;
+    const lm = 20;
+    const pw = 170;
 
-      doc.setFillColor(23, 32, 52);
-      doc.rect(0, 0, 210, 35, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.text("Site Snap", lm, 15);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.text(submission.template?.name ?? "Safety Form", lm, 26);
-      y = 50;
+    doc.setFillColor(23, 32, 52);
+    doc.rect(0, 0, 210, 35, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Site Snap", lm, 15);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(submission.template?.name ?? "Safety Form", lm, 26);
+    y = 50;
 
-      doc.setTextColor(60, 60, 60);
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(9);
+    doc.text(`Worker: ${submission.worker ? `${submission.worker.firstName} ${submission.worker.lastName}` : "—"}`, lm, y);
+    y += 6;
+    doc.text(`Date: ${format(new Date(submission.createdAt), "MMMM d, yyyy h:mm a")}`, lm, y);
+    y += 6;
+    doc.text(`Status: ${submission.status.toUpperCase()}`, lm, y);
+    y += 12;
+
+    if (submission.aiSummary) {
+      doc.setFillColor(255, 245, 230);
+      doc.roundedRect(lm - 2, y - 4, pw + 4, 6 + doc.splitTextToSize(submission.aiSummary, pw).length * 5, 2, 2, "F");
+      doc.setTextColor(180, 80, 0);
       doc.setFontSize(9);
-      doc.text(`Worker: ${submission.worker ? `${submission.worker.firstName} ${submission.worker.lastName}` : "—"}`, lm, y);
-      y += 6;
-      doc.text(`Date: ${format(new Date(submission.createdAt), "MMMM d, yyyy h:mm a")}`, lm, y);
-      y += 6;
-      doc.text(`Status: ${submission.status.toUpperCase()}`, lm, y);
-      y += 12;
-
-      if (submission.aiSummary) {
-        doc.setFillColor(255, 245, 230);
-        doc.roundedRect(lm - 2, y - 4, pw + 4, 6 + doc.splitTextToSize(submission.aiSummary, pw).length * 5, 2, 2, "F");
-        doc.setTextColor(180, 80, 0);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.text("AI Incident Summary", lm, y);
-        y += 5;
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(80, 40, 0);
-        const summaryLines = doc.splitTextToSize(submission.aiSummary, pw);
-        doc.text(summaryLines, lm, y);
-        y += summaryLines.length * 5 + 8;
-      }
-
-      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(23, 32, 52);
-      doc.text("Form Details", lm, y);
-      y += 6;
-      doc.setLineWidth(0.5);
-      doc.setDrawColor(200, 200, 200);
-      doc.line(lm, y, lm + pw, y);
-      y += 6;
+      doc.text("AI Incident Summary", lm, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80, 40, 0);
+      const summaryLines = doc.splitTextToSize(submission.aiSummary, pw);
+      doc.text(summaryLines, lm, y);
+      y += summaryLines.length * 5 + 8;
+    }
 
-      for (const field of fields) {
-        const rawVal = submission.data[field.id];
-        const val = renderFieldValue(field, rawVal);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(80, 80, 80);
-        doc.text(field.label, lm, y);
-        y += 5;
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(30, 30, 30);
-        const lines = doc.splitTextToSize(val, pw);
-        if (y + lines.length * 5 > 270) { doc.addPage(); y = 20; }
-        doc.text(lines, lm, y);
-        y += lines.length * 5 + 4;
-      }
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(23, 32, 52);
+    doc.text("Form Details", lm, y);
+    y += 6;
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(200, 200, 200);
+    doc.line(lm, y, lm + pw, y);
+    y += 6;
 
-      if (submission.reviewNotes) {
-        y += 4;
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(80, 80, 80);
-        doc.setFontSize(8);
-        doc.text("Review Notes:", lm, y);
-        y += 5;
-        doc.setFont("helvetica", "normal");
-        const rLines = doc.splitTextToSize(submission.reviewNotes, pw);
-        doc.text(rLines, lm, y);
-      }
+    for (const field of fields) {
+      const rawVal = submission.data[field.id];
+      const val = renderFieldValue(field, rawVal);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(80, 80, 80);
+      doc.text(field.label, lm, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(30, 30, 30);
+      const lines = doc.splitTextToSize(val, pw);
+      if (y + lines.length * 5 > 270) { doc.addPage(); y = 20; }
+      doc.text(lines, lm, y);
+      y += lines.length * 5 + 4;
+    }
 
-      doc.save(`${submission.template?.name ?? "safety-form"}-${id}.pdf`);
-      toast({ title: "PDF exported" });
-    });
+    if (submission.reviewNotes) {
+      y += 4;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(80, 80, 80);
+      doc.setFontSize(8);
+      doc.text("Review Notes:", lm, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      const rLines = doc.splitTextToSize(submission.reviewNotes, pw);
+      doc.text(rLines, lm, y);
+    }
+
+    const pdfFilename = `${submission.template?.name ?? "safety-form"}-${id}.pdf`;
+    doc.save(pdfFilename);
+    toast({ title: "PDF exported" });
+
+    const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
+    await mirrorArrayBuffer(pdfFilename, doc.output("arraybuffer"), "application/pdf");
   };
 
   const exportDOCX = async () => {
@@ -516,11 +519,15 @@ export default function SafetyDetailPage() {
       const blob = await Packer.toBlob(doc);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
+      const docxFilename = `${submission.template?.name ?? "safety-form"}-${id}.docx`;
       a.href = url;
-      a.download = `${submission.template?.name ?? "safety-form"}-${id}.docx`;
+      a.download = docxFilename;
       a.click();
       URL.revokeObjectURL(url);
       toast({ title: "DOCX exported" });
+
+      const { mirrorToLocalDrive } = await import("@/lib/driveSyncPipeline");
+      await mirrorToLocalDrive(docxFilename, blob);
     } catch {
       toast({ title: "Error", description: "Failed to export DOCX.", variant: "destructive" });
     }

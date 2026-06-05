@@ -50,7 +50,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
 import ProjectLiteDocument from "@/components/pdf/ProjectLiteDocument";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -2145,23 +2145,36 @@ export default function ProjectDetail() {
             <Button variant="outline" onClick={() => setShowPrintSheet(false)}>
               Cancel
             </Button>
-            <PDFDownloadLink
-              document={
-                <ProjectLiteDocument
-                  project={project}
-                  summary={summary}
-                  tasks={allProjectTasks as Task[]}
-                  reports={reports ?? []}
-                  rfis={rfis ?? []}
-                  members={members}
-                  sections={printSections}
-                />
-              }
-              fileName={`${project.name.replace(/[^a-zA-Z0-9]/g, "_")}_Report.pdf`}
+            <button
               className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors w-full"
+              onClick={async () => {
+                const pdfFileName = `${project.name.replace(/[^a-zA-Z0-9]/g, "_")}_Report.pdf`;
+                const blob = await pdf(
+                  <ProjectLiteDocument
+                    project={project}
+                    summary={summary}
+                    tasks={allProjectTasks as Task[]}
+                    reports={reports ?? []}
+                    rfis={rfis ?? []}
+                    members={members}
+                    sections={printSections}
+                  />
+                ).toBlob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = pdfFileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                const { mirrorToLocalDrive } = await import("@/lib/driveSyncPipeline");
+                await mirrorToLocalDrive(pdfFileName, blob);
+              }}
             >
-              {({ loading }) => (loading ? "Generating PDF..." : "Download PDF")}
-            </PDFDownloadLink>
+              Download PDF
+            </button>
           </SheetFooter>
         </SheetContent>
       </Sheet>

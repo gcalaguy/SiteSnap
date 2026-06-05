@@ -5,7 +5,7 @@ import {
   Text,
   View,
   PDFViewer,
-  PDFDownloadLink,
+  pdf,
 } from "@react-pdf/renderer";
 import {
   customFetch,
@@ -247,19 +247,31 @@ export default function SafetyPrintPage() {
           <h1 className="font-bold text-lg">Print Preview</h1>
           <p className="text-sm text-muted-foreground">Safety & Compliance Report</p>
         </div>
-        <PDFDownloadLink
-          document={
-            <PDFDocument
-              submissions={submissions}
-              companyName={companyName}
-              sections={sections}
-            />
-          }
-          fileName={fileName}
+        <button
           className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+          onClick={async () => {
+            const blob = await pdf(
+              <PDFDocument
+                submissions={submissions}
+                companyName={companyName}
+                sections={sections}
+              />
+            ).toBlob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            const { mirrorToLocalDrive } = await import("@/lib/driveSyncPipeline");
+            await mirrorToLocalDrive(fileName, blob);
+          }}
         >
-          {({ loading }) => (loading ? "Generating PDF..." : "Download PDF")}
-        </PDFDownloadLink>
+          Download PDF
+        </button>
       </div>
       <div className="flex-1">
         <PDFViewer width="100%" height="100%" className="border-0">

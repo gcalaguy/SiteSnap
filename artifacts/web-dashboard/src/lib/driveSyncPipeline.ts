@@ -11,8 +11,14 @@ import { loadDriveSyncState } from "./driveSyncManager";
  */
 async function verifyPermission(handle: FileSystemDirectoryHandle): Promise<boolean> {
   const opts = { mode: "readwrite" } as any;
-  if ((await (handle as any).queryPermission(opts)) === "granted") return true;
-  if ((await (handle as any).requestPermission(opts)) === "granted") return true;
+  try {
+    if ((await (handle as any).queryPermission(opts)) === "granted") return true;
+    if ((await (handle as any).requestPermission(opts)) === "granted") return true;
+  } catch {
+    // queryPermission/requestPermission may throw (e.g. not supported, no user gesture,
+    // or permission revoked). Gracefully fall through so the normal export flow is
+    // never interrupted.
+  }
   return false;
 }
 

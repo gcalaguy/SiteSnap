@@ -165,7 +165,7 @@ export default function HoursPage() {
     return str;
   }
 
-  function downloadPayrollCsv() {
+  async function downloadPayrollCsv() {
     const rows = payrollRows ?? [];
     const companyName = (me as any)?.company?.name ?? "";
     const craNumber = (me as any)?.company?.hstNumber ?? "";
@@ -203,12 +203,16 @@ export default function HoursPage() {
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+    const filename = `site-snap-payroll-hours-${new Date().toISOString().split("T")[0]}.csv`;
     a.href = url;
-    a.download = `site-snap-payroll-hours-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+
+    const { mirrorBlob } = await import("@/lib/driveSyncPipeline");
+    await mirrorBlob(filename, blob);
   }
 
   const totalHours = entries.reduce((sum, e) => sum + parseFloat(e.hours), 0);

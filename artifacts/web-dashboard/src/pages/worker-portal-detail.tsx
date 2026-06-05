@@ -113,70 +113,73 @@ export default function WorkerPortalDetailPage() {
     onError: () => toast({ title: "Error", description: "Could not send comment.", variant: "destructive" }),
   });
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     if (!submission) return;
-    import("jspdf").then(({ default: jsPDF }) => {
-      const doc = new jsPDF();
-      const fields = submission.template?.schema?.fields ?? [];
-      let y = 20;
-      const lm = 20;
-      const pw = 170;
+    const { default: jsPDF } = await import("jspdf");
+    const doc = new jsPDF();
+    const fields = submission.template?.schema?.fields ?? [];
+    let y = 20;
+    const lm = 20;
+    const pw = 170;
 
-      doc.setFillColor(23, 32, 52);
-      doc.rect(0, 0, 210, 35, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(18);
+    doc.setFillColor(23, 32, 52);
+    doc.rect(0, 0, 210, 35, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Site Snap", lm, 15);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(submission.template?.name ?? "Safety Form", lm, 26);
+    y = 50;
+
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(9);
+    doc.text(`Date: ${format(new Date(submission.createdAt), "MMMM d, yyyy h:mm a")}`, lm, y);
+    y += 6;
+    doc.text(`Status: ${submission.status.toUpperCase()}`, lm, y);
+    y += 12;
+
+    if (submission.aiSummary) {
       doc.setFont("helvetica", "bold");
-      doc.text("Site Snap", lm, 15);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.text(submission.template?.name ?? "Safety Form", lm, 26);
-      y = 50;
-
-      doc.setTextColor(60, 60, 60);
       doc.setFontSize(9);
-      doc.text(`Date: ${format(new Date(submission.createdAt), "MMMM d, yyyy h:mm a")}`, lm, y);
-      y += 6;
-      doc.text(`Status: ${submission.status.toUpperCase()}`, lm, y);
-      y += 12;
+      doc.setTextColor(180, 80, 0);
+      doc.text("AI Summary", lm, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80, 40, 0);
+      const lines = doc.splitTextToSize(submission.aiSummary, pw);
+      doc.text(lines, lm, y);
+      y += lines.length * 5 + 8;
+    }
 
-      if (submission.aiSummary) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(180, 80, 0);
-        doc.text("AI Summary", lm, y);
-        y += 5;
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(80, 40, 0);
-        const lines = doc.splitTextToSize(submission.aiSummary, pw);
-        doc.text(lines, lm, y);
-        y += lines.length * 5 + 8;
-      }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(23, 32, 52);
+    doc.text("Form Details", lm, y);
+    y += 8;
 
+    for (const field of fields) {
+      const val = renderValue(field, submission.data[field.id]);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(23, 32, 52);
-      doc.text("Form Details", lm, y);
-      y += 8;
+      doc.setTextColor(80, 80, 80);
+      doc.text(field.label, lm, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(30, 30, 30);
+      const lines = doc.splitTextToSize(val, pw);
+      if (y + lines.length * 5 > 270) { doc.addPage(); y = 20; }
+      doc.text(lines, lm, y);
+      y += lines.length * 5 + 4;
+    }
 
-      for (const field of fields) {
-        const val = renderValue(field, submission.data[field.id]);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(80, 80, 80);
-        doc.text(field.label, lm, y);
-        y += 5;
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(30, 30, 30);
-        const lines = doc.splitTextToSize(val, pw);
-        if (y + lines.length * 5 > 270) { doc.addPage(); y = 20; }
-        doc.text(lines, lm, y);
-        y += lines.length * 5 + 4;
-      }
+    const pdfFilename = `${submission.template?.name ?? "safety"}-${id}.pdf`;
+    doc.save(pdfFilename);
+    toast({ title: "PDF saved" });
 
-      doc.save(`${submission.template?.name ?? "safety"}-${id}.pdf`);
-      toast({ title: "PDF saved" });
-    });
+    const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
+    await mirrorArrayBuffer(pdfFilename, doc.output("arraybuffer"), "application/pdf");
   };
 
   if (isLoading) {

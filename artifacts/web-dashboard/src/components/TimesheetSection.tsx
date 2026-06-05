@@ -203,10 +203,14 @@ function buildTimesheetDoc(ts: Timesheet, province?: string | null, companyName?
   return doc;
 }
 
-function exportPDF(ts: Timesheet, province?: string | null, companyName?: string | null) {
+async function exportPDF(ts: Timesheet, province?: string | null, companyName?: string | null) {
   const doc = buildTimesheetDoc(ts, province, companyName);
   const name = workerName(ts.user);
-  doc.save(`timesheet_${name.replace(/\s+/g, "_")}_${ts.weekStart}.pdf`);
+  const filename = `timesheet_${name.replace(/\s+/g, "_")}_${ts.weekStart}.pdf`;
+  doc.save(filename);
+
+  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
+  await mirrorArrayBuffer(filename, doc.output("arraybuffer"), "application/pdf");
 }
 
 function generatePDFBase64(ts: Timesheet, province?: string | null, companyName?: string | null): { base64: string; filename: string } {
@@ -217,7 +221,7 @@ function generatePDFBase64(ts: Timesheet, province?: string | null, companyName?
 }
 
 // ── Excel export ──────────────────────────────────────────────────────────────
-function exportExcel(ts: Timesheet, province?: string | null, companyName?: string | null) {
+async function exportExcel(ts: Timesheet, province?: string | null, companyName?: string | null) {
   const name = workerName(ts.user);
   const grossPay = ts.hourlyRate
     ? parseFloat(ts.totalHours) * parseFloat(ts.hourlyRate)
@@ -268,11 +272,16 @@ function exportExcel(ts: Timesheet, province?: string | null, companyName?: stri
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Timesheet");
-  XLSX.writeFile(wb, `timesheet_${name.replace(/\s+/g, "_")}_${ts.weekStart}.xlsx`);
+  const xlsxFilename = `timesheet_${name.replace(/\s+/g, "_")}_${ts.weekStart}.xlsx`;
+  XLSX.writeFile(wb, xlsxFilename);
+
+  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
+  const xlsxBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  await mirrorArrayBuffer(xlsxFilename, xlsxBuffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
 
 // ── Export ALL timesheets to Excel ────────────────────────────────────────────
-function exportAllExcel(timesheets: Timesheet[], province?: string | null) {
+async function exportAllExcel(timesheets: Timesheet[], province?: string | null) {
   const header = [
     "Worker", "Role", "Email", "Week", "Status",
     "Total Hours", "Hourly Rate (CAD)", "Gross Pay (CAD)",
@@ -316,7 +325,12 @@ function exportAllExcel(timesheets: Timesheet[], province?: string | null) {
   }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Timesheets");
-  XLSX.writeFile(wb, `timesheets_export_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+  const allFilename = `timesheets_export_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+  XLSX.writeFile(wb, allFilename);
+
+  const { mirrorArrayBuffer } = await import("@/lib/driveSyncPipeline");
+  const allBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  await mirrorArrayBuffer(allFilename, allBuffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
 
 // ── Tax breakdown card ────────────────────────────────────────────────────────
