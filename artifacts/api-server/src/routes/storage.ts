@@ -1,6 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import multer from "multer";
+import fs from "fs";
+import path from "path";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -8,12 +10,18 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
 import { requireAuth, requireCompany } from "../lib/auth";
-import { db, fileAttachmentsTable, projectDocumentsTable, projectsTable, workerDocumentsTable, sitePhotosTable, dailyReportPhotosTable, dailyReportsTable } from "@workspace/db";
+import { db, fileAttachmentsTable, projectDocumentsTable, projectsTable, workerDocumentsTable, sitePhotosTable, dailyReportPhotosTable, dailyReportsTable, companiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+// Ensure local upload directory exists as a fallback / safety net.
+const localUploadDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(localUploadDir)) {
+  fs.mkdirSync(localUploadDir, { recursive: true });
+}
 
 /**
  * POST /storage/uploads/file
@@ -76,6 +84,38 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
+
+/**
+ * POST /storage/uploads/company-asset
+ *
+ * Server-side multipart upload for company assets (logo, quote template,
+ * invoice template).  Accepts a single file (field name "file") and returns
+ * the canonical /objects/... path.  The client then calls the appropriate
+ * PATCH endpoint to store the path on the company row.
+ *
+ * This avoids the unreliable client-side presigned-URL flow which can hang
+ * when the GCS PUT stalls or CORS fails in the Replit proxy environment.
+ */
+router.post(
+  "/storage/uploads/company-asset",
+  requireAuth,
+  requireCompany,
+  upload.single("file"),
+  async (req: Request, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+    try {
+      const contentType = req.file.mimetype || "application/octet-stream";
+      const objectPath = await objectStorageService.uploadBuffer(req.file.buffer, contentType);
+      res.status(200).json({ objectPath });
+    } catch (error) {
+      req.log.error({ err: error }, "Error uploading company asset to storage");
+      res.status(500).json({ error: "Failed to upload company asset" });
+    }
+  },
+);
 
 /**
  * GET /storage/public-objects/*
@@ -179,6 +219,47 @@ router.get(
         isOwner = !!dailyReportPhoto;
       }
 
+      // Also allow company owners to access their own logo / templates
+      if (!isOwner) {
+        const [companyLogo] = await db
+          .select({ id: companiesTable.id })
+          .from(companiesTable)
+          .where(
+            and(
+              eq(companiesTable.id, req.companyId!),
+              eq(companiesTable.logoPath, objectPath),
+            ),
+          )
+          .limit(1);
+        isOwner = !!companyLogo;
+      }
+      if (!isOwner) {
+        const [companyQuoteTemplate] = await db
+          .select({ id: companiesTable.id })
+          .from(companiesTable)
+          .where(
+            and(
+              eq(companiesTable.id, req.companyId!),
+              eq(companiesTable.quoteTemplatePath, objectPath),
+            ),
+          )
+          .limit(1);
+        isOwner = !!companyQuoteTemplate;
+      }
+      if (!isOwner) {
+        const [companyInvoiceTemplate] = await db
+          .select({ id: companiesTable.id })
+          .from(companiesTable)
+          .where(
+            and(
+              eq(companiesTable.id, req.companyId!),
+              eq(companiesTable.invoiceTemplatePath, objectPath),
+            ),
+          )
+          .limit(1);
+        isOwner = !!companyInvoiceTemplate;
+      }
+
       if (!isOwner) {
         res.status(404).json({ error: "Object not found" });
         return;
@@ -263,6 +344,47 @@ router.get(
           .where(and(eq(dailyReportPhotosTable.objectPath, objectPath), eq(projectsTable.companyId, req.companyId!)))
           .limit(1);
         isOwner = !!dailyReportPhoto;
+      }
+
+      // Also allow company owners to access their own logo / templates
+      if (!isOwner) {
+        const [companyLogo] = await db
+          .select({ id: companiesTable.id })
+          .from(companiesTable)
+          .where(
+            and(
+              eq(companiesTable.id, req.companyId!),
+              eq(companiesTable.logoPath, objectPath),
+            ),
+          )
+          .limit(1);
+        isOwner = !!companyLogo;
+      }
+      if (!isOwner) {
+        const [companyQuoteTemplate] = await db
+          .select({ id: companiesTable.id })
+          .from(companiesTable)
+          .where(
+            and(
+              eq(companiesTable.id, req.companyId!),
+              eq(companiesTable.quoteTemplatePath, objectPath),
+            ),
+          )
+          .limit(1);
+        isOwner = !!companyQuoteTemplate;
+      }
+      if (!isOwner) {
+        const [companyInvoiceTemplate] = await db
+          .select({ id: companiesTable.id })
+          .from(companiesTable)
+          .where(
+            and(
+              eq(companiesTable.id, req.companyId!),
+              eq(companiesTable.invoiceTemplatePath, objectPath),
+            ),
+          )
+          .limit(1);
+        isOwner = !!companyInvoiceTemplate;
       }
 
       if (!isOwner) {

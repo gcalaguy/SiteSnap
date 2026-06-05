@@ -11,7 +11,6 @@ import {
   useUpdateCompanyLogo,
   useUpdateCompanyQuoteTemplate,
   useUpdateCompanyInvoiceTemplate,
-  useRequestUploadUrl,
 } from "@workspace/api-client-react";
 import type { MemberPermissions, UserWithCompany } from "@workspace/api-client-react";
 import { UpdateCompanyDocumentSettingsBody } from "@workspace/api-zod";
@@ -722,15 +721,16 @@ function CompanyLogoCard({ company }: { company: any }) {
 
   const { data: logoUrl, isLoading: logoUrlLoading } = useSignedUrl(company.logoPath);
   const updateLogo = useUpdateCompanyLogo();
-  const requestUploadUrl = useRequestUploadUrl();
 
   async function handleLogoUpload(file: File) {
     setUploading(true);
     try {
-      const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
-        data: { name: file.name, size: file.size, contentType: file.type },
+      const formData = new FormData();
+      formData.append("file", file);
+      const { objectPath } = await customFetch<{ objectPath: string }>("/api/storage/uploads/company-asset", {
+        method: "POST",
+        body: formData,
       });
-      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
       await updateLogo.mutateAsync({ companyId: company.id, data: { logoPath: objectPath } });
       queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
       toast({ title: "Logo uploaded", description: "Your logo will appear on exported estimates." });
@@ -820,15 +820,16 @@ function DocumentTemplatesCard({ company }: { company: any }) {
 
   const updateQuoteTemplate = useUpdateCompanyQuoteTemplate();
   const updateInvoiceTemplate = useUpdateCompanyInvoiceTemplate();
-  const requestUploadUrl = useRequestUploadUrl();
 
   async function handleUpload(file: File, type: "quote" | "invoice") {
     setUploadingType(type);
     try {
-      const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
-        data: { name: file.name, size: file.size, contentType: file.type },
+      const formData = new FormData();
+      formData.append("file", file);
+      const { objectPath } = await customFetch<{ objectPath: string }>("/api/storage/uploads/company-asset", {
+        method: "POST",
+        body: formData,
       });
-      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
       if (type === "quote") {
         await updateQuoteTemplate.mutateAsync({ companyId: company.id, data: { templatePath: objectPath } });
       } else {
