@@ -172,19 +172,6 @@ router.get(
   requirePermission("viewInspectTab"),
   requireFeature("INSPECTIONS"),
   asyncHandler(async (req, res) => {
-    const myMembership = await db
-      .select({ role: userMembershipsTable.role })
-      .from(userMembershipsTable)
-      .where(
-        and(
-          eq(userMembershipsTable.userId, req.userId!),
-          eq(userMembershipsTable.companyId, req.companyId!),
-        ),
-      )
-      .limit(1);
-    const myRole = myMembership[0]?.role;
-    const isWorker = myRole === "worker";
-
     const projectIdParam = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
     const projectIdFilter = projectIdParam && !isNaN(projectIdParam) ? projectIdParam : undefined;
 
@@ -192,9 +179,6 @@ router.get(
     const conditions: ReturnType<typeof eq>[] = [eq(inspectionsTable.companyId, req.companyId!)];
     if (projectIdFilter !== undefined) {
       conditions.push(eq(inspectionsTable.projectId, projectIdFilter));
-    }
-    if (isWorker) {
-      conditions.push(eq(inspectionsTable.inspectorId, req.userId!));
     }
 
     const rows = await db

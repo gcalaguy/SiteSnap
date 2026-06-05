@@ -43,9 +43,7 @@ router.get("/safety/submissions", requireAuth, requireCompany, requirePermission
 
     const conditions: any[] = [eq(formSubmissionsTable.companyId, req.companyId!)];
 
-    if (req.userRole === "worker") {
-      conditions.push(eq(formSubmissionsTable.userId, req.userId!));
-    } else if (workerId) {
+    if (workerId) {
       conditions.push(eq(formSubmissionsTable.userId, parseInt(workerId)));
     }
 
@@ -112,9 +110,6 @@ router.get("/safety/submissions/:id", requireAuth, requireCompany, requirePermis
       .limit(1);
 
     if (!row) { res.status(404).json({ error: "Submission not found" }); return; }
-    if (req.userRole === "worker" && row.userId !== req.userId) {
-      res.status(403).json({ error: "Access denied" }); return;
-    }
 
     const [template] = await db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, row.templateId));
     const [worker] = await db.select().from(usersTable).where(eq(usersTable.id, row.userId));
@@ -201,9 +196,6 @@ router.put("/safety/submissions/:id", requireAuth, requireCompany, async (req, r
       .limit(1);
 
     if (!existing) { res.status(404).json({ error: "Submission not found" }); return; }
-    if (req.userRole === "worker" && existing.userId !== req.userId) {
-      res.status(403).json({ error: "Access denied" }); return;
-    }
     if (existing.status === "submitted" && req.userRole === "worker") {
       res.status(400).json({ error: "Cannot edit a submitted form" }); return;
     }
@@ -288,9 +280,6 @@ router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, asy
       .limit(1);
 
     if (!existing) { res.status(404).json({ error: "Submission not found" }); return; }
-    if (req.userRole === "worker" && existing.userId !== req.userId) {
-      res.status(403).json({ error: "Access denied" }); return;
-    }
 
     const [inserted] = await db.insert(submissionCommentsTable).values({
       submissionId: id,
@@ -321,9 +310,6 @@ router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, async
       .limit(1);
 
     if (!existing) { res.status(404).json({ error: "Submission not found" }); return; }
-    if (req.userRole === "worker" && existing.userId !== req.userId) {
-      res.status(403).json({ error: "Access denied" }); return;
-    }
 
     const [photo] = await db.insert(submissionPhotosTable).values({
       submissionId: id,

@@ -130,7 +130,6 @@ router.get("/form-submissions", requireAuth, requireCompany, requirePermission("
     const { status, templateId, projectId, contactId } = req.query as Record<string, string>;
 
     const conditions: any[] = [eq(formSubmissionsTable.companyId, req.companyId!)];
-    if (req.userRole === "worker") conditions.push(eq(formSubmissionsTable.userId, req.userId!));
     if (status) conditions.push(eq(formSubmissionsTable.status, status));
     if (templateId) conditions.push(eq(formSubmissionsTable.templateId, parseInt(templateId)));
     if (projectId) conditions.push(eq(formSubmissionsTable.projectId, parseInt(projectId)));
@@ -205,9 +204,6 @@ router.get("/form-submissions/:id", requireAuth, requireCompany, async (req, res
     .where(and(eq(formSubmissionsTable.id, id), eq(formSubmissionsTable.companyId, req.companyId!)));
 
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
-  if (req.userRole === "worker" && row.userId !== req.userId!) {
-    res.status(403).json({ error: "Access denied" }); return;
-  }
 
   const [template] = await db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, row.templateId));
   const [worker] = await db.select().from(usersTable).where(eq(usersTable.id, row.userId));
