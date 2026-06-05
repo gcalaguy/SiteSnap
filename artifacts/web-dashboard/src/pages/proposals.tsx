@@ -969,7 +969,10 @@ function EstimateBuilder({
 
         {/* Add row */}
         <div className="grid items-center gap-1 px-3 py-2 bg-gray-50 border-t border-gray-200" style={{ gridTemplateColumns: "1fr 80px 100px 70px 80px 80px 64px" }}>
-          <Input className="h-7 text-sm" placeholder="Item name…" value={addRow.name} onChange={(e) => setAddRow((r) => ({ ...r, name: e.target.value }))} onKeyDown={(e) => e.key === "Enter" && addItem()} />
+          <div className="flex flex-col gap-1">
+            <Input className="h-7 text-sm" placeholder="Item name…" value={addRow.name} onChange={(e) => setAddRow((r) => ({ ...r, name: e.target.value }))} onKeyDown={(e) => e.key === "Enter" && addItem()} />
+            <Input className="h-7 text-sm text-muted-foreground" placeholder="Item description…" value={addRow.description} onChange={(e) => setAddRow((r) => ({ ...r, description: e.target.value }))} />
+          </div>
           <Input className="h-7 text-sm text-right" placeholder="Qty" value={addRow.quantity} onChange={(e) => setAddRow((r) => ({ ...r, quantity: e.target.value }))} />
           <Input className="h-7 text-sm text-right" placeholder="Unit cost" value={addRow.unitCost} onChange={(e) => setAddRow((r) => ({ ...r, unitCost: e.target.value }))} />
           <Input className="h-7 text-sm text-right" placeholder="%" value={addRow.margin} onChange={(e) => setAddRow((r) => ({ ...r, margin: e.target.value }))} />
