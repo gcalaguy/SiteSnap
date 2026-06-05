@@ -40,7 +40,7 @@ import {
   insertCompanySchema,
 } from "@workspace/db";
 import { z } from "zod/v4";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireSuperAdmin } from "../lib/auth";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import crypto from "crypto";
@@ -604,6 +604,7 @@ router.patch("/admin/tenants/:id/subscription", ...guard, async (req, res) => {
       .set(updates)
       .where(eq(subscriptionsTable.companyId, companyId))
       .returning();
+
     res.json(sub);
   }
 });
@@ -614,71 +615,74 @@ router.delete("/admin/tenants/:id", ...guard, async (req, res) => {
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
 
-  // Gather all project IDs for this company up-front
-  const projectRows = await db.select({ id: projectsTable.id }).from(projectsTable).where(eq(projectsTable.companyId, companyId));
-  const projectIds = projectRows.map((r) => r.id);
+  // Wrap everything in a transaction so partial failures are rolled back
+  await db.transaction(async (tx) => {
+    // Gather all project IDs for this company up-front
+    const projectRows = await tx.select({ id: projectsTable.id }).from(projectsTable).where(eq(projectsTable.companyId, companyId));
+    const projectIds = projectRows.map((r) => r.id);
 
-  // ── Step 1: Null out nullable FKs that point at this company's projects ──────
-  if (projectIds.length > 0) {
-    await db.execute(sql`UPDATE leads SET converted_project_id = NULL WHERE converted_project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-    await db.execute(sql`UPDATE quotes SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-    await db.execute(sql`UPDATE invoices SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-    await db.execute(sql`UPDATE builder_estimates SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-  }
+    // Step 1: Null out nullable FKs that point at this company's projects
+    if (projectIds.length > 0) {
+      await tx.execute(sql`UPDATE leads SET converted_project_id = NULL WHERE converted_project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`UPDATE quotes SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`UPDATE invoices SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`UPDATE builder_estimates SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+    }
 
-  // ── Step 2: Delete NOT-NULL FK rows that reference this company's projects ───
-  if (projectIds.length > 0) {
-    // Deep child tables first
-    await db.delete(dailyReportPhotosTable).where(inArray(dailyReportPhotosTable.reportId, db.select({ id: dailyReportsTable.id }).from(dailyReportsTable).where(inArray(dailyReportsTable.projectId, projectIds))));
+    // Step 2: Delete child rows that reference this company's projects.
+    // Use raw SQL so every subquery resolves the same set of project IDs,
+    // avoiding the subtle subquery-inlining bugs that can break Drizzle.
+    if (projectIds.length > 0) {
+      // Deep child tables (photos of reports, items/alerts of inspections)
+      await tx.execute(sql`DELETE FROM daily_report_photos WHERE report_id IN (SELECT id FROM daily_reports WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId}))`);
+      await tx.execute(sql`DELETE FROM inspection_items    WHERE inspection_id IN (SELECT id FROM inspections WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId}))`);
+      await tx.execute(sql`DELETE FROM inspection_alerts   WHERE inspection_id IN (SELECT id FROM inspections WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId}))`);
 
-    // Inspection cascade (inspection_items -> inspections, inspection_alerts -> inspections)
-    await db.delete(inspectionItemsTable).where(inArray(inspectionItemsTable.inspectionId, db.select({ id: inspectionsTable.id }).from(inspectionsTable).where(inArray(inspectionsTable.projectId, projectIds))));
-    await db.delete(inspectionAlertsTable).where(inArray(inspectionAlertsTable.inspectionId, db.select({ id: inspectionsTable.id }).from(inspectionsTable).where(inArray(inspectionsTable.projectId, projectIds))));
-    await db.delete(inspectionsTable).where(inArray(inspectionsTable.projectId, projectIds));
+      // Project-scoped tables — ordered so no FK is violated
+      await tx.execute(sql`DELETE FROM inspections        WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM notifications      WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM change_orders      WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM worker_schedules   WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM time_entries       WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM daily_reports      WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM cost_analyses      WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM rfis               WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM tasks              WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM project_documents  WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM timesheets         WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM quotes             WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+      await tx.execute(sql`DELETE FROM invoices           WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
+    }
 
-    // Project-scoped tables
-    await db.delete(notificationsTable).where(inArray(notificationsTable.projectId, projectIds));
-    await db.delete(changeOrdersTable).where(inArray(changeOrdersTable.projectId, projectIds));
-    await db.delete(workerSchedulesTable).where(inArray(workerSchedulesTable.projectId, projectIds));
-    await db.delete(timeEntriesTable).where(inArray(timeEntriesTable.projectId, projectIds));
-    await db.delete(dailyReportsTable).where(inArray(dailyReportsTable.projectId, projectIds));
-    await db.delete(costAnalysesTable).where(inArray(costAnalysesTable.projectId, projectIds));
-    await db.delete(rfisTable).where(inArray(rfisTable.projectId, projectIds));
-    await db.delete(tasksTable).where(inArray(tasksTable.projectId, projectIds));
-    await db.delete(projectDocumentsTable).where(inArray(projectDocumentsTable.projectId, projectIds));
-    await db.delete(timesheetsTable).where(inArray(timesheetsTable.projectId, projectIds));
-    await db.delete(quotesTable).where(inArray(quotesTable.projectId, projectIds));
-    await db.delete(invoicesTable).where(inArray(invoicesTable.projectId, projectIds));
-  }
+    // Step 3: Delete projects (project_members, project_notes cascade via FK)
+    await tx.execute(sql`DELETE FROM projects WHERE company_id = ${companyId}`);
 
-  // ── Step 3: Delete projects (project_members, project_notes cascade via FK) ─
-  await db.delete(projectsTable).where(eq(projectsTable.companyId, companyId));
+    // Step 4: Delete company-level rows without cascade
+    await tx.execute(sql`UPDATE users SET active_company_id = NULL WHERE active_company_id = ${companyId}`);
 
-  // ── Step 4: Delete company-level rows without cascade ──────────────────────────
-  await db.execute(sql`UPDATE users SET active_company_id = NULL WHERE active_company_id = ${companyId}`);
+    await tx.execute(sql`DELETE FROM payments WHERE company_id = ${companyId}`);
+    await tx.execute(sql`DELETE FROM lead_activities WHERE lead_id IN (SELECT id FROM leads WHERE company_id = ${companyId})`);
+    await tx.execute(sql`DELETE FROM leads WHERE company_id = ${companyId}`);
+    await tx.execute(sql`DELETE FROM contacts WHERE company_id = ${companyId}`);
 
-  await db.delete(paymentsTable).where(eq(paymentsTable.companyId, companyId));
-  await db.delete(leadActivitiesTable).where(inArray(leadActivitiesTable.leadId, db.select({ id: leadsTable.id }).from(leadsTable).where(eq(leadsTable.companyId, companyId))));
-  await db.delete(leadsTable).where(eq(leadsTable.companyId, companyId));
-  await db.delete(contactsTable).where(eq(contactsTable.companyId, companyId));
+    // Financial records (project_id already nulled above)
+    await tx.execute(sql`DELETE FROM invoices WHERE company_id = ${companyId}`);
+    await tx.execute(sql`DELETE FROM quotes WHERE company_id = ${companyId}`);
 
-  // Financial records (project_id already nulled above)
-  await db.delete(invoicesTable).where(eq(invoicesTable.companyId, companyId));
-  await db.delete(quotesTable).where(eq(quotesTable.companyId, companyId));
+    // Estimates and templates
+    await tx.execute(sql`DELETE FROM builder_estimates WHERE company_id = ${companyId}`);
+    await tx.execute(sql`DELETE FROM estimate_templates WHERE company_id = ${companyId}`);
 
-  // Estimates and templates
-  await db.delete(builderEstimatesTable).where(eq(builderEstimatesTable.companyId, companyId));
-  await db.delete(estimateTemplatesTable).where(eq(estimateTemplatesTable.companyId, companyId));
+    // Misc company-scoped tables
+    await tx.execute(sql`DELETE FROM file_attachments WHERE company_id = ${companyId}`);
+    await tx.execute(sql`DELETE FROM quickbooks_connections WHERE company_id = ${companyId}`);
+    await tx.execute(sql`DELETE FROM estimator_actuals WHERE company_id = ${companyId}`);
 
-  // Misc company-scoped tables
-  await db.delete(fileAttachmentsTable).where(eq(fileAttachmentsTable.companyId, companyId));
-  await db.delete(quickbooksConnectionsTable).where(eq(quickbooksConnectionsTable.companyId, companyId));
-  await db.delete(estimatorActualsTable).where(eq(estimatorActualsTable.companyId, companyId));
-
-  // ── Step 5: Delete subscriptions and invitations, then the company ─────────────
-  await db.delete(invitationsTable).where(eq(invitationsTable.companyId, companyId));
-  await db.delete(subscriptionsTable).where(eq(subscriptionsTable.companyId, companyId));
-  await db.delete(companiesTable).where(eq(companiesTable.id, companyId));
+    // Step 5: Delete subscriptions and invitations, then the company
+    await tx.execute(sql`DELETE FROM invitations WHERE company_id = ${companyId}`);
+    await tx.execute(sql`DELETE FROM subscriptions WHERE company_id = ${companyId}`);
+    await tx.execute(sql`DELETE FROM companies WHERE id = ${companyId}`);
+  });
 
   res.json({ ok: true });
 });
