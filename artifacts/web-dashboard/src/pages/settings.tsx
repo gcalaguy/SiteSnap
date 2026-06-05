@@ -1529,8 +1529,20 @@ function DriveSyncCard() {
       setState(next);
       await saveDriveSyncState(next);
       toast({ title: "Destination folder selected", description: handle.name });
-    } catch {
-      // user cancelled — no-op
+    } catch (err: any) {
+      if (err?.name === "SecurityError" || err?.name === "NotAllowedError") {
+        toast({
+          title: "Cannot open folder picker",
+          description: "Your browser or iframe blocked the folder picker. Try opening the app in a standalone browser window.",
+          variant: "destructive",
+        });
+      } else if (err?.name !== "AbortError") {
+        toast({
+          title: "Folder picker failed",
+          description: err?.message || "Could not open the folder picker.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setSelecting(false);
     }
@@ -1584,11 +1596,11 @@ function DriveSyncCard() {
           </div>
           <button
             onClick={() => handleToggle(!state.enabled)}
-            disabled={!supported || loading}
+            disabled={loading}
             className={cn(
               "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               state.enabled ? "bg-primary" : "bg-input",
-              (!supported || loading) && "opacity-50 cursor-not-allowed"
+              loading && "opacity-50 cursor-not-allowed"
             )}
             role="switch"
             aria-checked={state.enabled}
@@ -1606,7 +1618,7 @@ function DriveSyncCard() {
           <Button
             variant="outline"
             className="gap-2"
-            disabled={!supported || selecting}
+            disabled={selecting}
             onClick={handleSelectFolder}
           >
             {selecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />}
@@ -1638,8 +1650,6 @@ export default function Settings() {
   const { data: user } = useGetMe();
   const company = user?.company;
 
-  if (!company) return null;
-
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
@@ -1650,35 +1660,37 @@ export default function Settings() {
         <p className="text-sm text-[#121212]/60 font-medium">Manage your company information and preferences.</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Company Details</CardTitle>
-          <CardDescription>This information is visible on all reports and documents.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Company Name</Label>
-            <Input value={company.name} readOnly disabled />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+      {company && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Company Details</CardTitle>
+            <CardDescription>This information is visible on all reports and documents.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>City</Label>
-              <Input value={company.city} readOnly disabled />
+              <Label>Company Name</Label>
+              <Input value={company.name} readOnly disabled />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>City</Label>
+                <Input value={company.city} readOnly disabled />
+              </div>
+              <div className="space-y-2">
+                <Label>Province</Label>
+                <Input value={company.province} readOnly disabled />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label>Province</Label>
-              <Input value={company.province} readOnly disabled />
+              <Label>Phone</Label>
+              <Input value={company.phone || ""} readOnly disabled />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Phone</Label>
-            <Input value={company.phone || ""} readOnly disabled />
-          </div>
-          <p className="text-sm text-muted-foreground pt-4">
-            * Company details can only be edited by contacting support currently.
-          </p>
-        </CardContent>
-      </Card>
+            <p className="text-sm text-muted-foreground pt-4">
+              * Company details can only be edited by contacting support currently.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -1688,20 +1700,20 @@ export default function Settings() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>First Name</Label>
-              <Input value={user.firstName} readOnly disabled />
+              <Input value={user?.firstName ?? ""} readOnly disabled />
             </div>
             <div className="space-y-2">
               <Label>Last Name</Label>
-              <Input value={user.lastName} readOnly disabled />
+              <Input value={user?.lastName ?? ""} readOnly disabled />
             </div>
           </div>
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input value={user.email} readOnly disabled />
+            <Input value={user?.email ?? ""} readOnly disabled />
           </div>
           <div className="space-y-2">
             <Label>Role</Label>
-            <Input value={user.role} readOnly disabled className="capitalize" />
+            <Input value={user?.role ?? ""} readOnly disabled className="capitalize" />
           </div>
           <p className="text-sm text-muted-foreground pt-4">
             * Profile details are synced from your login provider.
@@ -1711,14 +1723,14 @@ export default function Settings() {
 
       <TeamSeatsCard />
       <MediaHubTestCard />
-      {user?.role === "owner" && <MemberPermissionsCard companyId={company.id} ownerId={user.id} />}
-      <CompanyLogoCard company={company} />
-      <DocumentTemplatesCard company={company} />
-      {user?.role === "owner" && <DocumentNumberingCard company={company} />}
+      {user?.role === "owner" && company && <MemberPermissionsCard companyId={company.id} ownerId={user.id} />}
+      {company && <CompanyLogoCard company={company} />}
+      {company && <DocumentTemplatesCard company={company} />}
+      {user?.role === "owner" && company && <DocumentNumberingCard company={company} />}
       {user?.role === "owner" && <PricingManagerCard />}
       <DigestCard />
       <AccountingCard />
-      {user?.role === "owner" && <DriveSyncCard />}
+      <DriveSyncCard />
     </div>
   );
 }
