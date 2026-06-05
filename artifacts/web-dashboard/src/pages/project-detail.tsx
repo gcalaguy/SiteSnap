@@ -39,6 +39,7 @@ import DocumentsTab from "@/components/DocumentsTab";
 import QuotesTab from "@/components/QuotesTab";
 import ClientMessagesTab from "@/components/ClientMessagesTab";
 import SiteScansTab from "@/components/SiteScansTab";
+import SafetyComplianceTab from "@/components/SafetyComplianceTab";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ import { PDFDownloadLink } from "@react-pdf/renderer";
 import ProjectLiteDocument from "@/components/pdf/ProjectLiteDocument";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Pencil, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert, MessageCircle, ScanLine, Printer, Mic } from "lucide-react";
+import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, MoreVertical, Trash2, Pencil, Circle, Loader2, FolderOpen, User, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, Thermometer, Cloud, Wrench, Package, TriangleAlert, MessageCircle, ScanLine, Printer, Mic, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -956,6 +957,11 @@ export default function ProjectDetail() {
             <TabsTrigger value="site-scans" className="px-4 whitespace-nowrap flex items-center gap-1.5">
               <ScanLine className="h-3.5 w-3.5" />Site Scans
             </TabsTrigger>
+            {me?.role && (me.role === "owner" || me.role === "foreman" || me.role === "worker") && (
+              <TabsTrigger value="safety" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+                <Shield className="h-3.5 w-3.5" />Safety & Compliance
+              </TabsTrigger>
+            )}
             {isOwnerOrForeman && (
               <TabsTrigger value="change-orders" className="px-4 whitespace-nowrap flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5" />Change Orders
@@ -1857,6 +1863,12 @@ export default function ProjectDetail() {
         <TabsContent value="site-scans" className="mt-6">
           <SiteScansTab projectId={projectId} />
         </TabsContent>
+
+        {me?.role && (me.role === "owner" || me.role === "foreman" || me.role === "worker") && (
+          <TabsContent value="safety" className="mt-6">
+            <SafetyComplianceTab projectId={projectId} />
+          </TabsContent>
+        )}
 
         {isOwnerOrForeman && (
           <TabsContent value="change-orders" className="mt-6">

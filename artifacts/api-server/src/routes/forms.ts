@@ -9,6 +9,7 @@ import {
   contactsTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";
 
 const router = Router();
@@ -124,7 +125,7 @@ router.delete("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, 
 //   2. userId     — optional worker restriction (not in composite index, applied after)
 //   3. status     — optional filter (second column of composite index)
 // When both companyId and status are present the planner uses the full composite index.
-router.get("/form-submissions", requireAuth, requireCompany, async (req, res) => {
+router.get("/form-submissions", requireAuth, requireCompany, requirePermission("viewSafetyTab"), async (req, res) => {
   try {
     const { status, templateId, projectId, contactId } = req.query as Record<string, string>;
 

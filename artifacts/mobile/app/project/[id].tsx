@@ -11,6 +11,7 @@ import {
   useGetScanUrl,
   getGetScanUrlQueryKey,
   useListChangeOrders,
+  useListFormSubmissions,
   customFetch,
 } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -59,7 +60,7 @@ const STATUS_LABELS: Record<string, string> = {
   on_hold: "On Hold",
 };
 
-const TABS = ["Overview", "Reports", "Tasks", "Schedules", "RFIs", "Quotes", "Documents", "Hours", "Timesheets", "Messages"] as const;
+const TABS = ["Overview", "Reports", "Tasks", "Schedules", "RFIs", "Quotes", "Documents", "Hours", "Timesheets", "Messages", "Safety"] as const;
 type Tab = (typeof TABS)[number];
 
 const RFI_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -468,6 +469,7 @@ const styles = StyleSheet.create({
   taskCycleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, borderRadius: 8 },
   taskCycleBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FFF" },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
+  emptySection: { borderWidth: 1, borderRadius: 12, borderStyle: "dashed", padding: 28, alignItems: "center", gap: 10 },
   descText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22 },
   infoRow: { flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 10 },
   infoText: { fontSize: 14, fontFamily: "Inter_400Regular" },
@@ -1121,6 +1123,7 @@ export default function ProjectDetailScreen() {
     Hours: "viewTimesheets",
     Messages: "viewClientMessages",
     RFIs: "viewRFIs",
+    Safety: "viewSafetyTab",
   };
 
   const visibleTabs = TABS.filter((tab) => {
@@ -1149,6 +1152,10 @@ export default function ProjectDetailScreen() {
     isOwnerOrForeman ? { projectId } : undefined,
     { query: { enabled: isOwnerOrForeman } as any },
   );
+  const { data: safetySubmissions, refetch: refetchSafety } = useListFormSubmissions(
+    { projectId },
+    { query: { enabled: perms.viewSafetyTab } as any },
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -1158,7 +1165,8 @@ export default function ProjectDetailScreen() {
       refetchTasks();
       refetchRfis();
       refetchScans();
-    }, [refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchScans]),
+      if (perms.viewSafetyTab) refetchSafety();
+    }, [refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchScans, refetchSafety, perms.viewSafetyTab]),
   );
 
   const { data: scanUrlData, isLoading: scanUrlLoading, error: scanUrlError } = useGetScanUrl(
@@ -1730,6 +1738,59 @@ export default function ProjectDetailScreen() {
       {/* Client Messages tab */}
       {activeTab === "Messages" && (
         <ClientMessagesTab projectId={projectId} />
+      )}
+
+      {/* Safety & Compliance tab */}
+      {activeTab === "Safety" && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+            Safety & Compliance
+          </Text>
+          {(safetySubmissions ?? []).length === 0 ? (
+            <View style={[styles.emptySection, { borderColor: colors.border }]}>
+              <Feather name="shield" size={28} color={colors.border} />
+              <Text style={[styles.emptyText, { color: colors.mutedForeground, textAlign: "center", marginTop: 8 }]}>
+                No safety submissions for this project
+              </Text>
+            </View>
+          ) : (
+            (safetySubmissions ?? []).map((s: any) => {
+              const statusColor = s.status === "approved" ? "#22C55E" : s.status === "reviewed" ? "#F59E0B" : s.status === "submitted" ? "#3B82F6" : "#6B7280";
+              const statusLabel = s.status === "approved" ? "Approved" : s.status === "reviewed" ? "Reviewed" : s.status === "submitted" ? "Submitted" : "Draft";
+              return (
+                <Pressable
+                  key={s.id}
+                  style={({ pressed }) => [
+                    styles.reportRow,
+                    { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+                  ]}
+                  onPress={() => {}}
+                >
+                  <View style={[styles.reportDateBadge, { backgroundColor: `${statusColor}15` }]}>
+                    <Feather name="shield" size={16} color={statusColor} />
+                    <Text style={[styles.reportDateText, { color: statusColor, fontSize: 10 }]}>
+                      {statusLabel.toUpperCase().slice(0, 3)}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.reportMeta, { color: colors.foreground }]} numberOfLines={1}>
+                      {s.templateName ?? "Untitled Form"}
+                    </Text>
+                    <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 2 }]}>
+                      {s.workerName ?? "Unknown"}
+                    </Text>
+                    {s.createdAt && (
+                      <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 2 }]}>
+                        {new Date(s.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
+                      </Text>
+                    )}
+                  </View>
+                  <Feather name="chevron-right" size={16} color={colors.border} />
+                </Pressable>
+              );
+            })
+          )}
+        </View>
       )}
 
       {/* 3D Scan viewer modal */}

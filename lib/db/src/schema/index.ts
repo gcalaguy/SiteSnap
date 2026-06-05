@@ -980,6 +980,7 @@ export const formSubmissionsTable = pgTable("form_submissions", {
   index("idx_form_submissions_company_id").on(t.companyId),
   index("idx_form_submissions_status").on(t.status),
   index("idx_form_submissions_company_status").on(t.companyId, t.status),
+  index("idx_form_submissions_project_id").on(t.projectId),
 ]);
 export type FormSubmission = typeof formSubmissionsTable.$inferSelect;
 
