@@ -10,6 +10,7 @@ import {
   useListScans,
   useGetScanUrl,
   getGetScanUrlQueryKey,
+  useListChangeOrders,
   customFetch,
 } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1109,6 +1110,7 @@ export default function ProjectDetailScreen() {
 
   const { data: me } = useGetMe();
   const isWorker = me?.role === "worker";
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const perms = usePermissions();
 
   const TAB_PERMISSION_MAP: Partial<Record<Tab, keyof typeof perms>> = {
@@ -1143,6 +1145,10 @@ export default function ProjectDetailScreen() {
     rfiStatusFilter !== "all" ? { status: rfiStatusFilter as "open" | "in_review" | "answered" | "closed" } : undefined,
   );
   const { data: scans, refetch: refetchScans } = useListScans({ projectId });
+  const { data: changeOrders } = useListChangeOrders(
+    isOwnerOrForeman ? { projectId } : undefined,
+    { query: { enabled: isOwnerOrForeman } as any },
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -1408,6 +1414,75 @@ export default function ProjectDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Change Orders — Owner/Foreman only */}
+          {isOwnerOrForeman && (
+            <>
+              <View style={{ height: 20 }} />
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                  Change Orders
+                </Text>
+                <Text style={{ fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground }}>
+                  {(changeOrders ?? []).length}
+                </Text>
+              </View>
+              {(changeOrders ?? []).length === 0 ? (
+                <View style={[scanSt.emptyScans, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Feather name="file-text" size={22} color={colors.border} />
+                  <Text style={[scanSt.emptyScansText, { color: colors.mutedForeground }]}>
+                    No change orders for this project
+                  </Text>
+                </View>
+              ) : (
+                (changeOrders ?? []).map((co: any) => {
+                  const statusColor = co.status === "approved" ? "#22C55E" : co.status === "rejected" ? "#EF4444" : "#F59E0B";
+                  const statusLabel = co.status === "approved" ? "Approved" : co.status === "rejected" ? "Rejected" : "Pending";
+                  const amount = co.amount != null
+                    ? (typeof co.amount === "string" ? parseFloat(co.amount) : Number(co.amount))
+                    : null;
+                  return (
+                    <Pressable
+                      key={co.id}
+                      style={({ pressed }) => [
+                        styles.reportRow,
+                        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+                      ]}
+                      onPress={() => router.push(`/change-order/${co.id}`)}
+                    >
+                      <View style={[styles.reportDateBadge, { backgroundColor: `${colors.primary}15` }]}>
+                        <Feather name="file-text" size={16} color={colors.primary} />
+                        <Text style={[styles.reportDateText, { color: colors.primary }]}>
+                          {co.status?.slice(0, 3).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.reportMeta, { color: colors.foreground }]} numberOfLines={1}>
+                          {co.title}
+                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                          {amount != null && (
+                            <Text style={{ fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.foreground }}>
+                              ${amount.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
+                          )}
+                          <View style={[styles.rfiBadge, { backgroundColor: `${statusColor}18` }]}>
+                            <Text style={[styles.rfiBadgeText, { color: statusColor }]}>{statusLabel}</Text>
+                          </View>
+                        </View>
+                        {co.createdAt && (
+                          <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 2 }]}>
+                            {new Date(co.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
+                          </Text>
+                        )}
+                      </View>
+                      <Feather name="chevron-right" size={16} color={colors.border} />
+                    </Pressable>
+                  );
+                })
+              )}
+            </>
+          )}
         </View>
       )}
 

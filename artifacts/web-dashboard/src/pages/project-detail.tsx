@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { 
-  useGetProject, 
-  useGetProjectSummary, 
-  useListDailyReports, 
-  useListCostAnalyses, 
+import {
+  useGetProject,
+  useGetProjectSummary,
+  useListDailyReports,
+  useListCostAnalyses,
   useListRFIs,
   useListTasks,
   useCreateTask,
@@ -21,6 +21,7 @@ import {
   useListProjectMembers,
   useAddProjectMember,
   useRemoveProjectMember,
+  useListChangeOrders,
   getListProjectMembersQueryKey,
   getListDailyReportsQueryKey,
   getListCostAnalysesQueryKey,
@@ -751,6 +752,10 @@ export default function ProjectDetail() {
     projectId,
     rfiStatusFilter !== "all" ? { status: rfiStatusFilter as "open" | "in_review" | "answered" | "closed" } : undefined,
   );
+  const { data: changeOrders = [] } = useListChangeOrders(
+    isOwnerOrForeman ? { projectId } : undefined,
+    { query: { enabled: isOwnerOrForeman } as any },
+  );
 
   const selectedMember = selectedWorkerId ? members.find((m) => m.id === selectedWorkerId) : null;
 
@@ -951,6 +956,11 @@ export default function ProjectDetail() {
             <TabsTrigger value="site-scans" className="px-4 whitespace-nowrap flex items-center gap-1.5">
               <ScanLine className="h-3.5 w-3.5" />Site Scans
             </TabsTrigger>
+            {isOwnerOrForeman && (
+              <TabsTrigger value="change-orders" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5" />Change Orders
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 
@@ -1847,6 +1857,65 @@ export default function ProjectDetail() {
         <TabsContent value="site-scans" className="mt-6">
           <SiteScansTab projectId={projectId} />
         </TabsContent>
+
+        {isOwnerOrForeman && (
+          <TabsContent value="change-orders" className="mt-6">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold">Change Orders</h3>
+                <span className="text-sm text-muted-foreground">{changeOrders.length} total</span>
+              </div>
+              {changeOrders.length === 0 ? (
+                <div className="text-center p-8 border rounded-md bg-card">
+                  <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
+                  <p className="font-medium">No change orders yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Change orders will appear here once created.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {changeOrders.map((co: any) => {
+                    const statusColors: Record<string, string> = {
+                      pending: "bg-amber-950/30 text-amber-400 border-amber-900/50",
+                      approved: "bg-green-950/30 text-green-400 border-green-900/50",
+                      rejected: "bg-red-950/30 text-red-400 border-red-900/50",
+                    };
+                    const amount = co.amount != null
+                      ? (typeof co.amount === "string" ? parseFloat(co.amount) : Number(co.amount))
+                      : null;
+                    return (
+                      <div key={co.id} className="rounded-lg border bg-card p-4 hover:border-primary/40 transition-colors">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm">{co.title}</p>
+                            {co.description && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{co.description}</p>
+                            )}
+                          </div>
+                          <span className={`text-xs px-2 py-0.5 rounded border font-medium shrink-0 ${statusColors[co.status] ?? statusColors.pending}`}>
+                            {co.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+                          {amount != null && (
+                            <span className="font-medium text-foreground">
+                              ${amount.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(co.createdAt), "MMM d, yyyy")}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Add Worker to Project Dialog */}

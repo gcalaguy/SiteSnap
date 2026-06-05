@@ -11,7 +11,7 @@ import {
   projectsTable,
   usersTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
@@ -197,7 +197,7 @@ router.delete("/payments/:id", requireAuth, requireCompany, requirePermission("v
 // ── Change Orders ─────────────────────────────────────────────────────────────
 
 // GET /change-orders
-router.get("/change-orders", requireAuth, requireCompany, async (req, res) => {
+router.get("/change-orders", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   const { projectId } = req.query;
 
   const conditions: any[] = [eq(changeOrdersTable.companyId, req.companyId!)];
@@ -213,7 +213,7 @@ router.get("/change-orders", requireAuth, requireCompany, async (req, res) => {
 });
 
 // GET /change-orders/:id
-router.get("/change-orders/:id", requireAuth, requireCompany, async (req, res) => {
+router.get("/change-orders/:id", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
