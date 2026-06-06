@@ -822,7 +822,7 @@ export const timesheetsTable = pgTable("timesheets", {
   index("idx_timesheets_project_id").on(t.projectId),
   index("idx_timesheets_status").on(t.status),
   index("idx_timesheets_project_status").on(t.projectId, t.status),
-  index("idx_timesheets_company_user_week").on(t.companyId, t.userId, t.weekStart),
+  unique("idx_timesheets_company_user_week").on(t.companyId, t.userId, t.weekStart),
 ]);
 
 export type Timesheet = typeof timesheetsTable.$inferSelect;
