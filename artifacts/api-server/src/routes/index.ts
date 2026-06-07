@@ -52,6 +52,7 @@ import workerVaultRouter from "./workerVault";
 import tradeReviewsRouter from "./tradeReviews";
 import auditLogsRouter from "./auditLogs";
 import complianceRouter from "./compliance";
+import complianceDirectivesRouter from "./complianceDirectives";
 
 const router: IRouter = Router();
 
@@ -112,5 +113,6 @@ router.use(workerVaultRouter);
 router.use(tradeReviewsRouter);
 router.use(auditLogsRouter);
 router.use(complianceRouter);
+router.use(complianceDirectivesRouter);
 
 export default router;

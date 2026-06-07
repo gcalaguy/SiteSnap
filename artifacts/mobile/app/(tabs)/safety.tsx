@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +22,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import * as Haptics from "expo-haptics";
 import DateTimePicker, { DateTimePickerChangeEvent } from "@react-native-community/datetimepicker";
+import { useLocalSearchParams } from "expo-router";
+import { ComplianceAlertBanner } from "@/components/ComplianceAlertBanner";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -345,10 +347,18 @@ export default function SafetyTab() {
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const isWorker = me?.role === "worker";
 
+  const { initCategory, initTab } = useLocalSearchParams<{ initCategory?: string; initTab?: string }>();
+
   const [tab, setTab] = useState<TabKey>("log");
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [catFilter, setCatFilter] = useState<string | null>(null);
+
+  // Deep-link from compliance banner: e.g. initCategory="toolbox" initTab="new"
+  useEffect(() => {
+    if (initCategory) setCatFilter(initCategory);
+    if (initTab === "new") setTab("new");
+  }, [initCategory, initTab]);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<FormTemplate[]>({
     queryKey: ["safety-templates"],
@@ -454,6 +464,9 @@ export default function SafetyTab() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={subsLoading} onRefresh={refetchSubs} tintColor={colors.primary} />}
         >
+          {/* AI Compliance Alerts */}
+          <ComplianceAlertBanner />
+
           {/* Stat row */}
           <View style={styles.statsRow}>
             {[

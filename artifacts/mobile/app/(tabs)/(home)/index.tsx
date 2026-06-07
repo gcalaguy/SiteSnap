@@ -10,6 +10,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter, useFocusEffect } from "expo-router";
 import React, { useEffect, useState, useCallback } from "react";
 import { WeatherWidget } from "@/components/WeatherWidget";
+import { ComplianceAlertBanner } from "@/components/ComplianceAlertBanner";
 import {
   ActivityIndicator,
   Platform,
@@ -620,6 +621,9 @@ export default function DashboardScreen() {
       <View style={{ paddingHorizontal: 20, marginTop: 16, marginBottom: 16 }}>
         <WeatherWidget />
       </View>
+
+      {/* Compliance Alerts — compact single-card mode */}
+      <ComplianceAlertBanner compact />
 
       {/* AI Daily Briefing — shown if viewAskAI is enabled */}
       {perms.viewAskAI && <AiBriefingCard colors={colors} />}
