@@ -51,6 +51,7 @@ import mediaHubRouter from "./mediaHub";
 import workerVaultRouter from "./workerVault";
 import tradeReviewsRouter from "./tradeReviews";
 import auditLogsRouter from "./auditLogs";
+import complianceRouter from "./compliance";
 
 const router: IRouter = Router();
 
@@ -110,5 +111,6 @@ router.use(mediaHubRouter);
 router.use(workerVaultRouter);
 router.use(tradeReviewsRouter);
 router.use(auditLogsRouter);
+router.use(complianceRouter);
 
 export default router;
