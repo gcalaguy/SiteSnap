@@ -142,6 +142,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0 },
     ...(isOwnerOrForeman ? [{ name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "RISK_DASHBOARD" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "AI Compliance", href: "/ai-compliance-monitor", icon: ClipboardCheck, badge: 0, featureKey: "AI_COMPLIANCE" }] : []),
     { name: "Projects", href: "/projects", icon: Building2, badge: 0 },
     { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge },
     { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge },

@@ -4921,6 +4921,127 @@ paths:
         "500":
           description: Server error
 
+  # ── AI Compliance ──────────────────────────────────────────────────────
+  /compliance/dashboard:
+    get:
+      operationId: getComplianceDashboard
+      tags: [compliance]
+      summary: Compliance dashboard stats
+      description: Per-project directive counts and safety status for active projects.
+      responses:
+        "200":
+          description: Dashboard rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ComplianceDashboardRow"
+
+  /compliance/directives:
+    get:
+      operationId: listComplianceDirectives
+      tags: [compliance]
+      summary: List AI compliance directives
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, COMPLETED, DISMISSED, SUPERSEDED]
+          description: Defaults to PENDING
+      responses:
+        "200":
+          description: Directives
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ComplianceDirective"
+        "400":
+          description: Invalid status filter
+
+  /compliance/directives/{id}:
+    patch:
+      operationId: patchComplianceDirective
+      tags: [compliance]
+      summary: Update directive status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceDirectivePatch"
+      responses:
+        "200":
+          description: Updated directive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceDirective"
+        "400":
+          description: Invalid status
+        "404":
+          description: Directive not found
+
+  /compliance/test:
+    post:
+      operationId: runComplianceTest
+      tags: [compliance]
+      summary: Run compliance engine test
+      description: |
+        Manual trigger for the compliance pipeline. Requires viewRiskTab permission.
+        Bypasses the 15-minute debounce.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceTestPayload"
+      responses:
+        "200":
+          description: Test results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTestResponse"
+        "400":
+          description: Invalid payload
+
+  /projects/{projectId}/compliance/audit-export:
+    get:
+      operationId: exportComplianceAudit
+      tags: [compliance]
+      summary: Export ministry audit PDF
+      description: Chronological PDF audit packet for a project.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PDF audit packet
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Project not found
+
 components:
   parameters:
     companyId:
@@ -8967,3 +9088,117 @@ components:
           type: ["string", "null"]
         defaultInvoiceNotes:
           type: ["string", "null"]
+
+    # ── Compliance ────────────────────────────────────────────────────────────
+    ComplianceDirective:
+      type: object
+      required: [id, companyId, projectId, targetFormId, urgency, workerDirective, triggerKeywords, sourceType, confidenceScore, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        companyId:
+          type: integer
+        projectId:
+          type: integer
+        targetFormId:
+          type: string
+          enum: [toolbox_talk, site_inspection, hazard_id, incident_report, training_log, ppe_check, excavation_check, scaffolding_check, crane_log, fire_safety, electrical_lockout, confined_space_permit, fall_protection, hot_work, emergency_plan]
+        urgency:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        workerDirective:
+          type: string
+        triggerKeywords:
+          type: array
+          items:
+            type: string
+        sourceType:
+          type: string
+          enum: [FIELD_LOG, DAILY_REPORT, SCHEDULE, RULE_ENGINE, WEATHER, INCIDENT, TRAINING]
+        sourceRecordId:
+          type: ["string", "null"]
+        confidenceScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        aiModel:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, DISMISSED, SUPERSEDED]
+        assignedTo:
+          type: ["integer", "null"]
+        completedBy:
+          type: ["integer", "null"]
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ComplianceDirectivePatch:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [COMPLETED, DISMISSED]
+
+    ComplianceDashboardRow:
+      type: object
+      required: [project, pending, pendingHigh, completed, dismissed, safetyStatus]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        pending:
+          type: integer
+        pendingHigh:
+          type: integer
+        completed:
+          type: integer
+        dismissed:
+          type: integer
+        safetyStatus:
+          type: string
+          enum: [critical, warning, ok]
+
+    ComplianceTestPayload:
+      type: object
+      required: [companyId, projectId, sourceType, text]
+      properties:
+        companyId:
+          type: integer
+        projectId:
+          type: integer
+        sourceType:
+          type: string
+          enum: [FIELD_LOG, DAILY_REPORT, SCHEDULE, RULE_ENGINE, WEATHER, INCIDENT, TRAINING]
+        workType:
+          type: string
+          enum: [excavation, roofing, electrical, plumbing, concrete, framing, demolition, confined_space, scaffolding, crane_lifting, welding_cutting, trenching, asbestos_abatement, painting_coatings, hvac, masonry, general_labour]
+        sourceRecordId:
+          type: string
+        text:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        enrichContext:
+          type: boolean
+          default: true
+
+    ComplianceTestResponse:
+      type: object
+      required: [ok, count, directives]
+      properties:
+        ok:
+          type: boolean
+        count:
+          type: integer
+        directives:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceDirective"

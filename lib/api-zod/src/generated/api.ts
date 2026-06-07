@@ -6855,3 +6855,277 @@ export const MarkInspectionAlertReadResponse = zod.object({
 export const MarkAllInspectionAlertsReadResponse = zod.object({
   ok: zod.boolean(),
 });
+
+/**
+ * Per-project directive counts and safety status for active projects.
+ * @summary Compliance dashboard stats
+ */
+export const GetComplianceDashboardResponseItem = zod.object({
+  project: zod.object({
+    id: zod.number(),
+    companyId: zod.number(),
+    name: zod.string(),
+    address: zod.string(),
+    city: zod.string(),
+    province: zod.string(),
+    status: zod.enum([
+      "planning",
+      "active",
+      "on_hold",
+      "completed",
+      "cancelled",
+    ]),
+    startDate: zod.coerce.date().nullish(),
+    endDate: zod.coerce.date().nullish(),
+    budget: zod.number().nullish(),
+    description: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+  }),
+  pending: zod.number(),
+  pendingHigh: zod.number(),
+  completed: zod.number(),
+  dismissed: zod.number(),
+  safetyStatus: zod.enum(["critical", "warning", "ok"]),
+});
+export const GetComplianceDashboardResponse = zod.array(
+  GetComplianceDashboardResponseItem,
+);
+
+/**
+ * @summary List AI compliance directives
+ */
+export const ListComplianceDirectivesQueryParams = zod.object({
+  projectId: zod.coerce.number().optional(),
+  status: zod
+    .enum(["PENDING", "COMPLETED", "DISMISSED", "SUPERSEDED"])
+    .optional()
+    .describe("Defaults to PENDING"),
+});
+
+export const listComplianceDirectivesResponseConfidenceScoreMin = 0;
+export const listComplianceDirectivesResponseConfidenceScoreMax = 100;
+
+export const ListComplianceDirectivesResponseItem = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  targetFormId: zod.enum([
+    "toolbox_talk",
+    "site_inspection",
+    "hazard_id",
+    "incident_report",
+    "training_log",
+    "ppe_check",
+    "excavation_check",
+    "scaffolding_check",
+    "crane_log",
+    "fire_safety",
+    "electrical_lockout",
+    "confined_space_permit",
+    "fall_protection",
+    "hot_work",
+    "emergency_plan",
+  ]),
+  urgency: zod.enum(["HIGH", "MEDIUM", "LOW"]),
+  workerDirective: zod.string(),
+  triggerKeywords: zod.array(zod.string()),
+  sourceType: zod.enum([
+    "FIELD_LOG",
+    "DAILY_REPORT",
+    "SCHEDULE",
+    "RULE_ENGINE",
+    "WEATHER",
+    "INCIDENT",
+    "TRAINING",
+  ]),
+  sourceRecordId: zod.string().nullish(),
+  confidenceScore: zod
+    .number()
+    .min(listComplianceDirectivesResponseConfidenceScoreMin)
+    .max(listComplianceDirectivesResponseConfidenceScoreMax),
+  aiModel: zod.string().nullish(),
+  status: zod.enum(["PENDING", "COMPLETED", "DISMISSED", "SUPERSEDED"]),
+  assignedTo: zod.number().nullish(),
+  completedBy: zod.number().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListComplianceDirectivesResponse = zod.array(
+  ListComplianceDirectivesResponseItem,
+);
+
+/**
+ * @summary Update directive status
+ */
+export const PatchComplianceDirectiveParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PatchComplianceDirectiveBody = zod.object({
+  status: zod.enum(["COMPLETED", "DISMISSED"]),
+});
+
+export const patchComplianceDirectiveResponseConfidenceScoreMin = 0;
+export const patchComplianceDirectiveResponseConfidenceScoreMax = 100;
+
+export const PatchComplianceDirectiveResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  targetFormId: zod.enum([
+    "toolbox_talk",
+    "site_inspection",
+    "hazard_id",
+    "incident_report",
+    "training_log",
+    "ppe_check",
+    "excavation_check",
+    "scaffolding_check",
+    "crane_log",
+    "fire_safety",
+    "electrical_lockout",
+    "confined_space_permit",
+    "fall_protection",
+    "hot_work",
+    "emergency_plan",
+  ]),
+  urgency: zod.enum(["HIGH", "MEDIUM", "LOW"]),
+  workerDirective: zod.string(),
+  triggerKeywords: zod.array(zod.string()),
+  sourceType: zod.enum([
+    "FIELD_LOG",
+    "DAILY_REPORT",
+    "SCHEDULE",
+    "RULE_ENGINE",
+    "WEATHER",
+    "INCIDENT",
+    "TRAINING",
+  ]),
+  sourceRecordId: zod.string().nullish(),
+  confidenceScore: zod
+    .number()
+    .min(patchComplianceDirectiveResponseConfidenceScoreMin)
+    .max(patchComplianceDirectiveResponseConfidenceScoreMax),
+  aiModel: zod.string().nullish(),
+  status: zod.enum(["PENDING", "COMPLETED", "DISMISSED", "SUPERSEDED"]),
+  assignedTo: zod.number().nullish(),
+  completedBy: zod.number().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * Manual trigger for the compliance pipeline. Requires viewRiskTab permission.
+Bypasses the 15-minute debounce.
+
+ * @summary Run compliance engine test
+ */
+export const runComplianceTestBodyTextMax = 5000;
+
+export const runComplianceTestBodyEnrichContextDefault = true;
+
+export const RunComplianceTestBody = zod.object({
+  companyId: zod.number(),
+  projectId: zod.number(),
+  sourceType: zod.enum([
+    "FIELD_LOG",
+    "DAILY_REPORT",
+    "SCHEDULE",
+    "RULE_ENGINE",
+    "WEATHER",
+    "INCIDENT",
+    "TRAINING",
+  ]),
+  workType: zod
+    .enum([
+      "excavation",
+      "roofing",
+      "electrical",
+      "plumbing",
+      "concrete",
+      "framing",
+      "demolition",
+      "confined_space",
+      "scaffolding",
+      "crane_lifting",
+      "welding_cutting",
+      "trenching",
+      "asbestos_abatement",
+      "painting_coatings",
+      "hvac",
+      "masonry",
+      "general_labour",
+    ])
+    .optional(),
+  sourceRecordId: zod.string().optional(),
+  text: zod.string().min(1).max(runComplianceTestBodyTextMax),
+  enrichContext: zod
+    .boolean()
+    .default(runComplianceTestBodyEnrichContextDefault),
+});
+
+export const runComplianceTestResponseDirectivesItemConfidenceScoreMin = 0;
+export const runComplianceTestResponseDirectivesItemConfidenceScoreMax = 100;
+
+export const RunComplianceTestResponse = zod.object({
+  ok: zod.boolean(),
+  count: zod.number(),
+  directives: zod.array(
+    zod.object({
+      id: zod.number(),
+      companyId: zod.number(),
+      projectId: zod.number(),
+      targetFormId: zod.enum([
+        "toolbox_talk",
+        "site_inspection",
+        "hazard_id",
+        "incident_report",
+        "training_log",
+        "ppe_check",
+        "excavation_check",
+        "scaffolding_check",
+        "crane_log",
+        "fire_safety",
+        "electrical_lockout",
+        "confined_space_permit",
+        "fall_protection",
+        "hot_work",
+        "emergency_plan",
+      ]),
+      urgency: zod.enum(["HIGH", "MEDIUM", "LOW"]),
+      workerDirective: zod.string(),
+      triggerKeywords: zod.array(zod.string()),
+      sourceType: zod.enum([
+        "FIELD_LOG",
+        "DAILY_REPORT",
+        "SCHEDULE",
+        "RULE_ENGINE",
+        "WEATHER",
+        "INCIDENT",
+        "TRAINING",
+      ]),
+      sourceRecordId: zod.string().nullish(),
+      confidenceScore: zod
+        .number()
+        .min(runComplianceTestResponseDirectivesItemConfidenceScoreMin)
+        .max(runComplianceTestResponseDirectivesItemConfidenceScoreMax),
+      aiModel: zod.string().nullish(),
+      status: zod.enum(["PENDING", "COMPLETED", "DISMISSED", "SUPERSEDED"]),
+      assignedTo: zod.number().nullish(),
+      completedBy: zod.number().nullish(),
+      completedAt: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * Chronological PDF audit packet for a project.
+ * @summary Export ministry audit PDF
+ */
+export const ExportComplianceAuditParams = zod.object({
+  projectId: zod.coerce.number(),
+});

@@ -718,7 +718,9 @@ function RiskDashboardInner() {
           )}
 
           {/* AI Compliance Monitor */}
-          <ComplianceMonitorSection />
+          <FeatureGuard feature="AI_COMPLIANCE" silent>
+            <ComplianceMonitorSection />
+          </FeatureGuard>
 
           {/* Chart + Alerts side by side */}
           <div className="grid gap-4 lg:grid-cols-5">

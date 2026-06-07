@@ -861,6 +861,7 @@ router.post("/admin/seed", ...guard, async (req, res) => {
       { name: "TradeHub",                key: "TRADEHUB",        description: "Marketplace for trade professionals" },
       { name: "Financials",              key: "FINANCIALS",      description: "Full financial tracking and management" },
       { name: "Risk Dashboard",          key: "RISK_DASHBOARD",  description: "AI risk scoring and inspection alerts" },
+      { name: "AI Compliance Monitor",   key: "AI_COMPLIANCE",   description: "AI-powered compliance directive monitoring and ministry audit exports" },
       { name: "Safety Forms",            key: "SAFETY_FORMS",    description: "Digital safety and incident reporting" },
       { name: "Daily Reports",           key: "DAILY_REPORTS",   description: "Field daily report submission" },
       { name: "RFIs",                    key: "RFIS",            description: "Request for Information tracking" },
@@ -896,7 +897,8 @@ router.post("/admin/seed", ...guard, async (req, res) => {
 
     const proKeys = ["SCHEDULING", "AI_ESTIMATING", "CLIENT_PORTAL", "REPORTING", "QUICKBOOKS", "AI_CHAT",
       "SITE_VISION_AI", "TRADEHUB", "SAFETY_FORMS", "DAILY_REPORTS", "RFIS",
-      "TEAM_MANAGEMENT", "INVOICES", "QUOTES", "CRM_LEADS", "SMART_ESTIMATOR"];
+      "TEAM_MANAGEMENT", "INVOICES", "QUOTES", "CRM_LEADS", "SMART_ESTIMATOR",
+      "RISK_DASHBOARD", "AI_COMPLIANCE"];
     if (pro) {
       const vals = proKeys.map((k) => get(k)).filter(Boolean);
       if (vals.length > 0) {

@@ -16,7 +16,7 @@ router.get(
     const projectId = req.query.projectId ? Number(req.query.projectId) : undefined;
     const status = (req.query.status as string) ?? "PENDING";
 
-    const allowed = ["PENDING", "IN_PROGRESS", "COMPLETED", "DISMISSED", "SUPERSEDED"];
+    const allowed = ["PENDING", "COMPLETED", "DISMISSED", "SUPERSEDED"];
     if (!allowed.includes(status)) {
       throw new BadRequestError(`Invalid status. Must be one of: ${allowed.join(", ")}`);
     }
@@ -48,7 +48,7 @@ router.patch(
     if (isNaN(id)) throw new BadRequestError("Invalid directive ID");
 
     const { status } = req.body as { status?: string };
-    const allowed = ["DISMISSED", "COMPLETED", "IN_PROGRESS"];
+    const allowed = ["DISMISSED", "COMPLETED"];
     if (!status || !allowed.includes(status)) {
       throw new BadRequestError(`status must be one of: ${allowed.join(", ")}`);
     }

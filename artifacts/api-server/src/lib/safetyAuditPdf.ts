@@ -1,7 +1,8 @@
 /**
  * Ministry-grade safety audit PDF builder.
- * Generates a chronological, print-ready audit packet using PDFKit.
- * Pattern follows invoicePdf.ts.
+ * Generates a single chronological, print-ready audit packet using PDFKit.
+ * All records (forms, signoffs, logs, certifications, directives) are merged
+ * into one timeline, sorted by date, then paginated with a continuous header.
  */
 import PDFDocument from "pdfkit";
 
@@ -14,36 +15,17 @@ const RED: [number, number, number] = [220, 38, 38];
 const AMBER: [number, number, number] = [217, 119, 6];
 const GREEN: [number, number, number] = [22, 163, 74];
 
-export interface AuditSubmission {
-  id: number;
-  templateName: string;
-  category: string;
-  submittedBy: string;
-  status: string;
-  reviewedBy?: string | null;
-  reviewedAt?: string | null;
-  reviewNotes?: string | null;
-  aiSummary?: string | null;
-  createdAt: string;
-  data: Record<string, unknown>;
-}
-
-export interface AuditCertification {
-  workerName: string;
-  documentType: string;
-  status: string;
-  expirationDate?: string | null;
-  fileUrl?: string | null;
-  uploadedAt: string;
-}
-
-export interface AuditDirective {
-  targetFormId: string;
-  urgency: string;
-  workerDirective: string;
-  status: string;
-  confidenceScore: number;
-  createdAt: string;
+/** A single item on the chronological audit timeline. */
+export interface AuditTimelineItem {
+  date: string;
+  type: "form" | "signoff" | "log" | "certification" | "directive";
+  title: string;
+  description?: string;
+  status?: string;
+  urgency?: string;
+  by?: string;
+  color?: [number, number, number];
+  extra?: string;
 }
 
 export interface SafetyAuditInput {
@@ -52,9 +34,14 @@ export interface SafetyAuditInput {
   projectLocation?: string | null;
   exportedAt: string;
   exportedBy: string;
-  submissions: AuditSubmission[];
-  certifications: AuditCertification[];
-  directives: AuditDirective[];
+  items: AuditTimelineItem[];
+  summaryCounts: {
+    forms: number;
+    signoffs: number;
+    logs: number;
+    certifications: number;
+    directives: number;
+  };
 }
 
 function fmtDate(iso: string) {
@@ -67,11 +54,31 @@ function fmtDate(iso: string) {
   }
 }
 
-function statusColor(s: string): [number, number, number] {
-  if (s === "approved") return GREEN;
-  if (s === "submitted" || s === "reviewed") return AMBER;
-  return GRAY;
+function fmtDateTime(iso: string) {
+  try {
+    return new Date(iso).toLocaleString("en-CA", {
+      year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
 }
+
+const TYPE_LABEL: Record<string, string> = {
+  form: "Safety Form",
+  signoff: "Toolbox Signoff",
+  log: "Daily Log",
+  certification: "Certification",
+  directive: "AI Directive",
+};
+
+const TYPE_BAR: Record<string, [number, number, number]> = {
+  form: GREEN,
+  signoff: PRIMARY,
+  log: AMBER,
+  certification: [100, 160, 200],
+  directive: RED,
+};
 
 export function buildSafetyAuditPdfBuffer(input: SafetyAuditInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -102,24 +109,16 @@ export function buildSafetyAuditPdfBuffer(input: SafetyAuditInput): Promise<Buff
       doc.y = 90;
     }
 
-    function sectionTitle(label: string) {
-      doc.moveDown(0.5);
-      doc.rect(50, doc.y, doc.page.width - 100, 22).fill(PRIMARY);
-      doc.fillColor(DARK).fontSize(10).font("Helvetica-Bold");
-      doc.text(label.toUpperCase(), 58, doc.y - 16, { width: doc.page.width - 116 });
-      doc.moveDown(0.8);
-    }
-
     function footer() {
       const bottom = doc.page.height - 30;
       doc.fillColor(GRAY).fontSize(8).font("Helvetica");
       doc.text(
-        `${input.companyName} · Ministry Audit Export · ${input.projectName} · Page ${pageNum}`,
+        `${input.companyName} \u00b7 Ministry Audit Export \u00b7 ${input.projectName} \u00b7 Page ${pageNum}`,
         50, bottom, { width: doc.page.width - 100, align: "center" },
       );
     }
 
-    // ── Cover page ──────────────────────────────────────────────────────────────
+    // ── Cover page ─────────────────────────────────────────────
     addPage();
     doc.rect(0, 0, doc.page.width, doc.page.height).fill(DARK);
     doc.rect(0, 0, doc.page.width, 8).fill(PRIMARY);
@@ -143,145 +142,104 @@ export function buildSafetyAuditPdfBuffer(input: SafetyAuditInput): Promise<Buff
 
     doc.rect(50, 390, doc.page.width - 100, 1).fill(AMBER);
     doc.fillColor(AMBER).fontSize(9).font("Helvetica-Bold");
-    doc.text("CONFIDENTIAL — FOR REGULATORY PURPOSES ONLY", 50, 400, { align: "center" });
+    doc.text("CONFIDENTIAL \u2014 FOR REGULATORY PURPOSES ONLY", 50, 400, { align: "center" });
 
     // Summary box
     const boxY = 450;
-    doc.rect(100, boxY, doc.page.width - 200, 120).fillAndStroke([40, 35, 20], [212, 175, 55]);
+    const s = input.summaryCounts;
+    doc.rect(100, boxY, doc.page.width - 200, 140).fillAndStroke([40, 35, 20], [212, 175, 55]);
     doc.fillColor(PRIMARY).fontSize(10).font("Helvetica-Bold");
     doc.text("DOCUMENT SUMMARY", 0, boxY + 14, { align: "center" });
     doc.fillColor(WHITE).fontSize(10).font("Helvetica");
-    doc.text(`Safety Form Submissions: ${input.submissions.length}`, 120, boxY + 34);
-    doc.text(`Worker Certifications:   ${input.certifications.length}`, 120, boxY + 50);
-    doc.text(`Compliance Directives:   ${input.directives.length}`, 120, boxY + 66);
+    doc.text(`Safety Forms:       ${s.forms}`, 120, boxY + 34);
+    doc.text(`Toolbox Signoffs:     ${s.signoffs}`, 120, boxY + 50);
+    doc.text(`Daily Logs:           ${s.logs}`, 120, boxY + 66);
+    doc.text(`Worker Certifications: ${s.certifications}`, 120, boxY + 82);
+    doc.text(`AI Compliance Directives: ${s.directives}`, 120, boxY + 98);
+    doc.text(`Total Records:        ${input.items.length}`, 120, boxY + 114);
 
     footer();
 
-    // ── Section 1: Safety Form Submissions ─────────────────────────────────────
+    // ── Chronological Timeline ──────────────────────────────────────
     addPage();
-    header("Ministry Audit Export — Safety Form Submissions");
-    sectionTitle(`Section 1 — Safety Form Submissions (${input.submissions.length})`);
+    header("Ministry Audit Export \u2014 Chronological Timeline");
 
-    if (input.submissions.length === 0) {
-      doc.fillColor(GRAY).fontSize(10).font("Helvetica").text("No safety form submissions recorded.", 50, doc.y);
+    doc.fillColor(PRIMARY).fontSize(12).font("Helvetica-Bold");
+    doc.text("CHRONOLOGICAL AUDIT TIMELINE", 50, doc.y);
+    doc.moveDown(0.5);
+    doc.fillColor(GRAY).fontSize(9).font("Helvetica");
+    doc.text(`All records sorted by date (${input.items.length} total)`, 50, doc.y);
+    doc.moveDown(0.8);
+
+    if (input.items.length === 0) {
+      doc.fillColor(GRAY).fontSize(10).font("Helvetica");
+      doc.text("No audit records found for this project.", 50, doc.y);
     } else {
-      for (const sub of input.submissions) {
-        if (doc.y > doc.page.height - 160) {
+      let lastDate = "";
+      for (const item of input.items) {
+        if (doc.y > doc.page.height - 120) {
           addPage();
-          header("Ministry Audit Export — Safety Form Submissions (cont.)");
+          header("Ministry Audit Export \u2014 Chronological Timeline (cont.)");
+        }
+
+        const barColor = item.color ?? TYPE_BAR[item.type] ?? GRAY;
+        const itemDate = fmtDate(item.date);
+        const itemTime = fmtDateTime(item.date);
+
+        // Date divider
+        if (itemDate !== lastDate) {
+          doc.moveDown(0.4);
+          doc.fillColor(PRIMARY).fontSize(9).font("Helvetica-Bold");
+          doc.text(itemDate, 50, doc.y);
+          doc.rect(50, doc.y + 2, doc.page.width - 100, 0.5).fill(PRIMARY);
+          doc.moveDown(0.6);
+          lastDate = itemDate;
         }
 
         const startY = doc.y;
-        const sc = statusColor(sub.status);
+        const rowHeight = 28;
 
-        doc.rect(50, startY, doc.page.width - 100, 14).fill([30, 30, 30]);
-        doc.fillColor(PRIMARY).fontSize(9).font("Helvetica-Bold");
-        doc.text(`${sub.templateName}  ·  ${sub.category.toUpperCase()}  ·  ${fmtDate(sub.createdAt)}`, 56, startY + 3);
+        // Type bar
+        doc.rect(50, startY, 4, rowHeight).fill(barColor);
 
-        const scLabel = sub.status.charAt(0).toUpperCase() + sub.status.slice(1);
-        doc.fillColor(sc).text(scLabel, 0, startY + 3, { width: doc.page.width - 56, align: "right" });
+        // Type label
+        doc.fillColor(barColor).fontSize(8).font("Helvetica-Bold");
+        doc.text(TYPE_LABEL[item.type] ?? item.type.toUpperCase(), 62, startY + 2);
 
-        doc.y = startY + 18;
-
+        // Time + status
         doc.fillColor(GRAY).fontSize(8).font("Helvetica");
-        doc.text(`Submitted by: ${sub.submittedBy}`, 56, doc.y);
+        const statusText = item.status ? ` \u00b7 ${item.status}` : "";
+        const urgencyText = item.urgency ? ` \u00b7 ${item.urgency}` : "";
+        doc.text(`${itemTime}${statusText}${urgencyText}`, 62, startY + 14);
 
-        if (sub.reviewedBy) {
-          doc.y += 10;
-          doc.fillColor(GREEN).text(`Reviewed by: ${sub.reviewedBy}  ·  ${sub.reviewedAt ? fmtDate(sub.reviewedAt) : ""}`, 56, doc.y);
-          if (sub.reviewNotes) {
-            doc.y += 10;
-            doc.fillColor(GRAY).text(`Review Notes: ${sub.reviewNotes}`, 56, doc.y, { width: doc.page.width - 112 });
-          }
+        // Title
+        doc.fillColor(WHITE).fontSize(9).font("Helvetica-Bold");
+        const titleWidth = item.by
+          ? doc.page.width - 230
+          : doc.page.width - 180;
+        doc.text(item.title, 180, startY + 2, { width: titleWidth });
+
+        // Description
+        if (item.description) {
+          doc.fillColor(GRAY).fontSize(8).font("Helvetica");
+          doc.text(item.description, 180, doc.y + 4, { width: doc.page.width - 230 });
         }
 
-        if (sub.aiSummary) {
-          doc.y += 10;
-          doc.fillColor([180, 140, 40]).font("Helvetica-Bold").fontSize(8).text("AI Summary:", 56, doc.y);
-          doc.y += 10;
-          doc.fillColor(GRAY).font("Helvetica").fontSize(8);
-          doc.text(sub.aiSummary.slice(0, 400), 56, doc.y, { width: doc.page.width - 112 });
+        // By
+        if (item.by) {
+          doc.fillColor(GRAY).fontSize(8).font("Helvetica");
+          doc.text(`By: ${item.by}`, doc.page.width - 140, startY + 2, { width: 90, align: "right" });
         }
 
-        doc.y += 14;
-        doc.rect(50, doc.y, doc.page.width - 100, 0.5).fill([60, 60, 60]);
-        doc.y += 8;
-      }
-    }
-
-    footer();
-
-    // ── Section 2: Worker Certifications ───────────────────────────────────────
-    addPage();
-    header("Ministry Audit Export — Worker Certifications");
-    sectionTitle(`Section 2 — Worker Certifications (${input.certifications.length})`);
-
-    if (input.certifications.length === 0) {
-      doc.fillColor(GRAY).fontSize(10).font("Helvetica").text("No certifications on file.", 50, doc.y);
-    } else {
-      const cols = [50, 180, 320, 430, 520];
-      const headers = ["Worker", "Certification", "Expiry", "Status", "Uploaded"];
-
-      doc.rect(50, doc.y, doc.page.width - 100, 16).fill([30, 30, 30]);
-      doc.fillColor(GRAY).fontSize(8).font("Helvetica-Bold");
-      headers.forEach((h, i) => doc.text(h, cols[i] + 4, doc.y - 13, { width: (cols[i + 1] ?? 570) - cols[i] - 6 }));
-      doc.y += 4;
-
-      for (const cert of input.certifications) {
-        if (doc.y > doc.page.height - 80) {
-          addPage();
-          header("Ministry Audit Export — Worker Certifications (cont.)");
-        }
-        const rowY = doc.y;
-        const expired = cert.status === "expired";
-        const color: [number, number, number] = expired ? RED : cert.status === "active" ? GREEN : GRAY;
-
-        doc.fillColor(WHITE).fontSize(8).font("Helvetica");
-        doc.text(cert.workerName, cols[0] + 4, rowY, { width: 120 });
-        doc.text(cert.documentType, cols[1] + 4, rowY, { width: 134 });
-        doc.text(cert.expirationDate ? fmtDate(cert.expirationDate) : "—", cols[2] + 4, rowY, { width: 104 });
-        doc.fillColor(color).text(cert.status, cols[3] + 4, rowY, { width: 84 });
-        doc.fillColor(WHITE).text(fmtDate(cert.uploadedAt), cols[4] + 4, rowY, { width: 60 });
-
-        doc.y = rowY + 14;
-        doc.rect(50, doc.y, doc.page.width - 100, 0.5).fill([40, 40, 40]);
-        doc.y += 2;
-      }
-    }
-
-    footer();
-
-    // ── Section 3: AI Compliance Directive History ─────────────────────────────
-    addPage();
-    header("Ministry Audit Export — AI Compliance Directives");
-    sectionTitle(`Section 3 — AI Compliance Directives (${input.directives.length})`);
-
-    if (input.directives.length === 0) {
-      doc.fillColor(GRAY).fontSize(10).font("Helvetica").text("No compliance directives recorded.", 50, doc.y);
-    } else {
-      for (const d of input.directives) {
-        if (doc.y > doc.page.height - 100) {
-          addPage();
-          header("Ministry Audit Export — AI Compliance Directives (cont.)");
+        // Extra
+        if (item.extra) {
+          doc.fillColor([100, 100, 100]).fontSize(7).font("Helvetica");
+          doc.text(item.extra, 62, doc.y + 2, { width: doc.page.width - 114 });
         }
 
-        const uc = d.urgency === "HIGH" ? RED : d.urgency === "MEDIUM" ? AMBER : GREEN;
-        const startY = doc.y;
-
-        doc.rect(50, startY, 4, 30).fill(uc);
-        doc.fillColor(uc).fontSize(8).font("Helvetica-Bold");
-        doc.text(`${d.urgency}  ·  ${d.targetFormId.replace(/_/g, " ").toUpperCase()}  ·  ${fmtDate(d.createdAt)}`, 62, startY + 2);
-
-        doc.fillColor(GRAY).fontSize(8).font("Helvetica");
-        doc.text(d.workerDirective, 62, startY + 14, { width: doc.page.width - 114 });
-
-        doc.fillColor([100, 100, 100]).fontSize(7);
-        const sc = d.status === "COMPLETED" ? GREEN : d.status === "DISMISSED" ? GRAY : d.status === "SUPERSEDED" ? GRAY : AMBER;
-        doc.fillColor(sc).text(`Status: ${d.status}  ·  Confidence: ${d.confidenceScore}%`, 62, doc.y + 2);
-
-        doc.y += 14;
-        doc.rect(50, doc.y, doc.page.width - 100, 0.5).fill([60, 60, 60]);
-        doc.y += 8;
+        doc.y = Math.max(doc.y, startY + rowHeight + 4);
+        doc.rect(50, doc.y, doc.page.width - 100, 0.5).fill([50, 50, 50]);
+        doc.y += 6;
       }
     }
 

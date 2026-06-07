@@ -45,6 +45,11 @@ import type {
   CompanyLogoUpdate,
   CompanySettings,
   CompanyTemplateUpdate,
+  ComplianceDashboardRow,
+  ComplianceDirective,
+  ComplianceDirectivePatch,
+  ComplianceTestPayload,
+  ComplianceTestResponse,
   Contact,
   ConvertEstimateBody,
   ConvertLead201,
@@ -127,6 +132,7 @@ import type {
   ListAllQuotesParams,
   ListAllRFIsParams,
   ListChangeOrdersParams,
+  ListComplianceDirectivesParams,
   ListContactsParams,
   ListDailyLogsParams,
   ListFilesParams,
@@ -20295,3 +20301,450 @@ export const useMarkAllInspectionAlertsRead = <
 > => {
   return useMutation(getMarkAllInspectionAlertsReadMutationOptions(options));
 };
+
+/**
+ * Per-project directive counts and safety status for active projects.
+ * @summary Compliance dashboard stats
+ */
+export const getGetComplianceDashboardUrl = () => {
+  return `/api/compliance/dashboard`;
+};
+
+export const getComplianceDashboard = async (
+  options?: RequestInit,
+): Promise<ComplianceDashboardRow[]> => {
+  return customFetch<ComplianceDashboardRow[]>(getGetComplianceDashboardUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetComplianceDashboardQueryKey = () => {
+  return [`/api/compliance/dashboard`] as const;
+};
+
+export const getGetComplianceDashboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getComplianceDashboard>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getComplianceDashboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetComplianceDashboardQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getComplianceDashboard>>
+  > = ({ signal }) => getComplianceDashboard({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getComplianceDashboard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetComplianceDashboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getComplianceDashboard>>
+>;
+export type GetComplianceDashboardQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Compliance dashboard stats
+ */
+
+export function useGetComplianceDashboard<
+  TData = Awaited<ReturnType<typeof getComplianceDashboard>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getComplianceDashboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetComplianceDashboardQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List AI compliance directives
+ */
+export const getListComplianceDirectivesUrl = (
+  params?: ListComplianceDirectivesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/compliance/directives?${stringifiedParams}`
+    : `/api/compliance/directives`;
+};
+
+export const listComplianceDirectives = async (
+  params?: ListComplianceDirectivesParams,
+  options?: RequestInit,
+): Promise<ComplianceDirective[]> => {
+  return customFetch<ComplianceDirective[]>(
+    getListComplianceDirectivesUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListComplianceDirectivesQueryKey = (
+  params?: ListComplianceDirectivesParams,
+) => {
+  return [`/api/compliance/directives`, ...(params ? [params] : [])] as const;
+};
+
+export const getListComplianceDirectivesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listComplianceDirectives>>,
+  TError = ErrorType<void>,
+>(
+  params?: ListComplianceDirectivesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listComplianceDirectives>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListComplianceDirectivesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listComplianceDirectives>>
+  > = ({ signal }) =>
+    listComplianceDirectives(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listComplianceDirectives>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListComplianceDirectivesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listComplianceDirectives>>
+>;
+export type ListComplianceDirectivesQueryError = ErrorType<void>;
+
+/**
+ * @summary List AI compliance directives
+ */
+
+export function useListComplianceDirectives<
+  TData = Awaited<ReturnType<typeof listComplianceDirectives>>,
+  TError = ErrorType<void>,
+>(
+  params?: ListComplianceDirectivesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listComplianceDirectives>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListComplianceDirectivesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update directive status
+ */
+export const getPatchComplianceDirectiveUrl = (id: number) => {
+  return `/api/compliance/directives/${id}`;
+};
+
+export const patchComplianceDirective = async (
+  id: number,
+  complianceDirectivePatch: ComplianceDirectivePatch,
+  options?: RequestInit,
+): Promise<ComplianceDirective> => {
+  return customFetch<ComplianceDirective>(getPatchComplianceDirectiveUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(complianceDirectivePatch),
+  });
+};
+
+export const getPatchComplianceDirectiveMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchComplianceDirective>>,
+    TError,
+    { id: number; data: BodyType<ComplianceDirectivePatch> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchComplianceDirective>>,
+  TError,
+  { id: number; data: BodyType<ComplianceDirectivePatch> },
+  TContext
+> => {
+  const mutationKey = ["patchComplianceDirective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchComplianceDirective>>,
+    { id: number; data: BodyType<ComplianceDirectivePatch> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return patchComplianceDirective(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchComplianceDirectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchComplianceDirective>>
+>;
+export type PatchComplianceDirectiveMutationBody =
+  BodyType<ComplianceDirectivePatch>;
+export type PatchComplianceDirectiveMutationError = ErrorType<void>;
+
+/**
+ * @summary Update directive status
+ */
+export const usePatchComplianceDirective = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchComplianceDirective>>,
+    TError,
+    { id: number; data: BodyType<ComplianceDirectivePatch> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchComplianceDirective>>,
+  TError,
+  { id: number; data: BodyType<ComplianceDirectivePatch> },
+  TContext
+> => {
+  return useMutation(getPatchComplianceDirectiveMutationOptions(options));
+};
+
+/**
+ * Manual trigger for the compliance pipeline. Requires viewRiskTab permission.
+Bypasses the 15-minute debounce.
+
+ * @summary Run compliance engine test
+ */
+export const getRunComplianceTestUrl = () => {
+  return `/api/compliance/test`;
+};
+
+export const runComplianceTest = async (
+  complianceTestPayload: ComplianceTestPayload,
+  options?: RequestInit,
+): Promise<ComplianceTestResponse> => {
+  return customFetch<ComplianceTestResponse>(getRunComplianceTestUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(complianceTestPayload),
+  });
+};
+
+export const getRunComplianceTestMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runComplianceTest>>,
+    TError,
+    { data: BodyType<ComplianceTestPayload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runComplianceTest>>,
+  TError,
+  { data: BodyType<ComplianceTestPayload> },
+  TContext
+> => {
+  const mutationKey = ["runComplianceTest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runComplianceTest>>,
+    { data: BodyType<ComplianceTestPayload> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return runComplianceTest(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunComplianceTestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runComplianceTest>>
+>;
+export type RunComplianceTestMutationBody = BodyType<ComplianceTestPayload>;
+export type RunComplianceTestMutationError = ErrorType<void>;
+
+/**
+ * @summary Run compliance engine test
+ */
+export const useRunComplianceTest = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runComplianceTest>>,
+    TError,
+    { data: BodyType<ComplianceTestPayload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runComplianceTest>>,
+  TError,
+  { data: BodyType<ComplianceTestPayload> },
+  TContext
+> => {
+  return useMutation(getRunComplianceTestMutationOptions(options));
+};
+
+/**
+ * Chronological PDF audit packet for a project.
+ * @summary Export ministry audit PDF
+ */
+export const getExportComplianceAuditUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/compliance/audit-export`;
+};
+
+export const exportComplianceAudit = async (
+  projectId: number,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getExportComplianceAuditUrl(projectId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getExportComplianceAuditQueryKey = (projectId: number) => {
+  return [`/api/projects/${projectId}/compliance/audit-export`] as const;
+};
+
+export const getExportComplianceAuditQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportComplianceAudit>>,
+  TError = ErrorType<void>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportComplianceAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getExportComplianceAuditQueryKey(projectId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof exportComplianceAudit>>
+  > = ({ signal }) =>
+    exportComplianceAudit(projectId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportComplianceAudit>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportComplianceAuditQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportComplianceAudit>>
+>;
+export type ExportComplianceAuditQueryError = ErrorType<void>;
+
+/**
+ * @summary Export ministry audit PDF
+ */
+
+export function useExportComplianceAudit<
+  TData = Awaited<ReturnType<typeof exportComplianceAudit>>,
+  TError = ErrorType<void>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportComplianceAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportComplianceAuditQueryOptions(projectId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

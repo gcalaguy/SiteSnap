@@ -2758,6 +2758,174 @@ export interface CompanyDocumentSettingsUpdate {
   defaultInvoiceNotes?: string | null;
 }
 
+export type ComplianceDirectiveTargetFormId =
+  (typeof ComplianceDirectiveTargetFormId)[keyof typeof ComplianceDirectiveTargetFormId];
+
+export const ComplianceDirectiveTargetFormId = {
+  toolbox_talk: "toolbox_talk",
+  site_inspection: "site_inspection",
+  hazard_id: "hazard_id",
+  incident_report: "incident_report",
+  training_log: "training_log",
+  ppe_check: "ppe_check",
+  excavation_check: "excavation_check",
+  scaffolding_check: "scaffolding_check",
+  crane_log: "crane_log",
+  fire_safety: "fire_safety",
+  electrical_lockout: "electrical_lockout",
+  confined_space_permit: "confined_space_permit",
+  fall_protection: "fall_protection",
+  hot_work: "hot_work",
+  emergency_plan: "emergency_plan",
+} as const;
+
+export type ComplianceDirectiveUrgency =
+  (typeof ComplianceDirectiveUrgency)[keyof typeof ComplianceDirectiveUrgency];
+
+export const ComplianceDirectiveUrgency = {
+  HIGH: "HIGH",
+  MEDIUM: "MEDIUM",
+  LOW: "LOW",
+} as const;
+
+export type ComplianceDirectiveSourceType =
+  (typeof ComplianceDirectiveSourceType)[keyof typeof ComplianceDirectiveSourceType];
+
+export const ComplianceDirectiveSourceType = {
+  FIELD_LOG: "FIELD_LOG",
+  DAILY_REPORT: "DAILY_REPORT",
+  SCHEDULE: "SCHEDULE",
+  RULE_ENGINE: "RULE_ENGINE",
+  WEATHER: "WEATHER",
+  INCIDENT: "INCIDENT",
+  TRAINING: "TRAINING",
+} as const;
+
+export type ComplianceDirectiveStatus =
+  (typeof ComplianceDirectiveStatus)[keyof typeof ComplianceDirectiveStatus];
+
+export const ComplianceDirectiveStatus = {
+  PENDING: "PENDING",
+  COMPLETED: "COMPLETED",
+  DISMISSED: "DISMISSED",
+  SUPERSEDED: "SUPERSEDED",
+} as const;
+
+export interface ComplianceDirective {
+  id: number;
+  companyId: number;
+  projectId: number;
+  targetFormId: ComplianceDirectiveTargetFormId;
+  urgency: ComplianceDirectiveUrgency;
+  workerDirective: string;
+  triggerKeywords: string[];
+  sourceType: ComplianceDirectiveSourceType;
+  /** @nullable */
+  sourceRecordId?: string | null;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  confidenceScore: number;
+  /** @nullable */
+  aiModel?: string | null;
+  status: ComplianceDirectiveStatus;
+  /** @nullable */
+  assignedTo?: number | null;
+  /** @nullable */
+  completedBy?: number | null;
+  /** @nullable */
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ComplianceDirectivePatchStatus =
+  (typeof ComplianceDirectivePatchStatus)[keyof typeof ComplianceDirectivePatchStatus];
+
+export const ComplianceDirectivePatchStatus = {
+  COMPLETED: "COMPLETED",
+  DISMISSED: "DISMISSED",
+} as const;
+
+export interface ComplianceDirectivePatch {
+  status: ComplianceDirectivePatchStatus;
+}
+
+export type ComplianceDashboardRowSafetyStatus =
+  (typeof ComplianceDashboardRowSafetyStatus)[keyof typeof ComplianceDashboardRowSafetyStatus];
+
+export const ComplianceDashboardRowSafetyStatus = {
+  critical: "critical",
+  warning: "warning",
+  ok: "ok",
+} as const;
+
+export interface ComplianceDashboardRow {
+  project: Project;
+  pending: number;
+  pendingHigh: number;
+  completed: number;
+  dismissed: number;
+  safetyStatus: ComplianceDashboardRowSafetyStatus;
+}
+
+export type ComplianceTestPayloadSourceType =
+  (typeof ComplianceTestPayloadSourceType)[keyof typeof ComplianceTestPayloadSourceType];
+
+export const ComplianceTestPayloadSourceType = {
+  FIELD_LOG: "FIELD_LOG",
+  DAILY_REPORT: "DAILY_REPORT",
+  SCHEDULE: "SCHEDULE",
+  RULE_ENGINE: "RULE_ENGINE",
+  WEATHER: "WEATHER",
+  INCIDENT: "INCIDENT",
+  TRAINING: "TRAINING",
+} as const;
+
+export type ComplianceTestPayloadWorkType =
+  (typeof ComplianceTestPayloadWorkType)[keyof typeof ComplianceTestPayloadWorkType];
+
+export const ComplianceTestPayloadWorkType = {
+  excavation: "excavation",
+  roofing: "roofing",
+  electrical: "electrical",
+  plumbing: "plumbing",
+  concrete: "concrete",
+  framing: "framing",
+  demolition: "demolition",
+  confined_space: "confined_space",
+  scaffolding: "scaffolding",
+  crane_lifting: "crane_lifting",
+  welding_cutting: "welding_cutting",
+  trenching: "trenching",
+  asbestos_abatement: "asbestos_abatement",
+  painting_coatings: "painting_coatings",
+  hvac: "hvac",
+  masonry: "masonry",
+  general_labour: "general_labour",
+} as const;
+
+export interface ComplianceTestPayload {
+  companyId: number;
+  projectId: number;
+  sourceType: ComplianceTestPayloadSourceType;
+  workType?: ComplianceTestPayloadWorkType;
+  sourceRecordId?: string;
+  /**
+   * @minLength 1
+   * @maxLength 5000
+   */
+  text: string;
+  enrichContext?: boolean;
+}
+
+export interface ComplianceTestResponse {
+  ok: boolean;
+  count: number;
+  directives: ComplianceDirective[];
+}
+
 export type ListFormSubmissionsParams = {
   status?: string;
   projectId?: number;
@@ -3144,3 +3312,21 @@ export type MarkInspectionAlertRead200 = {
 export type MarkAllInspectionAlertsRead200 = {
   ok: boolean;
 };
+
+export type ListComplianceDirectivesParams = {
+  projectId?: number;
+  /**
+   * Defaults to PENDING
+   */
+  status?: ListComplianceDirectivesStatus;
+};
+
+export type ListComplianceDirectivesStatus =
+  (typeof ListComplianceDirectivesStatus)[keyof typeof ListComplianceDirectivesStatus];
+
+export const ListComplianceDirectivesStatus = {
+  PENDING: "PENDING",
+  COMPLETED: "COMPLETED",
+  DISMISSED: "DISMISSED",
+  SUPERSEDED: "SUPERSEDED",
+} as const;

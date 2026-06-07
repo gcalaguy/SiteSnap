@@ -47,6 +47,7 @@ import ReportsPage from "@/pages/reports";
 import FieldLogsPage from "@/pages/field-logs";
 import InspectionsPage from "@/pages/inspections";
 import RiskDashboardPage from "@/pages/risk-dashboard";
+import AIComplianceMonitorPage from "@/pages/ai-compliance-monitor";
 import SafetyPage from "@/pages/safety";
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
@@ -312,6 +313,7 @@ function AuthApp() {
           <Route path="/tradehub/profile/:userId" component={TradehubProfilePage} />
           <Route path="/tradehub" component={TradehubPage} />
           <Route path="/risk-dashboard" component={RiskDashboardPage} />
+          <Route path="/ai-compliance-monitor" component={AIComplianceMonitorPage} />
           <Route path="/media-hub" component={MediaHubTestPage} />
           <Route path="/safety-compliance" component={SafetyCompliancePage} />
           <Route path="/worker-documents" component={WorkerDocumentsPage} />
