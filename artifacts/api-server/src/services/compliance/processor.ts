@@ -1,24 +1,28 @@
 /**
  * Compliance Processor.
  *
- * Execution order (mirrors the three-pass rules engine design):
+ * Full execution pipeline:
  *
- *  1. Rules Engine (work-type → keyword → source-type) runs first — instant,
- *     free, deterministic. No AI tokens consumed.
- *  2. AI Analysis runs for supplementary semantic analysis. Its output is
- *     merged with the rules output using "highest confidence wins per form
- *     type" — so a high-confidence work-type rule (95%) always beats a
- *     lower-confidence AI suggestion for the same form.
- *  3. Combined, deduplicated suggestions are inserted as PENDING directives.
+ *  1. Gather live project context (schedule, field logs, crew, hazards).
+ *  2. Rules Engine (work-type → keyword → source-type) — instant, free,
+ *     deterministic. No AI tokens consumed.
+ *  3. AI Analysis — enriched with real project context. Zod-validated.
+ *     Falls back to null on any failure.
+ *  4. Merge both streams: highest confidence wins per targetFormId.
+ *  5. Supersede: mark existing PENDING directives for the same project +
+ *     targetFormId as SUPERSEDED to preserve chronological history.
+ *  6. Insert merged suggestions as new PENDING directives.
  *
  * Call processComplianceEvent() directly from the test endpoint (bypassing
  * the debounce timer). The debounce wrapper lives in debouncer.ts and is
  * used by live field-log triggers.
  */
 
-import { db, aiComplianceDirectivesTable } from "@workspace/db";
+import { db, aiComplianceDirectivesTable, projectsTable } from "@workspace/db";
+import { eq, and, inArray } from "drizzle-orm";
 import { runRulesEngine, type RulesSuggestion } from "./rulesEngine";
 import { runAiAnalysis } from "./aiAnalysis";
+import { gatherProjectContext } from "./contextGatherer";
 import type { ComplianceEventPayload } from "./types";
 import type { AiComplianceDirective } from "@workspace/db";
 
@@ -26,24 +30,49 @@ export type { ComplianceEventPayload };
 
 type MergedSuggestion = RulesSuggestion & { aiModel?: string };
 
+export interface ProcessOptions {
+  /**
+   * When true (default), gather live project context from the DB before
+   * calling the AI. Set to false in unit tests or when the caller has
+   * already supplied all context via the text payload.
+   */
+  enrichContext?: boolean;
+}
+
 export async function processComplianceEvent(
   payload: ComplianceEventPayload,
+  options: ProcessOptions = {},
 ): Promise<AiComplianceDirective[]> {
-  // ── Step 1: Deterministic rules engine (always runs, zero cost) ─────────────
+  const enrichContext = options.enrichContext ?? true;
+
+  // ── Step 1: Gather live project context (optional, default on) ───────────────
+  let context;
+  if (enrichContext) {
+    // Fetch the project name for the context block
+    const [project] = await db
+      .select({ name: projectsTable.name })
+      .from(projectsTable)
+      .where(eq(projectsTable.id, payload.projectId))
+      .limit(1);
+
+    context = await gatherProjectContext(
+      payload.projectId,
+      payload.companyId,
+      project?.name ?? `Project #${payload.projectId}`,
+    );
+  }
+
+  // ── Step 2: Deterministic rules engine (always runs, zero cost) ─────────────
   const rulesSuggestions = runRulesEngine({
     text: payload.text,
     sourceType: payload.sourceType,
     workType: payload.workType,
   });
 
-  // ── Step 2: AI analysis (supplementary — may return null on failure) ────────
-  const aiSuggestions = await runAiAnalysis(payload);
+  // ── Step 3: AI analysis with enriched context ────────────────────────────────
+  const aiSuggestions = await runAiAnalysis(payload, context);
 
-  // ── Step 3: Merge both streams, highest confidence wins per form type ───────
-  // Build a map seeded with rules results, then layer AI suggestions on top.
-  // Because work-type rules start at confidence 95, they survive unless the AI
-  // is more confident about the same form — a healthy dynamic where structured
-  // input reliably anchors the output.
+  // ── Step 4: Merge both streams — highest confidence wins per form type ────────
   const seen = new Map<string, MergedSuggestion>();
 
   for (const s of rulesSuggestions) {
@@ -68,7 +97,26 @@ export async function processComplianceEvent(
     return [];
   }
 
-  // ── Step 4: Insert all merged suggestions as PENDING directives ─────────────
+  const targetFormIds = finalSuggestions.map((s) => s.targetFormId);
+
+  // ── Step 5: Supersede existing PENDING directives for the same forms ─────────
+  // Mark old PENDING directives for each targetFormId as SUPERSEDED so the
+  // historical record is preserved while the UI only surfaces the latest ones.
+  await db
+    .update(aiComplianceDirectivesTable)
+    .set({
+      status: "SUPERSEDED",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(aiComplianceDirectivesTable.projectId, payload.projectId),
+        eq(aiComplianceDirectivesTable.status, "PENDING"),
+        inArray(aiComplianceDirectivesTable.targetFormId, targetFormIds),
+      ),
+    );
+
+  // ── Step 6: Insert merged suggestions as new PENDING directives ──────────────
   const rows = await db
     .insert(aiComplianceDirectivesTable)
     .values(

@@ -6,20 +6,22 @@
  *
  * All LLM output is treated as untrusted: it is validated against a strict
  * Zod schema before use. If parsing fails for any reason (malformed JSON,
- * invalid enum, network error) the service returns null and the caller
- * falls back to the Rules Engine output exclusively.
+ * invalid enum, network error, quota) the service returns null and the
+ * caller falls back to the Rules Engine output exclusively.
  *
- * NOTE: The prompt explicitly tells the AI which forms the work-type rules
- * engine has already covered, so it focuses on semantic gaps rather than
- * duplicating deterministic output.
+ * The prompt is enriched with live project context (schedule, field logs,
+ * active crew, open hazards) gathered by contextGatherer.ts so the AI
+ * reasons about the real site situation rather than bare text alone.
  */
 
 import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import type { RulesSuggestion } from "./rulesEngine";
 import type { ComplianceEventPayload } from "./types";
+import type { ProjectComplianceContext } from "./contextGatherer";
 
-// ── Zod schema for LLM output ─────────────────────────────────────────────────
+// ── Strict Zod schema for LLM output ─────────────────────────────────────────
+// Treat every field as potentially wrong — validate all enum values explicitly.
 
 const TargetFormEnum = z.enum([
   "toolbox_talk",
@@ -36,7 +38,7 @@ const AiDirectiveSuggestionSchema = z.object({
   targetFormId: TargetFormEnum,
   urgency: UrgencyEnum,
   workerDirective: z.string().min(10).max(500),
-  triggerKeywords: z.array(z.string()).min(1).max(10),
+  triggerKeywords: z.array(z.string().max(80)).min(1).max(10),
   confidenceScore: z.number().int().min(0).max(100),
 });
 
@@ -49,21 +51,41 @@ const AI_MODEL = "gpt-4.1-mini";
 // ── Service ───────────────────────────────────────────────────────────────────
 
 /**
- * Ask the AI to analyse the event payload and return directive suggestions.
- *
+ * Ask the AI to analyse the event payload using enriched project context.
  * Returns null on any failure — the caller must fall back to the Rules Engine.
  */
 export async function runAiAnalysis(
   payload: ComplianceEventPayload,
+  context?: ProjectComplianceContext,
 ): Promise<(RulesSuggestion & { aiModel: string })[] | null> {
   const workTypeContext = payload.workType
     ? `Work type: ${payload.workType.replace(/_/g, " ")}`
     : "Work type: not specified";
 
-  const systemPrompt = `You are an AI Compliance Officer for a Canadian construction company.
-Your job is to analyse field activity text and identify safety compliance risks that require immediate worker action.
+  const projectSection = context
+    ? `
+PROJECT CONTEXT
+===============
+Project: ${context.projectName}
 
-You must respond with a JSON object in this exact shape:
+TODAY'S SCHEDULE:
+${context.todayScheduleText}
+
+RECENT FIELD LOGS / DAILY REPORTS (last 3 days):
+${context.recentDailyReportsText}
+
+ACTIVE CREW THIS WEEK:
+${context.activeCrewText}
+
+OPEN HAZARDS & HIGH-PRIORITY TASKS:
+${context.openHazardsText}
+`
+    : "";
+
+  const systemPrompt = `You are an AI Compliance Officer for a Canadian construction company.
+Your job is to analyse field activity text — enriched with real project context — and identify safety compliance risks that require immediate worker action.
+
+You must respond with a JSON object in this EXACT shape and no other text:
 {
   "directives": [
     {
@@ -77,24 +99,25 @@ You must respond with a JSON object in this exact shape:
 }
 
 Rules:
-- Only include directives where there is genuine safety risk evidence in the text.
+- Only include directives where there is genuine safety risk evidence in the text or context.
 - Maximum 5 directives per response.
-- If there are no additional risks beyond what the static rules engine already covers, return { "directives": [] }.
-- Do NOT invent risks that are not in the text.
+- If there are no additional semantic risks, return { "directives": [] }.
+- Do NOT invent risks not supported by the text or context.
+- Focus on SEMANTIC and CONTEXTUAL risks the static keyword rules would miss.
 - AI recommendations are advisory only — never claim to complete forms or create legal records.
-- This is a Canadian construction site; reference relevant Canadian safety standards (OHSA, CSA, WHMIS) where applicable.
-- Focus on SEMANTIC risks the static keyword rules would miss — complex language, implied risks, contextual hazards.`;
+- Reference relevant Canadian safety standards (OHSA, CSA, WHMIS) where applicable.
+- The static rules engine already covers structured work-type requirements; focus on gaps.`;
 
-  const userPrompt = `Source type: ${payload.sourceType}
+  const userPrompt =
+    `Source type: ${payload.sourceType}
 ${workTypeContext}
-Project ID: ${payload.projectId}
-
-Field activity text:
+${projectSection}
+TRIGGERING FIELD TEXT:
 """
 ${payload.text.slice(0, 3000)}
 """
 
-Identify any additional safety compliance directives not already covered by standard ${payload.workType ?? "general"} work-type rules.`;
+Identify safety compliance directives not already covered by standard ${payload.workType ?? "general"} work-type rules.`.trim();
 
   try {
     const response = await openai.chat.completions.create({
@@ -108,23 +131,24 @@ Identify any additional safety compliance directives not already covered by stan
 
     const raw = response.choices[0]?.message?.content?.trim() ?? "";
 
+    // ── VALIDATION LAYER: treat LLM output as hostile ─────────────────────────
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
     } catch {
-      // LLM returned non-JSON — fall back to rules engine
+      // Non-JSON response — fall back silently
       return null;
     }
 
     const result = AiAnalysisResponseSchema.safeParse(parsed);
     if (!result.success) {
-      // LLM returned JSON with invalid shape or enum values — fall back
+      // Invalid shape or enum values — fall back silently
       return null;
     }
 
     return result.data.directives.map((d) => ({ ...d, aiModel: AI_MODEL }));
   } catch {
-    // Network error, quota exceeded, etc. — fall back gracefully
+    // Network error, quota exceeded, timeout — fall back gracefully
     return null;
   }
 }
