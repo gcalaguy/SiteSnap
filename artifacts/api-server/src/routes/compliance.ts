@@ -23,6 +23,27 @@ const TestPayloadSchema = z.object({
     "INCIDENT",
     "TRAINING",
   ]),
+  workType: z
+    .enum([
+      "excavation",
+      "roofing",
+      "electrical",
+      "plumbing",
+      "concrete",
+      "framing",
+      "demolition",
+      "confined_space",
+      "scaffolding",
+      "crane_lifting",
+      "welding_cutting",
+      "trenching",
+      "asbestos_abatement",
+      "painting_coatings",
+      "hvac",
+      "masonry",
+      "general_labour",
+    ])
+    .optional(),
   sourceRecordId: z.string().optional(),
   text: z.string().min(1).max(5000),
 });
@@ -30,17 +51,23 @@ const TestPayloadSchema = z.object({
 /**
  * POST /api/compliance/test
  *
- * Runs the full compliance engine (Rules Engine + AI Analysis) against a
- * test payload, writes resulting directives to the database, and returns
- * them. Bypasses the 15-minute debounce window by design.
+ * Runs the full compliance engine against a test payload and returns the
+ * resulting directives. Bypasses the 15-minute debounce window by design.
  *
- * Example body:
- * {
- *   "companyId": 1,
- *   "projectId": 42,
- *   "sourceType": "FIELD_LOG",
- *   "text": "Worker fell from scaffolding on the second floor. No harness worn."
- * }
+ * Examples:
+ *
+ * Work-type only (rules engine, no AI tokens):
+ * { "companyId": 4, "projectId": 1, "sourceType": "FIELD_LOG",
+ *   "workType": "excavation", "text": "Starting dig today." }
+ *
+ * Work-type + semantic text (rules + AI):
+ * { "companyId": 4, "projectId": 1, "sourceType": "FIELD_LOG",
+ *   "workType": "roofing",
+ *   "text": "Worker fell from scaffolding. No harness worn." }
+ *
+ * Text only (keyword rules + AI):
+ * { "companyId": 4, "projectId": 1, "sourceType": "FIELD_LOG",
+ *   "text": "Near miss — crane load swung into exclusion zone." }
  */
 router.post(
   "/compliance/test",

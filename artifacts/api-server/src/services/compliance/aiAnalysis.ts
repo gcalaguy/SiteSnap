@@ -1,11 +1,17 @@
 /**
  * AI Compliance Analysis Service.
  *
- * Calls OpenAI to produce structured compliance directive suggestions.
+ * Calls OpenAI to produce structured compliance directive suggestions for
+ * complex semantic analysis that the static rules engine cannot cover.
+ *
  * All LLM output is treated as untrusted: it is validated against a strict
  * Zod schema before use. If parsing fails for any reason (malformed JSON,
  * invalid enum, network error) the service returns null and the caller
- * falls back to the Rules Engine.
+ * falls back to the Rules Engine output exclusively.
+ *
+ * NOTE: The prompt explicitly tells the AI which forms the work-type rules
+ * engine has already covered, so it focuses on semantic gaps rather than
+ * duplicating deterministic output.
  */
 
 import { z } from "zod";
@@ -50,6 +56,10 @@ const AI_MODEL = "gpt-4.1-mini";
 export async function runAiAnalysis(
   payload: ComplianceEventPayload,
 ): Promise<(RulesSuggestion & { aiModel: string })[] | null> {
+  const workTypeContext = payload.workType
+    ? `Work type: ${payload.workType.replace(/_/g, " ")}`
+    : "Work type: not specified";
+
   const systemPrompt = `You are an AI Compliance Officer for a Canadian construction company.
 Your job is to analyse field activity text and identify safety compliance risks that require immediate worker action.
 
@@ -69,12 +79,14 @@ You must respond with a JSON object in this exact shape:
 Rules:
 - Only include directives where there is genuine safety risk evidence in the text.
 - Maximum 5 directives per response.
-- If there are no risks, return { "directives": [] }.
+- If there are no additional risks beyond what the static rules engine already covers, return { "directives": [] }.
 - Do NOT invent risks that are not in the text.
 - AI recommendations are advisory only — never claim to complete forms or create legal records.
-- This is a Canadian construction site; reference relevant Canadian safety standards (OHSA, CSA) where applicable.`;
+- This is a Canadian construction site; reference relevant Canadian safety standards (OHSA, CSA, WHMIS) where applicable.
+- Focus on SEMANTIC risks the static keyword rules would miss — complex language, implied risks, contextual hazards.`;
 
   const userPrompt = `Source type: ${payload.sourceType}
+${workTypeContext}
 Project ID: ${payload.projectId}
 
 Field activity text:
@@ -82,7 +94,7 @@ Field activity text:
 ${payload.text.slice(0, 3000)}
 """
 
-Identify any safety compliance directives required.`;
+Identify any additional safety compliance directives not already covered by standard ${payload.workType ?? "general"} work-type rules.`;
 
   try {
     const response = await openai.chat.completions.create({

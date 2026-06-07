@@ -1,8 +1,15 @@
 /**
  * Compliance Processor.
  *
- * Composes the Rules Engine and AI Analysis Service, inserts validated
- * aiComplianceDirectives rows, and returns the inserted records.
+ * Execution order (mirrors the three-pass rules engine design):
+ *
+ *  1. Rules Engine (work-type → keyword → source-type) runs first — instant,
+ *     free, deterministic. No AI tokens consumed.
+ *  2. AI Analysis runs for supplementary semantic analysis. Its output is
+ *     merged with the rules output using "highest confidence wins per form
+ *     type" — so a high-confidence work-type rule (95%) always beats a
+ *     lower-confidence AI suggestion for the same form.
+ *  3. Combined, deduplicated suggestions are inserted as PENDING directives.
  *
  * Call processComplianceEvent() directly from the test endpoint (bypassing
  * the debounce timer). The debounce wrapper lives in debouncer.ts and is
@@ -17,39 +24,51 @@ import type { AiComplianceDirective } from "@workspace/db";
 
 export type { ComplianceEventPayload };
 
+type MergedSuggestion = RulesSuggestion & { aiModel?: string };
+
 export async function processComplianceEvent(
   payload: ComplianceEventPayload,
 ): Promise<AiComplianceDirective[]> {
-  // 1. Always run the deterministic rules engine first (free, instant, reliable)
+  // ── Step 1: Deterministic rules engine (always runs, zero cost) ─────────────
   const rulesSuggestions = runRulesEngine({
     text: payload.text,
     sourceType: payload.sourceType,
+    workType: payload.workType,
   });
 
-  // 2. Attempt AI analysis — fall back to rules if it fails or returns null
+  // ── Step 2: AI analysis (supplementary — may return null on failure) ────────
   const aiSuggestions = await runAiAnalysis(payload);
-  const usedAi = aiSuggestions !== null;
 
-  // 3. Merge: prefer AI suggestions when available; supplement with any rules
-  //    suggestions for targetFormIds the AI didn't cover.
-  let finalSuggestions: (RulesSuggestion & { aiModel?: string })[];
+  // ── Step 3: Merge both streams, highest confidence wins per form type ───────
+  // Build a map seeded with rules results, then layer AI suggestions on top.
+  // Because work-type rules start at confidence 95, they survive unless the AI
+  // is more confident about the same form — a healthy dynamic where structured
+  // input reliably anchors the output.
+  const seen = new Map<string, MergedSuggestion>();
 
-  if (usedAi && aiSuggestions.length > 0) {
-    const aiCoveredForms = new Set(aiSuggestions.map((s) => s.targetFormId));
-    const rulesOnlyGaps = rulesSuggestions.filter(
-      (s) => !aiCoveredForms.has(s.targetFormId),
-    );
-    finalSuggestions = [...aiSuggestions, ...rulesOnlyGaps];
-  } else {
-    // AI unavailable or returned no directives — use rules exclusively
-    finalSuggestions = rulesSuggestions;
+  for (const s of rulesSuggestions) {
+    const existing = seen.get(s.targetFormId);
+    if (!existing || s.confidenceScore > existing.confidenceScore) {
+      seen.set(s.targetFormId, s);
+    }
   }
+
+  if (aiSuggestions) {
+    for (const s of aiSuggestions) {
+      const existing = seen.get(s.targetFormId);
+      if (!existing || s.confidenceScore > existing.confidenceScore) {
+        seen.set(s.targetFormId, s);
+      }
+    }
+  }
+
+  const finalSuggestions = Array.from(seen.values());
 
   if (finalSuggestions.length === 0) {
     return [];
   }
 
-  // 4. Insert all suggestions as PENDING directives
+  // ── Step 4: Insert all merged suggestions as PENDING directives ─────────────
   const rows = await db
     .insert(aiComplianceDirectivesTable)
     .values(
