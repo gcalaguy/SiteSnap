@@ -1670,3 +1670,86 @@ export const insertAuditLogSchema = createInsertSchema(auditLogsTable).omit({
 });
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogsTable.$inferSelect;
+
+// ── AI Compliance Directives ───────────────────────────────────────────────────
+
+export const complianceTargetFormEnum = pgEnum("compliance_target_form", [
+  "toolbox_talk",
+  "site_inspection",
+  "hazard_id",
+  "incident_investigation",
+  "training_record",
+  "audit_prep",
+]);
+
+export const complianceUrgencyEnum = pgEnum("compliance_urgency", [
+  "HIGH",
+  "MEDIUM",
+  "LOW",
+]);
+
+export const complianceSourceTypeEnum = pgEnum("compliance_source_type", [
+  "FIELD_LOG",
+  "DAILY_REPORT",
+  "SCHEDULE",
+  "RULE_ENGINE",
+  "WEATHER",
+  "INCIDENT",
+  "TRAINING",
+]);
+
+export const complianceDirectiveStatusEnum = pgEnum(
+  "compliance_directive_status",
+  ["PENDING", "COMPLETED", "DISMISSED", "SUPERSEDED"],
+);
+
+export const aiComplianceDirectivesTable = pgTable(
+  "ai_compliance_directives",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companiesTable.id, { onDelete: "cascade" }),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projectsTable.id, { onDelete: "cascade" }),
+    targetFormId: complianceTargetFormEnum("target_form_id").notNull(),
+    urgency: complianceUrgencyEnum("urgency").notNull(),
+    workerDirective: text("worker_directive").notNull(),
+    triggerKeywords: jsonb("trigger_keywords").$type<string[]>().notNull().default([]),
+    sourceType: complianceSourceTypeEnum("source_type").notNull(),
+    sourceRecordId: text("source_record_id"),
+    confidenceScore: integer("confidence_score").notNull().default(0),
+    aiModel: text("ai_model"),
+    status: complianceDirectiveStatusEnum("status").notNull().default("PENDING"),
+    assignedTo: integer("assigned_to").references(() => usersTable.id, {
+      onDelete: "set null",
+    }),
+    completedBy: integer("completed_by").references(() => usersTable.id, {
+      onDelete: "set null",
+    }),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_compliance_directives_project_id").on(t.projectId),
+    index("idx_compliance_directives_company_id").on(t.companyId),
+    index("idx_compliance_directives_status").on(t.status),
+    index("idx_compliance_directives_urgency").on(t.urgency),
+    index("idx_compliance_directives_created_at").on(t.createdAt),
+  ],
+);
+
+export const insertAiComplianceDirectiveSchema = createInsertSchema(
+  aiComplianceDirectivesTable,
+).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAiComplianceDirective = z.infer<
+  typeof insertAiComplianceDirectiveSchema
+>;
+export type AiComplianceDirective =
+  typeof aiComplianceDirectivesTable.$inferSelect;
