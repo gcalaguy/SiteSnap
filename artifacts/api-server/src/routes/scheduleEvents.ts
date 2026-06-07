@@ -16,6 +16,7 @@ import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
 import { getMeetingLink, type MeetingPlatform } from "../lib/meetingService";
 import { z } from "zod";
+import { processComplianceEvent } from "../services/compliance/processor";
 
 const router = Router();
 
@@ -310,6 +311,17 @@ router.post(
       .where(eq(scheduleEventAssigneesTable.eventId, event.id));
 
     res.status(201).json({ ...event, assignees: eventAssignees });
+
+    // ── Fire-and-forget: compliance check when event is project-linked ────
+    if (event.projectId) {
+      processComplianceEvent({
+        companyId: req.companyId!,
+        projectId: event.projectId,
+        sourceType: "SCHEDULE",
+        sourceRecordId: String(event.id),
+        text: [event.title, event.notes, event.location].filter(Boolean).join("\n"),
+      }).catch(() => {});
+    }
 
     // ── Fire-and-forget: email manually specified recipients ─────────────
     const emails: string[] = Array.isArray(recipientEmails)

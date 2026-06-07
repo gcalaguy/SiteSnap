@@ -53,6 +53,7 @@ import tradeReviewsRouter from "./tradeReviews";
 import auditLogsRouter from "./auditLogs";
 import complianceRouter from "./compliance";
 import complianceDirectivesRouter from "./complianceDirectives";
+import auditExportRouter from "./auditExport";
 
 const router: IRouter = Router();
 
@@ -114,5 +115,6 @@ router.use(tradeReviewsRouter);
 router.use(auditLogsRouter);
 router.use(complianceRouter);
 router.use(complianceDirectivesRouter);
+router.use(auditExportRouter);
 
 export default router;

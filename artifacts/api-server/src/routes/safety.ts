@@ -14,6 +14,7 @@ import { requirePermission } from "../lib/permissionGate";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
+import { processComplianceEvent } from "../services/compliance/processor";
 
 const router = Router();
 
@@ -174,6 +175,16 @@ router.post("/safety/submissions", requireAuth, requireCompany, async (req, res)
       notifyForemen(req.companyId!, submission.id, template.name, req.userId!).catch((err) =>
         logger.error({ err }, "Safety foreman notification error")
       );
+      // Fire-and-forget compliance check for submitted safety forms
+      if (submission.projectId) {
+        processComplianceEvent({
+          companyId: req.companyId!,
+          projectId: submission.projectId,
+          sourceType: "FIELD_LOG",
+          sourceRecordId: String(submission.id),
+          text: `${template.name} (${template.category}): ${JSON.stringify(data).slice(0, 600)}`,
+        }).catch((err) => logger.error({ err }, "compliance trigger error (safety)"));
+      }
     }
 
     res.json(submission);

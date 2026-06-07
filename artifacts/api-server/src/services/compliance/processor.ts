@@ -18,8 +18,9 @@
  * used by live field-log triggers.
  */
 
-import { db, aiComplianceDirectivesTable, projectsTable } from "@workspace/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { db, aiComplianceDirectivesTable, projectsTable, userMembershipsTable } from "@workspace/db";
+import { eq, and, inArray, sql } from "drizzle-orm";
+import { notify } from "../../lib/notify";
 import { runRulesEngine, type RulesSuggestion } from "./rulesEngine";
 import { runAiAnalysis } from "./aiAnalysis";
 import { gatherProjectContext } from "./contextGatherer";
@@ -136,5 +137,41 @@ export async function processComplianceEvent(
     )
     .returning();
 
+  // ── Step 7: Push-notify foremen/owners for any HIGH urgency directives ───────
+  const highRows = rows.filter((r) => r.urgency === "HIGH");
+  if (highRows.length > 0) {
+    notifyComplianceForemen(payload.companyId, highRows, payload.projectId).catch(() => {});
+  }
+
   return rows;
+}
+
+/** Fire-and-forget: push notify all foremen + owners about HIGH compliance alerts. */
+async function notifyComplianceForemen(
+  companyId: number,
+  highDirectives: AiComplianceDirective[],
+  projectId: number,
+): Promise<void> {
+  const members = await db
+    .select({ userId: userMembershipsTable.userId })
+    .from(userMembershipsTable)
+    .where(
+      and(
+        eq(userMembershipsTable.companyId, companyId),
+        sql`${userMembershipsTable.role} IN ('owner','foreman')`,
+      ),
+    );
+
+  for (const { userId } of members) {
+    for (const d of highDirectives) {
+      await notify({
+        userId,
+        type: "inspection",
+        title: "⚠️ Compliance Alert — Action Required",
+        body: d.workerDirective.slice(0, 140),
+        referenceId: d.id,
+        projectId,
+      }).catch(() => {});
+    }
+  }
 }

@@ -6,6 +6,7 @@ import { requirePermission } from "../lib/permissionGate";
 import { CreateDailyReportBody, UpdateDailyReportBody } from "@workspace/api-zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { logAuditEventFromRequest } from "../utils/logger";
+import { processComplianceEvent } from "../services/compliance/processor";
 
 // GET /daily-reports — all daily reports across all projects for the authenticated company
 export const allDailyReportsRouter = Router();
@@ -193,6 +194,15 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
     logAuditEventFromRequest(req, "Daily Report Updated", `Updated daily report for ${dateStr} in project ${projectId}`).catch(() => {});
 
     res.status(200).json({ ...updated, submittedBy: submittedBy ?? null });
+
+    // Fire-and-forget compliance check
+    processComplianceEvent({
+      companyId: req.companyId!,
+      projectId,
+      sourceType: "DAILY_REPORT",
+      sourceRecordId: String(updated.id),
+      text: [updated.workPerformed, updated.notes, updated.issues].filter(Boolean).join("\n"),
+    }).catch(() => {});
     return;
   }
 
@@ -216,6 +226,15 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
   logAuditEventFromRequest(req, "Daily Report Created", `Submitted daily report for ${dateStr} in project ${projectId}`).catch(() => {});
 
   res.status(201).json({ ...report, submittedBy: submittedBy ?? null });
+
+  // Fire-and-forget compliance check
+  processComplianceEvent({
+    companyId: req.companyId!,
+    projectId,
+    sourceType: "DAILY_REPORT",
+    sourceRecordId: String(report.id),
+    text: [report.workPerformed, report.notes, report.issues].filter(Boolean).join("\n"),
+  }).catch(() => {});
 });
 
 // GET /projects/:projectId/daily-reports/:reportId

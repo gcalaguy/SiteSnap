@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
 import {
   ShieldAlert, AlertTriangle, Flame, CircleDot, ChevronRight, ChevronLeft,
-  Bell, Check, Eye, TrendingUp, BarChart3, Loader2,
+  Bell, Check, Eye, TrendingUp, BarChart3, Loader2, Download, Activity, ShieldCheck,
 } from "lucide-react";
 import { format, parseISO, subDays } from "date-fns";
 import { FeatureGuard } from "@/components/FeatureGuard";
@@ -53,6 +53,15 @@ type RiskDashData = {
   alerts: { critical: number; high: number; medium: number; total: number };
   health: { critical: number; high: number; medium: number; low: number; avgRiskScore: number | null };
   trend: TrendPoint[];
+};
+
+type ComplianceDashRow = {
+  project: { id: number; name: string; status: string };
+  pending: number;
+  pendingHigh: number;
+  completed: number;
+  dismissed: number;
+  safetyStatus: "critical" | "warning" | "ok";
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -503,6 +512,125 @@ function AlertsPanel() {
   );
 }
 
+// ── AI Compliance Monitor ──────────────────────────────────────────────────────
+
+function ComplianceMonitorSection() {
+  const { data: rows = [], isLoading } = useQuery<ComplianceDashRow[]>({
+    queryKey: ["compliance-dashboard"],
+    queryFn: () => customFetch("/api/compliance/dashboard"),
+    refetchInterval: 90_000,
+  });
+
+  const statusCfg = {
+    critical: { label: "Critical", color: "#dc2626", bg: "#1a000099", icon: AlertTriangle },
+    warning:  { label: "Warning",  color: "#ca8a04", bg: "#1a120099", icon: Activity },
+    ok:       { label: "OK",       color: "#16a34a", bg: "#00180099", icon: ShieldCheck },
+  };
+
+  return (
+    <Card style={{ background: BLACK, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.18)" }}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2" style={{ color: GOLD }}>
+            <ShieldAlert className="h-4 w-4" style={{ color: GOLD }} />
+            AI Compliance Monitor
+          </CardTitle>
+          <span className="text-[10px] text-zinc-600 uppercase tracking-widest">
+            Powered by AI Compliance Officer
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-zinc-600" />
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-zinc-600 gap-2">
+            <ShieldCheck className="h-8 w-8 opacity-30" />
+            <p className="text-sm">No active projects with compliance data.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {rows.map((row) => {
+              const cfg = statusCfg[row.safetyStatus];
+              const StatusIcon = cfg.icon;
+              return (
+                <div
+                  key={row.project.id}
+                  className="flex items-center gap-3 py-3 group"
+                  style={{ paddingLeft: 4, paddingRight: 4 }}
+                >
+                  {/* Status indicator */}
+                  <div
+                    className="h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center"
+                    style={{ background: cfg.bg, border: `1px solid ${cfg.color}40` }}
+                  >
+                    <StatusIcon className="h-4 w-4" style={{ color: cfg.color }} />
+                  </div>
+
+                  {/* Project info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-zinc-100 truncate">{row.project.name}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span
+                        className="text-[11px] font-bold"
+                        style={{ color: cfg.color }}
+                      >
+                        {cfg.label}
+                      </span>
+                      {row.pending > 0 && (
+                        <span className="text-[11px] text-zinc-500">
+                          {row.pendingHigh > 0 && (
+                            <span className="text-red-400 font-semibold">{row.pendingHigh} HIGH · </span>
+                          )}
+                          {row.pending} pending
+                        </span>
+                      )}
+                      {row.completed > 0 && (
+                        <span className="text-[11px] text-zinc-600">{row.completed} resolved</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Counts */}
+                  <div className="hidden sm:flex items-center gap-4 text-center mr-2">
+                    <div>
+                      <div className="text-base font-bold" style={{ color: row.pendingHigh > 0 ? "#dc2626" : "#ca8a04" }}>
+                        {row.pending}
+                      </div>
+                      <div className="text-[9px] uppercase tracking-widest text-zinc-600">Pending</div>
+                    </div>
+                    <div>
+                      <div className="text-base font-bold text-green-500">{row.completed}</div>
+                      <div className="text-[9px] uppercase tracking-widest text-zinc-600">Done</div>
+                    </div>
+                  </div>
+
+                  {/* Audit export button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs flex-shrink-0"
+                    style={{ borderColor: `${GOLD}50`, color: GOLD }}
+                    onClick={() => {
+                      window.location.href = `/api/projects/${row.project.id}/compliance/audit-export`;
+                    }}
+                    title="Download Ministry Audit Export PDF"
+                  >
+                    <Download className="h-3 w-3" />
+                    <span className="hidden sm:inline">Audit PDF</span>
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 function RiskDashboardInner() {
@@ -588,6 +716,9 @@ function RiskDashboardInner() {
           {data?.topRisk && data.topRisk.length > 0 && (
             <TopRiskSection rows={data.topRisk} />
           )}
+
+          {/* AI Compliance Monitor */}
+          <ComplianceMonitorSection />
 
           {/* Chart + Alerts side by side */}
           <div className="grid gap-4 lg:grid-cols-5">
