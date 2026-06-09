@@ -113,6 +113,11 @@ app.post(
 const ALLOWED_ORIGINS = process.env.REPLIT_DOMAINS
   ? process.env.REPLIT_DOMAINS.split(",").map((d) => `https://${d.trim()}`)
   : [];
+// Support Railway / custom domain deployments where REPLIT_DOMAINS is not set
+if (process.env.APP_BASE_URL) {
+  const appOrigin = process.env.APP_BASE_URL.replace(/\/$/, "");
+  if (!ALLOWED_ORIGINS.includes(appOrigin)) ALLOWED_ORIGINS.push(appOrigin);
+}
 if (process.env.NODE_ENV !== "production") {
   const devOrigins = process.env.CORS_DEV_ORIGINS
     ? process.env.CORS_DEV_ORIGINS.split(",").map((o) => o.trim())

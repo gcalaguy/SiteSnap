@@ -1044,7 +1044,7 @@ router.post("/:docId/reindex", requireAuth, requireCompany, requireOwnerOrForema
 
       if (rawText.trim().length > 50) {
         textToChunk = rawText;
-        await db.update(projectDocumentsTable).set({ extractedText: rawText }).where(eq(projectDocumentsTable.id, docId));
+        await db.update(projectDocumentsTable).set({ extractedText: rawText }).where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));
       }
     } catch (err) {
       logger.error({ err, docId }, "Reindex OCR failed");

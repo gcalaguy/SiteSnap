@@ -4,6 +4,32 @@ import type { Request, Response, NextFunction } from "express";
 
 const ENTERPRISE_ONLY_FEATURES = ["RISK_DASHBOARD", "FINANCIALS", "AUDIT_VAULT"];
 
+// ── In-memory TTL cache for feature keys ────────────────────────────────────
+// Avoids 2 DB queries per gated request. Entries expire after 60 seconds so
+// plan changes propagate quickly without hammering the DB on every request.
+const TTL_MS = 60_000;
+type CacheEntry = { keys: string[]; cachedAt: number };
+const featureCache = new Map<number, CacheEntry>();
+
+function getCached(companyId: number): string[] | null {
+  const entry = featureCache.get(companyId);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > TTL_MS) {
+    featureCache.delete(companyId);
+    return null;
+  }
+  return entry.keys;
+}
+
+function setCache(companyId: number, keys: string[]): void {
+  featureCache.set(companyId, { keys, cachedAt: Date.now() });
+}
+
+/** Invalidate the cached feature keys for a company (call after plan changes). */
+export function invalidateFeatureCache(companyId: number): void {
+  featureCache.delete(companyId);
+}
+
 /**
  * Returns whether the company's active subscription is on an Enterprise plan.
  */
@@ -29,6 +55,9 @@ export async function isEnterprisePlan(companyId: number): Promise<boolean> {
  * Enterprise-only features are stripped for non-Enterprise tenants.
  */
 export async function getCompanyFeatureKeys(companyId: number): Promise<string[]> {
+  const cached = getCached(companyId);
+  if (cached) return cached;
+
   const [company] = await db
     .select({ activeFeatures: companiesTable.activeFeatures })
     .from(companiesTable)
@@ -36,6 +65,7 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
     .limit(1);
 
   if (company?.activeFeatures && company.activeFeatures.length > 0) {
+    setCache(companyId, company.activeFeatures);
     return company.activeFeatures;
   }
 
@@ -60,8 +90,9 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
       "SCHEDULING", "DAILY_REPORTS", "TEAM_MANAGEMENT", "SAFETY_FORMS",
       "RFIS", "AI_CHAT", "INVOICES", "QUOTES", "CRM_LEADS", "SMART_ESTIMATOR",
       "CLIENT_PORTAL", "REPORTING", "QUICKBOOKS", "SITE_VISION_AI", "TRADEHUB",
-    ];
-    return defaultKeys.filter((k) => !ENTERPRISE_ONLY_FEATURES.includes(k));
+    ].filter((k) => !ENTERPRISE_ONLY_FEATURES.includes(k));
+    setCache(companyId, defaultKeys);
+    return defaultKeys;
   }
 
   const planSlug = rows[0].planSlug;
@@ -72,10 +103,13 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
     if (!keys.includes("RISK_DASHBOARD")) keys.push("RISK_DASHBOARD");
     if (!keys.includes("FINANCIALS")) keys.push("FINANCIALS");
     if (!keys.includes("AUDIT_VAULT")) keys.push("AUDIT_VAULT");
+    setCache(companyId, keys);
     return keys;
   }
 
-  return keys.filter((k) => !ENTERPRISE_ONLY_FEATURES.includes(k));
+  const filtered = keys.filter((k) => !ENTERPRISE_ONLY_FEATURES.includes(k));
+  setCache(companyId, filtered);
+  return filtered;
 }
 
 /**
