@@ -43,6 +43,13 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  # Security: force patched versions of vulnerable transitive dependencies
+  # shell-quote CRITICAL CVE (GHSA-w7jw-789q-3m8p) — fix in >=1.8.4
+  shell-quote: '>=1.8.4'
+  # NOTE: xlsx HIGH CVEs (GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9) cannot be
+  # resolved via pnpm override — SheetJS stopped publishing to npm after 0.18.5.
+  # Manual remediation required: replace xlsx with exceljs or @e965/xlsx (community fork).
+  # See: https://git.sheetjs.com/sheetjs/sheetjs
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64': '-'
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-x64': '-'

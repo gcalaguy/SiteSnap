@@ -7,6 +7,16 @@ import { format, subDays } from "date-fns";
 const fmtCAD = (v: string | number) =>
   new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 
+/** Escape user-supplied strings before interpolating into HTML email templates */
+function esc(str: string | null | undefined): string {
+  return (str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function buildReminderHtml(invoice: {
   invoiceNumber: string;
   clientName: string;
@@ -20,11 +30,11 @@ function buildReminderHtml(invoice: {
   return `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#172034;">
       <div style="background:#FF6600;padding:24px 32px;border-radius:8px 8px 0 0;">
-        <h1 style="color:#fff;margin:0;font-size:22px;">${companyName}</h1>
-        <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:14px;">Payment Reminder — ${invoice.invoiceNumber}</p>
+        <h1 style="color:#fff;margin:0;font-size:22px;">${esc(companyName)}</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:14px;">Payment Reminder — ${esc(invoice.invoiceNumber)}</p>
       </div>
       <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-        <p style="margin:0 0 16px;">Hi ${invoice.clientName},</p>
+        <p style="margin:0 0 16px;">Hi ${esc(invoice.clientName)},</p>
         <p style="margin:0 0 16px;">This is a friendly reminder that the following invoice is outstanding and awaiting payment.</p>
         ${daysOverdue && daysOverdue > 0
           ? `<p style="margin:0 0 16px;background:#FFF3CD;border:1px solid #FBBF24;border-radius:4px;padding:10px 14px;font-size:13px;color:#92400E;">
@@ -34,7 +44,7 @@ function buildReminderHtml(invoice: {
         <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
           <tr>
             <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:4px 0 0 0;color:#6b7280;font-size:13px;">Invoice Number</td>
-            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-left:none;border-radius:0 4px 0 0;font-size:13px;font-weight:600;">${invoice.invoiceNumber}</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-left:none;border-radius:0 4px 0 0;font-size:13px;font-weight:600;">${esc(invoice.invoiceNumber)}</td>
           </tr>
           <tr>
             <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;color:#6b7280;font-size:13px;">Amount Due</td>
@@ -47,7 +57,7 @@ function buildReminderHtml(invoice: {
         </table>
         <p style="margin:0;font-size:13px;color:#6b7280;">If you have already made payment, please disregard this reminder. If you have any questions, please reply to this email.</p>
         <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">Thank you for your business.</p>
-        <p style="margin:8px 0 0;font-size:13px;font-weight:600;">${companyName}</p>
+        <p style="margin:8px 0 0;font-size:13px;font-weight:600;">${esc(companyName)}</p>
       </div>
       <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0;">Powered by Site Snap</p>
     </div>

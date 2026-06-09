@@ -173,12 +173,6 @@ export const requireAuditAccess = async (
   res: Response,
   next: NextFunction,
 ) => {
-  // Dev bypass: allow the logged-in developer during testing
-  if (req.user?.email === "gcalandra@live.com") {
-    next();
-    return;
-  }
-
   // Super admins always pass
   if (req.systemRole === "super_admin") {
     next();

@@ -27,6 +27,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
  */
 router.post(
   "/storage/uploads/file",
+  requireAuth,
+  requireCompany,
   upload.single("file"),
   async (req: Request, res: Response) => {
     if (!req.file) {
@@ -51,7 +53,7 @@ router.post(
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
  */
-router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", requireAuth, requireCompany, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });

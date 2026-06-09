@@ -124,7 +124,7 @@ router.patch(
     const [updated] = await db
       .update(scansTable)
       .set({ name: parsed.data.name })
-      .where(eq(scansTable.id, id))
+      .where(and(eq(scansTable.id, id), eq(scansTable.companyId, req.companyId!)))
       .returning();
 
     res.json(updated);

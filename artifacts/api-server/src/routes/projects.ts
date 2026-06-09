@@ -16,6 +16,11 @@ import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { CreateProjectBody, UpdateProjectBody } from "@workspace/api-zod";
+import { z } from "zod";
+
+const AddProjectMemberBody = z.object({
+  userId: z.number().int().positive(),
+});
 import { asyncHandler } from "../lib/asyncHandler";
 import {
   BadRequestError,
@@ -390,8 +395,9 @@ router.post(
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
 
-    const { userId } = req.body as { userId?: number };
-    if (!userId) throw new BadRequestError("userId is required");
+    const parsed = AddProjectMemberBody.safeParse(req.body);
+    if (!parsed.success) throw new BadRequestError("userId must be a positive integer");
+    const { userId } = parsed.data;
 
     const [[project], [user]] = await Promise.all([
       db

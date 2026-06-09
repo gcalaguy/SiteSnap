@@ -234,7 +234,7 @@ router.patch("/invoices/:invoiceId/assign", requireAuth, requireCompany, async (
   const [updated] = await db
     .update(invoicesTable)
     .set({ assignedToUserId: assignedToUserId ?? null, updatedAt: new Date() })
-    .where(eq(invoicesTable.id, invoiceId))
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)))
     .returning();
   res.json(updated);
 });
@@ -254,7 +254,7 @@ router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, async
   const now = new Date();
   const [updated] = await db.update(invoicesTable)
     .set({ status: "sent", sentAt: now, updatedAt: now })
-    .where(eq(invoicesTable.id, invoiceId)).returning();
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!))).returning();
 
   logAuditEventFromRequest(req, "Invoice Marked Sent", `Marked invoice "${updated.title}" (${updated.invoiceNumber}) as sent`).catch(() => {});
 
@@ -425,7 +425,7 @@ router.post("/invoices/:invoiceId/mark-paid", requireAuth, requireCompany, async
   const now = new Date();
   const [updated] = await db.update(invoicesTable)
     .set({ status: "paid", paidAt: now, updatedAt: now })
-    .where(eq(invoicesTable.id, invoiceId)).returning();
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!))).returning();
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });

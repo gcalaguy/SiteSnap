@@ -165,7 +165,7 @@ router.put(
     const [updated] = await db
       .update(dailyLogsTable)
       .set(updates)
-      .where(eq(dailyLogsTable.id, id))
+      .where(and(eq(dailyLogsTable.id, id), eq(dailyLogsTable.projectId, existing.projectId)))
       .returning();
 
     res.json(updated);
@@ -310,7 +310,7 @@ router.put(
     const [updated] = await db
       .update(sitePhotosTable)
       .set(updates)
-      .where(eq(sitePhotosTable.id, id))
+      .where(and(eq(sitePhotosTable.id, id), eq(sitePhotosTable.projectId, existing.projectId)))
       .returning();
 
     res.json(updated);
@@ -458,7 +458,7 @@ router.put(
     const [updated] = await db
       .update(safetySignoffsTable)
       .set(updates)
-      .where(eq(safetySignoffsTable.id, id))
+      .where(and(eq(safetySignoffsTable.id, id), eq(safetySignoffsTable.projectId, existing.projectId)))
       .returning();
 
     res.json(updated);
