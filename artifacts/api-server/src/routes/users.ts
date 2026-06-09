@@ -40,13 +40,20 @@ async function autoAcceptPendingInvitation(userId: number, email: string) {
 const router = Router();
 
 // POST /users/sync — create or update DB user from Clerk session
-router.post("/users/sync", async (req, res) => {
+router.post("/users/sync", requireAuth, async (req, res) => {
   const parsed = SyncUserBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid body", details: parsed.error });
     return;
   }
   const { clerkUserId, email, firstName, lastName } = parsed.data;
+
+  // Ensure the authenticated Clerk session matches the clerkUserId being synced
+  const auth = getAuth(req);
+  if (auth?.userId !== clerkUserId) {
+    res.status(403).json({ error: "Cannot sync a different user's account" });
+    return;
+  }
 
   // Upsert user
   const existing = await db

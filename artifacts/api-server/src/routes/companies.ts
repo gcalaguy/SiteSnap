@@ -24,6 +24,18 @@ import {
   UpdateCompanyInvoiceTemplateBody,
 } from "@workspace/api-zod";
 import crypto from "crypto";
+import { z } from "zod";
+
+const UpdateCompanyProfileBody = z.object({
+  name: z.string().min(1).max(200).optional(),
+  phone: z.string().max(50).optional(),
+  address: z.string().max(300).optional(),
+  city: z.string().max(100).optional(),
+  province: z.string().max(100).optional(),
+  website: z.string().url().or(z.literal("")).optional(),
+  hstNumber: z.string().max(50).optional(),
+  estimatorConfig: z.record(z.unknown()).optional(),
+});
 
 const router = Router();
 
@@ -124,18 +136,22 @@ router.patch("/companies/:companyId", requireAuth, requireCompany, async (req, r
     return;
   }
 
-  const allowed = [
-    "name", "phone", "address", "city", "province", "website", "hstNumber",
-    "estimatorConfig",
-  ] as const;
-  const update: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (key === "estimatorConfig" && req.body?.estimatorConfig != null) {
-      update.estimatorConfig = req.body.estimatorConfig;
-    } else if (typeof req.body?.[key] === "string") {
-      update[key === "hstNumber" ? "hstNumber" : key] = req.body[key].trim();
-    }
+  const parsed = UpdateCompanyProfileBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() });
+    return;
   }
+
+  const body = parsed.data;
+  const update: Record<string, unknown> = {};
+  if (body.name !== undefined) update.name = body.name.trim();
+  if (body.phone !== undefined) update.phone = body.phone.trim();
+  if (body.address !== undefined) update.address = body.address.trim();
+  if (body.city !== undefined) update.city = body.city.trim();
+  if (body.province !== undefined) update.province = body.province.trim();
+  if (body.website !== undefined) update.website = body.website.trim();
+  if (body.hstNumber !== undefined) update.hstNumber = body.hstNumber.trim();
+  if (body.estimatorConfig !== undefined) update.estimatorConfig = body.estimatorConfig;
 
   if (Object.keys(update).length === 0) {
     res.status(400).json({ error: "No updatable fields provided" });

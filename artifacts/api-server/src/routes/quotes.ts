@@ -342,7 +342,7 @@ router.post("/:quoteId/submit", requireAuth, requireCompany, async (req, res) =>
   }
   const [updated] = await db.update(quotesTable)
     .set({ status: "pending_approval", updatedAt: new Date() })
-    .where(eq(quotesTable.id, quoteId)).returning();
+    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).returning();
 
   notifyQuoteSubmitted({
     quoteNumber: updated.quoteNumber,
@@ -367,7 +367,7 @@ router.post("/:quoteId/unsubmit", requireAuth, requireCompany, async (req, res) 
   }
   const [updated] = await db.update(quotesTable)
     .set({ status: "draft", updatedAt: new Date() })
-    .where(eq(quotesTable.id, quoteId)).returning();
+    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).returning();
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
@@ -385,7 +385,7 @@ router.post("/:quoteId/approve", requireAuth, requireCompany, async (req, res) =
   const now = new Date();
   const [updated] = await db.update(quotesTable)
     .set({ status: "approved", approvedByUserId: req.userId!, approvedAt: now, updatedAt: now })
-    .where(eq(quotesTable.id, quoteId)).returning();
+    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).returning();
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
@@ -405,7 +405,7 @@ router.post("/:quoteId/reject", requireAuth, requireCompany, async (req, res) =>
   const notes = parsed.data.reason ?? null;
   const [updated] = await db.update(quotesTable)
     .set({ status: "rejected", notes: notes ?? existing.notes, updatedAt: new Date() })
-    .where(eq(quotesTable.id, quoteId)).returning();
+    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).returning();
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 });
@@ -423,7 +423,7 @@ router.patch("/:quoteId/assign", requireAuth, requireCompany, requirePermission(
 
   const [updated] = await db.update(quotesTable)
     .set({ assignedToUserId: assignedToUserId ?? null, updatedAt: new Date() })
-    .where(eq(quotesTable.id, quoteId))
+    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!)))
     .returning();
   res.json(updated);
 });
@@ -478,7 +478,7 @@ router.post("/:quoteId/convert-to-invoice", requireAuth, requireCompany, async (
 
   await db.update(quotesTable)
     .set({ status: "converted", convertedAt: now, updatedAt: now })
-    .where(eq(quotesTable.id, quoteId));
+    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!)));
 
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(invoice);

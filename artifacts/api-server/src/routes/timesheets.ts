@@ -112,7 +112,7 @@ router.post("/timesheets", requireAuth, requireCompany, async (req, res) => {
         reviewedAt: null,
         updatedAt: new Date(),
       })
-      .where(eq(timesheetsTable.id, existing.id))
+      .where(and(eq(timesheetsTable.id, existing.id), eq(timesheetsTable.companyId, req.companyId!)))
       .returning();
     const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
     res.status(201).json(await withReviewer(withUser, null));
@@ -179,7 +179,7 @@ router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, req
       signedAt: info.signedAt,
       updatedAt: info.signedAt,
     })
-    .where(eq(timesheetsTable.id, id))
+    .where(and(eq(timesheetsTable.id, id), eq(timesheetsTable.companyId, req.companyId!)))
     .returning();
 
   const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
@@ -229,7 +229,7 @@ router.post("/timesheets/:timesheetId/deny", requireAuth, requireCompany, requir
   const now = new Date();
   const [updated] = await db.update(timesheetsTable)
     .set({ status: "denied", notes, reviewedByUserId: req.userId!, reviewedAt: now, updatedAt: now })
-    .where(eq(timesheetsTable.id, id))
+    .where(and(eq(timesheetsTable.id, id), eq(timesheetsTable.companyId, req.companyId!)))
     .returning();
 
   const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
@@ -279,7 +279,7 @@ router.patch(
     const [updated] = await db
       .update(timesheetsTable)
       .set(updates)
-      .where(eq(timesheetsTable.id, id))
+      .where(and(eq(timesheetsTable.id, id), eq(timesheetsTable.companyId, req.companyId!)))
       .returning();
 
     const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);

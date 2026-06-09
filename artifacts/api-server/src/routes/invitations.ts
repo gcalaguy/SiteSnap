@@ -99,11 +99,19 @@ router.post(
 
     // Send invite email if an address was provided — best-effort, never blocks the response
     if (parsed.data.email) {
-      const domain =
-        process.env["REPLIT_DOMAINS"]?.split(",")[0] ??
-        req.headers["origin"] ??
-        "your-app.replit.app";
-      const inviteUrl = `https://${domain}/onboarding?token=${token}`;
+      const appBase =
+        process.env["APP_BASE_URL"]?.replace(/\/$/, "") ??
+        (process.env["REPLIT_DOMAINS"]
+          ? `https://${process.env["REPLIT_DOMAINS"].split(",")[0].trim()}`
+          : null) ??
+        (req.headers["origin"] as string | undefined) ??
+        null;
+      if (!appBase) {
+        logger.error("Cannot send invitation email: APP_BASE_URL is not configured");
+        res.status(500).json({ error: "Server misconfiguration: invitation base URL not set" });
+        return;
+      }
+      const inviteUrl = `${appBase}/onboarding?token=${token}`;
       const companyName = company?.name ?? "your company";
 
       sendEmail({

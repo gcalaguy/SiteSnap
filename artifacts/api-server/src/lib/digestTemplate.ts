@@ -1,5 +1,15 @@
 import type { DigestPayload, ProjectDigest } from "./digest.js";
 
+/** Escape user-supplied strings before interpolating into HTML email templates */
+function esc(str: string | null | undefined): string {
+  return (str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const PRIMARY = "#FF6600";
 const SIDEBAR = "#172034";
 const MUTED = "#6B7280";
@@ -37,7 +47,7 @@ function projectSection(project: ProjectDigest): string {
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
     <tr>
       <td style="padding:14px 20px;background:${SIDEBAR};border-radius:8px 8px 0 0;">
-        <span style="font-size:15px;font-weight:700;color:#FFFFFF;">${project.name}</span>
+        <span style="font-size:15px;font-weight:700;color:#FFFFFF;">${esc(project.name)}</span>
       </td>
     </tr>
     <tr>
@@ -54,7 +64,7 @@ function projectSection(project: ProjectDigest): string {
         <div style="width:60px;background:#FFF7ED;border-radius:6px;padding:6px;text-align:center;flex-shrink:0;">
           <div style="font-size:11px;font-weight:600;color:${PRIMARY};">${formatDate(r.reportDate)}</div>
         </div>
-        <div style="font-size:13px;color:#374151;line-height:1.5;">${r.workPerformed}</div>
+        <div style="font-size:13px;color:#374151;line-height:1.5;">${esc(r.workPerformed)}</div>
       </div>`;
     }
     html += `<div style="height:16px;"></div>`;
@@ -70,10 +80,10 @@ function projectSection(project: ProjectDigest): string {
       html += `
       <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #F3F4F6;">
         <div style="background:#FFF7ED;border-radius:6px;padding:4px 8px;flex-shrink:0;">
-          <span style="font-size:12px;font-weight:700;color:${PRIMARY};">${r.rfiNumber}</span>
+          <span style="font-size:12px;font-weight:700;color:${PRIMARY};">${esc(r.rfiNumber)}</span>
         </div>
         <div style="flex:1;">
-          <div style="font-size:13px;color:#374151;font-weight:500;">${r.subject}</div>
+          <div style="font-size:13px;color:#374151;font-weight:500;">${esc(r.subject)}</div>
           <div style="margin-top:4px;display:flex;gap:8px;align-items:center;">
             <span style="font-size:11px;font-weight:600;color:${sColor};background:${sColor}20;padding:2px 8px;border-radius:10px;">${statusLabel(r.status)}</span>
             ${r.isOverdue ? `<span style="font-size:11px;font-weight:600;color:#EF4444;">⚡ Overdue</span>` : ""}
@@ -95,7 +105,7 @@ function projectSection(project: ProjectDigest): string {
       html += `
       <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F3F4F6;">
         <div style="width:8px;height:8px;border-radius:50%;background:${pColor};flex-shrink:0;"></div>
-        <div style="flex:1;font-size:13px;color:#374151;">${t.title}</div>
+        <div style="flex:1;font-size:13px;color:#374151;">${esc(t.title)}</div>
         <div style="font-size:11px;color:#EF4444;font-weight:500;">Due ${formatDate(t.dueDate)}</div>
       </div>`;
     }
@@ -133,8 +143,8 @@ export function buildDigestHtml(payload: DigestPayload): string {
                     <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:2px;">Daily Summary Digest</div>
                   </td>
                   <td align="right">
-                    <div style="font-size:13px;color:rgba(255,255,255,0.7);">${date}</div>
-                    <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px;">${companyName}</div>
+                    <div style="font-size:13px;color:rgba(255,255,255,0.7);">${esc(date)}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px;">${esc(companyName)}</div>
                   </td>
                 </tr>
               </table>

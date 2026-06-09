@@ -56,6 +56,13 @@ const CreateEquipmentBody = z.object({
   notes: z.string().optional(),
 });
 
+const UpdateEquipmentBody = z.object({
+  name: z.string().min(1).max(200).optional(),
+  type: z.string().optional(),
+  status: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 // ── Equipment ──────────────────────────────────────────────────────────────────
 
 // GET /api/equipment
@@ -101,7 +108,10 @@ router.patch(
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
-    const { name, type, status, notes } = req.body;
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid equipment id" }); return; }
+    const parsed = UpdateEquipmentBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
+    const { name, type, status, notes } = parsed.data;
     const [row] = await db
       .update(equipmentTable)
       .set({ ...(name !== undefined && { name }), ...(type !== undefined && { type }), ...(status !== undefined && { status }), ...(notes !== undefined && { notes }) })
