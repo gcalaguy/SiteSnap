@@ -148,13 +148,29 @@ async function sendIdleLeadNotifications(): Promise<{ notified: number; skipped:
 }
 
 export function startDailyCron(): void {
+  // Re-entry guards — prevent overlapping runs if a job takes longer than its interval.
+  let digestRunning = false;
+  let remindersRunning = false;
+  let idleLeadsRunning = false;
+
   // 7:00 AM Eastern every day — daily digest
   cron.schedule(
     "0 7 * * *",
     async () => {
-      logger.info("Daily digest cron triggered");
-      const result = await sendDigestForAllCompanies();
-      logger.info(result, "Daily digest cron complete");
+      if (digestRunning) {
+        logger.warn("Daily digest cron skipped — previous run still in progress");
+        return;
+      }
+      digestRunning = true;
+      try {
+        logger.info("Daily digest cron triggered");
+        const result = await sendDigestForAllCompanies();
+        logger.info(result, "Daily digest cron complete");
+      } catch (err) {
+        logger.error({ err }, "Unhandled error in daily digest cron");
+      } finally {
+        digestRunning = false;
+      }
     },
     { timezone: "America/Toronto" },
   );
@@ -164,9 +180,20 @@ export function startDailyCron(): void {
   cron.schedule(
     "0 8 * * *",
     async () => {
-      logger.info("Overdue invoice reminder cron triggered");
-      const result = await sendOverdueReminders();
-      logger.info(result, "Overdue invoice reminder cron complete");
+      if (remindersRunning) {
+        logger.warn("Overdue invoice reminder cron skipped — previous run still in progress");
+        return;
+      }
+      remindersRunning = true;
+      try {
+        logger.info("Overdue invoice reminder cron triggered");
+        const result = await sendOverdueReminders();
+        logger.info(result, "Overdue invoice reminder cron complete");
+      } catch (err) {
+        logger.error({ err }, "Unhandled error in overdue invoice reminder cron");
+      } finally {
+        remindersRunning = false;
+      }
     },
     { timezone: "America/Toronto" },
   );
@@ -176,9 +203,20 @@ export function startDailyCron(): void {
   cron.schedule(
     "0 9 * * *",
     async () => {
-      logger.info("Idle lead notification cron triggered");
-      const result = await sendIdleLeadNotifications();
-      logger.info(result, "Idle lead notification cron complete");
+      if (idleLeadsRunning) {
+        logger.warn("Idle lead notification cron skipped — previous run still in progress");
+        return;
+      }
+      idleLeadsRunning = true;
+      try {
+        logger.info("Idle lead notification cron triggered");
+        const result = await sendIdleLeadNotifications();
+        logger.info(result, "Idle lead notification cron complete");
+      } catch (err) {
+        logger.error({ err }, "Unhandled error in idle lead notification cron");
+      } finally {
+        idleLeadsRunning = false;
+      }
     },
     { timezone: "America/Toronto" },
   );
