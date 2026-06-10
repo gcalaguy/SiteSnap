@@ -60,9 +60,21 @@ const aiLimiter = rateLimit({
   message: { error: "AI rate limit exceeded — wait a moment", code: "RATE_LIMITED" },
 });
 
+// B4 fix: dedicated upload rate limiter — 30 uploads per 10 minutes per IP.
+// The global limiter (500 req/15min) is too loose for uploads which cost real
+// storage and compute. This prevents cost amplification from abusive clients.
+const uploadLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: isDev ? 10000 : 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Upload rate limit exceeded — please wait before uploading again", code: "RATE_LIMITED" },
+});
+
 app.use(globalLimiter);
 app.use("/api/ai", aiLimiter);
 app.use("/api/v1/ai", aiLimiter);
+app.use("/api/storage/uploads", uploadLimiter);
 
 // ── Request logging ────────────────────────────────────────────────────────────
 app.use(

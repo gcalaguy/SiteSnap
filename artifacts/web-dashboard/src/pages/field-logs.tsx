@@ -63,13 +63,24 @@ function SignatureImage({ signatureUrl }: { signatureUrl: string }) {
     );
   }
   if (signedUrl && signatureUrl.endsWith(".svg")) {
+    // B1 fix: never interpolate a URL into a raw HTML string — use a React img
+    // element so the browser treats the value as a URL attribute, not markup.
     return (
-      <div
-        className="h-20 w-28 border rounded-md bg-white flex items-center justify-center overflow-hidden"
-        dangerouslySetInnerHTML={{
-          __html: `<img src="${signedUrl}" alt="Signature" style="max-height:100%;max-width:100%;object-fit:contain;" onerror="this.parentElement.innerHTML='<div class=\\'flex flex-col items-center justify-center gap-1 h-full w-full text-green-700\\'><svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'24\\' height=\\'24\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' class=\\'text-green-600\\'><path d=\\'M22 11.08V12a10 10 0 1 1-5.93-9.14\\'/><polyline points=\\'22 4 12 14.01 9 11.01\\'/></svg><span class=\\'text-[10px] font-medium\\'>Signed</span></div>';this.style.display='none'"/>`,
-        }}
-      />
+      <div className="h-20 w-28 border rounded-md bg-white flex items-center justify-center overflow-hidden">
+        <img
+          src={signedUrl}
+          alt="Signature"
+          className="max-h-full max-w-full object-contain"
+          onError={(e) => {
+            const el = e.target as HTMLImageElement;
+            el.style.display = "none";
+            const parent = el.parentElement;
+            if (parent) {
+              parent.innerHTML = `<div class="flex flex-col items-center justify-center gap-1 h-full w-full text-green-700"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span class="text-[10px] font-medium">Signed</span></div>`;
+            }
+          }}
+        />
+      </div>
     );
   }
   if (signedUrl) {
@@ -323,15 +334,15 @@ export default function FieldLogsPage() {
   const photoParams = projectId ? { projectId } : { projectId: 0 };
   const safetyParams = projectId ? { projectId } : { projectId: 0 };
 
-  const { data: logs = [], isLoading: logsLoading } = useListDailyLogs(
+  const { data: logs = [], isLoading: logsLoading, isError: logsError } = useListDailyLogs(
     dailyLogParams,
     { query: { queryKey: getListDailyLogsQueryKey(dailyLogParams), enabled: !!projectId } },
   );
-  const { data: photos = [], isLoading: photosLoading } = useListSitePhotos(
+  const { data: photos = [], isLoading: photosLoading, isError: photosError } = useListSitePhotos(
     photoParams,
     { query: { queryKey: getListSitePhotosQueryKey(photoParams), enabled: !!projectId } },
   );
-  const { data: signoffs = [], isLoading: signoffsLoading } = useListSafetySignoffs(
+  const { data: signoffs = [], isLoading: signoffsLoading, isError: signoffsError } = useListSafetySignoffs(
     safetyParams,
     { query: { queryKey: getListSafetySignoffsQueryKey(safetyParams), enabled: !!projectId } },
   );
@@ -489,6 +500,8 @@ export default function FieldLogsPage() {
             <div className="text-sm text-muted-foreground">
               Loading logs...
             </div>
+          ) : logsError ? (
+            <div className="text-sm text-red-500">Failed to load daily logs. Please refresh.</div>
           ) : filteredLogs.length === 0 ? (
             <div className="text-sm text-muted-foreground">
               No daily logs yet.
@@ -570,6 +583,8 @@ export default function FieldLogsPage() {
             <div className="text-sm text-muted-foreground">
               Loading photos...
             </div>
+          ) : photosError ? (
+            <div className="text-sm text-red-500">Failed to load site photos. Please refresh.</div>
           ) : photos.length === 0 ? (
             <div className="text-sm text-muted-foreground">
               No site photos yet.
@@ -597,6 +612,8 @@ export default function FieldLogsPage() {
             <div className="text-sm text-muted-foreground">
               Loading signoffs...
             </div>
+          ) : signoffsError ? (
+            <div className="text-sm text-red-500">Failed to load safety signoffs. Please refresh.</div>
           ) : signoffs.length === 0 ? (
             <div className="text-sm text-muted-foreground">
               No safety signoffs yet.
