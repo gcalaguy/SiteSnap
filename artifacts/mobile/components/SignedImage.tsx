@@ -1,5 +1,6 @@
 import React from "react";
-import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { Image } from "expo-image";
 import { useColors } from "@/hooks/useColors";
 import { useSignedPhotoUrl } from "@/hooks/useSignedPhotoUrl";
 import { Feather } from "@expo/vector-icons";
@@ -40,7 +41,7 @@ export function SignedImage({
     <Image
       source={{ uri: signedUrl }}
       style={style}
-      resizeMode={resizeMode}
+      contentFit={resizeMode}
     />
   );
 }

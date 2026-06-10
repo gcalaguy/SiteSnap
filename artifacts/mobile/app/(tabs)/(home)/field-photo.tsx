@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Image,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,10 +17,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image } from "expo-image";
+import * as FileSystem from "expo-file-system/legacy";
+import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 
 export default function FieldPhotoScreen() {
   const colors = useColors();
@@ -38,29 +40,48 @@ export default function FieldPhotoScreen() {
     },
   });
 
+  const [pickedAsset, setPickedAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
+
   async function pickImage() {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       quality: 0.8,
     });
     if (!result.canceled && result.assets.length > 0) {
+      setPickedAsset(result.assets[0]);
       setImageUri(result.assets[0].uri);
     }
   }
 
   async function uploadToStorage(uri: string): Promise<string | null> {
     try {
-      const formData = new FormData();
-      formData.append("file", {
-        uri,
-        name: `site-photo-${Date.now()}.jpg`,
-        type: "image/jpeg",
-      } as unknown as Blob);
-      const { objectPath } = await customFetch<{ objectPath: string }>(
-        "/api/storage/uploads/file",
-        { method: "POST", body: formData },
+      // M-S6 fix: use actual MIME type from picker, not hardcoded "image/jpeg"
+      const mimeType = pickedAsset?.mimeType ?? "image/jpeg";
+      const fileName = pickedAsset?.fileName ?? `site-photo-${Date.now()}.jpg`;
+      const fileSize = pickedAsset?.fileSize ?? 0;
+
+      // Get presigned URL with real content type
+      const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
+        "/api/storage/uploads/request-url",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: fileName, size: fileSize, contentType: mimeType }),
+        },
       );
+
+      // M-S4: validate destination, M-P1: stream from disk
+      const dest = new URL(uploadURL);
+      if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
+
+      const result = await FileSystem.uploadAsync(uploadURL, uri, {
+        httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { "Content-Type": mimeType },
+      });
+      if (result.status < 200 || result.status >= 300) throw new Error(`Upload failed: ${result.status}`);
+
       return objectPath;
     } catch {
       return null;
@@ -73,15 +94,7 @@ export default function FieldPhotoScreen() {
     const objectPath = await uploadToStorage(imageUri);
     setUploading(false);
     if (!objectPath) {
-      // Fallback: still save with the local URI if upload fails
-      createPhoto.mutate({
-        data: {
-          projectId,
-          imageUrl: imageUri,
-          markupData: null,
-          roomLocation: roomLocation || null,
-        },
-      });
+      Alert.alert("Upload Failed", "Could not upload the photo. Please check your connection and try again.");
       return;
     }
     createPhoto.mutate({
@@ -166,7 +179,7 @@ export default function FieldPhotoScreen() {
           ]}
         >
           {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.photo} />
+            <Image source={{ uri: imageUri }} style={styles.photo} contentFit="cover" />
           ) : (
             <View style={styles.photoPlaceholder}>
               <Feather

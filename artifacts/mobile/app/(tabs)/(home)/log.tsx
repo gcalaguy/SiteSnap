@@ -452,17 +452,24 @@ export default function LogScreen() {
         onSuccess: async (report) => {
           if (photos.length > 0) {
             setUploading(true);
-            for (const photo of photos) {
-              const objectPath = await uploadSinglePhoto(photo);
-              if (objectPath) {
-                await addPhoto
-                  .mutateAsync({
-                    projectId: selectedProjectId!,
-                    reportId: report.id,
-                    data: { objectPath },
-                  })
-                  .catch(() => {});
-              }
+            // M-P2 fix: upload 2 photos concurrently — faster than serial, safe on weak networks
+            const CONCURRENCY = 2;
+            for (let i = 0; i < photos.length; i += CONCURRENCY) {
+              const batch = photos.slice(i, i + CONCURRENCY);
+              await Promise.all(
+                batch.map(async (photo) => {
+                  const objectPath = await uploadSinglePhoto(photo);
+                  if (objectPath) {
+                    await addPhoto
+                      .mutateAsync({
+                        projectId: selectedProjectId!,
+                        reportId: report.id,
+                        data: { objectPath },
+                      })
+                      .catch(() => {});
+                  }
+                }),
+              );
             }
             setUploading(false);
           }
