@@ -1,8 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { Readable } from "stream";
-import multer from "multer";
+import { Readable, createReadStream } from "stream";
 import fs from "fs";
 import path from "path";
+import { diskUpload, cleanupUpload } from "../lib/upload.js";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -15,7 +15,6 @@ import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 // Ensure local upload directory exists as a fallback / safety net.
 const localUploadDir = path.join(process.cwd(), "uploads");
@@ -37,7 +36,7 @@ router.post(
   "/storage/uploads/file",
   requireAuth,
   requireCompany,
-  upload.single("file"),
+  diskUpload.single("file"),
   async (req: Request, res: Response) => {
     if (!req.file) {
       res.status(400).json({ error: "No file uploaded" });
@@ -45,11 +44,13 @@ router.post(
     }
     try {
       const contentType = req.file.mimetype || "application/octet-stream";
-      const objectPath = await objectStorageService.uploadBuffer(req.file.buffer, contentType);
+      const objectPath = await objectStorageService.uploadStream(createReadStream(req.file.path), contentType);
       res.json({ objectPath });
     } catch (error) {
       req.log.error({ err: error }, "Error uploading file to storage");
       res.status(500).json({ error: "Failed to upload file" });
+    } finally {
+      await cleanupUpload(req.file?.path);
     }
   },
 );
@@ -102,7 +103,7 @@ router.post(
   "/storage/uploads/company-asset",
   requireAuth,
   requireCompany,
-  upload.single("file"),
+  diskUpload.single("file"),
   async (req: Request, res: Response) => {
     if (!req.file) {
       res.status(400).json({ error: "No file uploaded" });
@@ -110,11 +111,13 @@ router.post(
     }
     try {
       const contentType = req.file.mimetype || "application/octet-stream";
-      const objectPath = await objectStorageService.uploadBuffer(req.file.buffer, contentType);
+      const objectPath = await objectStorageService.uploadStream(createReadStream(req.file.path), contentType);
       res.status(200).json({ objectPath });
     } catch (error) {
       req.log.error({ err: error }, "Error uploading company asset to storage");
       res.status(500).json({ error: "Failed to upload company asset" });
+    } finally {
+      await cleanupUpload(req.file?.path);
     }
   },
 );

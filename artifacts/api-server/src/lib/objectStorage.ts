@@ -130,6 +130,24 @@ export class ObjectStorageService {
   }
 
   /**
+   * Stream a Readable directly to a new object in private storage.
+   * Preferred over uploadBuffer — the file never enters Node.js heap.
+   * @returns The /objects/... path of the stored object.
+   */
+  async uploadStream(readStream: Readable, contentType: string): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const objectId = randomUUID();
+    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const file = objectStorageClient.bucket(bucketName).file(objectName);
+    await new Promise<void>((resolve, reject) => {
+      const writeStream = file.createWriteStream({ contentType, resumable: false });
+      readStream.pipe(writeStream).on("finish", resolve).on("error", reject);
+    });
+    return `/objects/uploads/${objectId}`;
+  }
+
+  /**
    * Upload a Buffer directly to a new object in private storage.
    * @returns The /objects/... path of the stored object.
    */
