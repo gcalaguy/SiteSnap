@@ -29,8 +29,11 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     };
   }
 
-  // Shim expo-secure-store with AsyncStorage-based fallback (Expo Go compatible)
-  if (moduleName === "expo-secure-store") {
+  // N-S1 fix: Only shim expo-secure-store on web. Native (iOS/Android) builds use
+  // the real keychain/keystore via the native SecureStore module so that Clerk
+  // auth tokens are encrypted at rest. The AsyncStorage fallback is only needed
+  // on the web platform where the native module is unavailable.
+  if (moduleName === "expo-secure-store" && platform === "web") {
     return {
       filePath: path.resolve(__dirname, "shims/expo-secure-store.ts"),
       type: "sourceFile",

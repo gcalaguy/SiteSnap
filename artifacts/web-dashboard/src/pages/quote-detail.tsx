@@ -52,7 +52,7 @@ import {
   CheckCircle,
   Database,
 } from "lucide-react";
-import * as XLSX from "xlsx";
+import * as XLSX from "@e965/xlsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import ImportCostModelDialog from "@/components/ImportCostModelDialog";

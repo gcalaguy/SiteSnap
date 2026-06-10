@@ -435,6 +435,10 @@ export default function ScanGalleryScreen() {
         <FlatList
           data={scans ?? []}
           keyExtractor={(item) => String(item.id)}
+          removeClippedSubviews
+          maxToRenderPerBatch={8}
+          windowSize={8}
+          initialNumToRender={10}
           contentContainerStyle={[
             styles.list,
             { paddingBottom: insets.bottom + 32 },

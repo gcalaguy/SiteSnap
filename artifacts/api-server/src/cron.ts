@@ -7,6 +7,33 @@ import { sendOverdueReminders } from "./lib/invoiceReminders.js";
 import { logger } from "./lib/logger.js";
 import { eq, and, sql, lt, inArray } from "drizzle-orm";
 
+// Distributed cron lock keys — unique per job, stored in PostgreSQL advisory locks.
+// These integers are arbitrary but must never collide with other advisory lock users.
+const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003 } as const;
+
+/**
+ * Attempt to acquire a PostgreSQL session-level advisory lock.
+ * Returns true if the lock was acquired (this instance should run the job).
+ * Returns false if another instance already holds it (skip silently).
+ * pg_try_advisory_lock is non-blocking — it never waits.
+ */
+async function tryAdvisoryLock(key: number): Promise<boolean> {
+  try {
+    const result = await db.execute(sql`SELECT pg_try_advisory_lock(${key}::bigint) AS acquired`);
+    return Boolean((result.rows?.[0] as any)?.acquired ?? (result as any)[0]?.acquired);
+  } catch {
+    // If the DB call itself fails, allow the job to run — better to double-send
+    // once than to silently skip forever.
+    return true;
+  }
+}
+
+async function releaseAdvisoryLock(key: number): Promise<void> {
+  try {
+    await db.execute(sql`SELECT pg_advisory_unlock(${key}::bigint)`);
+  } catch { /* ignore */ }
+}
+
 const CRON_PAGE_SIZE = 50;
 
 export async function sendDigestForAllCompanies(): Promise<{
@@ -166,8 +193,15 @@ export function startDailyCron(): void {
   cron.schedule(
     "0 7 * * *",
     async () => {
+      // In-process guard (same instance overlap)
       if (digestRunning) {
-        logger.warn("Daily digest cron skipped — previous run still in progress");
+        logger.warn("Daily digest cron skipped — previous run still in progress (in-process)");
+        return;
+      }
+      // Distributed guard (multi-instance): only one server runs the job
+      const locked = await tryAdvisoryLock(LOCK.DIGEST);
+      if (!locked) {
+        logger.warn("Daily digest cron skipped — advisory lock held by another instance");
         return;
       }
       digestRunning = true;
@@ -179,6 +213,7 @@ export function startDailyCron(): void {
         logger.error({ err }, "Unhandled error in daily digest cron");
       } finally {
         digestRunning = false;
+        await releaseAdvisoryLock(LOCK.DIGEST);
       }
     },
     { timezone: "America/Toronto" },
@@ -190,7 +225,12 @@ export function startDailyCron(): void {
     "0 8 * * *",
     async () => {
       if (remindersRunning) {
-        logger.warn("Overdue invoice reminder cron skipped — previous run still in progress");
+        logger.warn("Overdue invoice reminder cron skipped — previous run still in progress (in-process)");
+        return;
+      }
+      const locked = await tryAdvisoryLock(LOCK.INVOICE_REMINDERS);
+      if (!locked) {
+        logger.warn("Overdue invoice reminder cron skipped — advisory lock held by another instance");
         return;
       }
       remindersRunning = true;
@@ -202,6 +242,7 @@ export function startDailyCron(): void {
         logger.error({ err }, "Unhandled error in overdue invoice reminder cron");
       } finally {
         remindersRunning = false;
+        await releaseAdvisoryLock(LOCK.INVOICE_REMINDERS);
       }
     },
     { timezone: "America/Toronto" },
@@ -213,7 +254,12 @@ export function startDailyCron(): void {
     "0 9 * * *",
     async () => {
       if (idleLeadsRunning) {
-        logger.warn("Idle lead notification cron skipped — previous run still in progress");
+        logger.warn("Idle lead notification cron skipped — previous run still in progress (in-process)");
+        return;
+      }
+      const locked = await tryAdvisoryLock(LOCK.IDLE_LEADS);
+      if (!locked) {
+        logger.warn("Idle lead notification cron skipped — advisory lock held by another instance");
         return;
       }
       idleLeadsRunning = true;
@@ -225,6 +271,7 @@ export function startDailyCron(): void {
         logger.error({ err }, "Unhandled error in idle lead notification cron");
       } finally {
         idleLeadsRunning = false;
+        await releaseAdvisoryLock(LOCK.IDLE_LEADS);
       }
     },
     { timezone: "America/Toronto" },

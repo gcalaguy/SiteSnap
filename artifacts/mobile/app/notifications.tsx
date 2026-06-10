@@ -171,6 +171,10 @@ export default function NotificationsScreen() {
           refreshControl={
             <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />
           }
+          removeClippedSubviews
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={15}
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         />
       )}

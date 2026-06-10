@@ -236,6 +236,10 @@ export default function ProjectsScreen() {
       data={filtered}
       keyExtractor={item => String(item.id)}
       showsVerticalScrollIndicator={false}
+      removeClippedSubviews
+      maxToRenderPerBatch={10}
+      windowSize={10}
+      initialNumToRender={15}
       refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : bottomInset + 90, flexGrow: 1 }}
       ListHeaderComponent={

@@ -5,18 +5,21 @@ import React, { useCallback, useState } from "react";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 
 type Task = {
   id: number;
@@ -142,6 +145,11 @@ function TaskRow({ task, projectName, onToggle }: { task: Task; projectName?: st
   const isDone = task.status === "done";
   const priorityConf = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.medium;
 
+  const nextStatus: Task["status"] =
+    task.status === "done" ? "todo" : task.status === "todo" ? "in_progress" : "done";
+  const nextLabel =
+    task.status === "done" ? "Mark as to do" : task.status === "todo" ? "Start task" : "Mark as done";
+
   return (
     <Pressable
       style={({ pressed }) => [
@@ -153,6 +161,10 @@ function TaskRow({ task, projectName, onToggle }: { task: Task; projectName?: st
         },
       ]}
       onPress={() => onToggle(task)}
+      accessibilityRole="button"
+      accessibilityLabel={`${task.title}${projectName ? ` — ${projectName}` : ""}, ${task.status === "done" ? "completed" : task.status === "in_progress" ? "in progress" : "to do"}`}
+      accessibilityHint={nextLabel}
+      accessibilityState={{ checked: isDone }}
     >
       <View
         style={[
@@ -292,10 +304,42 @@ const styles = StyleSheet.create({
   emptySubText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6 },
   loader: { paddingVertical: 40 },
   backBtn: { marginBottom: 8, alignSelf: "flex-start" },
+  voiceMicBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   noProjectBanner: { marginHorizontal: 20, marginTop: 40, alignItems: "center" },
   noProjectText: { fontSize: 15, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 12 },
   noProjectSub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6 },
 });
+
+// ── Simple fuzzy match for voice task lookup ───────────────────────────────
+function fuzzyTaskMatch(query: string, tasks: Task[]): Task | null {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
+  const q = norm(query);
+  // Exact match first
+  let match = tasks.find((t) => norm(t.title) === q);
+  if (match) return match;
+  // Substring match
+  match = tasks.find((t) => norm(t.title).includes(q) || q.includes(norm(t.title)));
+  if (match) return match;
+  // Word overlap (≥50%)
+  const qWords = new Set(q.split(/\s+/).filter(Boolean));
+  let best: Task | null = null;
+  let bestScore = 0;
+  for (const t of tasks) {
+    const tWords = new Set(norm(t.title).split(/\s+/).filter(Boolean));
+    let overlap = 0;
+    for (const w of qWords) if (tWords.has(w)) overlap++;
+    const score = overlap / Math.max(qWords.size, tWords.size);
+    if (score > bestScore) { bestScore = score; best = t; }
+  }
+  return bestScore >= 0.5 ? best : null;
+}
 
 // ── Worker view: all tasks assigned to me across all projects ──────────────
 function WorkerTasksScreen() {
@@ -336,6 +380,34 @@ function WorkerTasksScreen() {
     );
   };
 
+  // Voice "mark done" — say "Mark framing as done" or just a task name
+  const voiceMark = useVoiceRecorder((transcript) => {
+    if (!transcript.trim()) return;
+    const allTasks = tasks ?? [];
+    // Strip common voice prefixes before fuzzy-matching the task name
+    const cleaned = transcript
+      .replace(/^(?:mark|complete|finish|done with|close)\s+/i, "")
+      .replace(/\s+(?:as\s+)?(?:done|complete|finished|closed)$/i, "")
+      .trim();
+    const found = fuzzyTaskMatch(cleaned || transcript, allTasks.filter((t) => t.status !== "done"));
+    if (!found) {
+      Alert.alert("Task not found", `Couldn't find a task matching "${transcript}". Try saying the task name more clearly.`);
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    updateTask.mutate(
+      { projectId: found.projectId, taskId: found.id, data: { status: "done" } },
+      {
+        onSuccess: () => {
+          refetch();
+          qc.invalidateQueries({ queryKey: ["my-tasks"] });
+          Alert.alert("✓ Done", `"${found.title}" marked as complete.`);
+        },
+        onError: () => Alert.alert("Error", "Failed to update task."),
+      },
+    );
+  });
+
   const allTasks = tasks ?? [];
   const visible = statusFilter === "all" ? allTasks : allTasks.filter((t) => t.status === statusFilter);
   const inProgress = visible.filter((t) => t.status === "in_progress");
@@ -356,11 +428,44 @@ function WorkerTasksScreen() {
         </Pressable>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>My Tasks</Text>
-          {allTasks.length > 0 && (
-            <Text style={[styles.sectionCount, { color: colors.mutedForeground, fontSize: 14 }]}>
-              {allTasks.length} total
-            </Text>
-          )}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            {allTasks.length > 0 && (
+              <Text style={[styles.sectionCount, { color: colors.mutedForeground, fontSize: 14 }]}>
+                {allTasks.length} total
+              </Text>
+            )}
+            {/* Voice "mark done" mic button */}
+            <TouchableOpacity
+              onPress={() => {
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                void voiceMark.toggle();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={voiceMark.state === "recording" ? "Stop recording" : "Mark task done by voice"}
+              accessibilityHint='Say the task name to mark it complete, e.g. "framing inspection"'
+              style={[
+                styles.voiceMicBtn,
+                {
+                  backgroundColor: voiceMark.state === "recording"
+                    ? "#EF444420"
+                    : voiceMark.state === "transcribing"
+                    ? `${colors.primary}15`
+                    : `${colors.primary}15`,
+                  borderColor: voiceMark.state === "recording" ? "#EF4444" : colors.border,
+                },
+              ]}
+            >
+              {voiceMark.state === "transcribing" ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Feather
+                  name={voiceMark.state === "recording" ? "mic-off" : "mic"}
+                  size={15}
+                  color={voiceMark.state === "recording" ? "#EF4444" : colors.primary}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
         <StatusFilterPills value={statusFilter} onChange={setStatusFilter} />
       </View>
@@ -462,7 +567,35 @@ function OwnerTasksScreen() {
   const done = visibleTasks.filter((t) => t.status === "done");
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
+  // Build project name lookup for TaskRow labels (was empty before — bug fix)
   const projectMap: Record<number, string> = {};
+  allProjects.forEach((p) => { projectMap[p.id] = p.name; });
+
+  // Voice "mark done" for owner/foreman — same fuzzy-match logic as worker view
+  const voiceMark = useVoiceRecorder((transcript) => {
+    if (!transcript.trim()) return;
+    const openTasks = allTasks.filter((t) => t.status !== "done");
+    const cleaned = transcript
+      .replace(/^(?:mark|complete|finish|done with|close)\s+/i, "")
+      .replace(/\s+(?:as\s+)?(?:done|complete|finished|closed)$/i, "")
+      .trim();
+    const found = fuzzyTaskMatch(cleaned || transcript, openTasks);
+    if (!found) {
+      Alert.alert("Task not found", `Couldn't find an open task matching "${transcript}". Try saying the task name more clearly.`);
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    updateTask.mutate(
+      { projectId: found.projectId, taskId: found.id, data: { status: "done" } },
+      {
+        onSuccess: () => {
+          refetch();
+          Alert.alert("✓ Done", `"${found.title}" marked as complete.`);
+        },
+        onError: () => Alert.alert("Error", "Failed to update task."),
+      },
+    );
+  });
 
   return (
     <ScrollView
@@ -477,6 +610,33 @@ function OwnerTasksScreen() {
         </Pressable>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>Tasks</Text>
+          {/* Voice "mark done" mic button — same as worker view */}
+          <TouchableOpacity
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              void voiceMark.toggle();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={voiceMark.state === "recording" ? "Stop recording" : "Mark task done by voice"}
+            accessibilityHint='Say the task name to mark it complete, e.g. "framing inspection"'
+            style={[
+              styles.voiceMicBtn,
+              {
+                backgroundColor: voiceMark.state === "recording" ? "#EF444420" : `${colors.primary}15`,
+                borderColor: voiceMark.state === "recording" ? "#EF4444" : colors.border,
+              },
+            ]}
+          >
+            {voiceMark.state === "transcribing" ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Feather
+                name={voiceMark.state === "recording" ? "mic-off" : "mic"}
+                size={15}
+                color={voiceMark.state === "recording" ? "#EF4444" : colors.primary}
+              />
+            )}
+          </TouchableOpacity>
         </View>
 
         <FilterToggle mode={filterMode} onChange={setFilterMode} mineCount={myTasksAll.length} />

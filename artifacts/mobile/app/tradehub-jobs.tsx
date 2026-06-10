@@ -210,6 +210,10 @@ export default function TradehubJobsScreen() {
           data={posts}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderJob}
+          removeClippedSubviews
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={10}
           contentContainerStyle={[styles.feedContent, { paddingBottom: insets.bottom + 24 }]}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
           ListEmptyComponent={

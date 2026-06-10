@@ -4,10 +4,13 @@ import { randomUUID } from "crypto";
 import {
   ObjectAclPolicy,
   ObjectPermission,
+  ObjectAccessGroupType,
   canAccessObject,
   getObjectAclPolicy,
   setObjectAclPolicy,
 } from "./objectAcl";
+import { db, userMembershipsTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 
 const REPLIT_SIDECAR_ENDPOINT =
   process.env.OBJECT_STORAGE_ENDPOINT ?? "http://127.0.0.1:1106";
@@ -241,11 +244,32 @@ export class ObjectStorageService {
     userId,
     objectFile,
     requestedPermission,
+    fallbackCompanyId,
   }: {
     userId?: string;
     objectFile: File;
     requestedPermission?: ObjectPermission;
+    fallbackCompanyId?: string;
   }): Promise<boolean> {
+    const aclPolicy = await getObjectAclPolicy(objectFile);
+
+    // No ACL policy means this is a pre-existing object uploaded before ACL was
+    // introduced. Fall back to company membership check so nothing breaks.
+    if (!aclPolicy && fallbackCompanyId && userId) {
+      const [membership] = await db
+        .select({ userId: userMembershipsTable.userId })
+        .from(userMembershipsTable)
+        .where(
+          and(
+            eq(userMembershipsTable.userId, parseInt(userId, 10)),
+            eq(userMembershipsTable.companyId, parseInt(fallbackCompanyId, 10)),
+            eq(userMembershipsTable.isActive, true),
+          ),
+        )
+        .limit(1);
+      return !!membership;
+    }
+
     return canAccessObject({
       userId,
       objectFile,

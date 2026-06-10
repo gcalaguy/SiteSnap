@@ -9,7 +9,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { TermsModal } from "@/components/TermsModal";
 import { GlobalVoiceCommandFAB } from "@/components/GlobalVoiceCommandFAB";
 import * as SecureStore from "expo-secure-store";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache, useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "@workspace/api-client-react";
 import { I18nextProvider } from "react-i18next";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import i18n, { setAppLanguage } from "@/src/i18n";
@@ -225,9 +226,22 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
-  }));
+  const [queryClient] = useState(() => {
+    // N-S2 fix: auto sign-out on 401 so expired sessions never silently linger.
+    // Both query and mutation errors are intercepted at the cache level so every
+    // customFetch call in the app benefits without per-call handling.
+    const handle401 = (error: unknown) => {
+      if (error instanceof ApiError && error.status === 401) {
+        // signOut clears the query cache + Clerk session — imported from utils/auth
+        import("@/utils/auth").then(({ signOut }) => signOut()).catch(() => {});
+      }
+    };
+    return new QueryClient({
+      queryCache: new QueryCache({ onError: handle401 }),
+      mutationCache: new MutationCache({ onError: handle401 }),
+      defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+    });
+  });
 
   useEffect(() => {
     let stop: (() => void) | undefined;

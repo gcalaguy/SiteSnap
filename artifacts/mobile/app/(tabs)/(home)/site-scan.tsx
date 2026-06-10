@@ -22,6 +22,17 @@ import { useQueryClient } from "@tanstack/react-query";
 const CYAN = "#06b6d4";
 const SCAN_MIME_TYPES = ["application/octet-stream", "*/*"];
 
+// N-S3 fix: only allow URIs that live inside the app's own sandbox directories.
+// This prevents a malicious deep-link from passing an arbitrary file path
+// (e.g. another app's data or a config file) to FileSystem.uploadAsync.
+function isSafeLocalUri(uri: string): boolean {
+  const allowed = [
+    FileSystem.cacheDirectory,
+    FileSystem.documentDirectory,
+  ].filter((p): p is string => typeof p === "string");
+  return allowed.some((prefix) => uri.startsWith(prefix));
+}
+
 type UploadStep = "idle" | "picking" | "uploading" | "registering" | "done" | "error";
 type ScanMode = "choose" | "file";
 
@@ -69,6 +80,14 @@ export default function SiteScanScreen() {
     if (params.videoUri && params.videoUri !== "" && params.videoUri !== processedVideoUri.current) {
       processedVideoUri.current = params.videoUri;
       const uri = params.videoUri;
+
+      // N-S3: reject any URI that falls outside the app's sandbox
+      if (!isSafeLocalUri(uri)) {
+        setErrorMsg("Invalid video source. Please record a new scan.");
+        setStep("error");
+        return;
+      }
+
       const name = params.videoName ?? `site-scan-${Date.now()}.mp4`;
       const file: ScanFile = { name, uri, mimeType: "video/mp4", sourceType: "video_capture" };
       setPickedFile(file);
