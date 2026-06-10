@@ -567,7 +567,35 @@ function OwnerTasksScreen() {
   const done = visibleTasks.filter((t) => t.status === "done");
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
+  // Build project name lookup for TaskRow labels (was empty before — bug fix)
   const projectMap: Record<number, string> = {};
+  allProjects.forEach((p) => { projectMap[p.id] = p.name; });
+
+  // Voice "mark done" for owner/foreman — same fuzzy-match logic as worker view
+  const voiceMark = useVoiceRecorder((transcript) => {
+    if (!transcript.trim()) return;
+    const openTasks = allTasks.filter((t) => t.status !== "done");
+    const cleaned = transcript
+      .replace(/^(?:mark|complete|finish|done with|close)\s+/i, "")
+      .replace(/\s+(?:as\s+)?(?:done|complete|finished|closed)$/i, "")
+      .trim();
+    const found = fuzzyTaskMatch(cleaned || transcript, openTasks);
+    if (!found) {
+      Alert.alert("Task not found", `Couldn't find an open task matching "${transcript}". Try saying the task name more clearly.`);
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    updateTask.mutate(
+      { projectId: found.projectId, taskId: found.id, data: { status: "done" } },
+      {
+        onSuccess: () => {
+          refetch();
+          Alert.alert("✓ Done", `"${found.title}" marked as complete.`);
+        },
+        onError: () => Alert.alert("Error", "Failed to update task."),
+      },
+    );
+  });
 
   return (
     <ScrollView
@@ -582,6 +610,33 @@ function OwnerTasksScreen() {
         </Pressable>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>Tasks</Text>
+          {/* Voice "mark done" mic button — same as worker view */}
+          <TouchableOpacity
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              void voiceMark.toggle();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={voiceMark.state === "recording" ? "Stop recording" : "Mark task done by voice"}
+            accessibilityHint='Say the task name to mark it complete, e.g. "framing inspection"'
+            style={[
+              styles.voiceMicBtn,
+              {
+                backgroundColor: voiceMark.state === "recording" ? "#EF444420" : `${colors.primary}15`,
+                borderColor: voiceMark.state === "recording" ? "#EF4444" : colors.border,
+              },
+            ]}
+          >
+            {voiceMark.state === "transcribing" ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Feather
+                name={voiceMark.state === "recording" ? "mic-off" : "mic"}
+                size={15}
+                color={voiceMark.state === "recording" ? "#EF4444" : colors.primary}
+              />
+            )}
+          </TouchableOpacity>
         </View>
 
         <FilterToggle mode={filterMode} onChange={setFilterMode} mineCount={myTasksAll.length} />
