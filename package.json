@@ -11,29 +11,6 @@
     "prepare": "husky"
   },
   "private": true,
-  "pnpm": {
-    "overrides": {
-      "react": "19.1.0",
-      "react-dom": "19.1.0",
-      "@clerk/clerk-expo": "^2.19.31",
-      "@clerk/clerk-react": "^5.61.3",
-      "lodash": "^4.18.0",
-      "uuid": "^11.1.1",
-      "fast-uri": "^3.1.2",
-      "picomatch": "^4.0.4",
-      "ws": "^8.20.1",
-      "postcss": "^8.5.10",
-      "js-cookie": "^3.0.7",
-      "qs": "^6.15.2",
-      "yaml": "^2.8.3",
-      "path-to-regexp": "^8.4.0",
-      "brace-expansion": "^5.0.6",
-      "fast-xml-builder": "^1.1.7",
-      "esbuild": "^0.25.8",
-      "ip-address": "^10.1.1",
-      "@tootallnate/once": "^2.0.1"
-    }
-  },
   "devDependencies": {
     "@types/supertest": "^7.2.0",
     "husky": "^9.1.7",
