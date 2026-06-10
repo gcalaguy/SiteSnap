@@ -80,7 +80,7 @@
     "expo-sharing": "~14.0.8",
     "i18next": "^26.2.0",
     "react-i18next": "^17.0.8",
-    "react-native-webview": "^13.16.1",
+    "react-native-webview": "13.15.0",
     "@e965/xlsx": ">=0.20.3"
   }
 }
