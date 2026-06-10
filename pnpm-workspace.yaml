@@ -37,7 +37,10 @@ minimumReleaseAgeExclude:
   - stripe-replit-sync
 
 onlyBuiltDependencies:
+  - '@clerk/shared'
   - '@swc/core'
+  - browser-tabs-lock
+  - core-js
   - esbuild
   - msw
   - unrs-resolver
