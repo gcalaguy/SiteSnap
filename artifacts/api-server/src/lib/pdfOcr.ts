@@ -22,13 +22,23 @@ export async function convertPDFPagesToImages(
   maxPages = DEFAULT_MAX_PAGES,
   dpi = DEFAULT_DPI,
 ): Promise<PDFPageImage[]> {
-  const { mkdtempSync, writeFileSync, readdirSync, readFileSync, rmSync } = await import("fs");
+  const { mkdtemp, writeFile, readdir, readFile, rm } = await import("fs/promises");
   const { tmpdir } = await import("os");
   const { join } = await import("path");
 
-  const tmpDir = mkdtempSync(join(tmpdir(), "pdf-ocr-"));
+  const tmpDir = await mkdtemp(join(tmpdir(), "pdf-ocr-"));
   const pdfPath = join(tmpDir, "input.pdf");
-  writeFileSync(pdfPath, pdfBuffer);
+  await writeFile(pdfPath, pdfBuffer);
+
+  const readPngs = async (dir: string): Promise<PDFPageImage[]> => {
+    const files = (await readdir(dir)).filter(f => f.endsWith(".png")).sort();
+    return Promise.all(
+      files.slice(0, maxPages).map(async (f) => ({
+        base64: (await readFile(join(dir, f))).toString("base64"),
+        mimeType: "image/png" as const,
+      })),
+    );
+  };
 
   try {
     const outBase = join(tmpDir, "page");
@@ -39,16 +49,7 @@ export async function convertPDFPagesToImages(
       "-l", String(maxPages),
       pdfPath, outBase,
     ]);
-
-    const files = readdirSync(tmpDir)
-      .filter(f => f.endsWith(".png"))
-      .sort();
-
-    const images: PDFPageImage[] = [];
-    for (const f of files.slice(0, maxPages)) {
-      images.push({ base64: readFileSync(join(tmpDir, f)).toString("base64"), mimeType: "image/png" });
-    }
-    return images;
+    return await readPngs(tmpDir);
   } catch (err) {
     logger.warn({ err }, "pdftoppm failed; trying ImageMagick fallback");
     try {
@@ -57,19 +58,12 @@ export async function convertPDFPagesToImages(
         `${pdfPath}[0-${maxPages - 1}]`,
         join(tmpDir, "page-%d.png"),
       ]);
-      const files = readdirSync(tmpDir)
-        .filter(f => f.endsWith(".png"))
-        .sort();
-      const images: PDFPageImage[] = [];
-      for (const f of files.slice(0, maxPages)) {
-        images.push({ base64: readFileSync(join(tmpDir, f)).toString("base64"), mimeType: "image/png" });
-      }
-      return images;
+      return await readPngs(tmpDir);
     } catch (err2) {
       logger.error({ err: err2 }, "ImageMagick fallback also failed");
       return [];
     }
   } finally {
-    try { rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    try { await rm(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 }

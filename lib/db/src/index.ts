@@ -25,6 +25,9 @@ const pool: pg.Pool =
     max: 20,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 2_000,
+    // Kill runaway queries after 30 s — prevents a single bad query from
+    // blocking all 20 pool connections and making the API unresponsive.
+    options: "-c statement_timeout=30000",
   }));
 
 export { pool };

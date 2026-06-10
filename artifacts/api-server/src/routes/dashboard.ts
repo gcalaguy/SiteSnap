@@ -17,10 +17,14 @@ import {
   contactsTable,
   leadsTable,
 } from "@workspace/db";
-import { eq, and, gte, sql, inArray, lt, ne, isNotNull } from "drizzle-orm";
+import { eq, and, gte, sql, inArray, lt, ne, isNotNull, desc } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 
 const router = Router();
+
+// L4: TTL cache for smart-summary — regenerated at most every 5 minutes per company
+const smartSummaryCache = new Map<number, { summary: string; lines: string[]; expiresAt: number }>();
+const SMART_SUMMARY_TTL_MS = 5 * 60 * 1000;
 
 async function getAccessibleProjectIds(companyId: number, userId: number, userRole: string): Promise<number[]> {
   if (userRole === "worker") {
@@ -60,16 +64,11 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
 
   const projectIds = await getAccessibleProjectIds(companyId, userId, userRole);
 
-  const members = await db
-    .select()
-    .from(usersTable)
-    .innerJoin(
-      userMembershipsTable,
-      and(
-        eq(userMembershipsTable.userId, usersTable.id),
-        eq(userMembershipsTable.companyId, companyId),
-      ),
-    );
+  const [memberCountResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(userMembershipsTable)
+    .where(eq(userMembershipsTable.companyId, companyId));
+  const teamMemberCount = memberCountResult?.count ?? 0;
 
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
@@ -91,42 +90,42 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
     activeProjects = projects.filter((p) => p.status !== "completed" && p.status !== "cancelled").length;
     totalBudget = projects.reduce((s, p) => s + (p.budget ? parseFloat(p.budget) : 0), 0);
 
-    for (const pid of projectIds) {
-      const reports = await db
-        .select()
+    const thisMonthStart = new Date();
+    thisMonthStart.setDate(1);
+
+    const [allReports, allRFIs, allAnalyses] = await Promise.all([
+      db
+        .select({ projectId: dailyReportsTable.projectId })
         .from(dailyReportsTable)
         .where(
           and(
-            eq(dailyReportsTable.projectId, pid),
+            inArray(dailyReportsTable.projectId, projectIds),
             gte(dailyReportsTable.reportDate, weekStr),
           ),
-        );
-      reportsThisWeek += reports.length;
-
-      const rfis = await db
-        .select()
+        ),
+      db
+        .select({ projectId: rfisTable.projectId })
         .from(rfisTable)
         .where(
           and(
-            eq(rfisTable.projectId, pid),
+            inArray(rfisTable.projectId, projectIds),
             inArray(rfisTable.status, ["open", "in_review"]),
           ),
-        );
-      openRFIs += rfis.length;
-
-      const thisMonthStart = new Date();
-      thisMonthStart.setDate(1);
-      const analyses = await db
-        .select()
+        ),
+      db
+        .select({ totalCost: costAnalysesTable.totalCost })
         .from(costAnalysesTable)
         .where(
           and(
-            eq(costAnalysesTable.projectId, pid),
+            inArray(costAnalysesTable.projectId, projectIds),
             gte(costAnalysesTable.createdAt, thisMonthStart),
           ),
-        );
-      totalSpend += analyses.reduce((s, a) => s + parseFloat(a.totalCost), 0);
-    }
+        ),
+    ]);
+
+    reportsThisWeek = allReports.length;
+    openRFIs = allRFIs.length;
+    totalSpend = allAnalyses.reduce((s, a) => s + parseFloat(a.totalCost), 0);
   }
 
   const contactRows = await db
@@ -192,7 +191,7 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
     totalSpend,
     totalBudget,
     totalBudgetAllProjects: totalBudget,
-    teamMemberCount: members.length,
+    teamMemberCount,
     totalContacts: contactRows.length,
     overdueInvoices,
     overdueInvoiceAmount,
@@ -334,13 +333,19 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
     createdAt: Date;
   }> = [];
 
-  for (const pid of projectIds) {
-    // Daily reports
-    const reports = await db
-      .select()
-      .from(dailyReportsTable)
-      .where(eq(dailyReportsTable.projectId, pid));
-    for (const r of reports) {
+  // Bulk-fetch all activity across all projects in 3 queries (was 3 queries × N projects).
+  if (projectIds.length > 0) {
+    const [allReports, allRfis, allTasks] = await Promise.all([
+      db.select().from(dailyReportsTable).where(inArray(dailyReportsTable.projectId, projectIds)),
+      db.select().from(rfisTable).where(inArray(rfisTable.projectId, projectIds)),
+      db.select().from(tasksTable).where(
+        userRole === "worker"
+          ? and(inArray(tasksTable.projectId, projectIds), eq(tasksTable.assignedToUserId, userId))
+          : inArray(tasksTable.projectId, projectIds),
+      ),
+    ]);
+
+    for (const r of allReports) {
       const workPreview = r.workPerformed?.trim();
       const who = userMap[r.submittedByUserId] ?? "Someone";
       const description = workPreview
@@ -352,38 +357,24 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
         id: `report-${r.id}`,
         type: "daily_report",
         description,
-        projectName: projectMap[pid] ?? null,
+        projectName: projectMap[r.projectId] ?? null,
         userName: who,
         createdAt: r.createdAt,
       });
     }
 
-    // RFIs
-    const rfis = await db
-      .select()
-      .from(rfisTable)
-      .where(eq(rfisTable.projectId, pid));
-    for (const r of rfis) {
+    for (const r of allRfis) {
       activity.push({
         id: `rfi-${r.id}`,
         type: "rfi_created",
         description: `RFI ${r.rfiNumber}: ${r.subject}`,
-        projectName: projectMap[pid] ?? null,
+        projectName: projectMap[r.projectId] ?? null,
         userName: userMap[r.submittedByUserId] ?? "Unknown",
         createdAt: r.createdAt,
       });
     }
 
-    // Tasks — for workers only show tasks assigned to them
-    const taskRows = await db
-      .select()
-      .from(tasksTable)
-      .where(
-        userRole === "worker"
-          ? and(eq(tasksTable.projectId, pid), eq(tasksTable.assignedToUserId, userId))
-          : eq(tasksTable.projectId, pid),
-      );
-    for (const t of taskRows) {
+    for (const t of allTasks) {
       const assignee = t.assignedToUserId ? userMap[t.assignedToUserId] : null;
       const description = assignee
         ? `Task "${t.title}" assigned to ${assignee}`
@@ -392,7 +383,7 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
         id: `task-${t.id}`,
         type: "task_created",
         description,
-        projectName: projectMap[pid] ?? null,
+        projectName: projectMap[t.projectId] ?? null,
         userName: assignee ?? "System",
         createdAt: t.createdAt,
       });
@@ -443,9 +434,15 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
   res.json(activity.slice(0, 20));
 });
 
-// GET /dashboard/smart-summary — rule-based insight text
+// GET /dashboard/smart-summary — rule-based insight text (cached 5 min per company)
 router.get("/dashboard/smart-summary", requireAuth, requireCompany, async (req, res) => {
   const companyId = req.companyId!;
+
+  const cached = smartSummaryCache.get(companyId);
+  if (cached && cached.expiresAt > Date.now()) {
+    res.json({ summary: cached.summary, lines: cached.lines });
+    return;
+  }
 
   const today = new Date().toISOString().split("T")[0]!;
 
@@ -539,7 +536,9 @@ router.get("/dashboard/smart-summary", requireAuth, requireCompany, async (req, 
     lines.push(`${pendingForms} safety form${pendingForms !== 1 ? "s are" : " is"} pending review.`);
   }
 
-  res.json({ summary: lines.join(" "), lines });
+  const result = { summary: lines.join(" "), lines };
+  smartSummaryCache.set(companyId, { ...result, expiresAt: Date.now() + SMART_SUMMARY_TTL_MS });
+  res.json(result);
 });
 
 // GET /rfis — company-wide RFI list (worker-scoped to accessible projects)
@@ -554,10 +553,17 @@ router.get("/rfis", requireAuth, requireCompany, async (req, res) => {
   const projects = await db.select().from(projectsTable).where(inArray(projectsTable.id, projectIds));
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
 
+  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+  const offset = (page - 1) * limit;
+
   const rfis = await db
     .select()
     .from(rfisTable)
-    .where(inArray(rfisTable.projectId, projectIds));
+    .where(inArray(rfisTable.projectId, projectIds))
+    .orderBy(desc(rfisTable.createdAt))
+    .limit(limit)
+    .offset(offset);
 
   const userIds = [...new Set(rfis.map((r) => r.submittedByUserId))];
   const users = userIds.length
@@ -584,10 +590,17 @@ router.get("/daily-reports", requireAuth, requireCompany, async (req, res) => {
   const projects = await db.select().from(projectsTable).where(inArray(projectsTable.id, projectIds));
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
 
+  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+  const offset = (page - 1) * limit;
+
   const reports = await db
     .select()
     .from(dailyReportsTable)
-    .where(inArray(dailyReportsTable.projectId, projectIds));
+    .where(inArray(dailyReportsTable.projectId, projectIds))
+    .orderBy(desc(dailyReportsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
 
   const userIds = [...new Set(reports.map((r) => r.submittedByUserId))];
   const users = userIds.length

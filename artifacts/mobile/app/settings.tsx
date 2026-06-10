@@ -258,9 +258,11 @@ export default function SettingsScreen() {
       await queryClient.invalidateQueries({ queryKey: getGetEmailConfigQueryKey() });
       setEditEmail(false);
       setFromEmailInput("");
-      setResendKeyInput("");
     } catch {
       Alert.alert("Save Failed", "Could not update email settings. Please try again.");
+    } finally {
+      // M-S9 fix: always zero out the API key from component state after attempt
+      setResendKeyInput("");
     }
   }
 

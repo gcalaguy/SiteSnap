@@ -26,47 +26,56 @@ router.use(requireFeature("Financials"));
 router.get("/financials/summary", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
   const companyId = req.companyId!;
 
-  const invoices = await db
-    .select({ status: invoicesTable.status, total: invoicesTable.total })
-    .from(invoicesTable)
-    .where(eq(invoicesTable.companyId, companyId));
+  // Use SQL aggregates — avoids loading all rows into Node memory.
+  const [invoiceSums, paymentSum, changeOrderSums, recentPayments] = await Promise.all([
+    db
+      .select({
+        status: invoicesTable.status,
+        total: sql<string>`COALESCE(SUM(${invoicesTable.total}::numeric), 0)`,
+        count: sql<string>`COUNT(*)`,
+      })
+      .from(invoicesTable)
+      .where(eq(invoicesTable.companyId, companyId))
+      .groupBy(invoicesTable.status),
+    db
+      .select({ total: sql<string>`COALESCE(SUM(${paymentsTable.amount}::numeric), 0)` })
+      .from(paymentsTable)
+      .where(eq(paymentsTable.companyId, companyId)),
+    db
+      .select({
+        status: changeOrdersTable.status,
+        total: sql<string>`COALESCE(SUM(${changeOrdersTable.amount}::numeric), 0)`,
+        count: sql<string>`COUNT(*)`,
+      })
+      .from(changeOrdersTable)
+      .where(eq(changeOrdersTable.companyId, companyId))
+      .groupBy(changeOrdersTable.status),
+    db
+      .select()
+      .from(paymentsTable)
+      .where(eq(paymentsTable.companyId, companyId))
+      .orderBy(desc(paymentsTable.paidAt))
+      .limit(8),
+  ]);
 
-  let outstanding = 0;
-  let overdue = 0;
-  let collected = 0;
-  let totalInvoiced = 0;
-
-  for (const inv of invoices) {
-    const t = parseFloat(inv.total ?? "0");
+  let outstanding = 0, overdue = 0, collected = 0, totalInvoiced = 0, invoiceCount = 0;
+  for (const row of invoiceSums) {
+    const t = parseFloat(row.total);
+    const c = parseInt(row.count);
     totalInvoiced += t;
-    if (inv.status === "sent") outstanding += t;
-    if (inv.status === "overdue") { outstanding += t; overdue += t; }
-    if (inv.status === "paid") collected += t;
+    invoiceCount += c;
+    if (row.status === "sent") outstanding += t;
+    if (row.status === "overdue") { outstanding += t; overdue += t; }
+    if (row.status === "paid") collected += t;
   }
 
-  const allPayments = await db
-    .select({ amount: paymentsTable.amount })
-    .from(paymentsTable)
-    .where(eq(paymentsTable.companyId, companyId));
+  const totalPaymentsReceived = parseFloat(paymentSum[0]?.total ?? "0");
 
-  const totalPaymentsReceived = allPayments.reduce((s, p) => s + parseFloat(p.amount ?? "0"), 0);
-
-  const changeOrders = await db
-    .select({ status: changeOrdersTable.status, amount: changeOrdersTable.amount })
-    .from(changeOrdersTable)
-    .where(eq(changeOrdersTable.companyId, companyId));
-
-  const pendingChangeOrders = changeOrders.filter((c) => c.status === "pending").length;
-  const approvedChangeOrdersValue = changeOrders
-    .filter((c) => c.status === "approved")
-    .reduce((s, c) => s + parseFloat(c.amount ?? "0"), 0);
-
-  const recentPayments = await db
-    .select()
-    .from(paymentsTable)
-    .where(eq(paymentsTable.companyId, companyId))
-    .orderBy(desc(paymentsTable.paidAt))
-    .limit(8);
+  let pendingChangeOrders = 0, approvedChangeOrdersValue = 0;
+  for (const row of changeOrderSums) {
+    if (row.status === "pending") pendingChangeOrders = parseInt(row.count);
+    if (row.status === "approved") approvedChangeOrdersValue = parseFloat(row.total);
+  }
 
   res.json({
     outstanding: outstanding.toFixed(2),
@@ -74,7 +83,7 @@ router.get("/financials/summary", requireAuth, requireCompany, requirePermission
     collected: collected.toFixed(2),
     totalInvoiced: totalInvoiced.toFixed(2),
     totalPaymentsReceived: totalPaymentsReceived.toFixed(2),
-    invoiceCount: invoices.length,
+    invoiceCount,
     pendingChangeOrders,
     approvedChangeOrdersValue: approvedChangeOrdersValue.toFixed(2),
     recentPayments,
@@ -83,13 +92,19 @@ router.get("/financials/summary", requireAuth, requireCompany, requirePermission
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 
-// GET /payments — all payments for company
+// GET /payments — paginated payments for company (?page=1&limit=50)
 router.get("/payments", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+  const offset = (page - 1) * limit;
+
   const payments = await db
     .select()
     .from(paymentsTable)
     .where(eq(paymentsTable.companyId, req.companyId!))
-    .orderBy(desc(paymentsTable.paidAt));
+    .orderBy(desc(paymentsTable.paidAt))
+    .limit(limit)
+    .offset(offset);
   res.json(payments);
 });
 

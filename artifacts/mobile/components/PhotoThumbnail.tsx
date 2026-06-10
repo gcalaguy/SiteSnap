@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Pressable, View, Image, ActivityIndicator, StyleSheet, Modal } from "react-native";
+import { Pressable, View, ActivityIndicator, StyleSheet, Modal } from "react-native";
+import { Image } from "expo-image";
 import { useSignedPhotoUrl } from "@/hooks/useSignedPhotoUrl";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
@@ -33,7 +34,7 @@ export function PhotoThumbnail({ objectPath, size = 80, onPress }: PhotoThumbnai
           <ActivityIndicator size="small" color={colors.primary} />
         </View>
       ) : signedUrl ? (
-        <Image source={{ uri: signedUrl }} style={{ width: size, height: size }} resizeMode="cover" />
+        <Image source={{ uri: signedUrl }} style={{ width: size, height: size }} contentFit="cover" />
       ) : (
         <View style={styles.center}>
           <Feather name="image" size={18} color={colors.mutedForeground} />
@@ -71,7 +72,7 @@ export function PhotoLightbox({ objectPath, visible, onClose }: PhotoLightboxPro
             <Image
               source={{ uri: signedUrl }}
               style={{ width: "95%", height: "75%", borderRadius: 10 }}
-              resizeMode="contain"
+              contentFit="contain"
               onLoad={() => setLoading(false)}
             />
           </>

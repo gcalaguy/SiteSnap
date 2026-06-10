@@ -1,5 +1,6 @@
 import { Router } from "express";
-import multer from "multer";
+import { diskUpload, cleanupUpload } from "../lib/upload.js";
+import { readFile as readFileAsync } from "fs/promises";
 import { eq, and, desc, count, inArray, sql, isNull } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -663,14 +664,12 @@ router.post(
 );
 
 // POST /api/estimator/parse-from-file — upload file → extract text → AI parse params
-const fileUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
-
 router.post(
   "/estimator/parse-from-file",
   requireAuth,
   requireCompany,
   requireAiQuota,
-  fileUpload.single("file"),
+  diskUpload.single("file"),
   asyncHandler(async (req, res) => {
     const file = req.file;
     if (!file) throw new BadRequestError("No file uploaded");
@@ -679,8 +678,11 @@ router.post(
     const mime = file.mimetype.toLowerCase();
     const filename = file.originalname.toLowerCase();
 
+    // Read from temp disk file only when needed — never held in memory during upload
+    const fileBuffer = await readFileAsync(file.path);
+
     if (mime.startsWith("image/") || /\.(png|jpg|jpeg|webp|heic)$/.test(filename)) {
-      const base64 = file.buffer.toString("base64");
+      const base64 = fileBuffer.toString("base64");
       const dataUrl = `data:${file.mimetype};base64,${base64}`;
       const visionResponse = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -701,24 +703,24 @@ router.post(
         try {
           // @ts-ignore
           const pdfParse = (await import("pdf-parse")).default;
-          const parsed = await pdfParse(file.buffer);
+          const parsed = await pdfParse(fileBuffer);
           text = parsed.text?.trim() || null;
         } catch { text = null; }
       } else if (mime.includes("word") || mime.includes("docx") || filename.endsWith(".docx") || filename.endsWith(".doc")) {
         try {
           const mammoth = await import("mammoth");
-          const result = await mammoth.extractRawText({ buffer: file.buffer });
+          const result = await mammoth.extractRawText({ buffer: fileBuffer });
           text = result.value?.trim() || null;
         } catch { text = null; }
       } else if (mime.startsWith("text/") || filename.endsWith(".txt")) {
-        text = file.buffer.toString("utf-8").trim();
+        text = fileBuffer.toString("utf-8").trim();
       }
       if (!text || text.length < 10) {
         // OCR fallback for image-only PDFs
         if (mime.includes("pdf") || filename.endsWith(".pdf")) {
           try {
             const { convertPDFPagesToImages } = await import("../lib/pdfOcr.js");
-            const images = await convertPDFPagesToImages(file.buffer, 3, 200);
+            const images = await convertPDFPagesToImages(fileBuffer, 3, 200);
             if (images.length > 0) {
               const visionContent: any = [
                 { type: "text", text: "Analyze this construction plan or document image. Extract a detailed description of the project scope, including project type, approximate size in square feet, finish quality (basic/standard/premium/luxury), and any specific requirements visible. Be specific and comprehensive." },
@@ -730,7 +732,7 @@ router.post(
                 });
               }
               const visionResponse = await openai.chat.completions.create({
-                model: "gpt-5.4",
+                model: "gpt-4o",
                 max_completion_tokens: 2048,
                 messages: [{ role: "user", content: visionContent }],
               });
@@ -762,6 +764,7 @@ router.post(
     await seedPricingData(req.companyId!);
     const params = await parsePromptToParams(fullPrompt);
     res.json(params);
+    await cleanupUpload(file.path);
   }),
 );
 

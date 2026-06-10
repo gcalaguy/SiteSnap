@@ -27,8 +27,10 @@ export function useSignedPhotoUrl(objectPath: string | null | undefined) {
       });
     },
     enabled: !!signedUrlPath,
-    staleTime: 10 * 60 * 1000,
-    gcTime: 15 * 60 * 1000,
+    // M-P7 fix: signed URLs expire after 60 min — cache for 50 min to avoid
+    // unnecessary API calls while staying safely within the URL's validity window
+    staleTime: 50 * 60 * 1000,
+    gcTime: 55 * 60 * 1000,
   });
 
   return {

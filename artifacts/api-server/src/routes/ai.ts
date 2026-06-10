@@ -59,7 +59,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
     });
@@ -116,7 +116,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
     });
@@ -166,7 +166,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
     });
@@ -251,7 +251,7 @@ Today's date: ${new Date().toLocaleDateString("en-CA")}`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      model: "gpt-4o",
       max_completion_tokens: 1024,
       messages: [
         { role: "system", content: systemPrompt },
@@ -312,7 +312,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
     });
@@ -386,7 +386,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
     });
@@ -414,22 +414,22 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 });
 
 // ── Voice Transcription ───────────────────────────────────────────────────────
-import multer from "multer";
-
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+import { diskUpload, cleanupUpload } from "../lib/upload.js";
+import { readFile } from "fs/promises";
 
 const TranscribeJsonInput = z.strictObject({
   audio: z.string().min(1).max(10_000_000),
   format: z.string().max(10).optional().default("webm"),
 });
 
-router.post("/ai/transcribe", requireAuth, requireAiQuota, upload.single("file"), async (req, res) => {
+router.post("/ai/transcribe", requireAuth, requireAiQuota, diskUpload.single("file"), async (req, res) => {
   let audioBuffer: Buffer;
 
   try {
     // 1) multipart/form-data upload (mobile voice recorder)
     if (req.file) {
-      audioBuffer = req.file.buffer;
+      // Read from temp disk file — buffer allocated only here, not during upload
+      audioBuffer = await readFile(req.file.path);
     }
     // 2) JSON body with base64 audio (web dashboard)
     else {
@@ -447,6 +447,8 @@ router.post("/ai/transcribe", requireAuth, requireAiQuota, upload.single("file")
   } catch (err: unknown) {
     req.log?.error({ err }, "Transcription failed");
     res.status(500).json({ error: "Transcription failed" });
+  } finally {
+    await cleanupUpload(req.file?.path);
   }
 });
 

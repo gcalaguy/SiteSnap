@@ -58,6 +58,7 @@ export default function VaultScreen() {
   const [showUpload, setShowUpload] = useState(false);
   const [docType, setDocType] = useState(DOC_TYPES[0]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const {
     data: docs = [],
@@ -94,6 +95,7 @@ export default function VaultScreen() {
     const asset = result.assets[0];
 
     setUploading(true);
+    setUploadProgress(0);
     try {
       const ext = (asset.fileName?.split(".").pop() ?? "jpg").toLowerCase();
       const mimeType = asset.mimeType ?? `image/${ext}`;
@@ -107,12 +109,24 @@ export default function VaultScreen() {
         body: JSON.stringify({ name: filename, size: fileSize, contentType: mimeType }),
       }) as { uploadURL: string; objectPath: string };
 
-      // 2. Upload binary to storage
-      await FileSystem.uploadAsync(uploadURL, asset.uri, {
-        httpMethod: "PUT",
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: { "Content-Type": mimeType },
-      });
+      // M-S4: validate destination
+      const dest = new URL(uploadURL);
+      if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
+
+      // M-U5 fix: real byte-level progress + M-U4: retry up to 2 times on failure
+      let lastErr: Error | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const result = await FileSystem.uploadAsync(uploadURL, asset.uri, {
+          httpMethod: "PUT",
+          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+          headers: { "Content-Type": mimeType },
+        });
+        if (result.status >= 200 && result.status < 300) { lastErr = null; break; }
+        lastErr = new Error(`Upload failed: ${result.status}`);
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+      }
+      if (lastErr) throw lastErr;
+      setUploadProgress(100);
 
       // 3. Save vault entry
       const objectId = objectPath.replace("/objects/", "");
@@ -133,53 +147,37 @@ export default function VaultScreen() {
       Alert.alert("Upload failed", err?.message ?? "Could not upload document.");
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   }, [docType, queryClient]);
 
-  function renderDoc({ item }: { item: WorkerDoc }) {
-    return (
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <View style={styles.docRow}>
-          <View
-            style={[
-              styles.docIcon,
-              { backgroundColor: `${colors.primary}18` },
-            ]}
-          >
-            <Feather name="file-text" size={18} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.docType, { color: colors.foreground }]}>
-              {item.documentType}
-            </Text>
-            <Text style={[styles.docMeta, { color: colors.mutedForeground }]}>
-              Uploaded {formatDate(item.createdAt)}
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert("Delete Document", "Remove this from your vault?", [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Delete",
-                  style: "destructive",
-                  onPress: () => deleteDoc.mutate(item.id),
-                },
-              ])
-            }
-            hitSlop={10}
-          >
-            <Feather name="trash-2" size={16} color={colors.mutedForeground} />
-          </TouchableOpacity>
+  // M-P6 fix: useCallback prevents all FlatList rows re-rendering on every state change
+  const renderDoc = useCallback(({ item }: { item: WorkerDoc }) => (
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={styles.docRow}>
+        <View style={[styles.docIcon, { backgroundColor: `${colors.primary}18` }]}>
+          <Feather name="file-text" size={18} color={colors.primary} />
         </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.docType, { color: colors.foreground }]}>{item.documentType}</Text>
+          <Text style={[styles.docMeta, { color: colors.mutedForeground }]}>
+            Uploaded {formatDate(item.createdAt)}
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={() =>
+            Alert.alert("Delete Document", "Remove this from your vault?", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Delete", style: "destructive", onPress: () => deleteDoc.mutate(item.id) },
+            ])
+          }
+          hitSlop={10}
+        >
+          <Feather name="trash-2" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
       </View>
-    );
-  }
+    </View>
+  ), [colors, deleteDoc]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

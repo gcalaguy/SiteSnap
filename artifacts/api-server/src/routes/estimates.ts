@@ -4,12 +4,12 @@ import { db, estimatesTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth.js";
 import { requirePermission } from "../lib/permissionGate.js";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import multer from "multer";
 import { z } from "zod";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
+import { diskUpload, cleanupUpload } from "../lib/upload.js";
+import { readFile } from "fs/promises";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 /** HTML-escape helper — prevents injection of user data into email templates */
 const esc = (s: unknown): string =>
@@ -249,10 +249,11 @@ router.post(
   requireCompany,
   requirePermission("manageQuotes"),
   requireAiQuota,
-  upload.single("file"),
+  diskUpload.single("file"),
   async (req, res) => {
     const role = req.userRole;
     if (role !== "owner" && role !== "foreman") {
+      await cleanupUpload(req.file?.path);
       res.status(403).json({ error: "Foreman or owner role required" });
       return;
     }
@@ -266,6 +267,7 @@ router.post(
     const rawHint = typeof req.body?.hint === "string" ? req.body.hint : "";
     const hintParsed = z.string().max(2000, "Hint must be at most 2 000 characters").safeParse(rawHint);
     if (!hintParsed.success) {
+      await cleanupUpload(file.path);
       res.status(400).json({ error: "Malformed request payload", details: hintParsed.error.issues });
       return;
     }
@@ -288,10 +290,13 @@ router.post(
     try {
       let result: Record<string, unknown>;
 
+      // Read from temp disk file only when needed for processing
+      const fileBuffer = await readFile(file.path);
+
       if (isImage) {
-        result = await generateEstimateFromImage(file.buffer, mime, hint);
+        result = await generateEstimateFromImage(fileBuffer, mime, hint);
       } else {
-        const text = await extractTextFromFile(file.buffer, mime, file.originalname);
+        const text = await extractTextFromFile(fileBuffer, mime, file.originalname);
         const scope = [hint, text].filter(Boolean).join("\n\n");
         if (!scope.trim()) {
           throw new Error("Could not extract text from the uploaded file. For scanned PDFs, the OCR service may have failed.");
@@ -312,6 +317,8 @@ router.post(
         .set({ status: "failed", updatedAt: new Date() })
         .where(eq(estimatesTable.id, estimate.id));
       res.status(500).json({ error: err instanceof Error ? err.message : "AI estimate generation failed" });
+    } finally {
+      await cleanupUpload(file.path);
     }
   },
 );

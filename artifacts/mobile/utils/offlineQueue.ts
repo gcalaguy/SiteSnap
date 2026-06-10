@@ -24,11 +24,12 @@ import NetInfo from "@react-native-community/netinfo";
 // AsyncStorage key that holds the serialised queue (JSON array of payloads).
 const QUEUE_KEY = "safety_form_offline_queue";
 
-/**
- * The last apiSubmitFn passed to flushOfflineQueue is stored here so the
- * global NetInfo listener can re-use it without requiring the caller to
- * re-register on every reconnect event.
- */
+// ---------------------------------------------------------------------------
+// M-SC3 fix: The module-level NetInfo listener has been removed.
+// Use startOfflineQueueListener() / stopOfflineQueueListener() instead so the
+// caller controls the subscription lifetime and we never accumulate listeners.
+// ---------------------------------------------------------------------------
+
 let _storedApiSubmitFn: ((data: any) => Promise<any>) | null = null;
 
 // ---------------------------------------------------------------------------
@@ -99,7 +100,6 @@ export async function queueOffline(formData: any): Promise<void> {
 export async function flushOfflineQueue(
   apiSubmitFn: (data: any) => Promise<any>
 ): Promise<void> {
-  // Keep a reference so the NetInfo listener can trigger future flushes.
   _storedApiSubmitFn = apiSubmitFn;
 
   // Guard: do nothing when there is no network connection.
@@ -129,29 +129,38 @@ export async function flushOfflineQueue(
 }
 
 // ---------------------------------------------------------------------------
-// Global NetInfo listener (registered once at module load)
+// M-SC3 fix: Explicit listener lifecycle — mount once, unsubscribe on cleanup
 // ---------------------------------------------------------------------------
 
-/**
- * A single subscription is created when this module is first imported.
- * Whenever the device transitions from offline → online, it calls
- * flushOfflineQueue with the most recently registered apiSubmitFn.
- *
- * This means items can be flushed even if the safety-check screen is no
- * longer mounted (e.g. the user navigated away while still offline).
- */
 let _previouslyConnected: boolean | null = null;
+let _netInfoUnsub: (() => void) | null = null;
 
-NetInfo.addEventListener((state) => {
-  const nowConnected = state.isConnected ?? false;
+/**
+ * Call this from your top-level provider's useEffect to start watching for
+ * reconnects. Returns a cleanup function — call it in the effect's return.
+ */
+export function startOfflineQueueListener(
+  apiSubmitFn: (data: any) => Promise<any>
+): () => void {
+  _storedApiSubmitFn = apiSubmitFn;
 
-  // Detect a reconnect transition: was offline (or unknown), now online.
-  if (nowConnected && _previouslyConnected === false) {
-    if (_storedApiSubmitFn) {
-      // Fire-and-forget: errors inside flushOfflineQueue are already handled.
-      flushOfflineQueue(_storedApiSubmitFn).catch(() => {});
-    }
+  if (_netInfoUnsub) {
+    // Already listening — just update the fn reference
+    return stopOfflineQueueListener;
   }
 
-  _previouslyConnected = nowConnected;
-});
+  _netInfoUnsub = NetInfo.addEventListener((state) => {
+    const nowConnected = state.isConnected ?? false;
+    if (nowConnected && _previouslyConnected === false && _storedApiSubmitFn) {
+      flushOfflineQueue(_storedApiSubmitFn).catch(() => {});
+    }
+    _previouslyConnected = nowConnected;
+  });
+
+  return stopOfflineQueueListener;
+}
+
+export function stopOfflineQueueListener(): void {
+  _netInfoUnsub?.();
+  _netInfoUnsub = null;
+}

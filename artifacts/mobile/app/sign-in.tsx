@@ -1,10 +1,10 @@
 import { useSignIn, useSignUp } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { Image } from "expo-image";
 import {
   ActivityIndicator,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -51,6 +51,8 @@ export default function SignInScreen() {
         });
         setIsSignUp(false);
         setStep("code");
+      } else {
+        setError("Email verification is not available for this account. Please contact support.");
       }
     } catch (e: any) {
       const code0 = e?.errors?.[0]?.code;
@@ -134,7 +136,8 @@ export default function SignInScreen() {
     }
   };
 
-  const s = StyleSheet.create({
+  // M-P5 fix: useMemo so StyleSheet.create only re-runs when colors change
+  const s = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.sidebar,
@@ -251,7 +254,7 @@ export default function SignInScreen() {
       textAlign: "center",
       marginTop: 8,
     },
-  });
+  }), [colors, insets]);
 
   return (
     <KeyboardAvoidingView
