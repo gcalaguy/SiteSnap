@@ -292,6 +292,7 @@ export const rfisTable = pgTable("rfis", {
     .references(() => usersTable.id),
   assignedToUserId: integer("assigned_to_user_id").references(
     () => usersTable.id,
+    { onDelete: "set null" },
   ),
   status: rfiStatusEnum("status").notNull().default("open"),
   priority: rfiPriorityEnum("priority").notNull().default("medium"),
@@ -398,7 +399,7 @@ export const leadsTable = pgTable("leads", {
   stage: leadStageEnum("stage").notNull().default("new_lead"),
   notes: text("notes"),
   convertedProjectId: integer("converted_project_id").references(
-    () => projectsTable.id,
+    () => projectsTable.id, { onDelete: "set null" },
   ),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -426,7 +427,9 @@ export const leadActivitiesTable = pgTable("lead_activities", {
   type: activityTypeEnum("type").notNull(),
   notes: text("notes").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_lead_activities_lead_id").on(t.leadId),
+]);
 
 export const insertLeadActivitySchema = createInsertSchema(
   leadActivitiesTable,
@@ -456,6 +459,7 @@ export const tasksTable = pgTable("tasks", {
   description: text("description"),
   assignedToUserId: integer("assigned_to_user_id").references(
     () => usersTable.id,
+    { onDelete: "set null" },
   ),
   status: taskStatusEnum("status").notNull().default("todo"),
   priority: taskPriorityEnum("priority").notNull().default("medium"),
@@ -562,7 +566,7 @@ export const notificationsTable = pgTable("notifications", {
   title: text("title").notNull(),
   body: text("body").notNull(),
   referenceId: integer("reference_id").notNull(),
-  projectId: integer("project_id").references(() => projectsTable.id),
+  projectId: integer("project_id").references(() => projectsTable.id, { onDelete: "set null" }),
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
@@ -607,7 +611,7 @@ export const CONSTRUCTION_COA_CODES = [
 export const quotesTable = pgTable("quotes", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
-  projectId: integer("project_id").references(() => projectsTable.id),
+  projectId: integer("project_id").references(() => projectsTable.id, { onDelete: "set null" }),
   quoteNumber: text("quote_number").notNull(),
   title: text("title").notNull(),
   clientName: text("client_name").notNull(),
@@ -625,8 +629,8 @@ export const quotesTable = pgTable("quotes", {
   notes: text("notes"),
   validUntil: date("valid_until"),
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
-  assignedToUserId: integer("assigned_to_user_id").references(() => usersTable.id),
-  approvedByUserId: integer("approved_by_user_id").references(() => usersTable.id),
+  assignedToUserId: integer("assigned_to_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+  approvedByUserId: integer("approved_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
   approvedAt: timestamp("approved_at"),
   convertedAt: timestamp("converted_at"),
   // E-signature audit trail
@@ -635,7 +639,7 @@ export const quotesTable = pgTable("quotes", {
   signerIp: text("signer_ip"),
   signerUserAgent: text("signer_user_agent"),
   signedAt: timestamp("signed_at"),
-  publicToken: text("public_token").unique(),
+  publicToken: text("public_token").notNull().unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
@@ -665,8 +669,8 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
 export const invoicesTable = pgTable("invoices", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
-  projectId: integer("project_id").references(() => projectsTable.id),
-  quoteId: integer("quote_id").references(() => quotesTable.id),
+  projectId: integer("project_id").references(() => projectsTable.id, { onDelete: "set null" }),
+  quoteId: integer("quote_id").references(() => quotesTable.id, { onDelete: "set null" }),
   invoiceNumber: text("invoice_number").notNull(),
   title: text("title").notNull(),
   clientName: text("client_name").notNull(),
@@ -683,7 +687,7 @@ export const invoicesTable = pgTable("invoices", {
   paidAt: timestamp("paid_at"),
   reminderSentAt: timestamp("reminder_sent_at"),
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
-  assignedToUserId: integer("assigned_to_user_id").references(() => usersTable.id),
+  assignedToUserId: integer("assigned_to_user_id").references(() => usersTable.id, { onDelete: "set null" }),
   proposalId: integer("proposal_id").references(() => proposalsTable.id, { onDelete: "set null" }),
   // E-signature audit trail
   signatureData: text("signature_data"),
@@ -691,7 +695,7 @@ export const invoicesTable = pgTable("invoices", {
   signerIp: text("signer_ip"),
   signerUserAgent: text("signer_user_agent"),
   signedAt: timestamp("signed_at"),
-  publicToken: text("public_token").unique(),
+  publicToken: text("public_token").notNull().unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
@@ -748,7 +752,10 @@ export const projectMembersTable = pgTable(
       .references(() => companiesTable.id, { onDelete: "cascade" }),
     addedAt: timestamp("added_at").defaultNow().notNull(),
   },
-  (t) => [unique().on(t.projectId, t.userId)],
+  (t) => [
+    unique().on(t.projectId, t.userId),
+    index("idx_project_members_company_user").on(t.companyId, t.userId),
+  ],
 );
 
 export type ProjectMember = typeof projectMembersTable.$inferSelect;
@@ -806,7 +813,7 @@ export const timesheetsTable = pgTable("timesheets", {
   description: text("description"), // worker's description of work done that week
   notes: text("notes"), // denial reason or reviewer comment
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
-  reviewedByUserId: integer("reviewed_by_user_id").references(() => usersTable.id),
+  reviewedByUserId: integer("reviewed_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
   reviewedAt: timestamp("reviewed_at"),
   // E-signature audit trail
   signatureData: text("signature_data"),
@@ -958,7 +965,10 @@ export const formTemplatesTable = pgTable("form_templates", {
   schema: json("schema").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_form_templates_category").on(t.category),
+  index("idx_form_templates_is_active").on(t.isActive),
+]);
 export type FormTemplate = typeof formTemplatesTable.$inferSelect;
 
 export const formSubmissionsTable = pgTable("form_submissions", {
@@ -967,11 +977,11 @@ export const formSubmissionsTable = pgTable("form_submissions", {
   userId: integer("user_id").notNull().references(() => usersTable.id),
   companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id").references(() => projectsTable.id, { onDelete: "set null" }),
-  contactId: integer("contact_id").references(() => contactsTable.id),
+  contactId: integer("contact_id").references(() => contactsTable.id, { onDelete: "set null" }),
   data: json("data").notNull(),
   status: text("status").notNull().default("draft"), // draft | submitted | reviewed | approved
   aiSummary: text("ai_summary"),
-  reviewedByUserId: integer("reviewed_by_user_id").references(() => usersTable.id),
+  reviewedByUserId: integer("reviewed_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
   reviewedAt: timestamp("reviewed_at"),
   reviewNotes: text("review_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1058,7 +1068,9 @@ export const builderEstimatesTable = pgTable("builder_estimates", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_builder_estimates_company_id").on(t.companyId),
+]);
 export type BuilderEstimate = typeof builderEstimatesTable.$inferSelect;
 
 export const builderEstimateItemsTable = pgTable("builder_estimate_items", {
@@ -1458,7 +1470,9 @@ export const scheduleEventsTable = pgTable("schedule_events", {
   status: text("status").notNull().default("scheduled"), // scheduled | in_progress | completed | cancelled
   createdByUserId: integer("created_by_user_id").notNull().references(() => usersTable.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_schedule_events_company_id").on(t.companyId),
+]);
 
 export const insertScheduleEventSchema = createInsertSchema(scheduleEventsTable).omit({ id: true, createdAt: true });
 export type InsertScheduleEvent = z.infer<typeof insertScheduleEventSchema>;

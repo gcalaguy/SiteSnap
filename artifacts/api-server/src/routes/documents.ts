@@ -104,27 +104,35 @@ async function storeChunks(
     return 0;
   }
 
+  // Bulk insert all chunks in a single round-trip instead of one query per chunk.
   let stored = 0;
-  for (let i = 0; i < chunks.length; i++) {
-    try {
-      const vec = embeddings?.[i];
-      if (vec) {
-        await pool.query(
-          `INSERT INTO document_chunks (project_id, company_id, doc_id, chunk_index, content, embedding)
-           VALUES ($1,$2,$3,$4,$5,$6::vector)`,
-          [projectId, companyId, docId, i, chunks[i], JSON.stringify(vec)]
-        );
-      } else {
-        // Only store without vectors when embeddings are globally disabled (full-text only mode)
-        await pool.query(
-          "INSERT INTO document_chunks (project_id, company_id, doc_id, chunk_index, content) VALUES ($1,$2,$3,$4,$5)",
-          [projectId, companyId, docId, i, chunks[i]]
-        );
-      }
-      stored++;
-    } catch (err) {
-      logger.error({ err, docId, chunkIndex: i }, "Chunk storage failed");
+  try {
+    if (hasEmbeddings && embeddings) {
+      // Build parameterised bulk INSERT for chunks with vector embeddings
+      const valuePlaceholders = chunks.map(
+        (_, i) => `($${i * 6 + 1},$${i * 6 + 2},$${i * 6 + 3},$${i * 6 + 4},$${i * 6 + 5},$${i * 6 + 6}::vector)`
+      ).join(",");
+      const values = chunks.flatMap((chunk, i) => [
+        projectId, companyId, docId, i, chunk, JSON.stringify(embeddings[i])
+      ]);
+      await pool.query(
+        `INSERT INTO document_chunks (project_id, company_id, doc_id, chunk_index, content, embedding) VALUES ${valuePlaceholders}`,
+        values
+      );
+    } else {
+      // Full-text only mode — bulk insert without vectors
+      const valuePlaceholders = chunks.map(
+        (_, i) => `($${i * 5 + 1},$${i * 5 + 2},$${i * 5 + 3},$${i * 5 + 4},$${i * 5 + 5})`
+      ).join(",");
+      const values = chunks.flatMap((chunk, i) => [projectId, companyId, docId, i, chunk]);
+      await pool.query(
+        `INSERT INTO document_chunks (project_id, company_id, doc_id, chunk_index, content) VALUES ${valuePlaceholders}`,
+        values
+      );
     }
+    stored = chunks.length;
+  } catch (err) {
+    logger.error({ err, docId, chunkCount: chunks.length }, "Bulk chunk storage failed");
   }
   logger.info({ docId, stored, hasEmbeddings }, "Stored document chunks");
   return stored;
