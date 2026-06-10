@@ -1,11 +1,22 @@
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, dailyReportPhotosTable } from "@workspace/db";
+import { db, dailyReportPhotosTable, projectsTable, dailyReportsTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";
 
 const router = Router({ mergeParams: true });
+
+/** Verify the report belongs to this company via project ownership */
+async function verifyReportAccess(reportId: number, projectId: number, companyId: number) {
+  const [report] = await db
+    .select({ id: dailyReportsTable.id })
+    .from(dailyReportsTable)
+    .innerJoin(projectsTable, and(eq(projectsTable.id, dailyReportsTable.projectId), eq(projectsTable.companyId, companyId)))
+    .where(and(eq(dailyReportsTable.id, reportId), eq(dailyReportsTable.projectId, projectId)))
+    .limit(1);
+  return report ?? null;
+}
 
 const AddPhotoBody = z.object({
   objectPath: z.string().min(1),
@@ -14,11 +25,15 @@ const AddPhotoBody = z.object({
 
 // GET /projects/:projectId/daily-reports/:reportId/photos
 router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
-  if (isNaN(reportId)) {
+  if (isNaN(reportId) || isNaN(projectId)) {
     res.status(400).json({ error: "Invalid reportId" });
     return;
   }
+
+  const report = await verifyReportAccess(reportId, projectId, req.companyId!);
+  if (!report) { res.status(404).json({ error: "Report not found" }); return; }
 
   const photos = await db
     .select()
@@ -31,11 +46,15 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets")
 
 // POST /projects/:projectId/daily-reports/:reportId/photos
 router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
-  if (isNaN(reportId)) {
+  if (isNaN(reportId) || isNaN(projectId)) {
     res.status(400).json({ error: "Invalid reportId" });
     return;
   }
+
+  const report = await verifyReportAccess(reportId, projectId, req.companyId!);
+  if (!report) { res.status(404).json({ error: "Report not found" }); return; }
 
   const parsed = AddPhotoBody.safeParse(req.body);
   if (!parsed.success) {
@@ -57,12 +76,16 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
 
 // DELETE /projects/:projectId/daily-reports/:reportId/photos/:photoId
 router.delete("/:photoId", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
   const photoId = parseInt(req.params.photoId as string);
-  if (isNaN(reportId) || isNaN(photoId)) {
+  if (isNaN(reportId) || isNaN(photoId) || isNaN(projectId)) {
     res.status(400).json({ error: "Invalid IDs" });
     return;
   }
+
+  const report = await verifyReportAccess(reportId, projectId, req.companyId!);
+  if (!report) { res.status(404).json({ error: "Report not found" }); return; }
 
   await db
     .delete(dailyReportPhotosTable)
