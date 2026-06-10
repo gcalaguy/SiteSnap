@@ -161,7 +161,7 @@ router.get("/tradehub/feed", requireAuth, async (req, res) => {
             eq(tradehubPostsTable.visibility, "internal"),
             eq(tradehubPostsTable.companyId, req.companyId),
           ),
-        ),
+        )!,
       );
     } else {
       conditions.push(eq(tradehubPostsTable.visibility, "public"));
@@ -510,7 +510,7 @@ router.patch("/tradehub/applications/:id", requireAuth, async (req, res) => {
     const [updated] = await db
       .update(tradehubJobApplicationsTable)
       .set({ status })
-      .where(and(eq(tradehubJobApplicationsTable.id, id), eq(tradehubJobApplicationsTable.jobPostingId, app.jobPostingId)))
+      .where(and(eq(tradehubJobApplicationsTable.id, id), eq(tradehubJobApplicationsTable.postId, app.postId)))
       .returning();
 
     // Notify applicant

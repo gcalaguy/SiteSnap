@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { Readable, createReadStream } from "stream";
+import { Readable } from "stream";
+import { createReadStream } from "fs";
 import fs from "fs";
 import path from "path";
 import { diskUpload, cleanupUpload } from "../lib/upload.js";
@@ -8,10 +9,8 @@ import {
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
-import { ObjectPermission } from "../lib/objectAcl";
+import { ObjectPermission, ObjectAccessGroupType } from "../lib/objectAcl";
 import { requireAuth, requireCompany } from "../lib/auth";
-import { db, fileAttachmentsTable, projectDocumentsTable, projectsTable, workerDocumentsTable, sitePhotosTable, dailyReportPhotosTable, dailyReportsTable, companiesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -45,6 +44,11 @@ router.post(
     try {
       const contentType = req.file.mimetype || "application/octet-stream";
       const objectPath = await objectStorageService.uploadStream(createReadStream(req.file.path), contentType);
+      await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: req.userId!,
+        visibility: "private",
+        aclRules: [{ group: { type: ObjectAccessGroupType.COMPANY_MEMBER, id: req.companyId! }, permission: ObjectPermission.READ }],
+      });
       res.json({ objectPath });
     } catch (error) {
       req.log.error({ err: error }, "Error uploading file to storage");
@@ -112,6 +116,11 @@ router.post(
     try {
       const contentType = req.file.mimetype || "application/octet-stream";
       const objectPath = await objectStorageService.uploadStream(createReadStream(req.file.path), contentType);
+      await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: req.userId!,
+        visibility: "private",
+        aclRules: [{ group: { type: ObjectAccessGroupType.COMPANY_MEMBER, id: req.companyId! }, permission: ObjectPermission.READ }],
+      });
       res.status(200).json({ objectPath });
     } catch (error) {
       req.log.error({ err: error }, "Error uploading company asset to storage");
@@ -177,95 +186,15 @@ router.get(
       const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
       const objectPath = `/objects/${wildcardPath}`;
 
-      const [fileAttachment] = await db
-        .select({ id: fileAttachmentsTable.id })
-        .from(fileAttachmentsTable)
-        .where(and(eq(fileAttachmentsTable.objectPath, objectPath), eq(fileAttachmentsTable.companyId, req.companyId!)))
-        .limit(1);
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        userId: req.userId,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+        fallbackCompanyId: req.companyId,
+      });
 
-      let isOwner = !!fileAttachment;
-      if (!isOwner) {
-        const [projectDoc] = await db
-          .select({ id: projectDocumentsTable.id })
-          .from(projectDocumentsTable)
-          .innerJoin(projectsTable, eq(projectsTable.id, projectDocumentsTable.projectId))
-          .where(and(eq(projectDocumentsTable.objectPath, objectPath), eq(projectsTable.companyId, req.companyId!)))
-          .limit(1);
-        isOwner = !!projectDoc;
-      }
-
-      if (!isOwner) {
-        const [workerDoc] = await db
-          .select({ id: workerDocumentsTable.id })
-          .from(workerDocumentsTable)
-          .where(and(eq(workerDocumentsTable.filePath, objectPath), eq(workerDocumentsTable.companyId, req.companyId!)))
-          .limit(1);
-        isOwner = !!workerDoc;
-      }
-
-      if (!isOwner) {
-        const [sitePhoto] = await db
-          .select({ id: sitePhotosTable.id })
-          .from(sitePhotosTable)
-          .innerJoin(projectsTable, eq(projectsTable.id, sitePhotosTable.projectId))
-          .where(and(eq(sitePhotosTable.imageUrl, objectPath), eq(projectsTable.companyId, req.companyId!)))
-          .limit(1);
-        isOwner = !!sitePhoto;
-      }
-
-      if (!isOwner) {
-        const [dailyReportPhoto] = await db
-          .select({ id: dailyReportPhotosTable.id })
-          .from(dailyReportPhotosTable)
-          .innerJoin(dailyReportsTable, eq(dailyReportsTable.id, dailyReportPhotosTable.reportId))
-          .innerJoin(projectsTable, eq(projectsTable.id, dailyReportsTable.projectId))
-          .where(and(eq(dailyReportPhotosTable.objectPath, objectPath), eq(projectsTable.companyId, req.companyId!)))
-          .limit(1);
-        isOwner = !!dailyReportPhoto;
-      }
-
-      // Also allow company owners to access their own logo / templates
-      if (!isOwner) {
-        const [companyLogo] = await db
-          .select({ id: companiesTable.id })
-          .from(companiesTable)
-          .where(
-            and(
-              eq(companiesTable.id, req.companyId!),
-              eq(companiesTable.logoPath, objectPath),
-            ),
-          )
-          .limit(1);
-        isOwner = !!companyLogo;
-      }
-      if (!isOwner) {
-        const [companyQuoteTemplate] = await db
-          .select({ id: companiesTable.id })
-          .from(companiesTable)
-          .where(
-            and(
-              eq(companiesTable.id, req.companyId!),
-              eq(companiesTable.quoteTemplatePath, objectPath),
-            ),
-          )
-          .limit(1);
-        isOwner = !!companyQuoteTemplate;
-      }
-      if (!isOwner) {
-        const [companyInvoiceTemplate] = await db
-          .select({ id: companiesTable.id })
-          .from(companiesTable)
-          .where(
-            and(
-              eq(companiesTable.id, req.companyId!),
-              eq(companiesTable.invoiceTemplatePath, objectPath),
-            ),
-          )
-          .limit(1);
-        isOwner = !!companyInvoiceTemplate;
-      }
-
-      if (!isOwner) {
+      if (!canAccess) {
         res.status(404).json({ error: "Object not found" });
         return;
       }
@@ -300,104 +229,19 @@ router.get(
       const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
       const objectPath = `/objects/${wildcardPath}`;
 
-      // Verify ownership: objectPath must belong to this company via fileAttachments or projectDocuments
-      const [fileAttachment] = await db
-        .select({ id: fileAttachmentsTable.id })
-        .from(fileAttachmentsTable)
-        .where(and(eq(fileAttachmentsTable.objectPath, objectPath), eq(fileAttachmentsTable.companyId, req.companyId!)))
-        .limit(1);
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        userId: req.userId,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+        fallbackCompanyId: req.companyId,
+      });
 
-      let isOwner = !!fileAttachment;
-      if (!isOwner) {
-        const [projectDoc] = await db
-          .select({ id: projectDocumentsTable.id })
-          .from(projectDocumentsTable)
-          .innerJoin(projectsTable, eq(projectsTable.id, projectDocumentsTable.projectId))
-          .where(and(eq(projectDocumentsTable.objectPath, objectPath), eq(projectsTable.companyId, req.companyId!)))
-          .limit(1);
-        isOwner = !!projectDoc;
-      }
-
-      // Also check worker documents vault
-      if (!isOwner) {
-        const [workerDoc] = await db
-          .select({ id: workerDocumentsTable.id })
-          .from(workerDocumentsTable)
-          .where(and(eq(workerDocumentsTable.filePath, objectPath), eq(workerDocumentsTable.companyId, req.companyId!)))
-          .limit(1);
-        isOwner = !!workerDoc;
-      }
-
-      // Check site photos (field logs)
-      if (!isOwner) {
-        const [sitePhoto] = await db
-          .select({ id: sitePhotosTable.id })
-          .from(sitePhotosTable)
-          .innerJoin(projectsTable, eq(projectsTable.id, sitePhotosTable.projectId))
-          .where(and(eq(sitePhotosTable.imageUrl, objectPath), eq(projectsTable.companyId, req.companyId!)))
-          .limit(1);
-        isOwner = !!sitePhoto;
-      }
-
-      // Check daily report photos
-      if (!isOwner) {
-        const [dailyReportPhoto] = await db
-          .select({ id: dailyReportPhotosTable.id })
-          .from(dailyReportPhotosTable)
-          .innerJoin(dailyReportsTable, eq(dailyReportsTable.id, dailyReportPhotosTable.reportId))
-          .innerJoin(projectsTable, eq(projectsTable.id, dailyReportsTable.projectId))
-          .where(and(eq(dailyReportPhotosTable.objectPath, objectPath), eq(projectsTable.companyId, req.companyId!)))
-          .limit(1);
-        isOwner = !!dailyReportPhoto;
-      }
-
-      // Also allow company owners to access their own logo / templates
-      if (!isOwner) {
-        const [companyLogo] = await db
-          .select({ id: companiesTable.id })
-          .from(companiesTable)
-          .where(
-            and(
-              eq(companiesTable.id, req.companyId!),
-              eq(companiesTable.logoPath, objectPath),
-            ),
-          )
-          .limit(1);
-        isOwner = !!companyLogo;
-      }
-      if (!isOwner) {
-        const [companyQuoteTemplate] = await db
-          .select({ id: companiesTable.id })
-          .from(companiesTable)
-          .where(
-            and(
-              eq(companiesTable.id, req.companyId!),
-              eq(companiesTable.quoteTemplatePath, objectPath),
-            ),
-          )
-          .limit(1);
-        isOwner = !!companyQuoteTemplate;
-      }
-      if (!isOwner) {
-        const [companyInvoiceTemplate] = await db
-          .select({ id: companiesTable.id })
-          .from(companiesTable)
-          .where(
-            and(
-              eq(companiesTable.id, req.companyId!),
-              eq(companiesTable.invoiceTemplatePath, objectPath),
-            ),
-          )
-          .limit(1);
-        isOwner = !!companyInvoiceTemplate;
-      }
-
-      if (!isOwner) {
+      if (!canAccess) {
         res.status(404).json({ error: "Object not found" });
         return;
       }
 
-      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
       const response = await objectStorageService.downloadObject(objectFile);
 
       res.status(response.status);
