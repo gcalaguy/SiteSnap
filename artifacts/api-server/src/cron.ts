@@ -5,25 +5,35 @@ import { buildDigestHtml } from "./lib/digestTemplate.js";
 import { sendEmail } from "./lib/mailer.js";
 import { sendOverdueReminders } from "./lib/invoiceReminders.js";
 import { logger } from "./lib/logger.js";
-import { eq, and, sql, lt } from "drizzle-orm";
+import { eq, and, sql, lt, inArray } from "drizzle-orm";
+
+const CRON_PAGE_SIZE = 50;
 
 export async function sendDigestForAllCompanies(): Promise<{
   sent: number;
   skipped: number;
   errors: number;
 }> {
-  const companies = await db
-    .select({
-      id: companiesTable.id,
-      name: companiesTable.name,
-      digestFromEmail: companiesTable.digestFromEmail,
-      resendApiKey: companiesTable.resendApiKey,
-    })
-    .from(companiesTable);
-
   let sent = 0;
   let skipped = 0;
   let errors = 0;
+  let offset = 0;
+
+  // H3/H4: Process companies in pages to avoid loading all rows at once
+  while (true) {
+    const companies = await db
+      .select({
+        id: companiesTable.id,
+        name: companiesTable.name,
+        digestFromEmail: companiesTable.digestFromEmail,
+        resendApiKey: companiesTable.resendApiKey,
+      })
+      .from(companiesTable)
+      .limit(CRON_PAGE_SIZE)
+      .offset(offset);
+
+    if (companies.length === 0) break;
+    offset += CRON_PAGE_SIZE;
 
   for (const company of companies) {
     try {
@@ -55,96 +65,95 @@ export async function sendDigestForAllCompanies(): Promise<{
       errors++;
     }
   }
+  } // end while page loop
 
   return { sent, skipped, errors };
 }
 
 async function sendIdleLeadNotifications(): Promise<{ notified: number; skipped: number }> {
-  const companies = await db
-    .select({ id: companiesTable.id })
-    .from(companiesTable);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  let notified = 0;
-  let skipped = 0;
+  // H2: Batch everything into 3 queries instead of N×M per-row queries
 
-  for (const company of companies) {
-    try {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  // 1. All idle leads across all companies in one query
+  const idleLeads = await db
+    .select()
+    .from(leadsTable)
+    .where(
+      and(
+        sql`${leadsTable.stage} NOT IN ('won', 'lost')`,
+        lt(leadsTable.updatedAt, sevenDaysAgo),
+      ),
+    );
 
-      // Find idle leads (no update in 7+ days, still active)
-      const idleLeads = await db
-        .select()
-        .from(leadsTable)
-        .where(
-          and(
-            eq(leadsTable.companyId, company.id),
-            sql`${leadsTable.stage} NOT IN ('won', 'lost')`,
-            lt(leadsTable.updatedAt, sevenDaysAgo),
-          ),
-        );
+  if (idleLeads.length === 0) return { notified: 0, skipped: 0 };
 
-      if (idleLeads.length === 0) {
-        skipped++;
-        continue;
-      }
+  const companyIds = [...new Set(idleLeads.map((l) => l.companyId))];
 
-      // Get owners and foremen to notify
-      const recipients = await db
-        .select({
-          id: usersTable.id,
-          email: usersTable.email,
-          firstName: usersTable.firstName,
-          lastName: usersTable.lastName,
-        })
-        .from(usersTable)
-        .innerJoin(
-          userMembershipsTable,
-          and(
-            eq(userMembershipsTable.userId, usersTable.id),
-            eq(userMembershipsTable.companyId, company.id),
-            sql`${userMembershipsTable.role} IN ('owner', 'foreman')`,
-          ),
-        );
+  // 2. All owners/foremen for those companies in one query
+  const recipients = await db
+    .select({ userId: usersTable.id, companyId: userMembershipsTable.companyId })
+    .from(usersTable)
+    .innerJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        inArray(userMembershipsTable.companyId, companyIds),
+        sql`${userMembershipsTable.role} IN ('owner', 'foreman')`,
+      ),
+    );
 
-      for (const user of recipients) {
-        for (const lead of idleLeads) {
-          // Check if we already notified this user about this lead in the last 7 days
-          const [existing] = await db
-            .select({ id: notificationsTable.id })
-            .from(notificationsTable)
-            .where(
-              and(
-                eq(notificationsTable.userId, user.id),
-                eq(notificationsTable.type, "idle_lead"),
-                eq(notificationsTable.referenceId, lead.id),
-                sql`${notificationsTable.createdAt} > NOW() - INTERVAL '7 days'`,
-              ),
-            )
-            .limit(1);
+  if (recipients.length === 0) return { notified: 0, skipped: 0 };
 
-          if (existing) continue;
-
-          const daysIdle = Math.floor(
-            (Date.now() - lead.updatedAt.getTime()) / (24 * 60 * 60 * 1000),
-          );
-
-          await db.insert(notificationsTable).values({
-            userId: user.id,
-            type: "idle_lead",
-            title: "Lead needs follow-up",
-            body: `"${lead.title}" has had no activity for ${daysIdle} days.`,
-            referenceId: lead.id,
-            projectId: lead.convertedProjectId ?? 0,
-          });
-          notified++;
-        }
-      }
-    } catch (err) {
-      logger.error({ err, companyId: company.id }, "Error sending idle lead notifications");
+  // Build (userId, leadId) candidate pairs scoped by companyId
+  const leadsByCompany = new Map<number, typeof idleLeads>();
+  for (const lead of idleLeads) {
+    const arr = leadsByCompany.get(lead.companyId) ?? [];
+    arr.push(lead);
+    leadsByCompany.set(lead.companyId, arr);
+  }
+  const pairs: Array<{ userId: number; lead: typeof idleLeads[number] }> = [];
+  for (const r of recipients) {
+    for (const lead of (leadsByCompany.get(r.companyId) ?? [])) {
+      pairs.push({ userId: r.userId, lead });
     }
   }
+  if (pairs.length === 0) return { notified: 0, skipped: 0 };
 
-  return { notified, skipped };
+  // 3. Fetch all already-sent idle_lead notifications for these leads in one query
+  const leadIds = [...new Set(pairs.map((p) => p.lead.id))];
+  const existing = await db
+    .select({ userId: notificationsTable.userId, referenceId: notificationsTable.referenceId })
+    .from(notificationsTable)
+    .where(
+      and(
+        eq(notificationsTable.type, "idle_lead"),
+        inArray(notificationsTable.referenceId, leadIds),
+        sql`${notificationsTable.createdAt} > NOW() - INTERVAL '7 days'`,
+      ),
+    );
+  const notifiedSet = new Set(existing.map((n) => `${n.userId}:${n.referenceId}`));
+
+  // 4. Build inserts for pairs not already notified
+  const toInsert = pairs
+    .filter((p) => !notifiedSet.has(`${p.userId}:${p.lead.id}`))
+    .map((p) => {
+      const daysIdle = Math.floor((Date.now() - p.lead.updatedAt.getTime()) / (24 * 60 * 60 * 1000));
+      return {
+        userId: p.userId,
+        type: "idle_lead" as const,
+        title: "Lead needs follow-up",
+        body: `"${p.lead.title}" has had no activity for ${daysIdle} days.`,
+        referenceId: p.lead.id,
+        projectId: p.lead.convertedProjectId ?? 0,
+      };
+    });
+
+  if (toInsert.length > 0) {
+    await db.insert(notificationsTable).values(toInsert);
+  }
+
+  return { notified: toInsert.length, skipped: pairs.length - toInsert.length };
 }
 
 export function startDailyCron(): void {

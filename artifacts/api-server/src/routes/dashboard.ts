@@ -17,10 +17,14 @@ import {
   contactsTable,
   leadsTable,
 } from "@workspace/db";
-import { eq, and, gte, sql, inArray, lt, ne, isNotNull } from "drizzle-orm";
+import { eq, and, gte, sql, inArray, lt, ne, isNotNull, desc } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 
 const router = Router();
+
+// L4: TTL cache for smart-summary — regenerated at most every 5 minutes per company
+const smartSummaryCache = new Map<number, { summary: string; lines: string[]; expiresAt: number }>();
+const SMART_SUMMARY_TTL_MS = 5 * 60 * 1000;
 
 async function getAccessibleProjectIds(companyId: number, userId: number, userRole: string): Promise<number[]> {
   if (userRole === "worker") {
@@ -60,16 +64,11 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
 
   const projectIds = await getAccessibleProjectIds(companyId, userId, userRole);
 
-  const members = await db
-    .select()
-    .from(usersTable)
-    .innerJoin(
-      userMembershipsTable,
-      and(
-        eq(userMembershipsTable.userId, usersTable.id),
-        eq(userMembershipsTable.companyId, companyId),
-      ),
-    );
+  const [memberCountResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(userMembershipsTable)
+    .where(eq(userMembershipsTable.companyId, companyId));
+  const teamMemberCount = memberCountResult?.count ?? 0;
 
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
@@ -192,7 +191,7 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
     totalSpend,
     totalBudget,
     totalBudgetAllProjects: totalBudget,
-    teamMemberCount: members.length,
+    teamMemberCount,
     totalContacts: contactRows.length,
     overdueInvoices,
     overdueInvoiceAmount,
@@ -435,9 +434,15 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
   res.json(activity.slice(0, 20));
 });
 
-// GET /dashboard/smart-summary — rule-based insight text
+// GET /dashboard/smart-summary — rule-based insight text (cached 5 min per company)
 router.get("/dashboard/smart-summary", requireAuth, requireCompany, async (req, res) => {
   const companyId = req.companyId!;
+
+  const cached = smartSummaryCache.get(companyId);
+  if (cached && cached.expiresAt > Date.now()) {
+    res.json({ summary: cached.summary, lines: cached.lines });
+    return;
+  }
 
   const today = new Date().toISOString().split("T")[0]!;
 
@@ -531,7 +536,9 @@ router.get("/dashboard/smart-summary", requireAuth, requireCompany, async (req, 
     lines.push(`${pendingForms} safety form${pendingForms !== 1 ? "s are" : " is"} pending review.`);
   }
 
-  res.json({ summary: lines.join(" "), lines });
+  const result = { summary: lines.join(" "), lines };
+  smartSummaryCache.set(companyId, { ...result, expiresAt: Date.now() + SMART_SUMMARY_TTL_MS });
+  res.json(result);
 });
 
 // GET /rfis — company-wide RFI list (worker-scoped to accessible projects)
@@ -546,10 +553,17 @@ router.get("/rfis", requireAuth, requireCompany, async (req, res) => {
   const projects = await db.select().from(projectsTable).where(inArray(projectsTable.id, projectIds));
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
 
+  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+  const offset = (page - 1) * limit;
+
   const rfis = await db
     .select()
     .from(rfisTable)
-    .where(inArray(rfisTable.projectId, projectIds));
+    .where(inArray(rfisTable.projectId, projectIds))
+    .orderBy(desc(rfisTable.createdAt))
+    .limit(limit)
+    .offset(offset);
 
   const userIds = [...new Set(rfis.map((r) => r.submittedByUserId))];
   const users = userIds.length
@@ -576,10 +590,17 @@ router.get("/daily-reports", requireAuth, requireCompany, async (req, res) => {
   const projects = await db.select().from(projectsTable).where(inArray(projectsTable.id, projectIds));
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
 
+  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+  const offset = (page - 1) * limit;
+
   const reports = await db
     .select()
     .from(dailyReportsTable)
-    .where(inArray(dailyReportsTable.projectId, projectIds));
+    .where(inArray(dailyReportsTable.projectId, projectIds))
+    .orderBy(desc(dailyReportsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
 
   const userIds = [...new Set(reports.map((r) => r.submittedByUserId))];
   const users = userIds.length
