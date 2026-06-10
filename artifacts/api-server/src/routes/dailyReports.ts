@@ -264,6 +264,9 @@ router.put("/:reportId", requireAuth, requireCompany, requirePermission("submitE
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
 
+  const projectCheck = await verifyProjectAccess(projectId, req.companyId!);
+  if (!projectCheck) { res.status(404).json({ error: "Project not found" }); return; }
+
   const parsed = UpdateDailyReportBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid body" });
@@ -297,6 +300,10 @@ router.put("/:reportId", requireAuth, requireCompany, requirePermission("submitE
 router.delete("/:reportId", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
+
+  const projectCheck = await verifyProjectAccess(projectId, req.companyId!);
+  if (!projectCheck) { res.status(404).json({ error: "Project not found" }); return; }
+
   await db
     .delete(dailyReportsTable)
     .where(and(eq(dailyReportsTable.id, reportId), eq(dailyReportsTable.projectId, projectId)));
