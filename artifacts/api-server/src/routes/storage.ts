@@ -45,9 +45,9 @@ router.post(
       const contentType = req.file.mimetype || "application/octet-stream";
       const objectPath = await objectStorageService.uploadStream(createReadStream(req.file.path), contentType);
       await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
-        owner: req.userId!,
+        owner: String(req.userId!),
         visibility: "private",
-        aclRules: [{ group: { type: ObjectAccessGroupType.COMPANY_MEMBER, id: req.companyId! }, permission: ObjectPermission.READ }],
+        aclRules: [{ group: { type: ObjectAccessGroupType.COMPANY_MEMBER, id: String(req.companyId!) }, permission: ObjectPermission.READ }],
       });
       res.json({ objectPath });
     } catch (error) {
@@ -117,9 +117,9 @@ router.post(
       const contentType = req.file.mimetype || "application/octet-stream";
       const objectPath = await objectStorageService.uploadStream(createReadStream(req.file.path), contentType);
       await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
-        owner: req.userId!,
+        owner: String(req.userId!),
         visibility: "private",
-        aclRules: [{ group: { type: ObjectAccessGroupType.COMPANY_MEMBER, id: req.companyId! }, permission: ObjectPermission.READ }],
+        aclRules: [{ group: { type: ObjectAccessGroupType.COMPANY_MEMBER, id: String(req.companyId!) }, permission: ObjectPermission.READ }],
       });
       res.status(200).json({ objectPath });
     } catch (error) {
@@ -188,10 +188,10 @@ router.get(
 
       const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
       const canAccess = await objectStorageService.canAccessObjectEntity({
-        userId: req.userId,
+        userId: req.userId != null ? String(req.userId) : undefined,
         objectFile,
         requestedPermission: ObjectPermission.READ,
-        fallbackCompanyId: req.companyId,
+        fallbackCompanyId: req.companyId != null ? String(req.companyId) : undefined,
       });
 
       if (!canAccess) {
@@ -231,10 +231,10 @@ router.get(
 
       const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
       const canAccess = await objectStorageService.canAccessObjectEntity({
-        userId: req.userId,
+        userId: req.userId != null ? String(req.userId) : undefined,
         objectFile,
         requestedPermission: ObjectPermission.READ,
-        fallbackCompanyId: req.companyId,
+        fallbackCompanyId: req.companyId != null ? String(req.companyId) : undefined,
       });
 
       if (!canAccess) {

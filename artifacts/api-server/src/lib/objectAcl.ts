@@ -1,21 +1,26 @@
 import { File } from "@google-cloud/storage";
+import { db, userMembershipsTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 
 const ACL_POLICY_METADATA_KEY = "custom:aclPolicy";
 
 // Can be flexibly defined according to the use case.
 //
 // Examples:
+// - COMPANY_MEMBER: any active member of a company;
 // - USER_LIST: the users from a list stored in the database;
 // - EMAIL_DOMAIN: the users whose email is in a specific domain;
 // - GROUP_MEMBER: the users who are members of a specific group;
 // - SUBSCRIBER: the users who are subscribers of a specific service / content
 //   creator.
-enum ObjectAccessGroupType {}
+enum ObjectAccessGroupType {
+  COMPANY_MEMBER = "COMPANY_MEMBER",
+}
 
 interface ObjectAccessGroup {
   type: ObjectAccessGroupType;
   // The logic id that identifies qualified group members. Format depends on the
-  // ObjectAccessGroupType — e.g. a user-list DB id, an email domain, a group id.
+  // ObjectAccessGroupType — e.g. a company id, a user-list DB id, an email domain.
   id: string;
 }
 
@@ -55,17 +60,39 @@ abstract class BaseObjectAccessGroup implements ObjectAccessGroup {
   public abstract hasMember(userId: string): Promise<boolean>;
 }
 
+class CompanyMemberAccessGroup extends BaseObjectAccessGroup {
+  constructor(companyId: string) {
+    super(ObjectAccessGroupType.COMPANY_MEMBER, companyId);
+  }
+
+  async hasMember(userId: string): Promise<boolean> {
+    const [membership] = await db
+      .select({ userId: userMembershipsTable.userId })
+      .from(userMembershipsTable)
+      .where(
+        and(
+          eq(userMembershipsTable.userId, parseInt(userId, 10)),
+          eq(userMembershipsTable.companyId, parseInt(this.id, 10)),
+          eq(userMembershipsTable.isActive, true),
+        ),
+      )
+      .limit(1);
+    return !!membership;
+  }
+}
+
 function createObjectAccessGroup(
   group: ObjectAccessGroup,
 ): BaseObjectAccessGroup {
   switch (group.type) {
-    // Implement per access group type, e.g.:
-    // case "USER_LIST":
-    //   return new UserListAccessGroup(group.id);
+    case ObjectAccessGroupType.COMPANY_MEMBER:
+      return new CompanyMemberAccessGroup(group.id);
     default:
       throw new Error(`Unknown access group type: ${group.type}`);
   }
 }
+
+export { ObjectAccessGroupType };
 
 export async function setObjectAclPolicy(
   objectFile: File,
