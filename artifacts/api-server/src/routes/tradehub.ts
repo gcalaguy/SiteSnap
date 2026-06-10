@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, or, desc, sql, inArray, ne } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray, ne, type SQL } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -152,7 +152,7 @@ router.get("/tradehub/feed", requireAuth, async (req, res) => {
     const limit = 20;
     const offset = (pageNum - 1) * limit;
 
-    const conditions: any[] = [];
+    const conditions: SQL[] = [];
     if (req.companyId) {
       conditions.push(
         or(
@@ -196,7 +196,7 @@ router.get("/tradehub/posts", requireAuth, async (req, res) => {
     const limit = 30;
     const offset = (pageNum - 1) * limit;
 
-    const conditions: any[] = [eq(tradehubPostsTable.visibility, "public")];
+    const conditions: SQL[] = [eq(tradehubPostsTable.visibility, "public")];
     if (kind && kind !== "all") conditions.push(eq(tradehubPostsTable.type, kind));
 
     const posts = await db
@@ -420,7 +420,7 @@ router.get("/tradehub/jobs", requireAuth, async (req, res) => {
     const limit = 20;
     const offset = (pageNum - 1) * limit;
 
-    const conditions: any[] = [
+    const conditions: SQL[] = [
       eq(tradehubPostsTable.visibility, "public"),
       eq(tradehubPostsTable.type, "job"),
     ];
@@ -510,7 +510,7 @@ router.patch("/tradehub/applications/:id", requireAuth, async (req, res) => {
     const [updated] = await db
       .update(tradehubJobApplicationsTable)
       .set({ status })
-      .where(eq(tradehubJobApplicationsTable.id, id))
+      .where(and(eq(tradehubJobApplicationsTable.id, id), eq(tradehubJobApplicationsTable.jobPostingId, app.jobPostingId)))
       .returning();
 
     // Notify applicant
@@ -534,7 +534,7 @@ router.patch("/tradehub/applications/:id", requireAuth, async (req, res) => {
 router.get("/tradehub/job-postings", requireAuth, async (req, res) => {
   try {
     const { province, trade, search } = req.query as Record<string, string>;
-    const conditions: any[] = [eq(jobPostingsTable.status, "open")];
+    const conditions: SQL[] = [eq(jobPostingsTable.status, "open")];
     if (province) conditions.push(eq(jobPostingsTable.province, province));
     if (trade) conditions.push(eq(jobPostingsTable.trade, trade));
 
@@ -915,7 +915,7 @@ router.patch("/tradehub/profile/calculations/:id/pin", requireAuth, async (req, 
     if (!calc) { res.status(404).json({ error: "Not found" }); return; }
     const [updated] = await db.update(tradehubSavedCalculationsTable)
       .set({ isPinned: !calc.isPinned })
-      .where(eq(tradehubSavedCalculationsTable.id, id))
+      .where(and(eq(tradehubSavedCalculationsTable.id, id), eq(tradehubSavedCalculationsTable.userId, req.userId!)))
       .returning();
     res.json(updated);
   } catch (err: any) {

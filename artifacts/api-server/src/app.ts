@@ -62,6 +62,7 @@ const aiLimiter = rateLimit({
 
 app.use(globalLimiter);
 app.use("/api/ai", aiLimiter);
+app.use("/api/v1/ai", aiLimiter);
 
 // ── Request logging ────────────────────────────────────────────────────────────
 app.use(
@@ -135,12 +136,16 @@ app.use(
   }),
 );
 // Per-route body-size overrides (must come BEFORE the global limit below)
+// Duplicated for both /api (legacy) and /api/v1 (versioned) prefixes.
 // /api/ai/transcribe accepts base64-encoded audio recordings
 app.use("/api/ai/transcribe", express.json({ limit: "20mb" }));
+app.use("/api/v1/ai/transcribe", express.json({ limit: "20mb" }));
 // /api/ai/photo-summary accepts base64-encoded images
 app.use("/api/ai/photo-summary", express.json({ limit: "50mb" }));
+app.use("/api/v1/ai/photo-summary", express.json({ limit: "50mb" }));
 // Invoice send-email embeds a base64 PDF attachment (up to ~11 MB binary → ~15 M base64 chars)
 app.use("/api/invoices/:id/send-email", express.json({ limit: "20mb" }));
+app.use("/api/v1/invoices/:id/send-email", express.json({ limit: "20mb" }));
 
 // Global body-size limit — protects all other routes from oversized payloads.
 // Routes that legitimately need more space have a per-route override above.
@@ -158,6 +163,9 @@ app.use(
   })),
 );
 
+// Mount at /api/v1 (versioned) and /api (legacy backward-compatible alias).
+// New clients should use /api/v1; existing clients on /api continue to work.
+app.use("/api/v1", router);
 app.use("/api", router);
 
 // ── Global error handler — must be last ─────────────────────────────────────
