@@ -1,9 +1,18 @@
 import React from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { Image } from "expo-image";
+import { Image, type ImageContentFit } from "expo-image";
 import { useColors } from "@/hooks/useColors";
 import { useSignedPhotoUrl } from "@/hooks/useSignedPhotoUrl";
 import { Feather } from "@expo/vector-icons";
+
+// Legacy React Native resizeMode values that don't exist in expo-image's
+// ImageContentFit — map them to the nearest equivalent.
+const RN_TO_CONTENT_FIT: Record<string, ImageContentFit> = {
+  cover: "cover",
+  contain: "contain",
+  stretch: "fill",   // RN "stretch" = scale to fill without preserving ratio
+  center: "none",    // RN "center" = original size, centered (no scaling)
+};
 
 interface SignedImageProps {
   objectPath: string | null | undefined;
@@ -41,7 +50,7 @@ export function SignedImage({
     <Image
       source={{ uri: signedUrl }}
       style={style}
-      contentFit={resizeMode}
+      contentFit={RN_TO_CONTENT_FIT[resizeMode] ?? "cover"}
     />
   );
 }
