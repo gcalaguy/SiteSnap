@@ -483,6 +483,9 @@ router.post("/admin/tenants", ...guard, async (req, res) => {
     return;
   }
   const referralCode = crypto.randomBytes(4).toString("hex").toUpperCase();
+  // Generate a secure one-time claim token the super-admin communicates to the
+  // intended owner out-of-band. Required by POST /companies/:id/claim.
+  const claimToken = crypto.randomBytes(24).toString("hex");
   const body = insertCompanySchema.parse({
     name: raw.name,
     province: raw.province,
@@ -493,7 +496,10 @@ router.post("/admin/tenants", ...guard, async (req, res) => {
     hstNumber: raw.hstNumber ?? null,
     referralCode,
   });
-  const [company] = await db.insert(companiesTable).values(body).returning();
+  const [company] = await db
+    .insert(companiesTable)
+    .values({ ...body, claimToken })
+    .returning();
 
   const planTier = typeof raw.planTier === "string" ? raw.planTier.trim().toLowerCase() : "starter";
   const [matchedPlan] = await db.select().from(plansTable).where(eq(plansTable.slug, planTier)).limit(1);

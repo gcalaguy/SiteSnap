@@ -80,6 +80,9 @@ export const companiesTable = pgTable("companies", {
   defaultInvoiceNotes: text("default_invoice_notes"),
   digestFromEmail: text("digest_from_email"),
   resendApiKey: text("resend_api_key"),
+  /** One-time token set by super-admin when provisioning a tenant shell.
+   *  Must be supplied in POST /companies/:id/claim. Cleared after claim. */
+  claimToken: text("claim_token"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

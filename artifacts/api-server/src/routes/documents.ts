@@ -433,6 +433,10 @@ router.post("/search", requireAuth, requireCompany, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
+  // P0: verify the project belongs to the requester's company before exposing document content
+  const [projectOwnership] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  if (!projectOwnership || projectOwnership.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
+
   const parsedSearch = SearchDocumentsBody.safeParse(req.body);
   if (!parsedSearch.success) {
     res.status(400).json({ error: "Malformed request payload", details: parsedSearch.error.issues });
@@ -523,7 +527,9 @@ router.post("/qa", requireAuth, requireCompany, requireAiQuota, async (req, res)
   }
   const { question, history = [] } = parsedQA.data;
 
+  // P0: verify the project belongs to the requester's company before exposing AI context
   const [project] = await db.select({ name: projectsTable.name, companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId));
+  if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
   const docs = await db.select().from(projectDocumentsTable).where(eq(projectDocumentsTable.projectId, projectId));
 
   if (docs.length === 0) {

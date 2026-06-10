@@ -780,10 +780,18 @@ router.get(
 );
 
 // POST /companies/:companyId/claim — claim a pre-created company as owner
+// Requires the one-time claimToken set by the super-admin at tenant creation.
 router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (isNaN(companyId)) {
     res.status(400).json({ error: "Invalid companyId" });
+    return;
+  }
+
+  // Require the caller to supply the claim token (communicated out-of-band by super-admin)
+  const suppliedToken = typeof req.body.claimToken === "string" ? req.body.claimToken.trim() : null;
+  if (!suppliedToken) {
+    res.status(400).json({ error: "claimToken is required" });
     return;
   }
 
@@ -794,7 +802,15 @@ router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
     .limit(1);
 
   if (!company) {
-    res.status(404).json({ error: "Company not found" });
+    // Return 403 (not 404) to avoid leaking which IDs exist
+    res.status(403).json({ error: "Invalid company ID or claim token" });
+    return;
+  }
+
+  // Verify the token. Companies without a claimToken (legacy rows created before
+  // this fix) cannot be claimed via this endpoint — a super-admin must set the token first.
+  if (!company.claimToken || company.claimToken !== suppliedToken) {
+    res.status(403).json({ error: "Invalid company ID or claim token" });
     return;
   }
 
@@ -856,6 +872,12 @@ router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
     .set({ activeCompanyId: companyId })
     .where(eq(usersTable.id, req.userId!))
     .returning();
+
+  // Burn the one-time claim token so it cannot be reused
+  await db
+    .update(companiesTable)
+    .set({ claimToken: null })
+    .where(eq(companiesTable.id, companyId));
 
   const [updatedCompany] = await db
     .select()

@@ -181,10 +181,15 @@ router.get("/conversations/:conversationId", requireAuth, requireCompany, requir
   }
 
   try {
+    // P0: include companyId so users cannot read conversations from other tenants
     const [conversation] = await db
       .select()
       .from(conversationsTable)
-      .where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, req.userId!)))
+      .where(and(
+        eq(conversationsTable.id, id),
+        eq(conversationsTable.userId, req.userId!),
+        eq(conversationsTable.companyId, req.companyId!),
+      ))
       .limit(1);
 
     if (!conversation) {
@@ -223,10 +228,15 @@ router.post(
     const { content } = msgParsed.data;
 
     try {
+      // P0: include companyId so users cannot post to conversations from other tenants
       const [conversation] = await db
         .select()
         .from(conversationsTable)
-        .where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, req.userId!)))
+        .where(and(
+          eq(conversationsTable.id, id),
+          eq(conversationsTable.userId, req.userId!),
+          eq(conversationsTable.companyId, req.companyId!),
+        ))
         .limit(1);
 
       if (!conversation) {
