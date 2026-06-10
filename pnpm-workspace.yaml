@@ -46,10 +46,22 @@ overrides:
   # Security: force patched versions of vulnerable transitive dependencies
   # shell-quote CRITICAL CVE (GHSA-w7jw-789q-3m8p) — fix in >=1.8.4
   shell-quote: '>=1.8.4'
-  # NOTE: xlsx HIGH CVEs (GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9) cannot be
-  # resolved via pnpm override — SheetJS stopped publishing to npm after 0.18.5.
-  # Manual remediation required: replace xlsx with exceljs or @e965/xlsx (community fork).
-  # See: https://git.sheetjs.com/sheetjs/sheetjs
+  # js-cookie HIGH CVE (GHSA-qjx8-664m-686j) — prototype hijack in assign()
+  # Transitive via @clerk/shared. Force patched version across the tree.
+  js-cookie: '>=3.0.6'
+  # ip-address MODERATE CVE (GHSA-v2v4-37r5-5v8g) — XSS in HTML-emitting methods
+  # Transitive via express-rate-limit.
+  ip-address: '>=10.1.1'
+  # ws MODERATE CVE (GHSA-58qx-3vcg-4xpx) — uninitialized memory disclosure
+  # Transitive via @clerk/clerk-expo > viem.
+  ws: '>=8.20.1'
+  # uuid MODERATE CVE (GHSA-w5hq-g745-h8pq) — missing buffer bounds check
+  # Transitive via @google-cloud/storage > gaxios.
+  uuid: '>=11.1.1'
+  # xlsx HIGH CVEs (GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9): SheetJS stopped
+  # publishing security patches to npm after 0.18.5. Direct deps replaced with
+  # @e965/xlsx (community fork with patched releases on npm).
+  xlsx: 'npm:@e965/xlsx@>=0.20.3'
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64': '-'
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-x64': '-'

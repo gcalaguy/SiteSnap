@@ -31,7 +31,7 @@ import { renderSignatureBlock } from "@/lib/signaturePdf";
 import { SignatureBadge } from "@/components/SignatureBadge";
 import { Share2, Copy } from "lucide-react";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import * as XLSX from "@e965/xlsx";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
