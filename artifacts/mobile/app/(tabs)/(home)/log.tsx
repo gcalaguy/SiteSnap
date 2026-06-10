@@ -8,6 +8,8 @@ import {
 } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+import * as FileSystem from "expo-file-system/legacy";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -311,16 +313,35 @@ export default function LogScreen() {
     ]);
   }
 
-  function handlePickResult(result: ImagePicker.ImagePickerResult) {
+  async function handlePickResult(result: ImagePicker.ImagePickerResult) {
     if (result.canceled) return;
-    const incoming = result.assets
-      .slice(0, MAX_PHOTOS - photos.length)
-      .map<PhotoItem>((a) => ({
-        uri: a.uri,
-        mimeType: a.mimeType ?? "image/jpeg",
-        fileName: a.fileName ?? `photo_${Date.now()}.jpg`,
-        fileSize: a.fileSize ?? 0,
-      }));
+    // M-P3 fix: resize photos to max 1920px wide before adding to queue
+    const incoming: PhotoItem[] = await Promise.all(
+      result.assets.slice(0, MAX_PHOTOS - photos.length).map(async (a) => {
+        try {
+          const compressed = await ImageManipulator.manipulateAsync(
+            a.uri,
+            [{ resize: { width: 1920 } }],
+            { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG },
+          );
+          const info = await FileSystem.getInfoAsync(compressed.uri);
+          return {
+            uri: compressed.uri,
+            mimeType: "image/jpeg",
+            fileName: a.fileName ?? `photo_${Date.now()}.jpg`,
+            fileSize: info.exists && "size" in info ? (info.size ?? 0) : 0,
+          };
+        } catch {
+          // Fallback to original if manipulation fails
+          return {
+            uri: a.uri,
+            mimeType: a.mimeType ?? "image/jpeg",
+            fileName: a.fileName ?? `photo_${Date.now()}.jpg`,
+            fileSize: a.fileSize ?? 0,
+          };
+        }
+      }),
+    );
     setPhotos((prev) => [...prev, ...incoming]);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
@@ -332,7 +353,6 @@ export default function LogScreen() {
 
   async function uploadSinglePhoto(photo: PhotoItem): Promise<string | null> {
     try {
-      // customFetch returns the parsed JSON body directly (throws ApiError on failure).
       const { uploadURL, objectPath } = await customFetch<{
         uploadURL: string;
         objectPath: string;
@@ -346,20 +366,17 @@ export default function LogScreen() {
         }),
       });
 
-      // Use XMLHttpRequest to reliably upload a file:// URI as binary in React Native.
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", uploadURL);
-        xhr.setRequestHeader("Content-Type", photo.mimeType);
-        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload HTTP ${xhr.status}`)));
-        xhr.onerror = () => reject(new Error("Network error during upload"));
-        // Send the file as a blob via XHR — more reliable than fetch+blob in React Native.
-        xhr.responseType = "text";
-        fetch(photo.uri)
-          .then((r) => r.blob())
-          .then((blob) => xhr.send(blob))
-          .catch(reject);
+      // M-S4 fix: validate upload destination
+      const dest = new URL(uploadURL);
+      if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
+
+      // M-P1 fix: stream from disk — never load blob into JS heap
+      const result = await FileSystem.uploadAsync(uploadURL, photo.uri, {
+        httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { "Content-Type": photo.mimeType },
       });
+      if (result.status < 200 || result.status >= 300) throw new Error(`Upload HTTP ${result.status}`);
 
       return objectPath;
     } catch {

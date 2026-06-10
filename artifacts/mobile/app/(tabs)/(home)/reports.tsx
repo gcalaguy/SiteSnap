@@ -187,7 +187,10 @@ export default function AllReportsScreen() {
   const relativeTime = useRelativeTime(dataUpdatedAt || null);
   const updatedLabel = refreshing ? "Refreshing…" : relativeTime;
 
-  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+  // M-P4 fix: only refetch on focus if data is older than 60s — respects staleTime
+  useFocusEffect(useCallback(() => {
+    if (!dataUpdatedAt || Date.now() - dataUpdatedAt > 60_000) refetch();
+  }, [dataUpdatedAt, refetch]));
 
   // Load projects for the picker independently of the filtered result set
   const { data: projectsData } = useListProjects();

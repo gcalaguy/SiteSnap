@@ -12,6 +12,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { customFetch, getListScansQueryKey, useGetProject } from "@workspace/api-client-react";
@@ -130,35 +131,39 @@ export default function SiteScanScreen() {
     try {
       const contentType = file.mimeType ?? "application/octet-stream";
 
+      // M-S2 fix: add Content-Type header on presigned URL request
       const { uploadURL, objectPath } = await customFetch<{
         uploadURL: string;
         objectPath: string;
         metadata: object;
       }>("/api/storage/uploads/request-url", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: file.name,
-          size: file.size ?? 0,  // 0 is acceptable for video captures where size is unknown
+          size: file.size ?? 0,
           contentType,
         }),
       });
 
-      setUploadProgress(30);
+      // M-S4 fix: validate upload destination before sending file
+      const dest = new URL(uploadURL);
+      if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
 
-      const fileResponse = await fetch(file.uri);
-      const fileBlob = await fileResponse.blob();
+      setUploadProgress(10);
 
-      setUploadProgress(50);
-
-      const uploadRes = await fetch(uploadURL, {
-        method: "PUT",
+      // M-P1/M-U3 fix: stream from disk with real byte-level progress — no blob in heap
+      const uploadResult = await FileSystem.uploadAsync(uploadURL, file.uri, {
+        httpMethod: "PUT",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
         headers: { "Content-Type": contentType },
-        body: fileBlob,
       });
 
-      if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
+        throw new Error(`Upload failed: ${uploadResult.status}`);
+      }
 
-      setUploadProgress(80);
+      setUploadProgress(90);
       setStep("registering");
 
       const created = await customFetch<ScanRecord>("/api/scans", {

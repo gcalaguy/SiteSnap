@@ -103,18 +103,18 @@ async function uploadAndPost(item: QueuedMedia): Promise<void> {
     }),
   });
 
-  const fileContent = await FileSystem.readAsStringAsync(item.localPath, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  const binaryData = Uint8Array.from(atob(fileContent), (c) => c.charCodeAt(0));
-  const blob = new Blob([binaryData], { type: item.mimeType });
+  // M-U1/M-P1 fix: stream directly from disk — never load file into JS heap
+  const allowed = new URL(uploadURL);
+  if (!allowed.protocol.startsWith("https")) throw new Error("Unexpected upload destination protocol");
 
-  const putRes = await fetch(uploadURL, {
-    method: "PUT",
+  const uploadResult = await FileSystem.uploadAsync(uploadURL, item.localPath, {
+    httpMethod: "PUT",
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
     headers: { "Content-Type": item.mimeType },
-    body: blob,
   });
-  if (!putRes.ok) throw new Error(`Upload PUT failed: ${putRes.status}`);
+  if (uploadResult.status < 200 || uploadResult.status >= 300) {
+    throw new Error(`Upload PUT failed: ${uploadResult.status}`);
+  }
 
   await customFetch(item.endpoint, {
     method: "POST",
@@ -235,11 +235,14 @@ export function MediaQueueProvider({ children }: { children: React.ReactNode }) 
         createdAt: new Date().toISOString(),
       };
 
-      const updated = [...queue, item];
-      setQueue(updated);
-      await persistQueue(updated);
+      // M-SC5 fix: functional updater avoids stale closure on rapid enqueue
+      setQueue((prev) => {
+        const updated = [...prev, item];
+        persistQueue(updated).catch(() => {});
+        return updated;
+      });
     },
-    [queue]
+    []
   );
 
   const retryFailed = useCallback(async () => {

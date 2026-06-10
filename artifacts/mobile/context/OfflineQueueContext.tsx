@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
+import * as FileSystem from "expo-file-system/legacy";
 import {
   createDailyReport,
   addReportPhoto,
@@ -18,6 +19,8 @@ const QUEUE_KEY = "offline_report_queue_v1";
 const HISTORY_KEY = "offline_report_history_v1";
 const MAX_RETRIES = 3;
 const MAX_HISTORY = 20;
+const MAX_QUEUE_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const LOCAL_DIR = `${FileSystem.documentDirectory}offline_photos/`;
 
 export interface QueuePhoto {
   uri: string;
@@ -115,30 +118,35 @@ async function persistHistory(history: SyncedReport[]): Promise<void> {
   await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
 }
 
+async function ensurePhotoDir(): Promise<void> {
+  const info = await FileSystem.getInfoAsync(LOCAL_DIR);
+  if (!info.exists) await FileSystem.makeDirectoryAsync(LOCAL_DIR, { intermediates: true });
+}
+
 async function uploadPhoto(photo: QueuePhoto): Promise<string | null> {
   try {
-    const res = await fetch("/api/storage/uploads/request-url", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: photo.fileName,
-        size: photo.fileSize,
-        contentType: photo.mimeType,
-      }),
-    });
-    if (!res.ok) throw new Error("Failed to get upload URL");
-    const { uploadURL, objectPath } = (await res.json()) as {
-      uploadURL: string;
-      objectPath: string;
-    };
-    const fileRes = await fetch(photo.uri);
-    const blob = await fileRes.blob();
-    const putRes = await fetch(uploadURL, {
-      method: "PUT",
+    // M-S1 fix: use customFetch so Clerk JWT + x-tenant-id are always attached
+    const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
+      "/api/storage/uploads/request-url",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: photo.fileName, size: photo.fileSize, contentType: photo.mimeType }),
+      },
+    );
+
+    // M-S4 fix: validate upload destination before PUT
+    const dest = new URL(uploadURL);
+    if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
+
+    // M-P1 fix: stream from disk — never load file blob into JS heap
+    const result = await FileSystem.uploadAsync(uploadURL, photo.uri, {
+      httpMethod: "PUT",
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
       headers: { "Content-Type": photo.mimeType },
-      body: blob,
     });
-    if (!putRes.ok) throw new Error("Upload failed");
+    if (result.status < 200 || result.status >= 300) throw new Error(`Upload failed: ${result.status}`);
+
     return objectPath;
   } catch {
     return null;
@@ -159,7 +167,19 @@ export function OfflineQueueProvider({
   const prevOnline = useRef(true);
 
   useEffect(() => {
-    loadQueue().then(setQueue);
+    // M-U2 fix: purge items older than 7 days on startup to prevent stale queue growth
+    loadQueue().then(async (q) => {
+      const cutoff = Date.now() - MAX_QUEUE_AGE_MS;
+      const expired = q.filter((r) => new Date(r.createdAt).getTime() < cutoff);
+      for (const r of expired) {
+        for (const p of r.photos) {
+          await FileSystem.deleteAsync(p.uri, { idempotent: true }).catch(() => {});
+        }
+      }
+      const fresh = q.filter((r) => new Date(r.createdAt).getTime() >= cutoff);
+      if (expired.length > 0) await persistQueue(fresh);
+      setQueue(fresh);
+    });
     loadHistory().then(setSyncedHistory);
   }, []);
 
@@ -254,20 +274,37 @@ export function OfflineQueueProvider({
       reportData: QueuedReport["reportData"],
       photos: QueuePhoto[]
     ) => {
+      // M-SC1 fix: copy each photo to a stable documentDirectory path so the
+      // URI remains valid across app restarts (camera roll URIs can be invalidated)
+      await ensurePhotoDir();
+      const stablePhotos: QueuePhoto[] = await Promise.all(
+        photos.map(async (p) => {
+          const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const ext = p.fileName.split(".").pop() ?? "jpg";
+          const dest = `${LOCAL_DIR}${id}.${ext}`;
+          await FileSystem.copyAsync({ from: p.uri, to: dest });
+          return { ...p, uri: dest };
+        }),
+      );
+
       const item: QueuedReport = {
         id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         projectId,
         reportData,
-        photos,
+        photos: stablePhotos,
         createdAt: new Date().toISOString(),
         status: "pending",
         retries: 0,
       };
-      const updated = [...queue, item];
-      setQueue(updated);
-      await persistQueue(updated);
+
+      // M-SC5 fix: functional updater avoids stale closure on rapid enqueue
+      setQueue((prev) => {
+        const updated = [...prev, item];
+        persistQueue(updated).catch(() => {});
+        return updated;
+      });
     },
-    [queue]
+    []
   );
 
   const retryFailed = useCallback(async () => {
@@ -282,6 +319,13 @@ export function OfflineQueueProvider({
   }, [queue, syncQueue]);
 
   const clearFailed = useCallback(async () => {
+    // M-U2 fix: delete stable local photo copies when clearing failed items
+    const failed = queue.filter((r) => r.status === "failed");
+    for (const r of failed) {
+      for (const p of r.photos) {
+        await FileSystem.deleteAsync(p.uri, { idempotent: true }).catch(() => {});
+      }
+    }
     const updated = queue.filter((r) => r.status !== "failed");
     setQueue(updated);
     await persistQueue(updated);

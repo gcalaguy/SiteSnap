@@ -4,6 +4,15 @@ import { QueryClient } from "@tanstack/react-query";
 const CACHE_KEY = "rq_offline_cache_v2";
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const PERSIST_INTERVAL_MS = 15_000;
+// M-SC2 fix: cap total cache size to stay safely under AsyncStorage's ~6 MB limit
+const MAX_CACHE_BYTES = 2 * 1024 * 1024; // 2 MB
+
+// Keys whose data is too sensitive or too large to persist to plaintext AsyncStorage
+const EXCLUDED_KEY_PREFIXES = [
+  "signedUrl",        // presigned photo URLs — short-lived, no value in persisting
+  "resendApiKey",     // any billing / key query
+  "stripe",
+];
 
 interface CacheEntry {
   queryKey: unknown[];
@@ -50,13 +59,23 @@ export function startCachePersistence(queryClient: QueryClient): () => void {
       const entries: CacheEntry[] = queryClient
         .getQueryCache()
         .getAll()
-        .filter((q) => q.state.status === "success" && q.state.data !== undefined)
+        .filter((q) => {
+          if (q.state.status !== "success" || q.state.data === undefined) return false;
+          // M-SC2 fix: exclude sensitive or high-cardinality query keys
+          const keyStr = JSON.stringify(q.queryKey).toLowerCase();
+          return !EXCLUDED_KEY_PREFIXES.some((p) => keyStr.includes(p));
+        })
         .map((q) => ({ queryKey: q.queryKey as unknown[], data: q.state.data }));
 
       if (entries.length === 0) return;
 
       const payload: PersistedCache = { timestamp: Date.now(), entries };
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+      const serialised = JSON.stringify(payload);
+
+      // M-SC2 fix: skip write if payload exceeds safe AsyncStorage size threshold
+      if (serialised.length > MAX_CACHE_BYTES) return;
+
+      await AsyncStorage.setItem(CACHE_KEY, serialised);
     } catch {
     }
   }, PERSIST_INTERVAL_MS);
