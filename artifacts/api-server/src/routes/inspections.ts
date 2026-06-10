@@ -91,6 +91,7 @@ async function runAlertEngine(
 
 async function runAIAnalysis(
   inspectionId: number,
+  companyId: number,
   inspectionType: string,
   date: string,
   items: { itemName: string; status: string; severity: string; comment?: string | null }[],
@@ -155,7 +156,7 @@ async function runAIAnalysis(
   await db
     .update(inspectionsTable)
     .set({ aiSummary, riskLevel, riskScore, failedItemAnalysis, score, updatedAt: new Date() })
-    .where(eq(inspectionsTable.id, inspectionId));
+    .where(and(eq(inspectionsTable.id, inspectionId), eq(inspectionsTable.companyId, companyId)));
 
   return;
 }
@@ -263,7 +264,7 @@ router.post(
     if (submit) {
       // Fire AI + alerts asynchronously (don't block the response)
       const itemsForAI = items.map((i) => ({ itemName: i.itemName, status: i.status, severity: i.severity, comment: i.comment ?? null }));
-      runAIAnalysis(inspection.id, inspectionType, date, itemsForAI)
+      runAIAnalysis(inspection.id, req.companyId!, inspectionType, date, itemsForAI)
         .then(async () => {
           const [updated] = await db.select().from(inspectionsTable).where(eq(inspectionsTable.id, inspection.id));
           await runAlertEngine(
@@ -303,12 +304,12 @@ router.post(
     if (!inspection) { res.status(404).json({ error: "Not found" }); return; }
     if (inspection.status === "submitted") { res.status(400).json({ error: "Already submitted" }); return; }
 
-    await db.update(inspectionsTable).set({ status: "submitted", updatedAt: new Date() }).where(eq(inspectionsTable.id, id));
+    await db.update(inspectionsTable).set({ status: "submitted", updatedAt: new Date() }).where(and(eq(inspectionsTable.id, id), eq(inspectionsTable.companyId, req.companyId!)));
 
     const items = await db.select().from(inspectionItemsTable).where(eq(inspectionItemsTable.inspectionId, id));
 
     const itemsForAI = items.map((i) => ({ itemName: i.itemName, status: i.status, severity: i.severity, comment: i.comment }));
-    runAIAnalysis(inspection.id, inspection.inspectionType, inspection.date, itemsForAI)
+    runAIAnalysis(inspection.id, req.companyId!, inspection.inspectionType, inspection.date, itemsForAI)
       .then(async () => {
         const [updated] = await db.select().from(inspectionsTable).where(eq(inspectionsTable.id, id));
         await runAlertEngine(id, req.companyId!, inspection.projectId, parseFloat(updated?.riskScore ?? "0"), items);

@@ -4,6 +4,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { BadRequestError, NotFoundError } from "../lib/errors";
+import { z } from "zod";
 
 const router = Router();
 
@@ -47,11 +48,10 @@ router.patch(
     const id = Number(req.params.id);
     if (isNaN(id)) throw new BadRequestError("Invalid directive ID");
 
-    const { status } = req.body as { status?: string };
-    const allowed = ["DISMISSED", "COMPLETED"];
-    if (!status || !allowed.includes(status)) {
-      throw new BadRequestError(`status must be one of: ${allowed.join(", ")}`);
-    }
+    const PatchBody = z.object({ status: z.enum(["DISMISSED", "COMPLETED"]) });
+    const bodyParsed = PatchBody.safeParse(req.body);
+    if (!bodyParsed.success) throw new BadRequestError(`status must be one of: DISMISSED, COMPLETED`);
+    const { status } = bodyParsed.data;
 
     const companyId = req.companyId!;
 
@@ -82,7 +82,7 @@ router.patch(
     const [updated] = await db
       .update(aiComplianceDirectivesTable)
       .set(patch)
-      .where(eq(aiComplianceDirectivesTable.id, id))
+      .where(and(eq(aiComplianceDirectivesTable.id, id), eq(aiComplianceDirectivesTable.companyId, companyId)))
       .returning();
 
     res.json(updated);

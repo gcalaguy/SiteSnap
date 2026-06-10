@@ -187,7 +187,7 @@ router.patch("/:entryId", requireAuth, requireCompany, async (req, res) => {
   const [updated] = await db
     .update(timeEntriesTable)
     .set(updates)
-    .where(eq(timeEntriesTable.id, entryId))
+    .where(and(eq(timeEntriesTable.id, entryId), eq(timeEntriesTable.companyId, req.companyId!)))
     .returning();
 
   // Re-sync timesheet for the new date (or original date if date unchanged)

@@ -12,6 +12,10 @@ import { notify } from "../lib/notify";
 import { buildTenantContext } from "../lib/buildTenantContext";
 import { searchWeb, formatSearchContext, webSearchEnabled } from "../lib/webSearch.js";
 import { canSearchWeb, recordWebSearch } from "../lib/webSearchRateLimiter.js";
+import { z } from "zod";
+
+const NewConversationBody = z.object({ message: z.string().min(1).max(10000) });
+const NewMessageBody = z.object({ content: z.string().min(1).max(10000) });
 
 const router = Router();
 
@@ -120,12 +124,9 @@ router.get("/conversations", requireAuth, requireCompany, requirePermission("vie
 
 // POST /conversations — create conversation + first message
 router.post("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), async (req, res) => {
-  const { message } = req.body as { message?: string };
-
-  if (!message || typeof message !== "string" || !message.trim()) {
-    res.status(400).json({ error: "message is required" });
-    return;
-  }
+  const convParsed = NewConversationBody.safeParse(req.body);
+  if (!convParsed.success) { res.status(400).json({ error: convParsed.error.flatten() }); return; }
+  const { message } = convParsed.data;
 
   try {
     const tenantContext = await buildTenantContext(req.companyId!, req.userId!);
@@ -217,11 +218,9 @@ router.post(
       return;
     }
 
-    const { content } = req.body as { content?: string };
-    if (!content || typeof content !== "string" || !content.trim()) {
-      res.status(400).json({ error: "content is required" });
-      return;
-    }
+    const msgParsed = NewMessageBody.safeParse(req.body);
+    if (!msgParsed.success) { res.status(400).json({ error: msgParsed.error.flatten() }); return; }
+    const { content } = msgParsed.data;
 
     try {
       const [conversation] = await db
