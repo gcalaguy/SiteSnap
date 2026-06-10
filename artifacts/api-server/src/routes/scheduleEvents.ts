@@ -13,6 +13,15 @@ import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth"
 import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
+
+/** HTML-escape helper — prevents injection of user data into email templates */
+const esc = (s: unknown): string =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
 import { logger } from "../lib/logger";
 import { getMeetingLink, type MeetingPlatform } from "../lib/meetingService";
 import { z } from "zod";
@@ -368,10 +377,10 @@ router.post(
         }).format(d);
 
       const locationRow = event.location
-        ? `<tr><td style="padding:6px 0;color:#64748b;font-size:14px;width:120px;">Location</td><td style="padding:6px 0;color:#172034;font-size:14px;">${event.location}</td></tr>`
+        ? `<tr><td style="padding:6px 0;color:#64748b;font-size:14px;width:120px;">Location</td><td style="padding:6px 0;color:#172034;font-size:14px;">${esc(event.location)}</td></tr>`
         : "";
       const notesRow = event.notes
-        ? `<tr><td style="padding:6px 0;color:#64748b;font-size:14px;vertical-align:top;width:120px;">Notes</td><td style="padding:6px 0;color:#172034;font-size:14px;">${event.notes}</td></tr>`
+        ? `<tr><td style="padding:6px 0;color:#64748b;font-size:14px;vertical-align:top;width:120px;">Notes</td><td style="padding:6px 0;color:#172034;font-size:14px;">${esc(event.notes)}</td></tr>`
         : "";
 
       const platformLabels: Record<string, string> = {
@@ -392,16 +401,16 @@ router.post(
 
       return sendEmail({
         to: emails,
-        subject: `📅 New ${label}: ${event.title} — ${companyName}`,
+        subject: `📅 New ${label}: ${esc(event.title)} — ${esc(companyName)}`,
         html: `
 <div style="font-family:sans-serif;max-width:540px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
   <div style="text-align:center;margin-bottom:28px;">
     <span style="font-size:36px;">📅</span>
-    <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">${label} Scheduled</h1>
-    <p style="color:#64748b;margin:0;">Added by <strong>${creatorName}</strong> on <strong>${companyName}</strong></p>
+    <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">${esc(label)} Scheduled</h1>
+    <p style="color:#64748b;margin:0;">Added by <strong>${esc(creatorName)}</strong> on <strong>${esc(companyName)}</strong></p>
   </div>
   <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;margin-bottom:20px;">
-    <h2 style="margin:0 0 16px;font-size:18px;color:#172034;">${event.title}</h2>
+    <h2 style="margin:0 0 16px;font-size:18px;color:#172034;">${esc(event.title)}</h2>
     <table style="width:100%;border-collapse:collapse;">
       <tr>
         <td style="padding:6px 0;color:#64748b;font-size:14px;width:120px;">Starts</td>

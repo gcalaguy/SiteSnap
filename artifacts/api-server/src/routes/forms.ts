@@ -95,7 +95,7 @@ router.put("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, asy
   const [updated] = await db
     .update(formTemplatesTable)
     .set(parsed.data as any)
-    .where(eq(formTemplatesTable.id, id))
+    .where(and(eq(formTemplatesTable.id, id), eq(formTemplatesTable.companyId, req.companyId!)))
     .returning();
 
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
@@ -110,7 +110,7 @@ router.delete("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, 
   const [updated] = await db
     .update(formTemplatesTable)
     .set({ isActive: false })
-    .where(eq(formTemplatesTable.id, id))
+    .where(and(eq(formTemplatesTable.id, id), eq(formTemplatesTable.companyId, req.companyId!)))
     .returning();
 
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }

@@ -15,8 +15,37 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
 import { processComplianceEvent } from "../services/compliance/processor";
+import { z } from "zod";
 
 const router = Router();
+
+// ── Zod schemas ────────────────────────────────────────────────────────────────
+const CreateSubmissionBody = z.object({
+  templateId: z.number().int().positive(),
+  data: z.record(z.unknown()),
+  status: z.enum(["draft", "submitted"]).optional().default("draft"),
+  projectId: z.number().int().positive().optional(),
+});
+
+const UpdateSubmissionBody = z.object({
+  data: z.record(z.unknown()).optional(),
+  status: z.enum(["draft", "submitted"]).optional(),
+});
+
+const ReviewSubmissionBody = z.object({
+  status: z.enum(["reviewed", "approved"]),
+  notes: z.string().max(1000).optional(),
+});
+
+const AddCommentBody = z.object({
+  comment: z.string().min(1).max(2000),
+});
+
+const AddPhotoBody = z.object({
+  url: z.string().url(),
+  filename: z.string().min(1).max(255),
+  objectPath: z.string().optional(),
+});
 
 // ── Templates ─────────────────────────────────────────────────────────────────
 
@@ -145,16 +174,9 @@ router.get("/safety/submissions/:id", requireAuth, requireCompany, requirePermis
 // POST /safety/submissions — create draft or submit
 router.post("/safety/submissions", requireAuth, requireCompany, async (req, res) => {
   try {
-    const { templateId, data, status = "draft", projectId } = req.body as {
-      templateId: number;
-      data: Record<string, any>;
-      status?: string;
-      projectId?: number;
-    };
-
-    if (!templateId || !data) {
-      res.status(400).json({ error: "templateId and data required" }); return;
-    }
+    const parsed = CreateSubmissionBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+    const { templateId, data, status, projectId } = parsed.data;
 
     const [template] = await db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, templateId));
     if (!template) { res.status(404).json({ error: "Template not found" }); return; }
@@ -169,7 +191,7 @@ router.post("/safety/submissions", requireAuth, requireCompany, async (req, res)
     }).returning();
 
     if (status === "submitted") {
-      generateAISummary(submission.id, template, data).catch((err) =>
+      generateAISummary(submission.id, req.companyId!, template, data).catch((err) =>
         logger.error({ err }, "Safety AI summary error")
       );
       notifyForemen(req.companyId!, submission.id, template.name, req.userId!).catch((err) =>
@@ -198,7 +220,9 @@ router.post("/safety/submissions", requireAuth, requireCompany, async (req, res)
 router.put("/safety/submissions/:id", requireAuth, requireCompany, async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    const { data, status } = req.body as { data?: Record<string, any>; status?: string };
+    const bodyParsed = UpdateSubmissionBody.safeParse(req.body);
+    if (!bodyParsed.success) { res.status(400).json({ error: bodyParsed.error.flatten() }); return; }
+    const { data, status } = bodyParsed.data;
 
     const [existing] = await db
       .select()
@@ -218,13 +242,13 @@ router.put("/safety/submissions/:id", requireAuth, requireCompany, async (req, r
         ...(status ? { status } : {}),
         updatedAt: new Date(),
       })
-      .where(eq(formSubmissionsTable.id, id))
+      .where(and(eq(formSubmissionsTable.id, id), eq(formSubmissionsTable.companyId, req.companyId!)))
       .returning();
 
     if (status === "submitted" && existing.status === "draft") {
       const [template] = await db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, existing.templateId));
       const formData = data ?? (existing.data as Record<string, any>);
-      generateAISummary(id, template, formData).catch((err) =>
+      generateAISummary(id, req.companyId!, template, formData).catch((err) =>
         logger.error({ err }, "Safety AI summary error")
       );
       notifyForemen(req.companyId!, id, template?.name ?? "Safety Form", existing.userId).catch((err) =>
@@ -243,11 +267,9 @@ router.put("/safety/submissions/:id", requireAuth, requireCompany, async (req, r
 router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    const { status, notes } = req.body as { status: "reviewed" | "approved"; notes?: string };
-
-    if (!status || !["reviewed", "approved"].includes(status)) {
-      res.status(400).json({ error: "status must be 'reviewed' or 'approved'" }); return;
-    }
+    const reviewParsed = ReviewSubmissionBody.safeParse(req.body);
+    if (!reviewParsed.success) { res.status(400).json({ error: reviewParsed.error.flatten() }); return; }
+    const { status, notes } = reviewParsed.data;
 
     const [existing] = await db
       .select()
@@ -266,7 +288,7 @@ router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requi
         reviewNotes: notes ?? null,
         updatedAt: new Date(),
       })
-      .where(eq(formSubmissionsTable.id, id))
+      .where(and(eq(formSubmissionsTable.id, id), eq(formSubmissionsTable.companyId, req.companyId!)))
       .returning();
 
     res.json(updated);
@@ -280,9 +302,9 @@ router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requi
 router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    const { comment } = req.body as { comment: string };
-
-    if (!comment?.trim()) { res.status(400).json({ error: "comment required" }); return; }
+    const commentParsed = AddCommentBody.safeParse(req.body);
+    if (!commentParsed.success) { res.status(400).json({ error: commentParsed.error.flatten() }); return; }
+    const { comment } = commentParsed.data;
 
     const [existing] = await db
       .select()
@@ -310,9 +332,9 @@ router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, asy
 router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    const { url, filename, objectPath } = req.body as { url: string; filename: string; objectPath?: string };
-
-    if (!url || !filename) { res.status(400).json({ error: "url and filename required" }); return; }
+    const photoParsed = AddPhotoBody.safeParse(req.body);
+    if (!photoParsed.success) { res.status(400).json({ error: photoParsed.error.flatten() }); return; }
+    const { url, filename, objectPath } = photoParsed.data;
 
     const [existing] = await db
       .select()
@@ -388,7 +410,7 @@ router.post("/safety/submissions/:id/incident-summary", requireAuth, requireComp
     await db
       .update(formSubmissionsTable)
       .set({ aiSummary: summary, updatedAt: new Date() })
-      .where(eq(formSubmissionsTable.id, id));
+      .where(and(eq(formSubmissionsTable.id, id), eq(formSubmissionsTable.companyId, req.companyId!)));
 
     logger.info({ submissionId: id, category }, "AI safety summary generated");
     res.json({ summary, category });
@@ -518,7 +540,7 @@ OUTPUT FORMAT:
 
 // ── AI Summary helper ─────────────────────────────────────────────────────────
 
-async function generateAISummary(submissionId: number, template: any, data: Record<string, any>) {
+async function generateAISummary(submissionId: number, companyId: number, template: any, data: Record<string, any>) {
   const fields = (template?.schema?.fields ?? []) as Array<{ id: string; label: string }>;
   const fieldSummary = Object.entries(data)
     .map(([key, val]) => {
@@ -548,7 +570,7 @@ async function generateAISummary(submissionId: number, template: any, data: Reco
   await db
     .update(formSubmissionsTable)
     .set({ aiSummary: summary })
-    .where(eq(formSubmissionsTable.id, submissionId));
+    .where(and(eq(formSubmissionsTable.id, submissionId), eq(formSubmissionsTable.companyId, companyId)));
 
   logger.info({ submissionId }, "AI safety summary generated");
 }

@@ -11,6 +11,15 @@ import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
+/** HTML-escape helper — prevents injection of user data into email templates */
+const esc = (s: unknown): string =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+
 // ── AI Prompt ─────────────────────────────────────────────────────────────────
 
 function buildEstimatePrompt(scope: string): string {
@@ -424,13 +433,13 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermissi
 
   const personalNote = message ? `
     <div style="background:#fff8f0;border-left:4px solid #FF6600;padding:12px 16px;margin-bottom:24px;border-radius:4px">
-      <p style="margin:0;font-size:13px;color:#555">${message}</p>
+      <p style="margin:0;font-size:13px;color:#555">${esc(message)}</p>
     </div>` : "";
 
   const html = `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>Construction Estimate: ${estimate.title}</title></head>
+<head><meta charset="utf-8"><title>Construction Estimate: ${esc(estimate.title)}</title></head>
 <body style="margin:0;padding:0;background:#f0f0f0;font-family:Arial,sans-serif">
   <div style="max-width:680px;margin:24px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
     <div style="background:#172034;padding:24px 32px">
@@ -439,7 +448,7 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermissi
     </div>
     <div style="padding:32px">
       ${personalNote}
-      <h1 style="color:#172034;margin:0 0 4px;font-size:22px">${estimate.title}</h1>
+      <h1 style="color:#172034;margin:0 0 4px;font-size:22px">${esc(estimate.title)}</h1>
       ${r.summary ? `<p style="color:#555;font-size:14px;margin:8px 0 0">${r.summary}</p>` : ""}
 
       <div style="background:#172034;border-radius:8px;padding:20px 24px;margin:24px 0">
@@ -466,7 +475,7 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermissi
     const { sendEmail, ResendSandboxError } = await import("../lib/mailer.js");
     await sendEmail({
       to: [to],
-      subject: `Construction Estimate: ${estimate.title}`,
+      subject: `Construction Estimate: ${esc(estimate.title)}`,
       html,
     });
     res.json({ ok: true });
@@ -514,7 +523,7 @@ router.patch("/estimates/:id", requireAuth, requireCompany, requirePermission("m
 
   const [updated] = await db.update(estimatesTable)
     .set(updates as any)
-    .where(eq(estimatesTable.id, id))
+    .where(and(eq(estimatesTable.id, id), eq(estimatesTable.companyId, req.companyId!)))
     .returning();
 
   res.json(updated);

@@ -6,8 +6,14 @@ import { buildDigestHtml } from "../lib/digestTemplate.js";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
 import { sendDigestForAllCompanies } from "../cron.js";
 import { db, companiesTable } from "@workspace/db";
+import { z } from "zod";
 
 const router = Router();
+
+const EmailConfigBody = z.object({
+  fromEmail: z.string().email().nullable().optional(),
+  resendApiKey: z.string().max(200).nullable().optional(),
+});
 
 router.post("/digest/send-all", requireAuth, async (req, res) => {
   const result = await sendDigestForAllCompanies();
@@ -97,7 +103,9 @@ router.get("/settings/email-config", requireAuth, requireCompany, async (req, re
 
 router.patch("/settings/email-config", requireAuth, requireCompany, requireOwner, async (req, res) => {
   const companyId = (req as any).companyId as number;
-  const { fromEmail, resendApiKey } = req.body as { fromEmail?: string | null; resendApiKey?: string | null };
+  const bodyParsed = EmailConfigBody.safeParse(req.body);
+  if (!bodyParsed.success) { res.status(400).json({ error: bodyParsed.error.flatten() }); return; }
+  const { fromEmail, resendApiKey } = bodyParsed.data;
 
   const updates: Partial<typeof companiesTable.$inferInsert> = {};
   if (fromEmail !== undefined) updates.digestFromEmail = fromEmail ?? null;

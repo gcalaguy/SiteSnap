@@ -172,7 +172,7 @@ router.post("/invoices/:id/payments", requireAuth, requireCompany, requirePermis
     await db
       .update(invoicesTable)
       .set({ status: "paid", paidAt: new Date(), updatedAt: new Date() })
-      .where(eq(invoicesTable.id, invoiceId));
+      .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)));
   }
 
   invalidateDashboardMetricsCache(String(req.companyId!));

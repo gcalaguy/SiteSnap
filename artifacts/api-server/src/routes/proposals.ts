@@ -135,14 +135,17 @@ router.delete("/builder-estimates/:id", requireAuth, requireCompany, requirePerm
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  // Verify ownership before cascading — prevents deleting another company's child rows
+  const [owned] = await db
+    .select({ id: builderEstimatesTable.id })
+    .from(builderEstimatesTable)
+    .where(and(eq(builderEstimatesTable.id, id), eq(builderEstimatesTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!owned) { res.status(404).json({ error: "Not found" }); return; }
+
   await db.delete(builderEstimateItemsTable).where(eq(builderEstimateItemsTable.estimateId, id));
   await db.delete(proposalsTable).where(eq(proposalsTable.builderEstimateId, id));
-  const [deleted] = await db
-    .delete(builderEstimatesTable)
-    .where(and(eq(builderEstimatesTable.id, id), eq(builderEstimatesTable.companyId, req.companyId!)))
-    .returning();
-
-  if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
+  await db.delete(builderEstimatesTable).where(eq(builderEstimatesTable.id, id));
   res.status(204).send();
 });
 
@@ -328,13 +331,16 @@ router.delete("/estimate-templates/:id", requireAuth, requireCompany, requirePer
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  await db.delete(estimateTemplateItemsTable).where(eq(estimateTemplateItemsTable.templateId, id));
-  const [deleted] = await db
-    .delete(estimateTemplatesTable)
+  // Verify ownership before cascading — prevents deleting another company's template items
+  const [ownedTemplate] = await db
+    .select({ id: estimateTemplatesTable.id })
+    .from(estimateTemplatesTable)
     .where(and(eq(estimateTemplatesTable.id, id), eq(estimateTemplatesTable.companyId, req.companyId!)))
-    .returning();
+    .limit(1);
+  if (!ownedTemplate) { res.status(404).json({ error: "Not found" }); return; }
 
-  if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
+  await db.delete(estimateTemplateItemsTable).where(eq(estimateTemplateItemsTable.templateId, id));
+  await db.delete(estimateTemplatesTable).where(eq(estimateTemplatesTable.id, id));
   res.status(204).send();
 });
 
