@@ -75,6 +75,7 @@
     "expo-notifications": "^0.32.17",
     "expo-print": "^55.0.13",
     "expo-secure-store": "^15.0.8",
+    "expo-screen-capture": "~5.0.9",
     "expo-sharing": "^55.0.18",
     "i18next": "^26.2.0",
     "react-i18next": "^17.0.8",

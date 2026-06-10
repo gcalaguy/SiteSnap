@@ -1,4 +1,6 @@
 import React, { useState, useCallback } from "react";
+import { useFocusEffect } from "expo-router";
+import * as ScreenCapture from "expo-screen-capture";
 import {
   ActivityIndicator,
   Alert,
@@ -77,6 +79,21 @@ export default function VaultScreen() {
       customFetch(`/api/worker/vault/documents/${id}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vault-my-docs"] }),
   });
+
+  // N-P1 fix: block screenshots/screen-recording while the vault is visible.
+  // Worker IDs, OSHA cards, and driver licences must not be captured by other apps.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== "web") {
+        ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+      }
+      return () => {
+        if (Platform.OS !== "web") {
+          ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+        }
+      };
+    }, [])
+  );
 
   const handlePickAndUpload = useCallback(async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -230,6 +247,10 @@ export default function VaultScreen() {
           data={docs}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderDoc}
+          removeClippedSubviews
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={15}
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
@@ -259,6 +280,9 @@ export default function VaultScreen() {
           setShowUpload(true);
         }}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Upload document"
+        accessibilityHint="Opens the document upload sheet"
       >
         <Feather name="upload" size={20} color="#FFFFFF" />
         <Text style={styles.fabText}>Upload</Text>

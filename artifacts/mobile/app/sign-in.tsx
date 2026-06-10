@@ -303,6 +303,10 @@ export default function SignInScreen() {
                 onPress={handleContinue}
                 disabled={!email.trim() || loading}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Continue"
+                accessibilityHint="Sends a verification code to your email address"
+                accessibilityState={{ disabled: !email.trim() || loading }}
               >
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -347,6 +351,10 @@ export default function SignInScreen() {
                 onPress={handleVerify}
                 disabled={!code.trim() || loading}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Verify and sign in"
+                accessibilityHint="Submits your 6-digit verification code"
+                accessibilityState={{ disabled: !code.trim() || loading }}
               >
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" />
