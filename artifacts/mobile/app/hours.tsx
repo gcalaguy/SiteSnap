@@ -25,6 +25,7 @@ import {
   customFetch,
 } from "@workspace/api-client-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "#6B7280",
@@ -56,6 +57,12 @@ export default function HoursScreen() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editHours, setEditHours] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+
+  // Voice recorder for the description field — appends each transcription
+  const descVoice = useVoiceRecorder((text) => {
+    if (text.trim()) setEditDesc((prev) => (prev ? `${prev} ${text.trim()}` : text.trim()));
+  });
 
   const {
     data: timesheetsData,
@@ -136,6 +143,7 @@ export default function HoursScreen() {
       qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
       setEditingId(null);
       setEditHours("");
+      setEditDesc("");
       Alert.alert("Updated", "Timesheet hours updated.");
     },
     onError: () => Alert.alert("Error", "Failed to update timesheet."),
@@ -144,6 +152,7 @@ export default function HoursScreen() {
   const handleEdit = useCallback((ts: any) => {
     setEditingId(ts.id);
     setEditHours(ts.totalHours ?? "");
+    setEditDesc(ts.description ?? "");
   }, []);
 
   const handleSaveEdit = useCallback((id: number) => {
@@ -152,8 +161,8 @@ export default function HoursScreen() {
       Alert.alert("Invalid hours", "Enter hours between 0.5 and 168");
       return;
     }
-    editMutation.mutate({ id, body: { totalHours: h } });
-  }, [editHours, editMutation]);
+    editMutation.mutate({ id, body: { totalHours: h, description: editDesc.trim() || null } });
+  }, [editHours, editDesc, editMutation]);
 
   const renderEntryRow = (ts: any) => {
     const statusColor = STATUS_COLORS[ts.status] ?? "#6B7280";
@@ -166,20 +175,73 @@ export default function HoursScreen() {
             {formatWeekRange(ts.weekStart)}
           </Text>
           {isEditing ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1, justifyContent: "flex-end" }}>
-              <TextInput
-                value={editHours}
-                onChangeText={setEditHours}
-                keyboardType="decimal-pad"
-                style={[styles.editInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
-                autoFocus
-              />
-              <TouchableOpacity onPress={() => handleSaveEdit(ts.id)}>
-                <Feather name="check" size={16} color="#22C55E" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setEditingId(null); setEditHours(""); }}>
-                <Feather name="x" size={16} color={colors.mutedForeground} />
-              </TouchableOpacity>
+            <View style={{ flex: 1, gap: 6 }}>
+              {/* Hours + save/cancel row */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+                <Text style={[styles.entryWeek, { color: colors.mutedForeground }]}>
+                  {formatWeekRange(ts.weekStart)}
+                </Text>
+                <TextInput
+                  value={editHours}
+                  onChangeText={setEditHours}
+                  keyboardType="decimal-pad"
+                  style={[styles.editInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+                  autoFocus
+                  accessibilityLabel="Edit hours"
+                />
+                <TouchableOpacity onPress={() => handleSaveEdit(ts.id)} accessibilityLabel="Save hours">
+                  <Feather name="check" size={16} color="#22C55E" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setEditingId(null); setEditHours(""); setEditDesc(""); }} accessibilityLabel="Cancel edit">
+                  <Feather name="x" size={16} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              </View>
+              {/* Description field with voice mic */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <TextInput
+                  value={editDesc}
+                  onChangeText={setEditDesc}
+                  placeholder="Add a note (optional)"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={[
+                    styles.descInput,
+                    { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background },
+                  ]}
+                  accessibilityLabel="Hours description"
+                  accessibilityHint="Optional note about this timesheet entry. Tap the mic to dictate."
+                />
+                <TouchableOpacity
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    void descVoice.toggle();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={descVoice.state === "recording" ? "Stop recording" : "Dictate note"}
+                  accessibilityHint="Tap to record a voice note for this timesheet entry"
+                  style={[
+                    styles.micBtn,
+                    {
+                      backgroundColor: descVoice.state === "recording" ? "#EF444420" : `${colors.primary}15`,
+                      borderColor: descVoice.state === "recording" ? "#EF4444" : colors.border,
+                    },
+                  ]}
+                >
+                  {descVoice.state === "transcribing" ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Feather
+                      name={descVoice.state === "recording" ? "mic-off" : "mic"}
+                      size={14}
+                      color={descVoice.state === "recording" ? "#EF4444" : colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
+              </View>
+              {descVoice.error && (
+                <Text style={{ fontSize: 11, color: "#EF4444", fontFamily: "Inter_400Regular" }}>
+                  {descVoice.error}
+                </Text>
+              )}
             </View>
           ) : (
             <>
@@ -260,6 +322,27 @@ export default function HoursScreen() {
           <Text style={styles.badgeText}>{totalHours.toFixed(1)}h</Text>
         </View>
       </View>
+
+      {/* Voice quick-log hint — points workers to the FAB mic */}
+      <TouchableOpacity
+        style={[styles.voiceHint, { backgroundColor: `${colors.primary}0D`, borderColor: `${colors.primary}30` }]}
+        onPress={() => {
+          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          Alert.alert(
+            "Log Hours by Voice",
+            'Tap the mic button (bottom of screen) and say:\n\n"I worked 5 hours on Oak Street"\n\nor\n\n"Log 4 hours for Guy on Main Street"',
+            [{ text: "Got it" }]
+          );
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="Learn how to log hours by voice"
+        accessibilityHint="Shows instructions for using the voice mic button to log hours hands-free"
+      >
+        <Feather name="mic" size={13} color={colors.primary} />
+        <Text style={[styles.voiceHintText, { color: colors.primary }]}>
+          Tip: tap the mic button and say "I worked 5 hours on Oak Street"
+        </Text>
+      </TouchableOpacity>
 
       {/* Status filter */}
       <ScrollView
@@ -403,6 +486,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
+  },
+  descInput: {
+    flex: 1,
+    height: 32,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  micBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  voiceHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  voiceHintText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
   },
   actionRow: {
     flexDirection: "row",

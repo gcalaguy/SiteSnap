@@ -469,7 +469,8 @@ export function GlobalVoiceCommandFAB() {
         Calculator: "/calculators",
         Calculators: "/calculators",
         Schedule: "/schedule",
-        Projects: "/projects",
+        // Projects list is nested inside the (home) tab group
+        Projects: "/(tabs)/(home)/projects",
         Ask: "/(tabs)/(home)/ask",
         Tasks: "/(tabs)/(home)/tasks",
         Quotes: "/finance",
@@ -478,17 +479,25 @@ export function GlobalVoiceCommandFAB() {
         Estimating: "/estimator",
         Financials: "/finance",
         Hours: "/hours",
-        FieldLogs: "/log",
-        Safety: "/safety",
-        "Safety & Compliance": "/safety",
+        // log.tsx and reports.tsx are nested inside the (home) tab group
+        FieldLogs: "/(tabs)/(home)/log",
+        Safety: "/(tabs)/safety",
+        "Safety & Compliance": "/(tabs)/safety",
         TradeHub: "/(tabs)/tradehub",
         Vault: "/vault",
         "Audit Vault": "/vault",
         Gatekeeper: "/(tabs)/(home)/field-safety",
-        AskAI: "/ai-chat",
-        "AI Chat": "/ai-chat",
+        // No standalone ai-chat route — Ask screen is the AI assistant
+        AskAI: "/(tabs)/(home)/ask",
+        "AI Chat": "/(tabs)/(home)/ask",
         Settings: "/settings",
-        Reports: "/log",
+        // Dedicated reports screen in the (home) tab group
+        Reports: "/(tabs)/(home)/reports",
+        Contacts: "/contacts",
+        Notifications: "/notifications",
+        Timesheets: "/timesheets",
+        Inspect: "/(tabs)/inspect",
+        Admin: "/(tabs)/admin-hub",
       };
 
       if (target === "Logout") {
@@ -613,6 +622,20 @@ export function GlobalVoiceCommandFAB() {
         <TouchableOpacity
           onPress={handleToggle}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={
+            voice.state === "recording"
+              ? "Stop voice command"
+              : voice.state === "transcribing"
+              ? "Processing voice command"
+              : "Voice command — tap to speak"
+          }
+          accessibilityHint={
+            voice.state === "recording"
+              ? "Tap to stop recording and process your command"
+              : "Tap to start recording a voice command. Say things like 'I worked 5 hours on Oak Street' or 'Go to tasks'."
+          }
+          accessibilityState={{ busy: voice.state === "transcribing" }}
           style={{
             position: "absolute",
             bottom: bottomOffset,
@@ -881,6 +904,12 @@ const HINTS = [
   { text: "Create RFI about beam size", icon: "message-square" },
   { text: "We are short on 2x4 studs", icon: "package" },
   { text: "Take a photo of the foundation", icon: "camera" },
+  { text: "Go to hours", icon: "clock" },
+  { text: "Go to tasks", icon: "list" },
+  { text: "Go to projects", icon: "folder" },
+  { text: "Open safety", icon: "shield" },
+  { text: "Expense $250 lumber at Home Depot", icon: "dollar-sign" },
+  { text: "Update Oak Street: crew poured foundation today", icon: "file-text" },
 ];
 
 const styles = StyleSheet.create({
