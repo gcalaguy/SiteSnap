@@ -219,7 +219,7 @@ router.post("/leads/:leadId/convert", requireAuth, requireCompany, async (req, r
   await db
     .update(leadsTable)
     .set({ convertedProjectId: project.id, updatedAt: new Date() })
-    .where(eq(leadsTable.id, leadId));
+    .where(and(eq(leadsTable.id, leadId), eq(leadsTable.companyId, req.companyId!)));
 
   res.status(201).json({ project, leadId });
 });

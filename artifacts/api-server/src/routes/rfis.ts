@@ -198,6 +198,9 @@ router.put("/:rfiId", requireAuth, requireCompany, requirePermission("manageQuot
   const projectId = parseInt(req.params.projectId as string);
   const rfiId = parseInt(req.params.rfiId as string);
 
+  const projectCheck = await verifyProjectAccess(projectId, req.companyId!);
+  if (!projectCheck) { res.status(404).json({ error: "Project not found" }); return; }
+
   const parsed = UpdateRFIBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid body" });
@@ -230,6 +233,10 @@ router.put("/:rfiId", requireAuth, requireCompany, requirePermission("manageQuot
 router.delete("/:rfiId", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const rfiId = parseInt(req.params.rfiId as string);
+
+  const projectCheck = await verifyProjectAccess(projectId, req.companyId!);
+  if (!projectCheck) { res.status(404).json({ error: "Project not found" }); return; }
+
   await db
     .delete(rfisTable)
     .where(and(eq(rfisTable.id, rfiId), eq(rfisTable.projectId, projectId)));
