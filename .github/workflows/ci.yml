@@ -78,8 +78,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run database migrations
-        run: pnpm --filter @workspace/db migrate
+      - name: Push database schema
+        run: pnpm --filter @workspace/db push
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_test?sslmode=disable
 
