@@ -40,7 +40,7 @@ const DEFAULT_PROJECT_TYPE_LABELS: Record<string, string> = {
 };
 
 const router = Router();
-router.use(requireFeature("Smart_Estimator"));
+router.use(requireFeature("SMART_ESTIMATOR"));
 
 // ── Seed pricing data (runs once, idempotent) ─────────────────────────────────
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, timesheetsTable, timeEntriesTable, usersTable, userMembershipsTable, projectsTable } from "@workspace/db";
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -87,14 +87,21 @@ router.post("/timesheets", requireAuth, requireCompany, async (req, res) => {
 
   const { weekStart, totalHours, hourlyRate, description, notes, projectId } = parsed.data;
 
-  // Upsert: if same user+company+weekStart exists, update it
+  // P1 fix: upsert key now includes projectId so workers logging hours for
+  // multiple projects in the same week get separate records rather than
+  // overwriting. A NULL projectId is its own key (general/unassigned hours).
+  const projectCondition = projectId != null
+    ? eq(timesheetsTable.projectId, projectId)
+    : sql`${timesheetsTable.projectId} IS NULL`;
+
   const [existing] = await db
     .select()
     .from(timesheetsTable)
     .where(and(
       eq(timesheetsTable.companyId, req.companyId!),
       eq(timesheetsTable.userId, req.userId!),
-      eq(timesheetsTable.weekStart, weekStart)
+      eq(timesheetsTable.weekStart, weekStart),
+      projectCondition,
     ))
     .limit(1);
 

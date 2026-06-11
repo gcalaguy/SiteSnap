@@ -83,21 +83,27 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
       ),
     );
 
-  // If no active subscription exists (e.g. newly created tenant), fall back
-  // to a default Starter-equivalent feature set so the user isn't 403-blocked.
+  // P1 fix: If no active subscription exists, return only the minimal free-tier
+  // feature set. Previously returned a full Starter-equivalent set which granted
+  // access to paid features (INVOICES, QUOTES, SMART_ESTIMATOR, AI_CHAT etc.)
+  // without a valid subscription — revenue enforcement was unreliable.
+  // New tenants go through onboarding/billing before accessing paid features.
   if (rows.length === 0) {
     const defaultKeys = [
-      "SCHEDULING", "DAILY_REPORTS", "TEAM_MANAGEMENT", "SAFETY_FORMS",
-      "RFIS", "AI_CHAT", "INVOICES", "QUOTES", "CRM_LEADS", "SMART_ESTIMATOR",
-      "CLIENT_PORTAL", "REPORTING", "QUICKBOOKS", "SITE_VISION_AI", "TRADEHUB",
-    ].filter((k) => !ENTERPRISE_ONLY_FEATURES.includes(k));
+      "SCHEDULING",    // basic scheduling (free)
+      "DAILY_REPORTS", // core field logging (free)
+      "TEAM_MANAGEMENT", // invite workers (free, seat-limited)
+      "SAFETY_FORMS",  // safety is always on
+      "TRADEHUB",      // marketplace (free)
+    ];
     setCache(companyId, defaultKeys);
     return defaultKeys;
   }
 
   const planSlug = rows[0].planSlug;
   const isEnterprise = planSlug?.toLowerCase() === "enterprise";
-  const keys = rows.map((r) => r.key);
+  // Normalize all keys to UPPER_SNAKE_CASE so comparisons are consistent
+  const keys = rows.map((r) => r.key.toUpperCase());
 
   if (isEnterprise) {
     if (!keys.includes("RISK_DASHBOARD")) keys.push("RISK_DASHBOARD");
@@ -140,7 +146,12 @@ export const requireFeature = (featureKey: string) => {
     }
 
     const keys = await getCompanyFeatureKeys(req.companyId);
-    if (!keys.includes(featureKey)) {
+    // P1 fix: case-insensitive match so mixed-case DB records (e.g. "Smart_Estimator")
+    // and normalized code keys (e.g. "SMART_ESTIMATOR") both resolve correctly
+    // during the transition period while the DB is being normalized.
+    const normalizedRequest = featureKey.toUpperCase();
+    const hasFeature = keys.some((k) => k.toUpperCase() === normalizedRequest);
+    if (!hasFeature) {
       res.status(403).json({ error: `Feature "${featureKey}" is not included in your current plan` });
       return;
     }

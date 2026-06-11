@@ -23,16 +23,41 @@ const ALL_TRUE = {
   viewAskAI: true,
 };
 
+// P1 fix: deny all permissions during loading / unauthenticated state.
+// Previously returned ALL_TRUE which exposed financials, RFIs, and vault to
+// workers during the load window. UI should show a skeleton/loading state.
+const ALL_FALSE: Record<PermissionKey, boolean> = Object.fromEntries(
+  Object.keys(ALL_TRUE).map((k) => [k, false])
+) as Record<PermissionKey, boolean>;
+
 export type PermissionKey = keyof typeof ALL_TRUE;
 
-export function usePermissions(): Record<PermissionKey, boolean> {
-  const { data: me } = useGetMe();
-  // Loading state — show everything to prevent flash-of-hidden-tab
-  if (!me) return ALL_TRUE;
+export function usePermissions(): Record<PermissionKey, boolean> & { isLoading: boolean } {
+  const { data: me, isLoading } = useGetMe();
+
+  // While loading or unauthenticated, deny everything (fail-closed)
+  if (isLoading || !me) return { ...ALL_FALSE, isLoading: isLoading ?? true };
+
   // Owners always see everything
-  if (me.role === "owner") return ALL_TRUE;
-  // Server-resolved permissions for workers & foremen (all true for foremen by default)
-  if (me.permissions) return { ...ALL_TRUE, ...me.permissions };
-  // Fallback: no permissions from server yet — show everything (foremen) or let tab bar handle
-  return ALL_TRUE;
+  if (me.role === "owner") return { ...ALL_TRUE, isLoading: false };
+
+  // Server-resolved permissions for workers & foremen
+  if (me.permissions) return { ...ALL_TRUE, ...me.permissions, isLoading: false };
+
+  // Foremen with no explicit permissions: grant all by default
+  if (me.role === "foreman") return { ...ALL_TRUE, isLoading: false };
+
+  // Workers with no resolved permissions: deny sensitive tabs
+  return {
+    ...ALL_FALSE,
+    viewTimesheets: true,
+    viewDocuments: true,
+    viewSchedules: true,
+    viewSafetyTab: true,
+    viewPhotos: true,
+    submitExpenses: true,
+    viewTradeHub: true,
+    viewAskAI: true,
+    isLoading: false,
+  };
 }

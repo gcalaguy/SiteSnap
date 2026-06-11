@@ -218,7 +218,7 @@ router.post("/ai/assistant", requireAuth, requireCompany, requireAiQuota, async 
   const companyId = req.companyId;
 
   // Fetch live tenant context from the database (ignores any stale client-supplied context)
-  const tenantContext = companyId ? await buildTenantContext(companyId, null) : "";
+  const tenantContext = companyId ? await buildTenantContext(companyId, req.userId ?? null, req.userRole ?? null) : "";
 
   if (companyId && webSearchEnabled() && canSearchWeb(companyId)) {
     const lastUser = [...messages].reverse().find(m => m.role === "user");

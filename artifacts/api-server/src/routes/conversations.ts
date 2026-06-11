@@ -129,7 +129,7 @@ router.post("/conversations", requireAuth, requireCompany, requirePermission("vi
   const { message } = convParsed.data;
 
   try {
-    const tenantContext = await buildTenantContext(req.companyId!, req.userId!);
+    const tenantContext = await buildTenantContext(req.companyId!, req.userId!, req.userRole);
 
     const [conversation] = await db
       .insert(conversationsTable)
@@ -246,7 +246,7 @@ router.post(
 
       // Fetch tenant context and conversation history in parallel
       const [tenantContext, history] = await Promise.all([
-        buildTenantContext(req.companyId!, req.userId!),
+        buildTenantContext(req.companyId!, req.userId!, req.userRole),
         db
           .select()
           .from(messagesTable)

@@ -7,7 +7,7 @@ import { requireFeature } from "../lib/featureGate";
 import { z } from "zod";
 
 const router = Router();
-router.use(requireFeature("Contacts"));
+router.use(requireFeature("CONTACTS"));
 
 const CreateContactBody = z.object({
   name: z.string().min(1),

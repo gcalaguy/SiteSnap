@@ -19,7 +19,7 @@ import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { z } from "zod";
 
 const router = Router();
-router.use(requireFeature("Financials"));
+router.use(requireFeature("FINANCIALS"));
 
 // ── Financial Summary ─────────────────────────────────────────────────────────
 

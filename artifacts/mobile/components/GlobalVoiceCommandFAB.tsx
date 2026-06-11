@@ -247,6 +247,24 @@ export function GlobalVoiceCommandFAB() {
 
   const handleLogHours = useCallback(
     async (action: Extract<SingleAction, { type: "LOG_HOURS" }>) => {
+      // P1 fix: if the voice command names a specific worker, verify it matches
+      // the current user before logging. Silently logging to req.userId when a
+      // different worker was named creates incorrect payroll records.
+      const myFullName = me
+        ? `${me.firstName ?? ""} ${me.lastName ?? ""}`.trim().toLowerCase()
+        : null;
+      const namedWorker = action.worker?.trim().toLowerCase() ?? null;
+      const isOwnHours =
+        !namedWorker ||
+        namedWorker === "me" ||
+        namedWorker === "myself" ||
+        (myFullName && (myFullName.includes(namedWorker) || namedWorker.includes(myFullName)));
+
+      if (!isOwnHours) {
+        addResult("x", "Log hours", `Voice can only log your own hours. Use the Timesheets screen to log hours for "${action.worker}".`, "error");
+        throw new Error("Cannot log hours for another worker via voice");
+      }
+
       let proj = resolveProject(action.project);
       if (!proj) {
         addResult("clock", "Log hours", "Need project — pick below", "pending");
@@ -259,16 +277,16 @@ export function GlobalVoiceCommandFAB() {
       }
       try {
         await logHoursMutation.mutateAsync(
-          { projectId: proj.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `${action.worker} — via voice` }
+          { projectId: proj.id, date: new Date().toISOString().split("T")[0], hours: action.hours, description: `via voice` }
         );
-        addResult("check", "Log hours", `${action.hours}h for ${action.worker}`, "ok");
+        addResult("check", "Log hours", `${action.hours}h on ${proj.name}`, "ok");
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to log hours";
         addResult("x", "Log hours", msg, "error");
         throw err;
       }
     },
-    [resolveProject, askPickProject, logHoursMutation, addResult]
+    [me, resolveProject, askPickProject, logHoursMutation, addResult]
   );
 
   const handleMarkTaskDone = useCallback(
@@ -288,6 +306,19 @@ export function GlobalVoiceCommandFAB() {
     [resolveProject, askPickProject, addResult]
   );
 
+  // P1 fix: confirmation helper for destructive voice mutations.
+  // Returns a Promise<boolean> — resolves true if user confirms, false if cancelled.
+  const confirmVoiceAction = useCallback(
+    (title: string, message: string): Promise<boolean> =>
+      new Promise((resolve) => {
+        Alert.alert(title, message, [
+          { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+          { text: "Confirm", style: "destructive", onPress: () => resolve(true) },
+        ]);
+      }),
+    []
+  );
+
   // Helper: fetch tasks for a project, find the match, and mark it done
   async function markTaskDoneOnProject(projectId: number, taskName: string) {
     const tasksData = await qc.fetchQuery({
@@ -304,6 +335,15 @@ export function GlobalVoiceCommandFAB() {
     if (!task) {
       addResult("x", "Complete task", `No task matching "${taskName}"`, "error");
       throw new Error(`No task matching "${taskName}"`);
+    }
+    // P1: confirm before marking a task done (destructive, cannot be undone easily)
+    const confirmed = await confirmVoiceAction(
+      "Mark Task Done",
+      `Mark "${task.title}" as done?`
+    );
+    if (!confirmed) {
+      addResult("x", "Complete task", "Cancelled", "error");
+      throw new Error("User cancelled task completion");
     }
     try {
       await updateTask.mutateAsync(
@@ -356,6 +396,15 @@ export function GlobalVoiceCommandFAB() {
           throw new Error("User cancelled project selection");
         }
       }
+      // P1: confirm before writing a financial record
+      const confirmed = await confirmVoiceAction(
+        "Log Expense",
+        `Log $${action.amount} for "${action.description}" on ${proj.name}?`
+      );
+      if (!confirmed) {
+        addResult("x", "Log expense", "Cancelled", "error");
+        throw new Error("User cancelled expense log");
+      }
       try {
         await customFetch(`/api/projects/${proj.id}/cost-analyses`, {
           method: "POST",
@@ -378,7 +427,7 @@ export function GlobalVoiceCommandFAB() {
         throw err;
       }
     },
-    [resolveProject, askPickProject, addResult, qc, invalidateDashboard]
+    [resolveProject, askPickProject, addResult, qc, invalidateDashboard, confirmVoiceAction]
   );
 
   const handleCreateRFI = useCallback(
@@ -393,6 +442,15 @@ export function GlobalVoiceCommandFAB() {
           throw new Error("User cancelled project selection");
         }
       }
+      // P1: confirm before creating an RFI record
+      const confirmed = await confirmVoiceAction(
+        "Create RFI",
+        `Create RFI "${action.subject}" on ${proj.name}?`
+      );
+      if (!confirmed) {
+        addResult("x", "Create RFI", "Cancelled", "error");
+        throw new Error("User cancelled RFI creation");
+      }
       try {
         await createRFI.mutateAsync(
           { projectId: proj.id, data: { subject: action.subject, description: `Created via voice: ${action.subject}`, priority: "medium" } }
@@ -406,7 +464,7 @@ export function GlobalVoiceCommandFAB() {
         throw err;
       }
     },
-    [resolveProject, askPickProject, createRFI, addResult, qc, invalidateDashboard]
+    [resolveProject, askPickProject, createRFI, addResult, qc, invalidateDashboard, confirmVoiceAction]
   );
 
   const handleAddDailyLog = useCallback(
