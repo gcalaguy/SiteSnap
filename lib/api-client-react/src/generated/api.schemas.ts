@@ -170,10 +170,15 @@ export interface Company {
   name: string;
   province: string;
   city: string;
+  address?: string | null;
   phone?: string | null;
+  hstNumber?: string | null;
   logoPath?: string | null;
   quoteTemplatePath?: string | null;
   invoiceTemplatePath?: string | null;
+  defaultQuoteTerms?: string | null;
+  defaultInvoiceNotes?: string | null;
+  referralCode?: string | null;
   /** Company-specific estimator overrides */
   estimatorConfig?: CompanyEstimatorConfig;
   createdAt: string;
@@ -314,6 +319,13 @@ export interface Project {
   budget?: number | null;
   description?: string | null;
   createdAt: string;
+  /** Server-computed: true when any project contact has a compliance alert */
+  complianceAlert?: boolean;
+  /** Server-computed financial metrics (included in list endpoints) */
+  financials?: {
+    burnVelocity?: number | null;
+    [key: string]: unknown;
+  } | null;
 }
 
 export interface CreateProjectBody {
@@ -361,6 +373,11 @@ export interface ProjectSummary {
   openRFICount: number;
   closedRFICount: number;
   lastReportDate?: string | null;
+  /** Server-computed task counts */
+  taskTotal?: number;
+  taskTodoCount?: number;
+  taskInProgressCount?: number;
+  taskDoneCount?: number;
 }
 
 export interface DailyReportListItem {
@@ -859,6 +876,8 @@ export interface ProjectDocument {
   status: ProjectDocumentStatus;
   extractedData?: ProjectDocumentExtractedData;
   aiSummary?: string | null;
+  /** Server-computed: number of embedded chunks (0 = not yet indexed) */
+  chunkCount?: number;
   createdAt: string;
 }
 
@@ -1365,6 +1384,8 @@ export interface ChangeOrderRecord {
   requestedByUserId: number;
   approvedByUserId?: number | null;
   approvedAt?: string | null;
+  clientSignatureData?: string | null;
+  signedAt?: string | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -2214,7 +2235,8 @@ export interface TradeReview {
   rating: number;
   comment?: string | null;
   createdAt: string;
-  reviewerName?: string;
+  /** Server-computed from reviewer user record */
+  reviewerName: string;
 }
 
 export type TradeReviewSubmitTargetType =

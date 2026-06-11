@@ -358,7 +358,7 @@ export default function SafetySubmitPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {(projects as any[]).map((p) => (
+                      {projects.map((p) => (
                         <SelectItem key={p.id} value={String(p.id)}>
                           {p.name}
                         </SelectItem>
@@ -381,9 +381,9 @@ export default function SafetySubmitPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {(contacts as any[]).map((c) => (
+                      {contacts.map((c) => (
                         <SelectItem key={c.id} value={String(c.id)}>
-                          {c.name ?? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim()}
+                          {c.name}
                           {c.company ? ` — ${c.company}` : ""}
                         </SelectItem>
                       ))}

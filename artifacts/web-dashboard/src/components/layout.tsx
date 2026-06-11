@@ -87,7 +87,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isOwner = user?.role === "owner";
   const isOwnerOrForeman = user?.role === "owner" || user?.role === "foreman";
-  const isSuperAdmin = (user as any)?.systemRole === "super_admin";
+  const isSuperAdmin = user?.systemRole === "super_admin";
 
   const qc = useQueryClient();
 
@@ -170,7 +170,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const firstName = user?.firstName ?? "";
   const lastName = user?.lastName ?? "";
   const initials = `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
-  const companyName = (user as any)?.company?.name ?? "No Company";
+  const companyName = user?.company?.name ?? "No Company";
   const companyInitials = companyName.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
 
   return (

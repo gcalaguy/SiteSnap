@@ -593,7 +593,7 @@ export default function ProjectDetail() {
 
   // Project-level member assignments (controls which workers can see this project)
   const { data: projectMembers = [] } = useListProjectMembers(projectId);
-  const assignedIds = new Set((projectMembers as any[]).map((m: any) => m.id));
+  const assignedIds = new Set(projectMembers.map((m: any) => m.id));
   const unassignedMembers = members.filter((m) => !assignedIds.has(m.id));
 
   const addProjectMember = useAddProjectMember({
@@ -989,7 +989,7 @@ export default function ProjectDetail() {
                 label: selectedMember ? `${selectedMember.firstName}'s Reports` : "Daily Reports",
                 icon: FileText,
                 value: String(filteredReports.length),
-                sub: filteredReports.length > 0 ? `Last: ${format(new Date((filteredReports[0] as any).reportDate), "MMM d")}` : null,
+                sub: filteredReports.length > 0 ? `Last: ${format(new Date(filteredReports[0].reportDate), "MMM d")}` : null,
                 onClick: () => setActiveTab("reports"),
               },
               {
@@ -1035,24 +1035,24 @@ export default function ProjectDetail() {
                 Task Overview
               </CardTitle>
               <span className="text-sm text-muted-foreground font-normal">
-                {(summary as any)?.taskTotal ?? 0} total
+                {summary?.taskTotal ?? 0} total
               </span>
             </CardHeader>
             <CardContent>
-              {!(summary as any)?.taskTotal ? (
+              {!summary?.taskTotal ? (
                 <p className="text-sm text-muted-foreground">No tasks yet — go to the Tasks tab to add some.</p>
               ) : (
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="rounded-lg border border-border bg-muted/30 py-3 px-2">
-                    <p className="text-2xl font-bold text-foreground">{(summary as any)?.taskTodoCount ?? 0}</p>
+                    <p className="text-2xl font-bold text-foreground">{summary?.taskTodoCount ?? 0}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">To Do</p>
                   </div>
                   <div className="rounded-lg border border-amber-200 bg-amber-50/50 py-3 px-2">
-                    <p className="text-2xl font-bold text-amber-700">{(summary as any)?.taskInProgressCount ?? 0}</p>
+                    <p className="text-2xl font-bold text-amber-700">{summary?.taskInProgressCount ?? 0}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">In Progress</p>
                   </div>
                   <div className="rounded-lg border border-green-200 bg-green-50/50 py-3 px-2">
-                    <p className="text-2xl font-bold text-green-700">{(summary as any)?.taskDoneCount ?? 0}</p>
+                    <p className="text-2xl font-bold text-green-700">{summary?.taskDoneCount ?? 0}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Done</p>
                   </div>
                 </div>
@@ -1085,7 +1085,7 @@ export default function ProjectDetail() {
                 </Button>
               </CardHeader>
               <CardContent>
-                {(projectMembers as any[]).length === 0 ? (
+                {projectMembers.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border border-dashed rounded-lg">
                     <Users className="h-8 w-8 mb-2 opacity-40" />
                     <p className="text-sm font-medium">No workers assigned yet</p>
@@ -1093,7 +1093,7 @@ export default function ProjectDetail() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {(projectMembers as any[]).map((m: any) => (
+                    {projectMembers.map((m: any) => (
                       <div key={m.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
@@ -1799,7 +1799,7 @@ export default function ProjectDetail() {
             )}
           </div>
 
-          {(projectMembers as any[]).length === 0 ? (
+          {projectMembers.length === 0 ? (
             <div className="text-center p-12 border rounded-md bg-card">
               <Users className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
               <p className="font-medium">No workers assigned yet</p>
@@ -1816,7 +1816,7 @@ export default function ProjectDetail() {
             </div>
           ) : (
             <div className="space-y-2">
-              {(projectMembers as any[]).map((m: any) => (
+              {projectMembers.map((m: any) => (
                 <div key={m.id} className="flex items-center justify-between p-4 border rounded-md bg-card">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-9 w-9">

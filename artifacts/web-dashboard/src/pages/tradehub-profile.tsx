@@ -15,6 +15,7 @@ import {
   getListTradehubNotificationsQueryKey,
   getGetTradeReviewSummaryQueryKey,
   getListTradeReviewsQueryKey,
+  GetTradeReviewSummaryTargetType
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -70,24 +71,24 @@ export default function TradehubProfilePage() {
 
   const [showReviewModal, setShowReviewModal] = useState(false);
 
-  const targetUserId = isMe ? (me as any)?.id : ((profile as any)?.userId ?? parseInt(userId ?? "0"));
+  const targetUserId = isMe ? me?.id : (profile?.userId ?? parseInt(userId ?? "0"));
   const targetType = isMe ? undefined : "user_worker";
 
   const { data: reviewSummary } = useGetTradeReviewSummary(
-    { targetType: targetType as any, targetUserId },
+    { targetType: targetType as GetTradeReviewSummaryTargetType, targetUserId },
     { query: { enabled: !isMe && !!targetUserId } as any },
   );
 
   const { data: reviewList } = useListTradeReviews(
-    { targetType: targetType as any, targetUserId, page: 1, limit: 10 },
+    { targetType: targetType as GetTradeReviewSummaryTargetType, targetUserId, page: 1, limit: 10 },
     { query: { enabled: !isMe && !!targetUserId } as any },
   );
 
   const submitReviewMutation = useSubmitTradeReview({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetTradeReviewSummaryQueryKey({ targetType: targetType as any, targetUserId }) });
-        queryClient.invalidateQueries({ queryKey: getListTradeReviewsQueryKey({ targetType: targetType as any, targetUserId, page: 1, limit: 10 }) });
+        queryClient.invalidateQueries({ queryKey: getGetTradeReviewSummaryQueryKey({ targetType: targetType as GetTradeReviewSummaryTargetType, targetUserId }) });
+        queryClient.invalidateQueries({ queryKey: getListTradeReviewsQueryKey({ targetType: targetType as GetTradeReviewSummaryTargetType, targetUserId, page: 1, limit: 10 }) });
         setShowReviewModal(false);
         toast({ title: "Review submitted!" });
       },
@@ -106,13 +107,13 @@ export default function TradehubProfilePage() {
   useEffect(() => {
     if (profile && isMe) {
       setForm({
-        displayName: (profile as any).displayName ?? "",
-        trade: (profile as any).trade ?? "",
-        location: (profile as any).location ?? "",
-        province: (profile as any).province ?? "",
-        bio: (profile as any).bio ?? "",
-        website: (profile as any).website ?? "",
-        complianceStatus: (profile as any).complianceStatus ?? "compliant",
+        displayName: profile.displayName ?? "",
+        trade: profile.trade ?? "",
+        location: profile.location ?? "",
+        province: profile.province ?? "",
+        bio: profile.bio ?? "",
+        website: profile.website ?? "",
+        complianceStatus: profile.complianceStatus ?? "compliant",
       });
     }
   }, [profile, isMe]);
@@ -160,10 +161,10 @@ export default function TradehubProfilePage() {
     return <div className="p-6 text-center text-muted-foreground">Profile not found.</div>;
   }
 
-  const displayData = profile as any;
+  const displayData = profile;
   const recentPosts = isMe ? [] : (displayData.recentPosts ?? []);
   const initials = displayData.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "??";
-  const unreadNotifs = (notifications as any[]).filter((n: any) => !n.isRead);
+  const unreadNotifs = notifications.filter((n: any) => !n.isRead);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -236,11 +237,11 @@ export default function TradehubProfilePage() {
 
           {!isMe && reviewSummary && (
             <ReviewSummaryCard
-              average={(reviewSummary as any).average}
-              total={(reviewSummary as any).total}
-              distribution={(reviewSummary as any).distribution}
+              average={reviewSummary?.average ?? 0}
+              total={reviewSummary?.total ?? 0}
+              distribution={reviewSummary?.distribution}
               onWriteReview={() => setShowReviewModal(true)}
-              canWriteReview={!!(me as any) && (me as any).id !== targetUserId}
+              canWriteReview={!!me && me?.id !== targetUserId}
             />
           )}
 
@@ -271,8 +272,8 @@ export default function TradehubProfilePage() {
               </CardHeader>
               <CardContent>
                 <VoiceRecorder
-                  existingUrl={(profile as any)?.voiceIntroUrl}
-                  existingDuration={(profile as any)?.voiceIntroDuration}
+                  existingUrl={profile?.voiceIntroUrl}
+                  existingDuration={profile?.voiceIntroDuration}
                   onSaved={() => queryClient.invalidateQueries({ queryKey: getGetTradehubProfileMeQueryKey() })}
                   onDeleted={() => queryClient.invalidateQueries({ queryKey: getGetTradehubProfileMeQueryKey() })}
                 />
@@ -296,7 +297,7 @@ export default function TradehubProfilePage() {
             </Card>
           )}
 
-          {isMe && (notifications as any[]).length > 0 && (
+          {isMe && notifications.length > 0 && (
             <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -311,7 +312,7 @@ export default function TradehubProfilePage() {
                 )}
               </CardHeader>
               <CardContent className="space-y-2">
-                {(notifications as any[]).slice(0, 10).map((n: any) => (
+                {notifications.slice(0, 10).map((n: any) => (
                   <div key={n.id} className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${n.isRead ? "bg-muted/30" : "bg-primary/5 border border-primary/10"}`}>
                     <Bell className={`h-4 w-4 flex-shrink-0 mt-0.5 ${n.isRead ? "text-muted-foreground" : "text-primary"}`} />
                     <div className="flex-1 min-w-0">
@@ -361,8 +362,8 @@ export default function TradehubProfilePage() {
               </CardHeader>
               <CardContent>
                 <ReviewFeedList
-                  reviews={(reviewList as any)?.reviews ?? []}
-                  hasMore={(reviewList as any)?.hasMore}
+                  reviews={reviewList?.reviews ?? []}
+                  hasMore={reviewList?.hasMore}
                 />
               </CardContent>
             </Card>
@@ -389,7 +390,7 @@ export default function TradehubProfilePage() {
         <ReviewFormModal
           open={showReviewModal}
           onClose={() => setShowReviewModal(false)}
-          onSubmit={(rating, comment) => submitReviewMutation.mutate({ data: { targetType: targetType as any, targetUserId, rating, comment: comment || undefined } })}
+          onSubmit={(rating, comment) => submitReviewMutation.mutate({ data: { targetType: targetType as GetTradeReviewSummaryTargetType, targetUserId, rating, comment: comment || undefined } })}
           isSubmitting={submitReviewMutation.isPending}
           targetName={displayData.displayName ?? "this profile"}
         />

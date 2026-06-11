@@ -354,7 +354,7 @@ export default function TradehubFeedPage() {
   });
 
   const { data: notifications = [] } = useListTradehubNotifications();
-  const unreadCount = (notifications as any[]).filter((n: any) => !n.isRead).length;
+  const unreadCount = notifications.filter((n: any) => !n.isRead).length;
 
   const { data: myProfile } = useGetTradehubProfileMe();
 
@@ -415,11 +415,11 @@ export default function TradehubFeedPage() {
                 <div className="flex items-center gap-3 cursor-pointer group">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
                     style={{ background: GOLD, color: BLACK }}>
-                    {(myProfile as any).displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                    {myProfile.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate text-white leading-tight">{(myProfile as any).displayName}</p>
-                    <p className="text-xs truncate mt-0.5" style={{ color: GOLD }}>{(myProfile as any).trade ?? "No trade set"}</p>
+                    <p className="font-semibold text-sm truncate text-white leading-tight">{myProfile.displayName}</p>
+                    <p className="text-xs truncate mt-0.5" style={{ color: GOLD }}>{myProfile.trade ?? "No trade set"}</p>
                   </div>
                   <ChevronRight className="h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: GOLD }} />
                 </div>

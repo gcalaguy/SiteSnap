@@ -738,7 +738,7 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
                           Analyze
                         </Button>
                       )}
-                      {isOwnerOrForeman && doc.status === "ready" && (doc as any).chunkCount === 0 && (
+                      {isOwnerOrForeman && doc.status === "ready" && doc.chunkCount === 0 && (
                         <Button
                           variant="outline"
                           size="sm"

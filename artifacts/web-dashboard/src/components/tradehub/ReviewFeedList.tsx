@@ -7,7 +7,7 @@ interface ReviewItem {
   id: number;
   reviewerName: string;
   rating: number;
-  comment: string | null;
+  comment?: string | null;
   createdAt: string;
 }
 

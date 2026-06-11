@@ -57,9 +57,9 @@ export default function NewQuote() {
     }
   );
 
-  const quoteTemplatePath: string | undefined = (me as any)?.company?.quoteTemplatePath ?? undefined;
-  const logoPath: string | undefined = (me as any)?.company?.logoPath ?? undefined;
-  const companyName: string = (me as any)?.company?.name ?? "Your Company";
+  const quoteTemplatePath: string | undefined = me?.company?.quoteTemplatePath ?? undefined;
+  const logoPath: string | undefined = me?.company?.logoPath ?? undefined;
+  const companyName: string = me?.company?.name ?? "Your Company";
 
   const { data: templatePreviewUrl, isLoading: templateLoading } = useSignedUrl(quoteTemplatePath);
   const { data: logoPreviewUrl, isLoading: logoLoading } = useSignedUrl(logoPath);

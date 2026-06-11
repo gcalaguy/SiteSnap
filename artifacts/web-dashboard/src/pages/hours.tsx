@@ -167,8 +167,8 @@ export default function HoursPage() {
 
   async function downloadPayrollCsv() {
     const rows = payrollRows ?? [];
-    const companyName = (me as any)?.company?.name ?? "";
-    const craNumber = (me as any)?.company?.hstNumber ?? "";
+    const companyName = me?.company?.name ?? "";
+    const craNumber = me?.company?.hstNumber ?? "";
 
     // Aggregate by employee+project+week
     const header = ["Employee Name", "CRA Business Number", "Regular Hours", "Overtime Hours", "Double-Time Hours", "Project Site Code"];
@@ -750,8 +750,8 @@ export default function HoursPage() {
         members={members ?? []}
         isPrivileged={isPrivileged}
         me={me}
-        province={(me as any)?.company?.province ?? null}
-        companyName={(me as any)?.company?.name ?? null}
+        province={me?.company?.province ?? null}
+        companyName={me?.company?.name ?? null}
         tsStatusFilter={tsStatusFilter}
         setTsStatusFilter={setTsStatusFilter}
         tsWorkerFilter={tsWorkerFilter}

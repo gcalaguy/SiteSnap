@@ -402,8 +402,8 @@ export default function Schedule() {
       return;
     }
     try {
-      const picked = await (navigator as any).contacts.select(["email"], { multiple: true });
-      const newEmails: string[] = picked.flatMap((c: any) => (c.email ?? []) as string[])
+      const picked = await navigator.contacts?.select(["email"], { multiple: true });
+      const newEmails: string[] = (picked ?? []).flatMap((c: any) => (c.email ?? []) as string[])
         .map((e: string) => e.trim().toLowerCase())
         .filter(Boolean);
       setEvtRecipientEmails(prev => [...new Set([...prev, ...newEmails])]);

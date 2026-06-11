@@ -492,12 +492,12 @@ export default function Leads() {
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Contact *</label>
-              <Select value={form.contactId} onValueChange={(v) => setForm((f) => ({ ...f, contactId: v, title: f.title || ((contacts as any[]).find((c) => c.id === parseInt(v))?.name ?? "") }))}>
+              <Select value={form.contactId} onValueChange={(v) => setForm((f) => ({ ...f, contactId: v, title: f.title || (contacts.find((c) => c.id === parseInt(v))?.name ?? "") }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a contact…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(contacts as any[]).map((c) => (
+                  {contacts.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
                       {c.name}{c.company ? ` — ${c.company}` : ""}
                     </SelectItem>
@@ -934,11 +934,11 @@ function LeadDetail({
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Activity Log</p>
           {loadingActivities ? (
             <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-          ) : (activities as any[]).length === 0 ? (
+          ) : activities.length === 0 ? (
             <p className="text-xs text-muted-foreground italic text-center py-4">No activities yet</p>
           ) : (
             <div className="space-y-2">
-              {(activities as any[]).map((a) => (
+              {activities.map((a) => (
                 <div
                   key={a.id}
                   className="rounded-lg p-3"

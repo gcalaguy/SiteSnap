@@ -103,7 +103,7 @@ const QUOTE_STATUS_LABELS: Record<string, string> = {
 };
 
 function buildQuotePdfDoc(
-  quote: { quoteNumber: string; title: string; clientName: string; clientEmail?: string | null; clientCompanyName?: string | null; clientAddress?: string | null; clientPhone?: string | null; status: string; createdAt: string; validUntil?: string | null; notes?: string | null; taxRate: string },
+  quote: { quoteNumber: string; title: string; clientName: string; clientEmail?: string | null; clientCompanyName?: string | null; clientAddress?: string | null; clientPhone?: string | null; status: string; createdAt: string; validUntil?: string | null; notes?: string | null; taxRate: string; signedAt?: string | null; signatureData?: string | null; signerName?: string | null; signerIp?: string | null },
   lineItems: { description: string; quantity: number; unit: string; unitPrice: number; total: number }[],
   companyName: string,
   templateDataUrl?: string,
@@ -324,12 +324,12 @@ function buildQuotePdfDoc(
   }
 
   // Signature block (renders above the footer strip if signed)
-  if ((quote as any).signedAt && (quote as any).signatureData) {
+  if (quote.signedAt && quote.signatureData) {
     renderSignatureBlock(doc, {
-      signatureData: (quote as any).signatureData,
-      signerName: (quote as any).signerName,
-      signerIp: (quote as any).signerIp,
-      signedAt: (quote as any).signedAt,
+      signatureData: quote.signatureData,
+      signerName: quote.signerName,
+      signerIp: quote.signerIp,
+      signedAt: quote.signedAt,
     }, { label: "CLIENT SIGNATURE" });
   }
 
@@ -459,9 +459,9 @@ export default function QuoteDetail() {
   const effectiveTitle = title ?? quote?.title ?? "";
   const effectiveNotes = notes ?? quote?.notes ?? "";
   const effectiveClientName = clientName ?? quote?.clientName ?? "";
-  const effectiveClientCompanyName = clientCompanyName ?? (quote as any)?.clientCompanyName ?? "";
-  const effectiveClientAddress = clientAddress ?? (quote as any)?.clientAddress ?? "";
-  const effectiveClientPhone = clientPhone ?? (quote as any)?.clientPhone ?? "";
+  const effectiveClientCompanyName = clientCompanyName ?? quote?.clientCompanyName ?? "";
+  const effectiveClientAddress = clientAddress ?? quote?.clientAddress ?? "";
+  const effectiveClientPhone = clientPhone ?? quote?.clientPhone ?? "";
   const effectiveClientEmail = clientEmail ?? quote?.clientEmail ?? "";
   const taxRate = parseFloat(quote?.taxRate ?? "0.13");
   const { subtotal, taxAmount, total } = calcTotals(effectiveItems, taxRate);
@@ -703,24 +703,24 @@ export default function QuoteDetail() {
           {/* Download PDF */}
           <Button variant="outline" onClick={async () => {
             if (!quote) return;
-            const companyName = (me as any)?.company?.name ?? "Site Snap";
-            const quoteTemplatePath = (me as any)?.company?.quoteTemplatePath ?? undefined;
-            const logoPath = (me as any)?.company?.logoPath ?? undefined;
+            const companyName = me?.company?.name ?? "Site Snap";
+            const quoteTemplatePath = me?.company?.quoteTemplatePath ?? undefined;
+            const logoPath = me?.company?.logoPath ?? undefined;
             const [templateDataUrl, logoDataUrl] = await Promise.all([
               loadTemplateDataUrl(quoteTemplatePath),
               loadTemplateDataUrl(logoPath),
             ]);
-            const companyAddress = (me as any)?.company?.address ?? undefined;
-            const companyPhone = (me as any)?.company?.phone ?? undefined;
+            const companyAddress = me?.company?.address ?? undefined;
+            const companyPhone = me?.company?.phone ?? undefined;
             const pdf = buildQuotePdfDoc(
               {
                 quoteNumber: quote.quoteNumber,
                 title: effectiveTitle || quote.title,
                 clientName: effectiveClientName || quote.clientName,
                 clientEmail: effectiveClientEmail || quote.clientEmail,
-                clientCompanyName: effectiveClientCompanyName || (quote as any)?.clientCompanyName,
-                clientAddress: effectiveClientAddress || (quote as any)?.clientAddress,
-                clientPhone: effectiveClientPhone || (quote as any)?.clientPhone,
+                clientCompanyName: effectiveClientCompanyName || quote?.clientCompanyName,
+                clientAddress: effectiveClientAddress || quote?.clientAddress,
+                clientPhone: effectiveClientPhone || quote?.clientPhone,
                 status: quote.status,
                 createdAt: quote.createdAt,
                 validUntil: quote.validUntil,
@@ -733,7 +733,7 @@ export default function QuoteDetail() {
               logoDataUrl,
               companyAddress,
               companyPhone,
-              (me as any)?.company?.defaultQuoteTerms,
+              me?.company?.defaultQuoteTerms,
             );
             const pdfFilename = `${quote.quoteNumber}.pdf`;
             pdf.save(pdfFilename);
@@ -855,12 +855,12 @@ export default function QuoteDetail() {
           )}
 
           {/* Share signing link (clients can view + sign) — only when actually signable */}
-          {(quote as any).publicToken && (quote.status === "pending_approval" || quote.status === "approved") && (
+          {quote.publicToken && (quote.status === "pending_approval" || quote.status === "approved") && (
             <Button
               variant="outline"
               className="gap-2"
               onClick={async () => {
-                const url = `${window.location.origin}/q/${(quote as any).publicToken}`;
+                const url = `${window.location.origin}/q/${quote.publicToken}`;
                 try {
                   await navigator.clipboard.writeText(url);
                   toast({ title: "Sign link copied", description: url });
@@ -874,8 +874,8 @@ export default function QuoteDetail() {
           )}
 
           {/* Signed badge */}
-          {(quote as any).signedAt && (
-            <SignatureBadge meta={quote as any} />
+          {quote.signedAt && (
+            <SignatureBadge meta={quote} />
           )}
 
           {/* Approved: convert to invoice */}

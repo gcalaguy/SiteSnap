@@ -499,16 +499,16 @@ export default function InvoiceDetail() {
   }
 
   function getInvoiceTemplatePath(): string | undefined {
-    return (me as any)?.company?.invoiceTemplatePath ?? undefined;
+    return me?.company?.invoiceTemplatePath ?? undefined;
   }
 
   function getLogoPath(): string | undefined {
-    return (me as any)?.company?.logoPath ?? undefined;
+    return me?.company?.logoPath ?? undefined;
   }
 
   async function handleDownloadPDF() {
     if (!invoice) return;
-    await downloadInvoicePDF(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath(), getLogoPath(), (me as any)?.company?.defaultInvoiceNotes);
+    await downloadInvoicePDF(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath(), getLogoPath(), me?.company?.defaultInvoiceNotes);
     toast({ title: "PDF downloaded" });
   }
 
@@ -582,7 +582,7 @@ export default function InvoiceDetail() {
       toast({ title: "No client email on this invoice", variant: "destructive" });
       return;
     }
-    const pdfBase64 = await buildPdfBase64(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath(), getLogoPath(), (me as any)?.company?.defaultInvoiceNotes);
+    const pdfBase64 = await buildPdfBase64(invoice as Invoice, effectiveItems, getCompanyName(), getInvoiceTemplatePath(), getLogoPath(), me?.company?.defaultInvoiceNotes);
     sendEmail.mutate(
       { invoiceId, data: { pdfBase64 } },
       {

@@ -34,10 +34,10 @@ interface FeatureGuardProps {
  */
 export function FeatureGuard({ feature, children, fallback, silent }: FeatureGuardProps) {
   const { data: me } = useGetMe();
-  const companyId = (me as any)?.activeCompanyId as number | null | undefined;
+  const companyId = me?.activeCompanyId as number | null | undefined;
   const { data, isLoading } = useCompanyFeatures(companyId);
 
-  if ((me as any)?.systemRole === "super_admin") return <>{children}</>;
+  if (me?.systemRole === "super_admin") return <>{children}</>;
   // P1 fix: fail-closed during loading and on error — never render gated children
   // when we don't yet know if the feature is enabled.
   if (!me || isLoading) return null;
@@ -83,10 +83,10 @@ export function FeatureToastGuard({
 }) {
   const { data: me } = useGetMe();
   const { toast } = useToast();
-  const companyId = (me as any)?.activeCompanyId as number | null | undefined;
+  const companyId = me?.activeCompanyId as number | null | undefined;
   const { data } = useCompanyFeatures(companyId);
 
-  if ((me as any)?.systemRole === "super_admin") return <>{children}</>;
+  if (me?.systemRole === "super_admin") return <>{children}</>;
 
   const isEnabled = data?.features?.includes(feature) ?? true;
 

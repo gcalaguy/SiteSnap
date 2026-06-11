@@ -21,7 +21,7 @@ export default function TradehubNotificationsPage() {
     },
   });
 
-  const allNotifs = notifications as any[];
+  const allNotifs = notifications;
   const unread = allNotifs.filter((n) => !n.isRead);
 
   return (

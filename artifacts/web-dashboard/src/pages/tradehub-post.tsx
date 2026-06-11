@@ -125,15 +125,15 @@ export default function TradehubPostPage() {
     return <div className="p-6 text-center text-muted-foreground">Post not found.</div>;
   }
 
-  const postData = post as any;
+  const postData = post;
   const tc = typeConfig[postData.type] ?? typeConfig.discussion;
   const TypeIcon = tc.icon;
-  const isOwner = postData.userId === (me as any)?.id;
+  const isOwner = postData.userId === me?.id;
   const initials = postData.profile?.displayName
     ? postData.profile.displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
     : `${postData.author?.firstName?.[0] ?? ""}${postData.author?.lastName?.[0] ?? ""}`;
 
-  const myApplication = postData.applications?.find((a: any) => a.applicantId === (me as any)?.id);
+  const myApplication = postData.applications?.find((a: any) => a.applicantId === me?.id);
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
@@ -239,16 +239,16 @@ export default function TradehubPostPage() {
         </CardContent>
       </Card>
 
-      {isOwner && postData.type === "job" && postData.applications?.length > 0 && (
+      {isOwner && postData.type === "job" && (postData.applications?.length ?? 0) > 0 && (
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Briefcase className="h-4 w-4 text-primary" />
-              Applications ({postData.applications.length})
+              Applications ({(postData.applications?.length ?? 0)})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {postData.applications.map((app: any) => (
+            {(postData.applications ?? []).map((app: any) => (
               <div key={app.id} className="border rounded-xl p-4">
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <div>
@@ -313,7 +313,7 @@ export default function TradehubPostPage() {
 
           <div className="flex gap-3">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0 mt-0.5">
-              {(myProfile as any)?.displayName?.[0]?.toUpperCase() ?? (me as any)?.firstName?.[0]?.toUpperCase() ?? "?"}
+              {myProfile?.displayName?.[0]?.toUpperCase() ?? me?.firstName?.[0]?.toUpperCase() ?? "?"}
             </div>
             <div className="flex-1 flex gap-2">
               <Textarea

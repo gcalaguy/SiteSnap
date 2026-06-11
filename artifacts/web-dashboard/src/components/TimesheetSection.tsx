@@ -158,7 +158,7 @@ function buildTimesheetDoc(ts: Timesheet, province?: string | null, companyName?
     },
   });
 
-  const afterStats = (doc as any).lastAutoTable.finalY + 10;
+  const afterStats = doc.lastAutoTable.finalY + 10;
 
   if (tax) {
     doc.setFontSize(8);

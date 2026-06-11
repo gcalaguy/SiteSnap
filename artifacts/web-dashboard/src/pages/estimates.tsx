@@ -871,7 +871,7 @@ export default function EstimatesPage() {
   const [printing, setPrinting] = useState(false);
 
   async function fetchLogoDataUrl(): Promise<string | undefined> {
-    const logoPath = (me?.company as any)?.logoPath;
+    const logoPath = me?.company?.logoPath;
     if (!logoPath) return undefined;
     try {
       const { url } = await customFetch(`/api/storage/objects/${logoPath.replace(/^\/objects\//, "")}/signed-url`) as { url: string };
@@ -1020,7 +1020,7 @@ export default function EstimatesPage() {
                     setExportingPdf(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await downloadEstimatePDF(activeEstimate as any, false, logo, (me?.company as any) ?? undefined);
+                      await downloadEstimatePDF(activeEstimate as any, false, logo, me?.company ?? undefined);
                     } catch { toast({ title: "PDF export failed", variant: "destructive" }); }
                     finally { setExportingPdf(false); }
                   }}
@@ -1035,7 +1035,7 @@ export default function EstimatesPage() {
                     setExportingDocx(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await downloadEstimateDocx(activeEstimate as any, logo, (me?.company as any) ?? undefined);
+                      await downloadEstimateDocx(activeEstimate as any, logo, me?.company ?? undefined);
                     } catch { toast({ title: "Word export failed", variant: "destructive" }); }
                     finally { setExportingDocx(false); }
                   }}
@@ -1050,7 +1050,7 @@ export default function EstimatesPage() {
                     setPrinting(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await printEstimate(activeEstimate as any, logo, (me?.company as any) ?? undefined);
+                      await printEstimate(activeEstimate as any, logo, me?.company ?? undefined);
                     } catch { toast({ title: "Print failed", variant: "destructive" }); }
                     finally { setPrinting(false); }
                   }}
@@ -1101,7 +1101,7 @@ export default function EstimatesPage() {
           {isEditing ? (
             <EstimateEditor
               estimate={activeEstimate}
-              company={me?.company ? { ...(me.company as any), id: (me.company as any).id } : undefined}
+              company={me?.company ? { ...me?.company, id: me?.company.id } : undefined}
               onSave={(updated) => { setActiveEstimate(updated); setIsEditing(false); }}
               onCancel={() => setIsEditing(false)}
             />

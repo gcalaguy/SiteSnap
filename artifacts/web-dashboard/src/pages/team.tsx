@@ -88,7 +88,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-type Invite = { id: number; email: string; role: string; token: string; expiresAt?: string | null };
+type Invite = { id: number; email: string; role: string; token: string; expiresAt?: string | null; preferredLanguage?: string | null };
 
 export default function Team() {
   const { data: user } = useGetMe();
@@ -176,7 +176,7 @@ export default function Team() {
   // ── handlers ───────────────────────────────────────────────────────────────
   function openEditInvite(invite: Invite) {
     setEditingInvite(invite);
-    editInviteForm.reset({ email: invite.email, role: invite.role as any, preferredLanguage: (invite as any).preferredLanguage ?? "en" });
+    editInviteForm.reset({ email: invite.email, role: invite.role as "owner" | "foreman" | "worker", preferredLanguage: (invite.preferredLanguage ?? "en") as "en" | "it" | "pt" | "es" });
   }
 
   function onSubmitEditInvite(values: z.infer<typeof editInviteSchema>) {
@@ -485,7 +485,7 @@ export default function Team() {
             <p className="text-sm text-muted-foreground py-4 text-center">No members yet.</p>
           ) : (
             <div className="space-y-3">
-              {(members as any[]).map(member => {
+              {members.map(member => {
                 const displayName = getMemberDisplayName(member);
                 const initials = getMemberInitials(member);
                 return (
@@ -587,9 +587,9 @@ export default function Team() {
                         <p className="text-xs text-muted-foreground">
                           {(invite.role ?? "worker").charAt(0).toUpperCase() + (invite.role ?? "worker").slice(1)} ·{" "}
                           Expires {invite.expiresAt ? format(new Date(invite.expiresAt), "MMM d, yyyy") : "—"}
-                          {(invite as any).preferredLanguage && (invite as any).preferredLanguage !== "en" && (
+                          {invite.preferredLanguage && invite.preferredLanguage !== "en" && (
                             <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-600 border border-blue-200">
-                              {({ en: "EN", it: "IT", pt: "PT", es: "ES" } as Record<string, string>)[(invite as any).preferredLanguage] ?? (invite as any).preferredLanguage.toUpperCase()}
+                              {({ en: "EN", it: "IT", pt: "PT", es: "ES" } as Record<string, string>)[invite.preferredLanguage] ?? invite.preferredLanguage.toUpperCase()}
                             </span>
                           )}
                         </p>

@@ -1525,7 +1525,7 @@ function DriveSyncCard() {
     }
     setSelecting(true);
     try {
-      const handle = await (window as any).showDirectoryPicker();
+      const handle = await window.showDirectoryPicker();
       const next: DriveSyncState = { enabled: true, handle, pathName: handle.name };
       setState(next);
       await saveDriveSyncState(next);

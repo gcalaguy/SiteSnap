@@ -202,7 +202,7 @@ function AdminPage() {
     ? 0
     : Math.round((seatUsed / (seatMax as number)) * 100);
   const planName = seatInfo?.planName ?? company?.name ?? "Site Snap";
-  const isSuperAdmin = (me as any)?.systemRole === "super_admin";
+  const isSuperAdmin = me?.systemRole === "super_admin";
 
   return (
     <div className="space-y-6 max-w-3xl">

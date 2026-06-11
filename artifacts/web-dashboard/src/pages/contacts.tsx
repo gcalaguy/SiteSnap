@@ -99,7 +99,7 @@ const EMPTY_FORM: ContactForm = {
   notes: "",
 };
 
-function daysUntil(dateStr: string): number {
+function daysUntil(dateStr: string | null | undefined): number {
   if (!dateStr) return Infinity;
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -108,7 +108,7 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((target.getTime() - now.getTime()) / 86_400_000);
 }
 
-function computeAutoStatus(coi: string, wc: string): string {
+function computeAutoStatus(coi: string | null | undefined, wc: string | null | undefined): string {
   const coiDays = daysUntil(coi);
   const wcDays = daysUntil(wc);
   if (coiDays < 0 || wcDays < 0) return "non_compliant";
@@ -225,7 +225,7 @@ export default function Contacts() {
 
   const isSaving = createContact.isPending || updateContact.isPending;
 
-  const typeCounts = (contacts as any[]).reduce<Record<string, number>>((acc, c) => {
+  const typeCounts = contacts.reduce<Record<string, number>>((acc, c) => {
     acc[c.type] = (acc[c.type] ?? 0) + 1;
     return acc;
   }, {});
@@ -331,7 +331,7 @@ export default function Contacts() {
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {(contacts as any[]).map((c) => {
+          {contacts.map((c) => {
             const cfg = TYPE_CONFIG[c.type as ContactType] ?? TYPE_CONFIG.client;
             const comp = COMPLIANCE_CONFIG[c.complianceStatus as string] ?? COMPLIANCE_CONFIG.compliant;
             const CompIcon = comp.icon;

@@ -77,10 +77,10 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
                     <div className="flex items-center justify-center py-6">
                       <Loader2 className="h-4 w-4 animate-spin" />
                     </div>
-                  ) : (results as any[]).length === 0 ? (
+                  ) : results.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-6">No users found</p>
                   ) : (
-                    (results as any[]).map((u: any) => {
+                    results.map((u: any) => {
                       const initials = u.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "??";
                       return (
                         <button
@@ -171,7 +171,7 @@ export default function TradehubMessagesPage() {
   useEffect(() => {
     if (!conversationId) return;
     markReadMutation.mutate({ id: conversationId });
-  }, [conversationId, (messages as any[]).length]);
+  }, [conversationId, messages.length]);
 
   const sendMutation = useSendTradehubMessage({
     mutation: {
@@ -183,7 +183,7 @@ export default function TradehubMessagesPage() {
     },
   });
 
-  const activeConv = (conversations as any[]).find((c: any) => c.id === conversationId);
+  const activeConv = conversations.find((c: any) => c.id === conversationId);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -222,7 +222,7 @@ export default function TradehubMessagesPage() {
               <div className="flex items-center justify-center h-32">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
               </div>
-            ) : (conversations as any[]).length === 0 ? (
+            ) : conversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
                 <MessageCircle className="h-10 w-10 text-muted-foreground/30" />
                 <p className="text-sm text-muted-foreground">No conversations yet</p>
@@ -231,7 +231,7 @@ export default function TradehubMessagesPage() {
                 </Button>
               </div>
             ) : (
-              (conversations as any[]).map((conv: any) => {
+              conversations.map((conv: any) => {
                 const other = conv.otherParticipant;
                 const initials = other?.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "??";
                 const isActive = conv.id === conversationId;
@@ -311,14 +311,14 @@ export default function TradehubMessagesPage() {
                   <div className="flex items-center justify-center h-32">
                     <Loader2 className="h-5 w-5 animate-spin text-primary" />
                   </div>
-                ) : (messages as any[]).length === 0 ? (
+                ) : messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <p className="text-sm text-muted-foreground">No messages yet. Say hello!</p>
                   </div>
                 ) : (
-                  (messages as any[]).map((msg: any, i: number) => {
-                    const isMe = msg.senderId === (me as any)?.id;
-                    const showDate = i === 0 || format(new Date((messages as any[])[i - 1].createdAt), "yyyy-MM-dd") !== format(new Date(msg.createdAt), "yyyy-MM-dd");
+                  messages.map((msg: any, i: number) => {
+                    const isMe = msg.senderId === me?.id;
+                    const showDate = i === 0 || format(new Date(messages[i - 1].createdAt), "yyyy-MM-dd") !== format(new Date(msg.createdAt), "yyyy-MM-dd");
 
                     return (
                       <div key={msg.id}>

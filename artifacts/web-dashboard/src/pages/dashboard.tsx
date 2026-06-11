@@ -628,10 +628,10 @@ export default function Dashboard() {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading dashboard...</div>;
   }
 
-  const overdueInvoices = (summary as any)?.overdueInvoices ?? 0;
-  const overdueAmount = (summary as any)?.overdueInvoiceAmount ?? 0;
-  const pipeline = (summary as any)?.revenuePipeline ?? 0;
-  const activeLeads = (summary as any)?.activeLeads ?? 0;
+  const overdueInvoices = summary?.overdueInvoices ?? 0;
+  const overdueAmount = summary?.overdueInvoiceAmount ?? 0;
+  const pipeline = summary?.revenuePipeline ?? 0;
+  const activeLeads = summary?.activeLeads ?? 0;
   const unreadCount = unread?.count ?? 0;
 
   return (
@@ -746,7 +746,7 @@ export default function Dashboard() {
               <BookUser className="h-4 w-4" style={{ color: "#D4AF37" }} />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-extrabold text-[#121212]">{(summary as any)?.totalContacts ?? 0}</div>
+              <div className="text-3xl font-extrabold text-[#121212]">{summary?.totalContacts ?? 0}</div>
               <div className="flex items-center justify-between mt-1">
                 <p className="text-xs text-[#888888] font-medium">Clients, workers &amp; suppliers</p>
                 <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "#D4AF37" }} />

@@ -31,13 +31,13 @@ type Estimate = {
 };
 
 export type CompanyInfo = {
-  name?: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  province?: string;
-  website?: string;
-  hstNumber?: string;
+  name?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  website?: string | null;
+  hstNumber?: string | null;
 };
 
 function cad(n: number | undefined | null) {
@@ -197,7 +197,7 @@ export async function downloadEstimatePDF(estimate: Estimate, open = false, logo
       tableLineColor: [220, 220, 220],
       tableLineWidth: 0.2,
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = doc.lastAutoTable.finalY + 8;
   }
 
   // ── Labour Table ─────────────────────────────────────────────────────────────
@@ -222,7 +222,7 @@ export async function downloadEstimatePDF(estimate: Estimate, open = false, logo
       tableLineColor: [220, 220, 220],
       tableLineWidth: 0.2,
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = doc.lastAutoTable.finalY + 8;
   }
 
   // ── Equipment Table ──────────────────────────────────────────────────────────
@@ -247,7 +247,7 @@ export async function downloadEstimatePDF(estimate: Estimate, open = false, logo
       tableLineColor: [220, 220, 220],
       tableLineWidth: 0.2,
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = doc.lastAutoTable.finalY + 8;
   }
 
   // ── Assumptions & Notes ──────────────────────────────────────────────────────
