@@ -226,7 +226,10 @@ function HomeRedirect() {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-muted/10 p-4">
-      <img src={`${basePath}/sitesnap-logo.png`} alt="Site Snap" className="h-24 w-auto mb-6 rounded-xl" />
+      <picture>
+        <source srcSet={`${basePath}/sitesnap-logo.webp`} type="image/webp" />
+        <img src={`${basePath}/sitesnap-logo.png`} alt="Site Snap" className="h-24 w-auto mb-6 rounded-xl" />
+      </picture>
       <h1 className="text-4xl font-bold text-foreground mb-4">Site Snap</h1>
       <p className="text-lg text-muted-foreground mb-8 text-center max-w-md">
         Construction Efficiency, Simplified — the AI platform Canadian contractors rely on.
@@ -244,7 +247,10 @@ function DashboardPlaceholder() {
     <div className="min-h-screen flex flex-col">
       <header className="bg-sidebar text-sidebar-foreground p-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <img src={`${basePath}/sitesnap-logo.png`} alt="Site Snap" className="h-8 w-8 rounded object-contain bg-black" />
+          <picture>
+            <source srcSet={`${basePath}/sitesnap-logo.webp`} type="image/webp" />
+            <img src={`${basePath}/sitesnap-logo.png`} alt="Site Snap" className="h-8 w-8 rounded object-contain bg-black" />
+          </picture>
           <span className="font-bold text-lg tracking-tight">Site Snap</span>
         </div>
       </header>
