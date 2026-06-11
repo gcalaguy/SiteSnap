@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, timesheetsTable, timeEntriesTable, usersTable, userMembershipsTable, projectsTable } from "@workspace/db";
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -70,12 +70,31 @@ router.get("/timesheets", requireAuth, requireCompany, requirePermission("viewTi
     .where(and(...conditions))
     .orderBy(desc(timesheetsTable.weekStart), desc(timesheetsTable.submittedAt));
 
-  const enriched = await Promise.all(
-    rows.map(async (ts) => {
-      const withUser = await withSubmitter(ts as unknown as Record<string, unknown>, ts.userId);
-      return withReviewer(withUser, ts.reviewedByUserId);
-    })
-  );
+  // Batch-load all users (submitters + reviewers) in a single query — avoids N+1
+  const allUserIds = [...new Set([
+    ...rows.map((ts) => ts.userId),
+    ...rows.map((ts) => ts.reviewedByUserId).filter((id): id is number => id != null),
+  ])];
+  const userRows = allUserIds.length
+    ? await db
+        .select({
+          id: usersTable.id,
+          firstName: usersTable.firstName,
+          lastName: usersTable.lastName,
+          email: usersTable.email,
+          role: userMembershipsTable.role,
+        })
+        .from(usersTable)
+        .leftJoin(userMembershipsTable, eq(userMembershipsTable.userId, usersTable.id))
+        .where(inArray(usersTable.id, allUserIds))
+    : [];
+  const userMap = new Map(userRows.map((u) => [u.id, u]));
+
+  const enriched = rows.map((ts) => ({
+    ...ts,
+    user: userMap.get(ts.userId) ?? null,
+    reviewer: ts.reviewedByUserId != null ? (userMap.get(ts.reviewedByUserId) ?? null) : null,
+  }));
 
   res.json(enriched);
 });
