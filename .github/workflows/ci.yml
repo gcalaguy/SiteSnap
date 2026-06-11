@@ -47,6 +47,22 @@ jobs:
   test:
     name: Unit tests
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -65,5 +81,4 @@ jobs:
       - name: Run tests
         run: pnpm test
         env:
-          # Prevent tests from trying to connect to a real database
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_test

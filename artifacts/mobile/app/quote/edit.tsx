@@ -348,11 +348,10 @@ export default function QuoteEditScreen() {
               mode="date"
               display={Platform.OS === "ios" ? "spinner" : "default"}
               minimumDate={new Date()}
-              onValueChange={(event, selectedDate) => {
+              onChange={(_event, selectedDate) => {
                 setShowDatePicker(Platform.OS === "ios");
-                setValidUntil(selectedDate.toISOString().split("T")[0]);
+                if (selectedDate) setValidUntil(selectedDate.toISOString().split("T")[0]);
               }}
-              onDismiss={() => setShowDatePicker(false)}
             />
           )}
         </View>

@@ -21,7 +21,7 @@ import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import * as Haptics from "expo-haptics";
-import DateTimePicker, { DateTimePickerChangeEvent } from "@react-native-community/datetimepicker";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useLocalSearchParams } from "expo-router";
 import { ComplianceAlertBanner } from "@/components/ComplianceAlertBanner";
 
@@ -112,19 +112,14 @@ function FieldRenderer({ field, value, onChange, colors }: {
     return `${y}-${m}-${d}`;
   }, [field.type]);
 
-  const onValueChange = useCallback((_event: DateTimePickerChangeEvent, date?: Date) => {
-    if (date == null) return;
+  const onValueChange = useCallback((_event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === "android") {
       setShowDatePicker(false);
-      onChange(formatDateValue(date));
-    } else {
+      if (date != null) onChange(formatDateValue(date));
+    } else if (date != null) {
       setTempDate(date);
     }
   }, [formatDateValue, onChange]);
-
-  const onDismiss = useCallback(() => {
-    setShowDatePicker(false);
-  }, []);
 
   if (field.type === "textarea") {
     return (
@@ -166,8 +161,7 @@ function FieldRenderer({ field, value, onChange, colors }: {
             mode={isDateTime ? "datetime" : "date"}
             display="default"
             themeVariant="dark"
-            onValueChange={onValueChange}
-            onDismiss={onDismiss}
+            onChange={onValueChange}
           />
         )}
 
@@ -195,9 +189,8 @@ function FieldRenderer({ field, value, onChange, colors }: {
                   mode={isDateTime ? "datetime" : "date"}
                   display="spinner"
                   themeVariant="dark"
-                  onValueChange={onValueChange}
-                  onDismiss={onDismiss}
-                  style={{ width: "100%" }}
+                  onChange={onValueChange}
+                        style={{ width: "100%" }}
                 />
               </View>
             </View>

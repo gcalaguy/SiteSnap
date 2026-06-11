@@ -401,8 +401,7 @@ export default function AllReportsScreen() {
             mode="date"
             display="default"
             themeVariant="dark"
-            onValueChange={onDateChange}
-            onDismiss={() => setShowDatePicker(false)}
+            onChange={onDateChange}
           />
         )}
 
@@ -433,7 +432,7 @@ export default function AllReportsScreen() {
                   mode="date"
                   display="spinner"
                   themeVariant="dark"
-                  onValueChange={(event, date) => date && setPickerDate(date)}
+                  onChange={(_event, date) => date && setPickerDate(date)}
                   style={{ width: "100%" }}
                 />
               </View>

@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   Modal,
 } from "react-native";
-import DateTimePicker, { DateTimePickerChangeEvent } from "@react-native-community/datetimepicker";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Feather } from "@expo/vector-icons";
 import { customFetch, useGetMe, useListQuotes, getListTimesheetsQueryKey } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -208,17 +208,13 @@ export function HoursTab({ projectId }: { projectId: number }) {
   }, [me?.id, isPrivileged]);
 
   // Date picker handlers
-  const onValueChange = useCallback((_event: DateTimePickerChangeEvent, date: Date) => {
+  const onValueChange = useCallback((_event: DateTimePickerEvent, date: Date | undefined) => {
     if (Platform.OS === "android") {
       setShowDatePicker(false);
-      setSelectedDate(date);
-    } else {
+      if (date != null) setSelectedDate(date);
+    } else if (date != null) {
       setTempDate(date);
     }
-  }, []);
-
-  const onDismiss = useCallback(() => {
-    setShowDatePicker(false);
   }, []);
 
   const confirmIOSDate = useCallback(() => {
@@ -336,8 +332,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
                 mode="date"
                 display="default"
                 themeVariant="dark"
-                onValueChange={onValueChange}
-                onDismiss={onDismiss}
+                onChange={onValueChange}
                 maximumDate={new Date()}
               />
             )}
@@ -366,9 +361,8 @@ export function HoursTab({ projectId }: { projectId: number }) {
                       mode="date"
                       display="spinner"
                       themeVariant="dark"
-                      onValueChange={onValueChange}
-                      onDismiss={onDismiss}
-                      maximumDate={new Date()}
+                      onChange={onValueChange}
+                            maximumDate={new Date()}
                       style={{ width: "100%" }}
                     />
                   </View>
