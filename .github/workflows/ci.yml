@@ -78,10 +78,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Run database migrations
+        run: pnpm --filter @workspace/db migrate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_test?sslmode=disable
+
       - name: Run tests
         run: pnpm test
         env:
           # sslmode=disable: CI postgres service has no SSL
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_test?sslmode=disable
-          # Dummy value to satisfy the import-time guard in lib/integrations-openai-ai-server
+          # Dummy values to satisfy import-time guards in lib/integrations-openai-ai-server
           AI_INTEGRATIONS_OPENAI_BASE_URL: http://localhost:11434/v1
+          AI_INTEGRATIONS_OPENAI_API_KEY: dummy-key-for-ci
