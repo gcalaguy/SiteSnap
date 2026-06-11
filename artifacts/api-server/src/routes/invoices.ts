@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db, invoicesTable, quotesTable, companiesTable } from "@workspace/db";
 import { eq, and, desc, count, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
 import { sendReminderForInvoice } from "../lib/invoiceReminders.js";
@@ -71,7 +72,7 @@ function workerVisibilityInvoices(userId: number) {
 }
 
 // POST /invoices — create a standalone invoice directly
-router.post("/invoices", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
+router.post("/invoices", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const parsed = CreateInvoiceBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }
 
@@ -107,10 +108,10 @@ router.post("/invoices", requireAuth, requireCompany, requirePermission("viewFin
 
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(invoice);
-});
+}))
 
 // GET /quotes — list all company quotes (flat, with optional status filter)
-router.get("/quotes", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
+router.get("/quotes", requireAuth, requireCompany, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const { status } = req.query;
   const isWorker = req.userRole === "worker";
 
@@ -129,10 +130,10 @@ router.get("/quotes", requireAuth, requireCompany, requirePermission("viewQuotes
     .where(where)
     .orderBy(desc(quotesTable.createdAt));
   res.json(quotes);
-});
+}))
 
 // GET /invoices — list all invoices for company
-router.get("/invoices", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
+router.get("/invoices", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const { status } = req.query;
   const isWorker = req.userRole === "worker";
 
@@ -151,10 +152,10 @@ router.get("/invoices", requireAuth, requireCompany, requirePermission("viewFina
     .where(where)
     .orderBy(desc(invoicesTable.createdAt));
   res.json(invoices);
-});
+}))
 
 // GET /invoices/:invoiceId
-router.get("/invoices/:invoiceId", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
+router.get("/invoices/:invoiceId", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
   const isWorker = req.userRole === "worker";
 
@@ -170,10 +171,10 @@ router.get("/invoices/:invoiceId", requireAuth, requireCompany, requirePermissio
     .limit(1);
   if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
   res.json(invoice);
-});
+}))
 
 // PUT /invoices/:invoiceId
-router.put("/invoices/:invoiceId", requireAuth, requireCompany, requirePermission("viewFinancials"), async (req, res) => {
+router.put("/invoices/:invoiceId", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
   const isWorker = req.userRole === "worker";
 
@@ -215,10 +216,10 @@ router.put("/invoices/:invoiceId", requireAuth, requireCompany, requirePermissio
 
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
-});
+}))
 
 // PATCH /invoices/:invoiceId/assign — owners/foremen assign an invoice to a worker
-router.patch("/invoices/:invoiceId/assign", requireAuth, requireCompany, async (req, res) => {
+router.patch("/invoices/:invoiceId/assign", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
 
   const invoiceId = parseInt(req.params.invoiceId as string);
@@ -237,10 +238,10 @@ router.patch("/invoices/:invoiceId/assign", requireAuth, requireCompany, async (
     .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)))
     .returning();
   res.json(updated);
-});
+}))
 
 // POST /invoices/:invoiceId/mark-sent
-router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, async (req, res) => {
+router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
   const [existing] = await db
     .select()
@@ -260,10 +261,10 @@ router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, async
 
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
-});
+}))
 
 // POST /invoices/:invoiceId/send-email
-router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, async (req, res) => {
+router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
 
   const parsedEmail = SendInvoiceEmailBody.safeParse(req.body);
@@ -347,10 +348,10 @@ router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyn
     req.log.error({ err }, "Failed to send invoice email");
     res.status(500).json({ error: "Failed to send email" });
   }
-});
+}))
 
 // POST /invoices/:invoiceId/send-reminder
-router.post("/invoices/:invoiceId/send-reminder", requireAuth, requireCompany, async (req, res) => {
+router.post("/invoices/:invoiceId/send-reminder", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
 
   const [invoice] = await db
@@ -388,10 +389,10 @@ router.post("/invoices/:invoiceId/send-reminder", requireAuth, requireCompany, a
     req.log.error({ err }, "Failed to send invoice reminder");
     res.status(500).json({ error: "Failed to send reminder" });
   }
-});
+}))
 
 // DELETE /invoices/:invoiceId — only draft invoices; workers may only delete their own
-router.delete("/invoices/:invoiceId", requireAuth, requireCompany, async (req, res) => {
+router.delete("/invoices/:invoiceId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
   const [existing] = await db
     .select()
@@ -410,10 +411,10 @@ router.delete("/invoices/:invoiceId", requireAuth, requireCompany, async (req, r
   await db.delete(invoicesTable).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)));
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(204).end();
-});
+}))
 
 // POST /invoices/:invoiceId/mark-paid
-router.post("/invoices/:invoiceId/mark-paid", requireAuth, requireCompany, async (req, res) => {
+router.post("/invoices/:invoiceId/mark-paid", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
   const [existing] = await db
     .select()
@@ -428,6 +429,6 @@ router.post("/invoices/:invoiceId/mark-paid", requireAuth, requireCompany, async
     .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!))).returning();
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
-});
+}))
 
 export default router;

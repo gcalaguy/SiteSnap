@@ -76,6 +76,7 @@ function AIChatInner() {
   const {
     data: conversations = [],
     refetch: refetchConversations,
+    isError: conversationsError,
   } = useQuery<ConversationSummary[]>({
     queryKey: ["conversations"],
     queryFn: () => customFetch<ConversationSummary[]>("/api/conversations"),
@@ -261,7 +262,11 @@ function AIChatInner() {
 
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-0.5">
-            {conversations.length === 0 ? (
+            {conversationsError ? (
+              <div className="text-center py-10 px-4">
+                <p className="text-xs text-red-500">Failed to load conversations. Please refresh.</p>
+              </div>
+            ) : conversations.length === 0 ? (
               <div className="text-center py-10 px-4">
                 <MessageSquare className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
                 <p className="text-xs text-muted-foreground">No conversations yet</p>

@@ -650,7 +650,7 @@ function FinancialsInner() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Amount (CAD) *</label>
-                <Input type="number" step="0.01" placeholder="0.00" value={paymentForm.amount} onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))} />
+                <Input type="number" step="0.01" min="0" placeholder="0.00" value={paymentForm.amount} onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Method</label>
@@ -710,7 +710,7 @@ function FinancialsInner() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Amount (CAD) *</label>
-              <Input type="number" step="0.01" placeholder="0.00" value={coForm.amount} onChange={(e) => setCoForm((f) => ({ ...f, amount: e.target.value }))} />
+              <Input type="number" step="0.01" min="0" placeholder="0.00" value={coForm.amount} onChange={(e) => setCoForm((f) => ({ ...f, amount: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>

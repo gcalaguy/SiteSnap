@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { requireAuth } from "../lib/auth";
+import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
 
@@ -13,7 +14,7 @@ const AISummaryBody = z.object({
 });
 
 // POST /calculators/ai-summary
-router.post("/calculators/ai-summary", requireAuth, async (req, res) => {
+router.post("/calculators/ai-summary", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const parsed = AISummaryBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
@@ -45,6 +46,6 @@ Write a concise, plain-English field note (2-3 sentences) that a tradesperson wo
     req.log.error({ err }, "Calculator AI summary error");
     res.status(500).json({ error: "AI generation failed" });
   }
-});
+}))
 
 export default router;

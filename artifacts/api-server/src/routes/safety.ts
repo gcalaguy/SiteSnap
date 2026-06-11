@@ -10,6 +10,7 @@ import {
   userMembershipsTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
@@ -50,14 +51,14 @@ const AddPhotoBody = z.object({
 // ── Templates ─────────────────────────────────────────────────────────────────
 
 // GET /safety/templates
-router.get("/safety/templates", requireAuth, requireCompany, requirePermission("viewSafetyTab"), async (req, res) => {
+router.get("/safety/templates", requireAuth, requireCompany, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
   const templates = await db
     .select()
     .from(formTemplatesTable)
     .where(eq(formTemplatesTable.isActive, true))
     .orderBy(formTemplatesTable.name);
   res.json(templates);
-});
+}))
 
 // ── Submissions ───────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ router.get("/safety/templates", requireAuth, requireCompany, requirePermission("
 //   2. userId     — optional worker/filter (not in composite index, but applied after)
 //   3. status     — optional filter (second column of composite index)
 // When both companyId and status are present the planner uses the full composite index.
-router.get("/safety/submissions", requireAuth, requireCompany, requirePermission("viewSafetyTab"), async (req, res) => {
+router.get("/safety/submissions", requireAuth, requireCompany, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
   try {
     const { status, workerId } = req.query as Record<string, string>;
 
@@ -126,10 +127,10 @@ router.get("/safety/submissions", requireAuth, requireCompany, requirePermission
     req.log.error({ err }, "safety/submissions list error");
     res.status(500).json({ error: "Failed to load submissions" });
   }
-});
+}))
 
 // GET /safety/submissions/:id
-router.get("/safety/submissions/:id", requireAuth, requireCompany, requirePermission("viewSafetyTab"), async (req, res) => {
+router.get("/safety/submissions/:id", requireAuth, requireCompany, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
 
@@ -169,10 +170,10 @@ router.get("/safety/submissions/:id", requireAuth, requireCompany, requirePermis
     req.log.error({ err }, "safety/submissions/:id error");
     res.status(500).json({ error: "Failed to load submission" });
   }
-});
+}))
 
 // POST /safety/submissions — create draft or submit
-router.post("/safety/submissions", requireAuth, requireCompany, async (req, res) => {
+router.post("/safety/submissions", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
     const parsed = CreateSubmissionBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
@@ -214,10 +215,10 @@ router.post("/safety/submissions", requireAuth, requireCompany, async (req, res)
     req.log.error({ err }, "safety/submissions POST error");
     res.status(500).json({ error: "Failed to create submission" });
   }
-});
+}))
 
 // PUT /safety/submissions/:id — update draft
-router.put("/safety/submissions/:id", requireAuth, requireCompany, async (req, res) => {
+router.put("/safety/submissions/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const bodyParsed = UpdateSubmissionBody.safeParse(req.body);
@@ -261,10 +262,10 @@ router.put("/safety/submissions/:id", requireAuth, requireCompany, async (req, r
     req.log.error({ err }, "safety/submissions/:id PUT error");
     res.status(500).json({ error: "Failed to update submission" });
   }
-});
+}))
 
 // POST /safety/submissions/:id/review
-router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const reviewParsed = ReviewSubmissionBody.safeParse(req.body);
@@ -296,10 +297,10 @@ router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requi
     req.log.error({ err }, "safety/submissions/:id/review error");
     res.status(500).json({ error: "Failed to review submission" });
   }
-});
+}))
 
 // POST /safety/submissions/:id/comments
-router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, async (req, res) => {
+router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const commentParsed = AddCommentBody.safeParse(req.body);
@@ -326,10 +327,10 @@ router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, asy
     req.log.error({ err }, "safety/submissions/:id/comments error");
     res.status(500).json({ error: "Failed to add comment" });
   }
-});
+}))
 
 // POST /safety/submissions/:id/photos
-router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, async (req, res) => {
+router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const photoParsed = AddPhotoBody.safeParse(req.body);
@@ -356,11 +357,11 @@ router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, async
     req.log.error({ err }, "safety/submissions/:id/photos error");
     res.status(500).json({ error: "Failed to add photo" });
   }
-});
+}))
 
 // ── POST /safety/submissions/:id/incident-summary — on-demand AI incident report ──
 
-router.post("/safety/submissions/:id/incident-summary", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.post("/safety/submissions/:id/incident-summary", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
 
@@ -418,7 +419,7 @@ router.post("/safety/submissions/:id/incident-summary", requireAuth, requireComp
     req.log.error({ err }, "safety/submissions/:id/incident-summary error");
     res.status(500).json({ error: "Failed to generate incident summary" });
   }
-});
+}))
 
 // ── AI prompt builder ─────────────────────────────────────────────────────────
 

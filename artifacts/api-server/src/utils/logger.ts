@@ -1,6 +1,7 @@
 import { db, usersTable, auditLogsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { Request } from "express";
+import { logger } from "../lib/logger";
 
 interface AuditEventData {
   userId: string;
@@ -18,16 +19,20 @@ interface AuditEventData {
  * All fields are passed in explicitly to keep the call site readable.
  */
 export async function logAuditEvent(data: AuditEventData): Promise<void> {
-  await db.insert(auditLogsTable).values({
-    companyId: Number(data.companyId),
-    userId: Number(data.userId),
-    userName: data.userName,
-    userRole: data.userRole,
-    action: data.action,
-    details: data.details,
-    projectName: data.projectName ?? null,
-    ipAddress: data.ipAddress ?? null,
-  });
+  try {
+    await db.insert(auditLogsTable).values({
+      companyId: Number(data.companyId),
+      userId: Number(data.userId),
+      userName: data.userName,
+      userRole: data.userRole,
+      action: data.action,
+      details: data.details,
+      projectName: data.projectName ?? null,
+      ipAddress: data.ipAddress ?? null,
+    });
+  } catch (err) {
+    logger.error({ err, action: data.action, userId: data.userId }, "Failed to write audit log entry");
+  }
 }
 
 /**

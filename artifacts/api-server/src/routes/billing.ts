@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { eq, and, isNotNull, or } from 'drizzle-orm';
 import { requireAuth, requireCompany, requireOwner } from '../lib/auth';
+import { asyncHandler } from "../lib/asyncHandler";
 import { db, companiesTable, usersTable, userMembershipsTable, plansTable } from '@workspace/db';
 import { z } from "zod";
 import {
@@ -16,7 +17,7 @@ import { getCompanySeatInfo } from '../lib/seatEnforcement';
 
 const router = Router();
 
-router.get('/billing/plans', async (req, res) => {
+router.get('/billing/plans', asyncHandler(async (req, res) => {
   try {
     const dbPlans = await db
       .select({
@@ -45,9 +46,9 @@ router.get('/billing/plans', async (req, res) => {
     req.log.error({ err }, 'billing/plans error');
     res.status(500).json({ error: 'Failed to load plans' });
   }
-});
+}))
 
-router.get('/billing/subscription', requireAuth, requireCompany, async (req, res) => {
+router.get('/billing/subscription', requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
     const [company] = await db
       .select()
@@ -65,14 +66,14 @@ router.get('/billing/subscription', requireAuth, requireCompany, async (req, res
     req.log.error({ err }, 'billing/subscription error');
     res.status(500).json({ error: 'Failed to load subscription' });
   }
-});
+}))
 
 const CheckoutBody = z.object({
   priceId: z.string().min(1),
   seats: z.number().int().min(1).max(100).optional(),
 });
 
-router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, async (req, res) => {
+router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
   try {
     const parsed = CheckoutBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Malformed request payload', details: parsed.error.flatten() }); return; }
@@ -158,9 +159,9 @@ router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyn
     req.log.error({ err }, 'billing/checkout error');
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
-});
+}))
 
-router.get('/billing/seats', requireAuth, requireCompany, async (req, res) => {
+router.get('/billing/seats', requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
     const seatInfo = await getCompanySeatInfo(req.companyId!);
     res.json(seatInfo);
@@ -168,9 +169,9 @@ router.get('/billing/seats', requireAuth, requireCompany, async (req, res) => {
     req.log.error({ err }, 'billing/seats error');
     res.status(500).json({ error: 'Failed to load seat info' });
   }
-});
+}))
 
-router.post('/billing/portal', requireAuth, requireCompany, requireOwner, async (req, res) => {
+router.post('/billing/portal', requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
   try {
     const [company] = await db
       .select()
@@ -195,6 +196,6 @@ router.post('/billing/portal', requireAuth, requireCompany, requireOwner, async 
     req.log.error({ err }, 'billing/portal error');
     res.status(500).json({ error: 'Failed to create portal session' });
   }
-});
+}))
 
 export default router;

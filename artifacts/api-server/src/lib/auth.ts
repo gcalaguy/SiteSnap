@@ -39,6 +39,7 @@ export const requireAuth = async (
     .limit(1);
 
   if (!user) {
+    req.log?.warn({ clerkUserId, ip: req.ip, userAgent: req.headers["user-agent"] }, "Auth: user not found in DB after Clerk verification");
     res.status(401).json({ error: "User not found. Please sync your account." });
     return;
   }
@@ -114,10 +115,12 @@ export const requireAuth = async (
               billingCycle: "monthly",
             })
             .onConflictDoNothing();
+        } else {
+          req.log.warn({ companyId: req.companyId }, "No starter plan found in DB — company has no subscription");
         }
       }
     } catch (err: any) {
-      req.log.warn({ err: err.message }, "Failed to auto-provision default subscription");
+      req.log.warn({ err, companyId: req.companyId }, "Failed to auto-provision default subscription");
     }
   }
 

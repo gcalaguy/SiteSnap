@@ -6,6 +6,7 @@ import {
   workerDocumentsTable,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { z } from "zod/v4";
 
@@ -35,7 +36,7 @@ const uploadBodySchema = z.object({
 // ── WORKER ENDPOINTS ───────────────────────────────────────────────────────────
 
 // POST /worker/vault/upload
-router.post("/worker/vault/upload", requireAuth, async (req, res) => {
+router.post("/worker/vault/upload", requireAuth, asyncHandler(async (req, res) => {
   try {
     const parsed = uploadBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -68,10 +69,10 @@ router.post("/worker/vault/upload", requireAuth, async (req, res) => {
     req.log.error({ err }, "worker/vault/upload error");
     res.status(500).json({ error: "Failed to save document" });
   }
-});
+}))
 
 // GET /worker/vault/my-documents
-router.get("/worker/vault/my-documents", requireAuth, async (req, res) => {
+router.get("/worker/vault/my-documents", requireAuth, asyncHandler(async (req, res) => {
   try {
     if (!req.companyId) {
       res.status(403).json({ error: "No active company context" });
@@ -94,10 +95,10 @@ router.get("/worker/vault/my-documents", requireAuth, async (req, res) => {
     req.log.error({ err }, "worker/vault/my-documents error");
     res.status(500).json({ error: "Failed to load documents" });
   }
-});
+}))
 
 // DELETE /worker/vault/documents/:id
-router.delete("/worker/vault/documents/:id", requireAuth, async (req, res) => {
+router.delete("/worker/vault/documents/:id", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     if (!req.companyId) {
@@ -126,12 +127,12 @@ router.delete("/worker/vault/documents/:id", requireAuth, async (req, res) => {
     req.log.error({ err }, "worker/vault/documents/:id DELETE error");
     res.status(500).json({ error: "Failed to delete document" });
   }
-});
+}))
 
 // ── TENANT (OWNER/FOREMAN) ENDPOINTS ──────────────────────────────────────────
 
 // GET /tenant/vault/all-documents
-router.get("/tenant/vault/all-documents", requireAuth, async (req, res) => {
+router.get("/tenant/vault/all-documents", requireAuth, asyncHandler(async (req, res) => {
   try {
     if (!req.companyId) {
       res.status(403).json({ error: "No active company context" });
@@ -173,10 +174,10 @@ router.get("/tenant/vault/all-documents", requireAuth, async (req, res) => {
     req.log.error({ err }, "tenant/vault/all-documents error");
     res.status(500).json({ error: "Failed to load documents" });
   }
-});
+}))
 
 // GET /tenant/vault/worker/:workerId
-router.get("/tenant/vault/worker/:workerId", requireAuth, async (req, res) => {
+router.get("/tenant/vault/worker/:workerId", requireAuth, asyncHandler(async (req, res) => {
   try {
     if (!req.companyId) {
       res.status(403).json({ error: "No active company context" });
@@ -204,6 +205,6 @@ router.get("/tenant/vault/worker/:workerId", requireAuth, async (req, res) => {
     req.log.error({ err }, "tenant/vault/worker/:workerId error");
     res.status(500).json({ error: "Failed to load worker documents" });
   }
-});
+}))
 
 export default router;

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, fileAttachmentsTable, usersTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { z } from "zod";
 
 const router = Router();
@@ -9,7 +10,7 @@ const router = Router();
 const VALID_ENTITY_TYPES = ["project", "contact", "task", "form_submission"] as const;
 
 // GET /files?entityType=X&entityId=Y
-router.get("/files", requireAuth, requireCompany, async (req, res) => {
+router.get("/files", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const { entityType, entityId } = req.query as Record<string, string>;
 
   const conditions: any[] = [eq(fileAttachmentsTable.companyId, req.companyId!)];
@@ -33,7 +34,7 @@ router.get("/files", requireAuth, requireCompany, async (req, res) => {
     ...f.file,
     uploaderName: `${f.uploaderFirstName ?? ""} ${f.uploaderLastName ?? ""}`.trim(),
   })));
-});
+}))
 
 // POST /files — register a file after presigned upload
 const RegisterFileBody = z.object({
@@ -45,7 +46,7 @@ const RegisterFileBody = z.object({
   objectPath: z.string().min(1),
 });
 
-router.post("/files", requireAuth, requireCompany, async (req, res) => {
+router.post("/files", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const parsed = RegisterFileBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
@@ -64,10 +65,10 @@ router.post("/files", requireAuth, requireCompany, async (req, res) => {
     .returning();
 
   res.status(201).json(file);
-});
+}))
 
 // DELETE /files/:id
-router.delete("/files/:id", requireAuth, requireCompany, async (req, res) => {
+router.delete("/files/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -78,6 +79,6 @@ router.delete("/files/:id", requireAuth, requireCompany, async (req, res) => {
 
   if (!deleted) { res.status(404).json({ error: "File not found" }); return; }
   res.status(204).send();
-});
+}))
 
 export default router;

@@ -48,7 +48,7 @@ async function withSubmitter(timesheet: Record<string, unknown>, userId: number)
 }
 
 // GET /timesheets — list (owner/foreman: all; worker: own)
-router.get("/timesheets", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
+router.get("/timesheets", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
   const { status, userId, from, to } = req.query;
 
@@ -97,10 +97,10 @@ router.get("/timesheets", requireAuth, requireCompany, requirePermission("viewTi
   }));
 
   res.json(enriched);
-});
+}))
 
 // POST /timesheets — submit a timesheet
-router.post("/timesheets", requireAuth, requireCompany, async (req, res) => {
+router.post("/timesheets", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const parsed = SubmitTimesheetBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
 
@@ -159,10 +159,10 @@ router.post("/timesheets", requireAuth, requireCompany, async (req, res) => {
 
   const withUser = await withSubmitter(ts as unknown as Record<string, unknown>, ts.userId);
   res.status(201).json(await withReviewer(withUser, null));
-});
+}))
 
 // GET /timesheets/:timesheetId
-router.get("/timesheets/:timesheetId", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
+router.get("/timesheets/:timesheetId", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.timesheetId as string);
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 
@@ -174,10 +174,10 @@ router.get("/timesheets/:timesheetId", requireAuth, requireCompany, requirePermi
 
   const withUser = await withSubmitter(ts as unknown as Record<string, unknown>, ts.userId);
   res.json(await withReviewer(withUser, ts.reviewedByUserId));
-});
+}))
 
 // POST /timesheets/:timesheetId/approve
-router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.timesheetId as string);
   const parsed = ApproveTimesheetBody.safeParse(req.body);
   if (!parsed.success) {
@@ -210,10 +210,10 @@ router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, req
 
   const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
   res.json(await withReviewer(withUser, updated.reviewedByUserId));
-});
+}))
 
 // GET /timesheets/payroll-export — approved hours for payroll handoff
-router.get("/timesheets/payroll-export", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.get("/timesheets/payroll-export", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const { from, to } = req.query;
 
   const conditions = [eq(timesheetsTable.companyId, req.companyId!), eq(timesheetsTable.status, "approved")];
@@ -238,10 +238,10 @@ router.get("/timesheets/payroll-export", requireAuth, requireCompany, requireOwn
     .orderBy(desc(timesheetsTable.weekStart), desc(timesheetsTable.submittedAt));
 
   res.json(rows);
-});
+}))
 
 // POST /timesheets/:timesheetId/deny
-router.post("/timesheets/:timesheetId/deny", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.post("/timesheets/:timesheetId/deny", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.timesheetId as string);
   const parsed = ReviewBody.safeParse(req.body);
   const notes = parsed.success ? (parsed.data.notes ?? null) : null;
@@ -260,7 +260,7 @@ router.post("/timesheets/:timesheetId/deny", requireAuth, requireCompany, requir
 
   const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
   res.json(await withReviewer(withUser, updated.reviewedByUserId));
-});
+}))
 
 // PATCH /timesheets/:timesheetId — edit hours / rate / description
 const EditTimesheetBody = z.object({

@@ -2,12 +2,13 @@ import { Router } from "express";
 import { db, timeEntriesTable, projectsTable, usersTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
 
 // GET /time-entries — company-wide entries (foreman/owner only)
 // Query params: projectId, userId, from (YYYY-MM-DD), to (YYYY-MM-DD)
-router.get("/time-entries", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.get("/time-entries", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const { projectId, userId, from, to } = req.query;
 
   const conditions: ReturnType<typeof eq>[] = [
@@ -50,9 +51,10 @@ router.get("/time-entries", requireAuth, requireCompany, requireOwnerOrForeman, 
     )
     .leftJoin(projectsTable, eq(timeEntriesTable.projectId, projectsTable.id))
     .where(and(...conditions))
-    .orderBy(desc(timeEntriesTable.date), desc(timeEntriesTable.createdAt));
+    .orderBy(desc(timeEntriesTable.date), desc(timeEntriesTable.createdAt))
+    .limit(500);
 
   res.json(entries);
-});
+}))
 
 export default router;

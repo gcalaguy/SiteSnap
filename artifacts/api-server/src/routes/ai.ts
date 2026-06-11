@@ -422,7 +422,7 @@ const TranscribeJsonInput = z.strictObject({
   format: z.string().max(10).optional().default("webm"),
 });
 
-router.post("/ai/transcribe", requireAuth, requireAiQuota, diskUpload.single("file"), async (req, res) => {
+router.post("/ai/transcribe", requireAuth, requireAiQuota, diskUpload.single("file"), asyncHandler(async (req, res) => {
   let audioBuffer: Buffer;
 
   try {
@@ -450,7 +450,7 @@ router.post("/ai/transcribe", requireAuth, requireAiQuota, diskUpload.single("fi
   } finally {
     await cleanupUpload(req.file?.path);
   }
-});
+}))
 
 // ── POST /api/help/chat — Site Snap in-app help assistant ───────────────────
 const HELP_SYSTEM_PROMPT = `You are the Site Snap Help Assistant — a friendly, concise support agent who helps users understand and use the Site Snap construction management platform.

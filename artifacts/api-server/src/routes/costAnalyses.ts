@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { db, costAnalysesTable, projectsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { CreateCostAnalysisBody } from "@workspace/api-zod";
 
 const UpdateCostAnalysisBody = z.object({
@@ -27,7 +28,7 @@ async function verifyProjectAccess(projectId: number, companyId: number) {
 }
 
 // GET /projects/:projectId/cost-analyses
-router.get("/", requireAuth, requireCompany, async (req, res) => {
+router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -38,10 +39,10 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
     .where(eq(costAnalysesTable.projectId, projectId));
 
   res.json(analyses);
-});
+}))
 
 // POST /projects/:projectId/cost-analyses
-router.post("/", requireAuth, requireCompany, async (req, res) => {
+router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -69,10 +70,10 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     .returning();
 
   res.status(201).json(analysis);
-});
+}))
 
 // PUT /projects/:projectId/cost-analyses/:analysisId
-router.put("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.put("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const analysisId = parseInt(req.params.analysisId as string);
   const parsed = UpdateCostAnalysisBody.safeParse(req.body);
@@ -82,11 +83,28 @@ router.put("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, a
   }
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  // Fetch current values so we can recalculate totalCost even on partial updates
+  const [existing] = await db
+    .select()
+    .from(costAnalysesTable)
+    .where(and(eq(costAnalysesTable.id, analysisId), eq(costAnalysesTable.projectId, projectId)))
+    .limit(1);
+  if (!existing) { res.status(404).json({ error: "Cost analysis not found" }); return; }
+
+  const labourCost = parsed.data.labourCost ?? parseFloat(existing.labourCost);
+  const materialsCost = parsed.data.materialsCost ?? parseFloat(existing.materialsCost);
+  const equipmentCost = parsed.data.equipmentCost ?? parseFloat(existing.equipmentCost);
+  const otherCost = parsed.data.otherCost ?? parseFloat(existing.otherCost);
+  const recalculatedTotal = labourCost + materialsCost + equipmentCost + otherCost;
+
   const updateData: Record<string, unknown> = { ...parsed.data };
-  if (parsed.data.labourCost !== undefined) updateData.labourCost = parsed.data.labourCost.toString();
-  if (parsed.data.materialsCost !== undefined) updateData.materialsCost = parsed.data.materialsCost.toString();
-  if (parsed.data.equipmentCost !== undefined) updateData.equipmentCost = parsed.data.equipmentCost.toString();
-  if (parsed.data.otherCost !== undefined) updateData.otherCost = parsed.data.otherCost.toString();
+  updateData.labourCost = labourCost.toString();
+  updateData.materialsCost = materialsCost.toString();
+  updateData.equipmentCost = equipmentCost.toString();
+  updateData.otherCost = otherCost.toString();
+  updateData.totalCost = recalculatedTotal.toString();
+
   const [analysis] = await db
     .update(costAnalysesTable)
     .set(updateData)
@@ -94,20 +112,20 @@ router.put("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, a
     .returning();
   if (!analysis) { res.status(404).json({ error: "Cost analysis not found" }); return; }
   res.json(analysis);
-});
+}))
 
 // DELETE /projects/:projectId/cost-analyses/:analysisId
-router.delete("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.delete("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const analysisId = parseInt(req.params.analysisId as string);
   await db
     .delete(costAnalysesTable)
     .where(and(eq(costAnalysesTable.id, analysisId), eq(costAnalysesTable.projectId, projectId)));
   res.json({ ok: true });
-});
+}))
 
 // GET /projects/:projectId/cost-analyses/:analysisId
-router.get("/:analysisId", requireAuth, requireCompany, async (req, res) => {
+router.get("/:analysisId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const analysisId = parseInt(req.params.analysisId as string);
 
@@ -119,6 +137,6 @@ router.get("/:analysisId", requireAuth, requireCompany, async (req, res) => {
 
   if (!analysis) { res.status(404).json({ error: "Cost analysis not found" }); return; }
   res.json(analysis);
-});
+}))
 
 export default router;

@@ -6,6 +6,7 @@ import {
 } from "@workspace/db";
 import { eq, desc, and, asc } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { notify } from "../lib/notify";
@@ -103,7 +104,7 @@ function generateTitle(firstMessage: string): string {
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 // GET /conversations
-router.get("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), async (req, res) => {
+router.get("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
   try {
     const convos = await db
       .select()
@@ -120,10 +121,10 @@ router.get("/conversations", requireAuth, requireCompany, requirePermission("vie
     req.log?.error({ err }, "Failed to list conversations");
     res.status(500).json({ error: "Failed to list conversations" });
   }
-});
+}))
 
 // POST /conversations — create conversation + first message
-router.post("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), async (req, res) => {
+router.post("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
   const convParsed = NewConversationBody.safeParse(req.body);
   if (!convParsed.success) { res.status(400).json({ error: convParsed.error.flatten() }); return; }
   const { message } = convParsed.data;
@@ -170,10 +171,10 @@ router.post("/conversations", requireAuth, requireCompany, requirePermission("vi
     req.log?.error({ err }, "Failed to create conversation");
     res.status(500).json({ error: "Failed to create conversation" });
   }
-});
+}))
 
 // GET /conversations/:conversationId
-router.get("/conversations/:conversationId", requireAuth, requireCompany, requirePermission("viewClientMessages"), async (req, res) => {
+router.get("/conversations/:conversationId", requireAuth, requireCompany, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.conversationId as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid conversation ID" });
@@ -208,7 +209,7 @@ router.get("/conversations/:conversationId", requireAuth, requireCompany, requir
     req.log?.error({ err }, "Failed to get conversation");
     res.status(500).json({ error: "Failed to get conversation" });
   }
-});
+}))
 
 // POST /conversations/:conversationId/messages
 router.post(
@@ -216,7 +217,7 @@ router.post(
   requireAuth,
   requireCompany,
   requirePermission("viewClientMessages"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const id = parseInt(req.params.conversationId as string, 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid conversation ID" });
@@ -290,11 +291,11 @@ router.post(
       req.log?.error({ err }, "Failed to add message");
       res.status(500).json({ error: "Failed to add message" });
     }
-  },
+  }),
 );
 
 // DELETE /conversations/:conversationId
-router.delete("/conversations/:conversationId", requireAuth, requireCompany, requirePermission("viewClientMessages"), async (req, res) => {
+router.delete("/conversations/:conversationId", requireAuth, requireCompany, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.conversationId as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid conversation ID" });
@@ -319,6 +320,6 @@ router.delete("/conversations/:conversationId", requireAuth, requireCompany, req
     req.log?.error({ err }, "Failed to delete conversation");
     res.status(500).json({ error: "Failed to delete conversation" });
   }
-});
+}))
 
 export default router;

@@ -3,6 +3,7 @@ import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable 
 import { eq, and, gt, ilike } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { resolvePermission } from "../lib/permissionGate";
 import { SyncUserBody } from "@workspace/api-zod";
 import { getCompanyFeatureKeys } from "../lib/featureGate";
@@ -40,7 +41,7 @@ async function autoAcceptPendingInvitation(userId: number, email: string) {
 const router = Router();
 
 // POST /users/sync — create or update DB user from Clerk session
-router.post("/users/sync", requireAuth, async (req, res) => {
+router.post("/users/sync", requireAuth, asyncHandler(async (req, res) => {
   const parsed = SyncUserBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid body", details: parsed.error });
@@ -103,10 +104,10 @@ router.post("/users/sync", requireAuth, async (req, res) => {
       .limit(1);
     res.json(refreshed ?? created);
   }
-});
+}))
 
 // GET /users/me — get current user with memberships, active company, and resolved permissions
-router.get("/users/me", requireAuth, async (req, res) => {
+router.get("/users/me", requireAuth, asyncHandler(async (req, res) => {
   const [user] = await db
     .select()
     .from(usersTable)
@@ -186,10 +187,10 @@ router.get("/users/me", requireAuth, async (req, res) => {
     role,
     permissions: resolvedPerms,
   });
-});
+}))
 
 // POST /users/me/active-company — switch the user's active company
-router.post("/users/me/active-company", requireAuth, async (req, res) => {
+router.post("/users/me/active-company", requireAuth, asyncHandler(async (req, res) => {
   const { companyId } = req.body as { companyId?: number };
   if (typeof companyId !== "number") {
     res.status(400).json({ error: "companyId (number) is required" });
@@ -226,10 +227,10 @@ router.post("/users/me/active-company", requireAuth, async (req, res) => {
     .limit(1);
 
   res.json({ ...updated, company, activeCompanyId: companyId });
-});
+}))
 
 // POST /users/accept-terms — record that the current user accepted the T&C
-router.post("/users/accept-terms", requireAuth, async (req, res) => {
+router.post("/users/accept-terms", requireAuth, asyncHandler(async (req, res) => {
   const [updated] = await db
     .update(usersTable)
     .set({ termsAcceptedAt: new Date() })
@@ -248,19 +249,19 @@ router.post("/users/accept-terms", requireAuth, async (req, res) => {
   }
 
   res.json({ ...updated, company, activeCompanyId });
-});
+}))
 
 // GET /users/me/features — list feature keys the company's active plan includes
-router.get("/users/me/features", requireAuth, requireCompany, async (req, res) => {
+router.get("/users/me/features", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const features = await getCompanyFeatureKeys(req.companyId!);
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.set("Pragma", "no-cache");
   res.set("Expires", "0");
   res.json({ features });
-});
+}))
 
 // POST /users/push-token — store Expo push token for the current user
-router.post("/users/push-token", requireAuth, async (req, res) => {
+router.post("/users/push-token", requireAuth, asyncHandler(async (req, res) => {
   const { token } = req.body as { token?: string };
   if (!token || typeof token !== "string") {
     res.status(400).json({ error: "token is required" });
@@ -273,6 +274,6 @@ router.post("/users/push-token", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, req.userId!));
 
   res.json({ ok: true });
-});
+}))
 
 export default router;

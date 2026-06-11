@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, timeEntriesTable, projectsTable, usersTable, timesheetsTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { z } from "zod";
 
 const router = Router({ mergeParams: true });
@@ -60,7 +61,7 @@ const CreateTimeEntryBody = z.object({
 });
 
 // GET /projects/:projectId/time-entries — list entries for a project
-router.get("/", requireAuth, requireCompany, async (req, res) => {
+router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
@@ -100,10 +101,10 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
     .orderBy(desc(timeEntriesTable.date), desc(timeEntriesTable.createdAt));
 
   res.json(entries);
-});
+}))
 
 // POST /projects/:projectId/time-entries — log hours
-router.post("/", requireAuth, requireCompany, async (req, res) => {
+router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   if (!req.companyId) { res.status(403).json({ error: "No company associated with this account" }); return; }
 
   const projectId = parseInt(req.params.projectId as string);
@@ -152,7 +153,7 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
     .limit(1);
 
   res.status(201).json({ ...entry, user });
-});
+}))
 
 // PATCH /projects/:projectId/time-entries/:entryId — edit own entry (owner/foreman can edit any)
 const EditTimeEntryBody = z.object({
@@ -161,7 +162,7 @@ const EditTimeEntryBody = z.object({
   description: z.string().max(500).nullable().optional(),
 });
 
-router.patch("/:entryId", requireAuth, requireCompany, async (req, res) => {
+router.patch("/:entryId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const entryId = parseInt(req.params.entryId as string);
   if (isNaN(projectId) || isNaN(entryId)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -223,10 +224,10 @@ router.patch("/:entryId", requireAuth, requireCompany, async (req, res) => {
     .limit(1);
 
   res.json({ ...updated, user });
-});
+}))
 
 // DELETE /projects/:projectId/time-entries/:entryId — delete own entry (owner/foreman can delete any)
-router.delete("/:entryId", requireAuth, requireCompany, async (req, res) => {
+router.delete("/:entryId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const entryId = parseInt(req.params.entryId as string);
   if (isNaN(projectId) || isNaN(entryId)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -243,6 +244,6 @@ router.delete("/:entryId", requireAuth, requireCompany, async (req, res) => {
   await syncTimesheetFromEntries(req.companyId!, deleted.userId, getMonday(deleted.date), projectId);
 
   res.json({ ok: true });
-});
+}))
 
 export default router;

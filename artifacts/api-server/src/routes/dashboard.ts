@@ -19,6 +19,7 @@ import {
 } from "@workspace/db";
 import { eq, and, gte, sql, inArray, lt, ne, isNotNull, desc } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
 
@@ -57,7 +58,7 @@ function displayName(firstName: string, lastName: string, email?: string): strin
 }
 
 // GET /dashboard/summary — company-wide (or worker-scoped) overview
-router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) => {
+router.get("/dashboard/summary", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -199,10 +200,10 @@ router.get("/dashboard/summary", requireAuth, requireCompany, async (req, res) =
     activeLeads,
     pendingForms,
   });
-});
+}))
 
 // GET /dashboard/my-tasks — all tasks assigned to the current worker across all their projects
-router.get("/dashboard/my-tasks", requireAuth, requireCompany, async (req, res) => {
+router.get("/dashboard/my-tasks", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -226,10 +227,10 @@ router.get("/dashboard/my-tasks", requireAuth, requireCompany, async (req, res) 
     .orderBy(tasksTable.createdAt);
 
   res.json(tasks);
-});
+}))
 
 // GET /dashboard/action-counts — badge counts for sidebar nav
-router.get("/dashboard/action-counts", requireAuth, requireCompany, async (req, res) => {
+router.get("/dashboard/action-counts", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -289,10 +290,10 @@ router.get("/dashboard/action-counts", requireAuth, requireCompany, async (req, 
     submittedForms: Number(submittedFormsResult?.count ?? 0),
     pendingTimesheets: Number(pendingTimesheetsResult?.count ?? 0),
   });
-});
+}))
 
 // GET /dashboard/activity — recent activity feed (worker-scoped + tasks + schedules)
-router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) => {
+router.get("/dashboard/activity", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -432,10 +433,10 @@ router.get("/dashboard/activity", requireAuth, requireCompany, async (req, res) 
 
   activity.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   res.json(activity.slice(0, 20));
-});
+}))
 
 // GET /dashboard/smart-summary — rule-based insight text (cached 5 min per company)
-router.get("/dashboard/smart-summary", requireAuth, requireCompany, async (req, res) => {
+router.get("/dashboard/smart-summary", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
 
   const cached = smartSummaryCache.get(companyId);
@@ -539,10 +540,10 @@ router.get("/dashboard/smart-summary", requireAuth, requireCompany, async (req, 
   const result = { summary: lines.join(" "), lines };
   smartSummaryCache.set(companyId, { ...result, expiresAt: Date.now() + SMART_SUMMARY_TTL_MS });
   res.json(result);
-});
+}))
 
 // GET /rfis — company-wide RFI list (worker-scoped to accessible projects)
-router.get("/rfis", requireAuth, requireCompany, async (req, res) => {
+router.get("/rfis", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -576,10 +577,10 @@ router.get("/rfis", requireAuth, requireCompany, async (req, res) => {
     projectName: projectMap[r.projectId] ?? null,
     submittedByName: userMap[r.submittedByUserId] ?? "Unknown",
   })));
-});
+}))
 
 // GET /daily-reports — company-wide daily report list (worker-scoped to accessible projects)
-router.get("/daily-reports", requireAuth, requireCompany, async (req, res) => {
+router.get("/daily-reports", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -613,6 +614,6 @@ router.get("/daily-reports", requireAuth, requireCompany, async (req, res) => {
     projectName: projectMap[r.projectId] ?? null,
     submittedByName: userMap[r.submittedByUserId] ?? "Unknown",
   })));
-});
+}))
 
 export default router;

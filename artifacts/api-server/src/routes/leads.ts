@@ -10,6 +10,7 @@ import {
   userMembershipsTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { requireFeature } from "../lib/featureGate";
 
 import { z } from "zod";
@@ -80,7 +81,7 @@ async function getLeadWithContact(leadId: number, companyId: number) {
 }
 
 // GET /leads
-router.get("/leads", requireAuth, requireCompany, async (req, res) => {
+router.get("/leads", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
 
   const leads = await db
@@ -102,10 +103,10 @@ router.get("/leads", requireAuth, requireCompany, async (req, res) => {
   const contactMap = Object.fromEntries(contacts.map((c) => [c.id, c]));
 
   res.json(leads.map((l) => ({ ...l, contact: contactMap[l.contactId] ?? null })));
-});
+}))
 
 // GET /leads/:leadId
-router.get("/leads/:leadId", requireAuth, requireCompany, async (req, res) => {
+router.get("/leads/:leadId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -113,10 +114,10 @@ router.get("/leads/:leadId", requireAuth, requireCompany, async (req, res) => {
   if (!lead) { res.status(404).json({ error: "Lead not found" }); return; }
 
   res.json(lead);
-});
+}))
 
 // POST /leads
-router.post("/leads", requireAuth, requireCompany, async (req, res) => {
+router.post("/leads", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const parsed = CreateLeadBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
@@ -133,10 +134,10 @@ router.post("/leads", requireAuth, requireCompany, async (req, res) => {
 
   const full = await getLeadWithContact(lead.id, req.companyId!);
   res.status(201).json(full);
-});
+}))
 
 // PATCH /leads/:leadId
-router.patch("/leads/:leadId", requireAuth, requireCompany, async (req, res) => {
+router.patch("/leads/:leadId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -159,10 +160,10 @@ router.patch("/leads/:leadId", requireAuth, requireCompany, async (req, res) => 
 
   const full = await getLeadWithContact(updated.id, req.companyId!);
   res.json(full);
-});
+}))
 
 // DELETE /leads/:leadId
-router.delete("/leads/:leadId", requireAuth, requireCompany, async (req, res) => {
+router.delete("/leads/:leadId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -177,10 +178,10 @@ router.delete("/leads/:leadId", requireAuth, requireCompany, async (req, res) =>
   if (!deleted) { res.status(404).json({ error: "Lead not found" }); return; }
 
   res.status(204).send();
-});
+}))
 
 // POST /leads/:leadId/convert — convert a Won lead into a Project
-router.post("/leads/:leadId/convert", requireAuth, requireCompany, async (req, res) => {
+router.post("/leads/:leadId/convert", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -222,10 +223,10 @@ router.post("/leads/:leadId/convert", requireAuth, requireCompany, async (req, r
     .where(and(eq(leadsTable.id, leadId), eq(leadsTable.companyId, req.companyId!)));
 
   res.status(201).json({ project, leadId });
-});
+}))
 
 // GET /leads/:leadId/activities
-router.get("/leads/:leadId/activities", requireAuth, requireCompany, async (req, res) => {
+router.get("/leads/:leadId/activities", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -264,10 +265,10 @@ router.get("/leads/:leadId/activities", requireAuth, requireCompany, async (req,
         : null,
     })),
   );
-});
+}))
 
 // POST /leads/:leadId/activities
-router.post("/leads/:leadId/activities", requireAuth, requireCompany, async (req, res) => {
+router.post("/leads/:leadId/activities", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -286,6 +287,6 @@ router.post("/leads/:leadId/activities", requireAuth, requireCompany, async (req
     .returning();
 
   res.status(201).json(activity);
-});
+}))
 
 export default router;

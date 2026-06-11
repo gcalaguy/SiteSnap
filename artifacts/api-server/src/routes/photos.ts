@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, dailyReportPhotosTable, projectsTable, dailyReportsTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";
 
@@ -24,7 +25,7 @@ const AddPhotoBody = z.object({
 });
 
 // GET /projects/:projectId/daily-reports/:reportId/photos
-router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
+router.get("/", requireAuth, requireCompany, requirePermission("viewPhotos"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
   if (isNaN(reportId) || isNaN(projectId)) {
@@ -42,10 +43,10 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets")
     .orderBy(dailyReportPhotosTable.uploadedAt);
 
   res.json(photos);
-});
+}))
 
 // POST /projects/:projectId/daily-reports/:reportId/photos
-router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
+router.post("/", requireAuth, requireCompany, requirePermission("viewPhotos"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
   if (isNaN(reportId) || isNaN(projectId)) {
@@ -72,10 +73,10 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
     .returning();
 
   res.status(201).json(photo);
-});
+}))
 
 // DELETE /projects/:projectId/daily-reports/:reportId/photos/:photoId
-router.delete("/:photoId", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
+router.delete("/:photoId", requireAuth, requireCompany, requirePermission("viewPhotos"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
   const photoId = parseInt(req.params.photoId as string);
@@ -97,6 +98,6 @@ router.delete("/:photoId", requireAuth, requireCompany, requirePermission("submi
     );
 
   res.status(204).send();
-});
+}))
 
 export default router;

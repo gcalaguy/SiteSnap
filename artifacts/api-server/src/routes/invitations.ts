@@ -3,6 +3,7 @@ import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable 
 import { eq, and, lt } from "drizzle-orm";
 import { getAuth, clerkClient } from "@clerk/express";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { requireSeatAvailable } from "../lib/seatEnforcement";
 import { CreateInvitationBody } from "@workspace/api-zod";
 import crypto from "crypto";
@@ -18,7 +19,7 @@ router.post(
   requireCompany,
   requireOwnerOrForeman,
   requireSeatAvailable,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const parsed = CreateInvitationBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid body" });
@@ -142,7 +143,7 @@ router.post(
     }
 
     res.status(201).json({ ...invitation, company: company ?? null });
-  },
+  }),
 );
 
 // PATCH /invitations/:id — edit a pending invitation's email and/or role
@@ -151,7 +152,7 @@ router.patch(
   requireAuth,
   requireCompany,
   requireOwnerOrForeman,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -182,7 +183,7 @@ router.patch(
       .returning();
 
     res.json({ ...updated, company: null });
-  },
+  }),
 );
 
 // DELETE /invitations/:id — revoke a pending invitation
@@ -191,7 +192,7 @@ router.delete(
   requireAuth,
   requireCompany,
   requireOwnerOrForeman,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -209,7 +210,7 @@ router.delete(
       .where(eq(invitationsTable.id, id));
 
     res.status(204).end();
-  },
+  }),
 );
 
 // GET /invitations/company — list pending invitations for my company
@@ -217,7 +218,7 @@ router.get(
   "/invitations/company",
   requireAuth,
   requireCompany,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const invitations = await db
       .select()
       .from(invitationsTable)
@@ -229,17 +230,17 @@ router.get(
       );
 
     res.json(invitations.map((i) => ({ ...i, company: null })));
-  },
+  }),
 );
 
 // GET /invitations/:token — verify invite
-router.get("/invitations/:token", async (req, res) => {
+router.get("/invitations/:token", asyncHandler(async (req, res) => {
   const { token } = req.params;
 
   const [invitation] = await db
     .select()
     .from(invitationsTable)
-    .where(eq(invitationsTable.token, token))
+    .where(eq(invitationsTable.token, token as string))
     .limit(1);
 
   if (!invitation) {
@@ -264,12 +265,12 @@ router.get("/invitations/:token", async (req, res) => {
     .limit(1);
 
   res.json({ ...invitation, company: company ?? null });
-});
+}))
 
 // POST /invitations/:token/accept — accept invite and join company
 // Uses auto-sync: if the local DB user doesn't exist yet (brand-new Clerk sign-up),
 // we fetch their profile from Clerk and upsert them before accepting.
-router.post("/invitations/:token/accept", async (req, res) => {
+router.post("/invitations/:token/accept", asyncHandler(async (req, res) => {
   const { token } = req.params;
 
   // 1. Verify Clerk session
@@ -323,7 +324,7 @@ router.post("/invitations/:token/accept", async (req, res) => {
   const [invitation] = await db
     .select()
     .from(invitationsTable)
-    .where(eq(invitationsTable.token, token))
+    .where(eq(invitationsTable.token, token as string))
     .limit(1);
 
   if (!invitation) {
@@ -418,6 +419,6 @@ router.post("/invitations/:token/accept", async (req, res) => {
     .limit(1);
 
   res.json({ ...updatedUser, company: company ?? null });
-});
+}))
 
 export default router;
