@@ -81,4 +81,7 @@ jobs:
       - name: Run tests
         run: pnpm test
         env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_test
+          # sslmode=disable: CI postgres service has no SSL
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_test?sslmode=disable
+          # Dummy value to satisfy the import-time guard in lib/integrations-openai-ai-server
+          AI_INTEGRATIONS_OPENAI_BASE_URL: http://localhost:11434/v1

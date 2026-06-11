@@ -103,11 +103,11 @@ describe("interpretVoiceCommand", () => {
     }
   });
 
-  it("navigates to Reports", async () => {
+  it("navigates to FieldLogs", async () => {
     const result = await interpretVoiceCommand("show today's reports");
     expect(result.intent).toBe("NAVIGATE");
     if (result.intent === "NAVIGATE") {
-      expect(result.target).toBe("Reports");
+      expect(result.target).toBe("FieldLogs");
     }
   });
 
@@ -530,6 +530,12 @@ describe("interpretVoiceCommand", () => {
  * ───────────────────────────────────────────────────────────────────────── */
 
 describe("classifyWithLLM mapping (via interpretVoiceCommand fallback)", () => {
+  beforeEach(() => {
+    // Reset mock between tests to prevent consumed/unconsumed mockResolvedValueOnce
+    // from leaking into the next test when an input is matched by regex before LLM.
+    mockCustomFetch().mockReset();
+    mockCustomFetch().mockResolvedValue({ intent: "UNKNOWN" });
+  });
   it("maps ADD_DAILY_LOG response to SINGLE_ACTION daily log", async () => {
     mockCustomFetch().mockResolvedValueOnce({
       intent: "ADD_DAILY_LOG",
@@ -587,11 +593,13 @@ describe("classifyWithLLM mapping (via interpretVoiceCommand fallback)", () => {
   });
 
   it("rejects NAVIGATE with invalid target and falls back to dictation", async () => {
-    mockCustomFetch().mockResolvedValueOnce({ intent: "NAVIGATE", target: "Dashboard" });
-    const result = await interpretVoiceCommand("open the dashboard");
+    // Use a target that is NOT in ALL_ROUTE_TARGETS so isValidRouteTarget returns false.
+    // Use an input that won't match any navigation regex so the LLM path is taken.
+    mockCustomFetch().mockResolvedValueOnce({ intent: "NAVIGATE", target: "NotARealScreen" });
+    const result = await interpretVoiceCommand("please go to the integration settings panel");
     expect(result.intent).toBe("DATA_ENTRY");
     if (result.intent === "DATA_ENTRY") {
-      expect(result.payload).toBe("open the dashboard");
+      expect(result.payload).toBe("please go to the integration settings panel");
     }
   });
 
