@@ -15,6 +15,7 @@ import {
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import {
   CreateCompanyBody,
   UpdateMemberRoleBody,
@@ -40,7 +41,7 @@ const UpdateCompanyProfileBody = z.object({
 const router = Router();
 
 // POST /companies — create company and set requester as owner
-router.post("/companies", requireAuth, async (req, res) => {
+router.post("/companies", requireAuth, asyncHandler(async (req, res) => {
   const parsed = CreateCompanyBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid body", details: parsed.error });
@@ -71,10 +72,10 @@ router.post("/companies", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, req.userId!));
 
   res.status(201).json(company);
-});
+}));
 
 // GET /companies/:companyId
-router.get("/companies/:companyId", requireAuth, requireCompany, async (req, res) => {
+router.get("/companies/:companyId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -93,10 +94,10 @@ router.get("/companies/:companyId", requireAuth, requireCompany, async (req, res
   }
 
   res.json(company);
-});
+}));
 
 // GET /companies/:companyId/settings
-router.get("/companies/:companyId/settings", requireAuth, requireCompany, async (req, res) => {
+router.get("/companies/:companyId/settings", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -126,10 +127,10 @@ router.get("/companies/:companyId/settings", requireAuth, requireCompany, async 
     defaultQuoteTerms: row?.defaultQuoteTerms ?? "",
     defaultInvoiceNotes: row?.defaultInvoiceNotes ?? "",
   });
-});
+}));
 
 // PATCH /companies/:companyId — update company profile details
-router.patch("/companies/:companyId", requireAuth, requireCompany, async (req, res) => {
+router.patch("/companies/:companyId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -165,10 +166,10 @@ router.patch("/companies/:companyId", requireAuth, requireCompany, async (req, r
     .returning();
 
   res.json(updated);
-});
+}));
 
 // PATCH /companies/:companyId/logo — update company logo path
-router.patch("/companies/:companyId/logo", requireAuth, requireCompany, async (req, res) => {
+router.patch("/companies/:companyId/logo", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -191,10 +192,10 @@ router.patch("/companies/:companyId/logo", requireAuth, requireCompany, async (r
     .returning();
 
   res.json(updated);
-});
+}));
 
 // PATCH /companies/:companyId/quote-template — set or clear quote template path
-router.patch("/companies/:companyId/quote-template", requireAuth, requireCompany, async (req, res) => {
+router.patch("/companies/:companyId/quote-template", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -217,10 +218,10 @@ router.patch("/companies/:companyId/quote-template", requireAuth, requireCompany
     .returning();
 
   res.json(updated);
-});
+}));
 
 // PATCH /companies/:companyId/invoice-template — set or clear invoice template path
-router.patch("/companies/:companyId/invoice-template", requireAuth, requireCompany, async (req, res) => {
+router.patch("/companies/:companyId/invoice-template", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -243,10 +244,10 @@ router.patch("/companies/:companyId/invoice-template", requireAuth, requireCompa
     .returning();
 
   res.json(updated);
-});
+}));
 
 // PATCH /companies/:companyId/document-settings — update numbering + boilerplate
-router.patch("/companies/:companyId/document-settings", requireAuth, requireCompany, async (req, res) => {
+router.patch("/companies/:companyId/document-settings", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -297,14 +298,14 @@ router.patch("/companies/:companyId/document-settings", requireAuth, requireComp
     .returning();
 
   res.json(updated);
-});
+}));
 
 // GET /companies/:companyId/members
 router.get(
   "/companies/:companyId/members",
   requireAuth,
   requireCompany,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
     if (companyId !== req.companyId) {
       res.status(403).json({ error: "Access denied" });
@@ -339,7 +340,7 @@ router.get(
     res.set("Pragma", "no-cache");
     res.set("Expires", "0");
     res.json(result);
-  },
+  }),
 );
 
 // DELETE /companies/:companyId/members/:userId
@@ -348,7 +349,7 @@ router.delete(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
     const targetUserId = parseInt(req.params.userId as string);
 
@@ -563,7 +564,7 @@ router.delete(
     });
 
     res.status(204).send();
-  },
+  }),
 );
 
 // PATCH /companies/:companyId/members/:userId — update role
@@ -572,7 +573,7 @@ router.patch(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
     const targetUserId = parseInt(req.params.userId as string);
 
@@ -604,7 +605,7 @@ router.patch(
       .limit(1);
 
     res.json({ ...updated, company: null });
-  },
+  }),
 );
 
 // PATCH /companies/:companyId/members/:userId/name — update member name
@@ -613,7 +614,7 @@ router.patch(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
     const targetUserId = parseInt(req.params.userId as string);
 
@@ -657,7 +658,7 @@ router.patch(
     }
 
     res.json({ ...updated, company: null });
-  },
+  }),
 );
 
 // GET /companies/:companyId/members/:userId/permissions — get member's custom permissions
@@ -666,7 +667,7 @@ router.get(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
     const targetUserId = parseInt(req.params.userId as string);
 
@@ -698,7 +699,7 @@ router.get(
     }
 
     res.json(membership.permissions ?? null);
-  },
+  }),
 );
 
 // PUT /companies/:companyId/members/:userId/permissions — update member's custom permissions
@@ -707,7 +708,7 @@ router.put(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
     const targetUserId = parseInt(req.params.userId as string);
 
@@ -759,7 +760,7 @@ router.put(
       .returning();
 
     res.json(updated?.permissions ?? {});
-  },
+  }),
 );
 
 // GET /companies/:companyId/features
@@ -768,7 +769,7 @@ router.get(
   "/companies/:companyId/features",
   requireAuth,
   requireCompany,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
     if (companyId !== req.companyId) {
       res.status(403).json({ error: "Access denied" });
@@ -778,12 +779,12 @@ router.get(
     const { getCompanyFeatureKeys } = await import("../lib/featureGate");
     const features = await getCompanyFeatureKeys(companyId);
     res.json({ features });
-  },
+  }),
 );
 
 // POST /companies/:companyId/claim — claim a pre-created company as owner
 // Requires the one-time claimToken set by the super-admin at tenant creation.
-router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
+router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (isNaN(companyId)) {
     res.status(400).json({ error: "Invalid companyId" });
@@ -888,6 +889,6 @@ router.post("/companies/:companyId/claim", requireAuth, async (req, res) => {
     .limit(1);
 
   res.json({ company: updatedCompany, user: updatedUser });
-});
+}));
 
 export default router;

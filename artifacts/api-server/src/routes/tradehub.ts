@@ -20,6 +20,7 @@ import {
   jobPostingApplicationsTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { logger } from "../lib/logger";
 import { notify } from "../lib/notify";
 import { z } from "zod";
@@ -145,7 +146,7 @@ async function enrichPost(post: any, currentUserId?: number) {
 // ── FEED ─────────────────────────────────────────────────────────────────────
 
 // GET /tradehub/feed?type=&province=&trade=&page=
-router.get("/tradehub/feed", requireAuth, async (req, res) => {
+router.get("/tradehub/feed", requireAuth, asyncHandler(async (req, res) => {
   try {
     const { type, province, trade, page = "1" } = req.query as Record<string, string>;
     const pageNum = Math.max(1, parseInt(page) || 1);
@@ -184,12 +185,12 @@ router.get("/tradehub/feed", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/feed error");
     res.status(500).json({ error: "Failed to load feed" });
   }
-});
+}));
 
 // ── POSTS ─────────────────────────────────────────────────────────────────────
 
 // GET /tradehub/posts?kind=&page=
-router.get("/tradehub/posts", requireAuth, async (req, res) => {
+router.get("/tradehub/posts", requireAuth, asyncHandler(async (req, res) => {
   try {
     const { kind, page = "1" } = req.query as Record<string, string>;
     const pageNum = Math.max(1, parseInt(page) || 1);
@@ -213,10 +214,10 @@ router.get("/tradehub/posts", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/posts GET error");
     res.status(500).json({ error: "Failed to load posts" });
   }
-});
+}));
 
 // POST /tradehub/posts
-router.post("/tradehub/posts", requireAuth, async (req, res) => {
+router.post("/tradehub/posts", requireAuth, asyncHandler(async (req, res) => {
   try {
     if (!checkPostRateLimit(req.userId!)) {
       res.status(429).json({ error: "Post limit reached (20/day). Try again tomorrow." });
@@ -249,10 +250,10 @@ router.post("/tradehub/posts", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/posts POST error");
     res.status(500).json({ error: "Failed to create post" });
   }
-});
+}));
 
 // GET /tradehub/posts/:id
-router.get("/tradehub/posts/:id", requireAuth, async (req, res) => {
+router.get("/tradehub/posts/:id", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, id)).limit(1);
@@ -298,10 +299,10 @@ router.get("/tradehub/posts/:id", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/posts/:id GET error");
     res.status(500).json({ error: "Failed to load post" });
   }
-});
+}));
 
 // DELETE /tradehub/posts/:id
-router.delete("/tradehub/posts/:id", requireAuth, async (req, res) => {
+router.delete("/tradehub/posts/:id", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, id)).limit(1);
@@ -321,12 +322,12 @@ router.delete("/tradehub/posts/:id", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/posts/:id DELETE error");
     res.status(500).json({ error: "Failed to delete post" });
   }
-});
+}));
 
 // ── COMMENTS ─────────────────────────────────────────────────────────────────
 
 // POST /tradehub/posts/:id/comments
-router.post("/tradehub/posts/:id/comments", requireAuth, async (req, res) => {
+router.post("/tradehub/posts/:id/comments", requireAuth, asyncHandler(async (req, res) => {
   try {
     const postId = parseInt(req.params.id as string);
     const parsed = CreateCommentBody.safeParse(req.body);
@@ -368,12 +369,12 @@ router.post("/tradehub/posts/:id/comments", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/posts/:id/comments error");
     res.status(500).json({ error: "Failed to add comment" });
   }
-});
+}));
 
 // ── REACTIONS ────────────────────────────────────────────────────────────────
 
 // POST /tradehub/posts/:id/react — toggle like
-router.post("/tradehub/posts/:id/react", requireAuth, async (req, res) => {
+router.post("/tradehub/posts/:id/react", requireAuth, asyncHandler(async (req, res) => {
   try {
     const postId = parseInt(req.params.id as string);
     const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, postId)).limit(1);
@@ -408,12 +409,12 @@ router.post("/tradehub/posts/:id/react", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/posts/:id/react error");
     res.status(500).json({ error: "Failed to toggle reaction" });
   }
-});
+}));
 
 // ── JOBS ──────────────────────────────────────────────────────────────────────
 
 // GET /tradehub/jobs?province=&trade=&page=
-router.get("/tradehub/jobs", requireAuth, async (req, res) => {
+router.get("/tradehub/jobs", requireAuth, asyncHandler(async (req, res) => {
   try {
     const { province, trade, page = "1" } = req.query as Record<string, string>;
     const pageNum = Math.max(1, parseInt(page) || 1);
@@ -441,14 +442,14 @@ router.get("/tradehub/jobs", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/jobs error");
     res.status(500).json({ error: "Failed to load jobs" });
   }
-});
+}));
 
 const ApplyToJobBody = z.object({
   message: z.string().max(2000).optional(),
 });
 
 // POST /tradehub/jobs/:id/apply
-router.post("/tradehub/jobs/:id/apply", requireAuth, async (req, res) => {
+router.post("/tradehub/jobs/:id/apply", requireAuth, asyncHandler(async (req, res) => {
   try {
     const postId = parseInt(req.params.id as string);
     const parsed = ApplyToJobBody.safeParse(req.body);
@@ -487,14 +488,14 @@ router.post("/tradehub/jobs/:id/apply", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/jobs/:id/apply error");
     res.status(500).json({ error: "Failed to apply" });
   }
-});
+}));
 
 const UpdateApplicationBody = z.object({
   status: z.enum(["reviewed", "accepted", "rejected"]),
 });
 
 // PATCH /tradehub/applications/:id — update application status
-router.patch("/tradehub/applications/:id", requireAuth, async (req, res) => {
+router.patch("/tradehub/applications/:id", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const parsed = UpdateApplicationBody.safeParse(req.body);
@@ -526,12 +527,12 @@ router.patch("/tradehub/applications/:id", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/applications/:id error");
     res.status(500).json({ error: "Failed to update application" });
   }
-});
+}));
 
 // ── JOB POSTINGS (Open Tenders) ──────────────────────────────────────────────
 
 // GET /tradehub/job-postings
-router.get("/tradehub/job-postings", requireAuth, async (req, res) => {
+router.get("/tradehub/job-postings", requireAuth, asyncHandler(async (req, res) => {
   try {
     const { province, trade, search } = req.query as Record<string, string>;
     const conditions: SQL[] = [eq(jobPostingsTable.status, "open")];
@@ -576,10 +577,10 @@ router.get("/tradehub/job-postings", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/job-postings error");
     res.status(500).json({ error: "Failed to load job postings" });
   }
-});
+}));
 
 // POST /tradehub/job-postings
-router.post("/tradehub/job-postings", requireAuth, requireCompany, async (req, res) => {
+router.post("/tradehub/job-postings", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
     const parsed = CreateJobPostingBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
@@ -601,10 +602,10 @@ router.post("/tradehub/job-postings", requireAuth, requireCompany, async (req, r
     req.log.error({ err }, "tradehub/job-postings POST error");
     res.status(500).json({ error: "Failed to create job posting" });
   }
-});
+}));
 
 // POST /tradehub/job-postings/:id/apply
-router.post("/tradehub/job-postings/:id/apply", requireAuth, async (req, res) => {
+router.post("/tradehub/job-postings/:id/apply", requireAuth, asyncHandler(async (req, res) => {
   try {
     const jobPostingId = parseInt(req.params.id as string);
     const { message } = req.body as { message?: string };
@@ -654,12 +655,12 @@ router.post("/tradehub/job-postings/:id/apply", requireAuth, async (req, res) =>
     req.log.error({ err }, "tradehub/job-postings/:id/apply error");
     res.status(500).json({ error: "Failed to apply" });
   }
-});
+}));
 
 // ── PROFILES ─────────────────────────────────────────────────────────────────
 
 // GET /tradehub/profile/me
-router.get("/tradehub/profile/me", requireAuth, async (req, res) => {
+router.get("/tradehub/profile/me", requireAuth, asyncHandler(async (req, res) => {
   try {
     const [profile] = await db
       .select()
@@ -671,10 +672,10 @@ router.get("/tradehub/profile/me", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/profile/me error");
     res.status(500).json({ error: "Failed to load profile" });
   }
-});
+}));
 
 // GET /tradehub/profile/:userId
-router.get("/tradehub/profile/:userId", requireAuth, async (req, res) => {
+router.get("/tradehub/profile/:userId", requireAuth, asyncHandler(async (req, res) => {
   try {
     const userId = parseInt(req.params.userId as string);
     const [profile] = await db
@@ -697,10 +698,10 @@ router.get("/tradehub/profile/:userId", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/profile/:userId error");
     res.status(500).json({ error: "Failed to load profile" });
   }
-});
+}));
 
 // PUT /tradehub/profile — upsert my profile
-router.put("/tradehub/profile", requireAuth, async (req, res) => {
+router.put("/tradehub/profile", requireAuth, asyncHandler(async (req, res) => {
   try {
     const parsed = UpdateProfileBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
@@ -738,12 +739,12 @@ router.put("/tradehub/profile", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/profile PUT error");
     res.status(500).json({ error: "Failed to save profile" });
   }
-});
+}));
 
 // ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
 
 // GET /tradehub/notifications
-router.get("/tradehub/notifications", requireAuth, async (req, res) => {
+router.get("/tradehub/notifications", requireAuth, asyncHandler(async (req, res) => {
   try {
     const notifications = await db
       .select()
@@ -756,10 +757,10 @@ router.get("/tradehub/notifications", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/notifications error");
     res.status(500).json({ error: "Failed to load notifications" });
   }
-});
+}));
 
 // POST /tradehub/notifications/read-all
-router.post("/tradehub/notifications/read-all", requireAuth, async (req, res) => {
+router.post("/tradehub/notifications/read-all", requireAuth, asyncHandler(async (req, res) => {
   try {
     await db
       .update(tradehubNotificationsTable)
@@ -769,12 +770,12 @@ router.post("/tradehub/notifications/read-all", requireAuth, async (req, res) =>
   } catch (err: any) {
     res.status(500).json({ error: "Failed to mark notifications read" });
   }
-});
+}));
 
 // ── REPORTS ───────────────────────────────────────────────────────────────────
 
 // POST /tradehub/reports
-router.post("/tradehub/reports", requireAuth, async (req, res) => {
+router.post("/tradehub/reports", requireAuth, asyncHandler(async (req, res) => {
   try {
     const parsed = CreateReportBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
@@ -790,12 +791,12 @@ router.post("/tradehub/reports", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/reports error");
     res.status(500).json({ error: "Failed to submit report" });
   }
-});
+}));
 
 // ── MY POSTS ─────────────────────────────────────────────────────────────────
 
 // GET /tradehub/my-posts
-router.get("/tradehub/my-posts", requireAuth, async (req, res) => {
+router.get("/tradehub/my-posts", requireAuth, asyncHandler(async (req, res) => {
   try {
     const posts = await db
       .select()
@@ -808,10 +809,10 @@ router.get("/tradehub/my-posts", requireAuth, async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: "Failed to load posts" });
   }
-});
+}));
 
 // GET /tradehub/my-applications
-router.get("/tradehub/my-applications", requireAuth, async (req, res) => {
+router.get("/tradehub/my-applications", requireAuth, asyncHandler(async (req, res) => {
   try {
     const apps = await db
       .select()
@@ -830,12 +831,12 @@ router.get("/tradehub/my-applications", requireAuth, async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: "Failed to load applications" });
   }
-});
+}));
 
 // ── SAVED CALCULATIONS ────────────────────────────────────────────────────────
 
 // POST /tradehub/profile/calculations — save a calculation to own profile
-router.post("/tradehub/profile/calculations", requireAuth, async (req, res) => {
+router.post("/tradehub/profile/calculations", requireAuth, asyncHandler(async (req, res) => {
   try {
     const { calculatorId, calculatorName, category, inputs, results, summary, aiSummary } = req.body;
     if (!calculatorId || !calculatorName || !category) {
@@ -870,10 +871,10 @@ router.post("/tradehub/profile/calculations", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/profile/calculations POST error");
     res.status(500).json({ error: "Failed to save calculation" });
   }
-});
+}));
 
 // GET /tradehub/profile/me/calculations — own saved calculations
-router.get("/tradehub/profile/me/calculations", requireAuth, async (req, res) => {
+router.get("/tradehub/profile/me/calculations", requireAuth, asyncHandler(async (req, res) => {
   try {
     const calcs = await db
       .select()
@@ -885,10 +886,10 @@ router.get("/tradehub/profile/me/calculations", requireAuth, async (req, res) =>
     req.log.error({ err }, "tradehub/profile/me/calculations GET error");
     res.status(500).json({ error: "Failed to fetch calculations" });
   }
-});
+}));
 
 // GET /tradehub/profile/:userId/calculations — public calculations for another user
-router.get("/tradehub/profile/:userId/calculations", requireAuth, async (req, res) => {
+router.get("/tradehub/profile/:userId/calculations", requireAuth, asyncHandler(async (req, res) => {
   try {
     const profileUserId = parseInt(req.params.userId as string);
     if (isNaN(profileUserId)) { res.status(400).json({ error: "Invalid userId" }); return; }
@@ -903,10 +904,10 @@ router.get("/tradehub/profile/:userId/calculations", requireAuth, async (req, re
     req.log.error({ err }, "tradehub/profile/:userId/calculations GET error");
     res.status(500).json({ error: "Failed to fetch calculations" });
   }
-});
+}));
 
 // PATCH /tradehub/profile/calculations/:id/pin — toggle pin
-router.patch("/tradehub/profile/calculations/:id/pin", requireAuth, async (req, res) => {
+router.patch("/tradehub/profile/calculations/:id/pin", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -922,10 +923,10 @@ router.patch("/tradehub/profile/calculations/:id/pin", requireAuth, async (req, 
     req.log.error({ err }, "tradehub/profile/calculations PATCH pin error");
     res.status(500).json({ error: "Failed to toggle pin" });
   }
-});
+}));
 
 // DELETE /tradehub/profile/calculations/:id
-router.delete("/tradehub/profile/calculations/:id", requireAuth, async (req, res) => {
+router.delete("/tradehub/profile/calculations/:id", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -936,12 +937,12 @@ router.delete("/tradehub/profile/calculations/:id", requireAuth, async (req, res
     req.log.error({ err }, "tradehub/profile/calculations DELETE error");
     res.status(500).json({ error: "Failed to delete calculation" });
   }
-});
+}));
 
 // ── VOICE INTRO ──────────────────────────────────────────────────────────────
 
 // PUT /tradehub/profile/voice — save voice intro objectPath to profile
-router.put("/tradehub/profile/voice", requireAuth, async (req, res) => {
+router.put("/tradehub/profile/voice", requireAuth, asyncHandler(async (req, res) => {
   try {
     const { objectPath, duration } = req.body as { objectPath: string; duration?: number };
     if (!objectPath?.trim()) { res.status(400).json({ error: "objectPath required" }); return; }
@@ -981,10 +982,10 @@ router.put("/tradehub/profile/voice", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/profile/voice PUT error");
     res.status(500).json({ error: "Failed to save voice intro" });
   }
-});
+}));
 
 // DELETE /tradehub/profile/voice
-router.delete("/tradehub/profile/voice", requireAuth, async (req, res) => {
+router.delete("/tradehub/profile/voice", requireAuth, asyncHandler(async (req, res) => {
   try {
     await db
       .update(tradehubProfilesTable)
@@ -995,12 +996,12 @@ router.delete("/tradehub/profile/voice", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/profile/voice DELETE error");
     res.status(500).json({ error: "Failed to remove voice intro" });
   }
-});
+}));
 
 // ── MESSAGING ─────────────────────────────────────────────────────────────────
 
 // GET /tradehub/users/search?q=
-router.get("/tradehub/users/search", requireAuth, async (req, res) => {
+router.get("/tradehub/users/search", requireAuth, asyncHandler(async (req, res) => {
   try {
     const q = (req.query.q as string ?? "").trim();
     if (q.length < 2) { res.json([]); return; }
@@ -1020,10 +1021,10 @@ router.get("/tradehub/users/search", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/users/search error");
     res.status(500).json({ error: "Search failed" });
   }
-});
+}));
 
 // POST /tradehub/conversations — start or find existing conversation
-router.post("/tradehub/conversations", requireAuth, async (req, res) => {
+router.post("/tradehub/conversations", requireAuth, asyncHandler(async (req, res) => {
   try {
     const { recipientId, message } = req.body as { recipientId: number; message: string };
     if (!recipientId || !message?.trim()) {
@@ -1089,10 +1090,10 @@ router.post("/tradehub/conversations", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/conversations POST error");
     res.status(500).json({ error: "Failed to create conversation" });
   }
-});
+}));
 
 // GET /tradehub/conversations — list my conversations
-router.get("/tradehub/conversations", requireAuth, async (req, res) => {
+router.get("/tradehub/conversations", requireAuth, asyncHandler(async (req, res) => {
   try {
     const myConvIds = await db
       .select({ conversationId: tradehubConversationParticipantsTable.conversationId })
@@ -1175,10 +1176,10 @@ router.get("/tradehub/conversations", requireAuth, async (req, res) => {
     req.log.error({ err }, "tradehub/conversations GET error");
     res.status(500).json({ error: "Failed to load conversations" });
   }
-});
+}));
 
 // GET /tradehub/conversations/:id/messages
-router.get("/tradehub/conversations/:id/messages", requireAuth, async (req, res) => {
+router.get("/tradehub/conversations/:id/messages", requireAuth, asyncHandler(async (req, res) => {
   try {
     const convId = parseInt(req.params.id as string);
 
@@ -1207,10 +1208,10 @@ router.get("/tradehub/conversations/:id/messages", requireAuth, async (req, res)
     req.log.error({ err }, "tradehub/conversations/:id/messages GET error");
     res.status(500).json({ error: "Failed to load messages" });
   }
-});
+}));
 
 // POST /tradehub/conversations/:id/messages — send a message
-router.post("/tradehub/conversations/:id/messages", requireAuth, async (req, res) => {
+router.post("/tradehub/conversations/:id/messages", requireAuth, asyncHandler(async (req, res) => {
   try {
     const convId = parseInt(req.params.id as string);
     const { content } = req.body as { content: string };
@@ -1264,10 +1265,10 @@ router.post("/tradehub/conversations/:id/messages", requireAuth, async (req, res
     req.log.error({ err }, "tradehub/conversations/:id/messages POST error");
     res.status(500).json({ error: "Failed to send message" });
   }
-});
+}));
 
 // POST /tradehub/conversations/:id/read — mark as read
-router.post("/tradehub/conversations/:id/read", requireAuth, async (req, res) => {
+router.post("/tradehub/conversations/:id/read", requireAuth, asyncHandler(async (req, res) => {
   try {
     const convId = parseInt(req.params.id as string);
     await db
@@ -1283,6 +1284,6 @@ router.post("/tradehub/conversations/:id/read", requireAuth, async (req, res) =>
   } catch {
     res.status(500).json({ error: "Failed to mark read" });
   }
-});
+}));
 
 export default router;

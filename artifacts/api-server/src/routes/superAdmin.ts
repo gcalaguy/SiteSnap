@@ -42,6 +42,7 @@ import {
 import { z } from "zod/v4";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireSuperAdmin } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import crypto from "crypto";
 
@@ -51,7 +52,7 @@ const guard = [requireAuth, requireSuperAdmin];
 // ── Plans ──────────────────────────────────────────────────────────────────────
 
 // GET /admin/plans
-router.get("/admin/plans", ...guard, async (req, res) => {
+router.get("/admin/plans", ...guard, asyncHandler(async (req, res) => {
   const plans = await db.select().from(plansTable).orderBy(plansTable.monthlyPrice);
   const features = await db.select().from(planFeaturesTable);
   const planList = plans.map((p) => ({
@@ -59,10 +60,10 @@ router.get("/admin/plans", ...guard, async (req, res) => {
     featureIds: features.filter((f) => f.planId === p.id).map((f) => f.featureId),
   }));
   res.json(planList);
-});
+}));
 
 // POST /admin/plans — create plan in DB then auto-create Stripe product + prices
-router.post("/admin/plans", ...guard, async (req, res) => {
+router.post("/admin/plans", ...guard, asyncHandler(async (req, res) => {
   const raw = req.body as Record<string, unknown>;
   if (!raw.monthlyPrice || isNaN(Number(raw.monthlyPrice)) || !raw.yearlyPrice || isNaN(Number(raw.yearlyPrice))) {
     res.status(400).json({ error: "monthlyPrice and yearlyPrice are required and must be valid numbers" });
@@ -126,10 +127,10 @@ router.post("/admin/plans", ...guard, async (req, res) => {
     req.log.warn({ err: stripeErr }, "Stripe sync failed; plan created without Stripe product");
     res.status(201).json({ ...plan, featureIds: [] });
   }
-});
+}));
 
 // PATCH /admin/plans/:id — update plan and sync changes to Stripe
-router.patch("/admin/plans/:id", ...guard, async (req, res) => {
+router.patch("/admin/plans/:id", ...guard, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const raw = req.body as Record<string, unknown>;
   // Reject empty-string numeric fields before Zod / DB
@@ -232,10 +233,10 @@ router.patch("/admin/plans/:id", ...guard, async (req, res) => {
   }
 
   res.json(plan);
-});
+}));
 
 // DELETE /admin/plans/:id — archive Stripe product then delete plan
-router.delete("/admin/plans/:id", ...guard, async (req, res) => {
+router.delete("/admin/plans/:id", ...guard, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
 
   const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id)).limit(1);
@@ -257,10 +258,10 @@ router.delete("/admin/plans/:id", ...guard, async (req, res) => {
 
   await db.delete(plansTable).where(eq(plansTable.id, id));
   res.json({ ok: true });
-});
+}));
 
 // POST /admin/plans/:id/sync-stripe — manually sync an existing plan to Stripe
-router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
+router.post("/admin/plans/:id/sync-stripe", ...guard, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id)).limit(1);
   if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
@@ -389,22 +390,22 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, async (req, res) => {
   }
 
   res.json(updated ?? plan);
-});
+}));
 
 // ── Features ───────────────────────────────────────────────────────────────────
 
 // GET /admin/features
-router.get("/admin/features", ...guard, async (req, res) => {
+router.get("/admin/features", ...guard, asyncHandler(async (req, res) => {
   const features = await db.select().from(featuresTable).orderBy(featuresTable.name);
   res.json(features);
-});
+}));
 
 // POST /admin/features
-router.post("/admin/features", ...guard, async (req, res) => {
+router.post("/admin/features", ...guard, asyncHandler(async (req, res) => {
   const body = insertFeatureSchema.parse(req.body);
   const [feature] = await db.insert(featuresTable).values(body).returning();
   res.status(201).json(feature);
-});
+}));
 
 // PATCH /admin/features/:id
 const UpdateFeatureBody = z.object({
@@ -414,26 +415,26 @@ const UpdateFeatureBody = z.object({
   category: z.string().optional(),
 });
 
-router.patch("/admin/features/:id", ...guard, async (req, res) => {
+router.patch("/admin/features/:id", ...guard, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const body = UpdateFeatureBody.parse(req.body);
   const [feature] = await db
     .update(featuresTable).set(body).where(eq(featuresTable.id, id)).returning();
   if (!feature) { res.status(404).json({ error: "Feature not found" }); return; }
   res.json(feature);
-});
+}));
 
 // DELETE /admin/features/:id
-router.delete("/admin/features/:id", ...guard, async (req, res) => {
+router.delete("/admin/features/:id", ...guard, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   await db.delete(featuresTable).where(eq(featuresTable.id, id));
   res.json({ ok: true });
-});
+}));
 
 // ── Plan ↔ Feature assignment ───────────────────────────────────────────────────
 
 // GET /admin/plans/:id/features
-router.get("/admin/plans/:id/features", ...guard, async (req, res) => {
+router.get("/admin/plans/:id/features", ...guard, asyncHandler(async (req, res) => {
   const planId = Number(req.params.id);
   const rows = await db
     .select({ feature: featuresTable })
@@ -441,10 +442,10 @@ router.get("/admin/plans/:id/features", ...guard, async (req, res) => {
     .innerJoin(featuresTable, eq(featuresTable.id, planFeaturesTable.featureId))
     .where(eq(planFeaturesTable.planId, planId));
   res.json(rows.map((r) => r.feature));
-});
+}));
 
 // PUT /admin/plans/:id/features  — replace feature set for a plan
-router.put("/admin/plans/:id/features", ...guard, async (req, res) => {
+router.put("/admin/plans/:id/features", ...guard, asyncHandler(async (req, res) => {
   const planId = Number(req.params.id);
   const { featureIds } = req.body as { featureIds: number[] };
   if (!Array.isArray(featureIds)) {
@@ -456,14 +457,14 @@ router.put("/admin/plans/:id/features", ...guard, async (req, res) => {
     await db.insert(planFeaturesTable).values(featureIds.map((fid) => ({ planId, featureId: fid })));
   }
   res.json({ ok: true, planId, featureIds });
-});
+}));
 
 // POST /admin/plans/:planId/features — replace feature set for a plan (validated)
 const PlanFeaturesBody = z.object({
   featureIds: z.array(z.number().int().positive()),
 });
 
-router.post("/admin/plans/:planId/features", ...guard, async (req, res) => {
+router.post("/admin/plans/:planId/features", ...guard, asyncHandler(async (req, res) => {
   const planId = Number(req.params.planId);
   const { featureIds } = PlanFeaturesBody.parse(req.body);
   await db.delete(planFeaturesTable).where(eq(planFeaturesTable.planId, planId));
@@ -471,12 +472,12 @@ router.post("/admin/plans/:planId/features", ...guard, async (req, res) => {
     await db.insert(planFeaturesTable).values(featureIds.map((fid) => ({ planId, featureId: fid })));
   }
   res.status(200).json({ ok: true, planId, featureIds });
-});
+}));
 
 // ── Tenants ─────────────────────────────────────────────────────────────────────
 
 // POST /admin/tenants — super-admin creates a company (no owner yet)
-router.post("/admin/tenants", ...guard, async (req, res) => {
+router.post("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
   const raw = req.body as Record<string, unknown>;
   if (!raw.name || typeof raw.name !== "string" || !raw.province || typeof raw.province !== "string" || !raw.city || typeof raw.city !== "string") {
     res.status(400).json({ error: "name, province, and city are required" });
@@ -517,10 +518,10 @@ router.post("/admin/tenants", ...guard, async (req, res) => {
   }
 
   res.status(201).json(company);
-});
+}));
 
 // GET /admin/tenants
-router.get("/admin/tenants", ...guard, async (req, res) => {
+router.get("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
   const companies = await db.select().from(companiesTable).orderBy(companiesTable.name);
   const subs = await db.select().from(subscriptionsTable);
   const plans = await db.select().from(plansTable);
@@ -537,18 +538,18 @@ router.get("/admin/tenants", ...guard, async (req, res) => {
     return { ...c, subscription: sub, plan, userCount: Number(uc?.count ?? 0) };
   });
   res.json(result);
-});
+}));
 
 // POST /admin/tenants/:id/reissue-link — regenerate onboarding link for an existing tenant
-router.post("/admin/tenants/:id/reissue-link", ...guard, async (req, res) => {
+router.post("/admin/tenants/:id/reissue-link", ...guard, asyncHandler(async (req, res) => {
   const companyId = Number(req.params.id);
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
   res.json({ companyId, link: `${req.protocol}://${req.get("host")}/onboarding?companyId=${companyId}` });
-});
+}));
 
 // GET /admin/tenants/:id — tenant detail with users
-router.get("/admin/tenants/:id", ...guard, async (req, res) => {
+router.get("/admin/tenants/:id", ...guard, asyncHandler(async (req, res) => {
   const companyId = Number(req.params.id);
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
@@ -577,10 +578,10 @@ router.get("/admin/tenants/:id", ...guard, async (req, res) => {
     .orderBy(usersTable.lastName, usersTable.firstName);
 
   res.json({ ...company, subscription: subscription ?? null, plan: plan ?? null, users });
-});
+}));
 
 // PATCH /admin/tenants/:id/subscription — assign or update subscription
-router.patch("/admin/tenants/:id/subscription", ...guard, async (req, res) => {
+router.patch("/admin/tenants/:id/subscription", ...guard, asyncHandler(async (req, res) => {
   const companyId = Number(req.params.id);
   const { planId, status, billingCycle } = req.body as {
     planId?: number; status?: string; billingCycle?: string;
@@ -613,10 +614,10 @@ router.patch("/admin/tenants/:id/subscription", ...guard, async (req, res) => {
 
     res.json(sub);
   }
-});
+}));
 
 // DELETE /admin/tenants/:id
-router.delete("/admin/tenants/:id", ...guard, async (req, res) => {
+router.delete("/admin/tenants/:id", ...guard, asyncHandler(async (req, res) => {
   const companyId = Number(req.params.id);
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
@@ -691,12 +692,12 @@ router.delete("/admin/tenants/:id", ...guard, async (req, res) => {
   });
 
   res.json({ ok: true });
-});
+}));
 
 // ── Per-Tenant Feature Override ─────────────────────────────────────────────────
 
 // GET /admin/tenants/:id/features
-router.get("/admin/tenants/:id/features", ...guard, async (req, res) => {
+router.get("/admin/tenants/:id/features", ...guard, asyncHandler(async (req, res) => {
   const companyId = Number(req.params.id);
   const [company] = await db
     .select({ activeFeatures: companiesTable.activeFeatures })
@@ -705,10 +706,10 @@ router.get("/admin/tenants/:id/features", ...guard, async (req, res) => {
     .limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
   res.json({ activeFeatures: company.activeFeatures ?? [] });
-});
+}));
 
 // PATCH /admin/tenants/:id/features
-router.patch("/admin/tenants/:id/features", ...guard, async (req, res) => {
+router.patch("/admin/tenants/:id/features", ...guard, asyncHandler(async (req, res) => {
   const companyId = Number(req.params.id);
   const { activeFeatures } = req.body as { activeFeatures: string[] | null };
 
@@ -729,12 +730,12 @@ router.patch("/admin/tenants/:id/features", ...guard, async (req, res) => {
 
   if (!updated) { res.status(404).json({ error: "Tenant not found" }); return; }
   res.json({ ok: true, companyId, activeFeatures: updated.activeFeatures ?? [] });
-});
+}));
 
 // ── Promote/demote super admin ──────────────────────────────────────────────────
 
 // PATCH /admin/users/:id/system-role
-router.patch("/admin/users/:id/system-role", ...guard, async (req, res) => {
+router.patch("/admin/users/:id/system-role", ...guard, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const { systemRole } = req.body as { systemRole: string | null };
   const [user] = await db
@@ -744,10 +745,10 @@ router.patch("/admin/users/:id/system-role", ...guard, async (req, res) => {
     .returning();
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
   res.json(user);
-});
+}));
 
 // PATCH /admin/users/:id/company-role — update a user's company role (owner/foreman/worker)
-router.patch("/admin/users/:id/company-role", ...guard, async (req, res) => {
+router.patch("/admin/users/:id/company-role", ...guard, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const { role, companyId } = req.body as { role: "owner" | "foreman" | "worker"; companyId?: number };
   if (!["owner", "foreman", "worker"].includes(role)) {
@@ -775,10 +776,10 @@ router.patch("/admin/users/:id/company-role", ...guard, async (req, res) => {
       .where(eq(userMembershipsTable.userId, id));
   }
   res.json(user);
-});
+}));
 
 // DELETE /admin/tenants/:companyId/users/:userId — remove a user from a tenant (super-admin)
-router.delete("/admin/tenants/:companyId/users/:userId", ...guard, async (req, res) => {
+router.delete("/admin/tenants/:companyId/users/:userId", ...guard, asyncHandler(async (req, res) => {
   const companyId = Number(req.params.companyId);
   const userId = Number(req.params.userId);
 
@@ -811,10 +812,10 @@ router.delete("/admin/tenants/:companyId/users/:userId", ...guard, async (req, r
   }
 
   res.status(204).send();
-});
+}));
 
 // PATCH /admin/users/:id — update a user's name and email (super-admin)
-router.patch("/admin/users/:id", ...guard, async (req, res) => {
+router.patch("/admin/users/:id", ...guard, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const { firstName, lastName, email } = req.body as {
     firstName?: string;
@@ -840,11 +841,11 @@ router.patch("/admin/users/:id", ...guard, async (req, res) => {
 
   const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.id, id)).returning();
   res.json(updated);
-});
+}));
 
 // ── Seed Data ───────────────────────────────────────────────────────────────────
 
-router.post("/admin/seed", ...guard, async (req, res) => {
+router.post("/admin/seed", ...guard, asyncHandler(async (req, res) => {
   const existingPlans = await db.select().from(plansTable);
   if (existingPlans.length === 0) {
     await db.insert(plansTable).values([
@@ -922,7 +923,7 @@ router.post("/admin/seed", ...guard, async (req, res) => {
   }
 
   res.json({ ok: true, message: "Seed data applied" });
-});
+}));
 
 export { requireFeature } from "../lib/featureGate";
 
