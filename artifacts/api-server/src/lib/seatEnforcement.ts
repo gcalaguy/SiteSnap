@@ -117,7 +117,13 @@ export const requireSeatAvailable = async (
 
     next();
   } catch (err) {
-    // Fail open — don't block users if seat check errors
-    next();
+    // P1 fix: fail closed on seat-check errors rather than silently allowing
+    // unlimited invites. Log the error so ops can diagnose Stripe sync issues.
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error('[seatEnforcement] seat check error — blocking request:', errMsg);
+    res.status(503).json({
+      error: 'Unable to verify seat availability. Please try again in a moment.',
+      code: 'SEAT_CHECK_UNAVAILABLE',
+    });
   }
 };

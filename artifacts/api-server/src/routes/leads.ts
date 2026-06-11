@@ -15,7 +15,7 @@ import { requireFeature } from "../lib/featureGate";
 import { z } from "zod";
 
 const router = Router();
-router.use(requireFeature("Contacts"));
+router.use(requireFeature("CONTACTS"));
 
 const CreateLeadBody = z.object({
   contactId: z.coerce.number().int().positive(),

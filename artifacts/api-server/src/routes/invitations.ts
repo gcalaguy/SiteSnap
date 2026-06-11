@@ -280,7 +280,21 @@ router.post("/invitations/:token/accept", async (req, res) => {
     return;
   }
 
-  // 2. Ensure local DB user exists — auto-sync from Clerk if not
+  // 2. Ensure local DB user exists — auto-sync from Clerk if not.
+  //    Always fetch the Clerk profile so we can verify the session email below.
+  let clerkEmail: string;
+  try {
+    const clerkUser = await clerkClient.users.getUser(clerkUserId);
+    clerkEmail = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase().trim() ?? "";
+    if (!clerkEmail) {
+      res.status(401).json({ error: "Unable to verify email address from Clerk session." });
+      return;
+    }
+  } catch {
+    res.status(401).json({ error: "Unable to sync user. Please try signing out and back in." });
+    return;
+  }
+
   let [dbUser] = await db
     .select()
     .from(usersTable)
@@ -289,15 +303,13 @@ router.post("/invitations/:token/accept", async (req, res) => {
 
   if (!dbUser) {
     try {
-      const clerkUser = await clerkClient.users.getUser(clerkUserId);
-      const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
       const [created] = await db
         .insert(usersTable)
         .values({
           clerkUserId,
-          email,
-          firstName: clerkUser.firstName ?? "",
-          lastName: clerkUser.lastName ?? "",
+          email: clerkEmail,
+          firstName: "",
+          lastName: "",
         })
         .returning();
       dbUser = created;
@@ -319,7 +331,16 @@ router.post("/invitations/:token/accept", async (req, res) => {
     return;
   }
 
-  // 3a. Idempotent: if already accepted and user is already in this company, return success
+  // 3a. Verify the Clerk session email matches the invited email (P0 security fix).
+  //     Prevents forwarded invitation links from granting access to unintended users.
+  if (clerkEmail !== invitation.email.toLowerCase().trim()) {
+    res.status(403).json({
+      error: "This invitation was sent to a different email address. Sign in with the invited email to accept.",
+    });
+    return;
+  }
+
+  // 3b. Idempotent: if already accepted and user is already in this company, return success
   if (invitation.status === "accepted") {
     const [existingMembership] = await db
       .select()
@@ -354,33 +375,41 @@ router.post("/invitations/:token/accept", async (req, res) => {
     return;
   }
 
-  // 4. Assign user to company: write to memberships only (Phase 4)
-  await db
-    .insert(userMembershipsTable)
-    .values({ userId: dbUser.id, companyId: invitation.companyId, role: invitation.role, isActive: true })
-    .onConflictDoUpdate({
-      target: [userMembershipsTable.userId, userMembershipsTable.companyId],
-      set: { role: invitation.role, isActive: true },
+  // 4–5. Assign membership, update user, mark invitation accepted — all in one transaction
+  //       so partial state (e.g. membership created but invitation still "pending") is impossible.
+  let updatedUser: typeof dbUser;
+  try {
+    updatedUser = await db.transaction(async (tx) => {
+      await tx
+        .insert(userMembershipsTable)
+        .values({ userId: dbUser.id, companyId: invitation.companyId, role: invitation.role, isActive: true })
+        .onConflictDoUpdate({
+          target: [userMembershipsTable.userId, userMembershipsTable.companyId],
+          set: { role: invitation.role, isActive: true },
+        });
+      await tx
+        .update(usersTable)
+        .set({
+          activeCompanyId: invitation.companyId,
+          preferredLanguage: invitation.preferredLanguage ?? "en",
+        })
+        .where(eq(usersTable.id, dbUser.id));
+      await tx
+        .update(invitationsTable)
+        .set({ status: "accepted" })
+        .where(eq(invitationsTable.id, invitation.id));
+      const [u] = await tx
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, dbUser.id))
+        .limit(1);
+      return u;
     });
-  await db
-    .update(usersTable)
-    .set({
-      activeCompanyId: invitation.companyId,
-      preferredLanguage: invitation.preferredLanguage ?? "en",
-    })
-    .where(eq(usersTable.id, dbUser.id));
-
-  // 5. Mark invitation as accepted
-  await db
-    .update(invitationsTable)
-    .set({ status: "accepted" })
-    .where(eq(invitationsTable.id, invitation.id));
-
-  const [updatedUser] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.id, dbUser.id))
-    .limit(1);
+  } catch (err) {
+    req.log?.error({ err }, "Failed to accept invitation");
+    res.status(500).json({ error: "Failed to accept invitation. Please try again." });
+    return;
+  }
 
   const [company] = await db
     .select()

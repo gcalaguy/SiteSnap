@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, tasksTable, projectsTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { notify } from "../lib/notify";
 import { logAuditEventFromRequest } from "../utils/logger";
 import { z } from "zod";
@@ -39,7 +40,7 @@ const UpdateTaskBody = z.object({
 // Supports optional ?status= query param.
 // Column order in WHERE matches idx_tasks_project_status (projectId, status)
 // so the planner can do an index-only scan when both columns are provided.
-router.get("/", requireAuth, requireCompany, async (req, res) => {
+router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) {
     res.status(400).json({ error: "Invalid projectId" });
@@ -71,10 +72,10 @@ router.get("/", requireAuth, requireCompany, async (req, res) => {
     .orderBy(tasksTable.createdAt);
 
   res.json(tasks);
-});
+}));
 
 // POST /projects/:projectId/tasks
-router.post("/", requireAuth, requireCompany, async (req, res) => {
+router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   if (!req.companyId) { res.status(403).json({ error: "No company associated with this account" }); return; }
 
   const projectId = parseInt(req.params.projectId as string);
@@ -123,10 +124,10 @@ router.post("/", requireAuth, requireCompany, async (req, res) => {
   logAuditEventFromRequest(req, "Task Created", `Created task "${title}" in project ${projectId}`).catch(() => {});
 
   res.status(201).json(task);
-});
+}));
 
 // PATCH /projects/:projectId/tasks/:taskId
-router.patch("/:taskId", requireAuth, requireCompany, async (req, res) => {
+router.patch("/:taskId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const taskId = parseInt(req.params.taskId as string);
   if (isNaN(projectId) || isNaN(taskId)) {
@@ -179,10 +180,10 @@ router.patch("/:taskId", requireAuth, requireCompany, async (req, res) => {
   logAuditEventFromRequest(req, "Task Updated", `Updated task "${task.title}" in project ${projectId}`).catch(() => {});
 
   res.json(task);
-});
+}));
 
 // DELETE /projects/:projectId/tasks/:taskId
-router.delete("/:taskId", requireAuth, requireCompany, async (req, res) => {
+router.delete("/:taskId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const taskId = parseInt(req.params.taskId as string);
   if (isNaN(projectId) || isNaN(taskId)) {
@@ -200,6 +201,6 @@ router.delete("/:taskId", requireAuth, requireCompany, async (req, res) => {
   logAuditEventFromRequest(req, "Task Deleted", `Deleted task ID ${taskId} in project ${projectId}`).catch(() => {});
 
   res.status(204).send();
-});
+}));
 
 export default router;

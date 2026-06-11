@@ -15,7 +15,7 @@ import { requireFeature } from "../lib/featureGate";
 import { z } from "zod";
 
 const router = Router();
-router.use(requireFeature("Proposals"));
+router.use(requireFeature("PROPOSALS"));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

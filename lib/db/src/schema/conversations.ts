@@ -13,6 +13,7 @@ export const conversations = pgTable("conversations", {
 }, (t) => [
   index("idx_conversations_user_id").on(t.userId),
   index("idx_conversations_company_id").on(t.companyId),
+  index("idx_conversations_company_user").on(t.companyId, t.userId),
 ]);
 
 export const insertConversationSchema = createInsertSchema(conversations).omit({

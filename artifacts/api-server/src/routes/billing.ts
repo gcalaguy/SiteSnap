@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, and, isNotNull } from 'drizzle-orm';
+import { eq, and, isNotNull, or } from 'drizzle-orm';
 import { requireAuth, requireCompany, requireOwner } from '../lib/auth';
 import { db, companiesTable, usersTable, userMembershipsTable, plansTable } from '@workspace/db';
 import { z } from "zod";
@@ -77,6 +77,31 @@ router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyn
     const parsed = CheckoutBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Malformed request payload', details: parsed.error.flatten() }); return; }
     const { priceId, seats = 1 } = parsed.data;
+
+    // P0: validate the priceId against known plan price IDs in the DB.
+    // Never pass a client-supplied priceId directly to Stripe — it could be
+    // an arbitrary price ID (wrong plan, legacy discount, etc.).
+    const knownPlans = await db
+      .select({
+        stripeMonthlyPriceId: plansTable.stripeMonthlyPriceId,
+        stripeYearlyPriceId: plansTable.stripeYearlyPriceId,
+      })
+      .from(plansTable)
+      .where(
+        or(
+          isNotNull(plansTable.stripeMonthlyPriceId),
+          isNotNull(plansTable.stripeYearlyPriceId),
+        ),
+      );
+    const validPriceIds = new Set(
+      knownPlans.flatMap((p) =>
+        [p.stripeMonthlyPriceId, p.stripeYearlyPriceId].filter(Boolean) as string[]
+      )
+    );
+    if (!validPriceIds.has(priceId)) {
+      res.status(400).json({ error: 'Invalid plan selection. Please choose a valid pricing option.' });
+      return;
+    }
 
     const [company] = await db
       .select()

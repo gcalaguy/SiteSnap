@@ -37,11 +37,18 @@ function fmtMoney(n: string | number | null | undefined): string {
  * Build a human-readable tenant context string by querying the live database.
  * The result is injected into the AI system prompt so the assistant can answer
  * with precise, up-to-date company data.
+ *
+ * P1 fix: accepts userRole to filter sensitive sections (finance, HR, CRM)
+ * for workers. Workers only see project/task/safety/schedule data relevant to
+ * their daily work — not quotes, invoices, leads, team salaries, or payroll.
  */
 export async function buildTenantContext(
   companyId: number,
-  _projectId?: number | null,
+  userId?: number | null,
+  userRole?: string | null,
 ): Promise<string> {
+  const isWorker = userRole === "worker";
+  const isPrivileged = userRole === "owner" || userRole === "foreman" || !userRole;
   const today = new Date().toLocaleDateString("en-CA");
 
   const [
@@ -157,70 +164,78 @@ export async function buildTenantContext(
       )
       .orderBy(asc(userMembershipsTable.role), asc(usersTable.firstName)),
 
-    // Recent 10 quotes
-    db
-      .select({
-        quoteNumber: quotesTable.quoteNumber,
-        title: quotesTable.title,
-        clientName: quotesTable.clientName,
-        status: quotesTable.status,
-        total: quotesTable.total,
-      })
-      .from(quotesTable)
-      .where(eq(quotesTable.companyId, companyId))
-      .orderBy(desc(quotesTable.createdAt))
-      .limit(10),
+    // Recent 10 quotes — privileged only (not shown to workers)
+    isPrivileged
+      ? db
+          .select({
+            quoteNumber: quotesTable.quoteNumber,
+            title: quotesTable.title,
+            clientName: quotesTable.clientName,
+            status: quotesTable.status,
+            total: quotesTable.total,
+          })
+          .from(quotesTable)
+          .where(eq(quotesTable.companyId, companyId))
+          .orderBy(desc(quotesTable.createdAt))
+          .limit(10)
+      : Promise.resolve([]),
 
-    // Recent 10 invoices
-    db
-      .select({
-        invoiceNumber: invoicesTable.invoiceNumber,
-        title: invoicesTable.title,
-        clientName: invoicesTable.clientName,
-        status: invoicesTable.status,
-        total: invoicesTable.total,
-        dueDate: invoicesTable.dueDate,
-      })
-      .from(invoicesTable)
-      .where(eq(invoicesTable.companyId, companyId))
-      .orderBy(desc(invoicesTable.createdAt))
-      .limit(10),
+    // Recent 10 invoices — privileged only
+    isPrivileged
+      ? db
+          .select({
+            invoiceNumber: invoicesTable.invoiceNumber,
+            title: invoicesTable.title,
+            clientName: invoicesTable.clientName,
+            status: invoicesTable.status,
+            total: invoicesTable.total,
+            dueDate: invoicesTable.dueDate,
+          })
+          .from(invoicesTable)
+          .where(eq(invoicesTable.companyId, companyId))
+          .orderBy(desc(invoicesTable.createdAt))
+          .limit(10)
+      : Promise.resolve([]),
 
-    // Active leads (not won/lost)
-    db
-      .select({
-        title: leadsTable.title,
-        stage: leadsTable.stage,
-        estimatedValue: leadsTable.estimatedValue,
-        contactName: contactsTable.name,
-        contactCompany: contactsTable.company,
-      })
-      .from(leadsTable)
-      .leftJoin(contactsTable, eq(leadsTable.contactId, contactsTable.id))
-      .where(
-        and(
-          eq(leadsTable.companyId, companyId),
-          and(ne(leadsTable.stage, "won"), ne(leadsTable.stage, "lost")),
-        ),
-      )
-      .orderBy(desc(leadsTable.updatedAt))
-      .limit(20),
+    // Active leads — privileged only (CRM is not a worker concern)
+    isPrivileged
+      ? db
+          .select({
+            title: leadsTable.title,
+            stage: leadsTable.stage,
+            estimatedValue: leadsTable.estimatedValue,
+            contactName: contactsTable.name,
+            contactCompany: contactsTable.company,
+          })
+          .from(leadsTable)
+          .leftJoin(contactsTable, eq(leadsTable.contactId, contactsTable.id))
+          .where(
+            and(
+              eq(leadsTable.companyId, companyId),
+              and(ne(leadsTable.stage, "won"), ne(leadsTable.stage, "lost")),
+            ),
+          )
+          .orderBy(desc(leadsTable.updatedAt))
+          .limit(20)
+      : Promise.resolve([]),
 
-    // Contacts (20 most recent)
-    db
-      .select({
-        name: contactsTable.name,
-        company: contactsTable.company,
-        type: contactsTable.type,
-        phone: contactsTable.phone,
-        email: contactsTable.email,
-      })
-      .from(contactsTable)
-      .where(eq(contactsTable.companyId, companyId))
-      .orderBy(desc(contactsTable.updatedAt))
-      .limit(20),
+    // Contacts — privileged only
+    isPrivileged
+      ? db
+          .select({
+            name: contactsTable.name,
+            company: contactsTable.company,
+            type: contactsTable.type,
+            phone: contactsTable.phone,
+            email: contactsTable.email,
+          })
+          .from(contactsTable)
+          .where(eq(contactsTable.companyId, companyId))
+          .orderBy(desc(contactsTable.updatedAt))
+          .limit(20)
+      : Promise.resolve([]),
 
-    // Recent 5 timesheets with submitter name
+    // Timesheets — workers only see their own; owners/foremen see all
     db
       .select({
         weekStart: timesheetsTable.weekStart,
@@ -231,7 +246,11 @@ export async function buildTenantContext(
       })
       .from(timesheetsTable)
       .leftJoin(usersTable, eq(timesheetsTable.userId, usersTable.id))
-      .where(eq(timesheetsTable.companyId, companyId))
+      .where(
+        isWorker && userId != null
+          ? and(eq(timesheetsTable.companyId, companyId), eq(timesheetsTable.userId, userId))
+          : eq(timesheetsTable.companyId, companyId),
+      )
       .orderBy(desc(timesheetsTable.createdAt))
       .limit(5),
 

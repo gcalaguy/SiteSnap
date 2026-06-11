@@ -6,6 +6,7 @@ import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";
 import { validateWorkerCompliance } from "../services/complianceCheck";
 import { notify } from "../lib/notify";
+import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
 
@@ -25,7 +26,7 @@ const UpdateScheduleBody = z.object({
 
 // GET /api/schedule?weekOf=YYYY-MM-DD
 // Returns all worker assignments for the week containing weekOf
-router.get("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.get("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const weekOfParam = req.query.weekOf as string | undefined;
 
   const base = weekOfParam ? new Date(weekOfParam) : new Date();
@@ -106,11 +107,11 @@ router.get("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asyn
     projects,
     subcontractors,
   });
-});
+}));
 
 // GET /api/projects/:projectId/schedule
 // Returns all assignments for a specific project
-router.get("/projects/:projectId/schedule", requireAuth, requireCompany, requirePermission("viewSchedules"), async (req, res) => {
+router.get("/projects/:projectId/schedule", requireAuth, requireCompany, requirePermission("viewSchedules"), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid project ID" }); return; }
 
@@ -159,10 +160,10 @@ router.get("/projects/:projectId/schedule", requireAuth, requireCompany, require
     .orderBy(workerSchedulesTable.startDate);
 
   res.json(assignments);
-});
+}));
 
 // POST /api/schedule — create assignment
-router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const parsed = CreateScheduleBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
 
@@ -292,10 +293,10 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
   }
 
   res.status(201).json(full);
-});
+}));
 
 // PATCH /api/schedule/:id — update dates
-router.patch("/schedule/:id", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.patch("/schedule/:id", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const parsed = UpdateScheduleBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
@@ -315,10 +316,10 @@ router.patch("/schedule/:id", requireAuth, requireCompany, requireOwnerOrForeman
   }
 
   res.json(updated);
-});
+}));
 
 // DELETE /api/schedule/:id
-router.delete("/schedule/:id", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.delete("/schedule/:id", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   await db.delete(workerSchedulesTable)
     .where(and(
@@ -326,10 +327,10 @@ router.delete("/schedule/:id", requireAuth, requireCompany, requireOwnerOrForema
       eq(workerSchedulesTable.companyId, req.companyId!),
     ));
   res.status(204).end();
-});
+}));
 
 // GET /api/schedule/gantt?from=YYYY-MM-DD&to=YYYY-MM-DD
-router.get("/schedule/gantt", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.get("/schedule/gantt", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const { from, to } = req.query as { from?: string; to?: string };
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -405,6 +406,6 @@ router.get("/schedule/gantt", requireAuth, requireCompany, requireOwnerOrForeman
   ]);
 
   res.json({ assignments, projects, members, subcontractors, from: fromDate, to: toDate });
-});
+}));
 
 export default router;

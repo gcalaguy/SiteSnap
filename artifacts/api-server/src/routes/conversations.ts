@@ -129,7 +129,7 @@ router.post("/conversations", requireAuth, requireCompany, requirePermission("vi
   const { message } = convParsed.data;
 
   try {
-    const tenantContext = await buildTenantContext(req.companyId!, req.userId!);
+    const tenantContext = await buildTenantContext(req.companyId!, req.userId!, req.userRole);
 
     const [conversation] = await db
       .insert(conversationsTable)
@@ -181,10 +181,15 @@ router.get("/conversations/:conversationId", requireAuth, requireCompany, requir
   }
 
   try {
+    // P0: include companyId so users cannot read conversations from other tenants
     const [conversation] = await db
       .select()
       .from(conversationsTable)
-      .where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, req.userId!)))
+      .where(and(
+        eq(conversationsTable.id, id),
+        eq(conversationsTable.userId, req.userId!),
+        eq(conversationsTable.companyId, req.companyId!),
+      ))
       .limit(1);
 
     if (!conversation) {
@@ -223,10 +228,15 @@ router.post(
     const { content } = msgParsed.data;
 
     try {
+      // P0: include companyId so users cannot post to conversations from other tenants
       const [conversation] = await db
         .select()
         .from(conversationsTable)
-        .where(and(eq(conversationsTable.id, id), eq(conversationsTable.userId, req.userId!)))
+        .where(and(
+          eq(conversationsTable.id, id),
+          eq(conversationsTable.userId, req.userId!),
+          eq(conversationsTable.companyId, req.companyId!),
+        ))
         .limit(1);
 
       if (!conversation) {
@@ -236,7 +246,7 @@ router.post(
 
       // Fetch tenant context and conversation history in parallel
       const [tenantContext, history] = await Promise.all([
-        buildTenantContext(req.companyId!, req.userId!),
+        buildTenantContext(req.companyId!, req.userId!, req.userRole),
         db
           .select()
           .from(messagesTable)

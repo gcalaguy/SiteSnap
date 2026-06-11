@@ -38,8 +38,10 @@ export function FeatureGuard({ feature, children, fallback, silent }: FeatureGua
   const { data, isLoading } = useCompanyFeatures(companyId);
 
   if ((me as any)?.systemRole === "super_admin") return <>{children}</>;
-  if (!me || isLoading) return <>{children}</>;
-
+  // P1 fix: fail-closed during loading and on error — never render gated children
+  // when we don't yet know if the feature is enabled.
+  if (!me || isLoading) return null;
+  // If the features query errored or returned nothing, treat as not enabled (fail-closed)
   const isEnabled = data?.features?.includes(feature) ?? false;
 
   if (!isEnabled) {
