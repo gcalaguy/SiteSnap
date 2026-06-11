@@ -832,7 +832,10 @@ export const timesheetsTable = pgTable("timesheets", {
   index("idx_timesheets_project_id").on(t.projectId),
   index("idx_timesheets_status").on(t.status),
   index("idx_timesheets_project_status").on(t.projectId, t.status),
-  unique("idx_timesheets_company_user_week").on(t.companyId, t.userId, t.weekStart),
+  // P2: multi-project aware unique constraints (partial indexes via raw SQL in migration 0018).
+  // Drizzle does not support partial indexes natively; the actual DB constraints are created
+  // by 0018_p2_db_indexes_and_constraints.sql.  The old single unique() is removed here so
+  // drizzle-kit does not try to recreate it.
 ]);
 
 export type Timesheet = typeof timesheetsTable.$inferSelect;
@@ -1450,7 +1453,10 @@ export const equipmentTable = pgTable("equipment", {
   status: text("status").notNull().default("available"), // available | in_use | maintenance | retired
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_equipment_company_id").on(t.companyId),
+  index("idx_equipment_company_id_status").on(t.companyId, t.status),
+]);
 
 export const insertEquipmentSchema = createInsertSchema(equipmentTable).omit({ id: true, createdAt: true });
 export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
@@ -1475,6 +1481,7 @@ export const scheduleEventsTable = pgTable("schedule_events", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   index("idx_schedule_events_company_id").on(t.companyId),
+  index("idx_schedule_events_company_start").on(t.companyId, t.startTime),
 ]);
 
 export const insertScheduleEventSchema = createInsertSchema(scheduleEventsTable).omit({ id: true, createdAt: true });
@@ -1547,7 +1554,10 @@ export const projectNotesTable = pgTable("project_notes", {
   authorId: integer("author_id").notNull().references(() => usersTable.id),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_project_notes_company_id").on(t.companyId),
+  index("idx_project_notes_company_project").on(t.companyId, t.projectId),
+]);
 export type ProjectNote = typeof projectNotesTable.$inferSelect;
 export type InspectionAlert = typeof inspectionAlertsTable.$inferSelect;
 

@@ -551,14 +551,16 @@ router.delete(
       ),
     );
 
-    // Clear any invitations for this user so they can be re-invited cleanly
-    const targetUser = await db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, uid));
-    if (targetUser[0]?.email) {
-      await db.delete(invitationsTable).where(eq(invitationsTable.email, targetUser[0].email));
-    }
-
-    // Finally delete the user (cascades timesheets, tradehub_profiles, etc.)
-    await db.delete(usersTable).where(eq(usersTable.id, uid));
+    // Wrap the final removal steps in a transaction: invitation cleanup + user deletion
+    // must be atomic so the user is never left as a phantom member if either step fails.
+    await db.transaction(async (tx) => {
+      const targetUser = await tx.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, uid));
+      if (targetUser[0]?.email) {
+        await tx.delete(invitationsTable).where(eq(invitationsTable.email, targetUser[0].email));
+      }
+      // Delete user — cascades userMembershipsTable, tradehubProfiles, etc.
+      await tx.delete(usersTable).where(eq(usersTable.id, uid));
+    });
 
     res.status(204).send();
   },

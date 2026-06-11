@@ -375,33 +375,41 @@ router.post("/invitations/:token/accept", async (req, res) => {
     return;
   }
 
-  // 4. Assign user to company: write to memberships only (Phase 4)
-  await db
-    .insert(userMembershipsTable)
-    .values({ userId: dbUser.id, companyId: invitation.companyId, role: invitation.role, isActive: true })
-    .onConflictDoUpdate({
-      target: [userMembershipsTable.userId, userMembershipsTable.companyId],
-      set: { role: invitation.role, isActive: true },
+  // 4–5. Assign membership, update user, mark invitation accepted — all in one transaction
+  //       so partial state (e.g. membership created but invitation still "pending") is impossible.
+  let updatedUser: typeof dbUser;
+  try {
+    updatedUser = await db.transaction(async (tx) => {
+      await tx
+        .insert(userMembershipsTable)
+        .values({ userId: dbUser.id, companyId: invitation.companyId, role: invitation.role, isActive: true })
+        .onConflictDoUpdate({
+          target: [userMembershipsTable.userId, userMembershipsTable.companyId],
+          set: { role: invitation.role, isActive: true },
+        });
+      await tx
+        .update(usersTable)
+        .set({
+          activeCompanyId: invitation.companyId,
+          preferredLanguage: invitation.preferredLanguage ?? "en",
+        })
+        .where(eq(usersTable.id, dbUser.id));
+      await tx
+        .update(invitationsTable)
+        .set({ status: "accepted" })
+        .where(eq(invitationsTable.id, invitation.id));
+      const [u] = await tx
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, dbUser.id))
+        .limit(1);
+      return u;
     });
-  await db
-    .update(usersTable)
-    .set({
-      activeCompanyId: invitation.companyId,
-      preferredLanguage: invitation.preferredLanguage ?? "en",
-    })
-    .where(eq(usersTable.id, dbUser.id));
-
-  // 5. Mark invitation as accepted
-  await db
-    .update(invitationsTable)
-    .set({ status: "accepted" })
-    .where(eq(invitationsTable.id, invitation.id));
-
-  const [updatedUser] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.id, dbUser.id))
-    .limit(1);
+  } catch (err) {
+    req.log?.error({ err }, "Failed to accept invitation");
+    res.status(500).json({ error: "Failed to accept invitation. Please try again." });
+    return;
+  }
 
   const [company] = await db
     .select()

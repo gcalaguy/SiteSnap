@@ -455,30 +455,42 @@ router.post("/:quoteId/convert-to-invoice", requireAuth, requireCompany, async (
   const invoiceNum = (invoiceCount[0]?.count ?? 0) + (invCompany?.startNumber ?? 1);
   const invoiceNumber = `${invCompany?.prefix ?? "INV"}-${String(invoiceNum).padStart(4, "0")}`;
 
+  // Wrap insert + status update in a transaction so the quote cannot end up with a
+  // dangling invoice (insert succeeded but status update failed) or be re-convertible
+  // (status update succeeded but insert failed and the caller retries).
   const now = new Date();
-  const [invoice] = await db.insert(invoicesTable).values({
-    companyId: req.companyId!,
-    projectId: quote.projectId ?? null,
-    quoteId: quote.id,
-    invoiceNumber,
-    title: quote.title,
-    clientName: quote.clientName,
-    clientEmail: quote.clientEmail ?? null,
-    status: "draft",
-    lineItems: quote.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[],
-    subtotal: quote.subtotal,
-    taxRate: quote.taxRate,
-    taxAmount: quote.taxAmount,
-    total: quote.total,
-    notes: quote.notes ?? null,
-    dueDate: dueDate ? dueDate.toISOString().split("T")[0] : null,
-    createdByUserId: req.userId!,
-    publicToken: randomUUID(),
-  }).returning();
-
-  await db.update(quotesTable)
-    .set({ status: "converted", convertedAt: now, updatedAt: now })
-    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!)));
+  let invoice: typeof invoicesTable.$inferSelect;
+  try {
+    invoice = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(invoicesTable).values({
+        companyId: req.companyId!,
+        projectId: quote.projectId ?? null,
+        quoteId: quote.id,
+        invoiceNumber,
+        title: quote.title,
+        clientName: quote.clientName,
+        clientEmail: quote.clientEmail ?? null,
+        status: "draft",
+        lineItems: quote.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[],
+        subtotal: quote.subtotal,
+        taxRate: quote.taxRate,
+        taxAmount: quote.taxAmount,
+        total: quote.total,
+        notes: quote.notes ?? null,
+        dueDate: dueDate ? dueDate.toISOString().split("T")[0] : null,
+        createdByUserId: req.userId!,
+        publicToken: randomUUID(),
+      }).returning();
+      await tx.update(quotesTable)
+        .set({ status: "converted", convertedAt: now, updatedAt: now })
+        .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!)));
+      return created;
+    });
+  } catch (err) {
+    req.log?.error({ err }, "Failed to convert quote to invoice");
+    res.status(500).json({ error: "Failed to convert quote. Please try again." });
+    return;
+  }
 
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(invoice);
