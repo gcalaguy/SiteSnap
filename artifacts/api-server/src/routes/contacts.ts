@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, and, ilike, or } from "drizzle-orm";
 import { db, contactsTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { requireFeature } from "../lib/featureGate";
 
 import { z } from "zod";
@@ -24,7 +25,7 @@ const CreateContactBody = z.object({
 const UpdateContactBody = CreateContactBody.partial();
 
 // GET /contacts
-router.get("/contacts", requireAuth, requireCompany, async (req, res) => {
+router.get("/contacts", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const type = typeof req.query.type === "string" ? req.query.type : undefined;
@@ -66,10 +67,10 @@ router.get("/contacts", requireAuth, requireCompany, async (req, res) => {
     .orderBy(contactsTable.name);
 
   res.json(rows);
-});
+}))
 
 // GET /contacts/:contactId
-router.get("/contacts/:contactId", requireAuth, requireCompany, async (req, res) => {
+router.get("/contacts/:contactId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const contactId = parseInt(req.params.contactId as string);
   if (isNaN(contactId)) {
     res.status(400).json({ error: "Invalid contactId" });
@@ -87,10 +88,10 @@ router.get("/contacts/:contactId", requireAuth, requireCompany, async (req, res)
   }
 
   res.json(contact);
-});
+}))
 
 // POST /contacts
-router.post("/contacts", requireAuth, requireCompany, async (req, res) => {
+router.post("/contacts", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const parsed = CreateContactBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
@@ -111,10 +112,10 @@ router.post("/contacts", requireAuth, requireCompany, async (req, res) => {
     .returning();
 
   res.status(201).json(contact);
-});
+}))
 
 // PUT /contacts/:contactId
-router.put("/contacts/:contactId", requireAuth, requireCompany, async (req, res) => {
+router.put("/contacts/:contactId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const contactId = parseInt(req.params.contactId as string);
   if (isNaN(contactId)) {
     res.status(400).json({ error: "Invalid contactId" });
@@ -145,10 +146,10 @@ router.put("/contacts/:contactId", requireAuth, requireCompany, async (req, res)
   }
 
   res.json(updated);
-});
+}))
 
 // DELETE /contacts/:contactId
-router.delete("/contacts/:contactId", requireAuth, requireCompany, async (req, res) => {
+router.delete("/contacts/:contactId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const contactId = parseInt(req.params.contactId as string);
   if (isNaN(contactId)) {
     res.status(400).json({ error: "Invalid contactId" });
@@ -166,6 +167,6 @@ router.delete("/contacts/:contactId", requireAuth, requireCompany, async (req, r
   }
 
   res.status(204).send();
-});
+}))
 
 export default router;

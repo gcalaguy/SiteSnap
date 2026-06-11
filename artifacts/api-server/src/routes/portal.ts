@@ -14,6 +14,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 import { requirePermission } from "../lib/permissionGate.js";
 import { ObjectStorageService } from "../lib/objectStorage.js";
 import { z } from "zod";
@@ -54,7 +55,7 @@ router.post(
   requireAuth,
   requireCompany,
   requirePermission("viewClientMessages"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
@@ -71,7 +72,7 @@ router.post(
     const token = crypto.randomUUID();
     const [created] = await db.insert(clientPortalTokensTable).values({ projectId, token }).returning();
     res.json({ token: created.token });
-  },
+  }),
 );
 
 // ── DELETE /projects/:projectId/portal/token (auth) ──────────────────────────
@@ -81,7 +82,7 @@ router.delete(
   requireAuth,
   requireCompany,
   requirePermission("viewClientMessages"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
@@ -95,7 +96,7 @@ router.delete(
       .where(and(eq(clientPortalTokensTable.projectId, projectId), eq(clientPortalTokensTable.isActive, true)));
 
     res.json({ success: true });
-  },
+  }),
 );
 
 // ── GET /projects/:projectId/portal/uploads (auth) ───────────────────────────
@@ -105,7 +106,7 @@ router.get(
   requireAuth,
   requireCompany,
   requirePermission("viewClientMessages"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
@@ -118,7 +119,7 @@ router.get(
       .where(eq(clientPortalUploadsTable.projectId, projectId))
       .orderBy(desc(clientPortalUploadsTable.createdAt));
     res.json(uploads);
-  },
+  }),
 );
 
 // ── GET /projects/:projectId/portal/messages (auth) ──────────────────────────
@@ -128,7 +129,7 @@ router.get(
   "/projects/:projectId/portal/messages",
   requireAuth,
   requireCompany,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
@@ -150,7 +151,7 @@ router.get(
       .where(eq(clientPortalMessagesTable.projectId, projectId))
       .orderBy(asc(clientPortalMessagesTable.createdAt));
     res.json(messages);
-  },
+  }),
 );
 
 // ── POST /projects/:projectId/portal/messages (auth) ─────────────────────────
@@ -165,7 +166,7 @@ router.post(
   "/projects/:projectId/portal/messages",
   requireAuth,
   requireCompany,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
@@ -202,13 +203,13 @@ router.post(
     }).returning();
 
     res.status(201).json(created);
-  },
+  }),
 );
 
 // ── GET /portal/:token (public) ───────────────────────────────────────────────
 
-router.get("/portal/:token", async (req, res) => {
-  const portalToken = await resolveToken(req.params.token);
+router.get("/portal/:token", asyncHandler(async (req, res) => {
+  const portalToken = await resolveToken(req.params.token as string);
   if (!portalToken) { res.status(404).json({ error: "Portal link not found or has been revoked" }); return; }
 
   const { projectId } = portalToken;
@@ -353,7 +354,7 @@ router.get("/portal/:token", async (req, res) => {
     paymentRequests,
     messages,
   });
-});
+}))
 
 // ── POST /portal/:token/upload-url (public) ───────────────────────────────────
 
@@ -363,8 +364,8 @@ const UploadUrlBody = z.object({
   contentType: z.string().min(1),
 });
 
-router.post("/portal/:token/upload-url", async (req, res) => {
-  const portalToken = await resolveToken(req.params.token);
+router.post("/portal/:token/upload-url", asyncHandler(async (req, res) => {
+  const portalToken = await resolveToken(req.params.token as string);
   if (!portalToken) { res.status(404).json({ error: "Portal link not found or has been revoked" }); return; }
 
   const parsed = UploadUrlBody.safeParse(req.body);
@@ -373,7 +374,7 @@ router.post("/portal/:token/upload-url", async (req, res) => {
   const uploadURL = await objectStorageService.getObjectEntityUploadURL();
   const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
   res.json({ uploadURL, objectPath });
-});
+}))
 
 // ── POST /portal/:token/uploads (public) ─────────────────────────────────────
 
@@ -384,8 +385,8 @@ const RegisterUploadBody = z.object({
   fileSize: z.number().int().positive().optional(),
 });
 
-router.post("/portal/:token/uploads", async (req, res) => {
-  const portalToken = await resolveToken(req.params.token);
+router.post("/portal/:token/uploads", asyncHandler(async (req, res) => {
+  const portalToken = await resolveToken(req.params.token as string);
   if (!portalToken) { res.status(404).json({ error: "Portal link not found or has been revoked" }); return; }
 
   const parsed = RegisterUploadBody.safeParse(req.body);
@@ -402,20 +403,20 @@ router.post("/portal/:token/uploads", async (req, res) => {
   }).returning();
 
   res.status(201).json(created);
-});
+}))
 
 // ── GET /portal/:token/messages (public) ─────────────────────────────────────
 // Client retrieves conversation thread.
 
-router.get("/portal/:token/messages", async (req, res) => {
-  const portalToken = await resolveToken(req.params.token);
+router.get("/portal/:token/messages", asyncHandler(async (req, res) => {
+  const portalToken = await resolveToken(req.params.token as string);
   if (!portalToken) { res.status(404).json({ error: "Portal link not found or has been revoked" }); return; }
 
   const messages = await db.select().from(clientPortalMessagesTable)
     .where(eq(clientPortalMessagesTable.portalTokenId, portalToken.id))
     .orderBy(asc(clientPortalMessagesTable.createdAt));
   res.json(messages);
-});
+}))
 
 // ── POST /portal/:token/messages (public) ────────────────────────────────────
 // Client sends a message to the contractor.
@@ -425,8 +426,8 @@ const ClientMessageBody = z.object({
   senderName: z.string().min(1).max(100).optional(),
 });
 
-router.post("/portal/:token/messages", async (req, res) => {
-  const portalToken = await resolveToken(req.params.token);
+router.post("/portal/:token/messages", asyncHandler(async (req, res) => {
+  const portalToken = await resolveToken(req.params.token as string);
   if (!portalToken) { res.status(404).json({ error: "Portal link not found or has been revoked" }); return; }
 
   const parsed = ClientMessageBody.safeParse(req.body);
@@ -441,6 +442,6 @@ router.post("/portal/:token/messages", async (req, res) => {
   }).returning();
 
   res.status(201).json(created);
-});
+}))
 
 export default router;

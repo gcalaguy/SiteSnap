@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";
 
@@ -57,7 +58,7 @@ router.post(
   requireAuth,
   requireCompany,
   requirePermission("viewTimesheets"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const parsed = CreateDailyLogBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
@@ -83,7 +84,7 @@ router.post(
       .returning();
 
     res.status(201).json(log);
-  },
+  }),
 );
 
 // GET /api/field/daily-log?projectId={n}
@@ -92,7 +93,7 @@ router.get(
   requireAuth,
   requireCompany,
   requirePermission("viewTimesheets"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = req.query.projectId
       ? parseInt(req.query.projectId as string)
       : null;
@@ -123,7 +124,7 @@ router.get(
       .where(eq(dailyLogsTable.projectId, projectId));
 
     res.json(rows);
-  },
+  }),
 );
 
 // PUT /api/field/daily-log/:id (owner only)
@@ -132,7 +133,7 @@ router.put(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid id" });
@@ -169,7 +170,7 @@ router.put(
       .returning();
 
     res.json(updated);
-  },
+  }),
 );
 
 // DELETE /api/field/daily-log/:id (owner only)
@@ -178,7 +179,7 @@ router.delete(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid id" });
@@ -204,7 +205,7 @@ router.delete(
 
     await db.delete(dailyLogsTable).where(and(eq(dailyLogsTable.id, id), eq(dailyLogsTable.projectId, existing.projectId)));
     res.status(204).send();
-  },
+  }),
 );
 
 // ── Site Photos ────────────────────────────────────────────────────────────
@@ -215,7 +216,7 @@ router.post(
   requireAuth,
   requireCompany,
   requirePermission("viewTimesheets"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const parsed = CreateSitePhotoBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
@@ -240,7 +241,7 @@ router.post(
       .returning();
 
     res.status(201).json(photo);
-  },
+  }),
 );
 
 // GET /api/field/photo-upload?projectId={n}
@@ -249,7 +250,7 @@ router.get(
   requireAuth,
   requireCompany,
   requirePermission("viewTimesheets"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = req.query.projectId
       ? parseInt(req.query.projectId as string)
       : null;
@@ -270,7 +271,7 @@ router.get(
       .where(eq(sitePhotosTable.projectId, projectId));
 
     res.json(photos);
-  },
+  }),
 );
 
 // PUT /api/field/photo-upload/:id (owner only)
@@ -279,7 +280,7 @@ router.put(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid id" });
@@ -314,7 +315,7 @@ router.put(
       .returning();
 
     res.json(updated);
-  },
+  }),
 );
 
 // DELETE /api/field/photo-upload/:id (owner only)
@@ -323,7 +324,7 @@ router.delete(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid id" });
@@ -349,7 +350,7 @@ router.delete(
 
     await db.delete(sitePhotosTable).where(and(eq(sitePhotosTable.id, id), eq(sitePhotosTable.projectId, existing.projectId)));
     res.status(204).send();
-  },
+  }),
 );
 
 // ── Safety Signoffs ───────────────────────────────────────────────────────────
@@ -360,7 +361,7 @@ router.post(
   requireAuth,
   requireCompany,
   requirePermission("viewTimesheets"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const parsed = CreateSafetySignoffBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
@@ -385,7 +386,7 @@ router.post(
       .returning();
 
     res.status(201).json(signoff);
-  },
+  }),
 );
 
 // GET /api/field/safety-check?projectId={n}
@@ -394,7 +395,7 @@ router.get(
   requireAuth,
   requireCompany,
   requirePermission("viewTimesheets"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const projectId = req.query.projectId
       ? parseInt(req.query.projectId as string)
       : null;
@@ -415,7 +416,7 @@ router.get(
       .where(eq(safetySignoffsTable.projectId, projectId));
 
     res.json(signoffs);
-  },
+  }),
 );
 
 // PUT /api/field/safety-check/:id (owner only)
@@ -424,7 +425,7 @@ router.put(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid id" });
@@ -462,7 +463,7 @@ router.put(
       .returning();
 
     res.json(updated);
-  },
+  }),
 );
 
 // DELETE /api/field/safety-check/:id (owner only)
@@ -471,7 +472,7 @@ router.delete(
   requireAuth,
   requireCompany,
   requireOwner,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid id" });
@@ -497,7 +498,7 @@ router.delete(
 
     await db.delete(safetySignoffsTable).where(and(eq(safetySignoffsTable.id, id), eq(safetySignoffsTable.projectId, existing.projectId)));
     res.status(204).send();
-  },
+  }),
 );
 
 export default router;

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, rfisTable, usersTable, projectsTable } from "@workspace/db";
-import { eq, and, count, SQL } from "drizzle-orm";
+import { eq, and, count, inArray, SQL } from "drizzle-orm";
+import { logger } from "../lib/logger";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
@@ -13,7 +14,7 @@ allRfisRouter.get(
   "/rfis",
   requireAuth,
   requireCompany,
-  requirePermission("viewQuotes"),
+  requirePermission("viewRFIs"),
   asyncHandler(async (req, res) => {
     const { projectId: projectIdParam, status: statusParam } = req.query as Record<string, string | undefined>;
 
@@ -48,7 +49,8 @@ allRfisRouter.get(
       .innerJoin(projectsTable, eq(rfisTable.projectId, projectsTable.id))
       .leftJoin(usersTable, eq(rfisTable.submittedByUserId, usersTable.id))
       .where(and(...conditions))
-      .orderBy(rfisTable.createdAt);
+      .orderBy(rfisTable.createdAt)
+      .limit(500);
 
     res.json(rows.map((r) => ({
       id: r.id,
@@ -91,7 +93,7 @@ async function getNextRFINumber(projectId: number): Promise<string> {
 // Supports optional ?status= query param.
 // Column order in WHERE matches idx_rfis_project_status (projectId, status)
 // so the planner can use the full composite index when both columns are provided.
-router.get("/", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
+router.get("/", requireAuth, requireCompany, requirePermission("viewRFIs"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -109,20 +111,21 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewQuotes"), as
   const rfis = await db
     .select()
     .from(rfisTable)
-    .where(whereClause);
+    .where(whereClause)
+    .limit(200);
 
-  // Attach submittedBy user
-  const userIds = [...new Set(rfis.map((r) => r.submittedByUserId))];
+  // Attach submittedBy user — batch fetch all distinct submitters in one query
+  const userIds = [...new Set(rfis.map((r) => r.submittedByUserId).filter((id): id is number => id != null))];
   const users = userIds.length
-    ? await db.select().from(usersTable).where(eq(usersTable.id, userIds[0]))
+    ? await db.select().from(usersTable).where(inArray(usersTable.id, userIds))
     : [];
-  const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
+  const userMap = new Map(users.map((u) => [u.id, u]));
 
-  res.json(rfis.map((r) => ({ ...r, submittedBy: userMap[r.submittedByUserId] ?? null })));
-});
+  res.json(rfis.map((r) => ({ ...r, submittedBy: (r.submittedByUserId ? userMap.get(r.submittedByUserId) : null) ?? null })));
+}))
 
 // POST /projects/:projectId/rfis
-router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
+router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -165,14 +168,16 @@ router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"),
       body: `${rfi.rfiNumber}: ${rfi.subject}`,
       referenceId: rfi.id,
       projectId,
-    }).catch(() => {});
+    }).catch((err) => {
+      logger.warn({ err, rfiId: rfi.id, assigneeId }, "Failed to send RFI assignment notification");
+    });
   }
 
   res.status(201).json({ ...rfi, submittedBy: submittedBy ?? null });
-});
+}))
 
 // GET /projects/:projectId/rfis/:rfiId
-router.get("/:rfiId", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
+router.get("/:rfiId", requireAuth, requireCompany, requirePermission("viewRFIs"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const rfiId = parseInt(req.params.rfiId as string);
 
@@ -191,10 +196,10 @@ router.get("/:rfiId", requireAuth, requireCompany, requirePermission("viewQuotes
     .limit(1);
 
   res.json({ ...rfi, submittedBy: submittedBy ?? null });
-});
+}))
 
 // PUT /projects/:projectId/rfis/:rfiId
-router.put("/:rfiId", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
+router.put("/:rfiId", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const rfiId = parseInt(req.params.rfiId as string);
 
@@ -227,10 +232,10 @@ router.put("/:rfiId", requireAuth, requireCompany, requirePermission("manageQuot
     .limit(1);
 
   res.json({ ...rfi, submittedBy: submittedBy ?? null });
-});
+}))
 
 // DELETE /projects/:projectId/rfis/:rfiId
-router.delete("/:rfiId", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.delete("/:rfiId", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const rfiId = parseInt(req.params.rfiId as string);
 
@@ -241,6 +246,6 @@ router.delete("/:rfiId", requireAuth, requireCompany, requireOwnerOrForeman, asy
     .delete(rfisTable)
     .where(and(eq(rfisTable.id, rfiId), eq(rfisTable.projectId, projectId)));
   res.json({ ok: true });
-});
+}))
 
 export default router;

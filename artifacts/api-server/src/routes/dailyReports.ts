@@ -85,7 +85,7 @@ async function verifyProjectAccess(projectId: number, companyId: number) {
 }
 
 // GET /projects/:projectId/daily-reports
-router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
+router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -123,12 +123,12 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets")
     submittedBy: userMap[r.submittedByUserId] ?? null,
     photos: photosByReport[r.id] ?? [],
   })));
-});
+}))
 
 // POST /projects/:projectId/daily-reports
 // Upsert: if a report already exists for the given date, append incoming notes
 // to the existing record instead of creating a duplicate.
-router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
+router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"), asyncHandler(async (req, res) => {
   if (!req.companyId) { res.status(403).json({ error: "No company associated with this account" }); return; }
 
   const projectId = parseInt(req.params.projectId as string);
@@ -235,10 +235,10 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
     sourceRecordId: String(report.id),
     text: [report.workPerformed, report.notes, report.issues].filter(Boolean).join("\n"),
   }).catch(() => {});
-});
+}))
 
 // GET /projects/:projectId/daily-reports/:reportId
-router.get("/:reportId", requireAuth, requireCompany, requirePermission("viewTimesheets"), async (req, res) => {
+router.get("/:reportId", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
 
@@ -257,10 +257,10 @@ router.get("/:reportId", requireAuth, requireCompany, requirePermission("viewTim
     .limit(1);
 
   res.json({ ...report, submittedBy: submittedBy ?? null });
-});
+}))
 
 // PUT /projects/:projectId/daily-reports/:reportId
-router.put("/:reportId", requireAuth, requireCompany, requirePermission("submitExpenses"), async (req, res) => {
+router.put("/:reportId", requireAuth, requireCompany, requirePermission("submitExpenses"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
 
@@ -294,10 +294,10 @@ router.put("/:reportId", requireAuth, requireCompany, requirePermission("submitE
     .limit(1);
 
   res.json({ ...report, submittedBy: submittedBy ?? null });
-});
+}))
 
 // DELETE /projects/:projectId/daily-reports/:reportId
-router.delete("/:reportId", requireAuth, requireCompany, requireOwnerOrForeman, async (req, res) => {
+router.delete("/:reportId", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
 
@@ -308,6 +308,6 @@ router.delete("/:reportId", requireAuth, requireCompany, requireOwnerOrForeman, 
     .delete(dailyReportsTable)
     .where(and(eq(dailyReportsTable.id, reportId), eq(dailyReportsTable.projectId, projectId)));
   res.json({ ok: true });
-});
+}))
 
 export default router;

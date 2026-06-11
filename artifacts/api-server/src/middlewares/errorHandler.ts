@@ -20,9 +20,9 @@ export function errorHandler(
   // Known application error — safe to surface the message
   if (err instanceof AppError) {
     if (err.statusCode >= 500) {
-      logger.error({ err, reqId: req.id }, "Application error");
+      logger.error({ err, reqId: req.id ?? "no-request-id" }, "Application error");
     } else {
-      logger.warn({ err, reqId: req.id }, "Client error");
+      logger.warn({ err, reqId: req.id ?? "no-request-id" }, "Client error");
     }
 
     res.status(err.statusCode).json({
@@ -44,7 +44,7 @@ export function errorHandler(
   }
 
   // Unexpected error — don't leak internals in production
-  logger.error({ err, reqId: req.id }, "Unhandled server error");
+  logger.error({ err, reqId: req.id ?? "no-request-id" }, "Unhandled server error");
   const message =
     process.env.NODE_ENV !== "production" && err instanceof Error
       ? err.message

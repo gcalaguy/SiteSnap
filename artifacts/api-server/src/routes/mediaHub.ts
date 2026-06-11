@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { db, mediaHubPhotosTable, projectsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
@@ -34,7 +35,7 @@ router.post(
   "/media/presigned-url",
   requireAuth,
   requireCompany,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const parsed = PresignedUrlBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid body", details: parsed.error });
@@ -53,7 +54,7 @@ router.post(
       req.log.error({ err }, "media-hub presigned-url failed");
       res.status(500).json({ error: "Failed to generate presigned URL" });
     }
-  },
+  }),
 );
 
 // POST /api/media/save-photo
@@ -61,7 +62,7 @@ router.post(
   "/media/save-photo",
   requireAuth,
   requireCompany,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const parsed = SavePhotoBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid body", details: parsed.error });
@@ -88,7 +89,7 @@ router.post(
       .returning();
 
     res.status(201).json(photo);
-  },
+  }),
 );
 
 export default router;

@@ -6,6 +6,7 @@ import {
   tradeReviewsTable,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { z } from "zod/v4";
 
 const router = Router();
@@ -35,7 +36,7 @@ const summaryQuerySchema = z.object({
 });
 
 // POST /reviews/submit
-router.post("/reviews/submit", requireAuth, async (req, res) => {
+router.post("/reviews/submit", requireAuth, asyncHandler(async (req, res) => {
   try {
     const parsed = submitBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -100,10 +101,10 @@ router.post("/reviews/submit", requireAuth, async (req, res) => {
     req.log.error({ err }, "reviews/submit error");
     res.status(500).json({ error: "Failed to submit review" });
   }
-});
+}))
 
 // GET /reviews/summary
-router.get("/reviews/summary", async (req, res) => {
+router.get("/reviews/summary", asyncHandler(async (req, res) => {
   try {
     const parsed = summaryQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -158,10 +159,10 @@ router.get("/reviews/summary", async (req, res) => {
     req.log.error({ err }, "reviews/summary error");
     res.status(500).json({ error: "Failed to load summary" });
   }
-});
+}))
 
 // GET /reviews/list
-router.get("/reviews/list", async (req, res) => {
+router.get("/reviews/list", asyncHandler(async (req, res) => {
   try {
     const parsed = listQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -211,6 +212,6 @@ router.get("/reviews/list", async (req, res) => {
     req.log.error({ err }, "reviews/list error");
     res.status(500).json({ error: "Failed to load reviews" });
   }
-});
+}))
 
 export default router;

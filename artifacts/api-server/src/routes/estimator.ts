@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { diskUpload, cleanupUpload } from "../lib/upload.js";
 import { readFile as readFileAsync } from "fs/promises";
+import { randomUUID } from "crypto";
 import { eq, and, desc, count, inArray, sql, isNull } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -973,6 +974,7 @@ router.post(
       validUntil: null,
       createdByUserId: req.userId!,
       status: "draft",
+      publicToken: randomUUID(),
     }).returning();
 
     res.status(201).json(quote);

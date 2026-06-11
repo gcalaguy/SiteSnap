@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, estimatesTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 import { requirePermission } from "../lib/permissionGate.js";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { z } from "zod";
@@ -173,7 +174,7 @@ ${buildEstimatePrompt("Based on the attached plan/image")}`,
 
 // ── GET /api/estimates ────────────────────────────────────────────────────────
 
-router.get("/estimates", requireAuth, requireCompany, requirePermission("viewQuotes"), async (req, res) => {
+router.get("/estimates", requireAuth, requireCompany, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -187,7 +188,7 @@ router.get("/estimates", requireAuth, requireCompany, requirePermission("viewQuo
     .orderBy(desc(estimatesTable.createdAt));
 
   res.json(estimates);
-});
+}))
 
 // ── POST /api/estimates/generate (text scope) ─────────────────────────────────
 
@@ -195,7 +196,7 @@ const GenerateTextBody = z.object({
   scope: z.string().min(20, "Please provide at least 20 characters of scope description").max(10000, "Scope must be at most 10 000 characters"),
 });
 
-router.post("/estimates/generate", requireAuth, requireCompany, requirePermission("manageQuotes"), requireAiQuota, async (req, res) => {
+router.post("/estimates/generate", requireAuth, requireCompany, requirePermission("manageQuotes"), requireAiQuota, asyncHandler(async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -239,7 +240,7 @@ router.post("/estimates/generate", requireAuth, requireCompany, requirePermissio
       .where(eq(estimatesTable.id, estimate.id));
     res.status(500).json({ error: "AI estimate generation failed" });
   }
-});
+}))
 
 // ── POST /api/estimates/generate-from-file (multipart) ───────────────────────
 
@@ -250,7 +251,7 @@ router.post(
   requirePermission("manageQuotes"),
   requireAiQuota,
   diskUpload.single("file"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const role = req.userRole;
     if (role !== "owner" && role !== "foreman") {
       await cleanupUpload(req.file?.path);
@@ -320,7 +321,7 @@ router.post(
     } finally {
       await cleanupUpload(file.path);
     }
-  },
+  }),
 );
 
 // ── POST /api/estimates/:id/email ────────────────────────────────────────────
@@ -330,7 +331,7 @@ const EmailEstimateBody = z.object({
   message: z.string().max(2000, "Message must be at most 2 000 characters").optional(),
 });
 
-router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
+router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -495,7 +496,7 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermissi
     req.log?.error({ err }, "Estimate email send failed");
     res.status(500).json({ error: "Failed to send email" });
   }
-});
+}))
 
 // ── PATCH /api/estimates/:id — update title + result ─────────────────────────
 
@@ -504,7 +505,7 @@ const PatchEstimateBody = z.object({
   result: z.record(z.unknown()).optional(),
 });
 
-router.patch("/estimates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
+router.patch("/estimates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -534,11 +535,11 @@ router.patch("/estimates/:id", requireAuth, requireCompany, requirePermission("m
     .returning();
 
   res.json(updated);
-});
+}))
 
 // ── DELETE /api/estimates/:id ─────────────────────────────────────────────────
 
-router.delete("/estimates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), async (req, res) => {
+router.delete("/estimates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -552,6 +553,6 @@ router.delete("/estimates/:id", requireAuth, requireCompany, requirePermission("
     .where(and(eq(estimatesTable.id, id), eq(estimatesTable.companyId, req.companyId!)));
 
   res.status(204).send();
-});
+}))
 
 export default router;

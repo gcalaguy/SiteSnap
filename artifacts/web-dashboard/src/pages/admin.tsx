@@ -55,6 +55,7 @@ function statusBadge(status: string) {
 
 interface SubscriptionCardProps {
   subLoading: boolean;
+  subError: boolean;
   subscription: Subscription | null;
   planName: string;
   renewalDate: string | null;
@@ -62,7 +63,7 @@ interface SubscriptionCardProps {
   navigate: (path: string) => void;
 }
 
-function SubscriptionCard({ subLoading, subscription, planName, renewalDate, portalMutation, navigate }: SubscriptionCardProps) {
+function SubscriptionCard({ subLoading, subError, subscription, planName, renewalDate, portalMutation, navigate }: SubscriptionCardProps) {
   return (
     <div
       className="rounded-xl border border-white/10 overflow-hidden cursor-pointer group"
@@ -84,7 +85,13 @@ function SubscriptionCard({ subLoading, subscription, planName, renewalDate, por
             <span className="text-sm">Loading subscription…</span>
           </div>
         )}
-        {!subLoading && subscription && (
+        {!subLoading && subError && (
+          <div className="flex items-center gap-3 text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span className="text-sm">Failed to load subscription info. Please refresh.</span>
+          </div>
+        )}
+        {!subLoading && !subError && subscription && (
           <div className="space-y-4">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="space-y-1">
@@ -129,7 +136,7 @@ function SubscriptionCard({ subLoading, subscription, planName, renewalDate, por
             </div>
           </div>
         )}
-        {!subLoading && !subscription && (
+        {!subLoading && !subError && !subscription && (
           <div className="space-y-3">
             <div className="flex items-center gap-3 text-zinc-400">
               <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
@@ -156,12 +163,12 @@ function AdminPage() {
   const [, navigate] = useLocation();
   const { data: me } = useGetMe();
 
-  const { data: subData, isLoading: subLoading } = useQuery({
+  const { data: subData, isLoading: subLoading, isError: subError } = useQuery({
     queryKey: ["billing-subscription"],
     queryFn: () => customFetch<{ subscription: Subscription | null; company: any }>(`${basePath}/api/billing/subscription`),
   });
 
-  const { data: seatInfo, isLoading: seatsLoading } = useQuery<SeatInfo>({
+  const { data: seatInfo, isLoading: seatsLoading, isError: seatsError } = useQuery<SeatInfo>({
     queryKey: ["billing-seats"],
     queryFn: () => customFetch<SeatInfo>(`${basePath}/api/billing/seats`),
   });
@@ -214,6 +221,7 @@ function AdminPage() {
       {isSuperAdmin && (
         <SubscriptionCard
           subLoading={subLoading}
+          subError={subError}
           subscription={subscription}
           planName={planName}
           renewalDate={renewalDate}
@@ -241,6 +249,11 @@ function AdminPage() {
             <div className="flex items-center gap-3 text-zinc-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm">Loading seat info…</span>
+            </div>
+          ) : seatsError ? (
+            <div className="flex items-center gap-3 text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span className="text-sm">Failed to load seat info. Please refresh.</span>
             </div>
           ) : seatInfo ? (
             <div className="space-y-4">

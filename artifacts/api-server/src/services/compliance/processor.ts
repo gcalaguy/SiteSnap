@@ -21,6 +21,7 @@
 import { db, aiComplianceDirectivesTable, projectsTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { notify } from "../../lib/notify";
+import { logger } from "../../lib/logger";
 import { runRulesEngine, type RulesSuggestion } from "./rulesEngine";
 import { runAiAnalysis } from "./aiAnalysis";
 import { gatherProjectContext } from "./contextGatherer";
@@ -140,7 +141,9 @@ export async function processComplianceEvent(
   // ── Step 7: Push-notify foremen/owners for any HIGH urgency directives ───────
   const highRows = rows.filter((r) => r.urgency === "HIGH");
   if (highRows.length > 0) {
-    notifyComplianceForemen(payload.companyId, highRows, payload.projectId).catch(() => {});
+    notifyComplianceForemen(payload.companyId, highRows, payload.projectId).catch((err) => {
+      logger.error({ err, companyId: payload.companyId, projectId: payload.projectId }, "Failed to notify foremen of HIGH compliance directives");
+    });
   }
 
   return rows;
@@ -171,7 +174,9 @@ async function notifyComplianceForemen(
         body: d.workerDirective.slice(0, 140),
         referenceId: d.id,
         projectId,
-      }).catch(() => {});
+      }).catch((err) => {
+        logger.warn({ err, userId, directiveId: d.id, projectId }, "Failed to deliver compliance push notification to user");
+      });
     }
   }
 }

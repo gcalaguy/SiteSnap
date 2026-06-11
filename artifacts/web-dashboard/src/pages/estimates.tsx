@@ -889,7 +889,7 @@ export default function EstimatesPage() {
     }
   }
 
-  const { data: estimates = [], isLoading } = useQuery<Estimate[]>({
+  const { data: estimates = [], isLoading, isError: estimatesError } = useQuery<Estimate[]>({
     queryKey: ["estimates"],
     queryFn: () => customFetch("/api/estimates"),
   });
@@ -1205,6 +1205,8 @@ export default function EstimatesPage() {
               <div className="p-8 text-center text-sm text-[#121212]/60">
                 <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" style={{ color: "#D4AF37" }} />Loading…
               </div>
+            ) : estimatesError ? (
+              <div className="p-8 text-center text-sm text-red-500 font-medium">Failed to load estimates. Please refresh and try again.</div>
             ) : estimates.length === 0 ? (
               <div className="p-8 text-center text-sm text-[#121212]/60 font-medium">No saved estimates yet.</div>
             ) : (

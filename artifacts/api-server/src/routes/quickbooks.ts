@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, quickbooksConnectionsTable, invoicesTable, costAnalysesTable, projectsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
 
@@ -122,7 +123,7 @@ async function findOrCreateCustomer(conn: Awaited<ReturnType<typeof getValidToke
 }
 
 // ── GET /api/quickbooks/status ────────────────────────────────────────────────
-router.get("/quickbooks/status", requireAuth, async (req, res) => {
+router.get("/quickbooks/status", requireAuth, asyncHandler(async (req, res) => {
   let conn = null;
   if (req.companyId) {
     const [row] = await db
@@ -142,7 +143,7 @@ router.get("/quickbooks/status", requireAuth, async (req, res) => {
   }
 
   res.json({ connected: !!conn, connection: conn, configured: !!(getClientId() && getClientSecret()) });
-});
+}))
 
 // ── GET /api/quickbooks/auth-url ─────────────────────────────────────────────
 router.get("/quickbooks/auth-url", requireAuth, requireCompany, requireOwner, (req, res) => {
@@ -168,7 +169,7 @@ router.get("/quickbooks/auth-url", requireAuth, requireCompany, requireOwner, (r
 });
 
 // ── GET /api/quickbooks/callback ─────────────────────────────────────────────
-router.get("/quickbooks/callback", async (req, res) => {
+router.get("/quickbooks/callback", asyncHandler(async (req, res) => {
   const { code, realmId, state, error } = req.query as Record<string, string>;
 
   const basePath =
@@ -245,17 +246,17 @@ router.get("/quickbooks/callback", async (req, res) => {
   } catch (err: any) {
     res.redirect(`${basePath}/settings?qb=error&reason=${encodeURIComponent(err?.message ?? "token_exchange_failed")}`);
   }
-});
+}))
 
 // ── DELETE /api/quickbooks/disconnect ─────────────────────────────────────────
-router.delete("/quickbooks/disconnect", requireAuth, requireCompany, requireOwner, async (req, res) => {
+router.delete("/quickbooks/disconnect", requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
   await db.delete(quickbooksConnectionsTable)
     .where(eq(quickbooksConnectionsTable.companyId, req.companyId!));
   res.json({ ok: true });
-});
+}))
 
 // ── POST /api/quickbooks/sync/invoices ────────────────────────────────────────
-router.post("/quickbooks/sync/invoices", requireAuth, requireCompany, requireOwner, async (req, res) => {
+router.post("/quickbooks/sync/invoices", requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
   try {
     const conn = await getValidToken(req.companyId!);
 
@@ -314,10 +315,10 @@ router.post("/quickbooks/sync/invoices", requireAuth, requireCompany, requireOwn
   } catch (err: any) {
     res.status(500).json({ error: err?.message ?? "Sync failed" });
   }
-});
+}))
 
 // ── POST /api/quickbooks/sync/costs ──────────────────────────────────────────
-router.post("/quickbooks/sync/costs", requireAuth, requireCompany, requireOwner, async (req, res) => {
+router.post("/quickbooks/sync/costs", requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
   try {
     const conn = await getValidToken(req.companyId!);
 
@@ -394,6 +395,6 @@ router.post("/quickbooks/sync/costs", requireAuth, requireCompany, requireOwner,
   } catch (err: any) {
     res.status(500).json({ error: err?.message ?? "Sync failed" });
   }
-});
+}))
 
 export default router;

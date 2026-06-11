@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 import { buildDigest } from "../lib/digest.js";
 import { buildDigestHtml } from "../lib/digestTemplate.js";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
@@ -15,12 +16,12 @@ const EmailConfigBody = z.object({
   resendApiKey: z.string().max(200).nullable().optional(),
 });
 
-router.post("/digest/send-all", requireAuth, async (req, res) => {
+router.post("/digest/send-all", requireAuth, asyncHandler(async (req, res) => {
   const result = await sendDigestForAllCompanies();
   res.json(result);
-});
+}))
 
-router.post("/digest/preview", requireAuth, requireCompany, async (req, res) => {
+router.post("/digest/preview", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = (req as any).companyId as number;
   const digest = await buildDigest(companyId);
 
@@ -31,9 +32,9 @@ router.post("/digest/preview", requireAuth, requireCompany, async (req, res) => 
 
   const html = buildDigestHtml(digest);
   res.type("html").send(html);
-});
+}))
 
-router.post("/digest/send-now", requireAuth, requireCompany, async (req, res) => {
+router.post("/digest/send-now", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = (req as any).companyId as number;
 
   const [[company], digest] = await Promise.all([
@@ -74,7 +75,7 @@ router.post("/digest/send-now", requireAuth, requireCompany, async (req, res) =>
     req.log.error({ err }, "Failed to send digest email");
     res.status(500).json({ error: "Failed to send digest email. Please try again." });
   }
-});
+}))
 
 function buildEmailConfigResponse(company: { digestFromEmail: string | null; resendApiKey: string | null }) {
   const dbFrom = company.digestFromEmail ?? "";
@@ -86,7 +87,7 @@ function buildEmailConfigResponse(company: { digestFromEmail: string | null; res
   return { fromEmail, isCustomDomain: !isDefault, resendKeySet };
 }
 
-router.get("/settings/email-config", requireAuth, requireCompany, async (req, res) => {
+router.get("/settings/email-config", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const companyId = (req as any).companyId as number;
   const [company] = await db
     .select({ digestFromEmail: companiesTable.digestFromEmail, resendApiKey: companiesTable.resendApiKey })
@@ -99,9 +100,9 @@ router.get("/settings/email-config", requireAuth, requireCompany, async (req, re
   }
 
   res.json(buildEmailConfigResponse(company));
-});
+}))
 
-router.patch("/settings/email-config", requireAuth, requireCompany, requireOwner, async (req, res) => {
+router.patch("/settings/email-config", requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
   const companyId = (req as any).companyId as number;
   const bodyParsed = EmailConfigBody.safeParse(req.body);
   if (!bodyParsed.success) { res.status(400).json({ error: bodyParsed.error.flatten() }); return; }
@@ -128,6 +129,6 @@ router.patch("/settings/email-config", requireAuth, requireCompany, requireOwner
   }
 
   res.json(buildEmailConfigResponse(updated));
-});
+}))
 
 export default router;

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import {
   db,
   invoicesTable,
@@ -12,6 +12,7 @@ import {
   projectDocumentsTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { ObjectStorageService } from "../lib/objectStorage";
 import JSZip from "jszip";
@@ -57,7 +58,7 @@ router.get(
   requireAuth,
   requireCompany,
   requirePermission("viewFinancials"),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
     if (isNaN(companyId) || companyId !== req.companyId) {
       res.status(403).json({ error: "Access denied" });
@@ -194,34 +195,9 @@ router.get(
       const approvers = await db
         .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName })
         .from(usersTable)
-        .where(eq(usersTable.id, approverIds[0]));
+        .where(inArray(usersTable.id, approverIds));
       for (const a of approvers) {
         approverMap.set(a.id, `${a.firstName ?? ""} ${a.lastName ?? ""}`.trim());
-      }
-      // Note: drizzle-orm eq() only handles single values. For multiple IDs we use the IN
-      // pattern via sql if needed, but the original code didn't use this pattern.
-      // Let's fetch all approvers individually since this is a backend route.
-    }
-
-    // Re-fetch all approvers properly
-    if (approverIds.length > 0) {
-      const allApprovers = await db
-        .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName })
-        .from(usersTable)
-        .where(eq(usersTable.id, approverIds[0]));
-      for (const a of allApprovers) {
-        approverMap.set(a.id, `${a.firstName ?? ""} ${a.lastName ?? ""}`.trim());
-      }
-      // Actually fetch all remaining approvers too
-      for (const approverId of approverIds.slice(1)) {
-        const [approver] = await db
-          .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName })
-          .from(usersTable)
-          .where(eq(usersTable.id, approverId))
-          .limit(1);
-        if (approver) {
-          approverMap.set(approver.id, `${approver.firstName ?? ""} ${approver.lastName ?? ""}`.trim());
-        }
       }
     }
 
@@ -262,7 +238,7 @@ router.get(
     );
     res.setHeader("Content-Length", String(zipBuffer.length));
     res.send(zipBuffer);
-  },
+  }),
 );
 
 export default router;

@@ -2,13 +2,14 @@ import { Router } from "express";
 import { db, auditLogsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth, requireAuditAccess } from "../lib/auth";
+import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
 const guard = [requireAuth, requireAuditAccess];
 
 // GET /api/audit-logs — read-only audit log viewer
 // Super admins see all logs; Enterprise tenant owners see only their own company's logs.
-router.get("/audit-logs", ...guard, async (req, res) => {
+router.get("/audit-logs", ...guard, asyncHandler(async (req, res) => {
   const isSuperAdmin = req.systemRole === "super_admin";
   const companyId = req.companyId;
 
@@ -22,6 +23,6 @@ router.get("/audit-logs", ...guard, async (req, res) => {
     .limit(500);
 
   res.json(logs);
-});
+}))
 
 export default router;

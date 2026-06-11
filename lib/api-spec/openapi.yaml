@@ -346,20 +346,8 @@ paths:
                 items:
                   $ref: "#/components/schemas/PaymentRecord"
 
-  /payments/{id}:
-    delete:
-      operationId: deletePayment
-      tags: [financials]
-      summary: Delete a payment
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Deleted
+  # DELETE /payments/{id} is not yet implemented in the API server.
+  # /payments/{id}: (removed to prevent client generation of a non-existent endpoint)
 
   /invoices/{id}/payments:
     get:
@@ -3445,6 +3433,52 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/UpdateInvoiceBody"
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /invoices/{invoiceId}/delete:
+    delete:
+      operationId: deleteInvoice
+      tags: [invoices]
+      summary: Delete a draft invoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "409":
+          description: Cannot delete a non-draft invoice
+
+  /invoices/{invoiceId}/assign:
+    patch:
+      operationId: assignInvoice
+      tags: [invoices]
+      summary: Assign an invoice to a worker
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assignedToUserId:
+                  type: integer
+                  nullable: true
       responses:
         "200":
           description: Updated invoice
