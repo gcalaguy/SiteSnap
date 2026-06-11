@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc, or } from "drizzle-orm";
+import { eq, and, desc, or, inArray } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -148,15 +148,15 @@ router.get("/tenant/vault/all-documents", requireAuth, async (req, res) => {
       .where(eq(workerDocumentsTable.companyId, req.companyId))
       .orderBy(desc(workerDocumentsTable.createdAt));
 
-    // Enrich with worker names (fetch all workers via loop since inArray may not be available)
+    // Enrich with worker names — single batched query instead of N+1 loop
     const workerIds = [...new Set(docs.map((d) => d.workerId))];
-    let users: Array<{ id: number; firstName: string | null; lastName: string | null; email: string }> = [];
-    if (workerIds.length) {
-      for (const id of workerIds) {
-        const [u] = await db.select().from(usersTable).where(eq(usersTable.id, id));
-        if (u) users.push(u);
-      }
-    }
+    const users: Array<{ id: number; firstName: string | null; lastName: string | null; email: string }> =
+      workerIds.length
+        ? await db
+            .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email })
+            .from(usersTable)
+            .where(inArray(usersTable.id, workerIds))
+        : [];
     const userMap = new Map(users.map((u) => [u.id, u]));
 
     const enriched = docs.map((d) => {

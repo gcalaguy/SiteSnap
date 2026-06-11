@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc, sql, count, avg } from "drizzle-orm";
+import { eq, and, desc, sql, count, avg, inArray } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -182,15 +182,15 @@ router.get("/reviews/list", async (req, res) => {
       .limit(limit)
       .offset((page - 1) * limit);
 
-    // Enrich with reviewer names
+    // Enrich with reviewer names — single batched query instead of N+1 loop
     const reviewerIds = [...new Set(reviews.map((r) => r.reviewerId))];
-    let users: Array<{ id: number; firstName: string | null; lastName: string | null }> = [];
-    if (reviewerIds.length) {
-      for (const id of reviewerIds) {
-        const [u] = await db.select().from(usersTable).where(eq(usersTable.id, id));
-        if (u) users.push(u);
-      }
-    }
+    const users: Array<{ id: number; firstName: string | null; lastName: string | null }> =
+      reviewerIds.length
+        ? await db
+            .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName })
+            .from(usersTable)
+            .where(inArray(usersTable.id, reviewerIds))
+        : [];
     const userMap = new Map(users.map((u) => [u.id, u]));
 
     const enriched = reviews.map((r) => {
