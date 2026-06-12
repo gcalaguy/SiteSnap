@@ -2,7 +2,7 @@ import { db, subscriptionsTable, planFeaturesTable, featuresTable, companiesTabl
 import { eq, and } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
 
-const ENTERPRISE_ONLY_FEATURES = ["RISK_DASHBOARD", "FINANCIALS", "AUDIT_VAULT"];
+const ENTERPRISE_ONLY_FEATURES = ["RISK_DASHBOARD", "FINANCIALS", "AUDIT_VAULT", "WORKER_DOCUMENTS"];
 
 // ── In-memory TTL cache for feature keys ────────────────────────────────────
 // Avoids 2 DB queries per gated request. Entries expire after 60 seconds so
@@ -109,6 +109,7 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
     if (!keys.includes("RISK_DASHBOARD")) keys.push("RISK_DASHBOARD");
     if (!keys.includes("FINANCIALS")) keys.push("FINANCIALS");
     if (!keys.includes("AUDIT_VAULT")) keys.push("AUDIT_VAULT");
+    if (!keys.includes("WORKER_DOCUMENTS")) keys.push("WORKER_DOCUMENTS");
     setCache(companyId, keys);
     return keys;
   }
