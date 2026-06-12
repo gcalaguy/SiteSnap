@@ -537,7 +537,7 @@ router.post("/invitations/:token/accept", asyncHandler(async (req, res) => {
     .limit(1);
 
   // Notify all owners of the company — best-effort, non-blocking
-  db.select({ email: usersTable.email, name: usersTable.name })
+  db.select({ email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName })
     .from(userMembershipsTable)
     .innerJoin(usersTable, eq(usersTable.id, userMembershipsTable.userId))
     .where(
@@ -550,7 +550,7 @@ router.post("/invitations/:token/accept", asyncHandler(async (req, res) => {
     .then((owners) => {
       const ownerEmails = owners.map((o) => o.email).filter(Boolean) as string[];
       if (!ownerEmails.length) return;
-      const memberName = updatedUser?.name || invitation.email;
+      const memberName = updatedUser ? `${updatedUser.firstName} ${updatedUser.lastName}`.trim() || invitation.email : invitation.email;
       const companyName = company?.name ?? "your company";
       sendEmail({
         to: ownerEmails,
