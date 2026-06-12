@@ -65,8 +65,18 @@ export async function getCompanyFeatureKeys(companyId: number): Promise<string[]
     .limit(1);
 
   if (company?.activeFeatures && company.activeFeatures.length > 0) {
-    setCache(companyId, company.activeFeatures);
-    return company.activeFeatures;
+    // Still apply Enterprise-only features on top of the custom override so
+    // Enterprise tenants always receive their full entitlement even when a
+    // manual activeFeatures list is set.
+    const isEnterprise = await isEnterprisePlan(companyId);
+    const keys = [...company.activeFeatures];
+    if (isEnterprise) {
+      for (const f of ENTERPRISE_ONLY_FEATURES) {
+        if (!keys.includes(f)) keys.push(f);
+      }
+    }
+    setCache(companyId, keys);
+    return keys;
   }
 
   const rows = await db
