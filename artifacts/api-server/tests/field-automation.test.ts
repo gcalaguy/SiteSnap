@@ -159,7 +159,7 @@ describe("POST /api/field/daily-log", () => {
       .send({ notes: "No project" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/Invalid body/i);
+    expect(res.body.error).toMatch(/Malformed request payload/i);
   });
 
   it("rejects a non-existent project with 404", async () => {
@@ -272,7 +272,7 @@ describe("POST /api/field/photo-upload", () => {
       .send({ projectId });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/Invalid body/i);
+    expect(res.body.error).toMatch(/Malformed request payload/i);
   });
 });
 
@@ -370,7 +370,7 @@ describe("POST /api/field/safety-check", () => {
       .send({ projectId });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/Invalid body/i);
+    expect(res.body.error).toMatch(/Malformed request payload/i);
   });
 });
 
