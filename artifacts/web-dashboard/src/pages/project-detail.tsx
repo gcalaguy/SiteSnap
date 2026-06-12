@@ -19,6 +19,7 @@ import { format, addDays } from "date-fns";
 import { queryClient } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { TasksTab, getMemberName, getInitials } from "@/components/project-detail/TasksTab";
+import { useCompanyFeatures } from "@/components/FeatureGuard";
 import type { Member, Task } from "@/components/project-detail/TasksTab";
 import { PhotoThumbnail } from "@/components/project-detail/PhotoThumbnail";
 import { ReportsTab } from "@/components/project-detail/ReportsTab";
@@ -29,6 +30,7 @@ import QuotesTab from "@/components/QuotesTab";
 import ClientMessagesTab from "@/components/ClientMessagesTab";
 import SiteScansTab from "@/components/SiteScansTab";
 import SafetyComplianceTab from "@/components/SafetyComplianceTab";
+import PermitsTab from "@/components/project-detail/PermitsTab";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,7 +45,7 @@ import { pdf } from "@react-pdf/renderer";
 import ProjectLiteDocument from "@/components/pdf/ProjectLiteDocument";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, ScanLine, Printer, Shield } from "lucide-react";
+import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, ScanLine, Printer, Shield, BadgeCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -107,6 +109,9 @@ export default function ProjectDetail() {
   const { data: me } = useGetMe();
   const companyId = me?.company?.id;
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+  const { data: featureData } = useCompanyFeatures(me?.activeCompanyId as number | null | undefined);
+  const hasPermitsFeature =
+    me?.systemRole === "super_admin" || (featureData?.features?.includes("PERMITS") ?? false);
 
   const { data: members = [], isLoading: membersLoading } = useListCompanyMembers(
     companyId ?? 0,
@@ -390,6 +395,11 @@ export default function ProjectDetail() {
             {isOwnerOrForeman && (
               <TabsTrigger value="change-orders" className="px-4 whitespace-nowrap flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5" />Change Orders
+              </TabsTrigger>
+            )}
+            {isOwnerOrForeman && hasPermitsFeature && (
+              <TabsTrigger value="permits" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+                <BadgeCheck className="h-3.5 w-3.5" />Permits
               </TabsTrigger>
             )}
           </TabsList>
@@ -723,6 +733,12 @@ export default function ProjectDetail() {
                 </div>
               )}
             </div>
+          </TabsContent>
+        )}
+
+        {isOwnerOrForeman && hasPermitsFeature && (
+          <TabsContent value="permits" className="mt-6">
+            <PermitsTab projectId={projectId} />
           </TabsContent>
         )}
       </Tabs>

@@ -1,5 +1,5 @@
 import { File } from "@google-cloud/storage";
-import { db, userMembershipsTable } from "@workspace/db";
+import { db, userMembershipsTable, projectMembersTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 
 const ACL_POLICY_METADATA_KEY = "custom:aclPolicy";
@@ -15,9 +15,10 @@ const ACL_POLICY_METADATA_KEY = "custom:aclPolicy";
 //   creator.
 enum ObjectAccessGroupType {
   COMPANY_MEMBER = "COMPANY_MEMBER",
+  PROJECT_MEMBER = "PROJECT_MEMBER",
 }
 
-interface ObjectAccessGroup {
+export interface ObjectAccessGroup {
   type: ObjectAccessGroupType;
   // The logic id that identifies qualified group members. Format depends on the
   // ObjectAccessGroupType — e.g. a company id, a user-list DB id, an email domain.
@@ -81,15 +82,49 @@ class CompanyMemberAccessGroup extends BaseObjectAccessGroup {
   }
 }
 
+class ProjectMemberAccessGroup extends BaseObjectAccessGroup {
+  constructor(projectId: string) {
+    super(ObjectAccessGroupType.PROJECT_MEMBER, projectId);
+  }
+
+  async hasMember(userId: string): Promise<boolean> {
+    const [assignment] = await db
+      .select({ userId: projectMembersTable.userId })
+      .from(projectMembersTable)
+      .where(
+        and(
+          eq(projectMembersTable.userId, parseInt(userId, 10)),
+          eq(projectMembersTable.projectId, parseInt(this.id, 10)),
+        ),
+      )
+      .limit(1);
+    return !!assignment;
+  }
+}
+
 function createObjectAccessGroup(
   group: ObjectAccessGroup,
 ): BaseObjectAccessGroup {
   switch (group.type) {
     case ObjectAccessGroupType.COMPANY_MEMBER:
       return new CompanyMemberAccessGroup(group.id);
+    case ObjectAccessGroupType.PROJECT_MEMBER:
+      return new ProjectMemberAccessGroup(group.id);
     default:
       throw new Error(`Unknown access group type: ${group.type}`);
   }
+}
+
+/**
+ * Reusable membership check against an access group. Lets API routes apply the
+ * same group semantics used for object-storage ACLs (e.g. PROJECT_MEMBER) to
+ * database-row authorization, so file access and row access never diverge.
+ */
+export async function isUserInAccessGroup(
+  group: ObjectAccessGroup,
+  userId: string,
+): Promise<boolean> {
+  return createObjectAccessGroup(group).hasMember(userId);
 }
 
 export { ObjectAccessGroupType };

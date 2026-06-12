@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk 'NR>1 {print $2, $3, $4, $10}')",
+      "Bash(xargs -I{} cat /proc/{}/cmdline)",
+      "Bash(npx expo *)",
+      "Read(//home/runner/**)",
+      "Bash(kill -9 1014 1015 1021)",
+      "Bash(pnpm typecheck *)",
+      "Bash(node -e \"console.log\\(require.resolve\\('@workspace/db', {paths:['/home/runner/workspace/artifacts/api-server']}\\)\\)\")",
+      "Bash(git -C /home/runner/workspace log --oneline -3 -- package.json)",
+      "Bash(git -C /home/runner/workspace diff HEAD --stat)",
+      "Bash(pnpm run *)",
+      "Bash(timeout 20 node --enable-source-maps ./dist/index.mjs)",
+      "Bash(PORT=8080 timeout 25 node --enable-source-maps ./dist/index.mjs)",
+      "Bash(git -C /home/runner/workspace log --oneline -8 -- .replit)",
+      "Bash(git -C /home/runner/workspace show HEAD:.replit)",
+      "Bash(git -C /home/runner/workspace status --short .replit)",
+      "Bash(git pull *)",
+      "Bash(pnpm install *)",
+      "Bash(PORT=8080 pnpm run dev)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/users/me)",
+      "Bash(pkill -f 'dist/index.mjs')",
+      "Bash(PORT=8080 node *)",
+      "Bash(curl -s -o /dev/null -w 'health: %{http_code}\\\\n' http://localhost:8080/api/users/me)",
+      "Bash(curl -s http://localhost:8080/api/permits/global)",
+      "Bash(awk '{print $4, $6}')",
+      "Bash(git -C /home/runner/workspace diff --stat)",
+      "Bash(NODE_ENV=development timeout 20 node --enable-source-maps ./dist/index.mjs)",
+      "Bash(curl -s -m 5 http://localhost:8080/api/health)",
+      "Bash(curl -s -m 5 -o /dev/null -w '%{http_code}' http://localhost:19814/)",
+      "Bash(kill 21594 21707 22711 22812 22824 22825 22838)",
+      "Bash(ps -p 21707,22825 -o pid,comm)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(curl -s -m 3 -o /dev/null -w 'port 8080: %{http_code}\\\\n' http://localhost:8080/)",
+      "Bash(curl -s -m 3 -o /dev/null -w 'port 19814: %{http_code}\\\\n' http://localhost:19814/)",
+      "Bash(NODE_ENV=development PORT=8080 timeout 15 node --enable-source-maps ./dist/index.mjs)"
+    ]
+  }
+}

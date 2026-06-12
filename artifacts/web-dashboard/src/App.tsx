@@ -62,6 +62,7 @@ import Contacts from "@/pages/contacts";
 import Leads from "@/pages/leads";
 import ProposalsPage from "@/pages/proposals";
 import FinancialsPage from "@/pages/financials";
+import PermitsPage from "@/pages/permits";
 import PublicQuotePage from "@/pages/public-quote";
 import PublicInvoicePage from "@/pages/public-invoice";
 import { AuthGuard } from "@/components/auth-guard";
@@ -311,6 +312,7 @@ function AuthApp() {
           <Route path="/rfis" component={RFIsPage} />
           <Route path="/reports" component={ReportsPage} />
           <Route path="/field-logs" component={FieldLogsPage} />
+          <Route path="/permits" component={PermitsPage} />
           <Route path="/tradehub/messages/:conversationId" component={TradehubMessagesPage} />
           <Route path="/tradehub/messages" component={TradehubMessagesPage} />
           <Route path="/tradehub/notifications" component={TradehubNotificationsPage} />

@@ -33,6 +33,7 @@ const TILE_GROUPS: { title: string; tiles: HubTile[] }[] = [
     tiles: [
       { label: "Timesheet Overview", icon: "clipboard", route: "/timesheets", color: "#0EA5E9" },
       { label: "Master Schedule", icon: "calendar", route: "/schedule", color: "#EC4899" },
+      { label: "Permits", icon: "award", route: "/permits", color: "#10B981" },
     ],
   },
   {

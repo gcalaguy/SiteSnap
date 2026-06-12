@@ -20,6 +20,7 @@ export * from "./conversations";
 export * from "./messages";
 export * from "./workerDocuments";
 export * from "./tradeReviews";
+export * from "./permits";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 

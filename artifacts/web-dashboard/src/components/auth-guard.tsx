@@ -5,6 +5,11 @@ import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 import { TermsModal } from "@/components/TermsModal";
 
+// Routes that must never trigger the "no company → onboarding" redirect.
+// Without this exemption the guard would re-redirect users who are already
+// mid-onboarding (or mid-auth), causing a redirect loop.
+const ONBOARDING_EXEMPT_ROUTES = ["/onboarding", "/sign-in", "/sign-up"];
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn } = useUser();
   const [location, setLocation] = useLocation();
@@ -76,9 +81,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!dbUser) return;
     const hasCompany = !!dbUser.activeCompanyId;
-    if (!hasCompany && location !== "/onboarding") {
+    const onExemptRoute = ONBOARDING_EXEMPT_ROUTES.some(
+      (route) => location === route || location.startsWith(`${route}/`),
+    );
+    if (!hasCompany && !onExemptRoute) {
       setLocation("/onboarding");
-    } else if (hasCompany && location === "/onboarding") {
+    } else if (hasCompany && location.startsWith("/onboarding")) {
       setLocation("/dashboard");
     }
   }, [dbUser, location, setLocation]);

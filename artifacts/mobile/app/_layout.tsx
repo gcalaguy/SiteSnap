@@ -218,6 +218,7 @@ function RootLayoutNav() {
         <Stack.Screen name="site-vision" options={{ headerShown: false }} />
         <Stack.Screen name="safety" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
+        <Stack.Screen name="permits" options={{ headerShown: false }} />
       </Stack>
       <GlobalVoiceCommandFAB />
     </View>

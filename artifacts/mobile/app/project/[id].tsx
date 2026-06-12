@@ -23,6 +23,7 @@ import { WebView } from "react-native-webview";
 import { DocumentsTab } from "@/components/DocumentsTab";
 import { HoursTab } from "@/components/HoursTab";
 import { QuotesTab } from "@/components/QuotesTab";
+import { PermitsTab } from "@/components/PermitsTab";
 import { TimesheetsTab } from "@/components/TimesheetsTab";
 import { ClientMessagesTab } from "@/components/ClientMessagesTab";
 import {
@@ -60,7 +61,7 @@ const STATUS_LABELS: Record<string, string> = {
   on_hold: "On Hold",
 };
 
-const TABS = ["Overview", "Reports", "Tasks", "Schedules", "RFIs", "Quotes", "Documents", "Hours", "Timesheets", "Messages", "Safety"] as const;
+const TABS = ["Overview", "Reports", "Tasks", "Schedules", "RFIs", "Quotes", "Documents", "Permits", "Hours", "Timesheets", "Messages", "Safety"] as const;
 type Tab = (typeof TABS)[number];
 
 const RFI_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -1127,6 +1128,8 @@ export default function ProjectDetailScreen() {
   };
 
   const visibleTabs = TABS.filter((tab) => {
+    // Permits are owner/foreman only (workers have no view into them)
+    if (tab === "Permits") return isOwnerOrForeman;
     const key = TAB_PERMISSION_MAP[tab];
     if (key) return perms[key];
     return true;
@@ -1722,6 +1725,11 @@ export default function ProjectDetailScreen() {
       {/* Documents tab */}
       {activeTab === "Documents" && (
         <DocumentsTab projectId={projectId} clientUploads={clientUploads} />
+      )}
+
+      {/* Permits tab */}
+      {activeTab === "Permits" && (
+        <PermitsTab projectId={projectId} />
       )}
 
       {/* Hours tab */}

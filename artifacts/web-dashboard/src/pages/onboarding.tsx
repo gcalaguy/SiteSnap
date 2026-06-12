@@ -43,8 +43,10 @@ const PENDING_CLAIM_DATA_KEY = "sitesnap_pending_claim_data";
 export default function OnboardingPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user: clerkUser } = useUser();
-  const searchParams = new URLSearchParams(window.location.search);
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  // Capture query params once at mount — navigation clears window.location.search,
+  // and re-reading it every render makes derived values flip mid-lifecycle.
+  const [searchParams] = useState(() => new URLSearchParams(window.location.search));
   const urlToken = searchParams.get("token");
   const urlCompanyId = searchParams.get("companyId");
   const refCode = searchParams.get("ref") ?? undefined;
@@ -82,21 +84,34 @@ export default function OnboardingPage() {
 
   const [inviteToken, setInviteToken] = useState(resolvedToken);
 
-  if (urlToken) sessionStorage.setItem(INVITE_TOKEN_KEY, urlToken);
-  if (urlCompanyId) sessionStorage.setItem(PENDING_CLAIM_KEY, urlCompanyId);
+  // Persist URL params in an effect, not during render.
+  useEffect(() => {
+    if (urlToken) sessionStorage.setItem(INVITE_TOKEN_KEY, urlToken);
+    if (urlCompanyId) sessionStorage.setItem(PENDING_CLAIM_KEY, urlCompanyId);
+  }, [urlToken, urlCompanyId]);
 
   // ── Claim Flow ────────────────────────────────────────────────────────────
   // If unauthenticated with a claim URL: redirect to sign-up, but persist the
   // claim data so they can enter company name/plan after signing up.
+  //
+  // Must wait for Clerk to resolve the session before deciding: `user` is
+  // undefined while Clerk is still loading, so redirecting early sends
+  // signed-in visitors to /sign-up, which bounces them straight back here
+  // (fallbackRedirectUrl) — an infinite redirect loop. The ref makes the
+  // redirect one-shot so a re-render can never re-trigger it.
+  const redirectedToSignUp = useRef(false);
   useEffect(() => {
+    if (!clerkLoaded) return;
     if (clerkUser || !resolvedClaimCompanyId) return;
+    if (redirectedToSignUp.current) return;
+    redirectedToSignUp.current = true;
     toast({
       title: "Create your account first",
       description: "Sign up below — then you can name your workspace and pick a plan.",
     });
     setLocation("/sign-up");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clerkUser, resolvedClaimCompanyId]);
+  }, [clerkLoaded, clerkUser, resolvedClaimCompanyId]);
 
   // After sign-up, if a pending claim exists, stay on onboarding so the claim
   // form renders. We used to auto-claim; now the user fills the form manually.
