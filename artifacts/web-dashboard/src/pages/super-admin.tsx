@@ -189,7 +189,7 @@ function CreateCompanyCard() {
   const [planTier, setPlanTier] = useState("starter");
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const createCompany = useMutation({
-    mutationFn: () => customFetch<{ id: number }>("/api/admin/tenants", {
+    mutationFn: () => customFetch<{ id: number; claimToken?: string | null }>("/api/admin/tenants", {
       method: "POST",
       body: JSON.stringify({
         name: companyForm.name.trim(),
@@ -200,7 +200,9 @@ function CreateCompanyCard() {
       }),
     }),
     onSuccess: (data) => {
-      const link = `${window.location.origin}/onboarding?companyId=${data.id}`;
+      const link = data.claimToken
+        ? `${window.location.origin}/sign-up?token=${data.claimToken}`
+        : `${window.location.origin}/onboarding?companyId=${data.id}`;
       setCreatedLink(link);
       toast({ title: "Company created", description: "Share the link below with the new owner." });
     },

@@ -34,7 +34,27 @@
       "Bash(echo \"exit: $?\")",
       "Bash(curl -s -m 3 -o /dev/null -w 'port 8080: %{http_code}\\\\n' http://localhost:8080/)",
       "Bash(curl -s -m 3 -o /dev/null -w 'port 19814: %{http_code}\\\\n' http://localhost:19814/)",
-      "Bash(NODE_ENV=development PORT=8080 timeout 15 node --enable-source-maps ./dist/index.mjs)"
+      "Bash(NODE_ENV=development PORT=8080 timeout 15 node --enable-source-maps ./dist/index.mjs)",
+      "Bash(git stash *)",
+      "Bash(git checkout *)",
+      "Bash(pnpm test *)",
+      "Bash(kill -SIGTERM 566)",
+      "Bash(xargs kill -9)",
+      "Bash(kill 13629)",
+      "Bash(grep -v '^$')",
+      "Bash(PGPASSWORD=password psql *)",
+      "Bash(pg_lsclusters)",
+      "Bash(pg_isready)",
+      "Bash(xargs cat)",
+      "Bash(node *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(awk '{print $2}')",
+      "Bash(kill 18619)",
+      "Bash(pnpm --filter @workspace/api-server run dev)",
+      "Bash(kill 30875 30876)",
+      "Bash(kill 31274 31275)"
     ]
   }
 }

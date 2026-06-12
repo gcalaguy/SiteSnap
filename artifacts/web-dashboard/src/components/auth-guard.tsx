@@ -46,7 +46,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         // Stop retrying after 3 attempts or on non-auth errors
         if (failureCount >= 3) return false;
         const status = error?.status ?? error?.response?.status;
-        return status === 401 || status === undefined;
+        // Retry on 401 (token not ready yet) AND 404 (user not yet synced to DB).
+        // The 404 case happens on a brand-new account's first request — the sync
+        // useEffect runs in parallel and will have created the DB record by the
+        // time the 2nd/3rd attempt fires.
+        return status === 401 || status === 404 || status === undefined;
       },
       retryDelay: (attempt) => Math.min(500 * (attempt + 1), 2000),
     },

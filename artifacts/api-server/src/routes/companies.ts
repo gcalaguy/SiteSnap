@@ -784,8 +784,35 @@ router.get(
   }),
 );
 
+// GET /companies/claim-invite/:token — resolve a signup invite token to a company ID
+// PUBLIC — no requireAuth. The new owner arrives via /sign-up?token=X before having a
+// DB user record. This lets the frontend fetch the companyId without exposing it in the
+// invite link itself.
+router.get("/companies/claim-invite/:token", asyncHandler(async (req, res) => {
+  const token = (req.params.token as string).trim();
+  if (!token) {
+    res.status(400).json({ error: "Token is required" });
+    return;
+  }
+
+  const [company] = await db
+    .select({ id: companiesTable.id })
+    .from(companiesTable)
+    .where(eq(companiesTable.claimToken, token))
+    .limit(1);
+
+  if (!company) {
+    res.status(404).json({ error: "Invalid or expired signup invite" });
+    return;
+  }
+
+  res.json({ companyId: company.id });
+}));
+
 // POST /companies/:companyId/claim — claim a pre-created company as owner
 // Requires the one-time claimToken set by the super-admin at tenant creation.
+// All mutations are wrapped in a single transaction to prevent partial provisioning
+// if a network failure occurs mid-stream.
 router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (isNaN(companyId)) {
@@ -793,7 +820,7 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
     return;
   }
 
-  // Require the caller to supply the claim token (communicated out-of-band by super-admin)
+  // Require the caller to supply the claim token
   const suppliedToken = typeof req.body.claimToken === "string" ? req.body.claimToken.trim() : null;
   if (!suppliedToken) {
     res.status(400).json({ error: "claimToken is required" });
@@ -812,8 +839,7 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
     return;
   }
 
-  // Verify the token. Companies without a claimToken (legacy rows created before
-  // this fix) cannot be claimed via this endpoint — a super-admin must set the token first.
+  // Verify the token. Companies without a claimToken cannot be claimed here.
   if (!company.claimToken || company.claimToken !== suppliedToken) {
     res.status(403).json({ error: "Invalid company ID or claim token" });
     return;
@@ -837,15 +863,7 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
     ? req.body.planTier.trim().toLowerCase()
     : "starter";
 
-  // Update company name if provided
-  if (companyName) {
-    await db
-      .update(companiesTable)
-      .set({ name: companyName })
-      .where(eq(companiesTable.id, companyId));
-  }
-
-  // Resolve plan tier and insert subscription
+  // Resolve plan outside the transaction (read-only; no risk of partial state)
   const [matchedPlan] = await db
     .select()
     .from(plansTable)
@@ -855,40 +873,58 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
     ? matchedPlan
     : (await db.select().from(plansTable).where(eq(plansTable.slug, "starter")).limit(1))[0];
 
-  if (fallbackPlan) {
-    await db
-      .insert(subscriptionsTable)
-      .values({
-        companyId,
-        planId: fallbackPlan.id,
-        status: "active",
-        billingCycle: "monthly",
-      })
-      .onConflictDoNothing();
+  // All mutations in one transaction — prevents orphaned records on network failure
+  let updatedUser: typeof usersTable.$inferSelect;
+  let updatedCompany: typeof companiesTable.$inferSelect;
+  try {
+    ({ updatedUser, updatedCompany } = await db.transaction(async (tx) => {
+      // Update company name if provided
+      if (companyName) {
+        await tx
+          .update(companiesTable)
+          .set({ name: companyName })
+          .where(eq(companiesTable.id, companyId));
+      }
+
+      // Provision subscription
+      if (fallbackPlan) {
+        await tx
+          .insert(subscriptionsTable)
+          .values({
+            companyId,
+            planId: fallbackPlan.id,
+            status: "active",
+            billingCycle: "monthly",
+          })
+          .onConflictDoNothing();
+      }
+
+      // Assign authenticated user as owner
+      await tx
+        .insert(userMembershipsTable)
+        .values({ userId: req.userId!, companyId, role: "owner", isActive: true })
+        .onConflictDoNothing();
+
+      const [user] = await tx
+        .update(usersTable)
+        .set({ activeCompanyId: companyId })
+        .where(eq(usersTable.id, req.userId!))
+        .returning();
+
+      // Burn the one-time claim token so it cannot be reused
+      const [cmp] = await tx
+        .update(companiesTable)
+        .set({ claimToken: null })
+        .where(eq(companiesTable.id, companyId))
+        .returning();
+
+      return { updatedUser: user, updatedCompany: cmp };
+    }));
+  } catch (err) {
+    req.log?.error({ err, companyId }, "Failed to claim company");
+    res.status(500).json({ error: "Failed to claim company. Please try again." });
+    return;
   }
-
-  // Assign authenticated user as owner via memberships
-  await db
-    .insert(userMembershipsTable)
-    .values({ userId: req.userId!, companyId, role: "owner", isActive: true })
-    .onConflictDoNothing();
-  const [updatedUser] = await db
-    .update(usersTable)
-    .set({ activeCompanyId: companyId })
-    .where(eq(usersTable.id, req.userId!))
-    .returning();
-
-  // Burn the one-time claim token so it cannot be reused
-  await db
-    .update(companiesTable)
-    .set({ claimToken: null })
-    .where(eq(companiesTable.id, companyId));
-
-  const [updatedCompany] = await db
-    .select()
-    .from(companiesTable)
-    .where(eq(companiesTable.id, companyId))
-    .limit(1);
 
   res.json({ company: updatedCompany, user: updatedUser });
 }));

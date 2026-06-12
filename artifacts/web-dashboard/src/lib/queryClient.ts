@@ -4,19 +4,21 @@ import { ApiError } from "@workspace/api-client-react";
 // B2 fix: auto sign-out on any 401 response so expired sessions never silently
 // linger on the web dashboard. Both query and mutation errors are intercepted
 // at the cache level — no per-call handling needed in individual components.
+//
+// NOTE: requireAuth now returns 404 (not 401) when the Clerk session is valid but
+// the user hasn't been synced to the DB yet. This means 401 here truly means "no
+// valid Clerk session" — redirecting to /sign-in is always the right move.
+// The pathname guard is a belt-and-suspenders check: if we're already on /sign-in
+// or /sign-up, don't redirect again (prevents a loop in edge cases).
 function handle401(error: unknown) {
   if (error instanceof ApiError && error.status === 401) {
-    // Use dynamic import to avoid circular dependency with Clerk provider.
-    // Clerk's signOut is not available at module init time.
-    import("@clerk/react")
-      .then(({ useClerk: _unused, ...clerk }) => {
-        // Access clerk instance directly via window.__clerk_frontend_api if available,
-        // otherwise redirect to sign-in which forces re-auth.
-        window.location.href = "/sign-in";
-      })
-      .catch(() => {
-        window.location.href = "/sign-in";
-      });
+    const pathname = window.location.pathname;
+    if (
+      pathname.startsWith("/sign-in") ||
+      pathname.startsWith("/sign-up") ||
+      pathname.startsWith("/onboarding")
+    ) return;
+    window.location.href = "/sign-in";
   }
 }
 

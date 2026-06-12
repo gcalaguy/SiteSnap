@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
@@ -144,14 +144,32 @@ function SignInPage() {
   );
 }
 
+const SIGNUP_INVITE_STORAGE_KEY = "sitesnap_pending_signup_invite";
+
 function SignUpPage() {
+  // Read token once on mount. useState lazy-initializer runs once, so it's
+  // stable even when Clerk navigates to sub-paths like /sign-up/verify-email-address.
+  const [signupInviteToken] = useState<string | null>(() => {
+    const urlToken = new URLSearchParams(window.location.search).get("token");
+    if (urlToken) {
+      // Persist so sub-path re-renders still see it
+      sessionStorage.setItem(SIGNUP_INVITE_STORAGE_KEY, urlToken);
+      return urlToken;
+    }
+    return sessionStorage.getItem(SIGNUP_INVITE_STORAGE_KEY);
+  });
+
+  const fallbackUrl = signupInviteToken
+    ? `${basePath}/onboarding?claimToken=${signupInviteToken}`
+    : `${basePath}/onboarding`;
+
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-muted/30 px-4">
       <SignUp
         routing="path"
         path={`${basePath}/sign-up`}
         signInUrl={`${basePath}/sign-in`}
-        fallbackRedirectUrl={`${basePath}/onboarding`}
+        fallbackRedirectUrl={fallbackUrl}
       />
     </div>
   );

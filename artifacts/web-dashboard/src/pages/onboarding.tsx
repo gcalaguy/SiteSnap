@@ -32,13 +32,15 @@ const companySchema = z.object({
 
 const claimSchema = z.object({
   companyName: z.string().min(2, "Company name must be at least 2 characters"),
-  planTier: z.enum(["starter", "basic", "enterprise"]),
+  planTier: z.enum(["starter", "basic", "pro", "enterprise"]),
 });
 
 const INVITE_TOKEN_KEY = "sitesnap_pending_invite_token";
 const PENDING_COMPANY_KEY = "sitesnap_pending_company";
 const PENDING_CLAIM_KEY = "sitesnap_pending_claim";
 const PENDING_CLAIM_DATA_KEY = "sitesnap_pending_claim_data";
+// Persisted by SignUpPage when an admin-generated invite link (/sign-up?token=X) is followed
+const SIGNUP_INVITE_KEY = "sitesnap_pending_signup_invite";
 
 export default function OnboardingPage() {
   const [, setLocation] = useLocation();
@@ -50,9 +52,15 @@ export default function OnboardingPage() {
   const urlToken = searchParams.get("token");
   const urlCompanyId = searchParams.get("companyId");
   const refCode = searchParams.get("ref") ?? undefined;
+  // claimToken = the one-time token embedded in admin-generated /sign-up?token= links.
+  // After Clerk OTP verification Clerk redirects to /onboarding?claimToken=X.
+  // Also read from sessionStorage as a fallback (SignUpPage writes it there).
+  const urlClaimToken = searchParams.get("claimToken");
 
   const resolvedToken = urlToken || sessionStorage.getItem(INVITE_TOKEN_KEY) || "";
   const resolvedClaimCompanyId = urlCompanyId || sessionStorage.getItem(PENDING_CLAIM_KEY) || "";
+  const resolvedSignupInviteToken =
+    urlClaimToken || sessionStorage.getItem(SIGNUP_INVITE_KEY) || "";
 
   const { data: dbUser } = useGetMe({
     query: { queryKey: getGetMeQueryKey(), enabled: !!clerkUser },
@@ -60,9 +68,17 @@ export default function OnboardingPage() {
   const hasCompany = !!dbUser?.activeCompanyId;
   const isWorker = dbUser?.role === "worker";
 
-  // When companyId is present, show the claim form (override default tab)
-  const isClaimMode = !!resolvedClaimCompanyId;
+  // isSignupInviteMode: admin generated a /sign-up?token= link; takes priority over
+  // the legacy ?companyId= claim mode so both don't render simultaneously.
+  const isSignupInviteMode = !!resolvedSignupInviteToken;
+  // isClaimMode: legacy path where companyId is in the URL (no token).
+  const isClaimMode = !isSignupInviteMode && !!resolvedClaimCompanyId;
   const [activeTab, setActiveTab] = useState(resolvedToken || isWorker ? "join" : "create");
+
+  // State for async token → companyId resolution
+  const [signupInviteCompanyId, setSignupInviteCompanyId] = useState<string | null>(null);
+  const [signupInviteLoading, setSignupInviteLoading] = useState(false);
+  const [signupInviteError, setSignupInviteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isWorker) setActiveTab("join");
@@ -88,7 +104,110 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (urlToken) sessionStorage.setItem(INVITE_TOKEN_KEY, urlToken);
     if (urlCompanyId) sessionStorage.setItem(PENDING_CLAIM_KEY, urlCompanyId);
-  }, [urlToken, urlCompanyId]);
+    if (urlClaimToken) sessionStorage.setItem(SIGNUP_INVITE_KEY, urlClaimToken);
+  }, [urlToken, urlCompanyId, urlClaimToken]);
+
+  // ── Signup Invite Flow (admin /sign-up?token= link) ───────────────────────
+  // Resolve the claim token → companyId via public API so we never expose the
+  // raw DB ID in the invite link.
+  useEffect(() => {
+    if (!resolvedSignupInviteToken || signupInviteCompanyId || signupInviteError) return;
+    setSignupInviteLoading(true);
+    customFetch<{ companyId: number }>(`/api/companies/claim-invite/${resolvedSignupInviteToken}`)
+      .then((data) => {
+        setSignupInviteCompanyId(String(data.companyId));
+        setSignupInviteLoading(false);
+      })
+      .catch((err: any) => {
+        setSignupInviteError(err?.message || "Invalid or expired invite link.");
+        setSignupInviteLoading(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedSignupInviteToken]);
+
+  // Redirect unauthenticated users with a signup invite token to Clerk's sign-up.
+  // The token is already in sessionStorage so SignUpPage can thread it through
+  // Clerk's OTP flow into the fallbackRedirectUrl.
+  const redirectedForSignupInvite = useRef(false);
+  useEffect(() => {
+    if (!clerkLoaded) return;
+    if (clerkUser || !resolvedSignupInviteToken) return;
+    if (redirectedForSignupInvite.current) return;
+    redirectedForSignupInvite.current = true;
+    toast({
+      title: "Create your account first",
+      description: "Sign up below — then you can claim your workspace.",
+    });
+    setLocation("/sign-up");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerkLoaded, clerkUser, resolvedSignupInviteToken]);
+
+  // Sync user to DB when they land here after Clerk sign-up (signup invite flow)
+  const signupInviteSynced = useRef(false);
+  useEffect(() => {
+    if (!clerkUser || !resolvedSignupInviteToken || signupInviteSynced.current) return;
+    if (dbUser) return; // already synced
+    signupInviteSynced.current = true;
+    syncUser.mutate({
+      data: {
+        clerkUserId: clerkUser.id,
+        email: clerkUser.primaryEmailAddress?.emailAddress || "",
+        firstName: clerkUser.firstName || "",
+        lastName: clerkUser.lastName || "",
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerkUser, resolvedSignupInviteToken, dbUser]);
+
+  function doSignupInviteClaim(values: z.infer<typeof claimSchema>) {
+    if (!signupInviteCompanyId) return;
+    customFetch(`/api/companies/${signupInviteCompanyId}/claim`, {
+      method: "POST",
+      body: JSON.stringify({ ...values, claimToken: resolvedSignupInviteToken }),
+    })
+      .then(() => {
+        sessionStorage.removeItem(SIGNUP_INVITE_KEY);
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        toast({ title: "Workspace created successfully" });
+        setLocation("/dashboard");
+      })
+      .catch((err: any) => {
+        toast({
+          title: "Failed to create workspace",
+          description: err?.message || "Invalid or expired invite.",
+          variant: "destructive",
+        });
+      });
+  }
+
+  function onSubmitSignupInviteClaim(values: z.infer<typeof claimSchema>) {
+    if (!clerkUser) {
+      toast({
+        title: "Create your account first",
+        description: "Sign up below — then you can claim your workspace.",
+      });
+      setLocation("/sign-up");
+      return;
+    }
+    if (!dbUser) {
+      syncUser.mutate(
+        {
+          data: {
+            clerkUserId: clerkUser.id,
+            email: clerkUser.primaryEmailAddress?.emailAddress || "",
+            firstName: clerkUser.firstName || "",
+            lastName: clerkUser.lastName || "",
+          },
+        },
+        {
+          onSuccess: () => doSignupInviteClaim(values),
+          onError: () => doSignupInviteClaim(values),
+        },
+      );
+      return;
+    }
+    doSignupInviteClaim(values);
+  }
 
   // ── Claim Flow ────────────────────────────────────────────────────────────
   // If unauthenticated with a claim URL: redirect to sign-up, but persist the
@@ -335,15 +454,93 @@ export default function OnboardingPage() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Welcome to Site Snap</h1>
           <p className="mt-2 text-muted-foreground">
-            {isClaimMode
-              ? "Let's finish setting up your workspace."
-              : isWorker
-                ? "Enter the invite token your owner or foreman sent you to join your team."
-                : "Let's get your workspace set up."}
+            {isSignupInviteMode
+              ? "You're invited! Claim your workspace below."
+              : isClaimMode
+                ? "Let's finish setting up your workspace."
+                : isWorker
+                  ? "Enter the invite token your owner or foreman sent you to join your team."
+                  : "Let's get your workspace set up."}
           </p>
         </div>
 
-        {/* ── Claim Form (companyId in URL) ─────────────────────────────── */}
+        {/* ── Signup Invite Claim Form (admin /sign-up?token= flow) ─────── */}
+        {isSignupInviteMode && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Set up your workspace</CardTitle>
+              <CardDescription>
+                {signupInviteLoading
+                  ? "Validating your invite…"
+                  : signupInviteError
+                    ? signupInviteError
+                    : "Enter your company name and choose a plan. You'll be set as the owner."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {signupInviteLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : signupInviteError ? (
+                <p className="text-sm text-destructive text-center py-4">{signupInviteError}</p>
+              ) : (
+                <Form {...claimForm}>
+                  <form onSubmit={claimForm.handleSubmit(onSubmitSignupInviteClaim)} className="space-y-4">
+                    <FormField
+                      control={claimForm.control}
+                      name="companyName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Acme Construction Ltd." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={claimForm.control}
+                      name="planTier"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Subscription Plan</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a plan" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="starter">Starter</SelectItem>
+                              <SelectItem value="basic">Basic</SelectItem>
+                              <SelectItem value="pro">Pro</SelectItem>
+                              <SelectItem value="enterprise">Enterprise</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={claimForm.formState.isSubmitting || syncUser.isPending || !signupInviteCompanyId}
+                    >
+                      {(claimForm.formState.isSubmitting || syncUser.isPending) ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Create Workspace
+                    </Button>
+                  </form>
+                </Form>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Legacy Claim Form (companyId in URL) ──────────────────────── */}
         {isClaimMode && (
           <Card>
             <CardHeader>
@@ -373,7 +570,7 @@ export default function OnboardingPage() {
                     name="planTier"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Plan Tier</FormLabel>
+                        <FormLabel>Subscription Plan</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -383,6 +580,7 @@ export default function OnboardingPage() {
                           <SelectContent>
                             <SelectItem value="starter">Starter</SelectItem>
                             <SelectItem value="basic">Basic</SelectItem>
+                            <SelectItem value="pro">Pro</SelectItem>
                             <SelectItem value="enterprise">Enterprise</SelectItem>
                           </SelectContent>
                         </Select>
@@ -402,8 +600,8 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {/* ── Create / Join Tabs (no companyId in URL) ──────────────────── */}
-        {!isClaimMode && (
+        {/* ── Create / Join Tabs (standard self-serve flow) ─────────────── */}
+        {!isClaimMode && !isSignupInviteMode && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {!isWorker && (
               <TabsList className="grid w-full grid-cols-2">
