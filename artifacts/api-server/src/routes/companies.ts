@@ -41,6 +41,8 @@ const UpdateCompanyProfileBody = z.object({
 const router = Router();
 
 // POST /companies — create company and set requester as owner
+// Uses requireAuth but deliberately omits requireCompany: a brand-new user has
+// no company yet and must be able to call this endpoint during onboarding.
 router.post("/companies", requireAuth, asyncHandler(async (req, res) => {
   const parsed = CreateCompanyBody.safeParse(req.body);
   if (!parsed.success) {

@@ -234,6 +234,8 @@ router.get(
 );
 
 // GET /invitations/:token — verify invite
+// PUBLIC — no requireAuth. Invite links are opened before the recipient has a
+// Clerk session, so this endpoint must be reachable without a Bearer token.
 router.get("/invitations/:token", asyncHandler(async (req, res) => {
   const { token } = req.params;
 
@@ -268,6 +270,10 @@ router.get("/invitations/:token", asyncHandler(async (req, res) => {
 }))
 
 // POST /invitations/:token/accept — accept invite and join company
+// PUBLIC (session-aware but not requireAuth-gated). A brand-new Clerk user who
+// clicks an invite link has a session but no DB record yet. This route handles
+// its own Clerk verification via getAuth() and auto-syncs the user if needed.
+// Do NOT add requireAuth here — it would break the invite acceptance flow.
 // Uses auto-sync: if the local DB user doesn't exist yet (brand-new Clerk sign-up),
 // we fetch their profile from Clerk and upsert them before accepting.
 router.post("/invitations/:token/accept", asyncHandler(async (req, res) => {

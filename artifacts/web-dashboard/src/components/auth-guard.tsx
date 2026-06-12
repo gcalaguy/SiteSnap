@@ -8,6 +8,16 @@ import { TermsModal } from "@/components/TermsModal";
 // Routes that must never trigger the "no company → onboarding" redirect.
 // Without this exemption the guard would re-redirect users who are already
 // mid-onboarding (or mid-auth), causing a redirect loop.
+//
+// Matching rule: a route is exempt if `location === route` OR
+// `location.startsWith(route + "/")`.  This means:
+//   • "/sign-in"  covers Clerk sub-paths: /sign-in/factor-one, /sign-in/sso-callback, …
+//   • "/sign-up"  covers Clerk sub-paths: /sign-up/continue, /sign-up/verify-email-address, …
+//   • "/onboarding" covers the invite-accept flow (/onboarding?token=…) because
+//     wouter's useLocation() strips the query string from `location`.
+//
+// If you add a new dedicated sign-up or invite route (e.g. "/invite/:token"),
+// add its prefix here to prevent a redirect loop for companyless users.
 const ONBOARDING_EXEMPT_ROUTES = ["/onboarding", "/sign-in", "/sign-up"];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
