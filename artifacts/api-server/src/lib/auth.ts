@@ -40,7 +40,12 @@ export const requireAuth = async (
 
   if (!user) {
     req.log?.warn({ clerkUserId, ip: req.ip, userAgent: req.headers["user-agent"] }, "Auth: user not found in DB after Clerk verification");
-    res.status(401).json({ error: "User not found. Please sync your account." });
+    // 404, not 401 — the Clerk session IS valid; the user just hasn't been synced to the
+    // DB yet (e.g. first sign-in via social OAuth, or a sync race on a fresh account).
+    // Returning 401 here causes the client's handle401 to redirect to /sign-in, which
+    // Clerk immediately bounces back to /dashboard (session still valid) → infinite loop.
+    // 404 lets AuthGuard's retry + sync logic recover without triggering that redirect.
+    res.status(404).json({ error: "User not found. Please sync your account." });
     return;
   }
 
@@ -151,6 +156,22 @@ export const requireAuth = async (
     }
   }
 
+  next();
+};
+
+// Middleware: verify Clerk session only — does NOT require a DB user record.
+// Use on bootstrap endpoints (e.g. POST /users/sync) where the DB user may not
+// exist yet. The route is responsible for creating/upserting the user itself.
+export const requireClerkSession = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const auth = getAuth(req);
+  if (!auth?.userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   next();
 };
 

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable } from "@workspace/db";
 import { eq, and, gt, ilike } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireClerkSession, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { resolvePermission } from "../lib/permissionGate";
 import { SyncUserBody } from "@workspace/api-zod";
@@ -41,7 +41,9 @@ async function autoAcceptPendingInvitation(userId: number, email: string) {
 const router = Router();
 
 // POST /users/sync — create or update DB user from Clerk session
-router.post("/users/sync", requireAuth, asyncHandler(async (req, res) => {
+// Uses requireClerkSession (not requireAuth) because the DB user may not exist yet —
+// that is exactly what this endpoint creates.
+router.post("/users/sync", requireClerkSession, asyncHandler(async (req, res) => {
   const parsed = SyncUserBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid body", details: parsed.error });

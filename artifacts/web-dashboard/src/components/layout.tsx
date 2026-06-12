@@ -138,7 +138,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     staleTime: 60_000,
   });
   const planFeatures = featuresData?.features ?? null;
-  const has = (key: string) => isSuperAdmin || planFeatures === null || planFeatures.includes(key);
+  const has = (key: string) => isSuperAdmin || planFeatures === null || planFeatures.some((f) => f.toUpperCase() === key.toUpperCase());
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0 },
@@ -147,20 +147,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Projects", href: "/projects", icon: Building2, badge: 0 },
     { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge },
     { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge },
-    ...(isOwnerOrForeman ? [{ name: "Proposals", href: "/proposals", icon: FileSignature, badge: 0, featureKey: "Proposals" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Proposals", href: "/proposals", icon: FileSignature, badge: 0, featureKey: "PROPOSALS" }] : []),
     { name: "Estimating", href: "/estimates", icon: Calculator, badge: 0 },
     ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0, featureKey: "FINANCIALS" }] : []),
-    { name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "Contacts" },
-    { name: "Leads", href: "/leads", icon: TrendingUp, badge: 0, featureKey: "Contacts" },
-    ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, featureKey: "Calculator" }] : []),
+    { name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "CONTACTS" },
+    { name: "Leads", href: "/leads", icon: TrendingUp, badge: 0, featureKey: "CONTACTS" },
+    ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, featureKey: "CALCULATORS" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0, featureKey: "SCHEDULING" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING" }] : []),
-    { name: "Field Logs", href: "/field-logs", icon: FileText, badge: 0, featureKey: "Safety" },
+    { name: "Field Logs", href: "/field-logs", icon: FileText, badge: 0, featureKey: "SAFETY_FORMS" },
     ...(isOwnerOrForeman ? [{ name: "Permits", href: "/permits", icon: BadgeCheck, badge: 0, featureKey: "PERMITS" }] : []),
-    { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "Safety" },
-    ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TradeHub" }] : []),
+    { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "SAFETY_FORMS" },
+    ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TRADEHUB" }] : []),
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT" },
-    ...(isOwnerOrForeman ? [{ name: "Worker Documents", href: "/worker-documents", icon: ShieldCheck, badge: 0, featureKey: "Safety" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Worker Documents", href: "/worker-documents", icon: ShieldCheck, badge: 0, featureKey: "SAFETY_FORMS" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0 }] : []),
   ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0 }] : []),
   ];
@@ -564,6 +564,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
               {navigation.map((item) => {
                 const isActive = location === `${basePath}${item.href}` || location === item.href;
+                const locked = !!(item as any).featureKey && !has((item as any).featureKey);
+                if (locked) return null;
                 return (
                   <Link
                     key={item.href}
