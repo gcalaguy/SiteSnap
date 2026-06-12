@@ -536,6 +536,49 @@ router.post("/invitations/:token/accept", asyncHandler(async (req, res) => {
     .where(eq(companiesTable.id, invitation.companyId))
     .limit(1);
 
+  // Notify all owners of the company — best-effort, non-blocking
+  db.select({ email: usersTable.email, name: usersTable.name })
+    .from(userMembershipsTable)
+    .innerJoin(usersTable, eq(usersTable.id, userMembershipsTable.userId))
+    .where(
+      and(
+        eq(userMembershipsTable.companyId, invitation.companyId),
+        eq(userMembershipsTable.role, "owner"),
+        eq(userMembershipsTable.isActive, true)
+      )
+    )
+    .then((owners) => {
+      const ownerEmails = owners.map((o) => o.email).filter(Boolean) as string[];
+      if (!ownerEmails.length) return;
+      const memberName = updatedUser?.name || invitation.email;
+      const companyName = company?.name ?? "your company";
+      sendEmail({
+        to: ownerEmails,
+        subject: `${memberName} just joined ${companyName} on Site Snap`,
+        html: `
+<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
+  <div style="text-align:center;margin-bottom:28px;">
+    <span style="font-size:32px;">🏗️</span>
+    <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">New team member joined</h1>
+    <p style="color:#64748b;margin:0;">Someone accepted their invitation to <strong>${companyName}</strong></p>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;margin-bottom:20px;">
+    <table style="width:100%;border-collapse:collapse;">
+      <tr><td style="color:#64748b;padding:6px 0;width:80px;">Name</td><td style="color:#172034;font-weight:600;">${memberName}</td></tr>
+      <tr><td style="color:#64748b;padding:6px 0;">Email</td><td style="color:#172034;">${invitation.email}</td></tr>
+      <tr><td style="color:#64748b;padding:6px 0;">Role</td><td style="color:#172034;text-transform:capitalize;">${invitation.role}</td></tr>
+    </table>
+  </div>
+  <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">You're receiving this because you're an owner of ${companyName} on Site Snap.</p>
+</div>`,
+      }).catch((err) => {
+        logger.warn({ err }, "Failed to send owner join-notification email");
+      });
+    })
+    .catch((err) => {
+      logger.warn({ err }, "Failed to query owners for join-notification email");
+    });
+
   res.json({ ...updatedUser, company: company ?? null });
 }))
 
