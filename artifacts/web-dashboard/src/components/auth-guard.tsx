@@ -18,7 +18,17 @@ import { TermsModal } from "@/components/TermsModal";
 //
 // If you add a new dedicated sign-up or invite route (e.g. "/invite/:token"),
 // add its prefix here to prevent a redirect loop for companyless users.
-const ONBOARDING_EXEMPT_ROUTES = ["/onboarding", "/sign-in", "/sign-up"];
+//
+// Exported so automated tests can import the real list and catch regressions
+// without maintaining a separate copy.
+export const ONBOARDING_EXEMPT_ROUTES = ["/onboarding", "/sign-in", "/sign-up"];
+
+/** Returns true when the AuthGuard should NOT redirect a company-less user. */
+export function isExemptRoute(location: string): boolean {
+  return ONBOARDING_EXEMPT_ROUTES.some(
+    (route) => location === route || location.startsWith(`${route}/`),
+  );
+}
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn } = useUser();
@@ -91,10 +101,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!dbUser) return;
     const hasCompany = !!dbUser.activeCompanyId;
-    const onExemptRoute = ONBOARDING_EXEMPT_ROUTES.some(
-      (route) => location === route || location.startsWith(`${route}/`),
-    );
-    if (!hasCompany && !onExemptRoute) {
+    if (!hasCompany && !isExemptRoute(location)) {
       setLocation("/onboarding");
     } else if (hasCompany && location.startsWith("/onboarding")) {
       setLocation("/dashboard");

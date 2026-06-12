@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run tests/field-automation.test.ts"
+    "test": "vitest run tests/"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.9",
