@@ -21,7 +21,7 @@ export * from "./messages";
 export * from "./workerDocuments";
 export * from "./tradeReviews";
 export * from "./permits";
-import { createInsertSchema } from "drizzle-zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
@@ -1771,13 +1771,25 @@ export const aiComplianceDirectivesTable = pgTable(
 
 export const insertAiComplianceDirectiveSchema = createInsertSchema(
   aiComplianceDirectivesTable,
-).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
+)
+  .omit({ id: true, createdAt: true, updatedAt: true })
+  .refine(
+    (v) => v.confidenceScore === undefined || (v.confidenceScore >= 0 && v.confidenceScore <= 100),
+    { message: "confidenceScore must be between 0 and 100", path: ["confidenceScore"] },
+  );
 export type InsertAiComplianceDirective = z.infer<
   typeof insertAiComplianceDirectiveSchema
 >;
+
+export const selectAiComplianceDirectiveSchema = createSelectSchema(
+  aiComplianceDirectivesTable,
+).refine(
+  (v) => v.confidenceScore >= 0 && v.confidenceScore <= 100,
+  { message: "confidenceScore must be between 0 and 100", path: ["confidenceScore"] },
+);
+export type SelectAiComplianceDirective = z.infer<
+  typeof selectAiComplianceDirectiveSchema
+>;
+
 export type AiComplianceDirective =
   typeof aiComplianceDirectivesTable.$inferSelect;
