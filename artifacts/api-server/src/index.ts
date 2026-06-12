@@ -99,6 +99,30 @@ async function ensureFeatures() {
 
 await ensureFeatures();
 
+// Apply RFI workflow migration — safe to run on every startup (IF NOT EXISTS / ADD VALUE IF NOT EXISTS).
+async function applyRfiWorkflowMigration() {
+  try {
+    await pool.query(`ALTER TYPE "rfi_status" ADD VALUE IF NOT EXISTS 'approved'`);
+    await pool.query(`ALTER TYPE "rfi_status" ADD VALUE IF NOT EXISTS 'rejected'`);
+    await pool.query(`
+      ALTER TABLE "rfis"
+        ADD COLUMN IF NOT EXISTS "company_id"            integer REFERENCES "companies"("id") ON DELETE CASCADE,
+        ADD COLUMN IF NOT EXISTS "blueprint_coordinates" text,
+        ADD COLUMN IF NOT EXISTS "image_url"             text
+    `);
+    await pool.query(`
+      UPDATE "rfis" r
+      SET "company_id" = p."company_id"
+      FROM "projects" p
+      WHERE r."project_id" = p."id" AND r."company_id" IS NULL
+    `);
+  } catch (err: any) {
+    logger.warn({ err }, "applyRfiWorkflowMigration: non-fatal");
+  }
+}
+
+await applyRfiWorkflowMigration();
+
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");

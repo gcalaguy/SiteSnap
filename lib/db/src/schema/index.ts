@@ -39,6 +39,8 @@ export const rfiStatusEnum = pgEnum("rfi_status", [
   "in_review",
   "answered",
   "closed",
+  "approved",
+  "rejected",
 ]);
 export const rfiPriorityEnum = pgEnum("rfi_priority", [
   "low",
@@ -285,6 +287,8 @@ export type CostAnalysis = typeof costAnalysesTable.$inferSelect;
 
 export const rfisTable = pgTable("rfis", {
   id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id")
     .notNull()
     .references(() => projectsTable.id, { onDelete: "cascade" }),
@@ -298,6 +302,8 @@ export const rfisTable = pgTable("rfis", {
     () => usersTable.id,
     { onDelete: "set null" },
   ),
+  blueprintCoordinates: text("blueprint_coordinates"),
+  imageUrl: text("image_url"),
   status: rfiStatusEnum("status").notNull().default("open"),
   priority: rfiPriorityEnum("priority").notNull().default("medium"),
   response: text("response"),

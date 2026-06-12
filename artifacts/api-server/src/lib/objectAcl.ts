@@ -1,5 +1,5 @@
 import { File } from "@google-cloud/storage";
-import { db, userMembershipsTable, projectMembersTable } from "@workspace/db";
+import { db, userMembershipsTable, projectMembersTable, rfisTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 
 const ACL_POLICY_METADATA_KEY = "custom:aclPolicy";
@@ -128,6 +128,80 @@ export async function isUserInAccessGroup(
 }
 
 export { ObjectAccessGroupType };
+
+/**
+ * RFI-specific access check for the standalone workflow endpoints.
+ *
+ * Rules (evaluated in order — first match wins):
+ *  - super_admin:  always allowed
+ *  - owner role:   allowed for any RFI that belongs to their company
+ *  - foreman role: allowed only when they are a member of the project
+ *  - architect:    a user assigned to at least one RFI within the project
+ *                  (identified by assignedToUserId, regardless of membership role)
+ *
+ * Returns true when access is granted.
+ */
+export async function checkRfiAccess({
+  userId,
+  companyId,
+  projectId,
+  role,
+  systemRole,
+}: {
+  userId: number;
+  companyId: number;
+  projectId: number;
+  role: "owner" | "foreman" | "worker" | undefined;
+  systemRole?: string | null;
+}): Promise<boolean> {
+  if (systemRole === "super_admin") return true;
+
+  if (role === "owner") {
+    // Owners see all RFIs across their company — verify company membership only
+    const [membership] = await db
+      .select({ userId: userMembershipsTable.userId })
+      .from(userMembershipsTable)
+      .where(
+        and(
+          eq(userMembershipsTable.userId, userId),
+          eq(userMembershipsTable.companyId, companyId),
+          eq(userMembershipsTable.isActive, true),
+        ),
+      )
+      .limit(1);
+    return !!membership;
+  }
+
+  if (role === "foreman") {
+    // Foremen may only access projects they are assigned to
+    const [assignment] = await db
+      .select({ userId: projectMembersTable.userId })
+      .from(projectMembersTable)
+      .where(
+        and(
+          eq(projectMembersTable.userId, userId),
+          eq(projectMembersTable.projectId, projectId),
+        ),
+      )
+      .limit(1);
+    return !!assignment;
+  }
+
+  // Architect / worker: allowed when the user is assigned to at least one RFI
+  // in the project (assignedToUserId matches). This lets external architects
+  // view the project feed without requiring a company membership role.
+  const [assignedRfi] = await db
+    .select({ id: rfisTable.id })
+    .from(rfisTable)
+    .where(
+      and(
+        eq(rfisTable.projectId, projectId),
+        eq(rfisTable.assignedToUserId, userId),
+      ),
+    )
+    .limit(1);
+  return !!assignedRfi;
+}
 
 export async function setObjectAclPolicy(
   objectFile: File,
