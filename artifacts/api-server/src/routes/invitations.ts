@@ -10,6 +10,53 @@ import crypto from "crypto";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
 
+// ── Shared invite email helper ────────────────────────────────────────────────
+function buildAppBase(req: import("express").Request): string | null {
+  return (
+    process.env["APP_BASE_URL"]?.replace(/\/$/, "") ??
+    (process.env["REPLIT_DOMAINS"]
+      ? `https://${process.env["REPLIT_DOMAINS"].split(",")[0].trim()}`
+      : null) ??
+    (req.headers["origin"] as string | undefined) ??
+    null
+  );
+}
+
+function sendInviteEmail(opts: {
+  to: string;
+  token: string;
+  role: string;
+  companyName: string;
+  appBase: string;
+}): void {
+  const inviteUrl = `${opts.appBase}/onboarding?token=${opts.token}`;
+  sendEmail({
+    to: [opts.to],
+    subject: `You've been invited to join ${opts.companyName} on Site Snap`,
+    html: `
+<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
+  <div style="text-align:center;margin-bottom:28px;">
+    <span style="font-size:32px;">🏗️</span>
+    <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">You're invited to Site Snap</h1>
+    <p style="color:#64748b;margin:0;">Join <strong>${opts.companyName}</strong> as a <strong>${opts.role}</strong></p>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;margin-bottom:20px;">
+    <p style="color:#334155;margin:0 0 16px;">Click the button below to accept your invitation and set up your account:</p>
+    <a href="${inviteUrl}" style="display:inline-block;background:#FF6600;color:#fff;font-weight:700;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;">Accept Invitation</a>
+    <p style="color:#94a3b8;font-size:13px;margin:20px 0 0;">Or paste this token manually in the app:</p>
+    <code style="display:block;background:#f1f5f9;padding:10px 14px;border-radius:6px;font-size:13px;color:#172034;word-break:break-all;margin-top:6px;">${opts.token}</code>
+  </div>
+  <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">This invitation expires in 7 days.</p>
+</div>`,
+  }).catch((err: unknown) => {
+    if (err instanceof ResendSandboxError) {
+      logger.warn({ allowedEmail: err.allowedEmail }, "Invite email skipped — Resend sandbox mode");
+    } else {
+      logger.error({ err }, "Failed to send invite email");
+    }
+  });
+}
+
 const router = Router();
 
 // POST /invitations — invite a team member
@@ -98,47 +145,20 @@ router.post(
       .where(eq(companiesTable.id, req.companyId!))
       .limit(1);
 
-    // Send invite email if an address was provided — best-effort, never blocks the response
+    // Send invite email — best-effort, never blocks the response
     if (parsed.data.email) {
-      const appBase =
-        process.env["APP_BASE_URL"]?.replace(/\/$/, "") ??
-        (process.env["REPLIT_DOMAINS"]
-          ? `https://${process.env["REPLIT_DOMAINS"].split(",")[0].trim()}`
-          : null) ??
-        (req.headers["origin"] as string | undefined) ??
-        null;
+      const appBase = buildAppBase(req);
       if (!appBase) {
         logger.error("Cannot send invitation email: APP_BASE_URL is not configured");
         res.status(500).json({ error: "Server misconfiguration: invitation base URL not set" });
         return;
       }
-      const inviteUrl = `${appBase}/onboarding?token=${token}`;
-      const companyName = company?.name ?? "your company";
-
-      sendEmail({
-        to: [parsed.data.email],
-        subject: `You've been invited to join ${companyName} on Site Snap`,
-        html: `
-<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
-  <div style="text-align:center;margin-bottom:28px;">
-    <span style="font-size:32px;">🏗️</span>
-    <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">You're invited to Site Snap</h1>
-    <p style="color:#64748b;margin:0;">Join <strong>${companyName}</strong> as a <strong>${parsed.data.role}</strong></p>
-  </div>
-  <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;margin-bottom:20px;">
-    <p style="color:#334155;margin:0 0 16px;">Click the button below to accept your invitation and set up your account:</p>
-    <a href="${inviteUrl}" style="display:inline-block;background:#FF6600;color:#fff;font-weight:700;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;">Accept Invitation</a>
-    <p style="color:#94a3b8;font-size:13px;margin:20px 0 0;">Or paste this token manually in the app:</p>
-    <code style="display:block;background:#f1f5f9;padding:10px 14px;border-radius:6px;font-size:13px;color:#172034;word-break:break-all;margin-top:6px;">${token}</code>
-  </div>
-  <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">This invitation expires in 7 days.</p>
-</div>`,
-      }).catch((err: unknown) => {
-        if (err instanceof ResendSandboxError) {
-          logger.warn({ allowedEmail: err.allowedEmail }, "Invite email skipped — Resend sandbox mode");
-        } else {
-          logger.error({ err }, "Failed to send invite email");
-        }
+      sendInviteEmail({
+        to: parsed.data.email,
+        token,
+        role: parsed.data.role,
+        companyName: company?.name ?? "your company",
+        appBase,
       });
     }
 
@@ -210,6 +230,62 @@ router.delete(
       .where(eq(invitationsTable.id, id));
 
     res.status(204).end();
+  }),
+);
+
+// POST /invitations/:id/resend — refresh the token and resend the invite email
+router.post(
+  "/invitations/:id/resend",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const [existing] = await db
+      .select()
+      .from(invitationsTable)
+      .where(and(eq(invitationsTable.id, id), eq(invitationsTable.companyId, req.companyId!)))
+      .limit(1);
+
+    if (!existing) { res.status(404).json({ error: "Invitation not found" }); return; }
+    if (existing.status === "accepted") {
+      res.status(409).json({ error: "This invitation has already been accepted." });
+      return;
+    }
+
+    const [company] = await db
+      .select()
+      .from(companiesTable)
+      .where(eq(companiesTable.id, req.companyId!))
+      .limit(1);
+
+    const appBase = buildAppBase(req);
+    if (!appBase) {
+      logger.error("Cannot resend invitation email: APP_BASE_URL is not configured");
+      res.status(500).json({ error: "Server misconfiguration: invitation base URL not set" });
+      return;
+    }
+
+    const newToken = crypto.randomBytes(32).toString("hex");
+    const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const [updated] = await db
+      .update(invitationsTable)
+      .set({ token: newToken, expiresAt: newExpiresAt, status: "pending" })
+      .where(eq(invitationsTable.id, id))
+      .returning();
+
+    sendInviteEmail({
+      to: existing.email,
+      token: newToken,
+      role: existing.role,
+      companyName: company?.name ?? "your company",
+      appBase,
+    });
+
+    res.json({ ...updated, company: company ?? null });
   }),
 );
 
@@ -372,13 +448,49 @@ router.post("/invitations/:token/accept", asyncHandler(async (req, res) => {
     return;
   }
 
-  if (invitation.status !== "pending") {
-    res.status(400).json({ error: "Invitation is no longer valid" });
+  // If the invitation is expired (either flagged by GET or by checking the timestamp),
+  // auto-refresh the token and resend a fresh invite email so the recipient doesn't
+  // have to ask an admin to manually delete and re-invite them.
+  const isExpired =
+    invitation.status === "expired" ||
+    (invitation.status === "pending" && invitation.expiresAt < new Date());
+
+  if (isExpired) {
+    const [company] = await db
+      .select()
+      .from(companiesTable)
+      .where(eq(companiesTable.id, invitation.companyId))
+      .limit(1);
+
+    const appBase = buildAppBase(req);
+    if (appBase) {
+      const newToken = crypto.randomBytes(32).toString("hex");
+      const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await db
+        .update(invitationsTable)
+        .set({ token: newToken, expiresAt: newExpiresAt, status: "pending" })
+        .where(eq(invitationsTable.id, invitation.id));
+      sendInviteEmail({
+        to: invitation.email,
+        token: newToken,
+        role: invitation.role,
+        companyName: company?.name ?? "your company",
+        appBase,
+      });
+    } else {
+      logger.error("Cannot auto-resend expired invite: APP_BASE_URL is not configured");
+    }
+
+    res.status(410).json({
+      error:
+        "Your invite link has expired. We've sent a fresh invite to your email address — please check your inbox.",
+      resent: !!appBase,
+    });
     return;
   }
 
-  if (invitation.expiresAt < new Date()) {
-    res.status(400).json({ error: "Invitation has expired" });
+  if (invitation.status !== "pending") {
+    res.status(400).json({ error: "Invitation is no longer valid" });
     return;
   }
 

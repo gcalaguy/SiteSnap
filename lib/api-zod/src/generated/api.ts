@@ -270,7 +270,7 @@ export const ListPaymentsResponseItem = zod.object({
 export const ListPaymentsResponse = zod.array(ListPaymentsResponseItem);
 
 /**
- * @summary Delete a payment
+ * @summary Delete a payment record
  */
 export const DeletePaymentParams = zod.object({
   id: zod.coerce.number(),
@@ -348,6 +348,8 @@ export const ListChangeOrdersResponseItem = zod.object({
   requestedByUserId: zod.number(),
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
+  clientSignatureData: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -389,6 +391,8 @@ export const GetChangeOrderResponse = zod.object({
   requestedByUserId: zod.number(),
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
+  clientSignatureData: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -425,6 +429,8 @@ export const UpdateChangeOrderResponse = zod.object({
   requestedByUserId: zod.number(),
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
+  clientSignatureData: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -455,6 +461,8 @@ export const ApproveChangeOrderResponse = zod.object({
   requestedByUserId: zod.number(),
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
+  clientSignatureData: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -478,6 +486,8 @@ export const RejectChangeOrderResponse = zod.object({
   requestedByUserId: zod.number(),
   approvedByUserId: zod.number().nullish(),
   approvedAt: zod.coerce.date().nullish(),
+  clientSignatureData: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -1392,7 +1402,11 @@ export const GetMeResponse = zod
           name: zod.string(),
           province: zod.string(),
           city: zod.string(),
+          address: zod.string().nullish(),
           phone: zod.string().nullish(),
+          hstNumber: zod.string().nullish(),
+          defaultQuoteTerms: zod.string().nullish(),
+          defaultInvoiceNotes: zod.string().nullish(),
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
@@ -1488,7 +1502,11 @@ export const SetActiveCompanyResponse = zod
           name: zod.string(),
           province: zod.string(),
           city: zod.string(),
+          address: zod.string().nullish(),
           phone: zod.string().nullish(),
+          hstNumber: zod.string().nullish(),
+          defaultQuoteTerms: zod.string().nullish(),
+          defaultInvoiceNotes: zod.string().nullish(),
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
@@ -1580,7 +1598,11 @@ export const AcceptTermsResponse = zod
           name: zod.string(),
           province: zod.string(),
           city: zod.string(),
+          address: zod.string().nullish(),
           phone: zod.string().nullish(),
+          hstNumber: zod.string().nullish(),
+          defaultQuoteTerms: zod.string().nullish(),
+          defaultInvoiceNotes: zod.string().nullish(),
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
@@ -1714,7 +1736,11 @@ export const GetCompanyResponse = zod.object({
   name: zod.string(),
   province: zod.string(),
   city: zod.string(),
+  address: zod.string().nullish(),
   phone: zod.string().nullish(),
+  hstNumber: zod.string().nullish(),
+  defaultQuoteTerms: zod.string().nullish(),
+  defaultInvoiceNotes: zod.string().nullish(),
   logoPath: zod.string().nullish(),
   quoteTemplatePath: zod.string().nullish(),
   invoiceTemplatePath: zod.string().nullish(),
@@ -1762,7 +1788,11 @@ export const ListCompanyMembersResponseItem = zod
           name: zod.string(),
           province: zod.string(),
           city: zod.string(),
+          address: zod.string().nullish(),
           phone: zod.string().nullish(),
+          hstNumber: zod.string().nullish(),
+          defaultQuoteTerms: zod.string().nullish(),
+          defaultInvoiceNotes: zod.string().nullish(),
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
@@ -1874,7 +1904,11 @@ export const UpdateMemberRoleResponse = zod
           name: zod.string(),
           province: zod.string(),
           city: zod.string(),
+          address: zod.string().nullish(),
           phone: zod.string().nullish(),
+          hstNumber: zod.string().nullish(),
+          defaultQuoteTerms: zod.string().nullish(),
+          defaultInvoiceNotes: zod.string().nullish(),
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
@@ -2146,7 +2180,11 @@ export const UpdateCompanyDocumentSettingsResponse = zod.object({
   name: zod.string(),
   province: zod.string(),
   city: zod.string(),
+  address: zod.string().nullish(),
   phone: zod.string().nullish(),
+  hstNumber: zod.string().nullish(),
+  defaultQuoteTerms: zod.string().nullish(),
+  defaultInvoiceNotes: zod.string().nullish(),
   logoPath: zod.string().nullish(),
   quoteTemplatePath: zod.string().nullish(),
   invoiceTemplatePath: zod.string().nullish(),
@@ -2177,7 +2215,11 @@ export const UpdateCompanyLogoResponse = zod.object({
   name: zod.string(),
   province: zod.string(),
   city: zod.string(),
+  address: zod.string().nullish(),
   phone: zod.string().nullish(),
+  hstNumber: zod.string().nullish(),
+  defaultQuoteTerms: zod.string().nullish(),
+  defaultInvoiceNotes: zod.string().nullish(),
   logoPath: zod.string().nullish(),
   quoteTemplatePath: zod.string().nullish(),
   invoiceTemplatePath: zod.string().nullish(),
@@ -2209,7 +2251,11 @@ export const UpdateCompanyQuoteTemplateResponse = zod.object({
   name: zod.string(),
   province: zod.string(),
   city: zod.string(),
+  address: zod.string().nullish(),
   phone: zod.string().nullish(),
+  hstNumber: zod.string().nullish(),
+  defaultQuoteTerms: zod.string().nullish(),
+  defaultInvoiceNotes: zod.string().nullish(),
   logoPath: zod.string().nullish(),
   quoteTemplatePath: zod.string().nullish(),
   invoiceTemplatePath: zod.string().nullish(),
@@ -2241,7 +2287,11 @@ export const UpdateCompanyInvoiceTemplateResponse = zod.object({
   name: zod.string(),
   province: zod.string(),
   city: zod.string(),
+  address: zod.string().nullish(),
   phone: zod.string().nullish(),
+  hstNumber: zod.string().nullish(),
+  defaultQuoteTerms: zod.string().nullish(),
+  defaultInvoiceNotes: zod.string().nullish(),
   logoPath: zod.string().nullish(),
   quoteTemplatePath: zod.string().nullish(),
   invoiceTemplatePath: zod.string().nullish(),
@@ -2299,7 +2349,11 @@ export const ListInvitationsResponseItem = zod.object({
       name: zod.string(),
       province: zod.string(),
       city: zod.string(),
+      address: zod.string().nullish(),
       phone: zod.string().nullish(),
+      hstNumber: zod.string().nullish(),
+      defaultQuoteTerms: zod.string().nullish(),
+      defaultInvoiceNotes: zod.string().nullish(),
       logoPath: zod.string().nullish(),
       quoteTemplatePath: zod.string().nullish(),
       invoiceTemplatePath: zod.string().nullish(),
@@ -2348,7 +2402,11 @@ export const UpdateInvitationResponse = zod.object({
       name: zod.string(),
       province: zod.string(),
       city: zod.string(),
+      address: zod.string().nullish(),
       phone: zod.string().nullish(),
+      hstNumber: zod.string().nullish(),
+      defaultQuoteTerms: zod.string().nullish(),
+      defaultInvoiceNotes: zod.string().nullish(),
       logoPath: zod.string().nullish(),
       quoteTemplatePath: zod.string().nullish(),
       invoiceTemplatePath: zod.string().nullish(),
@@ -2397,7 +2455,57 @@ export const GetInvitationResponse = zod.object({
       name: zod.string(),
       province: zod.string(),
       city: zod.string(),
+      address: zod.string().nullish(),
       phone: zod.string().nullish(),
+      hstNumber: zod.string().nullish(),
+      defaultQuoteTerms: zod.string().nullish(),
+      defaultInvoiceNotes: zod.string().nullish(),
+      logoPath: zod.string().nullish(),
+      quoteTemplatePath: zod.string().nullish(),
+      invoiceTemplatePath: zod.string().nullish(),
+      estimatorConfig: zod
+        .object({
+          projectTypeLabels: zod.record(zod.string(), zod.string()).optional(),
+        })
+        .nullish()
+        .describe("Company-specific estimator overrides"),
+      createdAt: zod.coerce.date(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Resend the invite email for a pending invitation
+ */
+export const ResendInvitationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const resendInvitationResponsePreferredLanguageDefault = `en`;
+
+export const ResendInvitationResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  email: zod.string(),
+  role: zod.enum(["owner", "foreman", "worker"]),
+  preferredLanguage: zod
+    .enum(["en", "it", "pt", "es"])
+    .default(resendInvitationResponsePreferredLanguageDefault),
+  token: zod.string(),
+  status: zod.enum(["pending", "accepted", "expired"]),
+  expiresAt: zod.coerce.date(),
+  createdAt: zod.coerce.date(),
+  company: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      province: zod.string(),
+      city: zod.string(),
+      address: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      hstNumber: zod.string().nullish(),
+      defaultQuoteTerms: zod.string().nullish(),
+      defaultInvoiceNotes: zod.string().nullish(),
       logoPath: zod.string().nullish(),
       quoteTemplatePath: zod.string().nullish(),
       invoiceTemplatePath: zod.string().nullish(),
@@ -2447,7 +2555,11 @@ export const AcceptInvitationResponse = zod
           name: zod.string(),
           province: zod.string(),
           city: zod.string(),
+          address: zod.string().nullish(),
           phone: zod.string().nullish(),
+          hstNumber: zod.string().nullish(),
+          defaultQuoteTerms: zod.string().nullish(),
+          defaultInvoiceNotes: zod.string().nullish(),
           logoPath: zod.string().nullish(),
           quoteTemplatePath: zod.string().nullish(),
           invoiceTemplatePath: zod.string().nullish(),
@@ -2523,6 +2635,16 @@ export const ListProjectsResponseItem = zod.object({
   endDate: zod.coerce.date().nullish(),
   budget: zod.number().nullish(),
   description: zod.string().nullish(),
+  financials: zod
+    .object({
+      approvedChangeOrderTotal: zod.number().optional(),
+      totalInvoiced: zod.number().optional(),
+      totalPaid: zod.number().optional(),
+      openQuotesTotal: zod.number().optional(),
+      burnVelocity: zod.number().nullish(),
+    })
+    .nullish(),
+  complianceAlert: zod.boolean().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListProjectsResponse = zod.array(ListProjectsResponseItem);
@@ -2573,6 +2695,16 @@ export const GetProjectResponse = zod.object({
   endDate: zod.coerce.date().nullish(),
   budget: zod.number().nullish(),
   description: zod.string().nullish(),
+  financials: zod
+    .object({
+      approvedChangeOrderTotal: zod.number().optional(),
+      totalInvoiced: zod.number().optional(),
+      totalPaid: zod.number().optional(),
+      openQuotesTotal: zod.number().optional(),
+      burnVelocity: zod.number().nullish(),
+    })
+    .nullish(),
+  complianceAlert: zod.boolean().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -2619,6 +2751,16 @@ export const UpdateProjectResponse = zod.object({
   endDate: zod.coerce.date().nullish(),
   budget: zod.number().nullish(),
   description: zod.string().nullish(),
+  financials: zod
+    .object({
+      approvedChangeOrderTotal: zod.number().optional(),
+      totalInvoiced: zod.number().optional(),
+      totalPaid: zod.number().optional(),
+      openQuotesTotal: zod.number().optional(),
+      burnVelocity: zod.number().nullish(),
+    })
+    .nullish(),
+  complianceAlert: zod.boolean().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -2685,6 +2827,10 @@ export const GetProjectSummaryResponse = zod.object({
   openRFICount: zod.number(),
   closedRFICount: zod.number(),
   lastReportDate: zod.coerce.date().nullish(),
+  taskTotal: zod.number(),
+  taskTodoCount: zod.number(),
+  taskInProgressCount: zod.number(),
+  taskDoneCount: zod.number(),
 });
 
 /**
@@ -5017,6 +5163,68 @@ export const UpdateInvoiceResponse = zod.object({
 });
 
 /**
+ * @summary Delete a draft invoice
+ */
+export const DeleteInvoiceParams = zod.object({
+  invoiceId: zod.coerce.number(),
+});
+
+/**
+ * @summary Assign an invoice to a worker
+ */
+export const AssignInvoiceParams = zod.object({
+  invoiceId: zod.coerce.number(),
+});
+
+export const AssignInvoiceBody = zod.object({
+  assignedToUserId: zod.number().nullish(),
+});
+
+export const assignInvoiceResponseLineItemsItemDescriptionMax = 500;
+
+export const assignInvoiceResponseLineItemsItemUnitMax = 20;
+
+export const AssignInvoiceResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  invoiceNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
+  lineItems: zod.array(
+    zod.object({
+      description: zod
+        .string()
+        .max(assignInvoiceResponseLineItemsItemDescriptionMax),
+      quantity: zod.number(),
+      unit: zod.string().max(assignInvoiceResponseLineItemsItemUnitMax),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  paidAt: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary Mark invoice as sent
  */
 export const MarkInvoiceSentParams = zod.object({
@@ -5988,7 +6196,7 @@ export const ListTradeReviewsResponse = zod.object({
         .max(listTradeReviewsResponseReviewsItemRatingMax),
       comment: zod.string().nullish(),
       createdAt: zod.coerce.date(),
-      reviewerName: zod.string().optional(),
+      reviewerName: zod.string(),
     }),
   ),
   page: zod.number(),
@@ -6879,6 +7087,16 @@ export const GetComplianceDashboardResponseItem = zod.object({
     endDate: zod.coerce.date().nullish(),
     budget: zod.number().nullish(),
     description: zod.string().nullish(),
+    financials: zod
+      .object({
+        approvedChangeOrderTotal: zod.number().optional(),
+        totalInvoiced: zod.number().optional(),
+        totalPaid: zod.number().optional(),
+        openQuotesTotal: zod.number().optional(),
+        burnVelocity: zod.number().nullish(),
+      })
+      .nullish(),
+    complianceAlert: zod.boolean().nullish(),
     createdAt: zod.coerce.date(),
   }),
   pending: zod.number(),

@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   useGetMe, useListCompanyMembers, useListInvitations,
   useCreateInvitation, useRemoveCompanyMember, useUpdateMemberRole,
-  useUpdateInvitation, useRevokeInvitation,
+  useUpdateInvitation, useRevokeInvitation, useResendInvitation,
   customFetch,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   UserPlus, Loader2, MoreHorizontal, Mail, Copy, Check,
-  Link2, Pencil, Trash2, AlertTriangle, Users,
+  Link2, Pencil, Trash2, AlertTriangle, Users, RefreshCw,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -170,6 +170,16 @@ export default function Team() {
         setRevokingInvite(null);
       },
       onError: () => toast({ title: "Failed to revoke invitation", variant: "destructive" }),
+    },
+  });
+
+  const resendInvitation = useResendInvitation({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
+        toast({ title: "Invite email resent", description: "A fresh invite link has been sent to the recipient." });
+      },
+      onError: () => toast({ title: "Failed to resend invitation", variant: "destructive" }),
     },
   });
 
@@ -608,6 +618,13 @@ export default function Team() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Invitation</DropdownMenuLabel>
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => resendInvitation.mutate({ id: invite.id })}
+                            disabled={resendInvitation.isPending}
+                          >
+                            <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                            Resend Email
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEditInvite(invite)}>
                             <Pencil className="h-3.5 w-3.5 mr-2" />
                             Edit

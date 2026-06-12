@@ -275,6 +275,16 @@ export default function OnboardingPage() {
           setLocation("/dashboard");
         },
         onError: (err: any) => {
+          // 410 means the invite was expired but a fresh one was auto-sent
+          if (err?.status === 410 || err?.statusCode === 410) {
+            toast({
+              title: "Invite link expired",
+              description:
+                "Your invite link has expired. We've sent a fresh invite to your email address — please check your inbox.",
+              duration: 8000,
+            });
+            return;
+          }
           toast({
             title: "Failed to join company",
             description: err?.message || "Invalid or expired token",

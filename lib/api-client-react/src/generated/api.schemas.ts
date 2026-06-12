@@ -173,12 +173,11 @@ export interface Company {
   address?: string | null;
   phone?: string | null;
   hstNumber?: string | null;
+  defaultQuoteTerms?: string | null;
+  defaultInvoiceNotes?: string | null;
   logoPath?: string | null;
   quoteTemplatePath?: string | null;
   invoiceTemplatePath?: string | null;
-  defaultQuoteTerms?: string | null;
-  defaultInvoiceNotes?: string | null;
-  referralCode?: string | null;
   /** Company-specific estimator overrides */
   estimatorConfig?: CompanyEstimatorConfig;
   createdAt: string;
@@ -296,6 +295,14 @@ export interface UpdateInvitationBody {
   preferredLanguage?: UpdateInvitationBodyPreferredLanguage;
 }
 
+export type ProjectFinancials = {
+  approvedChangeOrderTotal?: number;
+  totalInvoiced?: number;
+  totalPaid?: number;
+  openQuotesTotal?: number;
+  burnVelocity?: number | null;
+} | null;
+
 export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus];
 
 export const ProjectStatus = {
@@ -318,14 +325,9 @@ export interface Project {
   endDate?: string | null;
   budget?: number | null;
   description?: string | null;
+  financials?: ProjectFinancials;
+  complianceAlert?: boolean | null;
   createdAt: string;
-  /** Server-computed: true when any project contact has a compliance alert */
-  complianceAlert?: boolean;
-  /** Server-computed financial metrics (included in list endpoints) */
-  financials?: {
-    burnVelocity?: number | null;
-    [key: string]: unknown;
-  } | null;
 }
 
 export interface CreateProjectBody {
@@ -373,11 +375,10 @@ export interface ProjectSummary {
   openRFICount: number;
   closedRFICount: number;
   lastReportDate?: string | null;
-  /** Server-computed task counts */
-  taskTotal?: number;
-  taskTodoCount?: number;
-  taskInProgressCount?: number;
-  taskDoneCount?: number;
+  taskTotal: number;
+  taskTodoCount: number;
+  taskInProgressCount: number;
+  taskDoneCount: number;
 }
 
 export interface DailyReportListItem {
@@ -876,8 +877,6 @@ export interface ProjectDocument {
   status: ProjectDocumentStatus;
   extractedData?: ProjectDocumentExtractedData;
   aiSummary?: string | null;
-  /** Server-computed: number of embedded chunks (0 = not yet indexed) */
-  chunkCount?: number;
   createdAt: string;
 }
 
@@ -2235,7 +2234,6 @@ export interface TradeReview {
   rating: number;
   comment?: string | null;
   createdAt: string;
-  /** Server-computed from reviewer user record */
   reviewerName: string;
 }
 
@@ -3008,6 +3006,11 @@ export type DisconnectQuickBooks200 = {
   ok: boolean;
 };
 
+export type AcceptInvitation410 = {
+  error?: string;
+  resent?: boolean;
+};
+
 export type ListAllDailyReportsParams = {
   /**
    * Filter by project ID
@@ -3159,6 +3162,10 @@ export const ListAllInvoicesStatus = {
   overdue: "overdue",
   cancelled: "cancelled",
 } as const;
+
+export type AssignInvoiceBody = {
+  assignedToUserId?: number | null;
+};
 
 export type SendInvoiceEmail200 = {
   ok?: boolean;

@@ -25,6 +25,7 @@ import type {
   AIGeneratedCostAnalysis,
   AIGeneratedDailyReport,
   AIGeneratedRFI,
+  AcceptInvitation410,
   ActivityItem,
   AddPhotoBody,
   AddProjectMemberBody,
@@ -34,6 +35,7 @@ import type {
   ApplyToTradehubJobBody,
   ApproveProposalBody,
   ApproveTimesheetBody,
+  AssignInvoiceBody,
   BillingSeats,
   BuilderEstimate,
   BuilderEstimateItem,
@@ -1435,7 +1437,7 @@ export function useListPayments<
 }
 
 /**
- * @summary Delete a payment
+ * @summary Delete a payment record
  */
 export const getDeletePaymentUrl = (id: number) => {
   return `/api/payments/${id}`;
@@ -1452,7 +1454,7 @@ export const deletePayment = async (
 };
 
 export const getDeletePaymentMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -1493,13 +1495,13 @@ export type DeletePaymentMutationResult = NonNullable<
   Awaited<ReturnType<typeof deletePayment>>
 >;
 
-export type DeletePaymentMutationError = ErrorType<unknown>;
+export type DeletePaymentMutationError = ErrorType<void>;
 
 /**
- * @summary Delete a payment
+ * @summary Delete a payment record
  */
 export const useDeletePayment = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -7640,6 +7642,90 @@ export function useGetInvitation<
 }
 
 /**
+ * @summary Resend the invite email for a pending invitation
+ */
+export const getResendInvitationUrl = (id: number) => {
+  return `/api/invitations/${id}/resend`;
+};
+
+export const resendInvitation = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Invitation> => {
+  return customFetch<Invitation>(getResendInvitationUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getResendInvitationMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resendInvitation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resendInvitation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["resendInvitation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resendInvitation>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return resendInvitation(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResendInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resendInvitation>>
+>;
+
+export type ResendInvitationMutationError = ErrorType<void>;
+
+/**
+ * @summary Resend the invite email for a pending invitation
+ */
+export const useResendInvitation = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resendInvitation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resendInvitation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getResendInvitationMutationOptions(options));
+};
+
+/**
  * @summary Accept an invitation and join the company
  */
 export const getAcceptInvitationUrl = (token: string) => {
@@ -7657,7 +7743,7 @@ export const acceptInvitation = async (
 };
 
 export const getAcceptInvitationMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<AcceptInvitation410>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -7698,13 +7784,13 @@ export type AcceptInvitationMutationResult = NonNullable<
   Awaited<ReturnType<typeof acceptInvitation>>
 >;
 
-export type AcceptInvitationMutationError = ErrorType<unknown>;
+export type AcceptInvitationMutationError = ErrorType<AcceptInvitation410>;
 
 /**
  * @summary Accept an invitation and join the company
  */
 export const useAcceptInvitation = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<AcceptInvitation410>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -14827,6 +14913,177 @@ export const useUpdateInvoice = <
   TContext
 > => {
   return useMutation(getUpdateInvoiceMutationOptions(options));
+};
+
+/**
+ * @summary Delete a draft invoice
+ */
+export const getDeleteInvoiceUrl = (invoiceId: number) => {
+  return `/api/invoices/${invoiceId}/delete`;
+};
+
+export const deleteInvoice = async (
+  invoiceId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteInvoiceUrl(invoiceId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteInvoiceMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteInvoice>>,
+    TError,
+    { invoiceId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteInvoice>>,
+  TError,
+  { invoiceId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteInvoice"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteInvoice>>,
+    { invoiceId: number }
+  > = (props) => {
+    const { invoiceId } = props ?? {};
+
+    return deleteInvoice(invoiceId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteInvoiceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteInvoice>>
+>;
+
+export type DeleteInvoiceMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a draft invoice
+ */
+export const useDeleteInvoice = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteInvoice>>,
+    TError,
+    { invoiceId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteInvoice>>,
+  TError,
+  { invoiceId: number },
+  TContext
+> => {
+  return useMutation(getDeleteInvoiceMutationOptions(options));
+};
+
+/**
+ * @summary Assign an invoice to a worker
+ */
+export const getAssignInvoiceUrl = (invoiceId: number) => {
+  return `/api/invoices/${invoiceId}/assign`;
+};
+
+export const assignInvoice = async (
+  invoiceId: number,
+  assignInvoiceBody: AssignInvoiceBody,
+  options?: RequestInit,
+): Promise<Invoice> => {
+  return customFetch<Invoice>(getAssignInvoiceUrl(invoiceId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(assignInvoiceBody),
+  });
+};
+
+export const getAssignInvoiceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignInvoice>>,
+    TError,
+    { invoiceId: number; data: BodyType<AssignInvoiceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof assignInvoice>>,
+  TError,
+  { invoiceId: number; data: BodyType<AssignInvoiceBody> },
+  TContext
+> => {
+  const mutationKey = ["assignInvoice"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof assignInvoice>>,
+    { invoiceId: number; data: BodyType<AssignInvoiceBody> }
+  > = (props) => {
+    const { invoiceId, data } = props ?? {};
+
+    return assignInvoice(invoiceId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AssignInvoiceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignInvoice>>
+>;
+export type AssignInvoiceMutationBody = BodyType<AssignInvoiceBody>;
+export type AssignInvoiceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Assign an invoice to a worker
+ */
+export const useAssignInvoice = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignInvoice>>,
+    TError,
+    { invoiceId: number; data: BodyType<AssignInvoiceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof assignInvoice>>,
+  TError,
+  { invoiceId: number; data: BodyType<AssignInvoiceBody> },
+  TContext
+> => {
+  return useMutation(getAssignInvoiceMutationOptions(options));
 };
 
 /**
