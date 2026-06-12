@@ -77,6 +77,28 @@ async function initStripe() {
 
 await initStripe();
 
+// Ensure any features added to the seed list after initial DB setup are inserted.
+// onConflictDoNothing makes this safe to run on every startup.
+async function ensureFeatures() {
+  try {
+    const { db, featuresTable, planFeaturesTable, plansTable } = await import("@workspace/db");
+    const { eq } = await import("drizzle-orm");
+    await db.insert(featuresTable).values([
+      { name: "Worker Documents", key: "WORKER_DOCUMENTS", description: "Enterprise worker document management and compliance" },
+    ]).onConflictDoNothing();
+    // Link to Enterprise plan if not already linked
+    const [enterprise] = await db.select().from(plansTable).where(eq(plansTable.slug, "enterprise")).limit(1);
+    const [feature] = await db.select().from(featuresTable).where(eq(featuresTable.key, "WORKER_DOCUMENTS")).limit(1);
+    if (enterprise && feature) {
+      await db.insert(planFeaturesTable).values({ planId: enterprise.id, featureId: feature.id }).onConflictDoNothing();
+    }
+  } catch (err: any) {
+    logger.warn({ err }, "ensureFeatures: failed to upsert features — non-fatal");
+  }
+}
+
+await ensureFeatures();
+
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");

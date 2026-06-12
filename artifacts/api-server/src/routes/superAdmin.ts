@@ -540,12 +540,23 @@ router.get("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
-// POST /admin/tenants/:id/reissue-link — regenerate onboarding link for an existing tenant
+// POST /admin/tenants/:id/reissue-link — regenerate signup invite link for an existing tenant
 router.post("/admin/tenants/:id/reissue-link", ...guard, asyncHandler(async (req, res) => {
   const companyId = Number(req.params.id);
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
-  res.json({ companyId, link: `${req.protocol}://${req.get("host")}/onboarding?companyId=${companyId}` });
+
+  // Rotate the claim token on every reissue so old links are invalidated
+  const newClaimToken = crypto.randomBytes(24).toString("hex");
+  await db
+    .update(companiesTable)
+    .set({ claimToken: newClaimToken })
+    .where(eq(companiesTable.id, companyId));
+
+  const appBase =
+    process.env["APP_BASE_URL"]?.replace(/\/$/, "") ??
+    `${req.protocol}://${req.get("host")}`;
+  res.json({ companyId, link: `${appBase}/sign-up?token=${newClaimToken}` });
 }));
 
 // GET /admin/tenants/:id — tenant detail with users
@@ -855,31 +866,31 @@ router.post("/admin/seed", ...guard, asyncHandler(async (req, res) => {
     ]);
   }
 
-  const existingFeatures = await db.select().from(featuresTable);
-  if (existingFeatures.length === 0) {
-    await db.insert(featuresTable).values([
-      { name: "Scheduling",              key: "SCHEDULING",      description: "Worker and project scheduling tools" },
-      { name: "AI Estimating",           key: "AI_ESTIMATING",   description: "AI-powered cost estimating" },
-      { name: "Client Portal",           key: "CLIENT_PORTAL",   description: "Shared client portal for project visibility" },
-      { name: "Reporting",               key: "REPORTING",       description: "Advanced reports and analytics" },
-      { name: "QuickBooks Integration",  key: "QUICKBOOKS",      description: "Sync invoices and costs with QuickBooks" },
-      { name: "AI Chat",                 key: "AI_CHAT",         description: "AI assistant for construction queries" },
-      { name: "Site Vision AI",          key: "SITE_VISION_AI",  description: "AI-powered photo analysis and OCR" },
-      { name: "TradeHub",                key: "TRADEHUB",        description: "Marketplace for trade professionals" },
-      { name: "Financials",              key: "FINANCIALS",      description: "Full financial tracking and management" },
-      { name: "Risk Dashboard",          key: "RISK_DASHBOARD",  description: "AI risk scoring and inspection alerts" },
-      { name: "AI Compliance Monitor",   key: "AI_COMPLIANCE",   description: "AI-powered compliance directive monitoring and ministry audit exports" },
-      { name: "Safety Forms",            key: "SAFETY_FORMS",    description: "Digital safety and incident reporting" },
-      { name: "Daily Reports",           key: "DAILY_REPORTS",   description: "Field daily report submission" },
-      { name: "RFIs",                    key: "RFIS",            description: "Request for Information tracking" },
-      { name: "Team Management",         key: "TEAM_MANAGEMENT", description: "Crew and role management" },
-      { name: "Invoices",                key: "INVOICES",        description: "Invoice creation and tracking" },
-      { name: "Quotes & Proposals",      key: "QUOTES",          description: "Quote generation and approval" },
-      { name: "CRM & Leads",             key: "CRM_LEADS",       description: "Lead management and CRM" },
-      { name: "Smart Estimator",         key: "SMART_ESTIMATOR", description: "Hybrid AI + rule-based estimating" },
-      { name: "Inspections",             key: "INSPECTIONS",     description: "Site inspection management" },
-    ]);
-  }
+  // Always upsert features so new entries added here are picked up on re-seed
+  // without wiping existing data. onConflictDoNothing keeps existing rows intact.
+  await db.insert(featuresTable).values([
+    { name: "Scheduling",              key: "SCHEDULING",         description: "Worker and project scheduling tools" },
+    { name: "AI Estimating",           key: "AI_ESTIMATING",      description: "AI-powered cost estimating" },
+    { name: "Client Portal",           key: "CLIENT_PORTAL",      description: "Shared client portal for project visibility" },
+    { name: "Reporting",               key: "REPORTING",          description: "Advanced reports and analytics" },
+    { name: "QuickBooks Integration",  key: "QUICKBOOKS",         description: "Sync invoices and costs with QuickBooks" },
+    { name: "AI Chat",                 key: "AI_CHAT",            description: "AI assistant for construction queries" },
+    { name: "Site Vision AI",          key: "SITE_VISION_AI",     description: "AI-powered photo analysis and OCR" },
+    { name: "TradeHub",                key: "TRADEHUB",           description: "Marketplace for trade professionals" },
+    { name: "Financials",              key: "FINANCIALS",         description: "Full financial tracking and management" },
+    { name: "Risk Dashboard",          key: "RISK_DASHBOARD",     description: "AI risk scoring and inspection alerts" },
+    { name: "AI Compliance Monitor",   key: "AI_COMPLIANCE",      description: "AI-powered compliance directive monitoring and ministry audit exports" },
+    { name: "Safety Forms",            key: "SAFETY_FORMS",       description: "Digital safety and incident reporting" },
+    { name: "Daily Reports",           key: "DAILY_REPORTS",      description: "Field daily report submission" },
+    { name: "RFIs",                    key: "RFIS",               description: "Request for Information tracking" },
+    { name: "Team Management",         key: "TEAM_MANAGEMENT",    description: "Crew and role management" },
+    { name: "Invoices",                key: "INVOICES",           description: "Invoice creation and tracking" },
+    { name: "Quotes & Proposals",      key: "QUOTES",             description: "Quote generation and approval" },
+    { name: "CRM & Leads",             key: "CRM_LEADS",          description: "Lead management and CRM" },
+    { name: "Smart Estimator",         key: "SMART_ESTIMATOR",    description: "Hybrid AI + rule-based estimating" },
+    { name: "Inspections",             key: "INSPECTIONS",        description: "Site inspection management" },
+    { name: "Worker Documents",        key: "WORKER_DOCUMENTS",   description: "Enterprise worker document management and compliance" },
+  ]).onConflictDoNothing();
 
   const plans = await db.select().from(plansTable);
   const features = await db.select().from(featuresTable);
