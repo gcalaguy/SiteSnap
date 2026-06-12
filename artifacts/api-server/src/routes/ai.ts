@@ -533,7 +533,7 @@ router.post("/help/chat", requireAuth, requireAiQuota, asyncHandler(async (req, 
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-5-mini",
       max_completion_tokens: 600,
       messages,
     });
@@ -717,7 +717,7 @@ OUTPUT FORMAT:
 Keep total output under 200 words. Only include sections that have relevant data. If a section has no data, skip it entirely.`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-5-mini",
       max_completion_tokens: 500,
       messages: [
         { role: "system", content: systemPrompt },
@@ -786,7 +786,7 @@ Transcript: "${transcript}"`;
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4.1-mini",
+        model: "gpt-5-mini",
         max_completion_tokens: 256,
         messages: [{ role: "user", content: prompt }],
       });

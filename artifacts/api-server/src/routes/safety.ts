@@ -398,7 +398,7 @@ router.post("/safety/submissions/:id/incident-summary", requireAuth, requireComp
     const systemPrompt = buildAIPrompt(category);
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-5-mini",
       max_completion_tokens: 600,
       messages: [
         { role: "system", content: systemPrompt },

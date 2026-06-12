@@ -111,7 +111,7 @@ async function runAIAnalysis(
   // Run all 3 AI calls in parallel
   const [summaryRes, riskRes, failedRes] = await Promise.all([
     openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-5-mini",
       messages: [
         { role: "system", content: INSPECTION_SUMMARY_PROMPT },
         { role: "user", content: context },
@@ -119,7 +119,7 @@ async function runAIAnalysis(
       max_tokens: 600,
     }),
     openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-5-mini",
       messages: [
         { role: "system", content: RISK_SCORING_PROMPT },
         { role: "user", content: context },
@@ -129,7 +129,7 @@ async function runAIAnalysis(
     }),
     failedItems.length > 0
       ? openai.chat.completions.create({
-          model: "gpt-4.1-mini",
+          model: "gpt-5-mini",
           messages: [
             { role: "system", content: FAILED_ITEM_ANALYSIS_PROMPT },
             { role: "user", content: `Failed items:\n${failedItems.map((i) => `- ${i.itemName} [${i.severity}]${i.comment ? `: ${i.comment}` : ""}`).join("\n")}` },
