@@ -151,7 +151,7 @@ router.put(
           eq(projectsTable.companyId, req.companyId!),
         ),
       )
-      .returning({ ...rfisTable });
+      .returning();
 
     if (!rfi) {
       res.status(404).json({ error: "RFI not found" });
