@@ -506,6 +506,132 @@ export function GlobalVoiceCommandFAB() {
     [resolveProject, askPickProject, createDailyReport, addResult, qc, invalidateDashboard]
   );
 
+  const handleMaterialAlert = useCallback(
+    async (action: Extract<SingleAction, { type: "MATERIAL_ALERT" }>) => {
+      let proj = resolveProject(action.project);
+      if (!proj) {
+        addResult("package", "Material alert", "Need project — pick below", "pending");
+        try {
+          proj = await askPickProject();
+        } catch {
+          addResult("x", "Material alert", "Cancelled", "error");
+          throw new Error("User cancelled project selection");
+        }
+      }
+      try {
+        await createDailyReport.mutateAsync({
+          projectId: proj.id,
+          data: {
+            reportDate: new Date().toISOString().split("T")[0],
+            crewCount: 1,
+            workPerformed: `[MATERIAL ALERT] ${action.item}`,
+            notes: `Material shortage flagged via voice: ${action.item}`,
+          },
+        });
+        qc.invalidateQueries({ queryKey: getListDailyReportsQueryKey(proj.id) });
+        invalidateDashboard();
+        addResult("check", "Material alert", `Logged on ${proj.name}`, "ok");
+      } catch (err) {
+        addResult("x", "Material alert", err instanceof Error ? err.message : "Failed to log", "error");
+        throw err;
+      }
+    },
+    [resolveProject, askPickProject, createDailyReport, addResult, qc, invalidateDashboard]
+  );
+
+  const handleSafetyLog = useCallback(
+    async (action: Extract<SingleAction, { type: "SAFETY_LOG" }>) => {
+      let proj = resolveProject(action.project);
+      if (!proj) {
+        addResult("alert-octagon", "Safety alert", "Need project — pick below", "pending");
+        try {
+          proj = await askPickProject();
+        } catch {
+          addResult("x", "Safety alert", "Cancelled", "error");
+          throw new Error("User cancelled project selection");
+        }
+      }
+      try {
+        await createDailyReport.mutateAsync({
+          projectId: proj.id,
+          data: {
+            reportDate: new Date().toISOString().split("T")[0],
+            crewCount: 1,
+            workPerformed: `[SAFETY ALERT] ${action.issue}`,
+            notes: `Safety issue flagged via voice: ${action.issue}`,
+          },
+        });
+        qc.invalidateQueries({ queryKey: getListDailyReportsQueryKey(proj.id) });
+        invalidateDashboard();
+        addResult("check", "Safety alert", `Logged on ${proj.name}`, "ok");
+      } catch (err) {
+        addResult("x", "Safety alert", err instanceof Error ? err.message : "Failed to log", "error");
+        throw err;
+      }
+    },
+    [resolveProject, askPickProject, createDailyReport, addResult, qc, invalidateDashboard]
+  );
+
+  const handleCreateQuote = useCallback(
+    async (action: Extract<SingleAction, { type: "CREATE_QUOTE" }>) => {
+      addResult("file-text", "Create quote", "Generating with AI...", "pending");
+      try {
+        const generated = await customFetch<{
+          title: string;
+          lineItems: Array<{ description: string; quantity: number; unit: string; unitPrice: number; total: number }>;
+          subtotal: number;
+          taxAmount: number;
+          total: number;
+          notes: string;
+        }>("/api/ai/quote/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            voiceInput: action.description,
+            clientName: action.clientName ?? undefined,
+            projectName: action.project ?? undefined,
+          }),
+        });
+
+        addResult(
+          "file-text",
+          "Quote preview",
+          `${generated.title} — Total: $${generated.total.toFixed(2)}`,
+          "pending"
+        );
+
+        const confirmed = await confirmVoiceAction(
+          "Save Quote",
+          `Save quote "${generated.title}" for $${generated.total.toFixed(2)} as a draft?`
+        );
+        if (!confirmed) {
+          addResult("x", "Create quote", "Cancelled", "error");
+          return;
+        }
+
+        await customFetch("/api/projects/0/quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: generated.title,
+            clientName: action.clientName ?? "TBD",
+            lineItems: generated.lineItems,
+            notes: generated.notes,
+            voiceInput: action.description,
+          }),
+        });
+
+        addResult("check", "Quote created", `"${generated.title}" saved as draft`, "ok");
+        invalidateDashboard();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to create quote";
+        addResult("x", "Create quote", msg, "error");
+        throw err;
+      }
+    },
+    [addResult, confirmVoiceAction, invalidateDashboard]
+  );
+
   const executor = useVoiceIntentExecutor({
     onLogHours: handleLogHours,
     onLogOwnHours: handleLogOwnHours,
@@ -514,12 +640,13 @@ export function GlobalVoiceCommandFAB() {
     onLogExpense: handleLogExpense,
     onCreateRFI: handleCreateRFI,
     onAddDailyLog: handleAddDailyLog,
-    onMaterialAlert: ({ item }) => addResult("package", "Material alert", `Flagged: ${item}`, "ok"),
+    onMaterialAlert: handleMaterialAlert,
     onTriggerCamera: () => {
       addResult("camera", "Photo", "Opening camera...", "ok");
       router.push("/(tabs)/(home)/scan-camera" as Parameters<typeof router.push>[0]);
     },
-    onSafetyLog: ({ issue }) => addResult("alert-octagon", "Safety", issue, "ok"),
+    onSafetyLog: handleSafetyLog,
+    onCreateQuote: handleCreateQuote,
     onNavigate: (target) => {
       const pathMap: Record<string, string> = {
         Dashboard: "/(tabs)/(home)",
@@ -968,6 +1095,8 @@ const HINTS = [
   { text: "Open safety", icon: "shield" },
   { text: "Expense $250 lumber at Home Depot", icon: "dollar-sign" },
   { text: "Update Oak Street: crew poured foundation today", icon: "file-text" },
+  { text: "Create a quote for 3 squares of roofing", icon: "file-text" },
+  { text: "Missing PPE at Oak Street", icon: "shield" },
 ];
 
 const styles = StyleSheet.create({

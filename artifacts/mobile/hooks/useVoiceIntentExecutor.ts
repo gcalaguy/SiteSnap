@@ -64,6 +64,7 @@ export interface ExecutorCallbacks {
   onMaterialAlert?: (action: Extract<SingleAction, { type: "MATERIAL_ALERT" }>) => Promise<void> | void;
   onTriggerCamera?: (action: Extract<SingleAction, { type: "TRIGGER_CAMERA" }>) => Promise<void> | void;
   onSafetyLog?: (action: Extract<SingleAction, { type: "SAFETY_LOG" }>) => Promise<void> | void;
+  onCreateQuote?: (action: Extract<SingleAction, { type: "CREATE_QUOTE" }>) => Promise<void> | void;
   onNavigate?: (target: string) => void;
   onAddNote?: (payload: string) => void;
   onAskAssistant?: (question: string) => void;
@@ -218,6 +219,10 @@ async function runSingleAction(
     }
     case "SAFETY_LOG": {
       await callbacks.onSafetyLog?.(action);
+      break;
+    }
+    case "CREATE_QUOTE": {
+      await callbacks.onCreateQuote?.(action);
       break;
     }
   }

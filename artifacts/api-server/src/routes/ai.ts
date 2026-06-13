@@ -773,6 +773,7 @@ Intent types and their required fields:
 - LOG_EXPENSE: { "intent": "LOG_EXPENSE", "amount": number, "description": string, "vendor": string|null, "project": string|null }
 - CREATE_RFI: { "intent": "CREATE_RFI", "subject": string, "project": string|null }
 - MATERIAL_ALERT: { "intent": "MATERIAL_ALERT", "item": string, "project": string|null }
+- CREATE_QUOTE: { "intent": "CREATE_QUOTE", "description": string, "clientName": string|null, "project": string|null }
 - NAVIGATE: { "intent": "NAVIGATE", "target": "Calculators"|"Schedule"|"Projects"|"Ask"|"Tasks"|"Invoices"|"Reports" }
 - UNKNOWN: { "intent": "UNKNOWN" }
 
@@ -808,6 +809,7 @@ Transcript: "${transcript}"`;
           subject: z.string().optional(),
           item: z.string().optional(),
           target: z.string().optional(),
+          clientName: z.string().nullable().optional(),
         });
         const validated = VoiceClassifyOutputSchema.safeParse(raw);
         res.json(validated.success ? validated.data : { intent: "UNKNOWN" });

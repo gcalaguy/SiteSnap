@@ -87,6 +87,13 @@ type SafetyLogAction = {
   issue: string;
 };
 
+type CreateQuoteAction = {
+  type: "CREATE_QUOTE";
+  description: string;
+  clientName: string | null;
+  project: string | null;
+};
+
 export type SingleAction =
   | LogHoursAction
   | LogOwnHoursAction
@@ -97,7 +104,8 @@ export type SingleAction =
   | CreateRFIAction
   | MaterialAlertAction
   | TriggerCameraAction
-  | SafetyLogAction;
+  | SafetyLogAction
+  | CreateQuoteAction;
 
 export type VoiceIntent =
   | { intent: "NAVIGATE"; target: RouteTarget; confidence: "high" | "low" }
@@ -260,6 +268,17 @@ const SAFETY_PATTERNS = [
   /(?:safety\s+issue|hazard|unsafe\s+condition)\s+(?:at|on)\s+(?:the\s+)?(.+)/i,
   /(.+?)\s+(?:missing\s+PPE|no\s+PPE|without\s+PPE)/i,
   /(?:safety\s+issue|hazard)\s*[\:\-]?\s*(.+)/i,
+];
+
+const QUOTE_PATTERNS = [
+  // "create a quote for 3 squares of roofing for Abela Construction"
+  /(?:create|generate|make|write\s+up)\s+(?:an?\s+)?quote\s+(?:for\s+)?(.+?)\s+(?:for|to)\s+(.+)/i,
+  // "create a quote for 3 squares of roofing"
+  /(?:create|generate|make|write\s+up)\s+(?:an?\s+)?quote\s+(?:for\s+)?(.+)/i,
+  // "quote for framing 10 units"
+  /^quote\s+for\s+(.+)/i,
+  // "new quote: electrical rough-in"
+  /^new\s+quote[:\s]+(.+)/i,
 ];
 
 function tryParseLogHours(text: string): LogHoursAction | null {
@@ -446,6 +465,22 @@ function tryParseSafetyLog(text: string): SafetyLogAction | null {
   return null;
 }
 
+function tryParseCreateQuote(text: string): CreateQuoteAction | null {
+  // Check for "description FOR/TO clientName" pattern first (most specific)
+  const withClient = /(?:create|generate|make|write\s+up)\s+(?:an?\s+)?quote\s+(?:for\s+)?(.+?)\s+(?:for|to)\s+(.+)/i;
+  const wc = text.match(withClient);
+  if (wc) {
+    return { type: "CREATE_QUOTE", description: wc[1].trim(), clientName: wc[2].trim(), project: null };
+  }
+  for (const pattern of QUOTE_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      return { type: "CREATE_QUOTE", description: match[1].trim(), clientName: null, project: null };
+    }
+  }
+  return null;
+}
+
 function parseSingleAction(text: string): SingleAction | null {
   // Order: most specific / least ambiguous first
   const camera = tryParseCamera(text);
@@ -471,6 +506,9 @@ function parseSingleAction(text: string): SingleAction | null {
 
   const rfi = tryParseCreateRFI(text);
   if (rfi) return rfi;
+
+  const quote = tryParseCreateQuote(text);
+  if (quote) return quote;
 
   const material = tryParseMaterialAlert(text);
   if (material) return material;
@@ -538,6 +576,7 @@ const LLMResultSchema = z.object({
   item: z.string().optional(),
   target: z.string().optional(),
   question: z.string().optional(),
+  clientName: z.string().nullable().optional(),
 });
 
 type LLMResult = z.infer<typeof LLMResultSchema>;
@@ -648,6 +687,20 @@ async function classifyWithLLM(
           };
         }
         break;
+      case "CREATE_QUOTE":
+        if (result.description) {
+          return {
+            intent: "SINGLE_ACTION",
+            action: {
+              type: "CREATE_QUOTE",
+              description: result.description,
+              clientName: result.clientName ?? null,
+              project,
+            },
+            confidence: "low",
+          };
+        }
+        break;
       case "NAVIGATE":
         if (result.target && isValidRouteTarget(result.target)) {
           return { intent: "NAVIGATE", target: result.target, confidence: "low" };
@@ -735,7 +788,8 @@ export async function interpretVoiceCommand(
       (single.type === "ADD_DAILY_LOG" && single.notes.length > 0) ||
       (single.type === "MATERIAL_ALERT" && single.item.length > 0) ||
       (single.type === "TRIGGER_CAMERA") ||
-      (single.type === "SAFETY_LOG" && single.issue.length > 0);
+      (single.type === "SAFETY_LOG" && single.issue.length > 0) ||
+      (single.type === "CREATE_QUOTE" && single.description.length > 0);
     return {
       intent: "SINGLE_ACTION",
       action: single,
