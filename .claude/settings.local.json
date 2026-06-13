@@ -54,7 +54,8 @@
       "Bash(kill 18619)",
       "Bash(pnpm --filter @workspace/api-server run dev)",
       "Bash(kill 30875 30876)",
-      "Bash(kill 31274 31275)"
+      "Bash(kill 31274 31275)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
     ]
   }
 }
