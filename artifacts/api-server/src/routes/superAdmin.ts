@@ -890,6 +890,7 @@ router.post("/admin/seed", ...guard, asyncHandler(async (req, res) => {
     { name: "Smart Estimator",         key: "SMART_ESTIMATOR",    description: "Hybrid AI + rule-based estimating" },
     { name: "Inspections",             key: "INSPECTIONS",        description: "Site inspection management" },
     { name: "Worker Documents",        key: "WORKER_DOCUMENTS",   description: "Enterprise worker document management and compliance" },
+    { name: "RFI & Submittal",         key: "RFI_SUBMITTAL",      description: "RFI and submittal workflow tracking" },
   ]).onConflictDoNothing();
 
   const plans = await db.select().from(plansTable);
@@ -916,7 +917,7 @@ router.post("/admin/seed", ...guard, asyncHandler(async (req, res) => {
     const proKeys = ["SCHEDULING", "AI_ESTIMATING", "CLIENT_PORTAL", "REPORTING", "QUICKBOOKS", "AI_CHAT",
       "SITE_VISION_AI", "TRADEHUB", "SAFETY_FORMS", "DAILY_REPORTS", "RFIS",
       "TEAM_MANAGEMENT", "INVOICES", "QUOTES", "CRM_LEADS", "SMART_ESTIMATOR",
-      "RISK_DASHBOARD", "AI_COMPLIANCE"];
+      "RISK_DASHBOARD", "AI_COMPLIANCE", "RFI_SUBMITTAL"];
     if (pro) {
       const vals = proKeys.map((k) => get(k)).filter(Boolean);
       if (vals.length > 0) {

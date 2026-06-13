@@ -63,6 +63,7 @@ import Leads from "@/pages/leads";
 import ProposalsPage from "@/pages/proposals";
 import FinancialsPage from "@/pages/financials";
 import PermitsPage from "@/pages/permits";
+import RfiSubmittalPage from "@/pages/rfi-submittal";
 import PublicQuotePage from "@/pages/public-quote";
 import PublicInvoicePage from "@/pages/public-invoice";
 import { AuthGuard } from "@/components/auth-guard";
@@ -342,6 +343,7 @@ function AuthApp() {
           <Route path="/ai-compliance-monitor" component={AIComplianceMonitorPage} />
           <Route path="/media-hub" component={MediaHubTestPage} />
           <Route path="/safety-compliance" component={SafetyCompliancePage} />
+          <Route path="/rfi-submittal" component={RfiSubmittalPage} />
           <Route path="/worker-documents" component={WorkerDocumentsPage} />
           <Route path="/audit-vault" component={AuditVaultPage} />
           <Route path="/inspections" component={InspectionsPage} />

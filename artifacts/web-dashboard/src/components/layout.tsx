@@ -22,6 +22,7 @@ import {
   Crown,
   Bell,
   MessageSquare,
+  MessageSquareWarning,
   Hammer,
   BookUser,
   TrendingUp,
@@ -160,6 +161,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "SAFETY_FORMS" },
     ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TRADEHUB" }] : []),
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT" },
+    ...(isOwnerOrForeman ? [{ name: "RFI & Submittal", href: "/rfi-submittal", icon: MessageSquareWarning, badge: 0, featureKey: "RFI_SUBMITTAL" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Worker Documents", href: "/worker-documents", icon: ShieldCheck, badge: 0, featureKey: "WORKER_DOCUMENTS" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0 }] : []),
   ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0 }] : []),
@@ -541,23 +543,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
 
-            {/* Company label */}
+            {/* Company switcher */}
             <div className="px-4 py-3" style={{ borderBottom: `1px solid ${GOLD_BORDER}` }}>
-              <div
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5"
-                style={{ background: SURFACE, border: `1px solid ${GOLD}22` }}
-              >
-                <div
-                  className="rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                  style={{ width: 32, height: 32, background: `${GOLD}22`, border: `1px solid ${GOLD}44`, color: GOLD }}
-                >
-                  {companyInitials || "?"}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold truncate" style={{ color: "#FFF" }}>{companyName}</p>
-                  <p className="text-xs capitalize" style={{ color: "#666" }}>{user?.role ?? "Member"}</p>
-                </div>
-              </div>
+              <CompanySwitcher user={user} />
             </div>
 
             {/* Nav items */}

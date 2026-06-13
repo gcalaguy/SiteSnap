@@ -415,6 +415,20 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 13, fontFamily: "Inter_400Regular" },
   name: { fontSize: 26, fontFamily: "Inter_700Bold", marginTop: 2 },
+  companyBadge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    marginTop: 6,
+    alignSelf: "flex-start" as const,
+    backgroundColor: "#D4AF3722",
+    borderWidth: 1,
+    borderColor: "#D4AF3744",
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  companyBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#D4AF37" },
   bellBtn: { position: "relative", padding: 4 },
   badge: {
     position: "absolute", top: -2, right: -4, minWidth: 18, height: 18,
@@ -578,6 +592,11 @@ export default function DashboardScreen() {
   const firstName = me?.firstName ?? "there";
   const perms = usePermissions();
   const isWorker = me?.role === "worker";
+  const hasMultipleCompanies = (me?.memberships?.length ?? 0) > 1;
+  const activeCompanyName =
+    me?.company?.name ??
+    me?.memberships?.find((m) => m.companyId === me?.activeCompanyId)?.companyName ??
+    null;
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const allProjects = projects ?? [];
   const activeProjects = allProjects.filter((p) => p.status === "active" || p.status === "planning");
@@ -606,6 +625,12 @@ export default function DashboardScreen() {
         <View>
           <Text style={[styles.greeting, { color: "rgba(255,255,255,0.6)" }]}>Good day,</Text>
           <Text style={[styles.name, { color: "#FFFFFF" }]}>{firstName}</Text>
+          {hasMultipleCompanies && activeCompanyName ? (
+            <View style={styles.companyBadge}>
+              <Feather name="briefcase" size={10} color="#D4AF37" />
+              <Text style={styles.companyBadgeText} numberOfLines={1}>{activeCompanyName}</Text>
+            </View>
+          ) : null}
         </View>
         <Pressable onPress={() => router.push("/notifications")} style={styles.bellBtn} hitSlop={10}>
           <Feather name="bell" size={22} color="#FFFFFF" />

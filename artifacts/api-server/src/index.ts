@@ -99,6 +99,28 @@ async function ensureFeatures() {
 
 await ensureFeatures();
 
+// Ensure RFI_SUBMITTAL feature exists and is linked to Pro + Enterprise plans.
+async function ensureRfiSubmittal() {
+  try {
+    const { db, featuresTable, planFeaturesTable, plansTable } = await import("@workspace/db");
+    const { eq, inArray } = await import("drizzle-orm");
+    await db.insert(featuresTable).values([
+      { name: "RFI & Submittal", key: "RFI_SUBMITTAL", description: "RFI and submittal workflow tracking" },
+    ]).onConflictDoNothing();
+    const plans = await db.select().from(plansTable).where(inArray(plansTable.slug, ["pro", "enterprise"]));
+    const [feature] = await db.select().from(featuresTable).where(eq(featuresTable.key, "RFI_SUBMITTAL")).limit(1);
+    if (feature && plans.length > 0) {
+      await db.insert(planFeaturesTable).values(
+        plans.map((p) => ({ planId: p.id, featureId: feature.id }))
+      ).onConflictDoNothing();
+    }
+  } catch (err: any) {
+    logger.warn({ err }, "ensureRfiSubmittal: non-fatal");
+  }
+}
+
+await ensureRfiSubmittal();
+
 // Apply RFI workflow migration — safe to run on every startup (IF NOT EXISTS / ADD VALUE IF NOT EXISTS).
 async function applyRfiWorkflowMigration() {
   try {
