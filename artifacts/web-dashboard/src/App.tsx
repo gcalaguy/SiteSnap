@@ -63,6 +63,7 @@ import Leads from "@/pages/leads";
 import ProposalsPage from "@/pages/proposals";
 import FinancialsPage from "@/pages/financials";
 import PermitsPage from "@/pages/permits";
+import InventoryPage from "@/pages/inventory";
 import RfiSubmittalPage from "@/pages/rfi-submittal";
 import PublicQuotePage from "@/pages/public-quote";
 import PublicInvoicePage from "@/pages/public-invoice";
@@ -332,6 +333,7 @@ function AuthApp() {
           <Route path="/reports" component={ReportsPage} />
           <Route path="/field-logs" component={FieldLogsPage} />
           <Route path="/permits" component={PermitsPage} />
+          <Route path="/inventory" component={InventoryPage} />
           <Route path="/tradehub/messages/:conversationId" component={TradehubMessagesPage} />
           <Route path="/tradehub/messages" component={TradehubMessagesPage} />
           <Route path="/tradehub/notifications" component={TradehubNotificationsPage} />

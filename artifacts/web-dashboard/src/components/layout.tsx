@@ -32,6 +32,7 @@ import {
   Sparkles,
   Menu,
   X,
+  Package,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import { useState } from "react";
@@ -150,6 +151,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge },
     ...(isOwnerOrForeman ? [{ name: "Proposals", href: "/proposals", icon: FileSignature, badge: 0, featureKey: "PROPOSALS" }] : []),
     { name: "Estimating", href: "/estimates", icon: Calculator, badge: 0 },
+    ...(isOwnerOrForeman ? [{ name: "Inventory", href: "/inventory", icon: Package, badge: 0, featureKey: "INVENTORY" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0, featureKey: "FINANCIALS" }] : []),
     { name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "CONTACTS" },
     { name: "Leads", href: "/leads", icon: TrendingUp, badge: 0, featureKey: "CONTACTS" },
