@@ -51,3 +51,4 @@ export * from "./schema";
 export * from "./helpers";
 export * from "./queryNormalizer";
 export * from "./vectorSearch";
+export * from "./tenantCtx";

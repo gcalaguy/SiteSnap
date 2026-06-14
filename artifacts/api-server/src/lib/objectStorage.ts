@@ -4,7 +4,6 @@ import { randomUUID } from "crypto";
 import {
   ObjectAclPolicy,
   ObjectPermission,
-  ObjectAccessGroupType,
   canAccessObject,
   getObjectAclPolicy,
   setObjectAclPolicy,

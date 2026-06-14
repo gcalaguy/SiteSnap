@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, workerSchedulesTable, usersTable, userMembershipsTable, projectsTable, companiesTable, contactsTable } from "@workspace/db";
-import { eq, and, lte, gte, or } from "drizzle-orm";
+import { db, workerSchedulesTable, usersTable, userMembershipsTable, projectsTable, contactsTable } from "@workspace/db";
+import { eq, and, lte, gte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";

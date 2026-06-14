@@ -8,7 +8,6 @@ import {
   usersTable,
   userMembershipsTable,
   projectsTable,
-  companiesTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import {
   db,
   formTemplatesTable,

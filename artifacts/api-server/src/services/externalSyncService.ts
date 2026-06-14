@@ -9,8 +9,8 @@
  * All calls are strictly additive: no mutation of existing app data.
  */
 
-import { google, sheets_v4, calendar_v3 } from "googleapis";
-import axios, { AxiosError } from "axios";
+import { google, sheets_v4 } from "googleapis";
+import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
 
 // ---------------------------------------------------------------------------

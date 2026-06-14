@@ -1,5 +1,4 @@
-import { db, usersTable, auditLogsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, auditLogsTable } from "@workspace/db";
 import type { Request } from "express";
 import { logger } from "../lib/logger";
 
@@ -69,12 +68,3 @@ export async function logAuditEventFromRequest(
   });
 }
 
-/** Resolve the user's display name from the DB (for when headers aren't available). */
-async function resolveUserName(userId: number): Promise<string> {
-  const [u] = await db
-    .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId))
-    .limit(1);
-  return u ? `${u.firstName} ${u.lastName}`.trim() : String(userId);
-}

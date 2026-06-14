@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db, companiesTable } from '@workspace/db';
-import { getStripeSync, getUncachableStripeClient } from './stripeClient';
+import { getStripeSync } from './stripeClient';
 import { logger } from './logger';
 
 export class WebhookHandlers {
@@ -21,7 +21,6 @@ export class WebhookHandlers {
 
     // 2. Parse the event so we can react to subscription lifecycle changes
     //    and keep companiesTable in sync (stripeCustomerId / stripeSubscriptionId)
-    const stripe = await getUncachableStripeClient();
     let event: any;
     try {
       // Re-construct the event (signature already verified by sync above)

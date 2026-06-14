@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, timesheetsTable, timeEntriesTable, usersTable, userMembershipsTable, projectsTable } from "@workspace/db";
+import { db, timesheetsTable, usersTable, userMembershipsTable, projectsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
@@ -9,6 +9,7 @@ import { getClientInfo } from "../lib/clientInfo";
 import { z } from "zod";
 import { logAuditEventFromRequest } from "../utils/logger";
 import { ApproveTimesheetBody } from "@workspace/api-zod";
+import { sendPushNotification } from "../lib/push.js";
 
 const router = Router();
 
@@ -125,6 +126,27 @@ router.post("/timesheets", requireAuth, requireCompany, asyncHandler(async (req,
     ))
     .limit(1);
 
+  function pushTimesheetSubmitted(companyId: number, submitterName: string, hours: string) {
+    db.select({ pushToken: usersTable.pushToken })
+      .from(usersTable)
+      .innerJoin(userMembershipsTable, and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, companyId),
+      ))
+      .where(inArray(userMembershipsTable.role, ["owner", "foreman"]))
+      .then((recipients) => {
+        for (const r of recipients) {
+          sendPushNotification(
+            r.pushToken,
+            "Timesheet Submitted",
+            `${submitterName} submitted ${hours}h — pending your approval`,
+            { type: "timesheet_submitted" },
+          );
+        }
+      })
+      .catch(() => {});
+  }
+
   if (existing) {
     const [updated] = await db.update(timesheetsTable)
       .set({
@@ -142,7 +164,11 @@ router.post("/timesheets", requireAuth, requireCompany, asyncHandler(async (req,
       .where(and(eq(timesheetsTable.id, existing.id), eq(timesheetsTable.companyId, req.companyId!)))
       .returning();
     const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
-    res.status(201).json(await withReviewer(withUser, null));
+    const response = await withReviewer(withUser, null);
+    const submitter = (response as { user?: { firstName?: string; lastName?: string } }).user;
+    const submitterName = submitter ? `${submitter.firstName ?? ""} ${submitter.lastName ?? ""}`.trim() : "A team member";
+    pushTimesheetSubmitted(req.companyId!, submitterName, totalHours.toFixed(1));
+    res.status(201).json(response);
     return;
   }
 
@@ -159,7 +185,11 @@ router.post("/timesheets", requireAuth, requireCompany, asyncHandler(async (req,
   }).returning();
 
   const withUser = await withSubmitter(ts as unknown as Record<string, unknown>, ts.userId);
-  res.status(201).json(await withReviewer(withUser, null));
+  const response = await withReviewer(withUser, null);
+  const submitter = (response as { user?: { firstName?: string; lastName?: string } }).user;
+  const submitterName = submitter ? `${submitter.firstName ?? ""} ${submitter.lastName ?? ""}`.trim() : "A team member";
+  pushTimesheetSubmitted(req.companyId!, submitterName, totalHours.toFixed(1));
+  res.status(201).json(response);
 }))
 
 // GET /timesheets/:timesheetId

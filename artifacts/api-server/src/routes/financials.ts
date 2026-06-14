@@ -1,15 +1,13 @@
 import { Router } from "express";
-import { eq, and, desc, asc, inArray, sql, sum } from "drizzle-orm";
+import { eq, and, desc, asc, sql } from "drizzle-orm";
 import {
   db,
   paymentsTable,
   changeOrdersTable,
   invoicesTable,
-  builderEstimatesTable,
   builderEstimateItemsTable,
   proposalsTable,
   projectsTable,
-  usersTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -408,11 +406,6 @@ router.post("/invoices/from-proposal/:proposalId", requireAuth, requireCompany, 
     .from(proposalsTable)
     .where(and(eq(proposalsTable.id, proposalId), eq(proposalsTable.companyId, req.companyId!)));
   if (!proposal) { res.status(404).json({ error: "Proposal not found" }); return; }
-
-  const estimate = await db
-    .select()
-    .from(builderEstimatesTable)
-    .where(eq(builderEstimatesTable.id, proposal.builderEstimateId));
 
   const items = await db
     .select()

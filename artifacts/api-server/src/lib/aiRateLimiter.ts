@@ -106,31 +106,6 @@ async function dbIncrementAndGet(key: string): Promise<number> {
   }
 }
 
-/**
- * Read the current daily count without incrementing (for header/remaining info).
- * Returns cached value if available, otherwise queries DB.
- */
-async function dbGetCount(key: string): Promise<number> {
-  const cached = getCachedDaily(key);
-  if (cached !== null) return cached;
-
-  if (!key.startsWith("c:")) {
-    return getInMemoryCount(key);
-  }
-  const companyId = parseInt(key.slice(2), 10);
-  const today = todayStr();
-  try {
-    const result = await pool.query<{ count: number }>(
-      "SELECT count FROM ai_daily_usage WHERE company_id = $1 AND date = $2",
-      [companyId, today],
-    );
-    const count = result.rows[0]?.count ?? 0;
-    setCachedDaily(key, count);
-    return count;
-  } catch {
-    return 0;
-  }
-}
 
 // ── In-memory fallback for non-company keys ──────────────────────────────────
 interface DailyCounter { count: number; date: string }

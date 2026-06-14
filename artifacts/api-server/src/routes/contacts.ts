@@ -30,12 +30,6 @@ router.get("/contacts", requireAuth, requireCompany, asyncHandler(async (req, re
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const type = typeof req.query.type === "string" ? req.query.type : undefined;
 
-  let query = db
-    .select()
-    .from(contactsTable)
-    .where(eq(contactsTable.companyId, companyId))
-    .$dynamic();
-
   const conditions = [eq(contactsTable.companyId, companyId)];
 
   if (type && ["client", "worker", "subcontractor", "supplier"].includes(type)) {

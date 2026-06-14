@@ -1,5 +1,5 @@
 import { sql, eq, count } from 'drizzle-orm';
-import { db, companiesTable, usersTable, userMembershipsTable } from '@workspace/db';
+import { db, companiesTable, userMembershipsTable } from '@workspace/db';
 import type { Request, Response, NextFunction } from 'express';
 
 export interface SeatInfo {

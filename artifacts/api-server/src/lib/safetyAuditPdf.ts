@@ -10,7 +10,6 @@ const PRIMARY: [number, number, number] = [212, 175, 55];
 const DARK: [number, number, number] = [18, 18, 18];
 const WHITE: [number, number, number] = [255, 255, 255];
 const GRAY: [number, number, number] = [120, 120, 120];
-const LIGHT: [number, number, number] = [245, 245, 245];
 const RED: [number, number, number] = [220, 38, 38];
 const AMBER: [number, number, number] = [217, 119, 6];
 const GREEN: [number, number, number] = [22, 163, 74];

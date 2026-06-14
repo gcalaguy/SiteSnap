@@ -128,6 +128,7 @@ export const memberPermissionsSchema = z.object({
   viewQuotes: z.boolean().optional(),
   viewTimesheets: z.boolean().optional(),
   viewFinancials: z.boolean().optional(),
+  manageFinancials: z.boolean().optional(),
   viewDocuments: z.boolean().optional(),
   viewSchedules: z.boolean().optional(),
   viewClientMessages: z.boolean().optional(),

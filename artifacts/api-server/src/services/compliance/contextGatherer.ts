@@ -41,7 +41,6 @@ export async function gatherProjectContext(
   projectName: string,
 ): Promise<ProjectComplianceContext> {
   const today = todayUtc();
-  const todayStr = dateString(today);
 
   const yesterday = new Date(today);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);

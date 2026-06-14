@@ -2,11 +2,7 @@ import { Router } from "express";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import {
   db,
-  invoicesTable,
-  paymentsTable,
-  changeOrdersTable,
   projectsTable,
-  costAnalysesTable,
   timesheetsTable,
   usersTable,
   projectDocumentsTable,
@@ -34,19 +30,6 @@ function escapeCsv(val: string | number | null | undefined) {
   return str;
 }
 
-function describeToAccountCode(description: string) {
-  const d = description.toLowerCase();
-  if (d.includes("labour") || d.includes("labor") || d.includes("wage")) return "5101";
-  if (d.includes("material")) return "5102";
-  if (d.includes("subcontract")) return "5103";
-  if (d.includes("equipment") || d.includes("rental") || d.includes("machine")) return "5104";
-  if (d.includes("permit")) return "6101";
-  if (d.includes("inspection")) return "6102";
-  if (d.includes("insurance")) return "6103";
-  if (d.includes("overhead")) return "6104";
-  if (d.includes("change order")) return "6201";
-  return "4101"; // default revenue
-}
 
 function toCsvRow(values: (string | number | null | undefined)[]) {
   return values.map(escapeCsv).join(",") + "\r\n";

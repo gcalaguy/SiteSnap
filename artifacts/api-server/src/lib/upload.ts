@@ -9,7 +9,6 @@
  */
 import multer from "multer";
 import { tmpdir } from "os";
-import { join } from "path";
 import { unlink } from "fs/promises";
 import { randomUUID } from "crypto";
 import type { Request } from "express";

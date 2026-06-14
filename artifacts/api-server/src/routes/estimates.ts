@@ -480,7 +480,7 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermissi
 </html>`;
 
   try {
-    const { sendEmail, ResendSandboxError } = await import("../lib/mailer.js");
+    const { sendEmail } = await import("../lib/mailer.js");
     await sendEmail({
       to: [to],
       subject: `Construction Estimate: ${esc(estimate.title)}`,

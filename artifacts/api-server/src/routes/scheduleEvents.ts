@@ -8,7 +8,7 @@ import {
   projectsTable,
   companiesTable,
 } from "@workspace/db";
-import { eq, and, or, lt, gt, ne, inArray, gte, lte } from "drizzle-orm";
+import { eq, and, lt, gt, ne, inArray, gte, lte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";

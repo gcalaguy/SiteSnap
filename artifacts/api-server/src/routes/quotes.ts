@@ -18,6 +18,7 @@ import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { Resend } from "resend";
 import { z } from "zod";
 import { logAuditEventFromRequest } from "../utils/logger";
+import { sendPushNotification } from "../lib/push.js";
 
 const LineItemSchema = z.object({
   description: z.string().max(500),
@@ -354,6 +355,28 @@ router.post("/:quoteId/submit", requireAuth, requireCompany, asyncHandler(async 
     total: updated.total,
     companyId: updated.companyId,
   });
+
+  // Push notifications to owners/foremans so mobile users see the pending approval.
+  db.select({ pushToken: usersTable.pushToken })
+    .from(usersTable)
+    .innerJoin(userMembershipsTable, and(
+      eq(userMembershipsTable.userId, usersTable.id),
+      eq(userMembershipsTable.companyId, updated.companyId),
+    ))
+    .where(inArray(userMembershipsTable.role, ["owner", "foreman"]))
+    .then((recipients) => {
+      const totalFormatted = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" })
+        .format(parseFloat(updated.total));
+      for (const r of recipients) {
+        sendPushNotification(
+          r.pushToken,
+          "Quote Submitted for Review",
+          `${updated.quoteNumber} — ${updated.clientName} · ${totalFormatted}`,
+          { type: "quote_submitted", quoteId: updated.id },
+        );
+      }
+    })
+    .catch(() => {});
 
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);

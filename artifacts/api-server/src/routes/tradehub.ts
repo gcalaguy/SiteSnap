@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, or, desc, sql, inArray, ne, type SQL } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray, type SQL } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -21,7 +21,6 @@ import {
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
-import { logger } from "../lib/logger";
 import { notify } from "../lib/notify";
 import { z } from "zod";
 
@@ -545,27 +544,48 @@ router.get("/tradehub/job-postings", requireAuth, asyncHandler(async (req, res) 
       .where(and(...conditions))
       .orderBy(desc(jobPostingsTable.createdAt));
 
-    const result = await Promise.all(
-      rows.map(async (jp) => {
-        const [poster] = await db.select().from(usersTable).where(eq(usersTable.id, jp.createdBy));
-        const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, jp.companyId));
-        const [{ count: appCount }] = await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(jobPostingApplicationsTable)
-          .where(eq(jobPostingApplicationsTable.jobPostingId, jp.id));
+    if (rows.length === 0) { res.json([]); return; }
 
-        let hasApplied = false;
-        if (req.userId) {
-          const [existing] = await db
-            .select()
+    // Batch all ancillary lookups — one query each instead of N per posting.
+    const postingIds = rows.map((r) => r.id);
+    const posterIds = [...new Set(rows.map((r) => r.createdBy).filter(Boolean))] as number[];
+    const companyIds = [...new Set(rows.map((r) => r.companyId).filter(Boolean))] as number[];
+
+    const [posters, companies, appCounts, myApps] = await Promise.all([
+      posterIds.length
+        ? db.select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName })
+            .from(usersTable).where(inArray(usersTable.id, posterIds))
+        : [],
+      companyIds.length
+        ? db.select({ id: companiesTable.id, name: companiesTable.name })
+            .from(companiesTable).where(inArray(companiesTable.id, companyIds))
+        : [],
+      db.select({ jobPostingId: jobPostingApplicationsTable.jobPostingId, count: sql<number>`count(*)::int` })
+        .from(jobPostingApplicationsTable)
+        .where(inArray(jobPostingApplicationsTable.jobPostingId, postingIds))
+        .groupBy(jobPostingApplicationsTable.jobPostingId),
+      req.userId
+        ? db.select({ jobPostingId: jobPostingApplicationsTable.jobPostingId })
             .from(jobPostingApplicationsTable)
-            .where(and(eq(jobPostingApplicationsTable.jobPostingId, jp.id), eq(jobPostingApplicationsTable.applicantId, req.userId)))
-            .limit(1);
-          hasApplied = !!existing;
-        }
-        return { ...jp, posterName: poster ? `${poster.firstName} ${poster.lastName}` : "Unknown", companyName: company?.name ?? "Unknown", applicationCount: appCount, hasApplied };
-      })
-    );
+            .where(and(
+              inArray(jobPostingApplicationsTable.jobPostingId, postingIds),
+              eq(jobPostingApplicationsTable.applicantId, req.userId),
+            ))
+        : [],
+    ]);
+
+    const posterMap = new Map(posters.map((u) => [u.id, `${u.firstName} ${u.lastName}`]));
+    const companyMap = new Map(companies.map((c) => [c.id, c.name]));
+    const appCountMap = new Map(appCounts.map((r) => [r.jobPostingId, r.count]));
+    const appliedSet = new Set(myApps.map((r) => r.jobPostingId));
+
+    const result = rows.map((jp) => ({
+      ...jp,
+      posterName: posterMap.get(jp.createdBy) ?? "Unknown",
+      companyName: companyMap.get(jp.companyId) ?? "Unknown",
+      applicationCount: appCountMap.get(jp.id) ?? 0,
+      hasApplied: appliedSet.has(jp.id),
+    }));
 
     if (search) {
       const q = search.toLowerCase();

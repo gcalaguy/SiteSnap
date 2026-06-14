@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc, sql, count, avg, inArray } from "drizzle-orm";
+import { eq, and, desc, count, avg, inArray } from "drizzle-orm";
 import {
   db,
   usersTable,

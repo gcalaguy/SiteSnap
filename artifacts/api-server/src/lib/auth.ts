@@ -1,7 +1,7 @@
 import { getAuth } from "@clerk/express";
-import { db, usersTable, userMembershipsTable, companiesTable, subscriptionsTable, plansTable } from "@workspace/db";
+import { db, usersTable, userMembershipsTable, subscriptionsTable, plansTable } from "@workspace/db";
 import type { MemberPermissions } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
 import { getCompanyFeatureKeys, isEnterprisePlan } from "./featureGate";
 

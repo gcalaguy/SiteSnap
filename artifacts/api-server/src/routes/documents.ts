@@ -84,7 +84,7 @@ function chunkText(text: string, maxChars = 900, overlap = 150): string[] {
 async function storeChunks(
   docId: number, projectId: number, companyId: number, text: string
 ): Promise<number> {
-  await pool.query("DELETE FROM document_chunks WHERE doc_id = $1", [docId]);
+  await pool.query("DELETE FROM document_chunks WHERE doc_id = $1 AND company_id = $2", [docId, companyId]);
 
   const chunks = chunkText(text);
   if (chunks.length === 0) return 0;
@@ -353,7 +353,7 @@ router.delete("/:docId", requireAuth, requireCompany, asyncHandler(async (req, r
   const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
   if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
 
-  await pool.query("DELETE FROM document_chunks WHERE doc_id=$1 AND project_id=$2", [docId, projectId]);
+  await pool.query("DELETE FROM document_chunks WHERE doc_id=$1 AND project_id=$2 AND company_id=$3", [docId, projectId, req.companyId!]);
   await db.delete(projectDocumentsTable).where(
     and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId))
   );
@@ -739,12 +739,10 @@ async function runPDFAnalysis(
     const [fileContent] = await objectFile.download();
 
     let rawText = await extractPDFText(fileContent);
-    let ocrFallback = false;
 
     // ── OCR Fallback for image-only PDFs ──────────────────────────────
     if (rawText.trim().length < MIN_EXTRACTED_CHARS) {
       logger.info({ docId, filename: doc.filename, extractedChars: rawText.trim().length }, "PDF text too short; triggering OCR fallback");
-      ocrFallback = true;
       await db.update(projectDocumentsTable)
         .set({ status: "processing_ocr" as any })
         .where(and(eq(projectDocumentsTable.id, docId), eq(projectDocumentsTable.projectId, projectId)));

@@ -14,7 +14,6 @@ import {
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
-import { requirePermission } from "../lib/permissionGate";
 import { CreateProjectBody, UpdateProjectBody } from "@workspace/api-zod";
 import { z } from "zod";
 
@@ -34,7 +33,6 @@ import { getTenantFinancialSummaries, type TenantFinancialSummary } from "../ser
 import {
   validateWorkerCompliance,
   getProjectsWithComplianceAlerts,
-  REQUIRED_COR_CREDENTIALS,
 } from "../services/complianceCheck";
 import { notify } from "../lib/notify";
 
@@ -59,13 +57,6 @@ router.get(
     } catch (err) {
       // Aggregation errors must not crash the core project list response.
       req.log?.warn({ err }, "dashboardMetrics: failed to load financial summaries");
-    }
-
-    function attachFinancials<T extends { id: number }>(projects: T[]) {
-      return projects.map((p) => ({
-        ...p,
-        financials: financialsMap.get(p.id) ?? null,
-      }));
     }
 
     if (req.userRole === "worker" && !req.userPermissions?.viewAllProjects) {

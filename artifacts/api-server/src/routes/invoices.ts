@@ -9,6 +9,7 @@ import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
 import { sendReminderForInvoice } from "../lib/invoiceReminders.js";
 import { logAuditEventFromRequest } from "../utils/logger";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
+import { buildInvoicePdfBuffer } from "../lib/invoicePdf.js";
 import { format } from "date-fns";
 import { z } from "zod";
 
@@ -43,7 +44,9 @@ const UpdateInvoiceBodyValidated = z.object({
 });
 
 const SendInvoiceEmailBody = z.object({
-  pdfBase64: z.string().min(1).max(15_000_000),
+  // pdfBase64 accepted for backward-compat but ignored — PDF is generated server-side.
+  // Capped at 1 byte to reject large uploads rather than silently discarding them.
+  pdfBase64: z.string().max(1).optional(),
 });
 
 const router = Router();
@@ -181,7 +184,7 @@ router.get("/invoices/:invoiceId", requireAuth, requireCompany, requirePermissio
 }))
 
 // PUT /invoices/:invoiceId
-router.put("/invoices/:invoiceId", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
+router.put("/invoices/:invoiceId", requireAuth, requireCompany, requirePermission("manageFinancials"), asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
   const isWorker = req.userRole === "worker";
 
@@ -271,7 +274,7 @@ router.post("/invoices/:invoiceId/mark-sent", requireAuth, requireCompany, async
 }))
 
 // POST /invoices/:invoiceId/send-email
-router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, requirePermission("manageFinancials"), asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
 
   const parsedEmail = SendInvoiceEmailBody.safeParse(req.body);
@@ -279,7 +282,6 @@ router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyn
     res.status(400).json({ error: "Malformed request payload", details: parsedEmail.error.issues });
     return;
   }
-  const { pdfBase64 } = parsedEmail.data;
 
   const [invoice] = await db
     .select()
@@ -294,11 +296,34 @@ router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyn
   }
 
   const [company] = await db
-    .select({ name: companiesTable.name })
+    .select({ name: companiesTable.name, address: companiesTable.address, phone: companiesTable.phone, defaultInvoiceNotes: companiesTable.defaultInvoiceNotes })
     .from(companiesTable)
     .where(eq(companiesTable.id, req.companyId!))
     .limit(1);
   const companyName = company?.name ?? "Site Snap";
+
+  // Generate PDF server-side — eliminates the 15MB client-upload attack surface.
+  const pdfBuffer = await buildInvoicePdfBuffer({
+    invoiceNumber: invoice.invoiceNumber,
+    title: invoice.title,
+    clientName: invoice.clientName,
+    clientEmail: invoice.clientEmail,
+    status: invoice.status,
+    lineItems: (invoice.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]) ?? [],
+    subtotal: invoice.subtotal,
+    taxRate: invoice.taxRate,
+    taxAmount: invoice.taxAmount,
+    total: invoice.total,
+    notes: invoice.notes,
+    dueDate: invoice.dueDate,
+    createdAt: invoice.createdAt.toISOString(),
+    companyName,
+    companyAddress: company?.address ?? null,
+    companyPhone: company?.phone ?? null,
+    signerName: invoice.signerName,
+    signedAt: invoice.signedAt,
+    defaultNotes: company?.defaultInvoiceNotes ?? null,
+  });
 
   const fmtCAD = (v: string | number) =>
     new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
@@ -342,7 +367,7 @@ router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, asyn
       attachments: [
         {
           filename: `${invoice.invoiceNumber}.pdf`,
-          content: pdfBase64,
+          content: pdfBuffer.toString("base64"),
         },
       ],
     });

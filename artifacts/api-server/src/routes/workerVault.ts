@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc, or, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -7,11 +7,9 @@ import {
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
-import { ObjectStorageService } from "../lib/objectStorage";
 import { z } from "zod/v4";
 
 const router = Router();
-const objectStorageService = new ObjectStorageService();
 
 const DOC_TYPES = [
   "Driver License",
