@@ -9,7 +9,7 @@ import {
   userMembershipsTable,
   companiesTable,
 } from "@workspace/db";
-import { eq, and, count, desc, inArray, or } from "drizzle-orm";
+import { eq, and, sql, desc, inArray, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
@@ -146,25 +146,24 @@ async function verifyProjectAccess(projectId: number, companyId: number) {
   return project ?? null;
 }
 
-async function getNextQuoteNumber(companyId: number): Promise<string> {
-  const [company] = await db
-    .select({
-      prefix: companiesTable.quoteNumberPrefix,
-      startNumber: companiesTable.quoteStartNumber,
-    })
-    .from(companiesTable)
+/** Atomically increment the company's quote counter and return the formatted number.
+ *  Must be called inside a db.transaction() so the counter increment and the
+ *  quote insert are a single atomic unit — eliminates the SELECT count() race. */
+async function allocateQuoteNumber(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  companyId: number,
+): Promise<string> {
+  const [company] = await tx
+    .update(companiesTable)
+    .set({ quoteCounter: sql`quote_counter + 1` })
     .where(eq(companiesTable.id, companyId))
-    .limit(1);
-
-  const [result] = await db
-    .select({ count: count() })
-    .from(quotesTable)
-    .where(eq(quotesTable.companyId, companyId));
-
-  const prefix = company?.prefix ?? "QUO";
-  const start = company?.startNumber ?? 1;
-  const num = (result?.count ?? 0) + start;
-  return `${prefix}-${String(num).padStart(4, "0")}`;
+    .returning({
+      counter: companiesTable.quoteCounter,
+      prefix: companiesTable.quoteNumberPrefix,
+      start: companiesTable.quoteStartNumber,
+    });
+  const num = company.counter + ((company.start ?? 1) - 1);
+  return `${company.prefix ?? "QUO"}-${String(num).padStart(4, "0")}`;
 }
 
 function calcTotals(lineItems: { quantity: number; unitPrice: number; total?: number }[], taxRate = 0.13) {
@@ -210,32 +209,34 @@ router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"),
   if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }
 
   const { title, clientName, clientEmail, clientCompanyName, clientAddress, clientPhone, voiceInput, lineItems = [], notes, validUntil } = parsed.data;
-  const quoteNumber = await getNextQuoteNumber(req.companyId!);
   const taxRate = 0.13;
   const { subtotal, taxAmount, total } = calcTotals(lineItems as { quantity: number; unitPrice: number }[], taxRate);
 
-  const [quote] = await db.insert(quotesTable).values({
-    companyId: req.companyId!,
-    projectId: projectId > 0 ? projectId : null,
-    quoteNumber,
-    title,
-    clientName,
-    clientEmail: clientEmail ?? null,
-    clientCompanyName: clientCompanyName ?? null,
-    clientAddress: clientAddress ?? null,
-    clientPhone: clientPhone ?? null,
-    voiceInput: voiceInput ?? null,
-    lineItems: (lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]),
-    subtotal,
-    taxRate: taxRate.toFixed(4),
-    taxAmount,
-    total,
-    notes: notes ?? null,
-    validUntil: validUntil instanceof Date ? validUntil.toISOString().split("T")[0] : (validUntil ?? null),
-    createdByUserId: req.userId!,
-    status: "draft",
-    publicToken: randomUUID(),
-  }).returning();
+  const [quote] = await db.transaction(async (tx) => {
+    const quoteNumber = await allocateQuoteNumber(tx, req.companyId!);
+    return tx.insert(quotesTable).values({
+      companyId: req.companyId!,
+      projectId: projectId > 0 ? projectId : null,
+      quoteNumber,
+      title,
+      clientName,
+      clientEmail: clientEmail ?? null,
+      clientCompanyName: clientCompanyName ?? null,
+      clientAddress: clientAddress ?? null,
+      clientPhone: clientPhone ?? null,
+      voiceInput: voiceInput ?? null,
+      lineItems: (lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]),
+      subtotal,
+      taxRate: taxRate.toFixed(4),
+      taxAmount,
+      total,
+      notes: notes ?? null,
+      validUntil: validUntil instanceof Date ? validUntil.toISOString().split("T")[0] : (validUntil ?? null),
+      createdByUserId: req.userId!,
+      status: "draft",
+      publicToken: randomUUID(),
+    }).returning();
+  });
 
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(quote);
@@ -444,25 +445,25 @@ router.post("/:quoteId/convert-to-invoice", requireAuth, requireCompany, asyncHa
   const parsed = ConvertQuoteToInvoiceBody.safeParse(req.body);
   const dueDate = parsed.success ? (parsed.data.dueDate ?? null) : null;
 
-  // Get company invoice numbering settings
-  const [invCompany] = await db
-    .select({ prefix: companiesTable.invoiceNumberPrefix, startNumber: companiesTable.invoiceStartNumber })
-    .from(companiesTable)
-    .where(eq(companiesTable.id, req.companyId!))
-    .limit(1);
-
-  const invoiceCount = await db.select({ count: count() }).from(invoicesTable)
-    .where(eq(invoicesTable.companyId, req.companyId!));
-  const invoiceNum = (invoiceCount[0]?.count ?? 0) + (invCompany?.startNumber ?? 1);
-  const invoiceNumber = `${invCompany?.prefix ?? "INV"}-${String(invoiceNum).padStart(4, "0")}`;
-
-  // Wrap insert + status update in a transaction so the quote cannot end up with a
-  // dangling invoice (insert succeeded but status update failed) or be re-convertible
-  // (status update succeeded but insert failed and the caller retries).
+  // Wrap everything in a transaction: atomic invoice number allocation, insert,
+  // and quote status update are a single unit — no dangling state possible.
   const now = new Date();
   let invoice: typeof invoicesTable.$inferSelect;
   try {
     invoice = await db.transaction(async (tx) => {
+      // Atomically allocate the next invoice number inside the transaction
+      const [invCompany] = await tx
+        .update(companiesTable)
+        .set({ invoiceCounter: sql`invoice_counter + 1` })
+        .where(eq(companiesTable.id, req.companyId!))
+        .returning({
+          counter: companiesTable.invoiceCounter,
+          prefix: companiesTable.invoiceNumberPrefix,
+          start: companiesTable.invoiceStartNumber,
+        });
+      const invoiceNum = invCompany.counter + ((invCompany.start ?? 1) - 1);
+      const invoiceNumber = `${invCompany.prefix ?? "INV"}-${String(invoiceNum).padStart(4, "0")}`;
+
       const [created] = await tx.insert(invoicesTable).values({
         companyId: req.companyId!,
         projectId: quote.projectId ?? null,

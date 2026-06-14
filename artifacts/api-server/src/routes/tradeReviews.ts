@@ -104,7 +104,7 @@ router.post("/reviews/submit", requireAuth, asyncHandler(async (req, res) => {
 }))
 
 // GET /reviews/summary
-router.get("/reviews/summary", asyncHandler(async (req, res) => {
+router.get("/reviews/summary", requireAuth, asyncHandler(async (req, res) => {
   try {
     const parsed = summaryQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -162,7 +162,7 @@ router.get("/reviews/summary", asyncHandler(async (req, res) => {
 }))
 
 // GET /reviews/list
-router.get("/reviews/list", asyncHandler(async (req, res) => {
+router.get("/reviews/list", requireAuth, asyncHandler(async (req, res) => {
   try {
     const parsed = listQuerySchema.safeParse(req.query);
     if (!parsed.success) {

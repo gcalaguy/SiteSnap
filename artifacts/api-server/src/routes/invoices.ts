@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { db, invoicesTable, quotesTable, companiesTable } from "@workspace/db";
-import { eq, and, desc, count, or } from "drizzle-orm";
+import { eq, and, desc, sql, or } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
@@ -48,19 +48,24 @@ const SendInvoiceEmailBody = z.object({
 
 const router = Router();
 
-async function getNextInvoiceNumber(companyId: number): Promise<string> {
-  const [company] = await db
-    .select({ prefix: companiesTable.invoiceNumberPrefix, startNumber: companiesTable.invoiceStartNumber })
-    .from(companiesTable)
+/** Atomically increment the company's invoice counter and return the formatted number.
+ *  Must be called inside a db.transaction() so the counter increment and the
+ *  invoice insert are a single atomic unit — eliminates the SELECT count() race. */
+async function allocateInvoiceNumber(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  companyId: number,
+): Promise<string> {
+  const [company] = await tx
+    .update(companiesTable)
+    .set({ invoiceCounter: sql`invoice_counter + 1` })
     .where(eq(companiesTable.id, companyId))
-    .limit(1);
-
-  const [result] = await db.select({ count: count() }).from(invoicesTable).where(eq(invoicesTable.companyId, companyId));
-
-  const prefix = company?.prefix ?? "INV";
-  const start = company?.startNumber ?? 1;
-  const num = (result?.count ?? 0) + start;
-  return `${prefix}-${String(num).padStart(4, "0")}`;
+    .returning({
+      counter: companiesTable.invoiceCounter,
+      prefix: companiesTable.invoiceNumberPrefix,
+      start: companiesTable.invoiceStartNumber,
+    });
+  const num = company.counter + ((company.start ?? 1) - 1);
+  return `${company.prefix ?? "INV"}-${String(num).padStart(4, "0")}`;
 }
 
 /** Build a worker visibility condition: created by me OR assigned to me */
@@ -83,26 +88,28 @@ router.post("/invoices", requireAuth, requireCompany, requirePermission("viewFin
   const subtotal = items.reduce((s, i) => s + Number(i.quantity ?? 1) * Number(i.unitPrice ?? 0), 0);
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
-  const invoiceNumber = await getNextInvoiceNumber(req.companyId!);
 
-  const [invoice] = await db.insert(invoicesTable).values({
-    companyId: req.companyId!,
-    quoteId: null,
-    invoiceNumber,
-    title,
-    clientName,
-    clientEmail: clientEmail ?? null,
-    lineItems: items,
-    subtotal: subtotal.toFixed(2),
-    taxRate: taxRate.toFixed(4),
-    taxAmount: taxAmount.toFixed(2),
-    total: total.toFixed(2),
-    notes: notes ?? null,
-    dueDate: dueDate ?? null,
-    status: "draft",
-    createdByUserId: req.userId!,
-    publicToken: randomUUID(),
-  }).returning();
+  const [invoice] = await db.transaction(async (tx) => {
+    const invoiceNumber = await allocateInvoiceNumber(tx, req.companyId!);
+    return tx.insert(invoicesTable).values({
+      companyId: req.companyId!,
+      quoteId: null,
+      invoiceNumber,
+      title,
+      clientName,
+      clientEmail: clientEmail ?? null,
+      lineItems: items,
+      subtotal: subtotal.toFixed(2),
+      taxRate: taxRate.toFixed(4),
+      taxAmount: taxAmount.toFixed(2),
+      total: total.toFixed(2),
+      notes: notes ?? null,
+      dueDate: dueDate ?? null,
+      status: "draft",
+      createdByUserId: req.userId!,
+      publicToken: randomUUID(),
+    }).returning();
+  });
 
   logAuditEventFromRequest(req, "Invoice Created", `Created invoice "${invoice.title}" (${invoice.invoiceNumber})`).catch(() => {});
 

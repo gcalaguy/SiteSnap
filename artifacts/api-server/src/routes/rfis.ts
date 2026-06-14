@@ -144,6 +144,7 @@ router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"),
     .values({
       ...rfisData,
       projectId,
+      companyId: req.companyId!,
       rfiNumber,
       submittedByUserId: req.userId!,
       priority: parsed.data.priority ?? "medium",

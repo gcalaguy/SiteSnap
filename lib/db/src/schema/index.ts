@@ -21,6 +21,7 @@ export * from "./messages";
 export * from "./workerDocuments";
 export * from "./tradeReviews";
 export * from "./permits";
+export * from "./inventory";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -83,6 +84,8 @@ export const companiesTable = pgTable("companies", {
   defaultInvoiceNotes: text("default_invoice_notes"),
   digestFromEmail: text("digest_from_email"),
   resendApiKey: text("resend_api_key"),
+  invoiceCounter: integer("invoice_counter").notNull().default(0),
+  quoteCounter: integer("quote_counter").notNull().default(0),
   /** One-time token set by super-admin when provisioning a tenant shell.
    *  Must be supplied in POST /companies/:id/claim. Cleared after claim. */
   claimToken: text("claim_token"),
