@@ -232,6 +232,9 @@ export const dailyReportsTable = pgTable("daily_reports", {
   projectId: integer("project_id")
     .notNull()
     .references(() => projectsTable.id, { onDelete: "cascade" }),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   submittedByUserId: integer("submitted_by_user_id")
     .notNull()
     .references(() => usersTable.id),
@@ -245,9 +248,11 @@ export const dailyReportsTable = pgTable("daily_reports", {
   issues: text("issues"),
   notes: text("notes"),
   aiSummary: text("ai_summary"),
+  clientIdempotencyKey: text("client_idempotency_key"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   index("idx_daily_reports_project_id").on(t.projectId),
+  index("idx_daily_reports_company_id").on(t.companyId),
 ]);
 
 export const insertDailyReportSchema = createInsertSchema(
@@ -291,6 +296,7 @@ export type CostAnalysis = typeof costAnalysesTable.$inferSelect;
 export const rfisTable = pgTable("rfis", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
+    .notNull()
     .references(() => companiesTable.id, { onDelete: "cascade" }),
   projectId: integer("project_id")
     .notNull()

@@ -7,7 +7,10 @@ const ENTERPRISE_ONLY_FEATURES = ["RISK_DASHBOARD", "FINANCIALS", "AUDIT_VAULT",
 // ── In-memory TTL cache for feature keys ────────────────────────────────────
 // Avoids 2 DB queries per gated request. Entries expire after 60 seconds so
 // plan changes propagate quickly without hammering the DB on every request.
-const TTL_MS = 60_000;
+// Reduced from 60 s to 5 s so plan changes propagate within one request cycle
+// on any instance. LISTEN/NOTIFY would eliminate the window entirely but
+// requires a persistent PG connection; 5 s is an acceptable interim trade-off.
+const TTL_MS = 5_000;
 type CacheEntry = { keys: string[]; cachedAt: number };
 const featureCache = new Map<number, CacheEntry>();
 

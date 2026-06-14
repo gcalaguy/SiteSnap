@@ -17,6 +17,7 @@ import { ConvertQuoteToInvoiceBody } from "@workspace/api-zod";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { Resend } from "resend";
 import { z } from "zod";
+import { logAuditEventFromRequest } from "../utils/logger";
 
 const LineItemSchema = z.object({
   description: z.string().max(500),
@@ -389,6 +390,7 @@ router.post("/:quoteId/approve", requireAuth, requireCompany, asyncHandler(async
     .set({ status: "approved", approvedByUserId: req.userId!, approvedAt: now, updatedAt: now })
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).returning();
   invalidateDashboardMetricsCache(String(req.companyId!));
+  logAuditEventFromRequest(req, "Quote Approved", `Quote ${updated.quoteNumber} approved`).catch(() => {});
   res.json(updated);
 }))
 

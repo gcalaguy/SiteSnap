@@ -835,14 +835,22 @@ router.get("/tradehub/my-applications", requireAuth, asyncHandler(async (req, re
 
 // ── SAVED CALCULATIONS ────────────────────────────────────────────────────────
 
+const SaveCalculationBody = z.object({
+  calculatorId: z.string().min(1).max(100),
+  calculatorName: z.string().min(1).max(200),
+  category: z.string().min(1).max(100),
+  inputs: z.record(z.unknown()).optional(),
+  results: z.array(z.unknown()).optional(),
+  summary: z.string().max(2000).optional(),
+  aiSummary: z.string().max(2000).optional(),
+});
+
 // POST /tradehub/profile/calculations — save a calculation to own profile
 router.post("/tradehub/profile/calculations", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const { calculatorId, calculatorName, category, inputs, results, summary, aiSummary } = req.body;
-    if (!calculatorId || !calculatorName || !category) {
-      res.status(400).json({ error: "calculatorId, calculatorName, category required" });
-      return;
-    }
+    const parsed = SaveCalculationBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() }); return; }
+    const { calculatorId, calculatorName, category, inputs, results, summary, aiSummary } = parsed.data;
     // Cap at 20 saved calculations per user — delete oldest if needed
     const existing = await db
       .select({ id: tradehubSavedCalculationsTable.id })
@@ -941,11 +949,17 @@ router.delete("/tradehub/profile/calculations/:id", requireAuth, asyncHandler(as
 
 // ── VOICE INTRO ──────────────────────────────────────────────────────────────
 
+const VoiceIntroBody = z.object({
+  objectPath: z.string().min(1).max(500),
+  duration: z.number().int().positive().optional(),
+});
+
 // PUT /tradehub/profile/voice — save voice intro objectPath to profile
 router.put("/tradehub/profile/voice", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const { objectPath, duration } = req.body as { objectPath: string; duration?: number };
-    if (!objectPath?.trim()) { res.status(400).json({ error: "objectPath required" }); return; }
+    const parsedVoice = VoiceIntroBody.safeParse(req.body);
+    if (!parsedVoice.success) { res.status(400).json({ error: "Invalid body", details: parsedVoice.error.flatten() }); return; }
+    const { objectPath, duration } = parsedVoice.data;
 
     // Build a serve URL from the objectPath (e.g. /objects/uploads/uuid)
     const voiceIntroUrl = objectPath.startsWith("/objects/")
@@ -1023,13 +1037,17 @@ router.get("/tradehub/users/search", requireAuth, asyncHandler(async (req, res) 
   }
 }));
 
+const CreateConversationBody = z.object({
+  recipientId: z.number().int().positive(),
+  message: z.string().min(1).max(2000),
+});
+
 // POST /tradehub/conversations — start or find existing conversation
 router.post("/tradehub/conversations", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const { recipientId, message } = req.body as { recipientId: number; message: string };
-    if (!recipientId || !message?.trim()) {
-      res.status(400).json({ error: "recipientId and message required" }); return;
-    }
+    const parsedConv = CreateConversationBody.safeParse(req.body);
+    if (!parsedConv.success) { res.status(400).json({ error: "Invalid body", details: parsedConv.error.flatten() }); return; }
+    const { recipientId, message } = parsedConv.data;
     if (recipientId === req.userId) {
       res.status(400).json({ error: "Cannot message yourself" }); return;
     }

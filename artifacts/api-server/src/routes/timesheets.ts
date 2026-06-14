@@ -7,6 +7,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { getClientInfo } from "../lib/clientInfo";
 import { z } from "zod";
+import { logAuditEventFromRequest } from "../utils/logger";
 import { ApproveTimesheetBody } from "@workspace/api-zod";
 
 const router = Router();
@@ -208,6 +209,7 @@ router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, req
     .where(and(eq(timesheetsTable.id, id), eq(timesheetsTable.companyId, req.companyId!)))
     .returning();
 
+  logAuditEventFromRequest(req, "Timesheet Approved", `Timesheet ${id} approved`).catch(() => {});
   const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
   res.json(await withReviewer(withUser, updated.reviewedByUserId));
 }))

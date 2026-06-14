@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   db, usersTable, userMembershipsTable, companiesTable, invitationsTable,
-  subscriptionsTable, plansTable,
+  subscriptionsTable, plansTable, featuresTable,
   rfisTable, tasksTable, quotesTable, invoicesTable, timesheetsTable,
   formSubmissionsTable, changeOrdersTable, dailyReportsTable,
   dailyReportPhotosTable, submissionCommentsTable, paymentsTable,
@@ -26,6 +26,7 @@ import {
 } from "@workspace/api-zod";
 import crypto from "crypto";
 import { z } from "zod";
+import { logAuditEventFromRequest } from "../utils/logger";
 
 const UpdateCompanyProfileBody = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -565,6 +566,7 @@ router.delete(
       await tx.delete(usersTable).where(eq(usersTable.id, uid));
     });
 
+    logAuditEventFromRequest(req, "Member Removed", `User ${targetUserId} removed from company ${companyId}`).catch(() => {});
     res.status(204).send();
   }),
 );
@@ -928,5 +930,99 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
 
   res.json({ company: updatedCompany, user: updatedUser });
 }));
+
+// ── Self-service feature management (company owner) ─────────────────────────
+
+// GET /companies/:companyId/features/available
+// Returns all globally-enabled features with a flag showing whether each is
+// currently active for this company (plan-based or via activeFeatures override).
+router.get(
+  "/companies/:companyId/features/available",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  asyncHandler(async (req, res) => {
+    const companyId = parseInt(req.params.companyId as string, 10);
+    if (companyId !== req.companyId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    const { getCompanyFeatureKeys } = await import("../lib/featureGate");
+    const [allFeatures, activeKeys] = await Promise.all([
+      db.select().from(featuresTable).where(eq(featuresTable.isEnabled, true)),
+      getCompanyFeatureKeys(companyId),
+    ]);
+
+    const result = allFeatures.map((f) => ({
+      ...f,
+      active: activeKeys.some((k) => k.toUpperCase() === f.key.toUpperCase()),
+    }));
+
+    res.json({ features: result });
+  }),
+);
+
+// PATCH /companies/:companyId/features/toggle
+// Lets an owner enable or disable a specific feature for their company.
+// Builds (or updates) the company's custom activeFeatures override array.
+router.patch(
+  "/companies/:companyId/features/toggle",
+  requireAuth,
+  requireCompany,
+  requireOwner,
+  asyncHandler(async (req, res) => {
+    const companyId = parseInt(req.params.companyId as string, 10);
+    if (companyId !== req.companyId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    const { featureKey, enabled } = req.body as { featureKey: string; enabled: boolean };
+    if (typeof featureKey !== "string" || !featureKey.trim()) {
+      res.status(400).json({ error: "featureKey is required" });
+      return;
+    }
+    if (typeof enabled !== "boolean") {
+      res.status(400).json({ error: "enabled must be a boolean" });
+      return;
+    }
+
+    const normalizedKey = featureKey.toUpperCase();
+
+    // Verify the feature actually exists and is enabled in the system
+    const [feature] = await db
+      .select()
+      .from(featuresTable)
+      .where(eq(featuresTable.key, normalizedKey))
+      .limit(1);
+    if (!feature || !feature.isEnabled) {
+      res.status(404).json({ error: "Feature not found" });
+      return;
+    }
+
+    const { getCompanyFeatureKeys, invalidateFeatureCache } = await import("../lib/featureGate");
+
+    // Snapshot the current effective feature set then apply the toggle
+    const currentKeys = await getCompanyFeatureKeys(companyId);
+    let nextKeys: string[];
+    if (enabled) {
+      nextKeys = currentKeys.includes(normalizedKey)
+        ? currentKeys
+        : [...currentKeys, normalizedKey];
+    } else {
+      nextKeys = currentKeys.filter((k) => k.toUpperCase() !== normalizedKey);
+    }
+
+    await db
+      .update(companiesTable)
+      .set({ activeFeatures: nextKeys })
+      .where(eq(companiesTable.id, companyId));
+
+    invalidateFeatureCache(companyId);
+
+    res.json({ ok: true, featureKey: normalizedKey, enabled, activeFeatures: nextKeys });
+  }),
+);
 
 export default router;

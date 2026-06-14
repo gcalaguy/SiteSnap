@@ -209,7 +209,12 @@ export function OfflineQueueProvider({
 
       for (const item of pending) {
         try {
-          const report = await createDailyReport(item.projectId, item.reportData);
+          // Pass item.id as clientIdempotencyKey so the server can detect
+          // retries and return the already-created record instead of duplicating.
+          const report = await createDailyReport(
+            item.projectId,
+            { ...item.reportData, clientIdempotencyKey: item.id } as any,
+          );
           for (const photo of item.photos) {
             const objectPath = await uploadPhoto(photo);
             if (objectPath) {

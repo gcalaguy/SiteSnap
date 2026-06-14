@@ -141,6 +141,18 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
     return;
   }
 
+  // HIGH-001: idempotency key sent by offline clients to prevent duplicate
+  // reports when a retry races with a previously delivered request.
+  const { clientIdempotencyKey } = req.body as { clientIdempotencyKey?: string };
+  if (clientIdempotencyKey) {
+    const [dup] = await db
+      .select()
+      .from(dailyReportsTable)
+      .where(eq(dailyReportsTable.clientIdempotencyKey, clientIdempotencyKey))
+      .limit(1);
+    if (dup) { res.status(200).json(dup); return; }
+  }
+
   const { reportDate, ...restInsert } = parsed.data;
   const dateStr = reportDate instanceof Date ? reportDate.toISOString().split("T")[0] : reportDate;
 
@@ -212,8 +224,10 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
     .values({
       ...restInsert,
       projectId,
+      companyId: req.companyId!,
       submittedByUserId: req.userId!,
       reportDate: dateStr,
+      ...(clientIdempotencyKey && { clientIdempotencyKey }),
     })
     .returning();
 

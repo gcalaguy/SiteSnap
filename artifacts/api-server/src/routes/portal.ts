@@ -358,10 +358,25 @@ router.get("/portal/:token", asyncHandler(async (req, res) => {
 
 // ── POST /portal/:token/upload-url (public) ───────────────────────────────────
 
+// HIGH-004: restrict to well-known safe types so the portal cannot be used
+// to upload executable or script files.
+const ALLOWED_PORTAL_MIME_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "text/plain",
+] as const;
+
 const UploadUrlBody = z.object({
   name: z.string().min(1).max(255),
-  size: z.number().int().positive(),
-  contentType: z.string().min(1),
+  size: z.number().int().positive().max(50 * 1024 * 1024), // 50 MB cap
+  contentType: z.enum(ALLOWED_PORTAL_MIME_TYPES),
 });
 
 router.post("/portal/:token/upload-url", asyncHandler(async (req, res) => {
@@ -380,7 +395,7 @@ router.post("/portal/:token/upload-url", asyncHandler(async (req, res) => {
 
 const RegisterUploadBody = z.object({
   filename: z.string().min(1).max(255),
-  fileType: z.string().min(1),
+  fileType: z.enum(ALLOWED_PORTAL_MIME_TYPES),
   objectPath: z.string().min(1),
   fileSize: z.number().int().positive().optional(),
 });

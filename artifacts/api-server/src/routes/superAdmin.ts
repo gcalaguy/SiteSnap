@@ -633,6 +633,18 @@ router.delete("/admin/tenants/:id", ...guard, asyncHandler(async (req, res) => {
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
 
+  // MED-007: cancel active Stripe subscription before deleting DB rows so the
+  // customer is not billed for a tenant that no longer exists.
+  if (company.stripeSubscriptionId) {
+    try {
+      const stripe = await getUncachableStripeClient();
+      await stripe.subscriptions.cancel(company.stripeSubscriptionId);
+    } catch (stripeErr: any) {
+      // Log but do not block deletion — billing failure must not leave orphaned tenant data.
+      req.log?.warn({ stripeErr, companyId }, "Stripe subscription cancel failed during tenant delete");
+    }
+  }
+
   // Wrap everything in a transaction so partial failures are rolled back
   await db.transaction(async (tx) => {
     // Gather all project IDs for this company up-front
