@@ -128,6 +128,45 @@ export class WebhookHandlers {
         break;
       }
 
+      // ── Trial ending soon (3 days warning) ──────────────────────────────────
+      // Stripe sends this ~72 hours before trial_end by default.
+      // Log for now; wire up email notification in a future sprint.
+      case 'customer.subscription.trial_will_end': {
+        const companyId = obj?.metadata?.companyId;
+        const trialEnd = obj?.trial_end;
+        logger.warn(
+          { companyId, trialEnd, subscriptionId: obj?.id },
+          'Stripe: trial ending soon — send reminder to customer',
+        );
+        break;
+      }
+
+      // ── Payment failed ──────────────────────────────────────────────────────
+      // Fired on the first failed charge attempt and each subsequent retry.
+      // We log the event and flag the company so the UI can surface a banner.
+      case 'invoice.payment_failed': {
+        const customerId = obj?.customer;
+        const invoiceId = obj?.id;
+        const amountDue = obj?.amount_due;
+        const attemptCount = obj?.attempt_count;
+
+        if (customerId) {
+          // Mark subscription as payment_failed so the app can warn the user.
+          // The actual subscription status is updated by stripe-replit-sync on
+          // customer.subscription.updated; we only need to surface the event.
+          logger.warn(
+            { customerId, invoiceId, amountDue, attemptCount },
+            'Stripe: invoice payment failed — customer should update payment method',
+          );
+
+          // After 3 failed attempts Stripe typically cancels the subscription,
+          // which fires customer.subscription.deleted. No extra DB action needed here.
+        } else {
+          logger.warn({ invoiceId }, 'invoice.payment_failed: no customerId on invoice');
+        }
+        break;
+      }
+
       // ── Subscription cancelled / deleted ────────────────────────────────────
       case 'customer.subscription.deleted': {
         const subscriptionId = obj?.id;

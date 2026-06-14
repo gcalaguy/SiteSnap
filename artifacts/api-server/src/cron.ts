@@ -1,15 +1,31 @@
 import cron from "node-cron";
-import { db, companiesTable, leadsTable, usersTable, userMembershipsTable, notificationsTable } from "@workspace/db";
+import {
+  db,
+  companiesTable,
+  leadsTable,
+  usersTable,
+  userMembershipsTable,
+  notificationsTable,
+  dailyReportPhotosTable,
+  projectDocumentsTable,
+  clientPortalUploadsTable,
+  submissionPhotosTable,
+  scansTable,
+  tradehubPostMediaTable,
+  tradehubProfilesTable,
+  fileAttachmentsTable,
+} from "@workspace/db";
 import { buildDigest } from "./lib/digest.js";
 import { buildDigestHtml } from "./lib/digestTemplate.js";
 import { sendEmail } from "./lib/mailer.js";
 import { sendOverdueReminders } from "./lib/invoiceReminders.js";
 import { logger } from "./lib/logger.js";
 import { eq, and, sql, lt, inArray } from "drizzle-orm";
+import { ObjectStorageService } from "./lib/objectStorage.js";
 
 // Distributed cron lock keys — unique per job, stored in PostgreSQL advisory locks.
 // These integers are arbitrary but must never collide with other advisory lock users.
-const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003 } as const;
+const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004 } as const;
 
 /**
  * Attempt to acquire a PostgreSQL session-level advisory lock.
@@ -183,6 +199,78 @@ async function sendIdleLeadNotifications(): Promise<{ notified: number; skipped:
   return { notified: toInsert.length, skipped: pairs.length - toInsert.length };
 }
 
+/**
+ * Collect every objectPath currently referenced in any DB table.
+ * Returns a Set of canonical /objects/... paths.
+ */
+async function collectReferencedObjectPaths(): Promise<Set<string>> {
+  const paths = new Set<string>();
+
+  const [photos, docs, portalUploads, subPhotos, scanRows, postMedia, profiles, attachments] =
+    await Promise.all([
+      db.select({ p: dailyReportPhotosTable.objectPath }).from(dailyReportPhotosTable),
+      db.select({ p: projectDocumentsTable.objectPath }).from(projectDocumentsTable),
+      db.select({ p: clientPortalUploadsTable.objectPath }).from(clientPortalUploadsTable),
+      db.select({ p: submissionPhotosTable.objectPath }).from(submissionPhotosTable),
+      db.select({ p: scansTable.objectPath }).from(scansTable),
+      db.select({ p: tradehubPostMediaTable.objectPath }).from(tradehubPostMediaTable),
+      db.select({ p: tradehubProfilesTable.voiceIntroObjectPath }).from(tradehubProfilesTable),
+      db.select({ p: fileAttachmentsTable.objectPath }).from(fileAttachmentsTable),
+    ]);
+
+  for (const rows of [photos, docs, portalUploads, subPhotos, scanRows, postMedia, attachments]) {
+    for (const row of rows) {
+      if (row.p) paths.add(row.p);
+    }
+  }
+  for (const row of profiles) {
+    if (row.p) paths.add(row.p);
+  }
+
+  return paths;
+}
+
+export async function cleanupOrphanedStorageObjects(): Promise<{
+  scanned: number;
+  deleted: number;
+  errors: number;
+}> {
+  const objectStorageService = new ObjectStorageService();
+
+  let allGcsPaths: string[];
+  try {
+    allGcsPaths = await objectStorageService.listAllPrivateObjectPaths();
+  } catch (err) {
+    // Object storage not configured in this environment — skip silently.
+    logger.warn({ err }, "Orphan cleanup: could not list GCS objects — skipping");
+    return { scanned: 0, deleted: 0, errors: 0 };
+  }
+
+  const referencedPaths = await collectReferencedObjectPaths();
+
+  const orphans = allGcsPaths.filter((p) => !referencedPaths.has(p));
+  logger.info(
+    { total: allGcsPaths.length, referenced: referencedPaths.size, orphans: orphans.length },
+    "Orphan cleanup: scan complete",
+  );
+
+  let deleted = 0;
+  let errors = 0;
+
+  for (const orphanPath of orphans) {
+    try {
+      await objectStorageService.deleteObjectByPath(orphanPath);
+      deleted++;
+      logger.info({ objectPath: orphanPath }, "Orphan cleanup: deleted orphaned object");
+    } catch (err) {
+      errors++;
+      logger.error({ err, objectPath: orphanPath }, "Orphan cleanup: failed to delete object");
+    }
+  }
+
+  return { scanned: allGcsPaths.length, deleted, errors };
+}
+
 export function startDailyCron(): void {
   // Re-entry guards — prevent overlapping runs if a job takes longer than its interval.
   let digestRunning = false;
@@ -277,4 +365,35 @@ export function startDailyCron(): void {
     { timezone: "America/Toronto" },
   );
   logger.info("Idle lead notification cron scheduled: 9:00 AM ET");
+
+  // 2:00 AM ET every Sunday — orphaned GCS file cleanup
+  // Runs weekly to avoid hammering the GCS list API daily.
+  let orphanRunning = false;
+  cron.schedule(
+    "0 2 * * 0",
+    async () => {
+      if (orphanRunning) {
+        logger.warn("Orphan cleanup cron skipped — previous run still in progress");
+        return;
+      }
+      const locked = await tryAdvisoryLock(LOCK.ORPHAN_CLEANUP);
+      if (!locked) {
+        logger.warn("Orphan cleanup cron skipped — advisory lock held by another instance");
+        return;
+      }
+      orphanRunning = true;
+      try {
+        logger.info("Orphan cleanup cron triggered");
+        const result = await cleanupOrphanedStorageObjects();
+        logger.info(result, "Orphan cleanup cron complete");
+      } catch (err) {
+        logger.error({ err }, "Unhandled error in orphan cleanup cron");
+      } finally {
+        orphanRunning = false;
+        await releaseAdvisoryLock(LOCK.ORPHAN_CLEANUP);
+      }
+    },
+    { timezone: "America/Toronto" },
+  );
+  logger.info("Orphan cleanup cron scheduled: 2:00 AM ET Sundays");
 }

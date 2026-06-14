@@ -15,6 +15,34 @@ import { requireAuth, requireCompany } from "../lib/auth";
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
+// Allowlist of MIME types accepted for authenticated uploads.
+// Excludes executables, scripts, and server-side code that could create XSS/RCE
+// vectors if ever served back to users.
+const ALLOWED_UPLOAD_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "text/csv",
+  "video/mp4",
+  "video/quicktime",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/wav",
+]);
+
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100 MB
+
 // Ensure local upload directory exists as a fallback / safety net.
 const localUploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(localUploadDir)) {
@@ -41,9 +69,19 @@ router.post(
       res.status(400).json({ error: "No file uploaded" });
       return;
     }
+    const mimeType = req.file.mimetype || "";
+    if (!ALLOWED_UPLOAD_MIME_TYPES.has(mimeType)) {
+      await cleanupUpload(req.file.path);
+      res.status(400).json({ error: "File type not permitted", code: "INVALID_FILE_TYPE" });
+      return;
+    }
+    if (req.file.size > MAX_UPLOAD_BYTES) {
+      await cleanupUpload(req.file.path);
+      res.status(400).json({ error: "File exceeds maximum size of 100 MB", code: "FILE_TOO_LARGE" });
+      return;
+    }
     try {
-      const contentType = req.file.mimetype || "application/octet-stream";
-      const objectPath = await objectStorageService.uploadStream(createReadStream(req.file.path), contentType);
+      const objectPath = await objectStorageService.uploadStream(createReadStream(req.file.path), mimeType);
       await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
         owner: String(req.userId!),
         visibility: "private",
@@ -75,6 +113,15 @@ router.post("/storage/uploads/request-url", requireAuth, requireCompany, async (
 
   try {
     const { name, size, contentType } = parsed.data;
+
+    if (!ALLOWED_UPLOAD_MIME_TYPES.has(contentType)) {
+      res.status(400).json({ error: "File type not permitted", code: "INVALID_FILE_TYPE" });
+      return;
+    }
+    if (size > MAX_UPLOAD_BYTES) {
+      res.status(400).json({ error: "File exceeds maximum size of 100 MB", code: "FILE_TOO_LARGE" });
+      return;
+    }
 
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
@@ -113,9 +160,19 @@ router.post(
       res.status(400).json({ error: "No file uploaded" });
       return;
     }
+    const mimeType = req.file.mimetype || "";
+    if (!ALLOWED_UPLOAD_MIME_TYPES.has(mimeType)) {
+      await cleanupUpload(req.file.path);
+      res.status(400).json({ error: "File type not permitted", code: "INVALID_FILE_TYPE" });
+      return;
+    }
+    if (req.file.size > MAX_UPLOAD_BYTES) {
+      await cleanupUpload(req.file.path);
+      res.status(400).json({ error: "File exceeds maximum size of 100 MB", code: "FILE_TOO_LARGE" });
+      return;
+    }
     try {
-      const contentType = req.file.mimetype || "application/octet-stream";
-      const objectPath = await objectStorageService.uploadStream(createReadStream(req.file.path), contentType);
+      const objectPath = await objectStorageService.uploadStream(createReadStream(req.file.path), mimeType);
       await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
         owner: String(req.userId!),
         visibility: "private",

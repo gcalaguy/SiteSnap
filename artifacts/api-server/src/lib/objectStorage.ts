@@ -239,6 +239,41 @@ export class ObjectStorageService {
     return normalizedPath;
   }
 
+  /**
+   * Delete an object from private storage by its canonical /objects/... path.
+   * Returns true if deleted, false if the object did not exist.
+   */
+  async deleteObjectByPath(objectPath: string): Promise<boolean> {
+    try {
+      const objectFile = await this.getObjectEntityFile(objectPath);
+      await objectFile.delete();
+      return true;
+    } catch (err: any) {
+      if (err instanceof ObjectNotFoundError || err?.code === 404) return false;
+      throw err;
+    }
+  }
+
+  /**
+   * List the canonical /objects/... paths for every file currently stored in
+   * the private object bucket (under PRIVATE_OBJECT_DIR).
+   * Used by the orphan-cleanup cron to identify files with no DB reference.
+   */
+  async listAllPrivateObjectPaths(): Promise<string[]> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const { bucketName, objectName: prefix } = parseObjectPath(
+      privateObjectDir.endsWith("/") ? privateObjectDir : `${privateObjectDir}/`,
+    );
+    const bucket = objectStorageClient.bucket(bucketName);
+    const [files] = await bucket.getFiles({ prefix });
+    return files.map((f) => {
+      const withoutBucket = `/${bucketName}/${f.name}`;
+      return this.normalizeObjectEntityPath(
+        `https://storage.googleapis.com${withoutBucket}`,
+      );
+    });
+  }
+
   async canAccessObjectEntity({
     userId,
     objectFile,

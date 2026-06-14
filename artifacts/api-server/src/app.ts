@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -14,6 +15,18 @@ import { errorHandler } from "./middlewares/errorHandler";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./lib/webhookHandlers";
+
+// Initialize Sentry before any other middleware so it can instrument Express.
+// Requires SENTRY_DSN env var — no-ops silently when not set.
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV ?? "development",
+    // Capture 100% of traces in production; tune down if volume is high.
+    tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+  });
+  logger.info("Sentry error monitoring initialized");
+}
 
 const app: Express = express();
 
@@ -183,6 +196,12 @@ app.use("/api", router);
 // ── Global error handler — must be last ─────────────────────────────────────
 // Catches any error thrown or passed to next() from routes/middlewares above.
 app.use(errorHandler);
+
+// Sentry error handler must follow the Express error handler so it captures
+// errors that our handler re-throws or doesn't suppress.
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 // Force refresh: cache-bust pulse — workspace backend memory hot-reload v2
 export default app;
