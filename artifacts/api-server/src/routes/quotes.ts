@@ -348,6 +348,7 @@ router.post("/:quoteId/submit", requireAuth, requireCompany, asyncHandler(async 
     .set({ status: "pending_approval", updatedAt: new Date() })
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).returning();
 
+  logAuditEventFromRequest(req, "Quote Submitted", `Quote ${updated.quoteNumber} submitted for approval`).catch(() => {});
   notifyQuoteSubmitted({
     quoteNumber: updated.quoteNumber,
     title: updated.title,
@@ -433,6 +434,7 @@ router.post("/:quoteId/reject", requireAuth, requireCompany, asyncHandler(async 
   const [updated] = await db.update(quotesTable)
     .set({ status: "rejected", notes: notes ?? existing.notes, updatedAt: new Date() })
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).returning();
+  logAuditEventFromRequest(req, "Quote Rejected", `Quote ${updated.quoteNumber} rejected`).catch(() => {});
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);
 }))

@@ -12,15 +12,23 @@ import * as FileSystem from "expo-file-system/legacy";
 import {
   createDailyReport,
   addReportPhoto,
+  submitTimesheet,
+  createFormSubmission,
   customFetch,
 } from "@workspace/api-client-react";
+import type {
+  SubmitTimesheetBody,
+  CreateFormSubmissionBody,
+} from "@workspace/api-client-react";
 
-const QUEUE_KEY = "offline_report_queue_v1";
-const HISTORY_KEY = "offline_report_history_v1";
+const QUEUE_KEY = "offline_op_queue_v2";
+const HISTORY_KEY = "offline_op_history_v2";
 const MAX_RETRIES = 3;
 const MAX_HISTORY = 20;
 const MAX_QUEUE_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const LOCAL_DIR = `${FileSystem.documentDirectory}offline_photos/`;
+
+// ── Photo attachment (only used by daily-report operations) ──────────────────
 
 export interface QueuePhoto {
   uri: string;
@@ -29,8 +37,10 @@ export interface QueuePhoto {
   fileSize: number;
 }
 
-export interface QueuedReport {
-  id: string;
+// ── Discriminated union of offline-able operations ───────────────────────────
+
+export interface DailyReportOp {
+  type: "daily_report";
   projectId: number;
   reportData: {
     reportDate: string;
@@ -40,33 +50,57 @@ export interface QueuedReport {
     aiSummary?: string;
   };
   photos: QueuePhoto[];
+}
+
+export interface TimesheetOp {
+  type: "timesheet";
+  body: SubmitTimesheetBody;
+}
+
+export interface SafetyFormOp {
+  type: "safety_form";
+  body: CreateFormSubmissionBody;
+}
+
+export type OfflineOp = DailyReportOp | TimesheetOp | SafetyFormOp;
+
+// ── Queue item wrapper ────────────────────────────────────────────────────────
+
+export interface QueuedItem {
+  id: string;
+  op: OfflineOp;
   createdAt: string;
   status: "pending" | "failed";
   retries: number;
 }
 
-export interface SyncedReport {
+export interface SyncedItem {
   id: string;
-  projectId: number;
-  reportData: QueuedReport["reportData"];
-  photos: QueuePhoto[];
+  op: OfflineOp;
   createdAt: string;
   syncedAt: string;
 }
+
+// ── Legacy alias so existing call-sites that enqueue daily reports still work ─
+export type QueuedReport = QueuedItem & { op: DailyReportOp };
+
+// ── Context shape ─────────────────────────────────────────────────────────────
 
 interface OfflineQueueContextValue {
   isOnline: boolean;
   isSyncing: boolean;
   pendingCount: number;
   failedCount: number;
-  queue: QueuedReport[];
-  syncedHistory: SyncedReport[];
+  queue: QueuedItem[];
+  syncedHistory: SyncedItem[];
   lastSyncedAt: string | null;
-  enqueue: (
+  enqueueReport: (
     projectId: number,
-    reportData: QueuedReport["reportData"],
+    reportData: DailyReportOp["reportData"],
     photos: QueuePhoto[]
   ) => Promise<void>;
+  enqueueTimesheet: (body: SubmitTimesheetBody) => Promise<void>;
+  enqueueSafetyForm: (body: CreateFormSubmissionBody) => Promise<void>;
   syncQueue: () => Promise<void>;
   retryFailed: () => Promise<void>;
   clearFailed: () => Promise<void>;
@@ -81,7 +115,9 @@ const OfflineQueueContext = createContext<OfflineQueueContextValue>({
   queue: [],
   syncedHistory: [],
   lastSyncedAt: null,
-  enqueue: async () => {},
+  enqueueReport: async () => {},
+  enqueueTimesheet: async () => {},
+  enqueueSafetyForm: async () => {},
   syncQueue: async () => {},
   retryFailed: async () => {},
   clearFailed: async () => {},
@@ -92,29 +128,31 @@ export function useOfflineQueue() {
   return useContext(OfflineQueueContext);
 }
 
-async function loadQueue(): Promise<QueuedReport[]> {
+// ── Persistence helpers ───────────────────────────────────────────────────────
+
+async function loadQueue(): Promise<QueuedItem[]> {
   try {
     const raw = await AsyncStorage.getItem(QUEUE_KEY);
-    return raw ? (JSON.parse(raw) as QueuedReport[]) : [];
+    return raw ? (JSON.parse(raw) as QueuedItem[]) : [];
   } catch {
     return [];
   }
 }
 
-async function persistQueue(queue: QueuedReport[]): Promise<void> {
+async function persistQueue(queue: QueuedItem[]): Promise<void> {
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
 }
 
-async function loadHistory(): Promise<SyncedReport[]> {
+async function loadHistory(): Promise<SyncedItem[]> {
   try {
     const raw = await AsyncStorage.getItem(HISTORY_KEY);
-    return raw ? (JSON.parse(raw) as SyncedReport[]) : [];
+    return raw ? (JSON.parse(raw) as SyncedItem[]) : [];
   } catch {
     return [];
   }
 }
 
-async function persistHistory(history: SyncedReport[]): Promise<void> {
+async function persistHistory(history: SyncedItem[]): Promise<void> {
   await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
 }
 
@@ -125,7 +163,6 @@ async function ensurePhotoDir(): Promise<void> {
 
 async function uploadPhoto(photo: QueuePhoto): Promise<string | null> {
   try {
-    // M-S1 fix: use customFetch so Clerk JWT + x-tenant-id are always attached
     const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
       "/api/storage/uploads/request-url",
       {
@@ -135,11 +172,9 @@ async function uploadPhoto(photo: QueuePhoto): Promise<string | null> {
       },
     );
 
-    // M-S4 fix: validate upload destination before PUT
     const dest = new URL(uploadURL);
     if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
 
-    // M-P1 fix: stream from disk — never load file blob into JS heap
     const result = await FileSystem.uploadAsync(uploadURL, photo.uri, {
       httpMethod: "PUT",
       uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
@@ -153,6 +188,46 @@ async function uploadPhoto(photo: QueuePhoto): Promise<string | null> {
   }
 }
 
+// ── Execute a single queued operation ────────────────────────────────────────
+
+async function executeOp(item: QueuedItem): Promise<void> {
+  const { op } = item;
+
+  if (op.type === "daily_report") {
+    const report = await createDailyReport(
+      op.projectId,
+      { ...op.reportData, clientIdempotencyKey: item.id } as Parameters<typeof createDailyReport>[1],
+    );
+    for (const photo of op.photos) {
+      const objectPath = await uploadPhoto(photo);
+      if (objectPath) {
+        await addReportPhoto(op.projectId, report.id, { objectPath }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  if (op.type === "timesheet") {
+    await submitTimesheet(op.body);
+    return;
+  }
+
+  if (op.type === "safety_form") {
+    await createFormSubmission(op.body);
+    return;
+  }
+}
+
+async function deletePhotoFiles(item: QueuedItem): Promise<void> {
+  if (item.op.type === "daily_report") {
+    for (const p of item.op.photos) {
+      await FileSystem.deleteAsync(p.uri, { idempotent: true }).catch(() => {});
+    }
+  }
+}
+
+// ── Provider ──────────────────────────────────────────────────────────────────
+
 export function OfflineQueueProvider({
   children,
 }: {
@@ -160,22 +235,17 @@ export function OfflineQueueProvider({
 }) {
   const [isOnline, setIsOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [queue, setQueue] = useState<QueuedReport[]>([]);
-  const [syncedHistory, setSyncedHistory] = useState<SyncedReport[]>([]);
+  const [queue, setQueue] = useState<QueuedItem[]>([]);
+  const [syncedHistory, setSyncedHistory] = useState<SyncedItem[]>([]);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const syncLock = useRef(false);
   const prevOnline = useRef(true);
 
   useEffect(() => {
-    // M-U2 fix: purge items older than 7 days on startup to prevent stale queue growth
     loadQueue().then(async (q) => {
       const cutoff = Date.now() - MAX_QUEUE_AGE_MS;
       const expired = q.filter((r) => new Date(r.createdAt).getTime() < cutoff);
-      for (const r of expired) {
-        for (const p of r.photos) {
-          await FileSystem.deleteAsync(p.uri, { idempotent: true }).catch(() => {});
-        }
-      }
+      for (const r of expired) await deletePhotoFiles(r);
       const fresh = q.filter((r) => new Date(r.createdAt).getTime() >= cutoff);
       if (expired.length > 0) await persistQueue(fresh);
       setQueue(fresh);
@@ -185,13 +255,11 @@ export function OfflineQueueProvider({
 
   useEffect(() => {
     const unsub = NetInfo.addEventListener((state) => {
-      const online =
-        state.isConnected === true && state.isInternetReachable !== false;
+      const online = state.isConnected === true && state.isInternetReachable !== false;
       setIsOnline(online);
     });
     NetInfo.fetch().then((state) => {
-      const online =
-        state.isConnected === true && state.isInternetReachable !== false;
+      const online = state.isConnected === true && state.isInternetReachable !== false;
       setIsOnline(online);
       prevOnline.current = online;
     });
@@ -209,26 +277,11 @@ export function OfflineQueueProvider({
 
       for (const item of pending) {
         try {
-          // Pass item.id as clientIdempotencyKey so the server can detect
-          // retries and return the already-created record instead of duplicating.
-          const report = await createDailyReport(
-            item.projectId,
-            { ...item.reportData, clientIdempotencyKey: item.id } as any,
-          );
-          for (const photo of item.photos) {
-            const objectPath = await uploadPhoto(photo);
-            if (objectPath) {
-              await addReportPhoto(item.projectId, report.id, {
-                objectPath,
-              }).catch(() => {});
-            }
-          }
+          await executeOp(item);
 
-          const synced: SyncedReport = {
+          const synced: SyncedItem = {
             id: item.id,
-            projectId: item.projectId,
-            reportData: item.reportData,
-            photos: item.photos,
+            op: item.op,
             createdAt: item.createdAt,
             syncedAt: new Date().toISOString(),
           };
@@ -245,15 +298,8 @@ export function OfflineQueueProvider({
           const newRetries = item.retries + 1;
           current = current.map((r) =>
             r.id === item.id
-              ? {
-                  ...r,
-                  retries: newRetries,
-                  status:
-                    newRetries >= MAX_RETRIES
-                      ? ("failed" as const)
-                      : ("pending" as const),
-                }
-              : r
+              ? { ...r, retries: newRetries, status: newRetries >= MAX_RETRIES ? ("failed" as const) : ("pending" as const) }
+              : r,
           );
           await persistQueue(current);
           setQueue([...current]);
@@ -273,18 +319,18 @@ export function OfflineQueueProvider({
     prevOnline.current = isOnline;
   }, [isOnline, queue, syncQueue]);
 
-  const enqueue = useCallback(
+  const makeItemId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  const enqueueReport = useCallback(
     async (
       projectId: number,
-      reportData: QueuedReport["reportData"],
-      photos: QueuePhoto[]
+      reportData: DailyReportOp["reportData"],
+      photos: QueuePhoto[],
     ) => {
-      // M-SC1 fix: copy each photo to a stable documentDirectory path so the
-      // URI remains valid across app restarts (camera roll URIs can be invalidated)
       await ensurePhotoDir();
       const stablePhotos: QueuePhoto[] = await Promise.all(
         photos.map(async (p) => {
-          const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const id = makeItemId();
           const ext = p.fileName.split(".").pop() ?? "jpg";
           const dest = `${LOCAL_DIR}${id}.${ext}`;
           await FileSystem.copyAsync({ from: p.uri, to: dest });
@@ -292,31 +338,56 @@ export function OfflineQueueProvider({
         }),
       );
 
-      const item: QueuedReport = {
-        id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        projectId,
-        reportData,
-        photos: stablePhotos,
+      const item: QueuedItem = {
+        id: makeItemId(),
+        op: { type: "daily_report", projectId, reportData, photos: stablePhotos },
         createdAt: new Date().toISOString(),
         status: "pending",
         retries: 0,
       };
 
-      // M-SC5 fix: functional updater avoids stale closure on rapid enqueue
       setQueue((prev) => {
         const updated = [...prev, item];
         persistQueue(updated).catch(() => {});
         return updated;
       });
     },
-    []
+    [],
   );
+
+  const enqueueTimesheet = useCallback(async (body: SubmitTimesheetBody) => {
+    const item: QueuedItem = {
+      id: makeItemId(),
+      op: { type: "timesheet", body },
+      createdAt: new Date().toISOString(),
+      status: "pending",
+      retries: 0,
+    };
+    setQueue((prev) => {
+      const updated = [...prev, item];
+      persistQueue(updated).catch(() => {});
+      return updated;
+    });
+  }, []);
+
+  const enqueueSafetyForm = useCallback(async (body: CreateFormSubmissionBody) => {
+    const item: QueuedItem = {
+      id: makeItemId(),
+      op: { type: "safety_form", body },
+      createdAt: new Date().toISOString(),
+      status: "pending",
+      retries: 0,
+    };
+    setQueue((prev) => {
+      const updated = [...prev, item];
+      persistQueue(updated).catch(() => {});
+      return updated;
+    });
+  }, []);
 
   const retryFailed = useCallback(async () => {
     const updated = queue.map((r) =>
-      r.status === "failed"
-        ? { ...r, status: "pending" as const, retries: 0 }
-        : r
+      r.status === "failed" ? { ...r, status: "pending" as const, retries: 0 } : r,
     );
     setQueue(updated);
     await persistQueue(updated);
@@ -324,13 +395,8 @@ export function OfflineQueueProvider({
   }, [queue, syncQueue]);
 
   const clearFailed = useCallback(async () => {
-    // M-U2 fix: delete stable local photo copies when clearing failed items
     const failed = queue.filter((r) => r.status === "failed");
-    for (const r of failed) {
-      for (const p of r.photos) {
-        await FileSystem.deleteAsync(p.uri, { idempotent: true }).catch(() => {});
-      }
-    }
+    for (const r of failed) await deletePhotoFiles(r);
     const updated = queue.filter((r) => r.status !== "failed");
     setQueue(updated);
     await persistQueue(updated);
@@ -354,7 +420,9 @@ export function OfflineQueueProvider({
         queue,
         syncedHistory,
         lastSyncedAt,
-        enqueue,
+        enqueueReport,
+        enqueueTimesheet,
+        enqueueSafetyForm,
         syncQueue,
         retryFailed,
         clearFailed,

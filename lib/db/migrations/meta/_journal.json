@@ -218,6 +218,20 @@
       "when": 1780896000,
       "tag": "0030_tradehub_profile_media",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1781068800,
+      "tag": "0031_hnsw_index_document_chunks",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1781241600,
+      "tag": "0032_timestamps_with_timezone",
+      "breakpoints": true
     }
   ]
 }

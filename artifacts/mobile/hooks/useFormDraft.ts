@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 
 export interface DraftState<T> {
   hasDraft: boolean;
@@ -7,20 +7,13 @@ export interface DraftState<T> {
   discard: () => void;
 }
 
+// expo-secure-store keys must be alphanumeric plus underscores and dots — no colons.
 function draftKey(userId: string | number | undefined, formType: string): string {
-  return `form_draft:${userId ?? "anonymous"}:${formType}`;
+  const safeUser = String(userId ?? "anon").replace(/[^a-zA-Z0-9]/g, "_");
+  const safeType = formType.replace(/[^a-zA-Z0-9]/g, "_");
+  return `form_draft_${safeUser}_${safeType}`;
 }
 
-/**
- * Auto-save and restore form drafts to AsyncStorage.
- *
- * @param userId     The current worker/user id (from useGetMe)
- * @param formType   Unique slug for this form, e.g. "daily-report" or "timesheet"
- * @param payload    The current form JSON payload to persist
- * @param setPayload Setter to restore the payload from storage
- * @param resetForm  Callback to fully reset the form (called after discard or on clear)
- * @returns          { hasDraft, restore, discard } for rendering the banner
- */
 export function useFormDraft<T extends Record<string, unknown>>(
   userId: string | number | undefined,
   formType: string,
@@ -35,7 +28,7 @@ export function useFormDraft<T extends Record<string, unknown>>(
   // ── Check for existing draft on mount ───────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(key)
+    SecureStore.getItemAsync(key)
       .then((raw) => {
         if (cancelled) return;
         if (raw) setHasDraft(true);
@@ -48,8 +41,8 @@ export function useFormDraft<T extends Record<string, unknown>>(
   useEffect(() => {
     const timer = setInterval(() => {
       const json = JSON.stringify(payload);
-      if (json === savedRef.current) return; // skip if unchanged
-      AsyncStorage.setItem(key, json)
+      if (json === savedRef.current) return;
+      SecureStore.setItemAsync(key, json)
         .then(() => { savedRef.current = json; })
         .catch(() => {});
     }, 5000);
@@ -58,7 +51,7 @@ export function useFormDraft<T extends Record<string, unknown>>(
 
   // ── Restore from storage ──────────────────────────────────────────────────
   const restore = useCallback(() => {
-    AsyncStorage.getItem(key)
+    SecureStore.getItemAsync(key)
       .then((raw) => {
         if (!raw) return;
         try {
@@ -74,7 +67,7 @@ export function useFormDraft<T extends Record<string, unknown>>(
 
   // ── Discard draft ─────────────────────────────────────────────────────────
   const discard = useCallback(() => {
-    AsyncStorage.removeItem(key)
+    SecureStore.deleteItemAsync(key)
       .catch(() => {})
       .finally(() => {
         savedRef.current = null;
@@ -85,7 +78,7 @@ export function useFormDraft<T extends Record<string, unknown>>(
 
   // ── Clear draft on successful submit ──────────────────────────────────────
   const clearDraft = useCallback(() => {
-    AsyncStorage.removeItem(key)
+    SecureStore.deleteItemAsync(key)
       .catch(() => {})
       .finally(() => {
         savedRef.current = null;
@@ -93,8 +86,6 @@ export function useFormDraft<T extends Record<string, unknown>>(
       });
   }, [key]);
 
-  // Expose clearDraft as a stable ref so consumers can call it imperatively
-  // without adding it to their dependency arrays.
   useEffect(() => {
     (useFormDraft as any)._clearDraftRef = clearDraft;
   }, [clearDraft]);
@@ -102,17 +93,13 @@ export function useFormDraft<T extends Record<string, unknown>>(
   return { hasDraft, restore, discard };
 }
 
-/**
- * Imperatively clear the draft for a given user/form type.
- * Call this after a successful API submit.
- */
 export async function clearFormDraft(
   userId: string | number | undefined,
   formType: string,
 ): Promise<void> {
   const key = draftKey(userId, formType);
   try {
-    await AsyncStorage.removeItem(key);
+    await SecureStore.deleteItemAsync(key);
   } catch {
     // silently ignore storage errors
   }

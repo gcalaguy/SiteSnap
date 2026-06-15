@@ -9,7 +9,6 @@ import {
   userMembershipsTable,
   tasksTable,
   workerSchedulesTable,
-  projectMembersTable,
   quotesTable,
   invoicesTable,
   formSubmissionsTable,
@@ -18,6 +17,7 @@ import {
   leadsTable,
 } from "@workspace/db";
 import { eq, and, gte, sql, inArray, lt, ne, isNotNull, desc } from "drizzle-orm";
+import { getAccessibleProjectIds } from "../lib/projectAccess";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 
@@ -27,30 +27,6 @@ const router = Router();
 const smartSummaryCache = new Map<number, { summary: string; lines: string[]; expiresAt: number }>();
 const SMART_SUMMARY_TTL_MS = 5 * 60 * 1000;
 
-async function getAccessibleProjectIds(companyId: number, userId: number, userRole: string): Promise<number[]> {
-  if (userRole === "worker") {
-    const [memberRows, scheduleRows] = await Promise.all([
-      db
-        .select({ projectId: projectMembersTable.projectId })
-        .from(projectMembersTable)
-        .where(and(eq(projectMembersTable.companyId, companyId), eq(projectMembersTable.userId, userId))),
-      db
-        .select({ projectId: workerSchedulesTable.projectId })
-        .from(workerSchedulesTable)
-        .where(and(eq(workerSchedulesTable.companyId, companyId), eq(workerSchedulesTable.userId, userId))),
-    ]);
-    const ids = new Set([
-      ...memberRows.map((r) => r.projectId),
-      ...scheduleRows.map((r) => r.projectId),
-    ]);
-    return [...ids];
-  }
-  const rows = await db
-    .select({ id: projectsTable.id })
-    .from(projectsTable)
-    .where(eq(projectsTable.companyId, companyId));
-  return rows.map((r) => r.id);
-}
 
 function displayName(firstName: string, lastName: string, email?: string): string {
   const full = `${firstName ?? ""} ${lastName ?? ""}`.trim();

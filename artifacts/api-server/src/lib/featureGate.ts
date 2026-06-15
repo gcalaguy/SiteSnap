@@ -5,12 +5,11 @@ import type { Request, Response, NextFunction } from "express";
 const ENTERPRISE_ONLY_FEATURES = ["RISK_DASHBOARD", "FINANCIALS", "AUDIT_VAULT", "WORKER_DOCUMENTS"];
 
 // ── In-memory TTL cache for feature keys ────────────────────────────────────
-// Avoids 2 DB queries per gated request. Entries expire after 60 seconds so
-// plan changes propagate quickly without hammering the DB on every request.
-// Reduced from 60 s to 5 s so plan changes propagate within one request cycle
-// on any instance. LISTEN/NOTIFY would eliminate the window entirely but
-// requires a persistent PG connection; 5 s is an acceptable interim trade-off.
+// Avoids 2 DB queries per gated request. Capped at MAX_CACHE_ENTRIES so the
+// Map never grows unbounded in a long-running multi-tenant deployment.
+// TTL is 5 s; LISTEN/NOTIFY (HIGH-003) handles instant cross-process invalidation.
 const TTL_MS = 5_000;
+const MAX_CACHE_ENTRIES = 2_000;
 type CacheEntry = { keys: string[]; cachedAt: number };
 const featureCache = new Map<number, CacheEntry>();
 
@@ -21,10 +20,18 @@ function getCached(companyId: number): string[] | null {
     featureCache.delete(companyId);
     return null;
   }
+  // Move to end of insertion order to maintain LRU eviction order.
+  featureCache.delete(companyId);
+  featureCache.set(companyId, entry);
   return entry.keys;
 }
 
 function setCache(companyId: number, keys: string[]): void {
+  if (featureCache.size >= MAX_CACHE_ENTRIES) {
+    // Evict the oldest (first) entry — Map iterates in insertion order.
+    const oldest = featureCache.keys().next().value;
+    if (oldest !== undefined) featureCache.delete(oldest);
+  }
   featureCache.set(companyId, { keys, cachedAt: Date.now() });
 }
 

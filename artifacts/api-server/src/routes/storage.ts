@@ -11,6 +11,7 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission, ObjectAccessGroupType } from "../lib/objectAcl";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { scanFile } from "../lib/virusScan";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -78,6 +79,12 @@ router.post(
     if (req.file.size > MAX_UPLOAD_BYTES) {
       await cleanupUpload(req.file.path);
       res.status(400).json({ error: "File exceeds maximum size of 100 MB", code: "FILE_TOO_LARGE" });
+      return;
+    }
+    const scan = await scanFile(req.file.path, mimeType);
+    if (!scan.clean) {
+      await cleanupUpload(req.file.path);
+      res.status(422).json({ error: "File failed virus scan", code: "VIRUS_DETECTED" });
       return;
     }
     try {
@@ -169,6 +176,12 @@ router.post(
     if (req.file.size > MAX_UPLOAD_BYTES) {
       await cleanupUpload(req.file.path);
       res.status(400).json({ error: "File exceeds maximum size of 100 MB", code: "FILE_TOO_LARGE" });
+      return;
+    }
+    const scan = await scanFile(req.file.path, mimeType);
+    if (!scan.clean) {
+      await cleanupUpload(req.file.path);
+      res.status(422).json({ error: "File failed virus scan", code: "VIRUS_DETECTED" });
       return;
     }
     try {

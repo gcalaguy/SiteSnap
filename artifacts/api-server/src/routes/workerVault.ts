@@ -5,7 +5,7 @@ import {
   usersTable,
   workerDocumentsTable,
 } from "@workspace/db";
-import { requireAuth } from "../lib/auth";
+import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { z } from "zod/v4";
 
@@ -34,7 +34,7 @@ const uploadBodySchema = z.object({
 // ── WORKER ENDPOINTS ───────────────────────────────────────────────────────────
 
 // POST /worker/vault/upload
-router.post("/worker/vault/upload", requireAuth, asyncHandler(async (req, res) => {
+router.post("/worker/vault/upload", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
     const parsed = uploadBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -44,16 +44,11 @@ router.post("/worker/vault/upload", requireAuth, asyncHandler(async (req, res) =
 
     const { documentType, fileUrl, filePath, expirationDate } = parsed.data;
 
-    if (!req.companyId) {
-      res.status(403).json({ error: "No active company context" });
-      return;
-    }
-
     const [doc] = await db
       .insert(workerDocumentsTable)
       .values({
         workerId: req.userId!,
-        companyId: req.companyId,
+        companyId: req.companyId!,
         documentType,
         fileUrl,
         filePath: filePath ?? null,
@@ -70,20 +65,15 @@ router.post("/worker/vault/upload", requireAuth, asyncHandler(async (req, res) =
 }))
 
 // GET /worker/vault/my-documents
-router.get("/worker/vault/my-documents", requireAuth, asyncHandler(async (req, res) => {
+router.get("/worker/vault/my-documents", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
-    if (!req.companyId) {
-      res.status(403).json({ error: "No active company context" });
-      return;
-    }
-
     const docs = await db
       .select()
       .from(workerDocumentsTable)
       .where(
         and(
           eq(workerDocumentsTable.workerId, req.userId!),
-          eq(workerDocumentsTable.companyId, req.companyId),
+          eq(workerDocumentsTable.companyId, req.companyId!),
         ),
       )
       .orderBy(desc(workerDocumentsTable.createdAt));
@@ -96,14 +86,9 @@ router.get("/worker/vault/my-documents", requireAuth, asyncHandler(async (req, r
 }))
 
 // DELETE /worker/vault/documents/:id
-router.delete("/worker/vault/documents/:id", requireAuth, asyncHandler(async (req, res) => {
+router.delete("/worker/vault/documents/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    if (!req.companyId) {
-      res.status(403).json({ error: "No active company context" });
-      return;
-    }
-
     const [existing] = await db
       .select()
       .from(workerDocumentsTable)
@@ -130,12 +115,8 @@ router.delete("/worker/vault/documents/:id", requireAuth, asyncHandler(async (re
 // ── TENANT (OWNER/FOREMAN) ENDPOINTS ──────────────────────────────────────────
 
 // GET /tenant/vault/all-documents
-router.get("/tenant/vault/all-documents", requireAuth, asyncHandler(async (req, res) => {
+router.get("/tenant/vault/all-documents", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
-    if (!req.companyId) {
-      res.status(403).json({ error: "No active company context" });
-      return;
-    }
     if (req.userRole !== "owner" && req.userRole !== "foreman") {
       res.status(403).json({ error: "Owner or foreman access required" });
       return;
@@ -144,7 +125,7 @@ router.get("/tenant/vault/all-documents", requireAuth, asyncHandler(async (req, 
     const docs = await db
       .select()
       .from(workerDocumentsTable)
-      .where(eq(workerDocumentsTable.companyId, req.companyId))
+      .where(eq(workerDocumentsTable.companyId, req.companyId!))
       .orderBy(desc(workerDocumentsTable.createdAt));
 
     // Enrich with worker names — single batched query instead of N+1 loop
@@ -175,12 +156,8 @@ router.get("/tenant/vault/all-documents", requireAuth, asyncHandler(async (req, 
 }))
 
 // GET /tenant/vault/worker/:workerId
-router.get("/tenant/vault/worker/:workerId", requireAuth, asyncHandler(async (req, res) => {
+router.get("/tenant/vault/worker/:workerId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   try {
-    if (!req.companyId) {
-      res.status(403).json({ error: "No active company context" });
-      return;
-    }
     if (req.userRole !== "owner" && req.userRole !== "foreman") {
       res.status(403).json({ error: "Owner or foreman access required" });
       return;
@@ -193,7 +170,7 @@ router.get("/tenant/vault/worker/:workerId", requireAuth, asyncHandler(async (re
       .where(
         and(
           eq(workerDocumentsTable.workerId, workerId),
-          eq(workerDocumentsTable.companyId, req.companyId),
+          eq(workerDocumentsTable.companyId, req.companyId!),
         ),
       )
       .orderBy(desc(workerDocumentsTable.createdAt));

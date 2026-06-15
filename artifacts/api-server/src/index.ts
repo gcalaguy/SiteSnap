@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { startDailyCron } from "./cron";
 import { pool } from "@workspace/db";
 import { instrumentPool } from "./lib/slowQueryLogger";
+import { startPgListener } from "./lib/pgListener";
 
 const rawPort = process.env["PORT"];
 
@@ -144,6 +145,12 @@ async function applyRfiWorkflowMigration() {
 }
 
 await applyRfiWorkflowMigration();
+
+// Start LISTEN/NOTIFY listener for distributed feature cache invalidation.
+// Non-blocking — a connection failure logs a warning and retries automatically.
+startPgListener().catch((err) =>
+  logger.warn({ err }, "pgListener startup error — feature cache will rely on TTL only"),
+);
 
 app.listen(port, (err) => {
   if (err) {

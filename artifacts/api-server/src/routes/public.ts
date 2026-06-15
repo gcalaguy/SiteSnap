@@ -528,7 +528,7 @@ router.post(
         and(
           eq(invoicesTable.publicToken, token as string),
           isNull(invoicesTable.signedAt),
-          or(eq(invoicesTable.status, "draft"), eq(invoicesTable.status, "sent"), eq(invoicesTable.status, "overdue")),
+          or(eq(invoicesTable.status, "sent"), eq(invoicesTable.status, "overdue")),
         ),
       )
       .returning();

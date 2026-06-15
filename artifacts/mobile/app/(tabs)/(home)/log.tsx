@@ -205,7 +205,7 @@ export default function LogScreen() {
   const generateAI = useGenerateDailyReportAI();
   const addPhoto = useAddReportPhoto();
   const router = useRouter();
-  const { isOnline, isSyncing, pendingCount, failedCount, enqueue, syncQueue, retryFailed, clearFailed } = useOfflineQueue();
+  const { isOnline, isSyncing, pendingCount, failedCount, enqueueReport: enqueue, syncQueue, retryFailed, clearFailed } = useOfflineQueue();
 
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [crewCount, setCrewCount] = useState("1");

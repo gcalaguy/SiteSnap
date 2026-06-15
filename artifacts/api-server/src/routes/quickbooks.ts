@@ -5,12 +5,14 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 
-// Use SESSION_SECRET as the HMAC key for QB OAuth state signing.
-// This prevents an unsigned state from being crafted to associate
-// a foreign company ID with an attacker-controlled QB token.
+// HMAC key used to sign the QB OAuth state parameter.
+// Preferred: QB_STATE_SECRET (a dedicated secret for this purpose).
+// Fallback: QB_CLIENT_SECRET (already required for QB OAuth, acceptable stop-gap).
+// SESSION_SECRET was previously used here but that name implies Express sessions,
+// which this app does not use — QB_STATE_SECRET makes the purpose explicit.
 function getStateSecret(): string {
-  const secret = process.env.SESSION_SECRET ?? process.env.QB_CLIENT_SECRET;
-  if (!secret) throw new Error("No signing secret available for QB OAuth state");
+  const secret = process.env.QB_STATE_SECRET ?? process.env.QB_CLIENT_SECRET;
+  if (!secret) throw new Error("QB_STATE_SECRET or QB_CLIENT_SECRET must be set for QuickBooks OAuth");
   return secret;
 }
 

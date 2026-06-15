@@ -254,15 +254,20 @@ router.get("/portal/:token", asyncHandler(async (req, res) => {
     .orderBy(desc(dailyReportPhotosTable.uploadedAt))
     .limit(30);
 
-  const photos = await Promise.all(
-    rawPhotos.map(async (p) => ({
-      id: p.id,
-      url: await photoUrl(p.objectPath),
-      caption: p.caption,
-      uploadedAt: p.uploadedAt,
-      reportDate: p.reportDate,
-    })),
-  );
+  const photos: { id: number; url: string | null; caption: string | null; uploadedAt: Date | null; reportDate: string | null }[] = [];
+  for (let i = 0; i < rawPhotos.length; i += 5) {
+    const batch = rawPhotos.slice(i, i + 5);
+    const resolved = await Promise.all(
+      batch.map(async (p) => ({
+        id: p.id,
+        url: await photoUrl(p.objectPath),
+        caption: p.caption,
+        uploadedAt: p.uploadedAt,
+        reportDate: p.reportDate,
+      })),
+    );
+    photos.push(...resolved);
+  }
 
   // Contractor documents
   const rawDocuments = await db.select({
@@ -344,7 +349,6 @@ router.get("/portal/:token", asyncHandler(async (req, res) => {
       province: project.province,
       startDate: project.startDate,
       endDate: project.endDate,
-      budget: project.budget,
     },
     progress: { totalTasks, doneTasks, progressPct },
     reports,

@@ -14,6 +14,7 @@ import {
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { getAccessibleProjectIds } from "../lib/projectAccess";
 import { CreateProjectBody, UpdateProjectBody } from "@workspace/api-zod";
 import { z } from "zod";
 
@@ -59,26 +60,10 @@ router.get(
       req.log?.warn({ err }, "dashboardMetrics: failed to load financial summaries");
     }
 
+    const accessibleIds = await getAccessibleProjectIds(companyId, req.userId!, req.userRole ?? "worker");
+
     if (req.userRole === "worker" && !req.userPermissions?.viewAllProjects) {
-      const userId = req.userId!;
-
-      const [memberRows, scheduleRows] = await Promise.all([
-        db
-          .select({ projectId: projectMembersTable.projectId })
-          .from(projectMembersTable)
-          .where(and(eq(projectMembersTable.userId, userId), eq(projectMembersTable.companyId, companyId))),
-        db
-          .select({ projectId: workerSchedulesTable.projectId })
-          .from(workerSchedulesTable)
-          .where(and(eq(workerSchedulesTable.userId, userId), eq(workerSchedulesTable.companyId, companyId))),
-      ]);
-
-      const projectIdSet = new Set([
-        ...memberRows.map((r) => r.projectId),
-        ...scheduleRows.map((r) => r.projectId),
-      ]);
-
-      if (projectIdSet.size === 0) {
+      if (accessibleIds.length === 0) {
         res.json([]);
         return;
       }
@@ -86,7 +71,7 @@ router.get(
       const projects = await db
         .select()
         .from(projectsTable)
-        .where(and(eq(projectsTable.companyId, companyId), inArray(projectsTable.id, [...projectIdSet])));
+        .where(and(eq(projectsTable.companyId, companyId), inArray(projectsTable.id, accessibleIds)));
 
       const projectIds = projects.map((p) => p.id);
       let complianceAlertIds = new Set<number>();

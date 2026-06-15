@@ -48,6 +48,9 @@ Thumbs.db
 .cache/
 .local/
 
+# Development agent artifacts — contain implementation notes and internal memory
+.agents/
+
 # Agent scratchpad / workspace artifacts
 /attached_assets/
 /.canvas/assets/

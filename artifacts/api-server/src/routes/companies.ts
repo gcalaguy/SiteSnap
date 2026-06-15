@@ -601,6 +601,7 @@ router.patch(
           eq(userMembershipsTable.companyId, companyId),
         ),
       );
+    logAuditEventFromRequest(req, "Member Role Changed", `User ${targetUserId} role changed to ${parsed.data.role}`).catch(() => {});
     const [updated] = await db
       .select()
       .from(usersTable)
@@ -1001,6 +1002,7 @@ router.patch(
     }
 
     const { getCompanyFeatureKeys, invalidateFeatureCache } = await import("../lib/featureGate");
+    const { notifyFeatureCacheInvalidate } = await import("../lib/pgListener");
 
     // Snapshot the current effective feature set then apply the toggle
     const currentKeys = await getCompanyFeatureKeys(companyId);
@@ -1019,6 +1021,9 @@ router.patch(
       .where(eq(companiesTable.id, companyId));
 
     invalidateFeatureCache(companyId);
+    // Broadcast to all API instances via Postgres NOTIFY so every pod invalidates
+    // its local in-memory cache immediately rather than waiting for the 5 s TTL.
+    await notifyFeatureCacheInvalidate(companyId);
 
     res.json({ ok: true, featureKey: normalizedKey, enabled, activeFeatures: nextKeys });
   }),

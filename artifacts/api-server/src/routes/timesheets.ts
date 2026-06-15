@@ -41,13 +41,16 @@ async function withReviewer(timesheet: Record<string, unknown>, reviewedByUserId
   return { ...timesheet, reviewer: reviewer ?? null };
 }
 
-async function withSubmitter(timesheet: Record<string, unknown>, userId: number) {
+async function withSubmitter(timesheet: Record<string, unknown>, userId: number, companyId: number) {
   const [submitter] = await db
     .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email, role: userMembershipsTable.role })
     .from(usersTable)
     .leftJoin(
       userMembershipsTable,
-      eq(userMembershipsTable.userId, usersTable.id),
+      and(
+        eq(userMembershipsTable.userId, usersTable.id),
+        eq(userMembershipsTable.companyId, companyId),
+      ),
     )
     .where(eq(usersTable.id, userId))
     .limit(1);
@@ -168,7 +171,7 @@ router.post("/timesheets", requireAuth, requireCompany, asyncHandler(async (req,
       })
       .where(and(eq(timesheetsTable.id, existing.id), eq(timesheetsTable.companyId, req.companyId!)))
       .returning();
-    const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
+    const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId, req.companyId!);
     const response = await withReviewer(withUser, null);
     const submitter = (response as { user?: { firstName?: string; lastName?: string } }).user;
     const submitterName = submitter ? `${submitter.firstName ?? ""} ${submitter.lastName ?? ""}`.trim() : "A team member";
@@ -189,7 +192,7 @@ router.post("/timesheets", requireAuth, requireCompany, asyncHandler(async (req,
     notes: notes ?? null,
   }).returning();
 
-  const withUser = await withSubmitter(ts as unknown as Record<string, unknown>, ts.userId);
+  const withUser = await withSubmitter(ts as unknown as Record<string, unknown>, ts.userId, req.companyId!);
   const response = await withReviewer(withUser, null);
   const submitter = (response as { user?: { firstName?: string; lastName?: string } }).user;
   const submitterName = submitter ? `${submitter.firstName ?? ""} ${submitter.lastName ?? ""}`.trim() : "A team member";
@@ -203,14 +206,34 @@ router.get("/timesheets/:timesheetId", requireAuth, requireCompany, requirePermi
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 
-  const [ts] = await db.select().from(timesheetsTable)
+  const [row] = await db
+    .select({
+      ts: timesheetsTable,
+      userFirstName: usersTable.firstName,
+      userLastName: usersTable.lastName,
+      userEmail: usersTable.email,
+      userRole: userMembershipsTable.role,
+    })
+    .from(timesheetsTable)
+    .leftJoin(usersTable, eq(timesheetsTable.userId, usersTable.id))
+    .leftJoin(
+      userMembershipsTable,
+      and(
+        eq(userMembershipsTable.userId, timesheetsTable.userId),
+        eq(userMembershipsTable.companyId, req.companyId!),
+      ),
+    )
     .where(and(eq(timesheetsTable.id, id), eq(timesheetsTable.companyId, req.companyId!)))
     .limit(1);
-  if (!ts) { res.status(404).json({ error: "Timesheet not found" }); return; }
-  if (!isPrivileged && ts.userId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
 
-  const withUser = await withSubmitter(ts as unknown as Record<string, unknown>, ts.userId);
-  res.json(await withReviewer(withUser, ts.reviewedByUserId));
+  if (!row) { res.status(404).json({ error: "Timesheet not found" }); return; }
+  if (!isPrivileged && row.ts.userId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
+
+  const user = row.userFirstName != null
+    ? { id: row.ts.userId, firstName: row.userFirstName, lastName: row.userLastName, email: row.userEmail, role: row.userRole }
+    : null;
+  const withUser = { ...row.ts, user };
+  res.json(await withReviewer(withUser as Record<string, unknown>, row.ts.reviewedByUserId));
 }))
 
 // POST /timesheets/:timesheetId/approve
@@ -247,7 +270,7 @@ router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, req
     .returning();
 
   logAuditEventFromRequest(req, "Timesheet Approved", `Timesheet ${id} approved`).catch(() => {});
-  const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
+  const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId, req.companyId!);
   res.json(await withReviewer(withUser, updated.reviewedByUserId));
 }))
 
@@ -298,7 +321,8 @@ router.post("/timesheets/:timesheetId/deny", requireAuth, requireCompany, requir
     .where(and(eq(timesheetsTable.id, id), eq(timesheetsTable.companyId, req.companyId!)))
     .returning();
 
-  const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
+  logAuditEventFromRequest(req, "Timesheet Denied", `Timesheet ${id} denied`).catch(() => {});
+  const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId, req.companyId!);
   res.json(await withReviewer(withUser, updated.reviewedByUserId));
 }))
 
@@ -349,7 +373,7 @@ router.patch(
       .where(and(eq(timesheetsTable.id, id), eq(timesheetsTable.companyId, req.companyId!)))
       .returning();
 
-    const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId);
+    const withUser = await withSubmitter(updated as unknown as Record<string, unknown>, updated.userId, req.companyId!);
     res.json(await withReviewer(withUser, updated.reviewedByUserId));
   }),
 );
@@ -406,7 +430,7 @@ router.post(
     const parsed = EmailTimesheetBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid email address" }); return; }
 
-    const enrichedUser = await withSubmitter(ts as unknown as Record<string, unknown>, ts.userId) as any;
+    const enrichedUser = await withSubmitter(ts as unknown as Record<string, unknown>, ts.userId, req.companyId!) as any;
     const enriched = await withReviewer(enrichedUser, ts.reviewedByUserId) as any;
 
     const workerName = enriched.user

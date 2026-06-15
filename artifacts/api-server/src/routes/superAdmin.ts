@@ -23,6 +23,41 @@ import crypto from "crypto";
 const router = Router();
 const guard = [requireAuth, requireSuperAdmin];
 
+// ── Stripe price helpers ───────────────────────────────────────────────────────
+
+type StripeClient = Awaited<ReturnType<typeof getUncachableStripeClient>>;
+
+/** Create (or recreate) a monthly/yearly Stripe price for a plan product. */
+async function createStripePrice(
+  stripe: StripeClient,
+  productId: string,
+  amountCents: number,
+  interval: "month" | "year",
+  planName: string,
+): Promise<string> {
+  const price = await stripe.prices.create({
+    product: productId,
+    unit_amount: amountCents,
+    currency: "cad",
+    recurring: { interval },
+    nickname: interval === "month" ? `${planName} Monthly` : `${planName} Annual`,
+  });
+  return price.id;
+}
+
+/** Deactivate an existing Stripe price and create a replacement. Returns the new price ID. */
+async function replaceStripePrice(
+  stripe: StripeClient,
+  oldPriceId: string,
+  productId: string,
+  amountCents: number,
+  interval: "month" | "year",
+  planName: string,
+): Promise<string> {
+  await stripe.prices.update(oldPriceId, { active: false }).catch(() => {});
+  return createStripePrice(stripe, productId, amountCents, interval, planName);
+}
+
 // ── Plans ──────────────────────────────────────────────────────────────────────
 
 // GET /admin/plans
@@ -68,26 +103,12 @@ router.post("/admin/plans", ...guard, asyncHandler(async (req, res) => {
 
     const monthlyAmount = Math.round(Number(plan.monthlyPrice) * 100);
     if (monthlyAmount > 0) {
-      const monthlyPrice = await stripe.prices.create({
-        product: product.id,
-        unit_amount: monthlyAmount,
-        currency: "cad",
-        recurring: { interval: "month" },
-        nickname: `${plan.name} Monthly`,
-      });
-      stripeUpdates.stripeMonthlyPriceId = monthlyPrice.id;
+      stripeUpdates.stripeMonthlyPriceId = await createStripePrice(stripe, product.id, monthlyAmount, "month", plan.name);
     }
 
     const yearlyAmount = Math.round(Number(plan.yearlyPrice) * 100);
     if (yearlyAmount > 0) {
-      const yearlyPrice = await stripe.prices.create({
-        product: product.id,
-        unit_amount: yearlyAmount,
-        currency: "cad",
-        recurring: { interval: "year" },
-        nickname: `${plan.name} Annual`,
-      });
-      stripeUpdates.stripeYearlyPriceId = yearlyPrice.id;
+      stripeUpdates.stripeYearlyPriceId = await createStripePrice(stripe, product.id, yearlyAmount, "year", plan.name);
     }
 
     const [updated] = await db
@@ -152,19 +173,14 @@ router.patch("/admin/plans/:id", ...guard, asyncHandler(async (req, res) => {
         const newAmount = Math.round(Number(plan.monthlyPrice) * 100);
         const oldAmount = Math.round(Number(existing.monthlyPrice) * 100);
         if (newAmount !== oldAmount) {
-          if (existing.stripeMonthlyPriceId) {
-            await stripe.prices.update(existing.stripeMonthlyPriceId, { active: false }).catch(() => {});
-          }
           if (newAmount > 0) {
-            const newPrice = await stripe.prices.create({
-              product: plan.stripeProductId,
-              unit_amount: newAmount,
-              currency: "cad",
-              recurring: { interval: "month" },
-              nickname: `${plan.name} Monthly`,
-            });
-            stripeUpdates.stripeMonthlyPriceId = newPrice.id;
+            stripeUpdates.stripeMonthlyPriceId = existing.stripeMonthlyPriceId
+              ? await replaceStripePrice(stripe, existing.stripeMonthlyPriceId, plan.stripeProductId, newAmount, "month", plan.name)
+              : await createStripePrice(stripe, plan.stripeProductId, newAmount, "month", plan.name);
           } else {
+            if (existing.stripeMonthlyPriceId) {
+              await stripe.prices.update(existing.stripeMonthlyPriceId, { active: false }).catch(() => {});
+            }
             stripeUpdates.stripeMonthlyPriceId = null;
           }
         }
@@ -174,19 +190,14 @@ router.patch("/admin/plans/:id", ...guard, asyncHandler(async (req, res) => {
         const newAmount = Math.round(Number(plan.yearlyPrice) * 100);
         const oldAmount = Math.round(Number(existing.yearlyPrice) * 100);
         if (newAmount !== oldAmount) {
-          if (existing.stripeYearlyPriceId) {
-            await stripe.prices.update(existing.stripeYearlyPriceId, { active: false }).catch(() => {});
-          }
           if (newAmount > 0) {
-            const newPrice = await stripe.prices.create({
-              product: plan.stripeProductId,
-              unit_amount: newAmount,
-              currency: "cad",
-              recurring: { interval: "year" },
-              nickname: `${plan.name} Annual`,
-            });
-            stripeUpdates.stripeYearlyPriceId = newPrice.id;
+            stripeUpdates.stripeYearlyPriceId = existing.stripeYearlyPriceId
+              ? await replaceStripePrice(stripe, existing.stripeYearlyPriceId, plan.stripeProductId, newAmount, "year", plan.name)
+              : await createStripePrice(stripe, plan.stripeProductId, newAmount, "year", plan.name);
           } else {
+            if (existing.stripeYearlyPriceId) {
+              await stripe.prices.update(existing.stripeYearlyPriceId, { active: false }).catch(() => {});
+            }
             stripeUpdates.stripeYearlyPriceId = null;
           }
         }
@@ -287,66 +298,32 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, asyncHandler(async (req, r
     const monthlyAmount = Math.round(Number(plan.monthlyPrice) * 100);
     if (monthlyAmount > 0) {
       if (plan.stripeMonthlyPriceId) {
-        const existing = await stripe.prices.retrieve(plan.stripeMonthlyPriceId).catch(() => null);
-        if (existing && existing.unit_amount !== monthlyAmount) {
-          await stripe.prices.update(plan.stripeMonthlyPriceId, { active: false }).catch(() => {});
-          await stripe.prices.create({
-            product: productId,
-            unit_amount: monthlyAmount,
-            currency: "cad",
-            recurring: { interval: "month" },
-            nickname: `${plan.name} Monthly`,
-          }).then((newPrice) => {
-            stripeUpdates.stripeMonthlyPriceId = newPrice.id;
-          }).catch((err) => {
-            warnings.push(`monthly price create failed: ${err?.message ?? String(err)}`);
-          });
+        const existingPrice = await stripe.prices.retrieve(plan.stripeMonthlyPriceId).catch(() => null);
+        if (existingPrice && existingPrice.unit_amount !== monthlyAmount) {
+          await replaceStripePrice(stripe, plan.stripeMonthlyPriceId, productId, monthlyAmount, "month", plan.name)
+            .then((id) => { stripeUpdates.stripeMonthlyPriceId = id; })
+            .catch((err: unknown) => { warnings.push(`monthly price update failed: ${(err as Error)?.message ?? String(err)}`); });
         }
       } else {
-        await stripe.prices.create({
-          product: productId,
-          unit_amount: monthlyAmount,
-          currency: "cad",
-          recurring: { interval: "month" },
-          nickname: `${plan.name} Monthly`,
-        }).then((newPrice) => {
-          stripeUpdates.stripeMonthlyPriceId = newPrice.id;
-        }).catch((err) => {
-          warnings.push(`monthly price create failed: ${err?.message ?? String(err)}`);
-        });
+        await createStripePrice(stripe, productId, monthlyAmount, "month", plan.name)
+          .then((id) => { stripeUpdates.stripeMonthlyPriceId = id; })
+          .catch((err: unknown) => { warnings.push(`monthly price create failed: ${(err as Error)?.message ?? String(err)}`); });
       }
     }
 
     const yearlyAmount = Math.round(Number(plan.yearlyPrice) * 100);
     if (yearlyAmount > 0) {
       if (plan.stripeYearlyPriceId) {
-        const existing = await stripe.prices.retrieve(plan.stripeYearlyPriceId).catch(() => null);
-        if (existing && existing.unit_amount !== yearlyAmount) {
-          await stripe.prices.update(plan.stripeYearlyPriceId, { active: false }).catch(() => {});
-          await stripe.prices.create({
-            product: productId,
-            unit_amount: yearlyAmount,
-            currency: "cad",
-            recurring: { interval: "year" },
-            nickname: `${plan.name} Annual`,
-          }).then((newPrice) => {
-            stripeUpdates.stripeYearlyPriceId = newPrice.id;
-          }).catch((err) => {
-            warnings.push(`yearly price create failed: ${err?.message ?? String(err)}`);
-          });
+        const existingPrice = await stripe.prices.retrieve(plan.stripeYearlyPriceId).catch(() => null);
+        if (existingPrice && existingPrice.unit_amount !== yearlyAmount) {
+          await replaceStripePrice(stripe, plan.stripeYearlyPriceId, productId, yearlyAmount, "year", plan.name)
+            .then((id) => { stripeUpdates.stripeYearlyPriceId = id; })
+            .catch((err: unknown) => { warnings.push(`yearly price update failed: ${(err as Error)?.message ?? String(err)}`); });
         }
       } else {
-        await stripe.prices.create({
-          product: productId,
-          unit_amount: yearlyAmount,
-          currency: "cad",
-          recurring: { interval: "year" },
-          nickname: `${plan.name} Annual`,
-        }).then((newPrice) => {
-          stripeUpdates.stripeYearlyPriceId = newPrice.id;
-        }).catch((err) => {
-          warnings.push(`yearly price create failed: ${err?.message ?? String(err)}`);
-        });
+        await createStripePrice(stripe, productId, yearlyAmount, "year", plan.name)
+          .then((id) => { stripeUpdates.stripeYearlyPriceId = id; })
+          .catch((err: unknown) => { warnings.push(`yearly price create failed: ${(err as Error)?.message ?? String(err)}`); });
       }
     }
   }
@@ -496,21 +473,30 @@ router.post("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
 
 // GET /admin/tenants
 router.get("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
-  const companies = await db.select().from(companiesTable).orderBy(companiesTable.name);
-  const subs = await db.select().from(subscriptionsTable);
-  const plans = await db.select().from(plansTable);
+  const [rows, userCounts] = await Promise.all([
+    db
+      .select({
+        company: companiesTable,
+        subscription: subscriptionsTable,
+        plan: plansTable,
+      })
+      .from(companiesTable)
+      .leftJoin(subscriptionsTable, eq(subscriptionsTable.companyId, companiesTable.id))
+      .leftJoin(plansTable, eq(plansTable.id, subscriptionsTable.planId))
+      .orderBy(companiesTable.name),
+    db
+      .select({ companyId: userMembershipsTable.companyId, count: sql<number>`count(*)` })
+      .from(userMembershipsTable)
+      .groupBy(userMembershipsTable.companyId),
+  ]);
 
-  const userCounts = await db
-    .select({ companyId: userMembershipsTable.companyId, count: sql<number>`count(*)` })
-    .from(userMembershipsTable)
-    .groupBy(userMembershipsTable.companyId);
-
-  const result = companies.map((c) => {
-    const sub = subs.find((s) => s.companyId === c.id) ?? null;
-    const plan = sub ? (plans.find((p) => p.id === sub.planId) ?? null) : null;
-    const uc = userCounts.find((u) => u.companyId === c.id);
-    return { ...c, subscription: sub, plan, userCount: Number(uc?.count ?? 0) };
-  });
+  const countMap = new Map(userCounts.map((u) => [u.companyId, Number(u.count)]));
+  const result = rows.map(({ company, subscription, plan }) => ({
+    ...company,
+    subscription: subscription ?? null,
+    plan: plan ?? null,
+    userCount: countMap.get(company.id) ?? 0,
+  }));
   res.json(result);
 }));
 
@@ -527,9 +513,11 @@ router.post("/admin/tenants/:id/reissue-link", ...guard, asyncHandler(async (req
     .set({ claimToken: newClaimToken })
     .where(eq(companiesTable.id, companyId));
 
-  const appBase =
-    process.env["APP_BASE_URL"]?.replace(/\/$/, "") ??
-    `${req.protocol}://${req.get("host")}`;
+  const appBase = process.env["APP_BASE_URL"]?.replace(/\/$/, "");
+  if (!appBase) {
+    res.status(500).json({ error: "APP_BASE_URL env var is not configured" });
+    return;
+  }
   res.json({ companyId, link: `${appBase}/sign-up?token=${newClaimToken}` });
 }));
 

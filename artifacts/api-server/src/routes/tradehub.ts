@@ -631,11 +631,17 @@ router.post("/tradehub/job-postings", requireAuth, requireCompany, asyncHandler(
   }
 }));
 
+const JobApplyBody = z.object({
+  message: z.string().max(2000).optional(),
+});
+
 // POST /tradehub/job-postings/:id/apply
 router.post("/tradehub/job-postings/:id/apply", requireAuth, asyncHandler(async (req, res) => {
   try {
     const jobPostingId = parseInt(req.params.id as string);
-    const { message } = req.body as { message?: string };
+    const parsed = JobApplyBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() }); return; }
+    const { message } = parsed.data;
 
     const [jp] = await db.select().from(jobPostingsTable).where(eq(jobPostingsTable.id, jobPostingId)).limit(1);
     if (!jp) { res.status(404).json({ error: "Job posting not found" }); return; }
@@ -759,6 +765,12 @@ router.get("/tradehub/objects/*path/signed-url", requireAuth, asyncHandler(async
 
 // ── POST MEDIA ────────────────────────────────────────────────────────────────
 
+const PostMediaBody = z.object({
+  url: z.string().url().max(2048),
+  objectPath: z.string().max(1024).optional(),
+  mediaType: z.enum(["image", "video", "document"]).default("image"),
+});
+
 // POST /tradehub/posts/:id/media — attach a media item to a post (owner only)
 router.post("/tradehub/posts/:id/media", requireAuth, asyncHandler(async (req, res) => {
   try {
@@ -767,8 +779,9 @@ router.post("/tradehub/posts/:id/media", requireAuth, asyncHandler(async (req, r
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
     if (post.userId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
 
-    const { url, objectPath, mediaType = "image" } = req.body as { url: string; objectPath?: string; mediaType?: string };
-    if (!url) { res.status(400).json({ error: "url is required" }); return; }
+    const parsed = PostMediaBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() }); return; }
+    const { url, objectPath, mediaType } = parsed.data;
 
     const [media] = await db.insert(tradehubPostMediaTable).values({
       postId,
@@ -1026,13 +1039,19 @@ router.get("/tradehub/profile/:userId/media", requireAuth, asyncHandler(async (r
   }
 }));
 
+const ProfileMediaBody = z.object({
+  url: z.string().url().max(2048),
+  objectPath: z.string().max(1024).optional(),
+  mediaType: z.enum(["image", "document"]).default("document"),
+  fileName: z.string().max(255).optional(),
+});
+
 // POST /tradehub/profile/me/media — add a photo or document to my profile
 router.post("/tradehub/profile/me/media", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const { url, objectPath, mediaType = "document", fileName } = req.body as {
-      url: string; objectPath?: string; mediaType?: string; fileName?: string;
-    };
-    if (!url) { res.status(400).json({ error: "url is required" }); return; }
+    const parsed = ProfileMediaBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() }); return; }
+    const { url, objectPath, mediaType, fileName } = parsed.data;
 
     const [media] = await db.insert(tradehubProfileMediaTable).values({
       userId: req.userId!,
@@ -1449,12 +1468,17 @@ router.get("/tradehub/conversations/:id/messages", requireAuth, asyncHandler(asy
   }
 }));
 
+const ConversationMessageBody = z.object({
+  content: z.string().min(1).max(10000).transform((s) => s.trim()),
+});
+
 // POST /tradehub/conversations/:id/messages — send a message
 router.post("/tradehub/conversations/:id/messages", requireAuth, asyncHandler(async (req, res) => {
   try {
     const convId = parseInt(req.params.id as string);
-    const { content } = req.body as { content: string };
-    if (!content?.trim()) { res.status(400).json({ error: "content required" }); return; }
+    const parsed = ConversationMessageBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "content required and must be non-empty", details: parsed.error.flatten() }); return; }
+    const { content } = parsed.data;
 
     // Verify participant
     const participants = await db

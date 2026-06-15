@@ -17,7 +17,7 @@ import { useColors } from "@/hooks/useColors";
 import {
   useOfflineQueue,
   type QueuedReport,
-  type SyncedReport,
+  type SyncedItem as SyncedReport,
 } from "@/context/OfflineQueueContext";
 import { useMediaQueue, type QueuedMedia } from "@/context/MediaQueueContext";
 import { useNoteQueue, type QueuedNote } from "@/context/NoteQueueContext";
@@ -122,24 +122,24 @@ function ReportCard({
         <View style={{ flex: 1 }}>
           <Text style={[styles.cardProject, { color: colors.foreground }]} numberOfLines={1}>{projectName}</Text>
           <Text style={[styles.cardDate, { color: colors.mutedForeground }]}>
-            {formatDate(item.reportData.reportDate)} · saved {timeAgo(item.createdAt)}
+            {formatDate(item.op.reportData.reportDate)} · saved {timeAgo(item.createdAt)}
           </Text>
         </View>
         <StatusPill status={item.status} retries={item.retries} />
       </View>
       <Text style={[styles.cardNotes, { color: colors.mutedForeground }]} numberOfLines={2}>
-        {item.reportData.workPerformed}
+        {item.op.reportData.workPerformed}
       </Text>
       <View style={styles.cardMeta}>
         <View style={styles.cardMetaItem}>
           <Feather name="users" size={12} color={colors.mutedForeground} />
-          <Text style={[styles.cardMetaText, { color: colors.mutedForeground }]}>{item.reportData.crewCount} crew</Text>
+          <Text style={[styles.cardMetaText, { color: colors.mutedForeground }]}>{item.op.reportData.crewCount} crew</Text>
         </View>
-        {item.photos.length > 0 && (
+        {item.op.photos.length > 0 && (
           <View style={styles.cardMetaItem}>
             <Feather name="image" size={12} color={colors.mutedForeground} />
             <Text style={[styles.cardMetaText, { color: colors.mutedForeground }]}>
-              {item.photos.length} photo{item.photos.length !== 1 ? "s" : ""}
+              {item.op.photos.length} photo{item.op.photos.length !== 1 ? "s" : ""}
             </Text>
           </View>
         )}
@@ -160,16 +160,18 @@ function SyncedCard({ item, projectName }: { item: SyncedReport; projectName: st
         <View style={{ flex: 1 }}>
           <Text style={[styles.cardProject, { color: colors.foreground }]} numberOfLines={1}>{projectName}</Text>
           <Text style={[styles.cardDate, { color: colors.mutedForeground }]}>
-            {formatDate(item.reportData.reportDate)} · synced {timeAgo(item.syncedAt)}
+            {item.op.type === "daily_report" ? formatDate(item.op.reportData.reportDate) + " · " : ""}synced {timeAgo(item.syncedAt)}
           </Text>
         </View>
         <View style={[styles.statusPill, { backgroundColor: "#DCFCE7" }]}>
           <Text style={[styles.statusPillText, { color: "#16A34A" }]}>Synced</Text>
         </View>
       </View>
-      <Text style={[styles.cardNotes, { color: colors.mutedForeground }]} numberOfLines={2}>
-        {item.reportData.workPerformed}
-      </Text>
+      {item.op.type === "daily_report" && (
+        <Text style={[styles.cardNotes, { color: colors.mutedForeground }]} numberOfLines={2}>
+          {item.op.reportData.workPerformed}
+        </Text>
+      )}
     </View>
   );
 }
@@ -302,8 +304,16 @@ export default function SyncQueueScreen() {
   const totalFailed = reportFailed + mediaFailed + notesFailed;
   const isSyncing = reportsSyncing || mediaSyncing || notesSyncing;
 
-  function getProjectName(projectId: number): string {
+  function getProjectName(projectId: number | null | undefined): string {
+    if (!projectId) return "General";
     return (projects ?? []).find((p) => p.id === projectId)?.name ?? `Project #${projectId}`;
+  }
+
+  function opProjectId(op: import("@/context/OfflineQueueContext").OfflineOp): number | null | undefined {
+    if (op.type === "daily_report") return op.projectId;
+    if (op.type === "timesheet") return op.body.projectId;
+    if (op.type === "safety_form") return op.body.projectId;
+    return null;
   }
 
   function syncAll() {
@@ -312,8 +322,8 @@ export default function SyncQueueScreen() {
     syncNotes();
   }
 
-  const pendingReports = queue.filter((r) => r.status === "pending");
-  const failedReports = queue.filter((r) => r.status === "failed");
+  const pendingReports = queue.filter((r) => r.status === "pending" && r.op.type === "daily_report") as QueuedReport[];
+  const failedReports = queue.filter((r) => r.status === "failed" && r.op.type === "daily_report") as QueuedReport[];
   const pendingMedia = mediaQueue.filter((m) => m.status === "pending");
   const failedMedia = mediaQueue.filter((m) => m.status === "failed");
   const pendingNotes = noteQueue.filter((n) => n.status === "pending");
@@ -387,7 +397,7 @@ export default function SyncQueueScreen() {
           <SectionHeader title={`Pending · ${totalPending}`} />
           <View style={styles.cardList}>
             {pendingReports.map((item) => (
-              <ReportCard key={item.id} item={item} projectName={getProjectName(item.projectId)} />
+              <ReportCard key={item.id} item={item} projectName={getProjectName(item.op.projectId)} />
             ))}
             {pendingMedia.map((item) => (
               <MediaCard key={item.id} item={item} />
@@ -430,7 +440,7 @@ export default function SyncQueueScreen() {
               <ReportCard
                 key={item.id}
                 item={item}
-                projectName={getProjectName(item.projectId)}
+                projectName={getProjectName(item.op.projectId)}
                 onRetry={() => retryReports()}
                 onDiscard={() =>
                   Alert.alert("Discard Report", "This report will be permanently deleted.", [
@@ -499,7 +509,7 @@ export default function SyncQueueScreen() {
         ) : (
           <View style={styles.cardList}>
             {syncedHistory.map((item) => (
-              <SyncedCard key={item.id} item={item} projectName={getProjectName(item.projectId)} />
+              <SyncedCard key={item.id} item={item} projectName={getProjectName(opProjectId(item.op))} />
             ))}
           </View>
         )}

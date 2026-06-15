@@ -135,23 +135,25 @@ export const requireAuth = async (
   const headerTenantId = req.headers["x-tenant-id"];
   if (headerTenantId != null) {
     const tenantId = Number(headerTenantId);
-    if (!isNaN(tenantId)) {
-      const allowed = memList.some((m) => m.companyId === tenantId);
-      if (!allowed) {
-        res.status(403).json({ error: "Invalid tenant context" });
-        return;
-      }
-      // If header tenant differs from the resolved company, trust the header
-      // (the user may have just switched and the DB activeCompanyId hasn't
-      // propagated yet, or they explicitly want this context).
-      if (tenantId !== req.companyId) {
-        const headerMembership = memList.find((m) => m.companyId === tenantId);
-        const headerRow = memberships.find((m) => m.companyId === tenantId);
-        if (headerMembership) {
-          req.companyId = headerMembership.companyId;
-          req.userRole = headerMembership.role;
-          req.userPermissions = headerRow?.permissions ?? null;
-        }
+    if (isNaN(tenantId) || !Number.isInteger(tenantId) || tenantId <= 0) {
+      res.status(400).json({ error: "x-tenant-id must be a positive integer" });
+      return;
+    }
+    const allowed = memList.some((m) => m.companyId === tenantId);
+    if (!allowed) {
+      res.status(403).json({ error: "Invalid tenant context" });
+      return;
+    }
+    // If header tenant differs from the resolved company, trust the header
+    // (the user may have just switched and the DB activeCompanyId hasn't
+    // propagated yet, or they explicitly want this context).
+    if (tenantId !== req.companyId) {
+      const headerMembership = memList.find((m) => m.companyId === tenantId);
+      const headerRow = memberships.find((m) => m.companyId === tenantId);
+      if (headerMembership) {
+        req.companyId = headerMembership.companyId;
+        req.userRole = headerMembership.role;
+        req.userPermissions = headerRow?.permissions ?? null;
       }
     }
   }

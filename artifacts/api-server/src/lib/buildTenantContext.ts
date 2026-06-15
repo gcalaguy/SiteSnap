@@ -48,7 +48,7 @@ export async function buildTenantContext(
   userRole?: string | null,
 ): Promise<string> {
   const isWorker = userRole === "worker";
-  const isPrivileged = userRole === "owner" || userRole === "foreman" || !userRole;
+  const isPrivileged = userRole === "owner" || userRole === "foreman";
   const today = new Date().toLocaleDateString("en-CA");
 
   const [

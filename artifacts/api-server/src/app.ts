@@ -55,12 +55,13 @@ const isDev = process.env.NODE_ENV !== "production";
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  // In dev, use a very high cap so the limiter is active (bugs surface locally)
+  // but developers are never accidentally blocked. In prod, enforce 500/15min.
+  max: isDev ? 5_000 : 500,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Too many requests — please slow down", code: "RATE_LIMITED" },
   skip: (req) =>
-    isDev ||
     req.path === "/api/healthz" ||
     req.path.startsWith("/api/stripe/webhook"),
 });
@@ -168,9 +169,10 @@ app.use("/api/v1/ai/transcribe", express.json({ limit: "20mb" }));
 // /api/ai/photo-summary accepts base64-encoded images
 app.use("/api/ai/photo-summary", express.json({ limit: "50mb" }));
 app.use("/api/v1/ai/photo-summary", express.json({ limit: "50mb" }));
-// Invoice send-email embeds a base64 PDF attachment (up to ~11 MB binary → ~15 M base64 chars)
-app.use("/api/invoices/:id/send-email", express.json({ limit: "20mb" }));
-app.use("/api/v1/invoices/:id/send-email", express.json({ limit: "20mb" }));
+// Invoice send-email: PDF is generated server-side; pdfBase64 is accepted for back-compat but
+// ignored (capped at 1 char in the Zod schema). 5 MB is ample for all other fields.
+app.use("/api/invoices/:id/send-email", express.json({ limit: "5mb" }));
+app.use("/api/v1/invoices/:id/send-email", express.json({ limit: "5mb" }));
 
 // Global body-size limit — protects all other routes from oversized payloads.
 // Routes that legitimately need more space have a per-route override above.
@@ -191,7 +193,14 @@ app.use(
 // Mount at /api/v1 (versioned) and /api (legacy backward-compatible alias).
 // New clients should use /api/v1; existing clients on /api continue to work.
 app.use("/api/v1", router);
-app.use("/api", router);
+// Legacy /api mount — set a deprecation header so API consumers can migrate.
+// WAF/rate-limit rules on /api/v1 do NOT cover this path, so it should be
+// removed once all clients have migrated to /api/v1.
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Deprecation", "true");
+  res.setHeader("Link", '</api/v1>; rel="successor-version"');
+  next();
+}, router);
 
 // ── Global error handler — must be last ─────────────────────────────────────
 // Catches any error thrown or passed to next() from routes/middlewares above.
