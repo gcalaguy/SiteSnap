@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
@@ -8,7 +8,7 @@ import {
   Globe, Plus, ThumbsUp, MessageSquare, Briefcase, Search, Bell, User,
   ChevronRight, X, Send, Loader2, Sparkles, MessageCircle, MapPin, BadgeCheck,
   ArrowUp, ArrowUpDown, Clock, DollarSign, Calendar, ShieldAlert,
-  CheckCircle2
+  CheckCircle2, ImagePlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,7 @@ const PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","
 const typeConfig: Record<string, { label: string; accent: string; icon: React.ElementType }> = {
   discussion: { label: "Discussion", accent: "#3b82f6", icon: MessageSquare },
   job:        { label: "Job",        accent: GOLD,      icon: Briefcase },
-  showcase:   { label: "Showcase",   accent: "#a855f7", icon: Sparkles },
+  showcase:   { label: "Showcase",   accent: "#10b981", icon: Sparkles },
 };
 
 interface Post {
@@ -315,6 +315,8 @@ function TenderCard({
   );
 }
 
+interface PendingMedia { file: File; preview: string; uploading: boolean; objectPath?: string }
+
 function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -325,6 +327,8 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
   const [province, setProvince] = useState("");
   const [budget, setBudget] = useState("");
   const [jobType, setJobType] = useState("");
+  const [mediaItems, setMediaItems] = useState<PendingMedia[]>([]);
+  const mediaRef = useRef<HTMLInputElement>(null);
 
   const draft = useDraftRecovery(
     "tradehub-post",
@@ -340,16 +344,53 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
     }
   );
 
+  async function uploadMedia(file: File, index: number): Promise<string | null> {
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/tradehub/uploads/file", { method: "POST", body: fd, credentials: "include" });
+      if (!res.ok) return null;
+      const { objectPath } = await res.json() as { objectPath: string };
+      setMediaItems((prev) => prev.map((m, i) => i === index ? { ...m, uploading: false, objectPath } : m));
+      return objectPath;
+    } catch {
+      return null;
+    }
+  }
+
+  function addMediaFile(file: File) {
+    const preview = URL.createObjectURL(file);
+    const index = mediaItems.length;
+    setMediaItems((prev) => [...prev, { file, preview, uploading: true }]);
+    uploadMedia(file, index);
+  }
+
   const createMutation = useMutation({
-    mutationFn: () => customFetch("/api/tradehub/posts", {
-      method: "POST",
-      body: JSON.stringify({ type, title, content, trade: trade || undefined, province: province || undefined, budget: budget || undefined, jobType: jobType || undefined }),
-    }),
+    mutationFn: async () => {
+      const post = await customFetch("/api/tradehub/posts", {
+        method: "POST",
+        body: JSON.stringify({ type, title, content, trade: trade || undefined, province: province || undefined, budget: budget || undefined, jobType: jobType || undefined }),
+      }) as { id: number };
+      // Attach any uploaded media
+      await Promise.all(
+        mediaItems
+          .filter((m) => m.objectPath)
+          .map((m) =>
+            customFetch(`/api/tradehub/posts/${post.id}/media`, {
+              method: "POST",
+              body: JSON.stringify({ url: m.objectPath!, objectPath: m.objectPath!, mediaType: "image" }),
+            })
+          )
+      );
+      return post;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tradehub-feed"] });
       queryClient.invalidateQueries({ queryKey: ["tradehub-forum"] });
       toast({ title: "Post published to TradeHub!" });
       draft.clearDraft();
+      mediaItems.forEach((m) => URL.revokeObjectURL(m.preview));
+      setMediaItems([]);
       onClose();
       setTitle(""); setContent(""); setType("discussion");
     },
@@ -417,6 +458,45 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
               </div>
             </div>
           )}
+          {/* Media attachments */}
+          <div>
+            <input
+              ref={mediaRef}
+              type="file"
+              className="hidden"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) { addMediaFile(f); if (mediaRef.current) mediaRef.current.value = ""; } }}
+            />
+            {mediaItems.length > 0 && (
+              <div className="grid grid-cols-3 gap-1.5 mb-2">
+                {mediaItems.map((m, i) => (
+                  <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-muted border border-border/60">
+                    <img src={m.preview} alt="" className="object-cover w-full h-full" />
+                    {m.uploading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <Loader2 className="h-4 w-4 text-white animate-spin" />
+                      </div>
+                    )}
+                    <button
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
+                      onClick={() => { URL.revokeObjectURL(m.preview); setMediaItems((prev) => prev.filter((_, j) => j !== i)); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {mediaItems.length < 4 && (
+              <button
+                type="button"
+                onClick={() => mediaRef.current?.click()}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+              >
+                <ImagePlus className="h-3.5 w-3.5" />Add Photo
+              </button>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>

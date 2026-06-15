@@ -6,6 +6,11 @@ import { customFetch } from "@workspace/api-client-react";
 export function getSignedUrlPath(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const normalized = raw.replace(/^\//, "");
+  // TradeHub cross-company objects use their own auth-only endpoint
+  if (normalized.startsWith("tradehub-objects/")) {
+    const rest = normalized.replace(/^tradehub-objects\//, "");
+    return `/api/tradehub/objects/${rest}/signed-url`;
+  }
   if (normalized.startsWith("objects/")) {
     const rest = normalized.replace(/^objects\//, "");
     return `/api/storage/objects/${rest}/signed-url`;

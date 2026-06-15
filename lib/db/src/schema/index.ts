@@ -1223,6 +1223,17 @@ export const tradehubPostMediaTable = pgTable("tradehub_post_media", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const tradehubProfileMediaTable = pgTable("tradehub_profile_media", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  objectPath: text("object_path"),
+  mediaType: text("media_type").notNull().default("document"),
+  fileName: text("file_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type TradehubProfileMedia = typeof tradehubProfileMediaTable.$inferSelect;
+
 export const tradehubCommentsTable = pgTable("tradehub_comments", {
   id: serial("id").primaryKey(),
   postId: integer("post_id").notNull().references(() => tradehubPostsTable.id, { onDelete: "cascade" }),

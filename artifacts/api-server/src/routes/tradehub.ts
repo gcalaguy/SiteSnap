@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { createReadStream } from "fs";
 import { eq, and, or, desc, sql, inArray, type SQL } from "drizzle-orm";
 import {
   db,
@@ -7,6 +8,7 @@ import {
   tradehubProfilesTable,
   tradehubPostsTable,
   tradehubPostMediaTable,
+  tradehubProfileMediaTable,
   tradehubCommentsTable,
   tradehubReactionsTable,
   tradehubJobApplicationsTable,
@@ -22,7 +24,12 @@ import {
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { notify } from "../lib/notify";
+import { diskUpload, cleanupUpload } from "../lib/upload.js";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage.js";
+import { ObjectPermission } from "../lib/objectAcl.js";
 import { z } from "zod";
+
+const objectStorageService = new ObjectStorageService();
 
 const router = Router();
 
@@ -677,6 +684,105 @@ router.post("/tradehub/job-postings/:id/apply", requireAuth, asyncHandler(async 
   }
 }));
 
+// ── TRADEHUB FILE UPLOADS ─────────────────────────────────────────────────────
+
+const TRADEHUB_ALLOWED_MIME = new Set([
+  "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+]);
+const TRADEHUB_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+
+// POST /tradehub/uploads/file — auth only (no company required)
+// Used for profile photos and profile documents in the cross-company social feed.
+router.post(
+  "/tradehub/uploads/file",
+  requireAuth,
+  diskUpload.single("file"),
+  asyncHandler(async (req, res) => {
+    if (!req.file) { res.status(400).json({ error: "No file uploaded" }); return; }
+    const mimeType = req.file.mimetype || "";
+    if (!TRADEHUB_ALLOWED_MIME.has(mimeType)) {
+      await cleanupUpload(req.file.path);
+      res.status(400).json({ error: "File type not permitted", code: "INVALID_FILE_TYPE" });
+      return;
+    }
+    if (req.file.size > TRADEHUB_MAX_BYTES) {
+      await cleanupUpload(req.file.path);
+      res.status(400).json({ error: "File exceeds 10 MB limit", code: "FILE_TOO_LARGE" });
+      return;
+    }
+    try {
+      const rawPath = await objectStorageService.uploadStream(createReadStream(req.file.path), mimeType);
+      // Set visibility=public so any authenticated user can retrieve it via
+      // GET /tradehub/objects/:path/signed-url (cross-company social network).
+      await objectStorageService.trySetObjectEntityAclPolicy(rawPath, {
+        owner: String(req.userId!),
+        visibility: "public",
+      });
+      // Strip leading slash and "objects/" to store a stable prefix
+      const suffix = rawPath.replace(/^\/objects\//, "");
+      res.json({ objectPath: `tradehub-objects/${suffix}`, fileName: req.file.originalname });
+    } catch (err: any) {
+      req.log.error({ err }, "tradehub/uploads/file error");
+      res.status(500).json({ error: "Upload failed" });
+    } finally {
+      await cleanupUpload(req.file?.path);
+    }
+  }),
+);
+
+// GET /tradehub/objects/:path/signed-url — auth only, no company required
+// Resolves a tradehub-objects/ path to a short-lived GCS signed URL.
+router.get("/tradehub/objects/*path/signed-url", requireAuth, asyncHandler(async (req, res) => {
+  try {
+    const raw = req.params.path as string | string[];
+    const suffix = Array.isArray(raw) ? raw.join("/") : raw;
+    const objectPath = `/objects/${suffix}`;
+    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+    const canAccess = await objectStorageService.canAccessObjectEntity({
+      userId: String(req.userId!),
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!canAccess) { res.status(404).json({ error: "Object not found" }); return; }
+    const signedUrl = await objectStorageService.getObjectEntityReadURL(objectPath, 900);
+    res.json({ url: signedUrl, objectPath: `tradehub-objects/${suffix}` });
+  } catch (err: any) {
+    if (err instanceof ObjectNotFoundError) { res.status(404).json({ error: "Object not found" }); return; }
+    req.log.error({ err }, "tradehub/objects/signed-url error");
+    res.status(500).json({ error: "Failed to generate signed URL" });
+  }
+}));
+
+// ── POST MEDIA ────────────────────────────────────────────────────────────────
+
+// POST /tradehub/posts/:id/media — attach a media item to a post (owner only)
+router.post("/tradehub/posts/:id/media", requireAuth, asyncHandler(async (req, res) => {
+  try {
+    const postId = parseInt(req.params.id as string);
+    const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, postId)).limit(1);
+    if (!post) { res.status(404).json({ error: "Post not found" }); return; }
+    if (post.userId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
+
+    const { url, objectPath, mediaType = "image" } = req.body as { url: string; objectPath?: string; mediaType?: string };
+    if (!url) { res.status(400).json({ error: "url is required" }); return; }
+
+    const [media] = await db.insert(tradehubPostMediaTable).values({
+      postId,
+      url,
+      objectPath: objectPath ?? null,
+      mediaType,
+    }).returning();
+    res.json(media);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/posts/:id/media POST error");
+    res.status(500).json({ error: "Failed to attach media" });
+  }
+}));
+
 // ── PROFILES ─────────────────────────────────────────────────────────────────
 
 // GET /tradehub/profile/me
@@ -864,6 +970,79 @@ const SaveCalculationBody = z.object({
   summary: z.string().max(2000).optional(),
   aiSummary: z.string().max(2000).optional(),
 });
+
+// ── PROFILE MEDIA (photos + documents) ───────────────────────────────────────
+
+// GET /tradehub/profile/me/media — list my profile media
+router.get("/tradehub/profile/me/media", requireAuth, asyncHandler(async (req, res) => {
+  try {
+    const media = await db
+      .select()
+      .from(tradehubProfileMediaTable)
+      .where(eq(tradehubProfileMediaTable.userId, req.userId!))
+      .orderBy(desc(tradehubProfileMediaTable.createdAt));
+    res.json(media);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/me/media GET error");
+    res.status(500).json({ error: "Failed to load media" });
+  }
+}));
+
+// GET /tradehub/profile/:userId/media — list another user's profile media
+router.get("/tradehub/profile/:userId/media", requireAuth, asyncHandler(async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId as string);
+    const media = await db
+      .select()
+      .from(tradehubProfileMediaTable)
+      .where(eq(tradehubProfileMediaTable.userId, userId))
+      .orderBy(desc(tradehubProfileMediaTable.createdAt));
+    res.json(media);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/:userId/media GET error");
+    res.status(500).json({ error: "Failed to load media" });
+  }
+}));
+
+// POST /tradehub/profile/me/media — add a photo or document to my profile
+router.post("/tradehub/profile/me/media", requireAuth, asyncHandler(async (req, res) => {
+  try {
+    const { url, objectPath, mediaType = "document", fileName } = req.body as {
+      url: string; objectPath?: string; mediaType?: string; fileName?: string;
+    };
+    if (!url) { res.status(400).json({ error: "url is required" }); return; }
+
+    const [media] = await db.insert(tradehubProfileMediaTable).values({
+      userId: req.userId!,
+      url,
+      objectPath: objectPath ?? null,
+      mediaType,
+      fileName: fileName ?? null,
+    }).returning();
+    res.json(media);
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/me/media POST error");
+    res.status(500).json({ error: "Failed to add media" });
+  }
+}));
+
+// DELETE /tradehub/profile/media/:id — remove a media item (owner only)
+router.delete("/tradehub/profile/media/:id", requireAuth, asyncHandler(async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string);
+    const [item] = await db
+      .select()
+      .from(tradehubProfileMediaTable)
+      .where(and(eq(tradehubProfileMediaTable.id, id), eq(tradehubProfileMediaTable.userId, req.userId!)))
+      .limit(1);
+    if (!item) { res.status(404).json({ error: "Not found" }); return; }
+    await db.delete(tradehubProfileMediaTable).where(eq(tradehubProfileMediaTable.id, id));
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err }, "tradehub/profile/media DELETE error");
+    res.status(500).json({ error: "Failed to delete media" });
+  }
+}));
 
 // POST /tradehub/profile/calculations — save a calculation to own profile
 router.post("/tradehub/profile/calculations", requireAuth, asyncHandler(async (req, res) => {

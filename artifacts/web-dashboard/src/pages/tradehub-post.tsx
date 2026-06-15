@@ -35,7 +35,7 @@ import { Label } from "@/components/ui/label";
 const typeConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   discussion: { label: "Discussion", color: "bg-blue-100 text-blue-700", icon: MessageSquare },
   job:        { label: "Job",        color: "bg-green-100 text-green-700", icon: Briefcase },
-  showcase:   { label: "Showcase",   color: "bg-purple-100 text-purple-700", icon: Sparkles },
+  showcase:   { label: "Showcase",   color: "bg-emerald-100 text-emerald-700", icon: Sparkles },
 };
 
 export default function TradehubPostPage() {

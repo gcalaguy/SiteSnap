@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { customFetch } from "@workspace/api-client-react";
 import {
   useGetMe,
   useGetTradehubProfileMe,
@@ -22,9 +23,11 @@ import { format } from "date-fns";
 import {
   ArrowLeft, Pencil, Save, Loader2, Globe, Briefcase,
   MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2, MessageCircle, Mic,
+  Upload, Trash2, FileText, Image as ImageIcon, X,
 } from "lucide-react";
 import { VoiceRecorder, VoicePlayer } from "@/components/voice-recorder";
 import { SignedAvatar } from "@/components/SignedAvatar";
+import { SignedImage } from "@/components/SignedImage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,7 +45,7 @@ const PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","
 const typeConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   discussion: { label: "Discussion", color: "bg-blue-100 text-blue-700", icon: MessageSquare },
   job:        { label: "Job",        color: "bg-green-100 text-green-700", icon: Briefcase },
-  showcase:   { label: "Showcase",   color: "bg-purple-100 text-purple-700", icon: Sparkles },
+  showcase:   { label: "Showcase",   color: "bg-emerald-100 text-emerald-700", icon: Sparkles },
 };
 
 export default function TradehubProfilePage() {
@@ -54,7 +57,7 @@ export default function TradehubProfilePage() {
 
   const isMe = userId === "me";
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ displayName: "", trade: "", location: "", province: "", bio: "", website: "", complianceStatus: "compliant" });
+  const [form, setForm] = useState({ displayName: "", trade: "", location: "", province: "", bio: "", website: "", complianceStatus: "compliant", avatarUrl: "" });
 
   const { data: profileMe, isLoading: loadingMe } = useGetTradehubProfileMe();
   const { data: profileOther, isLoading: loadingOther } = useGetTradehubProfile(
@@ -112,6 +115,7 @@ export default function TradehubProfilePage() {
         bio: profile.bio ?? "",
         website: profile.website ?? "",
         complianceStatus: profile.complianceStatus ?? "compliant",
+        avatarUrl: profile.avatarUrl ?? "",
       });
     }
   }, [profile, isMe]);
@@ -125,6 +129,29 @@ export default function TradehubProfilePage() {
       },
       onError: () => toast({ title: "Error", description: "Failed to save profile", variant: "destructive" }),
     },
+  });
+
+  const { data: myMedia = [] } = useQuery<any[]>({
+    queryKey: ["tradehub-profile-media-me"],
+    queryFn: () => customFetch("/api/tradehub/profile/me/media"),
+    enabled: isMe,
+  });
+  const { data: theirMedia = [] } = useQuery<any[]>({
+    queryKey: ["tradehub-profile-media", userId],
+    queryFn: () => customFetch(`/api/tradehub/profile/${userId}/media`),
+    enabled: !isMe,
+  });
+  const profileMedia: any[] = isMe ? myMedia : theirMedia;
+
+  const addMediaMutation = useMutation({
+    mutationFn: (payload: { url: string; objectPath?: string; mediaType: string; fileName?: string }) =>
+      customFetch("/api/tradehub/profile/me/media", { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-profile-media-me"] }),
+    onError: () => toast({ title: "Error", description: "Failed to save media", variant: "destructive" }),
+  });
+  const deleteMediaMutation = useMutation({
+    mutationFn: (id: number) => customFetch(`/api/tradehub/profile/media/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-profile-media-me"] }),
   });
 
   if (isLoading) {
@@ -279,6 +306,83 @@ export default function TradehubProfilePage() {
             </Card>
           )}
 
+          {/* ── Photos & Documents ── */}
+          {(isMe || profileMedia.length > 0) && (
+            <Card>
+              <CardHeader className="flex-row items-center justify-between pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-primary" />
+                  Photos &amp; Documents
+                </CardTitle>
+                {isMe && (
+                  <ProfileMediaUploader
+                    onUploaded={(item) => addMediaMutation.mutate(item)}
+                  />
+                )}
+              </CardHeader>
+              <CardContent>
+                {profileMedia.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {isMe ? "Upload photos or documents to showcase your work." : "No media uploaded yet."}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Photos */}
+                    {profileMedia.filter((m: any) => m.mediaType === "photo").length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Photos</p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {profileMedia.filter((m: any) => m.mediaType === "photo").map((m: any) => (
+                            <div key={m.id} className="relative group aspect-square rounded-lg overflow-hidden bg-muted">
+                              <SignedImage src={m.url} alt={m.fileName ?? ""} className="object-cover w-full h-full" />
+                              {isMe && (
+                                <button
+                                  onClick={() => deleteMediaMutation.mutate(m.id)}
+                                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Documents */}
+                    {profileMedia.filter((m: any) => m.mediaType === "document").length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Documents</p>
+                        <div className="space-y-1.5">
+                          {profileMedia.filter((m: any) => m.mediaType === "document").map((m: any) => (
+                            <div key={m.id} className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors group">
+                              <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <a
+                                href={m.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex-1 text-sm truncate hover:underline text-foreground"
+                              >
+                                {m.fileName ?? "Document"}
+                              </a>
+                              {isMe && (
+                                <button
+                                  onClick={() => deleteMediaMutation.mutate(m.id)}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {editing && isMe && (
             <Card>
               <CardHeader><CardTitle className="text-base">Edit Profile</CardTitle></CardHeader>
@@ -397,9 +501,111 @@ export default function TradehubProfilePage() {
   );
 }
 
-function ProfileForm({ form, setForm }: { form: any; setForm: any }) {
+function ProfileMediaUploader({ onUploaded }: {
+  onUploaded: (item: { url: string; objectPath?: string; mediaType: string; fileName?: string }) => void
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/tradehub/uploads/file", {
+        method: "POST",
+        body: form,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error ?? "Upload failed");
+      }
+      const { objectPath, fileName } = await res.json() as { objectPath: string; fileName: string };
+      const isImage = file.type.startsWith("image/");
+      onUploaded({
+        url: objectPath,
+        objectPath,
+        mediaType: isImage ? "photo" : "document",
+        fileName: file.name ?? fileName,
+      });
+      toast({ title: isImage ? "Photo uploaded!" : "Document uploaded!" });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
   return (
     <>
+      <input
+        ref={fileRef}
+        type="file"
+        className="hidden"
+        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+      />
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1.5 text-xs h-7"
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+      >
+        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+        {uploading ? "Uploading…" : "Add"}
+      </Button>
+    </>
+  );
+}
+
+function ProfileForm({ form, setForm }: { form: any; setForm: any }) {
+  const { toast } = useToast();
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarRef = useRef<HTMLInputElement>(null);
+
+  async function handleAvatarFile(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Images only", description: "Please pick a JPEG, PNG, or WebP image.", variant: "destructive" });
+      return;
+    }
+    setAvatarUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/tradehub/uploads/file", { method: "POST", body: fd, credentials: "include" });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error((e as any).error ?? "Upload failed"); }
+      const { objectPath } = await res.json() as { objectPath: string };
+      setForm((p: any) => ({ ...p, avatarUrl: objectPath }));
+      toast({ title: "Photo updated — save to apply." });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setAvatarUploading(false);
+      if (avatarRef.current) avatarRef.current.value = "";
+    }
+  }
+
+  return (
+    <>
+      {/* Avatar upload */}
+      <div className="flex items-center gap-4 pb-2">
+        <div className="w-16 h-16 rounded-full overflow-hidden bg-muted flex-shrink-0">
+          <SignedAvatar url={form.avatarUrl} sizeClass="w-16 h-16" initials={form.displayName?.slice(0, 2).toUpperCase() ?? "?"} />
+        </div>
+        <div>
+          <input ref={avatarRef} type="file" className="hidden" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatarFile(f); }} />
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" disabled={avatarUploading} onClick={() => avatarRef.current?.click()}>
+            {avatarUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            {avatarUploading ? "Uploading…" : "Change Photo"}
+          </Button>
+          <p className="text-xs text-muted-foreground mt-1">JPG, PNG or WebP · max 10 MB</p>
+        </div>
+      </div>
+
       <div className="space-y-1.5">
         <Label>Display Name *</Label>
         <Input value={form.displayName} onChange={(e) => setForm((p: any) => ({ ...p, displayName: e.target.value }))} placeholder="Your name as tradespeople will see it" />
