@@ -22,10 +22,5 @@
   "dependencies": {
     "stripe": "^22.1.0",
     "stripe-replit-sync": "^1.0.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "esbuild": "^0.28.1"
-    }
   }
 }
