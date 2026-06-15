@@ -809,9 +809,10 @@ router.get("/tradehub/profile/:userId", requireAuth, asyncHandler(async (req, re
       .from(tradehubProfilesTable)
       .where(eq(tradehubProfilesTable.userId, userId))
       .limit(1);
-    if (!profile) { res.status(404).json({ error: "Profile not found" }); return; }
 
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
     const posts = await db
       .select()
       .from(tradehubPostsTable)
@@ -819,7 +820,28 @@ router.get("/tradehub/profile/:userId", requireAuth, asyncHandler(async (req, re
       .orderBy(desc(tradehubPostsTable.createdAt))
       .limit(10);
 
-    res.json({ ...profile, user: user ?? null, recentPosts: posts });
+    if (profile) {
+      res.json({ ...profile, user, recentPosts: posts });
+    } else {
+      // Synthetic minimal profile for users who haven't set up their TradeHub profile yet
+      res.json({
+        id: null,
+        userId,
+        displayName: [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
+        trade: null,
+        location: null,
+        province: null,
+        bio: null,
+        website: null,
+        avatarUrl: null,
+        isVerified: false,
+        memberSince: user.createdAt ?? null,
+        createdAt: user.createdAt ?? null,
+        updatedAt: null,
+        user,
+        recentPosts: posts,
+      });
+    }
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/:userId error");
     res.status(500).json({ error: "Failed to load profile" });
