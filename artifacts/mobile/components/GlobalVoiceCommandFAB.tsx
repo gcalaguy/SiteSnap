@@ -709,7 +709,49 @@ export function GlobalVoiceCommandFAB() {
         console.warn("[VoiceNav] Unmapped target:", target);
       }
     },
-    onAddNote: (payload) => addResult("file-text", "Note", payload.slice(0, 60), "ok"),
+    onAddNote: async (payload) => {
+      addResult("file-text", "Note", "Saving...", "pending");
+
+      const updateLastNote = (icon: string, label: string, detail: string, status: ResultLine["status"]) => {
+        setResults((prev) => {
+          for (let i = prev.length - 1; i >= 0; i--) {
+            if (prev[i].label === "Note" && prev[i].status === "pending") {
+              const copy = [...prev];
+              copy[i] = { icon, label, detail, status };
+              return copy;
+            }
+          }
+          return prev;
+        });
+      };
+
+      try {
+        let proj = resolveProject(activeProjectName);
+        if (!proj) {
+          try {
+            proj = await askPickProject();
+          } catch {
+            updateLastNote("x", "Note", "Cancelled", "error");
+            return;
+          }
+        }
+        await createDailyReport.mutateAsync({
+          projectId: proj.id,
+          data: {
+            reportDate: new Date().toISOString().split("T")[0],
+            crewCount: 1,
+            workPerformed: payload,
+            notes: payload,
+          },
+        });
+        qc.invalidateQueries({ queryKey: getListDailyReportsQueryKey(proj.id) });
+        invalidateDashboard();
+        updateLastNote("check", "Note saved", `Saved to ${proj.name}`, "ok");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to save note";
+        updateLastNote("x", "Note", msg, "error");
+      }
+    },
     onAskAssistant: (question) => {
       addResult("cpu", "AI Assistant", question.slice(0, 60), "ok");
       setTimeout(() => {

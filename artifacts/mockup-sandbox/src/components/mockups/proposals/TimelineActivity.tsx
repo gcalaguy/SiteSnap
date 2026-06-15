@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Plus, FileSignature, Send, CheckCircle2, XCircle, Clock, ArrowRight, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, FileSignature, Send, CheckCircle2, XCircle, Clock, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
 
 const GOLD = "#D4AF37";
-const BLACK = "#121212";
 
 const timeline = [
   {

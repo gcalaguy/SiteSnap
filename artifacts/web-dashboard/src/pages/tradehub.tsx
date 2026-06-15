@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { customFetch, useGetMe } from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
   Globe, Plus, ThumbsUp, MessageSquare, Briefcase, Search, Bell, User,
   ChevronRight, X, Send, Loader2, Sparkles, MessageCircle, MapPin, BadgeCheck,
-  ArrowUp, ArrowDown, ArrowUpDown, Clock, DollarSign, Calendar, ShieldAlert,
-  CheckCircle2, Filter
+  ArrowUp, ArrowUpDown, Clock, DollarSign, Calendar, ShieldAlert,
+  CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -212,7 +212,6 @@ function TenderCard({
 }) {
   const isNonCompliant = myProfile?.complianceStatus === "non_compliant";
   const isWarning = myProfile?.complianceStatus === "warning";
-  const compliance = myProfile?.complianceStatus ?? "compliant";
   const [showApplyDialog, setShowApplyDialog] = useState(false);
   const [applyMsg, setApplyMsg] = useState("");
 
@@ -518,7 +517,7 @@ function CreateTenderModal({ open, onClose }: { open: boolean; onClose: () => vo
 export default function TradehubPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: me } = useGetMe();
+
   const [activeTab, setActiveTab] = useState<"feed" | "forums" | "tenders">("feed");
   const [showCreate, setShowCreate] = useState(false);
   const [showTenderCreate, setShowTenderCreate] = useState(false);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useLocation, Link } from "wouter";
+import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetMe,
@@ -32,7 +32,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { ReviewSummaryCard } from "@/components/tradehub/ReviewSummaryCard";
 import { ReviewFeedList } from "@/components/tradehub/ReviewFeedList";
 import { ReviewFormModal } from "@/components/tradehub/ReviewFormModal";
@@ -48,7 +47,7 @@ const typeConfig: Record<string, { label: string; color: string; icon: React.Ele
 
 export default function TradehubProfilePage() {
   const { userId } = useParams<{ userId: string }>();
-  const [, setLocation] = useLocation();
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: me } = useGetMe();
@@ -65,7 +64,6 @@ export default function TradehubProfilePage() {
   const profile = isMe ? profileMe : profileOther;
   const isLoading = isMe ? loadingMe : loadingOther;
 
-  const myProfile = profileMe;
 
   const { data: notifications = [] } = useListTradehubNotifications();
 

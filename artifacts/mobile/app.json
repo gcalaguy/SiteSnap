@@ -16,7 +16,8 @@
     "ios": {
       "supportsTablet": false,
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": ["remote-notification"],
+        "NSMicrophoneUsageDescription": "Site Snap uses your microphone for voice commands so you can log hours, daily notes, and project updates hands-free."
       }
     },
     "android": {
@@ -24,7 +25,8 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "RECORD_AUDIO"
       ]
     },
     "web": {
@@ -69,7 +71,8 @@
           "microphonePermission": "Site Snap uses the microphone when recording site scan videos.",
           "recordAudioAndroid": true
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

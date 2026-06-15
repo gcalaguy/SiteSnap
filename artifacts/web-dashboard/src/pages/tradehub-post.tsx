@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
   ArrowLeft, ThumbsUp, MessageSquare, Briefcase, Send, Loader2,
-  Flag, Trash2, CheckCircle2, Sparkles, Globe
+  Flag, Trash2, CheckCircle2, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +28,6 @@ import { Separator } from "@/components/ui/separator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { SignedAvatar } from "@/components/SignedAvatar";
 import { SignedImage } from "@/components/SignedImage";
 import { Label } from "@/components/ui/label";

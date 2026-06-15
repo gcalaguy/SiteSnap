@@ -128,12 +128,6 @@ const fmtCAD = new Intl.NumberFormat("en-CA", {
   currency: "CAD",
   maximumFractionDigits: 0,
 });
-const fmtCAD2 = new Intl.NumberFormat("en-CA", {
-  style: "currency",
-  currency: "CAD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 
 // ── CostModel Edit Modal ──────────────────────────────────────────────────────
 

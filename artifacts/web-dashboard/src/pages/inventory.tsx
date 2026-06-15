@@ -1,13 +1,11 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetMe, useListProjects, useListCompanyMembers, customFetch } from "@workspace/api-client-react";
 import {
   format, addDays, startOfWeek, parseISO, isSameDay, addWeeks, subWeeks,
   eachDayOfInterval, isWithinInterval,
 } from "date-fns";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,9 +22,9 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ChevronLeft, ChevronRight, Plus, Loader2, Truck, Wrench,
-  Package, HardHat, AlertTriangle, CheckCircle2, XCircle,
+  Package, AlertTriangle, CheckCircle2, XCircle,
   MapPin, Calendar, RotateCcw, Pencil, Trash2, ArrowRightLeft,
-  Search, Filter, RefreshCw, Layers,
+  Search, Layers,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,7 +32,6 @@ import { useToast } from "@/hooks/use-toast";
 
 const GOLD = "#D4AF37";
 const BLACK = "#0A0A0A";
-const SURFACE = "#141414";
 
 const SCHEDULE_COLORS = [
   "#D4AF37", "#3B82F6", "#10B981", "#8B5CF6",
@@ -131,19 +128,6 @@ function SkeletonCard() {
       <div className="h-4 w-2/3 bg-gray-100 rounded mb-3" />
       <div className="h-8 w-1/3 bg-gray-100 rounded mb-2" />
       <div className="h-3 w-1/2 bg-gray-100 rounded" />
-    </div>
-  );
-}
-
-function SkeletonRow() {
-  return (
-    <div className="flex items-center gap-3 px-4 py-3 animate-pulse">
-      <div className="h-8 w-8 rounded-lg bg-gray-100 flex-shrink-0" />
-      <div className="flex-1">
-        <div className="h-3.5 w-40 bg-gray-100 rounded mb-2" />
-        <div className="h-3 w-24 bg-gray-100 rounded" />
-      </div>
-      <div className="h-6 w-20 bg-gray-100 rounded-full" />
     </div>
   );
 }
@@ -516,7 +500,6 @@ function MaterialsBoard() {
   });
 
   const materials = data?.data ?? [];
-  const alerts = materials.filter((m) => m.stockStatus !== "in_stock").length;
 
   const CATEGORIES = [
     "all", "lumber", "concrete", "gravel", "safety_gear",

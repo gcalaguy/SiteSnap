@@ -58,9 +58,8 @@ import { format } from "date-fns";
 import ImportCostModelDialog from "@/components/ImportCostModelDialog";
 import jsPDF from "jspdf";
 import { renderSignatureBlock } from "@/lib/signaturePdf";
-import { SignaturePad } from "@/components/SignaturePad";
 import { SignatureBadge } from "@/components/SignatureBadge";
-import { Share2, Copy, ShieldCheck } from "lucide-react";
+import { Share2 } from "lucide-react";
 import autoTable from "jspdf-autotable";
 
 function imgFmt(dataUrl: string): string {

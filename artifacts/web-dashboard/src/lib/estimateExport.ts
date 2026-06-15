@@ -322,7 +322,7 @@ export async function downloadEstimateDocx(estimate: Estimate, logoDataUrl?: str
   const {
     Document, Packer, Paragraph, Table, TableRow, TableCell,
     TextRun, HeadingLevel, AlignmentType, WidthType, ShadingType,
-    BorderStyle, TableLayoutType, ImageRun,
+    TableLayoutType, ImageRun,
   } = await import("docx");
 
   const r = estimate.result ?? {};

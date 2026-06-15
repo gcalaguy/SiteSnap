@@ -1,6 +1,5 @@
 import { useState, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@clerk/react";
 import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { downloadEstimatePDF, downloadEstimateDocx, printEstimate, type CompanyInfo } from "@/lib/estimateExport";
@@ -11,7 +10,6 @@ import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { updateBuilderEstimateBodyNotesMax as NOTES_MAX } from "@workspace/api-zod";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -75,7 +73,6 @@ type Estimate = {
 
 const LazySplatViewer = lazy(() => import("@/components/SplatViewer"));
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function fmt(n: number | undefined | null) {
   if (n == null) return "—";
@@ -852,7 +849,7 @@ function HistoryCard({ estimate, onDelete, onView }: {
 export default function EstimatesPage() {
   const { toast } = useToast();
   const { data: me } = useGetMe();
-  const { getToken } = useAuth();
+
 
   const [tab, setTab] = useState<"estimator" | "history">("estimator");
   const [activeEstimate, setActiveEstimate] = useState<Estimate | null>(null);

@@ -325,7 +325,6 @@ router.get(
         createdAt: usersTable.createdAt,
         pushToken: usersTable.pushToken,
         termsAcceptedAt: usersTable.termsAcceptedAt,
-        systemRole: usersTable.systemRole,
         activeCompanyId: usersTable.activeCompanyId,
         role: userMembershipsTable.role,
       })

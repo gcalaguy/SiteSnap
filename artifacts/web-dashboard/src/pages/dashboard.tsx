@@ -366,45 +366,6 @@ function RiskOverviewCards({ data }: { data: RiskDashboardData }) {
   );
 }
 
-// ── Health bar (30-day) ───────────────────────────────────────────────────────
-
-function RiskHealthBar({ health }: { health: RiskDashboardData["health"] }) {
-  const total = health.critical + health.high + health.medium + health.low;
-  if (total === 0) return null;
-
-  const segments = [
-    { key: "critical", count: health.critical, color: "#dc2626", label: "Critical" },
-    { key: "high",     count: health.high,     color: "#ea580c", label: "High" },
-    { key: "medium",   count: health.medium,   color: "#ca8a04", label: "Medium" },
-    { key: "low",      count: health.low,       color: "#16a34a", label: "Low" },
-  ];
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] uppercase tracking-widest font-semibold text-zinc-500">30-Day Risk Distribution</span>
-        <span className="text-[10px] text-zinc-600">{total} inspections</span>
-      </div>
-      <div className="flex h-2 rounded-full overflow-hidden gap-px">
-        {segments.filter(s => s.count > 0).map(s => (
-          <div
-            key={s.key}
-            style={{ width: `${(s.count / total) * 100}%`, background: s.color }}
-            title={`${s.label}: ${s.count}`}
-          />
-        ))}
-      </div>
-      <div className="flex items-center gap-3 flex-wrap">
-        {segments.filter(s => s.count > 0).map(s => (
-          <div key={s.key} className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full inline-block" style={{ background: s.color }} />
-            <span className="text-[10px] text-zinc-500">{s.label} <span className="text-zinc-400 font-medium">{s.count}</span></span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ── Foreman Briefing Card ─────────────────────────────────────────────────────
 

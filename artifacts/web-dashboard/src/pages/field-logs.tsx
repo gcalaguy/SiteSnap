@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   useListDailyLogs,
   useListSitePhotos,
@@ -15,8 +14,6 @@ import { queryClient } from "@/lib/queryClient";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
@@ -35,10 +32,8 @@ import {
   ShieldCheck,
   Cloud,
   Thermometer,
-  MapPin,
   Clock,
   CheckCircle2,
-  PenLine,
   X,
   Pencil,
   Trash2,

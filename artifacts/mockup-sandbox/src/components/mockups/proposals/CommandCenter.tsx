@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Plus, FileSignature, Send, CheckCircle2, XCircle, Clock, DollarSign, Search, Filter, ChevronRight, TrendingUp, Users, Calendar } from "lucide-react";
+import { Plus, FileSignature, Send, CheckCircle2, XCircle, Clock, DollarSign, Search, Filter, ChevronRight, TrendingUp, Users } from "lucide-react";
 
 const GOLD = "#D4AF37";
-const BLACK = "#121212";
 
 const rows = [
   { id: 1, title: "Foundation Repair - 123 Main St", type: "estimate", status: "draft", client: "", amount: 12500, date: "Jan 15", items: 4 },

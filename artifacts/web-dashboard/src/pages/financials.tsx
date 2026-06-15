@@ -73,7 +73,6 @@ import {
   Clock,
   XCircle,
   Trash2,
-  Receipt,
   RefreshCw,
   ClipboardList,
   ArrowRight,

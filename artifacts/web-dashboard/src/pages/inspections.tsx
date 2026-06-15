@@ -316,7 +316,6 @@ function InspectionDetailDialog({ id, onClose }: { id: number; onClose: () => vo
 }
 
 export default function InspectionsPage() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);

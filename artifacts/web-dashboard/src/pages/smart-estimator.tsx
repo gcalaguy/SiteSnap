@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useApiError } from "@/hooks/useApiError";
 import {
@@ -44,16 +43,12 @@ import {
   RotateCcw,
   Save,
   TrendingUp,
-  TrendingDown,
-  Minus,
   Check,
   Database,
   Edit3,
   AlertCircle,
   BookOpen,
   History,
-  ChevronDown,
-  ChevronUp,
   DollarSign,
   Upload,
   X,
@@ -129,7 +124,6 @@ type SavedEstimate = {
   scanProjectName: string | null;
 };
 
-type AddonModel = { id: number; addonKey: string; name: string; description?: string | null; costType: string; amount: string; applicableTypes?: string | null };
 type CostModel = { id: number; projectType: string; finishLevel: string; name: string; baseCostPerSqft: string; laborCostPerSqft: string; materialCostPerSqft: string; overheadPct: string; contingencyPct: string; notes?: string | null };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -141,12 +135,6 @@ const FINISH_LEVEL_LABELS: Record<string, { label: string; desc: string; color: 
   luxury:   { label: "Luxury",   desc: "Bespoke / custom everything",         color: "bg-amber-50 text-amber-700 border-amber-200" },
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  labour:    "text-blue-600",
-  materials: "text-green-600",
-  addon:     "text-purple-600",
-  overhead:  "text-amber-600",
-};
 
 function fmt(n: number | undefined | null) {
   if (n == null) return "—";

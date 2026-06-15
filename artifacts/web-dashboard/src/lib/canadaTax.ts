@@ -21,7 +21,6 @@ const FEDERAL_BRACKETS: Bracket = [
 // ── CPP 2024 ──────────────────────────────────────────────────────────────────
 const CPP_RATE              = 0.0595;
 const CPP_BASIC_EXEMPTION   = 3_500;
-const CPP_MAX_PENSIONABLE   = 68_500;
 const CPP_MAX_ANNUAL        = 3_867.50;
 
 // ── EI 2024 ──────────────────────────────────────────────────────────────────

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Plus, FileSignature, Send, CheckCircle2, XCircle, Clock, DollarSign, ChevronRight, Search } from "lucide-react";
 
 const GOLD = "#D4AF37";
-const BLACK = "#121212";
 
 const mockEstimates = [
   { id: 1, title: "Foundation Repair - 123 Main St", date: "Jan 15, 2026", items: 4, total: 12500 },

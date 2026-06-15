@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
+import { Redirect } from "wouter";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -65,6 +65,27 @@ export function FeatureGuard({ feature, children, fallback, silent }: FeatureGua
     );
   }
 
+  return <>{children}</>;
+}
+
+/**
+ * Redirects to /dashboard if the current user's resolved permissions don't include the given key.
+ * Owners always pass through (permissions is undefined for them).
+ * Renders nothing while the user is still loading.
+ */
+export function PermissionGuard({
+  permissionKey,
+  children,
+}: {
+  permissionKey: string;
+  children: React.ReactNode;
+}) {
+  const { data: me, isLoading } = useGetMe();
+  if (isLoading || !me) return null;
+  const allowed =
+    !me.permissions ||
+    (me.permissions as Record<string, boolean>)[permissionKey] !== false;
+  if (!allowed) return <Redirect to="/dashboard" />;
   return <>{children}</>;
 }
 

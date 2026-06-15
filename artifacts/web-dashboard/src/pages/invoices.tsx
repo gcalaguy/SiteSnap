@@ -10,8 +10,6 @@ import { Receipt, ChevronRight, TrendingDown, TrendingUp, Plus } from "lucide-re
 import SearchBar from "@/components/SearchBar";
 import { formatDistanceToNow, format } from "date-fns";
 
-const GOLD = "#C9A84C";
-const BLACK = "#111111";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",

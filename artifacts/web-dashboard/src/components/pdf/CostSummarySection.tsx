@@ -1,6 +1,5 @@
 import { View, Text } from "@react-pdf/renderer";
 import { styles, COLORS } from "./theme";
-import { format } from "date-fns";
 
 interface CostAnalysis {
   id: number;

@@ -65,7 +65,6 @@ export default function OnboardingPage() {
   const { data: dbUser } = useGetMe({
     query: { queryKey: getGetMeQueryKey(), enabled: !!clerkUser },
   });
-  const hasCompany = !!dbUser?.activeCompanyId;
   const isWorker = dbUser?.role === "worker";
 
   // isSignupInviteMode: admin generated a /sign-up?token= link; takes priority over

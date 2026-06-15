@@ -14,7 +14,6 @@ import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   UserPlus, Loader2, MoreHorizontal, Mail, Copy, Check,
   Link2, Pencil, Trash2, AlertTriangle, Users, RefreshCw,

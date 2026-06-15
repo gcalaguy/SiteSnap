@@ -29,7 +29,6 @@ import {
   FileSignature,
   BarChart3,
   Check,
-  Sparkles,
   Menu,
   X,
   Package,
@@ -47,9 +46,7 @@ import {
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { Badge } from "@/components/ui/badge";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -88,7 +85,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: user } = useGetMe();
   const { signOut } = useClerk();
 
-  const isOwner = user?.role === "owner";
   const isOwnerOrForeman = user?.role === "owner" || user?.role === "foreman";
   const isSuperAdmin = user?.systemRole === "super_admin";
 
@@ -142,15 +138,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const planFeatures = featuresData?.features ?? null;
   const has = (key: string) => isSuperAdmin || planFeatures === null || planFeatures.some((f) => f.toUpperCase() === key.toUpperCase());
 
+  // Check member permissions — server always returns resolved values (owners/foremen = all true,
+  // workers = their custom settings merged with defaults). Defaults to true while loading.
+  const hasPerm = (key: string): boolean => {
+    if (!user?.permissions) return true;
+    return (user.permissions as Record<string, boolean>)[key] !== false;
+  };
+
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0 },
     ...(isOwnerOrForeman ? [{ name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "RISK_DASHBOARD" }] : []),
     ...(isOwnerOrForeman ? [{ name: "AI Compliance", href: "/ai-compliance-monitor", icon: ClipboardCheck, badge: 0, featureKey: "AI_COMPLIANCE" }] : []),
     { name: "Projects", href: "/projects", icon: Building2, badge: 0 },
-    { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge },
-    { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge },
+    { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge, permissionKey: "viewQuotes" },
+    { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge, permissionKey: "viewFinancials" },
     ...(isOwnerOrForeman ? [{ name: "Proposals", href: "/proposals", icon: FileSignature, badge: 0, featureKey: "PROPOSALS" }] : []),
-    { name: "Estimating", href: "/estimates", icon: Calculator, badge: 0 },
+    { name: "Estimating", href: "/estimates", icon: Calculator, badge: 0, permissionKey: "viewEstimator" },
     ...(isOwnerOrForeman ? [{ name: "Inventory", href: "/inventory", icon: Package, badge: 0, featureKey: "INVENTORY" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0, featureKey: "FINANCIALS" }] : []),
     { name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "CONTACTS" },
@@ -158,11 +161,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, featureKey: "CALCULATORS" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0, featureKey: "SCHEDULING" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING" }] : []),
-    { name: "Field Logs", href: "/field-logs", icon: FileText, badge: 0, featureKey: "SAFETY_FORMS" },
+    { name: "Field Logs", href: "/field-logs", icon: FileText, badge: 0, featureKey: "SAFETY_FORMS", permissionKey: "viewSafetyTab" },
     ...(isOwnerOrForeman ? [{ name: "Permits", href: "/permits", icon: BadgeCheck, badge: 0, featureKey: "PERMITS" }] : []),
-    { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "SAFETY_FORMS" },
-    ...(isOwnerOrForeman ? [{ name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TRADEHUB" }] : []),
-    { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT" },
+    { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "SAFETY_FORMS", permissionKey: "viewSafetyTab" },
+    { name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TRADEHUB", permissionKey: "viewTradeHub" },
+    { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT", permissionKey: "viewAskAI" },
     ...(isOwnerOrForeman ? [{ name: "RFI & Submittal", href: "/rfi-submittal", icon: MessageSquareWarning, badge: 0, featureKey: "RFI_SUBMITTAL" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Worker Documents", href: "/worker-documents", icon: ShieldCheck, badge: 0, featureKey: "WORKER_DOCUMENTS" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0 }] : []),
@@ -176,8 +179,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const firstName = user?.firstName ?? "";
   const lastName = user?.lastName ?? "";
   const initials = `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
-  const companyName = user?.company?.name ?? "No Company";
-  const companyInitials = companyName.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
 
   return (
     <div className="flex min-h-screen w-full" style={{ background: "#F8F8F8" }}>
@@ -240,8 +241,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {navigation.map((item) => {
             const isActive = location.startsWith(item.href);
             const locked = !!(item as any).featureKey && !has((item as any).featureKey);
+            const permBlocked = !!(item as any).permissionKey && !hasPerm((item as any).permissionKey);
 
-            if (locked) return null;
+            if (locked || permBlocked) return null;
 
             return (
               <Link key={item.name} href={item.href}>
@@ -555,7 +557,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {navigation.map((item) => {
                 const isActive = location === `${basePath}${item.href}` || location === item.href;
                 const locked = !!(item as any).featureKey && !has((item as any).featureKey);
-                if (locked) return null;
+                const permBlocked = !!(item as any).permissionKey && !hasPerm((item as any).permissionKey);
+                if (locked || permBlocked) return null;
                 return (
                   <Link
                     key={item.href}

@@ -1,8 +1,31 @@
 import { Router } from "express";
 import { db, quickbooksConnectionsTable, invoicesTable, costAnalysesTable, projectsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { createHmac, timingSafeEqual } from "crypto";
 import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+
+// Use SESSION_SECRET as the HMAC key for QB OAuth state signing.
+// This prevents an unsigned state from being crafted to associate
+// a foreign company ID with an attacker-controlled QB token.
+function getStateSecret(): string {
+  const secret = process.env.SESSION_SECRET ?? process.env.QB_CLIENT_SECRET;
+  if (!secret) throw new Error("No signing secret available for QB OAuth state");
+  return secret;
+}
+
+function signState(payload: string): string {
+  return createHmac("sha256", getStateSecret()).update(payload).digest("hex");
+}
+
+function verifyState(payload: string, sig: string): boolean {
+  const expected = signState(payload);
+  try {
+    return timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"));
+  } catch {
+    return false;
+  }
+}
 
 const router = Router();
 
@@ -153,7 +176,9 @@ router.get("/quickbooks/auth-url", requireAuth, requireCompany, requireOwner, (r
     return;
   }
 
-  const state = Buffer.from(JSON.stringify({ companyId: req.companyId, ts: Date.now() })).toString("base64url");
+  const payload = JSON.stringify({ companyId: req.companyId, ts: Date.now() });
+  const sig = signState(payload);
+  const state = Buffer.from(JSON.stringify({ payload, sig })).toString("base64url");
   const redirectUri = getRedirectUri(req);
 
   const params = new URLSearchParams({
@@ -185,9 +210,12 @@ router.get("/quickbooks/callback", asyncHandler(async (req, res) => {
 
   let companyId: number;
   try {
-    const decoded = JSON.parse(Buffer.from(state, "base64url").toString());
+    const outer = JSON.parse(Buffer.from(state, "base64url").toString());
+    if (!outer.payload || !outer.sig) throw new Error("malformed");
+    if (!verifyState(outer.payload, outer.sig)) throw new Error("invalid_signature");
+    const decoded = JSON.parse(outer.payload);
     companyId = decoded.companyId;
-    if (!companyId) throw new Error("missing");
+    if (!companyId) throw new Error("missing_company");
   } catch {
     res.redirect(`${basePath}/settings?qb=error&reason=invalid_state`);
     return;

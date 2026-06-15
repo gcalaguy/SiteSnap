@@ -13,6 +13,11 @@ import { sendPushNotification } from "../lib/push.js";
 
 const router = Router();
 
+function parseIntId(param: string): number | null {
+  const n = parseInt(param, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
 const SubmitTimesheetBody = z.object({
   weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "weekStart must be YYYY-MM-DD"),
   totalHours: z.number().nonnegative(),
@@ -194,7 +199,8 @@ router.post("/timesheets", requireAuth, requireCompany, asyncHandler(async (req,
 
 // GET /timesheets/:timesheetId
 router.get("/timesheets/:timesheetId", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
-  const id = parseInt(req.params.timesheetId as string);
+  const id = parseIntId(req.params.timesheetId as string);
+  if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 
   const [ts] = await db.select().from(timesheetsTable)
@@ -209,7 +215,8 @@ router.get("/timesheets/:timesheetId", requireAuth, requireCompany, requirePermi
 
 // POST /timesheets/:timesheetId/approve
 router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
-  const id = parseInt(req.params.timesheetId as string);
+  const id = parseIntId(req.params.timesheetId as string);
+  if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
   const parsed = ApproveTimesheetBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "A signature is required to approve a timesheet", details: parsed.error.flatten() });
@@ -274,7 +281,8 @@ router.get("/timesheets/payroll-export", requireAuth, requireCompany, requireOwn
 
 // POST /timesheets/:timesheetId/deny
 router.post("/timesheets/:timesheetId/deny", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
-  const id = parseInt(req.params.timesheetId as string);
+  const id = parseIntId(req.params.timesheetId as string);
+  if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
   const parsed = ReviewBody.safeParse(req.body);
   const notes = parsed.success ? (parsed.data.notes ?? null) : null;
 
@@ -308,7 +316,8 @@ router.patch(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const id = parseInt(req.params.timesheetId as string);
+    const id = parseIntId(req.params.timesheetId as string);
+  if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
     const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 
     const [ts] = await db
@@ -351,7 +360,8 @@ router.delete(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const id = parseInt(req.params.timesheetId as string);
+    const id = parseIntId(req.params.timesheetId as string);
+  if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
     const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 
     const [ts] = await db
@@ -381,7 +391,8 @@ router.post(
   requireAuth,
   requireCompany,
   asyncHandler(async (req, res) => {
-    const id = parseInt(req.params.timesheetId as string);
+    const id = parseIntId(req.params.timesheetId as string);
+  if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
     const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 
     const [ts] = await db

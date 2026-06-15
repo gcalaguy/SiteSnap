@@ -19,7 +19,6 @@ const SURFACE = "#111111";
 const SURFACE2 = "#181818";
 const SURFACE3 = "#1E1E1E";
 const BORDER = "#242424";
-const BORDER_GOLD = "#2A2200";
 const WHITE = "#FFFFFF";
 const MUTED = "#888888";
 

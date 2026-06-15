@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -14,7 +13,6 @@ import {
   MapPin,
   Upload,
   CheckCircle2,
-  Clock,
   AlertCircle,
   ArrowDownToLine,
   X,
@@ -313,7 +311,7 @@ export default function ClientPortal() {
         body: JSON.stringify({ message: messageText.trim(), senderName: name }),
       });
       if (!res.ok) throw new Error("Failed to send message");
-      const newMsg = await res.json();
+      await res.json();
       setMessageText("");
     } catch (e: any) {
       toast({ title: e.message ?? "Failed to send", variant: "destructive" });

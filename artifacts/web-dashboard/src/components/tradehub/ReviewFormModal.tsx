@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Star, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,

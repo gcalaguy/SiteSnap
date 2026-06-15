@@ -31,7 +31,6 @@ import {
 } from "lucide-react";
 
 const GOLD = "#D4AF37";
-const BLACK = "#0A0A0A";
 const SURFACE = "#FFFFFF";
 const SURFACE2 = "#F8F8F8";
 const SURFACE3 = "#F0F0F0";

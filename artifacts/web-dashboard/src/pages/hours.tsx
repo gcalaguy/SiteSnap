@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Clock, Users, Building2, TrendingUp, Trash2,
   ChevronDown, ChevronUp, CalendarRange, UserCheck, X,
-  Download, FileSpreadsheet,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -27,8 +27,6 @@ import {
   LineChart, Line,
 } from "recharts";
 
-const GOLD = "#C9A84C";
-const BLACK = "#111111";
 
 type TimeEntry = {
   id: number;

@@ -1,5 +1,5 @@
 import { View, Text } from "@react-pdf/renderer";
-import { styles, COLORS } from "./theme";
+import { styles } from "./theme";
 import { format } from "date-fns";
 
 interface ChangeOrder {

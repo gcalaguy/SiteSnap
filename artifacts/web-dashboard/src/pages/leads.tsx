@@ -22,7 +22,6 @@ import {
   updateLeadBodyNotesMax as EDIT_NOTES_MAX,
   createLeadActivityBodyNotesMax as ACTIVITY_NOTES_MAX,
 } from "@workspace/api-zod";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -33,8 +32,6 @@ import {
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
-  SheetTitle,
 } from "@/components/ui/sheet";
 import {
   Select,
@@ -63,8 +60,6 @@ import {
   FileText,
   Trash2,
   Rocket,
-  MapPin,
-  DollarSign,
   Clock,
   MessageSquare,
   CheckCircle2,
@@ -748,8 +743,6 @@ function LeadDetail({
   const [activityForm, setActivityForm] = useState({ type: "call", notes: "" });
   const [editNotes, setEditNotes] = useState(lead.notes ?? "");
   const [notesEditing, setNotesEditing] = useState(false);
-
-  const stage = STAGES.find((s) => s.key === lead.stage) ?? STAGES[0];
 
   function saveNotes() {
     onUpdate({ notes: editNotes.trim() || null });

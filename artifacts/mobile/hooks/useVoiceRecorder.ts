@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { Alert, Linking } from "react-native";
 import {
   useAudioRecorder,
   RecordingPresets,
@@ -43,6 +44,14 @@ export function useVoiceRecorder(
     console.log("[voiceRecorder] permission granted:", granted);
     if (!granted) {
       setError("Microphone permission denied. Enable it in device settings.");
+      Alert.alert(
+        "Microphone Access Required",
+        "Site Snap needs microphone access for voice commands. Enable it in Settings.",
+        [
+          { text: "Not Now", style: "cancel" },
+          { text: "Open Settings", onPress: () => void Linking.openSettings() },
+        ]
+      );
       return;
     }
 

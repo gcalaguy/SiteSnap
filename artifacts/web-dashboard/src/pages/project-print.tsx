@@ -33,7 +33,7 @@ import type {
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 
-import { styles, COLORS, SIZES } from "@/components/pdf/theme";
+import { styles } from "@/components/pdf/theme";
 import ProjectInfoSection from "@/components/pdf/ProjectInfoSection";
 import NotesSection from "@/components/pdf/NotesSection";
 import DailyReportsSection from "@/components/pdf/DailyReportsSection";

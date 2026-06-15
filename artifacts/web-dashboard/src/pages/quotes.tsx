@@ -3,15 +3,13 @@ import { Link } from "wouter";
 import { useListAllQuotes } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, FileText, ChevronRight } from "lucide-react";
 import SearchBar from "@/components/SearchBar";
 import { formatDistanceToNow } from "date-fns";
 
-const GOLD = "#C9A84C";
-const BLACK = "#111111";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",

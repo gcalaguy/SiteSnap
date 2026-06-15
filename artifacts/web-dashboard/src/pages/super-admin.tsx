@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  AlertCircle,
   CheckCircle2,
   ChevronDown,
   Copy,
@@ -37,8 +36,6 @@ type Feature = { id: number; name: string; key: string; description: string | nu
 type TenantRow = { id: number; name: string; subscription: { id: number; planId: number; status: string; billingCycle: string } | null; plan: { id: number; name: string; slug: string } | null; userCount: number };
 type TenantDetail = TenantRow & { users: Array<{ id: number; email: string; firstName: string; lastName: string; role: string; systemRole: string | null }> };
 
-type PlanDialogProps = { open: boolean };
-type FeatureDialogProps = { open: boolean };
 type MemberDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -115,14 +112,6 @@ function planIcon(planSlug: string | undefined) {
   if (planSlug === "pro") return <Star className="h-6 w-6 text-primary" />;
   if (planSlug === "business" || planSlug === "enterprise") return <Crown className="h-6 w-6 text-[#121212] font-bold" />;
   return <CreditCard className="h-6 w-6 text-muted-foreground" />;
-}
-
-function statusBadge(status: string) {
-  if (status === "active") return <Badge className="bg-green-100 text-green-700 font-semibold">Active</Badge>;
-  if (status === "trialing") return <Badge className="bg-blue-100 text-blue-700 font-semibold">Trial</Badge>;
-  if (status === "past_due") return <Badge className="bg-[#D4AF37]/10 text-[#b5922e] font-semibold">Past Due</Badge>;
-  if (status === "canceled") return <Badge className="bg-gray-100 text-gray-600 font-semibold">Canceled</Badge>;
-  return <Badge className="bg-gray-100 text-gray-600 font-semibold capitalize">{status}</Badge>;
 }
 
 function StripePlansTab() {

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, Link, useLocation, Router as WouterRouter, Redirect } from "wouter";
@@ -34,7 +34,7 @@ import ClientPortal from "@/pages/client-portal";
 import Hours from "@/pages/hours";
 import Estimates from "@/pages/estimates";
 import TradehubPage from "@/pages/tradehub";
-import TradehubFeedPage from "@/pages/tradehub-feed";
+
 import TradehubPostPage from "@/pages/tradehub-post";
 import TradehubJobsPage from "@/pages/tradehub-jobs";
 import TradehubProfilePage from "@/pages/tradehub-profile";
@@ -48,7 +48,7 @@ import FieldLogsPage from "@/pages/field-logs";
 import InspectionsPage from "@/pages/inspections";
 import RiskDashboardPage from "@/pages/risk-dashboard";
 import AIComplianceMonitorPage from "@/pages/ai-compliance-monitor";
-import SafetyPage from "@/pages/safety";
+
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
 import SafetyCompliancePage from "@/pages/safety-compliance";
@@ -70,6 +70,7 @@ import PublicInvoicePage from "@/pages/public-invoice";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { PermissionGuard } from "@/components/FeatureGuard";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -263,26 +264,6 @@ function HomeRedirect() {
   );
 }
 
-function DashboardPlaceholder() {
-  return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-sidebar text-sidebar-foreground p-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <picture>
-            <source srcSet={`${basePath}/sitesnap-logo.webp`} type="image/webp" />
-            <img src={`${basePath}/sitesnap-logo.png`} alt="Site Snap" className="h-8 w-8 rounded object-contain bg-black" />
-          </picture>
-          <span className="font-bold text-lg tracking-tight">Site Snap</span>
-        </div>
-      </header>
-      <main className="flex-1 p-6 bg-muted/10">
-        <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome to Site Snap. Your data goes here.</p>
-      </main>
-    </div>
-  )
-}
-
 function WorkerPortalApp() {
   return (
     <AuthGuard>
@@ -311,44 +292,44 @@ function AuthApp() {
           <Route path="/projects/:id/reports/new" component={NewReport} />
           <Route path="/projects/:id/cost/new" component={NewCost} />
           <Route path="/projects/:id/rfis/new" component={NewRFI} />
-          <Route path="/quotes/new" component={NewQuote} />
-          <Route path="/quotes/:id" component={QuoteDetail} />
-          <Route path="/quotes" component={Quotes} />
-          <Route path="/invoices/new" component={NewInvoice} />
-          <Route path="/invoices/:id" component={InvoiceDetail} />
-          <Route path="/invoices" component={Invoices} />
+          <Route path="/quotes/new"><PermissionGuard permissionKey="viewQuotes"><NewQuote /></PermissionGuard></Route>
+          <Route path="/quotes/:id"><PermissionGuard permissionKey="viewQuotes"><QuoteDetail /></PermissionGuard></Route>
+          <Route path="/quotes"><PermissionGuard permissionKey="viewQuotes"><Quotes /></PermissionGuard></Route>
+          <Route path="/invoices/new"><PermissionGuard permissionKey="viewFinancials"><NewInvoice /></PermissionGuard></Route>
+          <Route path="/invoices/:id"><PermissionGuard permissionKey="viewFinancials"><InvoiceDetail /></PermissionGuard></Route>
+          <Route path="/invoices"><PermissionGuard permissionKey="viewFinancials"><Invoices /></PermissionGuard></Route>
           <Route path="/admin" component={AdminPage} />
           <Route path="/super-admin" component={SuperAdminPage} />
-          <Route path="/ai-chat" component={AIChat} />
+          <Route path="/ai-chat"><PermissionGuard permissionKey="viewAskAI"><AIChat /></PermissionGuard></Route>
           <Route path="/team" component={Team} />
           <Route path="/settings" component={Settings} />
           <Route path="/schedule" component={Schedule} />
           <Route path="/hours" component={Hours} />
-          <Route path="/estimates" component={Estimates} />
+          <Route path="/estimates"><PermissionGuard permissionKey="viewEstimator"><Estimates /></PermissionGuard></Route>
           <Route path="/smart-estimator">
             <Redirect to="/estimates" />
           </Route>
           <Route path="/calculators" component={CalculatorsPage} />
-          <Route path="/rfis" component={RFIsPage} />
-          <Route path="/reports" component={ReportsPage} />
-          <Route path="/field-logs" component={FieldLogsPage} />
+          <Route path="/rfis"><PermissionGuard permissionKey="viewRFIs"><RFIsPage /></PermissionGuard></Route>
+          <Route path="/reports"><PermissionGuard permissionKey="viewReports"><ReportsPage /></PermissionGuard></Route>
+          <Route path="/field-logs"><PermissionGuard permissionKey="viewSafetyTab"><FieldLogsPage /></PermissionGuard></Route>
           <Route path="/permits" component={PermitsPage} />
           <Route path="/inventory" component={InventoryPage} />
-          <Route path="/tradehub/messages/:conversationId" component={TradehubMessagesPage} />
-          <Route path="/tradehub/messages" component={TradehubMessagesPage} />
-          <Route path="/tradehub/notifications" component={TradehubNotificationsPage} />
-          <Route path="/tradehub/jobs" component={TradehubJobsPage} />
-          <Route path="/tradehub/posts/:id" component={TradehubPostPage} />
-          <Route path="/tradehub/profile/:userId" component={TradehubProfilePage} />
-          <Route path="/tradehub" component={TradehubPage} />
+          <Route path="/tradehub/messages/:conversationId"><PermissionGuard permissionKey="viewTradeHub"><TradehubMessagesPage /></PermissionGuard></Route>
+          <Route path="/tradehub/messages"><PermissionGuard permissionKey="viewTradeHub"><TradehubMessagesPage /></PermissionGuard></Route>
+          <Route path="/tradehub/notifications"><PermissionGuard permissionKey="viewTradeHub"><TradehubNotificationsPage /></PermissionGuard></Route>
+          <Route path="/tradehub/jobs"><PermissionGuard permissionKey="viewTradeHub"><TradehubJobsPage /></PermissionGuard></Route>
+          <Route path="/tradehub/posts/:id"><PermissionGuard permissionKey="viewTradeHub"><TradehubPostPage /></PermissionGuard></Route>
+          <Route path="/tradehub/profile/:userId"><PermissionGuard permissionKey="viewTradeHub"><TradehubProfilePage /></PermissionGuard></Route>
+          <Route path="/tradehub"><PermissionGuard permissionKey="viewTradeHub"><TradehubPage /></PermissionGuard></Route>
           <Route path="/risk-dashboard" component={RiskDashboardPage} />
           <Route path="/ai-compliance-monitor" component={AIComplianceMonitorPage} />
           <Route path="/media-hub" component={MediaHubTestPage} />
-          <Route path="/safety-compliance" component={SafetyCompliancePage} />
+          <Route path="/safety-compliance"><PermissionGuard permissionKey="viewSafetyTab"><SafetyCompliancePage /></PermissionGuard></Route>
           <Route path="/rfi-submittal" component={RfiSubmittalPage} />
-          <Route path="/worker-documents" component={WorkerDocumentsPage} />
-          <Route path="/audit-vault" component={AuditVaultPage} />
-          <Route path="/inspections" component={InspectionsPage} />
+          <Route path="/worker-documents"><PermissionGuard permissionKey="viewVault"><WorkerDocumentsPage /></PermissionGuard></Route>
+          <Route path="/audit-vault"><PermissionGuard permissionKey="viewVault"><AuditVaultPage /></PermissionGuard></Route>
+          <Route path="/inspections"><PermissionGuard permissionKey="viewInspectTab"><InspectionsPage /></PermissionGuard></Route>
           <Route path="/safety/submit" component={SafetySubmitPage} />
           <Route path="/safety/submissions/:id" component={SafetyDetailPage} />
           <Route path="/safety">

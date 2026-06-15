@@ -74,7 +74,7 @@ async function buildAll() {
       "@swc/*",
       "@aws-sdk/*",
       "@azure/*",
-      "@opentelemetry/*",
+      // "@opentelemetry/*" removed — these are peer deps of @sentry/node and must be bundled
       "@google-cloud/*",
       "@google/*",
       "googleapis",

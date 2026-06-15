@@ -17,7 +17,6 @@ const BORDER_SOFT = "#EDE8DC";
 const TEXT = "#1A1714";
 const TEXT2 = "#4A4035";
 const MUTED = "#9A8F82";
-const WHITE = "#FFFFFF";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", active: true,  badge: null },

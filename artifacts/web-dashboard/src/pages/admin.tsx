@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useGetMe } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -12,7 +11,6 @@ import {
   ExternalLink,
   ChevronRight,
   CheckCircle2,
-  XCircle,
   Clock,
   TrendingUp,
   UserPlus,

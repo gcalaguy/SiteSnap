@@ -1,27 +1,17 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { customFetch } from "@workspace/api-client-react";
 import {
   useListBuilderEstimates,
   useListProposals,
   useListEstimateTemplates,
-  useCreateBuilderEstimate,
-  useDeleteBuilderEstimate,
-  useConvertEstimateToProposal,
-  useUpdateProposal,
-  useDeleteProposal,
-  useApproveProposal,
-  useCreateEstimateTemplate,
-  useDeleteEstimateTemplate,
   getListBuilderEstimatesQueryKey,
   getListProposalsQueryKey,
-  getListEstimateTemplatesQueryKey,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -44,15 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
@@ -64,15 +46,12 @@ import {
   ChevronRight,
   CheckCircle2,
   XCircle,
-  Clock,
   Send,
   Pencil,
   Save,
   BookTemplate,
   Copy,
   DollarSign,
-  Percent,
-  Package,
   ArrowRight,
   Search,
   Filter,
@@ -173,7 +152,6 @@ async function apiFetch(path: string, opts?: RequestInit) {
 export default function Proposals() {
   const { toast } = useToast();
   const [tab, setTab] = useState<"estimates" | "proposals">("estimates");
-  const [proposalStatusFilter, setProposalStatusFilter] = useState<string | null>(null);
 
   // Data via React Query (cached, resilient)
   const estimatesRaw = useListBuilderEstimates();
@@ -205,15 +183,6 @@ export default function Proposals() {
   const [approveSignature, setApproveSignature] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mutations
-  const createEstimate = useCreateBuilderEstimate();
-  const deleteEstimate = useDeleteBuilderEstimate();
-  const convertEstimate = useConvertEstimateToProposal();
-  const updateProposal = useUpdateProposal();
-  const deleteProposalMut = useDeleteProposal();
-  const approveProposalMut = useApproveProposal();
-  const createTemplate = useCreateEstimateTemplate();
-  const deleteTemplateMut = useDeleteEstimateTemplate();
 
   // Open estimate builder
   async function openEstimate(estimate: BuilderEstimate) {
@@ -269,14 +238,14 @@ export default function Proposals() {
     if (!selectedEstimate) return;
     setIsSubmitting(true);
     try {
-      const data = await apiFetch(`/builder-estimates/${selectedEstimate.id}/convert`, {
+      await apiFetch(`/builder-estimates/${selectedEstimate.id}/convert`, {
         method: "POST",
         body: JSON.stringify({
           clientName: convertForm.clientName.trim() || null,
           clientEmail: convertForm.clientEmail.trim() || null,
           notes: convertForm.notes.trim() || null,
         }),
-      }) as Proposal;
+      });
       queryClient.invalidateQueries({ queryKey: getListProposalsQueryKey() });
       setConvertOpen(false);
       setConvertForm({ clientName: "", clientEmail: "", notes: "" });

@@ -10,7 +10,6 @@ const GOLD = "#D4AF37";
 const BLACK = "#000000";
 const WHITE = "#FFFFFF";
 const SURFACE = "#FAFAFA";
-const BORDER = "#000000";
 const BORDER_LIGHT = "#E0E0E0";
 const TEXT = "#000000";
 const MUTED = "#767676";

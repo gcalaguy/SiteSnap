@@ -46,7 +46,6 @@ import {
   BookUser,
   Loader2,
   User,
-  ChevronRight,
   Paperclip,
   ShieldCheck,
   AlertTriangle,

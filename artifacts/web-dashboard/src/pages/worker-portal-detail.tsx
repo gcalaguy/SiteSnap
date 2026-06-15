@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -89,7 +89,7 @@ function SignedPhotoLink({ photo }: { photo: { id: number; url: string; filename
 
 export default function WorkerPortalDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [, setLocation] = useLocation();
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [comment, setComment] = useState("");

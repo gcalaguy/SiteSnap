@@ -1,7 +1,5 @@
-import { Star, User } from "lucide-react";
 import { ReviewStarRating } from "./ReviewStarRating";
 import { formatDistanceToNow } from "date-fns";
-import { cn } from "@/lib/utils";
 
 interface ReviewItem {
   id: number;

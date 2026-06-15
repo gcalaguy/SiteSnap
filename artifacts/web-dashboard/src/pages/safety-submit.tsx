@@ -6,7 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Send, Loader2, ShieldAlert, User, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { Label } from "@/components/ui/label";
 import {

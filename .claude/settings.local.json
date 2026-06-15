@@ -55,7 +55,31 @@
       "Bash(pnpm --filter @workspace/api-server run dev)",
       "Bash(kill 30875 30876)",
       "Bash(kill 31274 31275)",
-      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(grep -v \"^$\")",
+      "Bash(awk '/pgTable\\\\\\(/{name=$0} /company_id.*integer\\\\\\([^\\)]*\\\\\\)[^.]*\\(,|$\\)/{if\\($0 !~ /notNull/\\){print name\"\\\\n\"$0\"\\\\n---\"}}' /home/runner/workspace/lib/db/src/schema/index.ts)",
+      "Bash(grep -v \"Drizzle\\\\|drizzle\\\\|db\\\\.\\\\|sql\\\\`\")",
+      "Bash(python3 -c \"import json,sys; j=json.load\\(sys.stdin\\); print\\(json.dumps\\(j['entries'][-5:], indent=2\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}, indent=2\\)\\)\")",
+      "Bash(npm audit *)",
+      "Bash(python3 -c ' *)",
+      "Bash(pnpm audit *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('esbuild:', d.get\\('dependencies',{}\\).get\\('esbuild'\\) or d.get\\('devDependencies',{}\\).get\\('esbuild'\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); pkgs = {**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}; [print\\(f'{k}: {v}'\\) for k,v in pkgs.items\\(\\) if 'esbuild' in k or 'sentry' in k.lower\\(\\)]\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); pkgs = {**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}; [print\\(f'{k}: {v}'\\) for k,v in sorted\\(pkgs.items\\(\\)\\)]\")",
+      "Bash(pnpm add *)",
+      "Bash(npm run *)",
+      "Bash(kill %1)",
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(curl -s http://localhost:5001/health)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(curl -s http://localhost:5174)",
+      "Bash(netstat -tlnp)",
+      "Bash(curl -s http://localhost:8080/health)",
+      "Bash(echo \"Started PID: $!\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:8080/api/projects)"
     ]
   }
 }

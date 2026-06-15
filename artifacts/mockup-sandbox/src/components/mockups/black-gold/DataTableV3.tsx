@@ -16,7 +16,6 @@ import {
 const GOLD = "#D4AF37";
 const BLACK = "#0A0A0A";
 const SURFACE = "#111111";
-const SURFACE2 = "#181818";
 const BORDER = "#242424";
 const WHITE = "#FFFFFF";
 const MUTED = "#888888";

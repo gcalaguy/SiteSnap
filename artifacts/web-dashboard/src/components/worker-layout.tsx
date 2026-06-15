@@ -1,6 +1,6 @@
 import { useClerk } from "@clerk/react";
 import { useGetMe } from "@workspace/api-client-react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { LogOut, ShieldAlert, ChevronRight, Home, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

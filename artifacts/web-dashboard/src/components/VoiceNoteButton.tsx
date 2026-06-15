@@ -16,7 +16,6 @@ export function VoiceNoteButton({ onTranscript, disabled, className, size = "ico
 
   const isRecording = voice.state === "recording";
   const isTranscribing = voice.state === "transcribing";
-  const isActive = isRecording || isTranscribing;
 
   return (
     <TooltipProvider delayDuration={300}>

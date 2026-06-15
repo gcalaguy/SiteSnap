@@ -18,7 +18,6 @@ import {
   MessageCircle,
   Calculator,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { WorkerLayout } from "@/components/worker-layout";
 import { WorkerCalculator } from "@/components/worker-calculator";
 

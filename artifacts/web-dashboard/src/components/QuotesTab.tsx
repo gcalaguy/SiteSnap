@@ -44,7 +44,6 @@ import {
   Plus,
   Loader2,
   FileText,
-  ChevronRight,
   Send,
   Receipt,
   ArrowRight,

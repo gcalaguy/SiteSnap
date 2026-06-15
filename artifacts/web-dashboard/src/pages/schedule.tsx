@@ -12,14 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ChevronLeft, ChevronRight, CalendarDays, Plus, Loader2,
   Users, Building2, GanttChartSquare, LayoutGrid, X,
-  Wrench, Clock, Trash2, Edit2, MapPin, AlertTriangle, Video, ExternalLink,
+  Wrench, Clock, Trash2, Edit2, MapPin, AlertTriangle, Video,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -525,12 +524,6 @@ export default function Schedule() {
     if (!teamQuery.data) return [];
     const dayStr = format(day, "yyyy-MM-dd");
     return teamQuery.data.assignments.filter(a => a.userId === userId && dayStr >= a.startDate && dayStr <= a.endDate);
-  }
-
-  function getSubcontractorCellAssignments(contactId: number, day: Date) {
-    if (!teamQuery.data) return [];
-    const dayStr = format(day, "yyyy-MM-dd");
-    return teamQuery.data.assignments.filter(a => a.contactId === contactId && dayStr >= a.startDate && dayStr <= a.endDate);
   }
 
   // ── Access guard ──────────────────────────────────────────────────────────

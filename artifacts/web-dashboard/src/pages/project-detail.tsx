@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   useGetProject,
@@ -15,13 +15,12 @@ import {
   getListProjectMembersQueryKey,
   customFetch,
 } from "@workspace/api-client-react";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { queryClient } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { TasksTab, getMemberName, getInitials } from "@/components/project-detail/TasksTab";
 import { useCompanyFeatures } from "@/components/FeatureGuard";
 import type { Member, Task } from "@/components/project-detail/TasksTab";
-import { PhotoThumbnail } from "@/components/project-detail/PhotoThumbnail";
 import { ReportsTab } from "@/components/project-detail/ReportsTab";
 import { CostTab } from "@/components/project-detail/CostTab";
 import { RFIsTab } from "@/components/project-detail/RFIsTab";
@@ -37,15 +36,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { pdf } from "@react-pdf/renderer";
 import ProjectLiteDocument from "@/components/pdf/ProjectLiteDocument";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, ChevronDown, ChevronUp, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, ScanLine, Printer, Shield, BadgeCheck } from "lucide-react";
+import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, ScanLine, Printer, Shield, BadgeCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -109,6 +106,10 @@ export default function ProjectDetail() {
   const { data: me } = useGetMe();
   const companyId = me?.company?.id;
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+  const hasPerm = (key: string): boolean => {
+    if (!me?.permissions) return true;
+    return (me.permissions as Record<string, boolean>)[key] !== false;
+  };
   const { data: featureData } = useCompanyFeatures(me?.activeCompanyId as number | null | undefined);
   const hasPermitsFeature =
     me?.systemRole === "super_admin" || (featureData?.features?.includes("PERMITS") ?? false);
@@ -145,7 +146,7 @@ export default function ProjectDetail() {
     },
   });
 
-  const { data: projectAssignments = [], refetch: refetchAssignments } = useQuery<ProjectAssignment[]>({
+  const { refetch: refetchAssignments } = useQuery<ProjectAssignment[]>({
     queryKey: ["project-schedule", projectId],
     queryFn: () => customFetch(`/api/projects/${projectId}/schedule`),
     enabled: isOwnerOrForeman,
@@ -163,23 +164,7 @@ export default function ProjectDetail() {
     onError: (err: any) => toast({ title: err?.message ?? "Failed to assign", variant: "destructive" }),
   });
 
-  const removeAssignment = useMutation({
-    mutationFn: (id: number) => customFetch(`/api/schedule/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      refetchAssignments();
-      queryClient.invalidateQueries({ queryKey: ["schedule"] });
-    },
-  });
 
-  function openAssignDialog(prefillUserId?: number) {
-    const today = new Date().toISOString().split("T")[0];
-    const nextWeek = addDays(new Date(), 5).toISOString().split("T")[0];
-    setAssignUserId(prefillUserId ? String(prefillUserId) : "");
-    setAssignStartDate(today);
-    setAssignEndDate(nextWeek);
-    setAssignNotes("");
-    setShowAssignDialog(true);
-  }
 
   async function openPortalDialog() {
     setShowPortalDialog(true);
@@ -370,24 +355,36 @@ export default function ProjectDetail() {
             <TabsTrigger value="overview" className="px-4 whitespace-nowrap">Overview</TabsTrigger>
             <TabsTrigger value="tasks" className="px-4 whitespace-nowrap">Tasks</TabsTrigger>
             <TabsTrigger value="reports" className="px-4 whitespace-nowrap">Daily Reports</TabsTrigger>
-            <TabsTrigger value="cost" className="px-4 whitespace-nowrap">Cost Analysis</TabsTrigger>
-            <TabsTrigger value="rfis" className="px-4 whitespace-nowrap">RFIs</TabsTrigger>
-            <TabsTrigger value="quotes" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-              <FileText className="h-3.5 w-3.5" />Quotes
-            </TabsTrigger>
+            {hasPerm("viewFinancials") && (
+              <TabsTrigger value="cost" className="px-4 whitespace-nowrap">Cost Analysis</TabsTrigger>
+            )}
+            {hasPerm("viewRFIs") && (
+              <TabsTrigger value="rfis" className="px-4 whitespace-nowrap">RFIs</TabsTrigger>
+            )}
+            {hasPerm("viewQuotes") && (
+              <TabsTrigger value="quotes" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5" />Quotes
+              </TabsTrigger>
+            )}
             <TabsTrigger value="team" className="px-4 whitespace-nowrap flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5" />Team
             </TabsTrigger>
-            <TabsTrigger value="documents" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-              <FolderOpen className="h-3.5 w-3.5" />Documents
-            </TabsTrigger>
-            <TabsTrigger value="client-messages" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-              <MessageCircle className="h-3.5 w-3.5" />Client Messages
-            </TabsTrigger>
-            <TabsTrigger value="site-scans" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-              <ScanLine className="h-3.5 w-3.5" />Site Scans
-            </TabsTrigger>
-            {me?.role && (me.role === "owner" || me.role === "foreman" || me.role === "worker") && (
+            {hasPerm("viewDocuments") && (
+              <TabsTrigger value="documents" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+                <FolderOpen className="h-3.5 w-3.5" />Documents
+              </TabsTrigger>
+            )}
+            {hasPerm("viewClientMessages") && (
+              <TabsTrigger value="client-messages" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+                <MessageCircle className="h-3.5 w-3.5" />Client Messages
+              </TabsTrigger>
+            )}
+            {hasPerm("viewSiteScan") && (
+              <TabsTrigger value="site-scans" className="px-4 whitespace-nowrap flex items-center gap-1.5">
+                <ScanLine className="h-3.5 w-3.5" />Site Scans
+              </TabsTrigger>
+            )}
+            {hasPerm("viewSafetyTab") && (
               <TabsTrigger value="safety" className="px-4 whitespace-nowrap flex items-center gap-1.5">
                 <Shield className="h-3.5 w-3.5" />Safety & Compliance
               </TabsTrigger>
@@ -583,13 +580,17 @@ export default function ProjectDetail() {
           />
         </TabsContent>
 
-        <TabsContent value="cost" className="mt-6">
-          <CostTab projectId={projectId} isOwnerOrForeman={isOwnerOrForeman} />
-        </TabsContent>
+        {hasPerm("viewFinancials") && (
+          <TabsContent value="cost" className="mt-6">
+            <CostTab projectId={projectId} isOwnerOrForeman={isOwnerOrForeman} />
+          </TabsContent>
+        )}
 
-        <TabsContent value="rfis" className="mt-6">
-          <RFIsTab projectId={projectId} isOwnerOrForeman={isOwnerOrForeman} members={members} />
-        </TabsContent>
+        {hasPerm("viewRFIs") && (
+          <TabsContent value="rfis" className="mt-6">
+            <RFIsTab projectId={projectId} isOwnerOrForeman={isOwnerOrForeman} members={members} />
+          </TabsContent>
+        )}
 
         <TabsContent value="team" className="mt-6">
           <div className="flex justify-between items-center mb-4">
@@ -654,24 +655,29 @@ export default function ProjectDetail() {
           )}
         </TabsContent>
 
-        <TabsContent value="quotes" className="mt-6">
-          <QuotesTab projectId={projectId} />
-        </TabsContent>
+        {hasPerm("viewQuotes") && (
+          <TabsContent value="quotes" className="mt-6">
+            <QuotesTab projectId={projectId} />
+          </TabsContent>
+        )}
 
-        <TabsContent value="documents" className="mt-6">
-          <DocumentsTab projectId={projectId} />
-        </TabsContent>
+        {hasPerm("viewDocuments") && (
+          <TabsContent value="documents" className="mt-6">
+            <DocumentsTab projectId={projectId} />
+          </TabsContent>
+        )}
 
-
-        <TabsContent value="client-messages" className="mt-6">
-          <ClientMessagesTab projectId={projectId} />
-        </TabsContent>
+        {hasPerm("viewClientMessages") && (
+          <TabsContent value="client-messages" className="mt-6">
+            <ClientMessagesTab projectId={projectId} />
+          </TabsContent>
+        )}
 
         <TabsContent value="site-scans" className="mt-6">
           <SiteScansTab projectId={projectId} />
         </TabsContent>
 
-        {me?.role && (me.role === "owner" || me.role === "foreman" || me.role === "worker") && (
+        {hasPerm("viewSafetyTab") && (
           <TabsContent value="safety" className="mt-6">
             <SafetyComplianceTab projectId={projectId} />
           </TabsContent>

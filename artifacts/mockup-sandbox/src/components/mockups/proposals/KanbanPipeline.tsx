@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Plus, FileSignature, Send, CheckCircle2, XCircle, Clock, DollarSign, ChevronRight } from "lucide-react";
 
 const GOLD = "#D4AF37";
-const BLACK = "#121212";
 
 const columns = [
   { key: "draft", label: "Draft Estimates", color: "#6B7280", icon: <Clock size={14} /> },

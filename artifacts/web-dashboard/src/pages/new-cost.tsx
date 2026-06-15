@@ -7,12 +7,12 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { getListCostAnalysesQueryKey, getGetProjectSummaryQueryKey } from "@workspace/api-client-react";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, Loader2, Sparkles, DollarSign } from "lucide-react";
+import { ChevronLeft, Loader2, Sparkles } from "lucide-react";
 
 const costSchema = z.object({
   periodLabel: z.string().min(2, "Required"),
