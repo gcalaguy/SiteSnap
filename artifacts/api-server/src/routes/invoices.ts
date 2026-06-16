@@ -10,7 +10,7 @@ import { sendReminderForInvoice } from "../lib/invoiceReminders.js";
 import { logAuditEventFromRequest } from "../utils/logger";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { buildInvoicePdfBuffer } from "../lib/invoicePdf.js";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { z } from "zod";
 
 const InvoiceLineItemSchema = z.object({
@@ -80,7 +80,7 @@ function workerVisibilityInvoices(userId: number) {
 }
 
 // POST /invoices — create a standalone invoice directly
-router.post("/invoices", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
+router.post("/invoices", requireAuth, requireCompany, requirePermission("manageFinancials"), asyncHandler(async (req, res) => {
   const parsed = CreateInvoiceBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }
 
@@ -348,7 +348,7 @@ router.post("/invoices/:invoiceId/send-email", requireAuth, requireCompany, requ
           </tr>
           ${invoice.dueDate ? `<tr>
             <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 0 4px;color:#6b7280;font-size:13px;">Due Date</td>
-            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;border-radius:0 0 4px 0;font-size:13px;font-weight:600;">${format(new Date(invoice.dueDate), "MMMM d, yyyy")}</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;border-radius:0 0 4px 0;font-size:13px;font-weight:600;">${format(parseISO(invoice.dueDate), "MMMM d, yyyy")}</td>
           </tr>` : ""}
         </table>
         <p style="margin:0;font-size:13px;color:#6b7280;">If you have any questions about this invoice, please don't hesitate to reach out.</p>

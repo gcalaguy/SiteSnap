@@ -332,7 +332,7 @@ router.delete("/:quoteId", requireAuth, requireCompany, requirePermission("manag
 }))
 
 // POST /:quoteId/submit
-router.post("/:quoteId/submit", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/:quoteId/submit", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const quoteId = parseInt(req.params.quoteId as string);
   const isWorker = req.userRole === "worker";
 
@@ -384,10 +384,12 @@ router.post("/:quoteId/submit", requireAuth, requireCompany, asyncHandler(async 
 }))
 
 // POST /:quoteId/unsubmit
-router.post("/:quoteId/unsubmit", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/:quoteId/unsubmit", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const quoteId = parseInt(req.params.quoteId as string);
-  const [existing] = await db.select().from(quotesTable)
-    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
+  const isWorker = req.userRole === "worker";
+  const baseCondition = and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))!;
+  const where = isWorker ? and(baseCondition, workerVisibility(req.userId!))! : baseCondition;
+  const [existing] = await db.select().from(quotesTable).where(where).limit(1);
   if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
   if (existing.status !== "pending_approval") {
     res.status(409).json({ error: "Only submitted quotes can be unsubmitted" }); return;
@@ -439,12 +441,27 @@ router.post("/:quoteId/reject", requireAuth, requireCompany, asyncHandler(async 
   res.json(updated);
 }))
 
+const AssignQuoteBody = z.object({
+  assignedToUserId: z.number().int().positive().nullable(),
+});
+
 // PATCH /:quoteId/assign — owners/foremen assign a quote to a worker
 router.patch("/:quoteId/assign", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   if (req.userRole === "worker") { res.status(403).json({ error: "Insufficient permissions" }); return; }
 
   const quoteId = parseInt(req.params.quoteId as string);
-  const { assignedToUserId } = req.body ?? {};
+  const assignParsed = AssignQuoteBody.safeParse(req.body);
+  if (!assignParsed.success) { res.status(400).json({ error: assignParsed.error.flatten() }); return; }
+  const { assignedToUserId } = assignParsed.data;
+
+  if (assignedToUserId !== null) {
+    const [membership] = await db
+      .select({ userId: userMembershipsTable.userId })
+      .from(userMembershipsTable)
+      .where(and(eq(userMembershipsTable.userId, assignedToUserId), eq(userMembershipsTable.companyId, req.companyId!)))
+      .limit(1);
+    if (!membership) { res.status(400).json({ error: "User is not a member of this company" }); return; }
+  }
 
   const [existing] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
@@ -465,8 +482,8 @@ router.post("/:quoteId/convert-to-invoice", requireAuth, requireCompany, asyncHa
   const [quote] = await db.select().from(quotesTable)
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).limit(1);
   if (!quote) { res.status(404).json({ error: "Quote not found" }); return; }
-  if (quote.status !== "approved") {
-    res.status(409).json({ error: "Only approved quotes can be converted to invoices" }); return;
+  if (quote.status !== "approved" && quote.status !== "accepted") {
+    res.status(409).json({ error: "Only approved or accepted quotes can be converted to invoices" }); return;
   }
 
   const parsed = ConvertQuoteToInvoiceBody.safeParse(req.body);

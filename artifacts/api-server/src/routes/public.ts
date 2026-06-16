@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, quotesTable, invoicesTable, companiesTable, usersTable, userMembershipsTable } from "@workspace/db";
-import { eq, and, isNull, or } from "drizzle-orm";
+import { eq, and, isNull, or, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -476,6 +477,152 @@ router.post(
           logger.warn({ quoteId: updated.id, sandboxWarning: err.message }, "Quote signed client email sandboxed");
         } else {
           logger.error({ err, quoteId: updated.id }, "Failed to send quote signed client email");
+        }
+      });
+    }
+  }),
+);
+
+// ── Public Quote: ACCEPT (e-sign + auto-invoice) ─────────────────────────────
+router.patch(
+  "/public/quotes/:token/accept",
+  signRateLimiter,
+  asyncHandler(async (req, res) => {
+    const token = req.params.token;
+    const parsed = SignBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+      return;
+    }
+
+    // Pre-flight check to give a clear error before entering the transaction
+    const [quote] = await db
+      .select()
+      .from(quotesTable)
+      .where(eq(quotesTable.publicToken, token as string))
+      .limit(1);
+
+    if (!quote) { res.status(404).json({ error: "Quote not found" }); return; }
+    if (quote.signedAt) { res.status(409).json({ error: "Quote has already been accepted" }); return; }
+    if (quote.status !== "approved") {
+      res.status(409).json({ error: "Quote is not ready for acceptance", status: quote.status });
+      return;
+    }
+    // Expiry: compare YYYY-MM-DD strings to avoid timezone ambiguity
+    if (quote.validUntil) {
+      const today = new Date().toISOString().split("T")[0];
+      if (quote.validUntil < today) {
+        res.status(410).json({ error: "This quote has expired" });
+        return;
+      }
+    }
+
+    const info = getClientInfo(req);
+
+    let result: { quote: typeof quotesTable.$inferSelect; invoice: typeof invoicesTable.$inferSelect } | null = null;
+    try {
+      result = await db.transaction(async (tx) => {
+        // Atomic idempotency guard — first writer wins; signedAt IS NULL in WHERE
+        // means a concurrent request gets 0 rows and throws CONCURRENT_ACCEPT.
+        const [accepted] = await tx
+          .update(quotesTable)
+          .set({
+            status: "accepted",
+            signatureData: parsed.data.signatureData,
+            signerName: parsed.data.signerName,
+            signerIp: info.ip,
+            signerUserAgent: info.userAgent,
+            signedAt: info.signedAt,
+            approvedAt: info.signedAt,
+            updatedAt: info.signedAt,
+          })
+          .where(
+            and(
+              eq(quotesTable.publicToken, token as string),
+              isNull(quotesTable.signedAt),
+              eq(quotesTable.status, "approved"),
+            ),
+          )
+          .returning();
+
+        if (!accepted) throw new Error("CONCURRENT_ACCEPT");
+
+        // Atomically allocate invoice number inside the same transaction
+        const [company] = await tx
+          .update(companiesTable)
+          .set({ invoiceCounter: sql`invoice_counter + 1` })
+          .where(eq(companiesTable.id, accepted.companyId))
+          .returning({
+            counter: companiesTable.invoiceCounter,
+            prefix: companiesTable.invoiceNumberPrefix,
+            start: companiesTable.invoiceStartNumber,
+          });
+
+        const invoiceNum = company.counter + ((company.start ?? 1) - 1);
+        const invoiceNumber = `${company.prefix ?? "INV"}-${String(invoiceNum).padStart(4, "0")}`;
+
+        const [invoice] = await tx
+          .insert(invoicesTable)
+          .values({
+            companyId: accepted.companyId,
+            projectId: accepted.projectId ?? null,
+            quoteId: accepted.id,
+            invoiceNumber,
+            title: accepted.title,
+            clientName: accepted.clientName,
+            clientEmail: accepted.clientEmail ?? null,
+            status: "draft",
+            lineItems: accepted.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[],
+            subtotal: accepted.subtotal,
+            taxRate: accepted.taxRate,
+            taxAmount: accepted.taxAmount,
+            total: accepted.total,
+            notes: accepted.notes ?? null,
+            createdByUserId: accepted.createdByUserId,
+            publicToken: randomUUID(),
+          })
+          .returning();
+
+        return { quote: accepted, invoice };
+      });
+    } catch (err: any) {
+      if (err?.message === "CONCURRENT_ACCEPT") {
+        res.status(409).json({ error: "Quote has already been accepted" });
+        return;
+      }
+      logger.error({ err }, "Failed to accept quote");
+      res.status(500).json({ error: "Failed to accept quote. Please try again." });
+      return;
+    }
+
+    const companyName = await getCompanyName(result.quote.companyId);
+    res.json({
+      quote: await publicQuotePayload(result.quote as unknown as Record<string, unknown>, companyName),
+      invoiceId: result.invoice.id,
+      invoiceNumber: result.invoice.invoiceNumber,
+    });
+
+    // Fire-and-forget confirmation email to client
+    if (result.quote.clientEmail) {
+      const html = buildQuoteSignedClientHtml(
+        {
+          quoteNumber: result.quote.quoteNumber,
+          clientName: result.quote.clientName,
+          total: result.quote.total,
+          signerName: result.quote.signerName ?? parsed.data.signerName,
+          signedAt: result.quote.signedAt ?? info.signedAt,
+        },
+        companyName ?? "Site Snap",
+      );
+      sendEmail({
+        to: [result.quote.clientEmail],
+        subject: `Quote ${result.quote.quoteNumber} — Accepted`,
+        html,
+      }).catch((err) => {
+        if (err instanceof ResendSandboxError) {
+          logger.warn({ quoteId: result!.quote.id, sandboxWarning: err.message }, "Quote accept client email sandboxed");
+        } else {
+          logger.error({ err, quoteId: result!.quote.id }, "Failed to send quote accept confirmation email");
         }
       });
     }
