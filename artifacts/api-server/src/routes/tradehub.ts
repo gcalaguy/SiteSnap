@@ -1077,7 +1077,7 @@ router.delete("/tradehub/profile/media/:id", requireAuth, asyncHandler(async (re
       .where(and(eq(tradehubProfileMediaTable.id, id), eq(tradehubProfileMediaTable.userId, req.userId!)))
       .limit(1);
     if (!item) { res.status(404).json({ error: "Not found" }); return; }
-    await db.delete(tradehubProfileMediaTable).where(eq(tradehubProfileMediaTable.id, id));
+    await db.delete(tradehubProfileMediaTable).where(and(eq(tradehubProfileMediaTable.id, id), eq(tradehubProfileMediaTable.userId, req.userId!)));
     res.json({ ok: true });
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/media DELETE error");

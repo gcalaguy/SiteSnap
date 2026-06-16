@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import {
   db,
   leadsTable,
@@ -75,7 +75,7 @@ async function getLeadWithContact(leadId: number, companyId: number) {
   const [contact] = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.id, lead.contactId));
+    .where(and(eq(contactsTable.id, lead.contactId), eq(contactsTable.companyId, companyId)));
 
   return { ...lead, contact: contact ?? null };
 }
@@ -97,7 +97,7 @@ router.get("/leads", requireAuth, requireCompany, asyncHandler(async (req, res) 
       ? await db
           .select()
           .from(contactsTable)
-          .where(eq(contactsTable.companyId, companyId))
+          .where(and(eq(contactsTable.companyId, companyId), inArray(contactsTable.id, contactIds)))
       : [];
 
   const contactMap = Object.fromEntries(contacts.map((c) => [c.id, c]));
@@ -167,15 +167,20 @@ router.delete("/leads/:leadId", requireAuth, requireCompany, asyncHandler(async 
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
-  // Delete activities first
+  // Verify ownership before touching child rows
+  const [lead] = await db
+    .select({ id: leadsTable.id })
+    .from(leadsTable)
+    .where(and(eq(leadsTable.id, leadId), eq(leadsTable.companyId, req.companyId!)))
+    .limit(1);
+
+  if (!lead) { res.status(404).json({ error: "Lead not found" }); return; }
+
   await db.delete(leadActivitiesTable).where(eq(leadActivitiesTable.leadId, leadId));
 
-  const [deleted] = await db
+  await db
     .delete(leadsTable)
-    .where(and(eq(leadsTable.id, leadId), eq(leadsTable.companyId, req.companyId!)))
-    .returning();
-
-  if (!deleted) { res.status(404).json({ error: "Lead not found" }); return; }
+    .where(and(eq(leadsTable.id, leadId), eq(leadsTable.companyId, req.companyId!)));
 
   res.status(204).send();
 }))
@@ -229,6 +234,13 @@ router.post("/leads/:leadId/convert", requireAuth, requireCompany, asyncHandler(
 router.get("/leads/:leadId/activities", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
+
+  const [lead] = await db
+    .select({ id: leadsTable.id })
+    .from(leadsTable)
+    .where(and(eq(leadsTable.id, leadId), eq(leadsTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!lead) { res.status(404).json({ error: "Lead not found" }); return; }
 
   const activities = await db
     .select()
