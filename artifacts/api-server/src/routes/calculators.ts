@@ -43,7 +43,7 @@ Write a concise, plain-English field note (2-3 sentences) that a tradesperson wo
     const aiSummary = completion.choices[0]?.message?.content?.trim() ?? summary;
     res.json({ summary: aiSummary });
   } catch (err: any) {
-    req.log.error({ err }, "Calculator AI summary error");
+    req.log?.error({ err }, "Calculator AI summary error");
     res.status(500).json({ error: "AI generation failed" });
   }
 }))

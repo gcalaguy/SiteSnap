@@ -1,12 +1,21 @@
 import { Router } from "express";
 import { z } from "zod";
 import { openai, speechToText, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
+import { db, companiesTable, estimatorCostModelsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { searchWeb, formatSearchContext, webSearchEnabled } from "../lib/webSearch.js";
 import { canSearchWeb, recordWebSearch } from "../lib/webSearchRateLimiter.js";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 import { buildTenantContext } from "../lib/buildTenantContext";
+
+// Canadian provincial/territorial tax rates (GST/HST/PST combined)
+const PROVINCE_TAX: Record<string, number> = {
+  ON: 0.13, BC: 0.12, AB: 0.05, SK: 0.11, MB: 0.12,
+  QC: 0.14975, NB: 0.15, NS: 0.15, PE: 0.15, NL: 0.15,
+  NT: 0.05, NU: 0.05, YT: 0.05,
+};
 
 const router = Router();
 
@@ -282,7 +291,30 @@ router.post("/ai/quote/generate", requireAuth, requireCompany, requireAiQuota, a
   }
 
   const { voiceInput, projectName, clientName } = parsed.data;
-  const TAX_RATE = 0.13;
+
+  const [companyRow, costModels] = await Promise.all([
+    db.select({ province: companiesTable.province })
+      .from(companiesTable)
+      .where(eq(companiesTable.id, req.companyId!))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db.select()
+      .from(estimatorCostModelsTable)
+      .where(eq(estimatorCostModelsTable.companyId, req.companyId!))
+      .orderBy(estimatorCostModelsTable.projectType, estimatorCostModelsTable.finishLevel)
+      .limit(20),
+  ]);
+
+  const TAX_RATE = PROVINCE_TAX[companyRow?.province?.toUpperCase() ?? "ON"] ?? 0.13;
+
+  const pricingBlock = costModels.length > 0
+    ? `COMPANY PRICING REFERENCE — anchor unit prices to these rates and multiply quantities accordingly:
+${costModels.map((m) =>
+  `• ${m.name} (${m.projectType}/${m.finishLevel}): labour $${m.laborCostPerSqft}/m², materials $${m.materialCostPerSqft}/m², overhead ${m.overheadPct}%, contingency ${m.contingencyPct}%`
+).join("\n")}
+For hourly labour line items, derive a per-hour rate from the labour $/m² using typical productivity (0.5–2 m²/hr depending on task complexity).
+Multiply each extracted quantity by the appropriate reference rate to populate unitPrice, then set total = quantity × unitPrice (rounded to 2 decimals).`
+    : `Use realistic Canadian construction pricing for materials and labour.`;
 
   const prompt = `You are a professional construction estimator AI for Canadian construction companies.
 
@@ -293,14 +325,14 @@ Return ONLY a JSON object with these exact fields:
   - description: string (material or labour item name)
   - quantity: number
   - unit: string (e.g. "hr", "m²", "m³", "ea", "lm", "bag", "sheet", "load")
-  - unitPrice: number (CAD, realistic Canadian construction pricing)
+  - unitPrice: number (CAD, must be a number)
   - total: number (quantity × unitPrice, rounded to 2 decimals)
 - subtotal: number (sum of all line item totals)
-- taxAmount: number (subtotal × ${TAX_RATE} HST, rounded to 2 decimals)
+- taxAmount: number (subtotal × ${TAX_RATE} rounded to 2 decimals)
 - total: number (subtotal + taxAmount)
 - notes: string (any scope clarifications, assumptions, or exclusions)
 
-Use realistic Canadian construction pricing for materials and labour.
+${pricingBlock}
 Include both materials AND labour as separate line items when applicable.
 ${projectName ? `Project: ${projectName}` : ""}
 ${clientName ? `Client: ${clientName}` : ""}
@@ -332,7 +364,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
       };
     }
     const items = result.lineItems as { unit?: unknown }[] | undefined;
-    req.log.info({ firstItemUnit: items?.[0]?.unit, itemCount: items?.length }, "AI quote response sample");
+    req.log?.info({ firstItemUnit: items?.[0]?.unit, itemCount: items?.length }, "AI quote response sample");
     res.json(result);
   } catch (err: unknown) {
     req.log?.error({ err }, "AI quote generation failed");
@@ -355,7 +387,30 @@ router.post("/ai/invoice/generate", requireAuth, requireCompany, requireAiQuota,
   }
 
   const { voiceInput, projectName, clientName } = parsed.data;
-  const TAX_RATE = 0.13;
+
+  const [companyRow, costModels] = await Promise.all([
+    db.select({ province: companiesTable.province })
+      .from(companiesTable)
+      .where(eq(companiesTable.id, req.companyId!))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db.select()
+      .from(estimatorCostModelsTable)
+      .where(eq(estimatorCostModelsTable.companyId, req.companyId!))
+      .orderBy(estimatorCostModelsTable.projectType, estimatorCostModelsTable.finishLevel)
+      .limit(20),
+  ]);
+
+  const TAX_RATE = PROVINCE_TAX[companyRow?.province?.toUpperCase() ?? "ON"] ?? 0.13;
+
+  const pricingBlock = costModels.length > 0
+    ? `COMPANY PRICING REFERENCE — anchor unit prices to these rates and multiply quantities accordingly:
+${costModels.map((m) =>
+  `• ${m.name} (${m.projectType}/${m.finishLevel}): labour $${m.laborCostPerSqft}/m², materials $${m.materialCostPerSqft}/m², overhead ${m.overheadPct}%, contingency ${m.contingencyPct}%`
+).join("\n")}
+For hourly labour line items, derive a per-hour rate from the labour $/m² using typical productivity (0.5–2 m²/hr depending on task complexity).
+Multiply each extracted quantity by the appropriate reference rate to populate unitPrice, then set total = quantity × unitPrice (rounded to 2 decimals).`
+    : `Use realistic Canadian construction pricing for materials and labour.`;
 
   const prompt = `You are a professional construction billing AI for Canadian construction companies.
 
@@ -367,14 +422,14 @@ Return ONLY a JSON object with these exact fields:
   - description: string (material or labour item name)
   - quantity: number
   - unit: string (e.g. "hr", "m²", "m³", "ea", "lm", "bag", "sheet", "load")
-  - unitPrice: number (CAD, realistic Canadian construction pricing)
+  - unitPrice: number (CAD, must be a number)
   - total: number (quantity × unitPrice, rounded to 2 decimals)
 - subtotal: number (sum of all line item totals)
-- taxAmount: number (subtotal × ${TAX_RATE} HST, rounded to 2 decimals)
+- taxAmount: number (subtotal × ${TAX_RATE} rounded to 2 decimals)
 - total: number (subtotal + taxAmount)
 - notes: string (any scope notes, payment terms, or work summary)
 
-Use realistic Canadian construction pricing for materials and labour.
+${pricingBlock}
 Include both materials AND labour as separate line items when applicable.
 ${projectName ? `Project: ${projectName}` : ""}
 ${clientName ? `Client: ${clientName}` : ""}
@@ -533,7 +588,7 @@ router.post("/help/chat", requireAuth, requireAiQuota, asyncHandler(async (req, 
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       max_completion_tokens: 600,
       messages,
     });
@@ -717,7 +772,7 @@ OUTPUT FORMAT:
 Keep total output under 200 words. Only include sections that have relevant data. If a section has no data, skip it entirely.`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       max_completion_tokens: 500,
       messages: [
         { role: "system", content: systemPrompt },
