@@ -64,7 +64,7 @@ import { AddonSelector } from "@/components/smart-estimator/AddonSelector";
 import { LineItemsTable } from "@/components/smart-estimator/LineItemsTable";
 import { BreakdownPanel } from "@/components/smart-estimator/BreakdownPanel";
 import { ActualCard } from "@/components/smart-estimator/ActualCard";
-import { type LineItem, type EstimateSummary, fmtCurrency as fmt, computeEstimateTotals } from "@/lib/estimator";
+import { type LineItem, type EstimateSummary, fmtCurrency as fmt } from "@/lib/estimator";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
