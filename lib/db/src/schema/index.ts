@@ -604,6 +604,7 @@ export const quoteStatusEnum = pgEnum("quote_status", [
   "approved",
   "rejected",
   "converted",
+  "accepted",
 ]);
 
 export type QuoteLineItem = {
