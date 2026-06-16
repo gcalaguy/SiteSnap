@@ -121,11 +121,11 @@ export const requireAuth = async (
             })
             .onConflictDoNothing();
         } else {
-          req.log.warn({ companyId: req.companyId }, "No starter plan found in DB — company has no subscription");
+          req.log?.warn({ companyId: req.companyId }, "No starter plan found in DB — company has no subscription");
         }
       }
     } catch (err: any) {
-      req.log.warn({ err, companyId: req.companyId }, "Failed to auto-provision default subscription");
+      req.log?.warn({ err, companyId: req.companyId }, "Failed to auto-provision default subscription");
     }
   }
 
