@@ -279,11 +279,12 @@ describe("POST /timesheets/:id/approve and /deny", () => {
       .set("x-tenant-id", String(companyId))
       .send({ weekStart: WEEK_START, totalHours: 40, hourlyRate: 25, description: "Fixed" });
 
-    // Owner approves
+    // Owner approves (signatureData is required by the approve endpoint)
     activeClerkId = CLERK_OWNER;
     const res = await request(testApp)
       .post(`/api/timesheets/${timesheetId}/approve`)
-      .set("x-tenant-id", String(companyId));
+      .set("x-tenant-id", String(companyId))
+      .send({ signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("approved");
   });

@@ -171,6 +171,7 @@ describe("Invoice tenant isolation", () => {
         clientName: "Stranger",
         status: "draft",
         createdByUserId: userId,
+        publicToken: crypto.randomUUID(),
       })
       .returning();
 

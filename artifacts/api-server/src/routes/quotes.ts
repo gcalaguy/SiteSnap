@@ -391,8 +391,8 @@ router.post("/:quoteId/unsubmit", requireAuth, requireCompany, requirePermission
   const where = isWorker ? and(baseCondition, workerVisibility(req.userId!))! : baseCondition;
   const [existing] = await db.select().from(quotesTable).where(where).limit(1);
   if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
-  if (existing.status !== "pending_approval") {
-    res.status(409).json({ error: "Only submitted quotes can be unsubmitted" }); return;
+  if (existing.status !== "pending_approval" && existing.status !== "rejected") {
+    res.status(409).json({ error: "Only submitted or rejected quotes can be unsubmitted" }); return;
   }
   const [updated] = await db.update(quotesTable)
     .set({ status: "draft", updatedAt: new Date() })

@@ -119,7 +119,7 @@ describe("Quote state machine", () => {
 
     expect(res.status).toBe(201);
     expect(res.body.status).toBe("draft");
-    expect(res.body.quoteNumber).toMatch(/^QT-/);
+    expect(res.body.quoteNumber).toMatch(/^QUO-/);
     quoteId = res.body.id;
   });
 
