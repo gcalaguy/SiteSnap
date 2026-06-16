@@ -3,38 +3,7 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Database } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-type LineItem = {
-  id: string;
-  description: string;
-  category: "labour" | "materials" | "addon" | "overhead";
-  quantity: number;
-  unit: string;
-  unitCost: number;
-  total: number;
-  editable: boolean;
-};
-
-type EstimateSummary = {
-  laborTotal: number;
-  materialsTotal: number;
-  addonsTotal: number;
-  overhead: number;
-  overheadPct: number;
-  subtotal: number;
-  contingency: number;
-  contingencyPct: number;
-  totalLow: number;
-  totalHigh: number;
-  suggestedMarginPct: number;
-  suggestedMarginAmount: number;
-  priceToClient: number;
-};
-
-function fmt(n: number | undefined | null) {
-  if (n == null) return "—";
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
-}
+import { type LineItem, type EstimateSummary, fmtCurrency as fmt, computeEstimateTotals } from "@/lib/estimator";
 
 export function BreakdownPanel({
   summary,
@@ -47,10 +16,8 @@ export function BreakdownPanel({
   marginPct: number;
   onMarginChange: (v: number) => void;
 }) {
-  const liveSubtotal = lineItems.reduce((s, i) => s + i.total, 0);
-  const liveContingency = Math.round(liveSubtotal * (summary.contingencyPct / 100));
-  const liveMargin = Math.round((liveSubtotal + liveContingency) * (marginPct / 100));
-  const priceToClient = liveSubtotal + liveContingency + liveMargin;
+  const { subtotal: liveSubtotal, contingency: liveContingency, margin: liveMargin, priceToClient } =
+    computeEstimateTotals(lineItems, summary.contingencyPct, marginPct);
 
   return (
     <div className="space-y-4">

@@ -64,6 +64,7 @@ import { AddonSelector } from "@/components/smart-estimator/AddonSelector";
 import { LineItemsTable } from "@/components/smart-estimator/LineItemsTable";
 import { BreakdownPanel } from "@/components/smart-estimator/BreakdownPanel";
 import { ActualCard } from "@/components/smart-estimator/ActualCard";
+import { type LineItem, type EstimateSummary, fmtCurrency as fmt, computeEstimateTotals } from "@/lib/estimator";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -77,33 +78,6 @@ type ParsedParams = {
   addons: string[];
   confidence: number;
   notes: string;
-};
-
-type LineItem = {
-  id: string;
-  description: string;
-  category: "labour" | "materials" | "addon" | "overhead";
-  quantity: number;
-  unit: string;
-  unitCost: number;
-  total: number;
-  editable: boolean;
-};
-
-type EstimateSummary = {
-  laborTotal: number;
-  materialsTotal: number;
-  addonsTotal: number;
-  overhead: number;
-  overheadPct: number;
-  subtotal: number;
-  contingency: number;
-  contingencyPct: number;
-  totalLow: number;
-  totalHigh: number;
-  suggestedMarginPct: number;
-  suggestedMarginAmount: number;
-  priceToClient: number;
 };
 
 type EstimateResult = {
@@ -135,11 +109,6 @@ const FINISH_LEVEL_LABELS: Record<string, { label: string; desc: string; color: 
   luxury:   { label: "Luxury",   desc: "Bespoke / custom everything",         color: "bg-amber-50 text-amber-700 border-amber-200" },
 };
 
-
-function fmt(n: number | undefined | null) {
-  if (n == null) return "—";
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
-}
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -247,6 +216,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
   const { data: actuals = [] } = useQuery<{ id: number; estimatedCost: string; actualCost: string; variancePct: string | null; notes: string | null; recordedAt: string }[]>({
     queryKey: ["estimator-actuals"],
     queryFn: () => customFetch("/api/estimator/actuals"),
+    enabled: isOwnerOrForeman,
   });
 
   // Pricing DB CRUD mutations

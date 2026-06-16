@@ -1,15 +1,5 @@
 import { cn } from "@/lib/utils";
-
-type LineItem = {
-  id: string;
-  description: string;
-  category: "labour" | "materials" | "addon" | "overhead";
-  quantity: number;
-  unit: string;
-  unitCost: number;
-  total: number;
-  editable: boolean;
-};
+import { type LineItem, fmtCurrency as fmt } from "@/lib/estimator";
 
 const CATEGORY_COLORS: Record<string, string> = {
   labour:    "text-blue-600",
@@ -17,11 +7,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   addon:     "text-purple-600",
   overhead:  "text-amber-600",
 };
-
-function fmt(n: number | undefined | null) {
-  if (n == null) return "—";
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
-}
 
 export function LineItemsTable({
   items,
@@ -31,14 +16,15 @@ export function LineItemsTable({
   onChange: (items: LineItem[]) => void;
 }) {
   const updateItem = (id: string, field: keyof LineItem, value: number) => {
+    const clamped = Math.max(0, value);
     onChange(
       items.map((item) => {
         if (item.id !== id) return item;
-        const updated = { ...item, [field]: value };
+        const updated = { ...item, [field]: clamped };
         if (field === "quantity" || field === "unitCost") {
           updated.total = Math.round(updated.quantity * updated.unitCost);
         } else if (field === "total") {
-          updated.total = value;
+          updated.total = clamped;
         }
         return updated;
       }),
@@ -72,6 +58,7 @@ export function LineItemsTable({
                 {item.editable ? (
                   <input
                     type="number"
+                    min="0"
                     value={item.quantity}
                     onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value) || 0)}
                     className="w-20 text-right bg-transparent border-0 border-b border-transparent group-hover:border-border focus:border-primary outline-none text-sm py-0.5 transition-colors"
@@ -85,6 +72,7 @@ export function LineItemsTable({
                 {item.editable ? (
                   <input
                     type="number"
+                    min="0"
                     value={item.unitCost}
                     onChange={(e) => updateItem(item.id, "unitCost", parseFloat(e.target.value) || 0)}
                     className="w-24 text-right bg-transparent border-0 border-b border-transparent group-hover:border-border focus:border-primary outline-none text-sm py-0.5 transition-colors"
@@ -97,6 +85,7 @@ export function LineItemsTable({
                 {item.editable ? (
                   <input
                     type="number"
+                    min="0"
                     value={item.total}
                     onChange={(e) => updateItem(item.id, "total", parseFloat(e.target.value) || 0)}
                     className="w-24 text-right bg-transparent border-0 border-b border-transparent group-hover:border-border focus:border-primary outline-none font-semibold text-sm py-0.5 transition-colors"

@@ -2,19 +2,17 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-
-function fmt(n: number | undefined | null) {
-  if (n == null) return "—";
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
-}
+import { fmtCurrency as fmt } from "@/lib/estimator";
 
 export function ActualCard({ actual }: { actual: { estimatedCost: string; actualCost: string; variancePct: string | null; notes: string | null; recordedAt: string } }) {
-  const variance = parseFloat(actual.variancePct ?? "0");
+  const parsedVariance = parseFloat(actual.variancePct ?? "0");
+  const variance = Number.isFinite(parsedVariance) ? parsedVariance : 0;
   const overBudget = variance > 5;
   const underBudget = variance < -5;
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg border border-border opacity-[1] bg-[#700d0d05] text-left">
-      <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 bg-[#f0fdf4]">
+      <div className={cn("h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0",
+        overBudget ? "bg-red-50" : underBudget ? "bg-[#f0fdf4]" : "bg-muted")}>
         {overBudget ? <TrendingUp className="h-4 w-4 text-red-500" /> :
          underBudget ? <TrendingDown className="h-4 w-4 text-green-600" /> :
          <Minus className="h-4 w-4 text-muted-foreground" />}
@@ -34,7 +32,7 @@ export function ActualCard({ actual }: { actual: { estimatedCost: string; actual
           underBudget ? "text-green-600 border-green-200" :
           "text-muted-foreground")}
       >
-        {variance > 0 ? "+" : ""}{variance.toFixed(1)}%
+        {Number.isFinite(parsedVariance) ? `${variance > 0 ? "+" : ""}${variance.toFixed(1)}%` : "—"}
       </Badge>
     </div>
   );

@@ -62,6 +62,8 @@ import {
   Settings2,
   Zap,
   TrendingUp,
+  Search,
+  X,
 } from "lucide-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -648,15 +650,22 @@ function AccordionSection({
   icon: Icon,
   badge,
   defaultOpen = true,
+  keepOpenWhen = false,
   children,
 }: {
   title: string;
   icon: React.ElementType;
   badge?: React.ReactNode;
   defaultOpen?: boolean;
+  /** When this flips true (e.g. a search starts matching), force the section open. */
+  keepOpenWhen?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+
+  useEffect(() => {
+    if (keepOpenWhen) setOpen(true);
+  }, [keepOpenWhen]);
 
   return (
     <div className="rounded-xl border border-border overflow-hidden">
@@ -687,6 +696,7 @@ function CostModelsSection({
   onTypeChange,
   previewFinish,
   onFinishChange,
+  search = "",
 }: {
   models: CostModelRecord[];
   projectTypes: Record<string, string>;
@@ -694,6 +704,8 @@ function CostModelsSection({
   onTypeChange: (t: string) => void;
   previewFinish: FinishLevel;
   onFinishChange: (f: FinishLevel) => void;
+  /** Lowercased, trimmed search query shared across the Pricing Manager. */
+  search?: string;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -708,6 +720,11 @@ function CostModelsSection({
   const typeKeys = useMemo(() => Object.keys(projectTypes).sort((a, b) =>
     projectTypes[a]!.localeCompare(projectTypes[b]!)
   ), [projectTypes]);
+
+  const filteredTypeKeys = useMemo(() => {
+    if (!search) return typeKeys;
+    return typeKeys.filter(k => (projectTypes[k] ?? k).toLowerCase().includes(search) || k.toLowerCase().includes(search));
+  }, [typeKeys, projectTypes, search]);
 
   const modelsForType = useMemo(
     () => models.filter(m => m.projectType === selectedType),
@@ -730,6 +747,7 @@ function CostModelsSection({
     <AccordionSection
       title="Cost Models & Rates"
       icon={TrendingUp}
+      keepOpenWhen={!!search && filteredTypeKeys.length > 0}
       badge={
         <Badge variant="outline" className="text-[10px] px-1.5 py-0">
           {coverageCount}/{FINISH_LEVELS.length}
@@ -746,7 +764,7 @@ function CostModelsSection({
             <SelectValue placeholder="Select a project type…" />
           </SelectTrigger>
           <SelectContent>
-            {typeKeys.map(key => (
+            {filteredTypeKeys.map(key => (
               <SelectItem key={key} value={key}>
                 {projectTypes[key]}
               </SelectItem>
@@ -761,7 +779,14 @@ function CostModelsSection({
         )}
       </div>
 
+      {search && filteredTypeKeys.length === 0 && (
+        <p className="text-xs text-muted-foreground text-center py-6">
+          No project types match "{search}".
+        </p>
+      )}
+
       {/* Finish level 2×2 grid */}
+      {(!search || filteredTypeKeys.length > 0) && (
       <div className="grid grid-cols-2 gap-3">
         {FINISH_LEVELS.map(fl => (
           <FinishLevelCard
@@ -775,9 +800,10 @@ function CostModelsSection({
           />
         ))}
       </div>
+      )}
 
       {/* Delete actions row */}
-      {modelsForType.length > 0 && (
+      {(!search || filteredTypeKeys.length > 0) && modelsForType.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {modelsForType.map(m => (
             <button
@@ -885,7 +911,16 @@ function CostModelsSection({
 
 // ── Add-ons Section (left panel) ──────────────────────────────────────────────
 
-function AddonsSection({ addons, projectTypes }: { addons: AddonRecord[]; projectTypes: Record<string, string> }) {
+function AddonsSection({
+  addons,
+  projectTypes,
+  search = "",
+}: {
+  addons: AddonRecord[];
+  projectTypes: Record<string, string>;
+  /** Lowercased, trimmed search query shared across the Pricing Manager. */
+  search?: string;
+}) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const deleteMutation = useDeleteAddon();
@@ -895,10 +930,26 @@ function AddonsSection({ addons, projectTypes }: { addons: AddonRecord[]; projec
   const [deleteWarning, setDeleteWarning] = useState<{ item: AddonRecord; count: number } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const filteredAddons = useMemo(() => {
+    if (!search) return addons;
+    return addons.filter(a => {
+      const typeLabels = (a.applicableTypes ?? "")
+        .split(",")
+        .map(t => (projectTypes[t.trim()] ?? t.trim()).toLowerCase());
+      return (
+        a.name.toLowerCase().includes(search) ||
+        a.addonKey.toLowerCase().includes(search) ||
+        (a.description ?? "").toLowerCase().includes(search) ||
+        typeLabels.some(t => t.includes(search))
+      );
+    });
+  }, [addons, projectTypes, search]);
+
   return (
     <AccordionSection
       title="Add-ons & Upgrades"
       icon={Tag}
+      keepOpenWhen={!!search && filteredAddons.length > 0}
       badge={
         addons.length > 0
           ? <Badge variant="outline" className="text-[10px] px-1.5 py-0">{addons.length}</Badge>
@@ -919,9 +970,14 @@ function AddonsSection({ addons, projectTypes }: { addons: AddonRecord[]; projec
             <p className="text-sm text-muted-foreground">No add-ons configured yet.</p>
             <p className="text-xs text-muted-foreground mt-0.5">Add HVAC, permits, custom line items, and more.</p>
           </div>
+        ) : filteredAddons.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border/60 py-8 text-center">
+            <Search className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No add-ons match "{search}".</p>
+          </div>
         ) : (
           <div className="space-y-1.5">
-            {addons.map(a => (
+            {filteredAddons.map(a => (
               <div key={a.id}
                 className="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5 hover:bg-muted/20 group transition-colors">
                 <div className="flex-1 min-w-0">
@@ -1046,7 +1102,16 @@ function AddonsSection({ addons, projectTypes }: { addons: AddonRecord[]; projec
 
 // ── Project Types Section (left panel) ───────────────────────────────────────
 
-function ProjectTypesSection({ projectTypes, companyId }: { projectTypes: Record<string, string>; companyId: number }) {
+function ProjectTypesSection({
+  projectTypes,
+  companyId,
+  search = "",
+}: {
+  projectTypes: Record<string, string>;
+  companyId: number;
+  /** Lowercased, trimmed search query shared across the Pricing Manager. */
+  search?: string;
+}) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
@@ -1125,11 +1190,17 @@ function ProjectTypesSection({ projectTypes, companyId }: { projectTypes: Record
   );
   const customCount = sorted.filter(([k]) => !isDefault(k)).length;
 
+  const filteredSorted = useMemo(() => {
+    if (!search) return sorted;
+    return sorted.filter(([key, label]) => key.toLowerCase().includes(search) || label.toLowerCase().includes(search));
+  }, [sorted, search]);
+
   return (
     <AccordionSection
       title="Project Type Labels"
       icon={Settings2}
       defaultOpen={false}
+      keepOpenWhen={!!search && filteredSorted.length > 0}
       badge={
         customCount > 0
           ? <Badge variant="outline" className="text-[10px] px-1.5 py-0">{customCount} custom</Badge>
@@ -1138,13 +1209,20 @@ function ProjectTypesSection({ projectTypes, companyId }: { projectTypes: Record
     >
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">{sorted.length} type{sorted.length !== 1 ? "s" : ""} configured</p>
+          <p className="text-xs text-muted-foreground">
+            {search
+              ? `${filteredSorted.length} of ${sorted.length} type${sorted.length !== 1 ? "s" : ""} match`
+              : `${sorted.length} type${sorted.length !== 1 ? "s" : ""} configured`}
+          </p>
           <Button size="sm" style={{ background: BLACK, color: "white" }} className="gap-1.5 text-xs h-7"
             onClick={() => { setForm({ key: "", label: "" }); setEditKey(null); setAddOpen(true); }}>
             <Plus className="h-3 w-3" /> New Type
           </Button>
         </div>
 
+        {search && filteredSorted.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-6">No project types match "{search}".</p>
+        ) : (
         <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-xs">
             <thead className="bg-muted/30 border-b border-border">
@@ -1156,7 +1234,7 @@ function ProjectTypesSection({ projectTypes, companyId }: { projectTypes: Record
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              {sorted.map(([key, label]) => (
+              {filteredSorted.map(([key, label]) => (
                 <tr key={key} className="group hover:bg-muted/10">
                   <td className="px-3 py-2">
                     <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{key}</code>
@@ -1184,6 +1262,7 @@ function ProjectTypesSection({ projectTypes, companyId }: { projectTypes: Record
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {addOpen && (
@@ -1540,6 +1619,23 @@ export function PricingSettingsBody() {
     });
   }, [firstTypeWithModels, models]);
 
+  // ── Search across cost models, add-ons, and project type labels ─────────────
+  const [searchInput, setSearchInput] = useState("");
+  const search = searchInput.trim().toLowerCase();
+
+  // When the search starts matching a different project type, jump the cost-model
+  // panel to the first match so results are visible without manually re-selecting.
+  useEffect(() => {
+    if (!search) return;
+    const matchingKeys = Object.keys(projectTypes).filter(
+      k => (projectTypes[k] ?? k).toLowerCase().includes(search) || k.toLowerCase().includes(search),
+    );
+    if (matchingKeys.length > 0 && !matchingKeys.includes(selectedType)) {
+      setSelectedType(matchingKeys[0]!);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
   // ── Sync flash ───────────────────────────────────────────────────────────
   // Shows a brief visual indicator on the preview card when the server data updates.
   const [syncFlash, setSyncFlash] = useState(false);
@@ -1580,6 +1676,27 @@ export function PricingSettingsBody() {
         </p>
       </div>
 
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          placeholder="Search cost models, add-ons, project types…"
+          className="pl-9 pr-9 text-sm h-9"
+          aria-label="Search Pricing Manager"
+        />
+        {searchInput && (
+          <button
+            onClick={() => setSearchInput("")}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       {/* Split-screen layout: config on left, live preview sticky on right */}
       <div className="grid gap-6 xl:grid-cols-[1fr_340px] items-start">
         {/* ── Left: scrollable configuration panel ── */}
@@ -1588,6 +1705,7 @@ export function PricingSettingsBody() {
             models={models}
             projectTypes={projectTypes}
             selectedType={selectedType}
+            search={search}
             onTypeChange={setSelectedType}
             previewFinish={previewFinish}
             onFinishChange={setPreviewFinish}
@@ -1596,11 +1714,13 @@ export function PricingSettingsBody() {
           <AddonsSection
             addons={addons}
             projectTypes={projectTypes}
+            search={search}
           />
 
           <ProjectTypesSection
             projectTypes={projectTypes}
             companyId={companyId}
+            search={search}
           />
         </div>
 

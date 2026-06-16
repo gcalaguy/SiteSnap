@@ -79,7 +79,10 @@
       "Bash(curl -s http://localhost:8080/health)",
       "Bash(echo \"Started PID: $!\")",
       "Read(//tmp/**)",
-      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:8080/api/projects)"
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:8080/api/projects)",
+      "Bash(gh auth *)",
+      "Skill(code-review)",
+      "Bash(echo \"exit:$?\")"
     ]
   }
 }

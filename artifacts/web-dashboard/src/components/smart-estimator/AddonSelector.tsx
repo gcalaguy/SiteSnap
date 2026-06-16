@@ -1,12 +1,8 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fmtCurrency as fmt } from "@/lib/estimator";
 
 type AddonModel = { id: number; addonKey: string; name: string; description?: string | null; costType: string; amount: string; applicableTypes?: string | null };
-
-function fmt(n: number | undefined | null) {
-  if (n == null) return "—";
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
-}
 
 export function AddonSelector({
   addons,
