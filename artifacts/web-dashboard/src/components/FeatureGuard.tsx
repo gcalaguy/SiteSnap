@@ -90,6 +90,23 @@ export function PermissionGuard({
 }
 
 /**
+ * Redirects to /dashboard if the current user's role is in `blockedRoles`.
+ * Renders nothing while the user is still loading (fail-closed).
+ */
+export function RoleGuard({
+  blockedRoles,
+  children,
+}: {
+  blockedRoles: string[];
+  children: React.ReactNode;
+}) {
+  const { data: me, isLoading } = useGetMe();
+  if (isLoading || !me) return null;
+  if (me.role && blockedRoles.includes(me.role)) return <Redirect to="/dashboard" />;
+  return <>{children}</>;
+}
+
+/**
  * Toast-based guard for inline elements.
  * Renders children but intercepts clicks to show a toast if feature is locked.
  */

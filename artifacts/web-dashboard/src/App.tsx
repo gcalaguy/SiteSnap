@@ -70,7 +70,7 @@ import PublicInvoicePage from "@/pages/public-invoice";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { PermissionGuard } from "@/components/FeatureGuard";
+import { PermissionGuard, RoleGuard } from "@/components/FeatureGuard";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -284,8 +284,8 @@ function AuthApp() {
         <Switch>
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/projects" component={Projects} />
-          <Route path="/contacts" component={Contacts} />
-          <Route path="/leads" component={Leads} />
+          <Route path="/contacts"><RoleGuard blockedRoles={["worker"]}><Contacts /></RoleGuard></Route>
+          <Route path="/leads"><RoleGuard blockedRoles={["worker"]}><Leads /></RoleGuard></Route>
           <Route path="/proposals" component={ProposalsPage} />
           <Route path="/financials" component={FinancialsPage} />
           <Route path="/projects/:id" component={ProjectDetail} />

@@ -20,6 +20,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import {
+  useGetMe,
   useListContacts,
   useCreateContact,
   useUpdateContact,
@@ -297,6 +298,15 @@ export default function ContactsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
+
+  const { data: me } = useGetMe();
+  const isWorker = me?.role === "worker";
+
+  React.useEffect(() => {
+    if (me && isWorker) {
+      router.replace("/(tabs)/(home)");
+    }
+  }, [me, isWorker]);
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<ContactType | "all">("all");

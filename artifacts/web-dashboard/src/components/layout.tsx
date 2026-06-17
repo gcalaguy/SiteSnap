@@ -86,6 +86,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { signOut } = useClerk();
 
   const isOwnerOrForeman = user?.role === "owner" || user?.role === "foreman";
+  const isWorker = user?.role === "worker";
   const isSuperAdmin = user?.systemRole === "super_admin";
 
   const qc = useQueryClient();
@@ -156,8 +157,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Estimating", href: "/estimates", icon: Calculator, badge: 0, permissionKey: "viewEstimator" },
     ...(isOwnerOrForeman ? [{ name: "Inventory", href: "/inventory", icon: Package, badge: 0, featureKey: "INVENTORY" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0, featureKey: "FINANCIALS" }] : []),
-    { name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "CONTACTS" },
-    { name: "Leads", href: "/leads", icon: TrendingUp, badge: 0, featureKey: "CONTACTS" },
+    ...(isWorker ? [] : [{ name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "CONTACTS" }]),
+    ...(isWorker ? [] : [{ name: "Leads", href: "/leads", icon: TrendingUp, badge: 0, featureKey: "CONTACTS" }]),
     ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, featureKey: "CALCULATORS" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0, featureKey: "SCHEDULING" }] : []),
     ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING" }] : []),
