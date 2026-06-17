@@ -14,9 +14,12 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Clock, Users, Building2, TrendingUp, Trash2,
   ChevronDown, ChevronUp, CalendarRange, UserCheck, X,
-  FileSpreadsheet,
+  FileSpreadsheet, Plus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -149,6 +152,30 @@ export default function HoursPage() {
     onError: () => toast({ title: "Failed to delete entry", variant: "destructive" }),
   });
 
+  // Log Hours dialog
+  const [logOpen, setLogOpen] = useState(false);
+  const [logProjectId, setLogProjectId] = useState("");
+  const [logDate, setLogDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [logHours, setLogHours] = useState("");
+  const [logDescription, setLogDescription] = useState("");
+
+  const logHoursMutation = useMutation({
+    mutationFn: () =>
+      customFetch(`/api/projects/${logProjectId}/time-entries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: logDate, hours: parseFloat(logHours), description: logDescription || undefined }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["time-entries"] });
+      toast({ title: "Hours logged" });
+      setLogOpen(false);
+      setLogHours("");
+      setLogDescription("");
+    },
+    onError: (e: any) => toast({ title: "Failed to log hours", description: e?.message, variant: "destructive" }),
+  });
+
   // Timesheet hooks
   const tsParams: Record<string, string> = {};
   if (tsStatusFilter !== "all") tsParams.status = tsStatusFilter;
@@ -271,13 +298,66 @@ export default function HoursPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
-          <Clock className="h-6 w-6" style={{ color: "#D4AF37" }} />
-          Hours Tracker
-        </h1>
-        <p className="text-sm text-[#121212]/60 font-medium mt-1">Company-wide time entries across all projects</p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
+            <Clock className="h-6 w-6" style={{ color: "#D4AF37" }} />
+            Hours Tracker
+          </h1>
+          <p className="text-sm text-[#121212]/60 font-medium mt-1">
+            {isPrivileged ? "Company-wide time entries across all projects" : "Your logged hours across your assigned projects"}
+          </p>
+        </div>
+        <Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => setLogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Log Hours
+        </Button>
       </div>
+
+      <Dialog open={logOpen} onOpenChange={setLogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log Hours</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Project</Label>
+              <Select value={logProjectId} onValueChange={setLogProjectId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(projects ?? []).map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Date</Label>
+              <Input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Hours</Label>
+              <Input type="number" step="0.25" min="0" max="24" value={logHours} onChange={(e) => setLogHours(e.target.value)} placeholder="8" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Description (optional)</Label>
+              <Input value={logDescription} onChange={(e) => setLogDescription(e.target.value)} placeholder="What did you work on?" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLogOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-[#D4AF37] text-white hover:bg-[#b5922e]"
+              onClick={() => logHoursMutation.mutate()}
+              disabled={logHoursMutation.isPending || !logProjectId || !logDate || !logHours}
+            >
+              {logHoursMutation.isPending ? "Logging…" : "Log Hours"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Filter bar */}
       <div className="flex flex-wrap gap-3 items-end">

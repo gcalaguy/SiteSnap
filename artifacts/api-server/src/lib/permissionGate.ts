@@ -19,7 +19,7 @@ const WORKER_DEFAULTS: Record<keyof MemberPermissions, boolean> = {
   viewReports:        true,
   viewRFIs:           false,
   viewPhotos:         true,
-  viewVault:          false,
+  viewVault:          true,
   viewEstimator:      false,
   viewSiteScan:       false,
   viewTradeHub:       false,

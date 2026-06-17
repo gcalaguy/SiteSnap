@@ -158,6 +158,7 @@ type QuickAction = {
 const ALL_ACTIONS: QuickAction[] = [
   { label: "My Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
   { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9", permKey: "viewReports" },
+  { label: "Expenses", icon: "credit-card", path: "/expenses", color: "#f97316", permKey: "submitExpenses" },
   { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b", permKey: "viewRFIs" },
   { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4", permKey: "viewPhotos" },
   { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },

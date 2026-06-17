@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, timeEntriesTable, projectsTable, usersTable, timesheetsTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
+import { canAccessProject } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
 import { z } from "zod";
 
@@ -64,6 +65,10 @@ const CreateTimeEntryBody = z.object({
 router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
 
   // Workers only see their own entries; foreman/owner see all
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
@@ -116,6 +121,10 @@ router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
     .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
     .limit(1);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
 
   const parsed = CreateTimeEntryBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }

@@ -1,4 +1,5 @@
-import { useListAllDailyReports, useListProjects } from "@workspace/api-client-react";
+import { useListAllDailyReports, useListProjects, useUpdateDailyReport, getListAllDailyReportsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
@@ -82,7 +83,7 @@ function formatDate(d: string) {
 
 // ── Report Row ────────────────────────────────────────────────────────────────
 
-function ReportRow({ report, onPressProject }: { report: DailyReportListItem; onPressProject: () => void }) {
+function ReportRow({ report, onPressProject, onEdit }: { report: DailyReportListItem; onPressProject: () => void; onEdit: () => void }) {
   const colors = useColors();
 
   return (
@@ -143,6 +144,13 @@ function ReportRow({ report, onPressProject }: { report: DailyReportListItem; on
         )}
       </View>
 
+      <Pressable
+        hitSlop={10}
+        onPress={(e) => { e.stopPropagation(); onEdit(); }}
+        style={{ padding: 4 }}
+      >
+        <Feather name="edit-2" size={15} color={colors.mutedForeground} />
+      </Pressable>
       <Feather name="chevron-right" size={16} color={colors.mutedForeground} style={{ marginLeft: 4 }} />
     </Pressable>
   );
@@ -185,6 +193,49 @@ export default function AllReportsScreen() {
     try { await refetch(); } finally { setRefreshing(false); }
   }, [refetch]);
   const relativeTime = useRelativeTime(dataUpdatedAt || null);
+
+  // Edit report state
+  const qc = useQueryClient();
+  const [editingReport, setEditingReport] = useState<DailyReportListItem | null>(null);
+  const [editWorkPerformed, setEditWorkPerformed] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editIssues, setEditIssues] = useState("");
+
+  const updateReport = useUpdateDailyReport({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListAllDailyReportsQueryKey() });
+        setEditingReport(null);
+      },
+      onError: () => {
+        // surfaced via the disabled/loading state below; keep modal open so the user can retry
+      },
+    },
+  });
+
+  function openEdit(report: DailyReportListItem) {
+    setEditingReport(report);
+    setEditWorkPerformed(report.workPerformed ?? "");
+    setEditNotes(report.notes ?? "");
+    setEditIssues(report.issues ?? "");
+  }
+
+  function saveEdit() {
+    if (!editingReport) return;
+    updateReport.mutate({
+      projectId: editingReport.projectId,
+      reportId: editingReport.id,
+      data: {
+        reportDate: editingReport.reportDate as any,
+        crewCount: editingReport.crewCount,
+        workPerformed: editWorkPerformed,
+        notes: editNotes || undefined,
+        issues: editIssues || undefined,
+        weather: editingReport.weather ?? undefined,
+        temperature: editingReport.temperature ?? undefined,
+      },
+    });
+  }
   const updatedLabel = refreshing ? "Refreshing…" : relativeTime;
 
   // M-P4 fix: only refetch on focus if data is older than 60s — respects staleTime
@@ -470,10 +521,63 @@ export default function AllReportsScreen() {
               key={r.id}
               report={r}
               onPressProject={() => router.push(`/project/${r.projectId}` as any)}
+              onEdit={() => openEdit(r)}
             />
           ))
         )}
       </View>
+
+      <Modal visible={!!editingReport} animationType="slide" transparent onRequestClose={() => setEditingReport(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>Edit Daily Report</Text>
+              <Pressable hitSlop={10} onPress={() => setEditingReport(null)}>
+                <Feather name="x" size={20} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+            <ScrollView style={{ maxHeight: 400 }}>
+              <Text style={[styles.modalLabel, { color: colors.mutedForeground }]}>Work Performed</Text>
+              <TextInput
+                value={editWorkPerformed}
+                onChangeText={setEditWorkPerformed}
+                multiline
+                style={[styles.modalInput, { color: colors.foreground, borderColor: colors.border, minHeight: 80 }]}
+              />
+              <Text style={[styles.modalLabel, { color: colors.mutedForeground }]}>Notes</Text>
+              <TextInput
+                value={editNotes}
+                onChangeText={setEditNotes}
+                multiline
+                style={[styles.modalInput, { color: colors.foreground, borderColor: colors.border, minHeight: 60 }]}
+              />
+              <Text style={[styles.modalLabel, { color: colors.mutedForeground }]}>Issues</Text>
+              <TextInput
+                value={editIssues}
+                onChangeText={setEditIssues}
+                multiline
+                style={[styles.modalInput, { color: colors.foreground, borderColor: colors.border, minHeight: 50 }]}
+              />
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <Pressable style={[styles.modalBtn, { borderColor: colors.border }]} onPress={() => setEditingReport(null)}>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium" }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                onPress={saveEdit}
+                disabled={updateReport.isPending || !editWorkPerformed.trim()}
+              >
+                {updateReport.isPending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={{ color: "#FFFFFF", fontFamily: "Inter_600SemiBold" }}>Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -560,4 +664,10 @@ const styles = StyleSheet.create({
   modalCancel: { fontSize: 15, fontFamily: "Inter_400Regular" },
   modalTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   modalDone: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+
+  modalCard: { borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, paddingBottom: 28 },
+  modalLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginTop: 12, marginBottom: 6 },
+  modalInput: { borderWidth: 1, borderRadius: 10, padding: 10, fontSize: 14, fontFamily: "Inter_400Regular", textAlignVertical: "top" },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 16 },
+  modalBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 10, borderWidth: 1 },
 });

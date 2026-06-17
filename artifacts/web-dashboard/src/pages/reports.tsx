@@ -1,9 +1,17 @@
-import { useListAllDailyReports, useListProjects } from "@workspace/api-client-react";
+import { useListAllDailyReports, useListProjects, useUpdateDailyReport } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -12,14 +20,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { FileText, Search, ExternalLink, User, Cloud, X } from "lucide-react";
+import { FileText, Search, ExternalLink, User, Cloud, X, Pencil } from "lucide-react";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function ReportsPage() {
   const [search, setSearch] = useState("");
   const [projectId, setProjectId] = useState<number | undefined>(undefined);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [editingReport, setEditingReport] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({ workPerformed: "", notes: "", issues: "" });
+  const { toast } = useToast();
+  const qc = useQueryClient();
 
   const { data: projects = [] } = useListProjects();
   const { data: reports = [], isLoading } = useListAllDailyReports({
@@ -27,6 +41,43 @@ export default function ReportsPage() {
     from: from || undefined,
     to: to || undefined,
   });
+
+  const updateReport = useUpdateDailyReport({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/api/daily-reports"] });
+        toast({ title: "Report updated" });
+        setEditingReport(null);
+      },
+      onError: (e: any) => toast({ title: "Failed to update report", description: e?.message, variant: "destructive" }),
+    },
+  });
+
+  function openEdit(report: any) {
+    setEditingReport(report);
+    setEditForm({
+      workPerformed: report.workPerformed ?? "",
+      notes: report.notes ?? "",
+      issues: report.issues ?? "",
+    });
+  }
+
+  function saveEdit() {
+    if (!editingReport) return;
+    updateReport.mutate({
+      projectId: editingReport.projectId,
+      reportId: editingReport.id,
+      data: {
+        reportDate: editingReport.reportDate,
+        crewCount: editingReport.crewCount,
+        workPerformed: editForm.workPerformed,
+        notes: editForm.notes || undefined,
+        issues: editForm.issues || undefined,
+        weather: editingReport.weather ?? undefined,
+        temperature: editingReport.temperature ?? undefined,
+      },
+    });
+  }
 
   const filtered = reports.filter((r) => {
     const q = search.toLowerCase();
@@ -171,20 +222,75 @@ export default function ReportsPage() {
                       <span className="ml-2 opacity-60">· Submitted {format(new Date(report.createdAt), "MMM d 'at' h:mm a")}</span>
                     </p>
                   </div>
-                  <Link
-                    href={`/projects/${report.projectId}`}
-                    className="shrink-0 flex items-center gap-1 text-xs text-[#D4AF37] hover:underline mt-1 font-medium"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    View Project
-                  </Link>
+                  <div className="shrink-0 flex flex-col items-end gap-2">
+                    <Link
+                      href={`/projects/${report.projectId}`}
+                      className="flex items-center gap-1 text-xs text-[#D4AF37] hover:underline font-medium"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View Project
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-[#121212]/60 hover:text-[#121212] gap-1"
+                      onClick={() => openEdit(report)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Edit
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <Dialog open={!!editingReport} onOpenChange={(open) => !open && setEditingReport(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Daily Report</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs text-[#121212]/60 font-medium">Work Performed</Label>
+              <Textarea
+                value={editForm.workPerformed}
+                onChange={(e) => setEditForm({ ...editForm, workPerformed: e.target.value })}
+                rows={4}
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-[#121212]/60 font-medium">Notes</Label>
+              <Textarea
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-[#121212]/60 font-medium">Issues</Label>
+              <Textarea
+                value={editForm.issues}
+                onChange={(e) => setEditForm({ ...editForm, issues: e.target.value })}
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingReport(null)}>Cancel</Button>
+            <Button
+              className="bg-[#D4AF37] text-white hover:bg-[#b5922e]"
+              onClick={saveEdit}
+              disabled={updateReport.isPending || !editForm.workPerformed.trim()}
+            >
+              {updateReport.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

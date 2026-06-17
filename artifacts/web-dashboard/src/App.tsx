@@ -44,6 +44,7 @@ import CalculatorsPage from "@/pages/calculators";
 import MediaHubTestPage from "@/pages/media-hub-test";
 import RFIsPage from "@/pages/rfis";
 import ReportsPage from "@/pages/reports";
+import ExpensesPage from "@/pages/expenses";
 import FieldLogsPage from "@/pages/field-logs";
 import InspectionsPage from "@/pages/inspections";
 import RiskDashboardPage from "@/pages/risk-dashboard";
@@ -54,6 +55,7 @@ import SafetyDetailPage from "@/pages/safety-detail";
 import SafetyCompliancePage from "@/pages/safety-compliance";
 import SafetyPrintPage from "@/pages/safety-print";
 import WorkerDocumentsPage from "@/pages/vault";
+import MyVaultPage from "@/pages/my-vault";
 import AuditVaultPage from "@/pages/audit-vault";
 import WorkerPortalPage from "@/pages/worker-portal";
 import WorkerPortalSubmitPage from "@/pages/worker-portal-submit";
@@ -312,6 +314,7 @@ function AuthApp() {
           <Route path="/calculators" component={CalculatorsPage} />
           <Route path="/rfis"><PermissionGuard permissionKey="viewRFIs"><RFIsPage /></PermissionGuard></Route>
           <Route path="/reports"><PermissionGuard permissionKey="viewReports"><ReportsPage /></PermissionGuard></Route>
+          <Route path="/expenses"><PermissionGuard permissionKey="submitExpenses"><ExpensesPage /></PermissionGuard></Route>
           <Route path="/field-logs"><PermissionGuard permissionKey="viewSafetyTab"><FieldLogsPage /></PermissionGuard></Route>
           <Route path="/permits" component={PermitsPage} />
           <Route path="/inventory" component={InventoryPage} />
@@ -328,6 +331,7 @@ function AuthApp() {
           <Route path="/safety-compliance"><PermissionGuard permissionKey="viewSafetyTab"><SafetyCompliancePage /></PermissionGuard></Route>
           <Route path="/rfi-submittal" component={RfiSubmittalPage} />
           <Route path="/worker-documents"><PermissionGuard permissionKey="viewVault"><WorkerDocumentsPage /></PermissionGuard></Route>
+          <Route path="/my-vault"><PermissionGuard permissionKey="viewVault"><MyVaultPage /></PermissionGuard></Route>
           <Route path="/audit-vault"><PermissionGuard permissionKey="viewVault"><AuditVaultPage /></PermissionGuard></Route>
           <Route path="/inspections"><PermissionGuard permissionKey="viewInspectTab"><InspectionsPage /></PermissionGuard></Route>
           <Route path="/safety/submit" component={SafetySubmitPage} />

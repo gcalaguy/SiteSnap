@@ -700,24 +700,28 @@ export default function Dashboard() {
           </Card>
         </Link>
 
-        <Link href="/contacts" className="block group">
-          <Card className="cursor-pointer transition-all duration-150 hover:shadow-lg bg-white" style={{ border: "2px solid rgba(212,175,55,0.20)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-extrabold uppercase tracking-wider" style={{ color: "#D4AF37" }}>Total Contacts</CardTitle>
-              <BookUser className="h-4 w-4" style={{ color: "#D4AF37" }} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold text-[#121212]">{summary?.totalContacts ?? 0}</div>
-              <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-[#888888] font-medium">Clients, workers &amp; suppliers</p>
-                <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "#D4AF37" }} />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+        {isOwnerOrForeman && (
+          <Link href="/contacts" className="block group">
+            <Card className="cursor-pointer transition-all duration-150 hover:shadow-lg bg-white" style={{ border: "2px solid rgba(212,175,55,0.20)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-extrabold uppercase tracking-wider" style={{ color: "#D4AF37" }}>Total Contacts</CardTitle>
+                <BookUser className="h-4 w-4" style={{ color: "#D4AF37" }} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-extrabold text-[#121212]">{summary?.totalContacts ?? 0}</div>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-[#888888] font-medium">Clients, workers &amp; suppliers</p>
+                  <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "#D4AF37" }} />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
       </div>
 
-      {/* Insight Cards Row 2 — Revenue Pipeline / Overdue Invoices / This Month's Spend */}
+      {/* Insight Cards Row 2 — Revenue Pipeline / Overdue Invoices / This Month's Spend.
+          Financial / company-wide metrics — owners and foremen only. */}
+      {isOwnerOrForeman && (
       <div className="grid gap-3 md:grid-cols-3">
         <Link href="/leads" className="block group">
           <Card className="cursor-pointer transition-all duration-150 hover:shadow-lg bg-white" style={{ border: "2px solid rgba(212,175,55,0.20)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
@@ -769,19 +773,23 @@ export default function Dashboard() {
           </Card>
         </Link>
 
-        <Card className="cursor-pointer transition-all duration-150 hover:shadow-lg bg-white" style={{ border: "2px solid rgba(212,175,55,0.20)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-extrabold uppercase tracking-wider" style={{ color: "#D4AF37" }}>This Month's Spend</CardTitle>
-            <DollarSign className="h-4 w-4" style={{ color: "#D4AF37" }} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-[#121212]">{fmt(summary?.totalSpentThisMonth ?? 0)}</div>
-            <div className="mt-1">
-              <p className="text-xs text-[#888888] font-medium">Budget: {fmt(summary?.totalBudgetAllProjects ?? 0)}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <Link href="/financials" className="block group">
+          <Card className="cursor-pointer transition-all duration-150 hover:shadow-lg bg-white" style={{ border: "2px solid rgba(212,175,55,0.20)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-extrabold uppercase tracking-wider" style={{ color: "#D4AF37" }}>This Month's Spend</CardTitle>
+              <DollarSign className="h-4 w-4" style={{ color: "#D4AF37" }} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-extrabold text-[#121212]">{fmt(summary?.totalSpentThisMonth ?? 0)}</div>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-[#888888] font-medium">Budget: {fmt(summary?.totalBudgetAllProjects ?? 0)}</p>
+                <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "#D4AF37" }} />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
+      )}
 
       {/* Bottom Row — Activity / Notifications + Weather */}
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">

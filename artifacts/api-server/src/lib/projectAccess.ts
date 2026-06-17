@@ -37,3 +37,18 @@ export async function getAccessibleProjectIds(
   ]);
   return [...ids];
 }
+
+/**
+ * Returns true if `userId` may access `projectId` within `companyId`.
+ * Owners/foremen always pass; workers must be a member of or scheduled on the project.
+ */
+export async function canAccessProject(
+  companyId: number,
+  userId: number,
+  userRole: string,
+  projectId: number,
+): Promise<boolean> {
+  if (userRole !== "worker") return true;
+  const ids = await getAccessibleProjectIds(companyId, userId, userRole);
+  return ids.includes(projectId);
+}

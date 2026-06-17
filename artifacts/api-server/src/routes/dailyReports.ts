@@ -3,6 +3,7 @@ import { db, dailyReportsTable, usersTable, projectsTable, dailyReportPhotosTabl
 import { eq, and, inArray, gte, lte, SQL } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
+import { canAccessProject, getAccessibleProjectIds } from "../lib/projectAccess";
 import { CreateDailyReportBody, UpdateDailyReportBody } from "@workspace/api-zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { logAuditEventFromRequest } from "../utils/logger";
@@ -22,7 +23,16 @@ allDailyReportsRouter.get(
 
     const conditions: SQL[] = [eq(projectsTable.companyId, req.companyId!)];
     if (projectIdFilter && !isNaN(projectIdFilter)) {
+      if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectIdFilter))) {
+        res.status(403).json({ error: "You are not assigned to this project" });
+        return;
+      }
       conditions.push(eq(dailyReportsTable.projectId, projectIdFilter));
+    } else if ((req.userRole ?? "worker") === "worker") {
+      // No explicit project filter requested — constrain to the worker's assigned projects
+      // rather than returning every report in the company.
+      const accessibleIds = await getAccessibleProjectIds(req.companyId!, req.userId!, req.userRole ?? "worker");
+      conditions.push(accessibleIds.length ? inArray(dailyReportsTable.projectId, accessibleIds) : eq(dailyReportsTable.id, -1));
     }
     if (fromParam) {
       conditions.push(gte(dailyReportsTable.reportDate, fromParam));
@@ -89,6 +99,10 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets")
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
 
   const reports = await db
     .select()
@@ -134,6 +148,10 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
 
   const parsed = CreateDailyReportBody.safeParse(req.body);
   if (!parsed.success) {
@@ -255,6 +273,10 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
 router.get("/:reportId", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
 
   const [report] = await db
     .select()
@@ -280,6 +302,10 @@ router.put("/:reportId", requireAuth, requireCompany, requirePermission("submitE
 
   const projectCheck = await verifyProjectAccess(projectId, req.companyId!);
   if (!projectCheck) { res.status(404).json({ error: "Project not found" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
 
   const parsed = UpdateDailyReportBody.safeParse(req.body);
   if (!parsed.success) {

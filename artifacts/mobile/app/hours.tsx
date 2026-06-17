@@ -96,6 +96,9 @@ export default function HoursScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const canManage = me?.role === "owner";
+  // Editing your own hours doesn't require owner/review privileges — the
+  // backend already allows the timesheet's own user to PATCH it.
+  const canEdit = (ts: any) => canManage || ts.userId === me?.id;
 
   const approveMutation = useMutation({
     mutationFn: (id: number) =>
@@ -253,43 +256,47 @@ export default function HoursScreen() {
           )}
         </View>
 
-        {canManage && (
+        {(canManage || (canEdit(ts) && !isEditing)) && (
           <View style={styles.actionRow}>
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: "#22C55E15" }]}
-              onPress={() => {
-                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                approveMutation.mutate(ts.id);
-              }}
-              disabled={approveMutation.isPending}
-            >
-              {approveMutation.isPending ? (
-                <ActivityIndicator size="small" color="#22C55E" />
-              ) : (
-                <>
-                  <Feather name="check-circle" size={12} color="#22C55E" />
-                  <Text style={[styles.actionText, { color: "#22C55E" }]}>Approve</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: "#EF444415" }]}
-              onPress={() => {
-                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                denyMutation.mutate(ts.id);
-              }}
-              disabled={denyMutation.isPending}
-            >
-              {denyMutation.isPending ? (
-                <ActivityIndicator size="small" color="#EF4444" />
-              ) : (
-                <>
-                  <Feather name="x-circle" size={12} color="#EF4444" />
-                  <Text style={[styles.actionText, { color: "#EF4444" }]}>Reject</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            {!isEditing && (
+            {canManage && (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: "#22C55E15" }]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    approveMutation.mutate(ts.id);
+                  }}
+                  disabled={approveMutation.isPending}
+                >
+                  {approveMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#22C55E" />
+                  ) : (
+                    <>
+                      <Feather name="check-circle" size={12} color="#22C55E" />
+                      <Text style={[styles.actionText, { color: "#22C55E" }]}>Approve</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: "#EF444415" }]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    denyMutation.mutate(ts.id);
+                  }}
+                  disabled={denyMutation.isPending}
+                >
+                  {denyMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#EF4444" />
+                  ) : (
+                    <>
+                      <Feather name="x-circle" size={12} color="#EF4444" />
+                      <Text style={[styles.actionText, { color: "#EF4444" }]}>Reject</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+            {canEdit(ts) && !isEditing && (
               <TouchableOpacity
                 style={[styles.actionBtn, { backgroundColor: `${colors.primary}15` }]}
                 onPress={() => {

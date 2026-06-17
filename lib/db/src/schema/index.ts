@@ -296,6 +296,37 @@ export const insertCostAnalysisSchema = createInsertSchema(
 export type InsertCostAnalysis = z.infer<typeof insertCostAnalysisSchema>;
 export type CostAnalysis = typeof costAnalysesTable.$inferSelect;
 
+// ── Expenses ──────────────────────────────────────────────────────────────────
+
+export const expensesTable = pgTable("expenses", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
+  submittedByUserId: integer("submitted_by_user_id")
+    .notNull()
+    .references(() => usersTable.id),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  description: text("description").notNull(),
+  receiptObjectPath: text("receipt_object_path"),
+  status: text("status").notNull().default("submitted"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("idx_expenses_company_id").on(t.companyId),
+  index("idx_expenses_project_id").on(t.projectId),
+  index("idx_expenses_submitted_by").on(t.submittedByUserId),
+]);
+
+export const insertExpenseSchema = createInsertSchema(expensesTable).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type Expense = typeof expensesTable.$inferSelect;
+
 // ── RFIs ──────────────────────────────────────────────────────────────────────
 
 export const rfisTable = pgTable("rfis", {

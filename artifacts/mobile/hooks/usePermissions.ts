@@ -47,7 +47,8 @@ export function usePermissions(): Record<PermissionKey, boolean> & { isLoading: 
   // Foremen with no explicit permissions: grant all by default
   if (me.role === "foreman") return { ...ALL_TRUE, isLoading: false };
 
-  // Workers with no resolved permissions: deny sensitive tabs
+  // Workers with no resolved permissions: deny sensitive tabs.
+  // Kept in sync with WORKER_DEFAULTS in api-server/src/lib/permissionGate.ts.
   return {
     ...ALL_FALSE,
     viewTimesheets: true,
@@ -58,6 +59,10 @@ export function usePermissions(): Record<PermissionKey, boolean> & { isLoading: 
     submitExpenses: true,
     viewTradeHub: true,
     viewAskAI: true,
+    viewVault: true,
+    viewClientMessages: true,
+    viewRiskTab: true,
+    viewInspectTab: true,
     isLoading: false,
   };
 }

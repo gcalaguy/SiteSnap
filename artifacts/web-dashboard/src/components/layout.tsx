@@ -148,7 +148,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0 },
-    ...(isOwnerOrForeman ? [{ name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "RISK_DASHBOARD" }] : []),
+    { name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "RISK_DASHBOARD", permissionKey: "viewRiskTab" },
     ...(isOwnerOrForeman ? [{ name: "AI Compliance", href: "/ai-compliance-monitor", icon: ClipboardCheck, badge: 0, featureKey: "AI_COMPLIANCE" }] : []),
     { name: "Projects", href: "/projects", icon: Building2, badge: 0 },
     { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge, permissionKey: "viewQuotes" },
@@ -160,15 +160,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...(isWorker ? [] : [{ name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "CONTACTS" }]),
     ...(isWorker ? [] : [{ name: "Leads", href: "/leads", icon: TrendingUp, badge: 0, featureKey: "CONTACTS" }]),
     ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, featureKey: "CALCULATORS" }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0, featureKey: "SCHEDULING" }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING" }] : []),
+    { name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0, featureKey: "SCHEDULING", permissionKey: "viewSchedules" },
+    { name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING", permissionKey: "viewTimesheets" },
+    { name: "Expenses", href: "/expenses", icon: Receipt, badge: 0, permissionKey: "submitExpenses" },
     { name: "Field Logs", href: "/field-logs", icon: FileText, badge: 0, featureKey: "SAFETY_FORMS", permissionKey: "viewSafetyTab" },
     ...(isOwnerOrForeman ? [{ name: "Permits", href: "/permits", icon: BadgeCheck, badge: 0, featureKey: "PERMITS" }] : []),
     { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "SAFETY_FORMS", permissionKey: "viewSafetyTab" },
+    { name: "Inspections", href: "/inspections", icon: ClipboardCheck, badge: 0, permissionKey: "viewInspectTab" },
     { name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TRADEHUB", permissionKey: "viewTradeHub" },
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT", permissionKey: "viewAskAI" },
     ...(isOwnerOrForeman ? [{ name: "RFI & Submittal", href: "/rfi-submittal", icon: MessageSquareWarning, badge: 0, featureKey: "RFI_SUBMITTAL" }] : []),
+    // Admin compliance review across ALL workers — owner/foreman only, distinct from the
+    // worker-facing "My Vault" (own documents only) below.
     ...(isOwnerOrForeman ? [{ name: "Worker Documents", href: "/worker-documents", icon: ShieldCheck, badge: 0, featureKey: "WORKER_DOCUMENTS" }] : []),
+    { name: "My Vault", href: "/my-vault", icon: ShieldCheck, badge: 0, permissionKey: "viewVault" },
     ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0 }] : []),
   ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0 }] : []),
   ];

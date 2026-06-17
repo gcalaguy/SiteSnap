@@ -4,6 +4,7 @@ import { db, projectDocumentsTable, projectsTable, costAnalysesTable, pool } fro
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { requirePermission } from "../lib/permissionGate.js";
+import { canAccessProject } from "../lib/projectAccess.js";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
@@ -299,6 +300,10 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewDocuments"),
 
   const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
   if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
 
   const docs = await db
     .select()
@@ -324,6 +329,10 @@ router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
 
   const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
   if (!project || project.companyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
 
   const parsed = RegisterDocumentBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues }); return; }

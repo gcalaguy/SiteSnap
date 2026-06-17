@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
+import { getAccessibleProjectIds } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
@@ -20,8 +21,13 @@ router.get(
   requirePermission("viewRiskTab"),
   asyncHandler(async (req, res) => {
     const companyId = req.companyId!;
+    const projectIds = await getAccessibleProjectIds(companyId, req.userId!, req.userRole ?? "worker");
+    if (projectIds.length === 0) {
+      res.json({ topRisk: [], alerts: { critical: 0, high: 0, medium: 0, total: 0 }, health: { critical: 0, high: 0, medium: 0, low: 0, avgRiskScore: null }, trend: [] });
+      return;
+    }
 
-    // Top high/critical risk inspections (last 30 days)
+    // Top high/critical risk inspections (last 30 days), scoped to accessible projects
     const topRisk = await db
       .select({
         inspection: inspectionsTable,
@@ -40,12 +46,13 @@ router.get(
           eq(inspectionsTable.companyId, companyId),
           eq(inspectionsTable.status, "submitted"),
           inArray(inspectionsTable.riskLevel, ["Critical", "High", "Medium"]),
+          inArray(inspectionsTable.projectId, projectIds),
         ),
       )
       .orderBy(desc(inspectionsTable.riskScore), desc(inspectionsTable.createdAt))
       .limit(5);
 
-    // Alert severity breakdown (unread only)
+    // Alert severity breakdown (unread only), scoped to accessible projects
     const alertCounts = await db
       .select({
         severity: inspectionAlertsTable.severity,
@@ -56,11 +63,12 @@ router.get(
         and(
           eq(inspectionAlertsTable.companyId, companyId),
           eq(inspectionAlertsTable.isRead, false),
+          inArray(inspectionAlertsTable.projectId, projectIds),
         ),
       )
       .groupBy(inspectionAlertsTable.severity);
 
-    // Overall inspection health for last 30 days
+    // Overall inspection health for last 30 days, scoped to accessible projects
     const healthStats = await db
       .select({
         riskLevel: inspectionsTable.riskLevel,
@@ -72,11 +80,12 @@ router.get(
           eq(inspectionsTable.companyId, companyId),
           eq(inspectionsTable.status, "submitted"),
           sql`${inspectionsTable.createdAt} >= NOW() - INTERVAL '30 days'`,
+          inArray(inspectionsTable.projectId, projectIds),
         ),
       )
       .groupBy(inspectionsTable.riskLevel);
 
-    // Average risk score last 30 days
+    // Average risk score last 30 days, scoped to accessible projects
     const [avgResult] = await db
       .select({ avg: sql<number>`round(avg(${inspectionsTable.riskScore})::numeric, 1)` })
       .from(inspectionsTable)
@@ -86,6 +95,7 @@ router.get(
           eq(inspectionsTable.status, "submitted"),
           sql`${inspectionsTable.createdAt} >= NOW() - INTERVAL '30 days'`,
           sql`${inspectionsTable.riskScore} IS NOT NULL`,
+          inArray(inspectionsTable.projectId, projectIds),
         ),
       );
 
@@ -99,7 +109,7 @@ router.get(
       if (row.riskLevel) healthMap[row.riskLevel] = row.count;
     }
 
-    // 7-day daily risk score trend
+    // 7-day daily risk score trend, scoped to accessible projects
     const trend = await db
       .select({
         day: sql<string>`DATE(${inspectionsTable.createdAt})::text`,
@@ -113,6 +123,7 @@ router.get(
           eq(inspectionsTable.status, "submitted"),
           sql`${inspectionsTable.createdAt} >= NOW() - INTERVAL '7 days'`,
           sql`${inspectionsTable.riskScore} IS NOT NULL`,
+          inArray(inspectionsTable.projectId, projectIds),
         ),
       )
       .groupBy(sql`DATE(${inspectionsTable.createdAt})`)

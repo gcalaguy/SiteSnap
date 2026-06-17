@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import {
   db,
   inspectionsTable,
@@ -12,6 +12,7 @@ import {
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
+import { canAccessProject, getAccessibleProjectIds } from "../lib/projectAccess";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 import { notify } from "../lib/notify";
 import { sendEmail } from "../lib/mailer";
@@ -176,9 +177,16 @@ router.get(
     const projectIdFilter = projectIdParam && !isNaN(projectIdParam) ? projectIdParam : undefined;
 
     // companyId first, then projectId — matches idx_inspections_company_project (companyId, projectId)
-    const conditions: ReturnType<typeof eq>[] = [eq(inspectionsTable.companyId, req.companyId!)];
+    const conditions: any[] = [eq(inspectionsTable.companyId, req.companyId!)];
     if (projectIdFilter !== undefined) {
+      if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectIdFilter))) {
+        res.status(403).json({ error: "You are not assigned to this project" });
+        return;
+      }
       conditions.push(eq(inspectionsTable.projectId, projectIdFilter));
+    } else if ((req.userRole ?? "worker") === "worker") {
+      const accessibleIds = await getAccessibleProjectIds(req.companyId!, req.userId!, req.userRole ?? "worker");
+      conditions.push(accessibleIds.length ? inArray(inspectionsTable.projectId, accessibleIds) : eq(inspectionsTable.id, -1));
     }
 
     const rows = await db
@@ -243,6 +251,11 @@ router.post(
     if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
     const { projectId, inspectionType, date, items, submit } = parsed.data;
+
+    if (projectId != null && !(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+      res.status(403).json({ error: "You are not assigned to this project" });
+      return;
+    }
 
     const [inspection] = await db
       .insert(inspectionsTable)

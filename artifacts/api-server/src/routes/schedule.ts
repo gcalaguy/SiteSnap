@@ -3,6 +3,7 @@ import { db, workerSchedulesTable, usersTable, userMembershipsTable, projectsTab
 import { eq, and, lte, gte } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
+import { canAccessProject } from "../lib/projectAccess";
 import { z } from "zod";
 import { validateWorkerCompliance } from "../services/complianceCheck";
 import { notify } from "../lib/notify";
@@ -122,6 +123,11 @@ router.get("/projects/:projectId/schedule", requireAuth, requireCompany, require
     .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
     .limit(1);
   if (!ownedProject) { res.status(404).json({ error: "Project not found" }); return; }
+
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
 
   const assignments = await db
     .select({
