@@ -89,6 +89,10 @@ export const companiesTable = pgTable("companies", {
   /** One-time token set by super-admin when provisioning a tenant shell.
    *  Must be supplied in POST /companies/:id/claim. Cleared after claim. */
   claimToken: text("claim_token"),
+  /** Email the claim token was issued to. POST /companies/:id/claim requires the
+   *  authenticated caller's email to match this, so a leaked/forwarded claim link
+   *  can't be redeemed by an unintended account. Cleared alongside claimToken. */
+  claimOwnerEmail: text("claim_owner_email"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

@@ -239,6 +239,13 @@
       "when": 1781500800,
       "tag": "0033_quote_accepted_status",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1781587200,
+      "tag": "0034_claim_owner_email",
+      "breakpoints": true
     }
   ]
 }

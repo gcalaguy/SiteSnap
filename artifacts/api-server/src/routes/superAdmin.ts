@@ -18,6 +18,8 @@ import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireSuperAdmin } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { getUncachableStripeClient } from "../lib/stripeClient";
+import { sendEmail, ResendSandboxError, buildAppBase, escapeHtml } from "../lib/mailer";
+import { logger } from "../lib/logger";
 import crypto from "crypto";
 
 const router = Router();
@@ -427,21 +429,72 @@ router.post("/admin/plans/:planId/features", ...guard, asyncHandler(async (req, 
 
 // ── Tenants ─────────────────────────────────────────────────────────────────────
 
-// POST /admin/tenants — super-admin creates a company (no owner yet)
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Best-effort, fire-and-forget — mirrors sendInviteEmail in routes/invitations.ts. */
+function sendTenantInviteEmail(opts: {
+  to: string;
+  token: string;
+  companyName: string;
+  appBase: string;
+}): void {
+  const claimUrl = `${opts.appBase}/sign-up?token=${opts.token}`;
+  const safeCompanyName = escapeHtml(opts.companyName);
+  sendEmail({
+    to: [opts.to],
+    subject: `You're invited to set up ${opts.companyName} on Site Snap`,
+    html: `
+<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
+  <div style="text-align:center;margin-bottom:28px;">
+    <span style="font-size:32px;">🏗️</span>
+    <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">Welcome to Site Snap</h1>
+    <p style="color:#64748b;margin:0;">Set up <strong>${safeCompanyName}</strong> and become its owner</p>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;margin-bottom:20px;">
+    <p style="color:#334155;margin:0 0 16px;">Click the button below to create your account and claim ownership of your new company:</p>
+    <a href="${claimUrl}" style="display:inline-block;background:#FF6600;color:#fff;font-weight:700;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;">Claim Your Company</a>
+    <p style="color:#94a3b8;font-size:13px;margin:20px 0 0;">Or paste this token manually in the app:</p>
+    <code style="display:block;background:#f1f5f9;padding:10px 14px;border-radius:6px;font-size:13px;color:#172034;word-break:break-all;margin-top:6px;">${opts.token}</code>
+  </div>
+</div>`,
+  }).catch((err: unknown) => {
+    if (err instanceof ResendSandboxError) {
+      logger.warn({ allowedEmail: err.allowedEmail }, "Tenant invite email skipped — Resend sandbox mode");
+    } else {
+      logger.error({ err }, "Failed to send tenant invite email");
+    }
+  });
+}
+
+// POST /admin/tenants — super-admin creates a company (no owner yet) and emails
+// the prospective owner a one-time claim link.
 router.post("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
   const raw = req.body as Record<string, unknown>;
-  if (!raw.name || typeof raw.name !== "string" || !raw.province || typeof raw.province !== "string" || !raw.city || typeof raw.city !== "string") {
+  const name = typeof raw.name === "string" ? raw.name.trim() : "";
+  const province = typeof raw.province === "string" ? raw.province.trim() : "";
+  const city = typeof raw.city === "string" ? raw.city.trim() : "";
+  if (!name || !province || !city) {
     res.status(400).json({ error: "name, province, and city are required" });
     return;
   }
+  const ownerEmail = typeof raw.ownerEmail === "string" ? raw.ownerEmail.trim() : "";
+  if (!ownerEmail || !EMAIL_RE.test(ownerEmail)) {
+    res.status(400).json({ error: "ownerEmail is required and must be a valid email address" });
+    return;
+  }
+  const appBase = buildAppBase(req);
+  if (!appBase) {
+    res.status(500).json({ error: "Server misconfiguration: invitation base URL not set" });
+    return;
+  }
   const referralCode = crypto.randomBytes(4).toString("hex").toUpperCase();
-  // Generate a secure one-time claim token the super-admin communicates to the
-  // intended owner out-of-band. Required by POST /companies/:id/claim.
+  // Generate a secure one-time claim token, emailed to the prospective owner below.
+  // Required by POST /companies/:id/claim.
   const claimToken = crypto.randomBytes(24).toString("hex");
   const body = insertCompanySchema.parse({
-    name: raw.name,
-    province: raw.province,
-    city: raw.city,
+    name,
+    province,
+    city,
     phone: raw.phone ?? null,
     address: raw.address ?? null,
     website: raw.website ?? null,
@@ -450,7 +503,7 @@ router.post("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
   });
   const [company] = await db
     .insert(companiesTable)
-    .values({ ...body, claimToken })
+    .values({ ...body, claimToken, claimOwnerEmail: ownerEmail })
     .returning();
 
   const planTier = typeof raw.planTier === "string" ? raw.planTier.trim().toLowerCase() : "starter";
@@ -467,6 +520,8 @@ router.post("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
       billingCycle: "monthly",
     });
   }
+
+  sendTenantInviteEmail({ to: ownerEmail, token: claimToken, companyName: company.name, appBase });
 
   res.status(201).json(company);
 }));
@@ -506,6 +561,12 @@ router.post("/admin/tenants/:id/reissue-link", ...guard, asyncHandler(async (req
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
 
+  const appBase = buildAppBase(req);
+  if (!appBase) {
+    res.status(500).json({ error: "Server misconfiguration: invitation base URL not set" });
+    return;
+  }
+
   // Rotate the claim token on every reissue so old links are invalidated
   const newClaimToken = crypto.randomBytes(24).toString("hex");
   await db
@@ -513,11 +574,6 @@ router.post("/admin/tenants/:id/reissue-link", ...guard, asyncHandler(async (req
     .set({ claimToken: newClaimToken })
     .where(eq(companiesTable.id, companyId));
 
-  const appBase = process.env["APP_BASE_URL"]?.replace(/\/$/, "");
-  if (!appBase) {
-    res.status(500).json({ error: "APP_BASE_URL env var is not configured" });
-    return;
-  }
   res.json({ companyId, link: `${appBase}/sign-up?token=${newClaimToken}` });
 }));
 

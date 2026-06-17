@@ -174,7 +174,7 @@ function StripePlansTab() {
 function CreateCompanyCard() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [companyForm, setCompanyForm] = useState({ name: "", province: "", city: "", phone: "" });
+  const [companyForm, setCompanyForm] = useState({ name: "", province: "", city: "", phone: "", ownerEmail: "" });
   const [planTier, setPlanTier] = useState("starter");
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const createCompany = useMutation({
@@ -185,6 +185,7 @@ function CreateCompanyCard() {
         province: companyForm.province.trim(),
         city: companyForm.city.trim(),
         phone: companyForm.phone.trim() || undefined,
+        ownerEmail: companyForm.ownerEmail.trim(),
         planTier,
       }),
     }),
@@ -193,7 +194,7 @@ function CreateCompanyCard() {
         ? `${window.location.origin}/sign-up?token=${data.claimToken}`
         : `${window.location.origin}/onboarding?companyId=${data.id}`;
       setCreatedLink(link);
-      toast({ title: "Company created", description: "Share the link below with the new owner." });
+      toast({ title: "Company created", description: `Invite email sent to ${companyForm.ownerEmail.trim()}. You can also share the link below directly.` });
     },
     onError: (err: any) => toast({ title: "Failed to create company", description: err?.message, variant: "destructive" }),
   });
@@ -208,7 +209,7 @@ function CreateCompanyCard() {
             <p className="text-sm text-gray-500 max-w-2xl font-semibold">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" className="border-white/20 text-[#121212] font-bold hover:bg-gray-50 bg-[#d4af37]" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "" }); }}>Create New Company</Button>
+            <Button variant="outline" className="border-white/20 text-[#121212] font-bold hover:bg-gray-50 bg-[#d4af37]" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "", ownerEmail: "" }); }}>Create New Company</Button>
           </div>
         </div>
       </div>
@@ -220,7 +221,7 @@ function CreateCompanyCard() {
             {createdLink ? (
               <div className="mt-4 space-y-3">
                 <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-green-600 mb-1">Shareable Link</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-green-600 mb-1">Invite email sent — link below as a backup</div>
                   <div className="break-all text-sm text-[#121212]">{createdLink}</div>
                 </div>
                 <div className="flex gap-2">
@@ -228,7 +229,7 @@ function CreateCompanyCard() {
                   <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setOpen(false)}>Close</Button>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => { const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Hi,\n\nYour company has been created on Site Snap. Click the link below to sign up and claim ownership:\n\n${createdLink}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Send via Email</Button>
+                  <Button variant="outline" className="flex-1 border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => { const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Hi,\n\nYour company has been created on Site Snap. Click the link below to sign up and claim ownership:\n\n${createdLink}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Resend Manually</Button>
                 </div>
               </div>
             ) : (
@@ -239,6 +240,7 @@ function CreateCompanyCard() {
                   <div><Label className="text-[#D4AF37]">Province</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.province} onChange={(e) => setCompanyForm({ ...companyForm, province: e.target.value })} placeholder="Ontario" /></div>
                 </div>
                 <div><Label className="text-[#D4AF37]">Phone</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} placeholder="(416) 555-0123" /></div>
+                <div><Label className="text-[#D4AF37]">Owner Email</Label><Input type="email" className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.ownerEmail} onChange={(e) => setCompanyForm({ ...companyForm, ownerEmail: e.target.value })} placeholder="owner@example.com" /></div>
                 <div>
                   <Label className="text-[#D4AF37]">Plan Tier</Label>
                   <select
@@ -253,7 +255,7 @@ function CreateCompanyCard() {
                 </div>
                 <div className="mt-2 flex justify-end gap-2">
                   <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !companyForm.name.trim() || !companyForm.city.trim() || !companyForm.province.trim()}>{createCompany.isPending ? "Creating\u2026" : "Create & Generate Link"}</Button>
+                  <Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !companyForm.name.trim() || !companyForm.city.trim() || !companyForm.province.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.ownerEmail.trim())}>{createCompany.isPending ? "Creating\u2026" : "Create & Send Invite"}</Button>
                 </div>
               </div>
             )}

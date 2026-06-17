@@ -6,7 +6,7 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { getClientInfo } from "../lib/clientInfo";
-import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
+import { sendEmail, ResendSandboxError, escapeHtml } from "../lib/mailer.js";
 import { logger } from "../lib/logger.js";
 import { buildInvoicePdfBuffer } from "../lib/invoicePdf.js";
 
@@ -127,15 +127,6 @@ async function getCompanyOwnerEmail(companyId: number): Promise<string | null> {
 
 const fmtCAD = (v: string | number) =>
   new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 function buildInvoiceSignedClientHtml(invoice: {
   invoiceNumber: string;

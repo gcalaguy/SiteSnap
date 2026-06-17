@@ -1,4 +1,27 @@
+import type { Request } from "express";
 import { logger } from "./logger.js";
+
+/** Resolves the public app base URL for building links in outbound emails. */
+export function buildAppBase(req: Request): string | null {
+  return (
+    process.env["APP_BASE_URL"]?.replace(/\/$/, "") ??
+    (process.env["REPLIT_DOMAINS"]
+      ? `https://${process.env["REPLIT_DOMAINS"].split(",")[0].trim()}`
+      : null) ??
+    (req.headers["origin"] as string | undefined) ??
+    null
+  );
+}
+
+/** Escapes user-controlled text before interpolating it into an HTML email body. */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 interface EmailAttachment {
   filename: string;

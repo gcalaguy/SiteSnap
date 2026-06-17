@@ -7,20 +7,10 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { requireSeatAvailable } from "../lib/seatEnforcement";
 import { CreateInvitationBody } from "@workspace/api-zod";
 import crypto from "crypto";
-import { sendEmail, ResendSandboxError } from "../lib/mailer";
+import { sendEmail, ResendSandboxError, buildAppBase, escapeHtml } from "../lib/mailer";
 import { logger } from "../lib/logger";
 
 // ── Shared invite email helper ────────────────────────────────────────────────
-function buildAppBase(req: import("express").Request): string | null {
-  return (
-    process.env["APP_BASE_URL"]?.replace(/\/$/, "") ??
-    (process.env["REPLIT_DOMAINS"]
-      ? `https://${process.env["REPLIT_DOMAINS"].split(",")[0].trim()}`
-      : null) ??
-    (req.headers["origin"] as string | undefined) ??
-    null
-  );
-}
 
 function sendInviteEmail(opts: {
   to: string;
@@ -30,6 +20,8 @@ function sendInviteEmail(opts: {
   appBase: string;
 }): void {
   const inviteUrl = `${opts.appBase}/onboarding?token=${opts.token}`;
+  const safeCompanyName = escapeHtml(opts.companyName);
+  const safeRole = escapeHtml(opts.role);
   sendEmail({
     to: [opts.to],
     subject: `You've been invited to join ${opts.companyName} on Site Snap`,
@@ -38,7 +30,7 @@ function sendInviteEmail(opts: {
   <div style="text-align:center;margin-bottom:28px;">
     <span style="font-size:32px;">🏗️</span>
     <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">You're invited to Site Snap</h1>
-    <p style="color:#64748b;margin:0;">Join <strong>${opts.companyName}</strong> as a <strong>${opts.role}</strong></p>
+    <p style="color:#64748b;margin:0;">Join <strong>${safeCompanyName}</strong> as a <strong>${safeRole}</strong></p>
   </div>
   <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;margin-bottom:20px;">
     <p style="color:#334155;margin:0 0 16px;">Click the button below to accept your invitation and set up your account:</p>
@@ -552,6 +544,10 @@ router.post("/invitations/:token/accept", asyncHandler(async (req, res) => {
       if (!ownerEmails.length) return;
       const memberName = updatedUser ? `${updatedUser.firstName} ${updatedUser.lastName}`.trim() || invitation.email : invitation.email;
       const companyName = company?.name ?? "your company";
+      const safeMemberName = escapeHtml(memberName);
+      const safeCompanyName = escapeHtml(companyName);
+      const safeEmail = escapeHtml(invitation.email);
+      const safeRole = escapeHtml(invitation.role);
       sendEmail({
         to: ownerEmails,
         subject: `${memberName} just joined ${companyName} on Site Snap`,
@@ -560,16 +556,16 @@ router.post("/invitations/:token/accept", asyncHandler(async (req, res) => {
   <div style="text-align:center;margin-bottom:28px;">
     <span style="font-size:32px;">🏗️</span>
     <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">New team member joined</h1>
-    <p style="color:#64748b;margin:0;">Someone accepted their invitation to <strong>${companyName}</strong></p>
+    <p style="color:#64748b;margin:0;">Someone accepted their invitation to <strong>${safeCompanyName}</strong></p>
   </div>
   <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;margin-bottom:20px;">
     <table style="width:100%;border-collapse:collapse;">
-      <tr><td style="color:#64748b;padding:6px 0;width:80px;">Name</td><td style="color:#172034;font-weight:600;">${memberName}</td></tr>
-      <tr><td style="color:#64748b;padding:6px 0;">Email</td><td style="color:#172034;">${invitation.email}</td></tr>
-      <tr><td style="color:#64748b;padding:6px 0;">Role</td><td style="color:#172034;text-transform:capitalize;">${invitation.role}</td></tr>
+      <tr><td style="color:#64748b;padding:6px 0;width:80px;">Name</td><td style="color:#172034;font-weight:600;">${safeMemberName}</td></tr>
+      <tr><td style="color:#64748b;padding:6px 0;">Email</td><td style="color:#172034;">${safeEmail}</td></tr>
+      <tr><td style="color:#64748b;padding:6px 0;">Role</td><td style="color:#172034;text-transform:capitalize;">${safeRole}</td></tr>
     </table>
   </div>
-  <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">You're receiving this because you're an owner of ${companyName} on Site Snap.</p>
+  <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">You're receiving this because you're an owner of ${safeCompanyName} on Site Snap.</p>
 </div>`,
       }).catch((err) => {
         logger.warn({ err }, "Failed to send owner join-notification email");

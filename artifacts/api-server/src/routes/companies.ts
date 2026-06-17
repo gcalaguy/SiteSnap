@@ -847,6 +847,22 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
     return;
   }
 
+  // Verify the caller's own email matches the address the claim token was issued
+  // to (P0 security fix — mirrors the invite-accept check in routes/invitations.ts).
+  // Without this, anyone who obtains the claim link (forwarded email, leaked URL,
+  // browser history) could claim the company as owner regardless of identity.
+  if (company.claimOwnerEmail) {
+    const [caller] = await db
+      .select({ email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.userId!))
+      .limit(1);
+    if (!caller || caller.email.toLowerCase().trim() !== company.claimOwnerEmail.toLowerCase().trim()) {
+      res.status(403).json({ error: "Invalid company ID or claim token" });
+      return;
+    }
+  }
+
   // Verify no user is already owner via memberships
   const existingMembers = await db
     .select()
@@ -913,10 +929,10 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
         .where(eq(usersTable.id, req.userId!))
         .returning();
 
-      // Burn the one-time claim token so it cannot be reused
+      // Burn the one-time claim token (and its bound email) so it cannot be reused
       const [cmp] = await tx
         .update(companiesTable)
-        .set({ claimToken: null })
+        .set({ claimToken: null, claimOwnerEmail: null })
         .where(eq(companiesTable.id, companyId))
         .returning();
 
