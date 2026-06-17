@@ -34,25 +34,42 @@ async function syncTimesheetFromEntries(companyId: number, userId: number, weekS
 
   const total = entries.reduce((s, e) => s + parseFloat(e.hours), 0);
 
-  // Atomic upsert via ON CONFLICT — avoids race conditions when
-  // two entries are created simultaneously for the same week.
-  await db.insert(timesheetsTable)
-    .values({
-      companyId,
-      userId,
-      weekStart,
-      status: "submitted",
-      totalHours: total.toFixed(2),
-      projectId: projectId ?? null,
-    })
-    .onConflictDoUpdate({
-      target: [timesheetsTable.companyId, timesheetsTable.userId, timesheetsTable.weekStart],
-      set: {
-        totalHours: total.toFixed(2),
-        updatedAt: new Date(),
-        projectId: projectId ?? null,
-      },
-    });
+  const values = {
+    companyId,
+    userId,
+    weekStart,
+    status: "submitted",
+    totalHours: total.toFixed(2),
+    projectId: projectId ?? null,
+  };
+  const set = {
+    totalHours: total.toFixed(2),
+    updatedAt: new Date(),
+    projectId: projectId ?? null,
+  };
+
+  // Atomic upsert via ON CONFLICT — avoids race conditions when two entries
+  // are created simultaneously for the same week. The DB enforces uniqueness
+  // via two PARTIAL unique indexes (one for project_id IS NULL, one for
+  // project_id IS NOT NULL — see migration 0018), so the conflict target must
+  // match whichever one applies, including its predicate via targetWhere.
+  if (projectId != null) {
+    await db.insert(timesheetsTable)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [timesheetsTable.companyId, timesheetsTable.userId, timesheetsTable.weekStart, timesheetsTable.projectId],
+        targetWhere: sql`${timesheetsTable.projectId} IS NOT NULL`,
+        set,
+      });
+  } else {
+    await db.insert(timesheetsTable)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [timesheetsTable.companyId, timesheetsTable.userId, timesheetsTable.weekStart],
+        targetWhere: sql`${timesheetsTable.projectId} IS NULL`,
+        set,
+      });
+  }
 }
 
 const CreateTimeEntryBody = z.object({
