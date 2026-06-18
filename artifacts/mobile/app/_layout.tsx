@@ -219,6 +219,10 @@ function RootLayoutNav() {
         <Stack.Screen name="safety" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="permits" options={{ headerShown: false }} />
+        <Stack.Screen name="expenses" options={{ headerShown: false }} />
+        <Stack.Screen name="vault" options={{ headerShown: false }} />
+        <Stack.Screen name="tradehub-jobs" options={{ headerShown: false }} />
+        <Stack.Screen name="tradehub-messages" options={{ headerShown: false }} />
       </Stack>
       <GlobalVoiceCommandFAB />
     </View>

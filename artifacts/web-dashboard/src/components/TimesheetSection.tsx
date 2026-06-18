@@ -45,6 +45,7 @@ export type Timesheet = {
   signedAt?: string | null;
   user: { id: number; firstName: string | null; lastName: string | null; email: string; role: string } | null;
   reviewer: { id: number; firstName: string | null; lastName: string | null; email: string } | null;
+  entries?: { id: number; date: string; hours: string; description: string | null }[];
 };
 
 type Person = { firstName?: string | null; lastName?: string | null; email?: string | null };
@@ -663,6 +664,31 @@ function TimesheetRow({
                   <p className="text-sm font-bold">{value}</p>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Daily entries — every hours+description pair logged by the worker, grouped by day */}
+          {!editing && ts.entries && ts.entries.length > 0 && (
+            <div className="rounded-lg border bg-background p-3 space-y-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Daily Breakdown</p>
+              {Object.entries(
+                ts.entries.reduce<Record<string, NonNullable<Timesheet["entries"]>>>((acc, entry) => {
+                  (acc[entry.date] ??= []).push(entry);
+                  return acc;
+                }, {}),
+              )
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([date, dayEntries]) => (
+                  <div key={date} className="border-t pt-2 first:border-t-0 first:pt-0 space-y-1">
+                    <p className="text-xs font-medium">{format(new Date(date + "T00:00:00"), "EEE, MMM d")}</p>
+                    {dayEntries.map((entry) => (
+                      <p key={entry.id} className="text-xs text-muted-foreground leading-relaxed">
+                        <span className="font-semibold" style={{ color: GOLD }}>{parseFloat(entry.hours).toFixed(1)} hrs</span>
+                        {entry.description ? ` — ${entry.description}` : ""}
+                      </p>
+                    ))}
+                  </div>
+                ))}
             </div>
           )}
 

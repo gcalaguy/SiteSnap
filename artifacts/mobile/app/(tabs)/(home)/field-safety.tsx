@@ -84,6 +84,13 @@ export default function FieldSafetyScreen() {
   const [currentPath, setCurrentPath] = useState<
     Array<{ x: number; y: number }>
   >([]);
+  // Mirrors `currentPath` synchronously during a stroke so the release
+  // handler reads the finished stroke directly instead of nesting a
+  // setState call inside another setState updater.
+  const currentPathRef = useRef<Array<{ x: number; y: number }>>([]);
+  // Disables the outer ScrollView for the duration of a stroke so it can
+  // never compete with the signature pad's PanResponder for the gesture.
+  const [isSigning, setIsSigning] = useState(false);
 
   // Single FSM state replaces the old `uploading` + `pendingTimedOut` pair.
   // Starting in 'idle' – the form is ready for user input.
@@ -115,25 +122,53 @@ export default function FieldSafetyScreen() {
     setAnswers((prev) => ({ ...prev, [index]: value }));
   }
 
+  // Commits whatever has been drawn so far into `signaturePaths`. Shared by
+  // the release and terminate handlers below so a stroke is never silently
+  // dropped, however the gesture ends.
+  const commitStroke = useRef((stroke: Array<{ x: number; y: number }>) => {
+    if (stroke.length > 1) {
+      setSignaturePaths((sp) => [...sp, pointsToSvgPath(stroke)]);
+    }
+    currentPathRef.current = [];
+    setCurrentPath([]);
+    setIsSigning(false);
+  }).current;
+
   const panResponder = useRef(
     PanResponder.create({
+      // Claim the gesture in the capture phase so the parent ScrollView never
+      // gets first crack at it — otherwise a slightly-vertical stroke can be
+      // reinterpreted as a scroll and steal the responder mid-signature.
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      // Refuse to hand the responder back to the ScrollView once a stroke has
+      // started — without this, the ScrollView can terminate the gesture
+      // mid-draw, which fires `onPanResponderTerminate` (not `Release`) and
+      // the in-progress stroke would never reach `signaturePaths`.
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
       onPanResponderGrant: (_evt, _gestureState) => {
+        currentPathRef.current = [];
         setCurrentPath([]);
+        setIsSigning(true);
       },
       onPanResponderMove: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentPath((prev) => [...prev, { x: locationX, y: locationY }]);
+        currentPathRef.current = [
+          ...currentPathRef.current,
+          { x: locationX, y: locationY },
+        ];
+        setCurrentPath(currentPathRef.current);
       },
-      onPanResponderRelease: () => {
-        setCurrentPath((prev) => {
-          if (prev.length > 1) {
-            setSignaturePaths((sp) => [...sp, pointsToSvgPath(prev)]);
-          }
-          return [];
-        });
-      },
+      // Equivalent of a signature canvas's `onEnd` — the stroke is finished,
+      // so commit it to `signaturePaths` (the field that drives `hasSignature`
+      // and therefore the submit button's disabled state) immediately.
+      onPanResponderRelease: () => commitStroke(currentPathRef.current),
+      // Defensive fallback: if the gesture is terminated anyway (e.g. an OS
+      // interrupt), still commit rather than silently losing the stroke.
+      onPanResponderTerminate: () => commitStroke(currentPathRef.current),
     })
   ).current;
 
@@ -294,6 +329,7 @@ export default function FieldSafetyScreen() {
           paddingBottom: 40,
         }}
         keyboardShouldPersistTaps="handled"
+        scrollEnabled={!isSigning}
       >
         <TouchableOpacity
           onPress={() => router.back()}
@@ -419,7 +455,10 @@ export default function FieldSafetyScreen() {
             styles.signatureCanvas,
             {
               borderColor: hasSignature ? "#22C55E" : colors.border,
-              backgroundColor: colors.card,
+              // Forced white regardless of theme — the canvas ink is hardcoded
+              // black (see Path strokes below), so the pad must stay white or
+              // the signature is invisible against the app's dark palette.
+              backgroundColor: "#FFFFFF",
             },
           ]}
         >

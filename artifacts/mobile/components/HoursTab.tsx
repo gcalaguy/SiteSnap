@@ -99,9 +99,19 @@ export function HoursTab({ projectId }: { projectId: number }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(todayDate()); // iOS temp pick
 
-  const [hours, setHours] = useState("");
-  const [description, setDescription] = useState("");
+  const [rows, setRows] = useState([{ hours: "", description: "" }]);
   const [hoursError, setHoursError] = useState("");
+
+  const addRow = useCallback(() => {
+    setRows(r => [...r, { hours: "", description: "" }]);
+  }, []);
+  const removeRow = useCallback((index: number) => {
+    setRows(r => r.filter((_, i) => i !== index));
+  }, []);
+  const updateRow = useCallback((index: number, field: "hours" | "description", value: string) => {
+    setRows(r => r.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+    setHoursError("");
+  }, []);
 
   const QUERY_KEY = ["time-entries", "project", projectId];
 
@@ -117,8 +127,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
 
   const resetForm = useCallback(() => {
     setSelectedDate(todayDate());
-    setHours("");
-    setDescription("");
+    setRows([{ hours: "", description: "" }]);
     setHoursError("");
     setEditingEntry(null);
     setShowForm(false);
@@ -127,8 +136,7 @@ export function HoursTab({ projectId }: { projectId: number }) {
   const openNew = useCallback(() => {
     setEditingEntry(null);
     setSelectedDate(todayDate());
-    setHours("");
-    setDescription("");
+    setRows([{ hours: "", description: "" }]);
     setHoursError("");
     setShowForm(true);
   }, []);
@@ -136,14 +144,13 @@ export function HoursTab({ projectId }: { projectId: number }) {
   const openEdit = useCallback((entry: TimeEntry) => {
     setEditingEntry(entry);
     setSelectedDate(dateFromISO(entry.date));
-    setHours(parseFloat(entry.hours).toString());
-    setDescription(entry.description ?? "");
+    setRows([{ hours: parseFloat(entry.hours).toString(), description: entry.description ?? "" }]);
     setHoursError("");
     setShowForm(true);
   }, []);
 
   const logHours = useMutation({
-    mutationFn: (body: { date: string; hours: number; description?: string }) =>
+    mutationFn: (body: { date: string; entries: { hours: number; description?: string }[] }) =>
       customFetch(`/api/projects/${projectId}/time-entries`, {
         method: "POST",
         body: JSON.stringify(body),
@@ -182,21 +189,33 @@ export function HoursTab({ projectId }: { projectId: number }) {
 
   const handleSubmit = useCallback(() => {
     setHoursError("");
-    const h = parseFloat(hours);
-    if (!hours || isNaN(h) || h <= 0 || h > 24) {
-      setHoursError("Enter hours between 0.5 and 24");
-      return;
-    }
     const dateISO = isoFromDate(selectedDate);
+
     if (editingEntry) {
+      const h = parseFloat(rows[0].hours);
+      if (!rows[0].hours || isNaN(h) || h <= 0 || h > 24) {
+        setHoursError("Enter hours between 0.5 and 24");
+        return;
+      }
       editHours.mutate({
         entryId: editingEntry.id,
-        body: { date: dateISO, hours: h, description: description.trim() || null },
+        body: { date: dateISO, hours: h, description: rows[0].description.trim() || null },
       });
-    } else {
-      logHours.mutate({ date: dateISO, hours: h, description: description.trim() || undefined });
+      return;
     }
-  }, [hours, selectedDate, description, editingEntry]);
+
+    for (const row of rows) {
+      const h = parseFloat(row.hours);
+      if (!row.hours || isNaN(h) || h <= 0 || h > 24) {
+        setHoursError("Enter hours between 0.5 and 24 for each task");
+        return;
+      }
+    }
+    logHours.mutate({
+      date: dateISO,
+      entries: rows.map(row => ({ hours: parseFloat(row.hours), description: row.description.trim() || undefined })),
+    });
+  }, [rows, selectedDate, editingEntry]);
 
   const handleDelete = useCallback((entry: TimeEntry) => {
     const isOwn = entry.userId === me?.id;
@@ -370,33 +389,54 @@ export function HoursTab({ projectId }: { projectId: number }) {
               </Modal>
             )}
 
-            {/* Hours */}
-            <Text style={[s.formLabel, { color: colors.foreground, marginTop: 14 }]}>
-              Hours Worked <Text style={{ color: "#EF4444" }}>*</Text>
-            </Text>
-            <TextInput
-              style={[s.input, { backgroundColor: colors.background, borderColor: hoursError ? "#EF4444" : colors.border, color: colors.foreground }]}
-              value={hours}
-              onChangeText={t => { setHours(t); setHoursError(""); }}
-              placeholder="e.g. 8 or 7.5"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="decimal-pad"
-            />
+            {/* Hours + description rows — one pair per task */}
+            {rows.map((row, index) => (
+              <View key={index} style={index > 0 ? { marginTop: 18 } : undefined}>
+                {!editingEntry && rows.length > 1 && (
+                  <View style={s.rowHeader}>
+                    <Text style={[s.formLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                      Task {index + 1}
+                    </Text>
+                    <Pressable onPress={() => removeRow(index)} hitSlop={8}>
+                      <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+                    </Pressable>
+                  </View>
+                )}
+
+                <Text style={[s.formLabel, { color: colors.foreground, marginTop: 14 }]}>
+                  Hours Worked <Text style={{ color: "#EF4444" }}>*</Text>
+                </Text>
+                <TextInput
+                  style={[s.input, { backgroundColor: colors.background, borderColor: hoursError ? "#EF4444" : colors.border, color: colors.foreground }]}
+                  value={row.hours}
+                  onChangeText={t => updateRow(index, "hours", t)}
+                  placeholder="e.g. 8 or 7.5"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="decimal-pad"
+                />
+
+                <Text style={[s.formLabel, { color: colors.foreground, marginTop: 14 }]}>
+                  Description <Text style={[s.optional, { color: colors.mutedForeground }]}>optional</Text>
+                </Text>
+                <TextInput
+                  style={[s.input, s.multiline, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                  value={row.description}
+                  onChangeText={t => updateRow(index, "description", t)}
+                  placeholder="What did you work on?"
+                  placeholderTextColor={colors.mutedForeground}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            ))}
             {!!hoursError && <Text style={s.error}>{hoursError}</Text>}
 
-            {/* Description */}
-            <Text style={[s.formLabel, { color: colors.foreground, marginTop: 14 }]}>
-              Description <Text style={[s.optional, { color: colors.mutedForeground }]}>optional</Text>
-            </Text>
-            <TextInput
-              style={[s.input, s.multiline, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="What did you work on?"
-              placeholderTextColor={colors.mutedForeground}
-              multiline
-              numberOfLines={3}
-            />
+            {!editingEntry && (
+              <Pressable style={s.addRowBtn} onPress={addRow} hitSlop={8}>
+                <Feather name="plus" size={14} color={colors.primary} />
+                <Text style={[s.addRowText, { color: colors.primary }]}>Add another task</Text>
+              </Pressable>
+            )}
 
             <Pressable
               style={[s.submitBtn, { backgroundColor: colors.primary, opacity: isPending ? 0.7 : 1 }]}
@@ -555,6 +595,9 @@ const s = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, fontFamily: "Inter_400Regular" },
   multiline: { minHeight: 70, textAlignVertical: "top", paddingTop: 10 },
   error: { color: "#EF4444", fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 4 },
+  rowHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  addRowBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 16, alignSelf: "flex-start" },
+  addRowText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   submitBtn: { marginTop: 16, borderRadius: 10, paddingVertical: 13, alignItems: "center", justifyContent: "center" },
   submitBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
 

@@ -6899,6 +6899,21 @@ components:
               type: string
             email:
               type: string
+        entries:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              date:
+                type: string
+                format: date
+              hours:
+                type: string
+              description:
+                type: string
+                nullable: true
 
     ApproveTimesheetBody:
       type: object

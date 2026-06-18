@@ -4670,6 +4670,16 @@ export const ListTimesheetsResponseItem = zod.object({
       email: zod.string().optional(),
     })
     .nullish(),
+  entries: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        date: zod.coerce.date().optional(),
+        hours: zod.string().optional(),
+        description: zod.string().nullish(),
+      }),
+    )
+    .optional(),
 });
 export const ListTimesheetsResponse = zod.array(ListTimesheetsResponseItem);
 

@@ -72,10 +72,14 @@ async function syncTimesheetFromEntries(companyId: number, userId: number, weekS
   }
 }
 
-const CreateTimeEntryBody = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD"),
+const CreateTimeEntryItem = z.object({
   hours: z.number().positive().max(24),
   description: z.string().max(500).optional(),
+});
+
+const CreateTimeEntriesBody = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD"),
+  entries: z.array(CreateTimeEntryItem).min(1, "At least one entry is required"),
 });
 
 // GET /projects/:projectId/time-entries — list entries for a project
@@ -125,7 +129,7 @@ router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   res.json(entries);
 }))
 
-// POST /projects/:projectId/time-entries — log hours
+// POST /projects/:projectId/time-entries — log one or more hours+description rows for a date
 router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   if (!req.companyId) { res.status(403).json({ error: "No company associated with this account" }); return; }
 
@@ -143,19 +147,21 @@ router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
     return;
   }
 
-  const parsed = CreateTimeEntryBody.safeParse(req.body);
+  const parsed = CreateTimeEntriesBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
 
-  const [entry] = await db.insert(timeEntriesTable).values({
-    companyId: req.companyId!,
-    projectId,
-    userId: req.userId!,
-    date: parsed.data.date,
-    hours: parsed.data.hours.toFixed(2),
-    description: parsed.data.description ?? null,
-  }).returning();
+  const entries = await db.insert(timeEntriesTable).values(
+    parsed.data.entries.map((item) => ({
+      companyId: req.companyId!,
+      projectId,
+      userId: req.userId!,
+      date: parsed.data.date,
+      hours: item.hours.toFixed(2),
+      description: item.description ?? null,
+    })),
+  ).returning();
 
-  // Auto-sync the timesheet for this week
+  // Auto-sync the timesheet for this week once, after all rows are inserted
   await syncTimesheetFromEntries(req.companyId!, req.userId!, getMonday(parsed.data.date), projectId);
 
   // Attach user info to response
@@ -178,7 +184,7 @@ router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
     .where(eq(usersTable.id, req.userId!))
     .limit(1);
 
-  res.status(201).json({ ...entry, user });
+  res.status(201).json(entries.map((entry) => ({ ...entry, user })));
 }))
 
 // PATCH /projects/:projectId/time-entries/:entryId — edit own entry (owner/foreman can edit any)

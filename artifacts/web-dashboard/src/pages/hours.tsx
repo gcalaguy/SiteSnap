@@ -156,25 +156,41 @@ export default function HoursPage() {
   const [logOpen, setLogOpen] = useState(false);
   const [logProjectId, setLogProjectId] = useState("");
   const [logDate, setLogDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [logHours, setLogHours] = useState("");
-  const [logDescription, setLogDescription] = useState("");
+  const [logRows, setLogRows] = useState([{ hours: "", description: "" }]);
+
+  function addLogRow() {
+    setLogRows((rows) => [...rows, { hours: "", description: "" }]);
+  }
+  function removeLogRow(index: number) {
+    setLogRows((rows) => rows.filter((_, i) => i !== index));
+  }
+  function updateLogRow(index: number, field: "hours" | "description", value: string) {
+    setLogRows((rows) => rows.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  }
 
   const logHoursMutation = useMutation({
     mutationFn: () =>
       customFetch(`/api/projects/${logProjectId}/time-entries`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: logDate, hours: parseFloat(logHours), description: logDescription || undefined }),
+        body: JSON.stringify({
+          date: logDate,
+          entries: logRows.map((row) => ({
+            hours: parseFloat(row.hours),
+            description: row.description || undefined,
+          })),
+        }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["time-entries"] });
       toast({ title: "Hours logged" });
       setLogOpen(false);
-      setLogHours("");
-      setLogDescription("");
+      setLogRows([{ hours: "", description: "" }]);
     },
     onError: (e: any) => toast({ title: "Failed to log hours", description: e?.message, variant: "destructive" }),
   });
+
+  const logRowsValid = logRows.length > 0 && logRows.every((row) => row.hours && parseFloat(row.hours) > 0);
 
   // Timesheet hooks
   const tsParams: Record<string, string> = {};
@@ -337,13 +353,42 @@ export default function HoursPage() {
               <Label className="text-xs text-muted-foreground uppercase tracking-wide">Date</Label>
               <Input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
             </div>
-            <div>
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Hours</Label>
-              <Input type="number" step="0.25" min="0" max="24" value={logHours} onChange={(e) => setLogHours(e.target.value)} placeholder="8" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Description (optional)</Label>
-              <Input value={logDescription} onChange={(e) => setLogDescription(e.target.value)} placeholder="What did you work on?" />
+
+            <div className="space-y-3">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Hours & Description</Label>
+              {logRows.map((row, index) => (
+                <div key={index} className="flex items-start gap-2">
+                  <Input
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    max="24"
+                    value={row.hours}
+                    onChange={(e) => updateLogRow(index, "hours", e.target.value)}
+                    placeholder="8"
+                    className="w-20 shrink-0"
+                  />
+                  <Input
+                    value={row.description}
+                    onChange={(e) => updateLogRow(index, "description", e.target.value)}
+                    placeholder="What did you work on?"
+                    className="flex-1"
+                  />
+                  {logRows.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 h-9 w-9 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeLogRow(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={addLogRow}>
+                <Plus className="h-3.5 w-3.5" /> Add another task
+              </Button>
             </div>
           </div>
           <DialogFooter>
@@ -351,7 +396,7 @@ export default function HoursPage() {
             <Button
               className="bg-[#D4AF37] text-white hover:bg-[#b5922e]"
               onClick={() => logHoursMutation.mutate()}
-              disabled={logHoursMutation.isPending || !logProjectId || !logDate || !logHours}
+              disabled={logHoursMutation.isPending || !logProjectId || !logDate || !logRowsValid}
             >
               {logHoursMutation.isPending ? "Logging…" : "Log Hours"}
             </Button>

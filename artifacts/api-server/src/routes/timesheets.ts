@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, timesheetsTable, usersTable, userMembershipsTable, projectsTable } from "@workspace/db";
+import { db, timesheetsTable, timeEntriesTable, usersTable, userMembershipsTable, projectsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
@@ -16,6 +16,14 @@ const router = Router();
 function parseIntId(param: string): number | null {
   const n = parseInt(param, 10);
   return Number.isNaN(n) ? null : n;
+}
+
+function getMonday(isoDate: string): string {
+  const d = new Date(isoDate + "T00:00:00");
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
 }
 
 const SubmitTimesheetBody = z.object({
@@ -100,10 +108,46 @@ router.get("/timesheets", requireAuth, requireCompany, requirePermission("viewTi
     : [];
   const userMap = new Map(userRows.map((u) => [u.id, u]));
 
+  // Batch-load the underlying daily time entries for every returned week so
+  // the admin review UI can show each worker's per-day description, not just
+  // the timesheet-level summary. Grouped in JS by (userId, weekStart, projectId)
+  // to avoid one query per row.
+  const submitterIds = [...new Set(rows.map((ts) => ts.userId))];
+  const entriesByKey = new Map<string, { id: number; date: string; hours: string; description: string | null }[]>();
+  if (submitterIds.length) {
+    const weekStarts = rows.map((ts) => ts.weekStart);
+    const minWeekStart = weekStarts.reduce((a, b) => (a < b ? a : b));
+    const maxWeekStart = weekStarts.reduce((a, b) => (a > b ? a : b));
+
+    const entryRows = await db
+      .select({
+        id: timeEntriesTable.id,
+        userId: timeEntriesTable.userId,
+        projectId: timeEntriesTable.projectId,
+        date: timeEntriesTable.date,
+        hours: timeEntriesTable.hours,
+        description: timeEntriesTable.description,
+      })
+      .from(timeEntriesTable)
+      .where(and(
+        eq(timeEntriesTable.companyId, req.companyId!),
+        inArray(timeEntriesTable.userId, submitterIds),
+        gte(timeEntriesTable.date, minWeekStart),
+        lte(timeEntriesTable.date, sql`${maxWeekStart}::date + interval '6 days'`),
+      ));
+
+    for (const e of entryRows) {
+      const key = `${e.userId}|${getMonday(e.date)}|${e.projectId ?? "null"}`;
+      if (!entriesByKey.has(key)) entriesByKey.set(key, []);
+      entriesByKey.get(key)!.push({ id: e.id, date: e.date, hours: e.hours, description: e.description });
+    }
+  }
+
   const enriched = rows.map((ts) => ({
     ...ts,
     user: userMap.get(ts.userId) ?? null,
     reviewer: ts.reviewedByUserId != null ? (userMap.get(ts.reviewedByUserId) ?? null) : null,
+    entries: entriesByKey.get(`${ts.userId}|${ts.weekStart}|${ts.projectId ?? "null"}`) ?? [],
   }));
 
   res.json(enriched);

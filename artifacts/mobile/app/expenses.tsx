@@ -208,10 +208,13 @@ export default function ExpensesScreen() {
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.primary, bottom: insets.bottom + 20 }]}
         onPress={() => {
+          if (!activeProjectId) {
+            Alert.alert("No assigned projects", "You need to be assigned to a project before you can submit an expense.");
+            return;
+          }
           if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           setShowForm(true);
         }}
-        disabled={!activeProjectId}
         activeOpacity={0.85}
       >
         <Feather name="plus" size={20} color="#FFFFFF" />

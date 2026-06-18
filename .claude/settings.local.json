@@ -82,7 +82,30 @@
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:8080/api/projects)",
       "Bash(gh auth *)",
       "Skill(code-review)",
-      "Bash(echo \"exit:$?\")"
+      "Bash(echo \"exit:$?\")",
+      "Bash(grep -v \"^\\\\.$\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(len\\(d['entries']\\)\\); [print\\(e['idx'], e['tag']\\) for e in d['entries'][-5:]]\")",
+      "Bash(env)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8080/)",
+      "Bash(curl -s http://localhost:8080/api/health)",
+      "Bash(curl -s -w \"\\\\n%{http_code}\\\\n\" http://localhost:8080/api/projects)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:19006/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8081/)",
+      "Skill(run)",
+      "Bash(curl -s http://localhost:18115/)",
+      "Bash(npx --version)",
+      "Bash(pnpm ls *)",
+      "Bash(timeout 10 bash *)",
+      "Bash(xargs -n1 basename)",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' http://localhost:8080/api/projects/1/expenses -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' http://localhost:8080/api/projects -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -X POST http://localhost:8080/api/projects/1/expenses -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' -d '{\"amount\": 42.5, \"description\": \"test expense from repro\"}')",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -X DELETE http://localhost:8080/api/projects/1/expenses/2 -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(timeout 8 curl *)",
+      "Bash(curl *)",
+      "Bash(mkdir -p /tmp/pwtest)",
+      "Bash(npm init *)",
+      "Bash(npm install *)"
     ]
   }
 }
