@@ -44,6 +44,9 @@ import {
   getActionRequiredCapas,
   getCompanyMembersForPicker,
   getCompanyExpiringSoonCredentials,
+  createAuditorToken,
+  listAuditorTokens,
+  revokeAuditorToken,
 } from "../repositories/cor";
 import { checkWorkerEligibility } from "../services/cor/credentialGatekeeper";
 import { sendCredentialExpiryAlerts } from "../cron";
@@ -638,9 +641,7 @@ router.post(
       ? req.body.signatureData.slice(0, 100_000)
       : undefined;
 
-    const ipAddress = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-      ?? req.socket.remoteAddress
-      ?? undefined;
+    const ipAddress = req.ip ?? req.socket.remoteAddress ?? undefined;
 
     const signoff = await signPolicyDocument({
       companyId: req.companyId!,
@@ -1038,6 +1039,21 @@ router.post(
     if (!parsed.success) {
       throw new BadRequestError(parsed.error.issues.map((i) => i.message).join("; "));
     }
+
+    if (parsed.data.assignedToUserId != null) {
+      const [membership] = await db
+        .select({ userId: userMembershipsTable.userId })
+        .from(userMembershipsTable)
+        .where(
+          and(
+            eq(userMembershipsTable.userId, parsed.data.assignedToUserId),
+            eq(userMembershipsTable.companyId, req.companyId!),
+          ),
+        )
+        .limit(1);
+      if (!membership) throw new NotFoundError("Assigned user not found in this company");
+    }
+
     const ticket = await createCapaTicket({
       companyId: req.companyId!,
       sourceType: "manual",
@@ -1082,6 +1098,21 @@ router.put(
     if (!parsed.success) {
       throw new BadRequestError(parsed.error.issues.map((i) => i.message).join("; "));
     }
+
+    if (parsed.data.assignedToUserId != null) {
+      const [membership] = await db
+        .select({ userId: userMembershipsTable.userId })
+        .from(userMembershipsTable)
+        .where(
+          and(
+            eq(userMembershipsTable.userId, parsed.data.assignedToUserId),
+            eq(userMembershipsTable.companyId, req.companyId!),
+          ),
+        )
+        .limit(1);
+      if (!membership) throw new NotFoundError("Assigned user not found in this company");
+    }
+
     const ticket = await updateCapaTicket(req.companyId!, id, parsed.data as any);
     if (!ticket) throw new NotFoundError("CAPA ticket not found or is locked");
     res.json(ticket);
@@ -1123,6 +1154,64 @@ router.delete(
     if (isNaN(id)) throw new BadRequestError("Invalid CAPA ID");
     const ok = await voidCapaTicket(req.companyId!, id);
     if (!ok) throw new NotFoundError("CAPA ticket not found or is locked");
+    res.json({ success: true });
+  }),
+);
+
+// ── External Auditor Token Management ────────────────────────────────────────
+
+const CreateAuditorTokenBody = z.object({
+  label: z.string().min(1).max(120),
+  expiryDays: z.number().int().min(1).max(180).default(30),
+});
+
+router.post(
+  "/cor/auditor-tokens",
+  requireAuth,
+  requireCompany,
+  asyncHandler(async (req, res) => {
+    if (req.userRole !== "owner") {
+      throw new ForbiddenError("Only owners can generate auditor access links.");
+    }
+    const parsed = CreateAuditorTokenBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+      return;
+    }
+    const row = await createAuditorToken(
+      req.companyId!,
+      parsed.data.label,
+      req.userId!,
+      parsed.data.expiryDays,
+    );
+    res.status(201).json(row);
+  }),
+);
+
+router.get(
+  "/cor/auditor-tokens",
+  requireAuth,
+  requireCompany,
+  asyncHandler(async (req, res) => {
+    if (req.userRole !== "owner") {
+      throw new ForbiddenError("Only owners can view auditor access links.");
+    }
+    const tokens = await listAuditorTokens(req.companyId!);
+    res.json(tokens);
+  }),
+);
+
+router.delete(
+  "/cor/auditor-tokens/:id",
+  requireAuth,
+  requireCompany,
+  asyncHandler(async (req, res) => {
+    if (req.userRole !== "owner") {
+      throw new ForbiddenError("Only owners can revoke auditor access links.");
+    }
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) throw new BadRequestError("Invalid token ID");
+    await revokeAuditorToken(req.companyId!, id);
     res.json({ success: true });
   }),
 );
