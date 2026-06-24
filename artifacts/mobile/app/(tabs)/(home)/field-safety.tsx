@@ -149,9 +149,10 @@ export default function FieldSafetyScreen() {
       // the in-progress stroke would never reach `signaturePaths`.
       onPanResponderTerminationRequest: () => false,
       onShouldBlockNativeResponder: () => true,
-      onPanResponderGrant: (_evt, _gestureState) => {
-        currentPathRef.current = [];
-        setCurrentPath([]);
+      onPanResponderGrant: (evt) => {
+        const { locationX, locationY } = evt.nativeEvent;
+        currentPathRef.current = [{ x: locationX, y: locationY }];
+        setCurrentPath(currentPathRef.current);
         setIsSigning(true);
       },
       onPanResponderMove: (evt) => {

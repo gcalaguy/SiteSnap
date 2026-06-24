@@ -6,6 +6,8 @@ import { requirePermission } from "../lib/permissionGate";
 import { canAccessProject } from "../lib/projectAccess";
 import { z } from "zod";
 import { validateWorkerCompliance } from "../services/complianceCheck";
+import { checkWorkerEligibility } from "../services/cor/credentialGatekeeper";
+import { hasCorModuleFeature } from "../repositories/cor";
 import { notify } from "../lib/notify";
 import { asyncHandler } from "../lib/asyncHandler";
 
@@ -218,6 +220,21 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
     }
     if (contact.complianceStatus === "non_compliant") {
       res.status(409).json({ error: "This subcontractor is non-compliant. Update compliance documents before assigning.", code: "COMPLIANCE_ERROR" });
+      return;
+    }
+  }
+
+  // COR hard-block: only active when company has COR_MODULE feature enabled.
+  // Without the feature flag, the existing fire-and-forget notification below still runs.
+  if (userId && (await hasCorModuleFeature(req.companyId!))) {
+    const eligibility = await checkWorkerEligibility(req.companyId!, Number(userId));
+    if (!eligibility.eligible) {
+      res.status(409).json({
+        error: "Worker has missing or expired credentials and cannot be deployed",
+        code: "COR_CREDENTIAL_BLOCK",
+        blocks: eligibility.blocks,
+        warnings: eligibility.warnings,
+      });
       return;
     }
   }

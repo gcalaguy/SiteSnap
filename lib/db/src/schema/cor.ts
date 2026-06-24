@@ -33,6 +33,11 @@ export const ihsaElementEnum = pgEnum("ihsa_element", [
   "element_12", // Safety Equipment & First Aid
   "element_13", // Fire Safety & Fire Extinguishers
   "element_14", // WHMIS & Controlled Products
+  "element_15", // Contractor Management
+  "element_16", // Medical Management
+  "element_17", // Joint Health & Safety Committee
+  "element_18", // Occupational Health
+  "element_19", // Records & Statistics
 ]);
 
 export const corCredentialTypeEnum = pgEnum("cor_credential_type", [
@@ -194,6 +199,7 @@ export const corAuditPackagesTable = pgTable(
     label: text("label").notNull(),
     periodStart: date("period_start"),
     periodEnd: date("period_end"),
+    projectIds: jsonb("project_ids"), // number[] | null — used for re-download
     status: corAuditPackageStatusEnum("status").notNull().default("generating"),
     fileSizeBytes: integer("file_size_bytes"),
     totalEntries: integer("total_entries").notNull().default(0),

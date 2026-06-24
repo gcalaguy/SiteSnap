@@ -25,6 +25,7 @@ import {
   getMyPendingSignoffs,
   getMySignoffs,
   getPolicySignoffSummary,
+  getSignoffElementCompliance,
   listSubcontractors,
   createSubcontractor,
   updateSubcontractor,
@@ -42,14 +43,18 @@ import {
   getCapaSummary,
   getActionRequiredCapas,
   getCompanyMembersForPicker,
+  getCompanyExpiringSoonCredentials,
 } from "../repositories/cor";
 import { checkWorkerEligibility } from "../services/cor/credentialGatekeeper";
+import { sendCredentialExpiryAlerts } from "../cron";
 import { processVoiceLog } from "../services/cor/voiceLogProcessor";
 import {
   buildAuditPackage,
   listAuditPackages,
   getPackageVerificationLog,
+  getAuditPackageRecord,
 } from "../services/cor/auditPackageBuilder";
+import { runShadowAuditor } from "../services/cor/shadowAuditor";
 
 const router = Router();
 
@@ -168,6 +173,35 @@ router.get(
   asyncHandler(async (req, res) => {
     const matrix = await getWorkerCredentialMatrix(req.companyId!);
     res.json({ workers: matrix });
+  }),
+);
+
+// ── GET /cor/credentials/expiring-soon — credentials expiring in 0–65 days ────
+// Returns a company-scoped list sorted by days remaining (ascending).
+
+router.get(
+  "/cor/credentials/expiring-soon",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const expiring = await getCompanyExpiringSoonCredentials(req.companyId!);
+    res.json({ expiring });
+  }),
+);
+
+// ── POST /cor/credentials/run-expiry-alerts — manually trigger alert scan ─────
+// Admin-only. Fires the same job as the 6 AM cron — useful for testing or
+// when an admin wants to force alerts immediately after updating credentials.
+
+router.post(
+  "/cor/credentials/run-expiry-alerts",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (_req, res) => {
+    const result = await sendCredentialExpiryAlerts();
+    res.json({ success: true, ...result });
   }),
 );
 
@@ -462,11 +496,45 @@ router.get(
   }),
 );
 
+// ── GET /cor/audit-package/:id/download — regenerate & stream ZIP by ID ──────
+
+router.get(
+  "/cor/audit-package/:id/download",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const packageId = parseInt(req.params.id as string);
+    if (isNaN(packageId)) throw new BadRequestError("Invalid package ID");
+
+    const pkg = await getAuditPackageRecord(req.companyId!, packageId);
+    if (!pkg) throw new NotFoundError("Package not found");
+
+    const result = await buildAuditPackage({
+      companyId: req.companyId!,
+      userId: req.userId!,
+      label: pkg.label,
+      periodStart: pkg.periodStart ?? undefined,
+      periodEnd: pkg.periodEnd ?? undefined,
+      projectIds: Array.isArray(pkg.projectIds) ? (pkg.projectIds as number[]) : undefined,
+    });
+
+    const fileName = `COR_Audit_Package_${new Date().toISOString().slice(0, 10)}.zip`;
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("Content-Length", result.fileSizeBytes);
+    res.setHeader("X-Package-Id", result.packageId);
+    res.setHeader("X-Package-Checksum", result.checksum);
+    res.end(result.zipBuffer);
+  }),
+);
+
 // ── Policy Documents ──────────────────────────────────────────────────────────
 
 const VALID_IHSA_ELEMENTS = [
   "element_1","element_2","element_3","element_4","element_5","element_6","element_7",
   "element_8","element_9","element_10","element_11","element_12","element_13","element_14",
+  "element_15","element_16","element_17","element_18","element_19",
 ] as const;
 
 const VALID_DOC_TYPES = ["swp", "jha", "company_rules", "policy"] as const;
@@ -602,6 +670,23 @@ router.get(
       res.json({ pending });
     } catch (err) {
       if (isMissingTable(err)) return res.json({ pending: [] });
+      throw err;
+    }
+  }),
+);
+
+// GET /cor/signoff-element-compliance — per-IHSA-element signoff evidence (admin)
+router.get(
+  "/cor/signoff-element-compliance",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    try {
+      const compliance = await getSignoffElementCompliance(req.companyId!);
+      res.json({ compliance });
+    } catch (err) {
+      if (isMissingTable(err)) return res.json({ compliance: [] });
       throw err;
     }
   }),
@@ -785,6 +870,26 @@ router.delete(
   }),
 );
 
+// POST /cor/subcontractors/:id/invite — stamp invitedAt and record audit event
+router.post(
+  "/cor/subcontractors/:id/invite",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) throw new BadRequestError("Invalid subcontractor ID");
+    const sub = await updateSubcontractor(req.companyId!, id, { invitedAt: new Date() });
+    if (!sub) throw new NotFoundError("Subcontractor not found");
+    await logAuditEventFromRequest(
+      req,
+      "COR_SUB_INVITED",
+      `Invite sent to subcontractor "${sub.companyName}" (${sub.contactEmail ?? "no email"})`,
+    );
+    res.json(sub);
+  }),
+);
+
 router.post(
   "/cor/subcontractors/:id/docs",
   requireAuth,
@@ -828,6 +933,7 @@ const VALID_CAPA_PRIORITIES = ["critical", "high", "medium", "low"] as const;
 const VALID_CAPA_IHSA_ELEMENTS = [
   "element_1","element_2","element_3","element_4","element_5","element_6","element_7",
   "element_8","element_9","element_10","element_11","element_12","element_13","element_14",
+  "element_15","element_16","element_17","element_18","element_19",
 ] as const;
 
 const CreateCapaBody = z.object({
@@ -1018,6 +1124,26 @@ router.delete(
     const ok = await voidCapaTicket(req.companyId!, id);
     if (!ok) throw new NotFoundError("CAPA ticket not found or is locked");
     res.json({ success: true });
+  }),
+);
+
+// ── GET /cor/shadow-auditor — predictive AI audit score analysis ───────────────
+// Runs the Shadow Auditor engine: gathers company-wide evidence across all
+// data sources, applies a weighted scoring model per IHSA element, and uses
+// AI to produce gap warnings with specific score impact estimates.
+
+router.get(
+  "/cor/shadow-auditor",
+  requireAuth,
+  requireCompany,
+  requireOwnerOrForeman,
+  asyncHandler(async (req, res) => {
+    const lookbackDays = Math.min(
+      parseInt((req.query.lookbackDays as string) ?? "90") || 90,
+      365,
+    );
+    const report = await runShadowAuditor(req.companyId!, lookbackDays);
+    res.json(report);
   }),
 );
 

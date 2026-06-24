@@ -16,6 +16,7 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
 import { processComplianceEvent } from "../services/compliance/processor";
+import { processFormSubmission } from "../services/cor/evidenceAggregator";
 import { z } from "zod";
 
 const router = Router();
@@ -207,6 +208,10 @@ router.post("/safety/submissions", requireAuth, requireCompany, asyncHandler(asy
           sourceRecordId: String(submission.id),
           text: `${template.name} (${template.category}): ${JSON.stringify(data).slice(0, 600)}`,
         }).catch((err) => logger.error({ err }, "compliance trigger error (safety)"));
+        processFormSubmission(
+          { id: submission.id, projectId: submission.projectId, userId: req.userId!, data, templateId },
+          req.companyId!,
+        ).catch((err) => logger.error({ err }, "COR evidence aggregation error (form submission)"));
       }
     }
 

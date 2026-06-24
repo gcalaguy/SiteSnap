@@ -6,6 +6,11 @@ import {
   corVoiceActionLogsTable,
   corAuditPackagesTable,
   corAuditLogEntriesTable,
+  capaTicketsTable,
+  policyDocumentsTable,
+  policySignoffsTable,
+  subcontractorsTable,
+  subcontractorDocsTable,
   usersTable,
   companiesTable,
   projectsTable,
@@ -13,7 +18,7 @@ import {
 import { eq, and, gte, lte, inArray, desc } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 
-// ── IHSA Element catalogue (14 elements, Ontario COR) ─────────────────────────
+// ── IHSA Element catalogue (19 elements, Ontario COR ICI) ────────────────────
 
 export const IHSA_ELEMENTS = [
   { key: "element_1",  num: "01", name: "Management Leadership & Commitment",         folder: "01_Management_Leadership" },
@@ -30,6 +35,11 @@ export const IHSA_ELEMENTS = [
   { key: "element_12", num: "12", name: "Safety Equipment & First Aid",               folder: "12_Safety_Equipment_First_Aid" },
   { key: "element_13", num: "13", name: "Fire Safety & Fire Extinguishers",           folder: "13_Fire_Safety" },
   { key: "element_14", num: "14", name: "WHMIS & Controlled Products",                folder: "14_WHMIS" },
+  { key: "element_15", num: "15", name: "Contractor Management",                      folder: "15_Contractor_Management" },
+  { key: "element_16", num: "16", name: "Medical Management",                         folder: "16_Medical_Management" },
+  { key: "element_17", num: "17", name: "Joint Health & Safety Committee",            folder: "17_Joint_Health_Safety_Committee" },
+  { key: "element_18", num: "18", name: "Occupational Health",                        folder: "18_Occupational_Health" },
+  { key: "element_19", num: "19", name: "Records & Statistics",                       folder: "19_Records_Statistics" },
 ] as const;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -168,6 +178,7 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
       label,
       periodStart: periodStart ?? null,
       periodEnd: periodEnd ?? null,
+      projectIds: projectIds?.length ? projectIds : null,
       status: "generating",
     })
     .returning({ id: corAuditPackagesTable.id });
@@ -300,7 +311,92 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
       .where(eq(corVoiceActionLogsTable.companyId, companyId))
       .orderBy(corVoiceActionLogsTable.createdAt);
 
-    // ── 5. Fetch training matrix ─────────────────────────────────────────
+    // ── 5. Fetch CAPA tickets ────────────────────────────────────────────
+    const capaConditions = [eq(capaTicketsTable.companyId, companyId)];
+    if (projectIds?.length) capaConditions.push(inArray(capaTicketsTable.projectId as any, projectIds));
+
+    const capaTickets = await db
+      .select({
+        id: capaTicketsTable.id,
+        title: capaTicketsTable.title,
+        description: capaTicketsTable.description,
+        sourceType: capaTicketsTable.sourceType,
+        ihsaElement: capaTicketsTable.ihsaElement,
+        priority: capaTicketsTable.priority,
+        status: capaTicketsTable.status,
+        dueDate: capaTicketsTable.dueDate,
+        closedAt: capaTicketsTable.closedAt,
+        closureNotes: capaTicketsTable.closureNotes,
+        evidencePhotoUrl: capaTicketsTable.evidencePhotoUrl,
+        assignedFirst: usersTable.firstName,
+        assignedLast: usersTable.lastName,
+        createdAt: capaTicketsTable.createdAt,
+      })
+      .from(capaTicketsTable)
+      .leftJoin(usersTable, eq(capaTicketsTable.assignedToUserId, usersTable.id))
+      .where(and(...capaConditions))
+      .orderBy(capaTicketsTable.ihsaElement, capaTicketsTable.createdAt);
+
+    // ── 6. Fetch policy sign-offs ─────────────────────────────────────────
+    const policyDocs = await db
+      .select({
+        id: policyDocumentsTable.id,
+        title: policyDocumentsTable.title,
+        documentType: policyDocumentsTable.documentType,
+        ihsaElement: policyDocumentsTable.ihsaElement,
+        requiresAnnualRenewal: policyDocumentsTable.requiresAnnualRenewal,
+        createdAt: policyDocumentsTable.createdAt,
+      })
+      .from(policyDocumentsTable)
+      .where(and(eq(policyDocumentsTable.companyId, companyId), eq(policyDocumentsTable.isActive, true)));
+
+    const policySignoffs = await db
+      .select({
+        id: policySignoffsTable.id,
+        policyDocumentId: policySignoffsTable.policyDocumentId,
+        workerFirst: usersTable.firstName,
+        workerLast: usersTable.lastName,
+        workerEmail: usersTable.email,
+        signedAt: policySignoffsTable.signedAt,
+        ipAddress: policySignoffsTable.ipAddress,
+        isValid: policySignoffsTable.isValid,
+      })
+      .from(policySignoffsTable)
+      .leftJoin(usersTable, eq(policySignoffsTable.workerUserId, usersTable.id))
+      .where(eq(policySignoffsTable.companyId, companyId))
+      .orderBy(policySignoffsTable.signedAt);
+
+    // Build policy title lookup
+    const policyTitleMap = new Map(policyDocs.map((d) => [d.id, d.title]));
+
+    // ── 7. Fetch subcontractors & their docs ──────────────────────────────
+    const subcontractors = await db
+      .select({
+        id: subcontractorsTable.id,
+        companyName: subcontractorsTable.companyName,
+        tradeType: subcontractorsTable.tradeType,
+        overallStatus: subcontractorsTable.overallStatus,
+        lastReviewedAt: subcontractorsTable.lastReviewedAt,
+      })
+      .from(subcontractorsTable)
+      .where(eq(subcontractorsTable.companyId, companyId));
+
+    const subDocs = await db
+      .select({
+        id: subcontractorDocsTable.id,
+        subcontractorId: subcontractorDocsTable.subcontractorId,
+        docType: subcontractorDocsTable.docType,
+        docStatus: subcontractorDocsTable.docStatus,
+        expiryDate: subcontractorDocsTable.expiryDate,
+        documentUrl: subcontractorDocsTable.documentUrl,
+      })
+      .from(subcontractorDocsTable)
+      .where(eq(subcontractorDocsTable.companyId, companyId));
+
+    // Build subcontractor name lookup
+    const subNameMap = new Map(subcontractors.map((s) => [s.id, s.companyName]));
+
+    // ── 8. Fetch training matrix ─────────────────────────────────────────
     const { rows: credRows } = await pool.query<{
       user_id: number; first_name: string; last_name: string; email: string;
       role: string; credential_type: string; status: string;
@@ -321,12 +417,26 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
 
     const workerSet = new Set(credRows.map((r) => r.user_id));
 
-    // ── 6. Build per-element data ────────────────────────────────────────
+    // ── 9. Build per-element data maps ──────────────────────────────────
     const elementMap = new Map<string, typeof auditEntries>();
     for (const entry of auditEntries) {
       const key = entry.ihsaElement ?? "element_4";
       if (!elementMap.has(key)) elementMap.set(key, []);
       elementMap.get(key)!.push(entry);
+    }
+
+    const capaByElement = new Map<string, typeof capaTickets>();
+    for (const ticket of capaTickets) {
+      const key = ticket.ihsaElement ?? "element_8";
+      if (!capaByElement.has(key)) capaByElement.set(key, []);
+      capaByElement.get(key)!.push(ticket);
+    }
+
+    const policyByElement = new Map<string, typeof policyDocs>();
+    for (const doc of policyDocs) {
+      const key = doc.ihsaElement;
+      if (!policyByElement.has(key)) policyByElement.set(key, []);
+      policyByElement.get(key)!.push(doc);
     }
 
     // ── 7. Compute element summaries ─────────────────────────────────────
@@ -465,6 +575,77 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
           Corrective_Task_ID: v.correctedTaskId ?? "",
         }));
         addFile(vlFolder, "voice_observations.csv", toCsv(vlCsvRows));
+      }
+
+      // Attach CAPA tickets to relevant elements
+      const elementCapas = capaByElement.get(el.key) ?? [];
+      if (elementCapas.length > 0) {
+        const capaCsvRows = elementCapas.map((c) => ({
+          CAPA_ID: c.id,
+          Title: c.title,
+          Priority: c.priority,
+          Status: c.status,
+          Source_Type: c.sourceType,
+          Due_Date: c.dueDate ?? "",
+          Assigned_To: c.assignedFirst ? `${c.assignedFirst} ${c.assignedLast}` : "",
+          Closed_At: formatDate(c.closedAt as Date),
+          Closure_Notes: c.closureNotes ?? "",
+          Evidence_Photo: c.evidencePhotoUrl ?? "",
+        }));
+        addFile(folder, "capa_tickets.csv", toCsv(capaCsvRows));
+        addFile(folder, "capa_tickets_full.json", JSON.stringify(elementCapas.map((c) => ({
+          ...c,
+          createdAt: formatDate(c.createdAt as Date),
+          closedAt: formatDate(c.closedAt as Date),
+        })), null, 2));
+      }
+
+      // Attach policy sign-offs for elements that have policy documents
+      const elementPolicyDocs = policyByElement.get(el.key) ?? [];
+      if (elementPolicyDocs.length > 0) {
+        const signoffRows: Record<string, unknown>[] = [];
+        for (const doc of elementPolicyDocs) {
+          const docSignoffs = policySignoffs.filter((s) => s.policyDocumentId === doc.id);
+          for (const s of docSignoffs) {
+            signoffRows.push({
+              Policy_Title: doc.title,
+              Doc_Type: doc.documentType,
+              Worker_Name: s.workerFirst ? `${s.workerFirst} ${s.workerLast}` : "",
+              Worker_Email: s.workerEmail ?? "",
+              Signed_At: formatDate(s.signedAt as Date),
+              IP_Address: s.ipAddress ?? "",
+              Is_Valid: s.isValid ? "Yes" : "No",
+            });
+          }
+        }
+        if (signoffRows.length > 0) {
+          addFile(folder, "policy_signoffs.csv", toCsv(signoffRows));
+        }
+      }
+
+      // Subcontractor compliance in element_15 (Contractor Management)
+      if (el.key === "element_15" && subcontractors.length > 0) {
+        const subFolder = folder.folder("subcontractors")!;
+        const subRows = subcontractors.map((s) => ({
+          Sub_ID: s.id,
+          Company_Name: s.companyName,
+          Trade_Type: s.tradeType,
+          Overall_Status: s.overallStatus,
+          Last_Reviewed_At: formatDate(s.lastReviewedAt as Date),
+        }));
+        addFile(subFolder, "subcontractors.csv", toCsv(subRows));
+
+        const docRows = subDocs.map((d) => ({
+          Doc_ID: d.id,
+          Subcontractor: subNameMap.get(d.subcontractorId) ?? "",
+          Doc_Type: d.docType,
+          Status: d.docStatus,
+          Expiry_Date: d.expiryDate ?? "",
+          Document_URL: d.documentUrl ?? "",
+        }));
+        if (docRows.length > 0) {
+          addFile(subFolder, "subcontractor_documents.csv", toCsv(docRows));
+        }
       }
     }
 
@@ -606,6 +787,52 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
       addFile(overviewFolder, "all_voice_observations.csv", toCsv(vlAllRows));
     }
 
+    // CAPA master list
+    if (capaTickets.length > 0) {
+      const capaAllRows = capaTickets.map((c) => ({
+        CAPA_ID: c.id,
+        IHSA_Element: c.ihsaElement ?? "",
+        Title: c.title,
+        Priority: c.priority,
+        Status: c.status,
+        Source_Type: c.sourceType,
+        Due_Date: c.dueDate ?? "",
+        Assigned_To: c.assignedFirst ? `${c.assignedFirst} ${c.assignedLast}` : "",
+        Closed_At: formatDate(c.closedAt as Date),
+      }));
+      addFile(overviewFolder, "all_capa_tickets.csv", toCsv(capaAllRows));
+    }
+
+    // Policy sign-offs master list
+    const policySignoffFolder = root.folder("POLICY_SIGNOFFS")!;
+    if (policyDocs.length > 0) {
+      const docRows = policyDocs.map((d) => ({
+        Doc_ID: d.id,
+        Title: d.title,
+        Type: d.documentType,
+        IHSA_Element: d.ihsaElement,
+        Requires_Annual_Renewal: d.requiresAnnualRenewal ? "Yes" : "No",
+        Created_At: formatDate(d.createdAt as Date),
+      }));
+      addFile(policySignoffFolder, "policy_documents.csv", toCsv(docRows));
+    }
+    if (policySignoffs.length > 0) {
+      const signoffRows = policySignoffs.map((s) => ({
+        Signoff_ID: s.id,
+        Policy_Title: policyTitleMap.get(s.policyDocumentId) ?? "",
+        Worker_Name: s.workerFirst ? `${s.workerFirst} ${s.workerLast}` : "",
+        Worker_Email: s.workerEmail ?? "",
+        Signed_At: formatDate(s.signedAt as Date),
+        IP_Address: s.ipAddress ?? "",
+        Is_Valid: s.isValid ? "Yes" : "No",
+      }));
+      addFile(policySignoffFolder, "policy_signoffs_by_worker.csv", toCsv(signoffRows));
+    }
+    if (policyDocs.length === 0 && policySignoffs.length === 0) {
+      addFile(policySignoffFolder, "NO_POLICY_DOCUMENTS.txt",
+        "No policy documents or sign-offs recorded for this period.\n");
+    }
+
     // ── 8e. Tamper-evident generation log ──────────────────────────────────
     const logFolder = root.folder("00_VERIFICATION_LOG")!;
 
@@ -619,6 +846,9 @@ export async function buildAuditPackage(opts: BuildOptions): Promise<PackageMeta
       { type: "AUDIT_TRAIL_COMPILED",       meta: { count: auditEntries.length, elementsCovered: elementSummary.filter(e => e.totalEntries > 0).length } },
       { type: "INSPECTIONS_COMPILED",       meta: { count: allInspections.length } },
       { type: "VOICE_LOGS_COMPILED",        meta: { count: voiceLogs.length } },
+      { type: "CAPA_TICKETS_COMPILED",      meta: { count: capaTickets.length } },
+      { type: "POLICY_SIGNOFFS_COMPILED",   meta: { documentCount: policyDocs.length, signoffCount: policySignoffs.length } },
+      { type: "SUBCONTRACTORS_COMPILED",    meta: { count: subcontractors.length, docCount: subDocs.length } },
       { type: "TRAINING_MATRIX_COMPILED",   meta: { workerCount: workerSet.size } },
       { type: "PACKAGE_GENERATION_COMPLETE", meta: { overallScore, checksum: "PENDING" } },
     ];
@@ -752,6 +982,21 @@ export async function listAuditPackages(companyId: number) {
     .where(eq(corAuditPackagesTable.companyId, companyId))
     .orderBy(desc(corAuditPackagesTable.createdAt))
     .limit(20);
+}
+
+export async function getAuditPackageRecord(companyId: number, packageId: number) {
+  const [pkg] = await db
+    .select({
+      id: corAuditPackagesTable.id,
+      label: corAuditPackagesTable.label,
+      status: corAuditPackagesTable.status,
+      periodStart: corAuditPackagesTable.periodStart,
+      periodEnd: corAuditPackagesTable.periodEnd,
+      projectIds: corAuditPackagesTable.projectIds,
+    })
+    .from(corAuditPackagesTable)
+    .where(and(eq(corAuditPackagesTable.id, packageId), eq(corAuditPackagesTable.companyId, companyId)));
+  return pkg ?? null;
 }
 
 export async function getPackageVerificationLog(companyId: number, packageId: number) {

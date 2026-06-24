@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch, useGetMe, useListProjects } from "@workspace/api-client-react";
 import { format } from "date-fns";
@@ -8,7 +8,8 @@ import {
   ClipboardList, Activity, XCircle, Download, Package, ShieldCheck,
   FileText, PenLine, ChevronDown, ChevronUp, Users, BarChart3,
   Building2, HardHat, FileCheck, ExternalLink, Pencil, Trash2,
-  Wrench, Lock, ChevronRight, UserCheck,
+  Wrench, Lock, ChevronRight, UserCheck, Mail, Send,
+  Brain, TrendingDown, RefreshCw, Info, Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,11 @@ const IHSA_ELEMENTS: Record<string, string> = {
   element_12: "Safety Equipment & First Aid",
   element_13: "Fire Safety",
   element_14: "WHMIS & Controlled Products",
+  element_15: "Contractor Management",
+  element_16: "Medical Management",
+  element_17: "Joint Health & Safety Committee",
+  element_18: "Occupational Health",
+  element_19: "Records & Statistics",
 };
 
 const CREDENTIAL_LABELS: Record<string, string> = {
@@ -357,6 +363,18 @@ interface ActionRequiredCapa extends CapaTicket {
 
 interface CompanyMember { id: number; firstName: string; lastName: string; email: string; role: string }
 
+interface ExpiringCredential {
+  credentialId: number;
+  userId: number;
+  credentialType: string;
+  expirationDate: string;
+  daysRemaining: number;
+  alertWindow: "30_day" | "60_day" | "expired" | "ok";
+  workerFirstName: string;
+  workerLastName: string;
+  workerEmail: string;
+}
+
 const CAPA_STATUS_CFG: Record<CapaStatus, { label: string; bg: string; text: string }> = {
   open:           { label: "Open",           bg: "#fee2e2", text: "#991b1b" },
   in_progress:    { label: "In Progress",    bg: "#dbeafe", text: "#1e40af" },
@@ -512,6 +530,27 @@ async function downloadAuditPackage(body: {
   URL.revokeObjectURL(url);
 }
 
+async function downloadPackageById(packageId: number): Promise<void> {
+  const response = await fetch(`/api/cor/audit-package/${packageId}/download`, {
+    method: "GET",
+    credentials: "include",
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error((err as any)?.message ?? `Download failed (${response.status})`);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const dateStr = new Date().toISOString().slice(0, 10);
+  a.download = `COR_Audit_Package_${dateStr}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ── Audit Package: generation dialog ─────────────────────────────────────────
 
 function GenerateAuditPackageDialog({
@@ -564,8 +603,9 @@ function GenerateAuditPackageDialog({
 
         <div className="space-y-4 py-2">
           <div className="text-sm text-zinc-400 leading-relaxed" style={{ borderLeft: `3px solid ${GOLD}`, paddingLeft: 12 }}>
-            Compiles all audit trail evidence, inspections, voice observations, and training matrices
-            into a structured ZIP binder organized by all 14 IHSA elements — ready for external auditor review.
+            Compiles all audit trail evidence, inspections, voice observations, CAPA tickets,
+            policy sign-offs, subcontractor compliance, and training matrices into a structured ZIP
+            binder organized by all 19 Ontario IHSA elements — ready for external auditor review.
           </div>
 
           <div>
@@ -601,9 +641,12 @@ function GenerateAuditPackageDialog({
 
           <div className="rounded-lg p-3 text-xs text-zinc-500 space-y-1" style={{ background: "#ffffff08" }}>
             <p className="font-semibold text-zinc-400">What's included:</p>
-            <p>• All 14 IHSA element folders with audit entries, CSV + JSON</p>
+            <p>• All 19 IHSA element folders with audit entries, CSV + JSON</p>
             <p>• Full inspection history with per-item breakdown</p>
             <p>• Voice observation log mapped to elements</p>
+            <p>• CAPA tickets grouped by element with closure evidence</p>
+            <p>• Policy sign-offs with worker acknowledgement records</p>
+            <p>• Subcontractor compliance docs (Element 15)</p>
             <p>• Worker credential matrix & deployment eligibility</p>
             <p>• SHA-256 tamper-evident chain log for auditor verification</p>
           </div>
@@ -633,11 +676,14 @@ function GenerateAuditPackageDialog({
 // ── Audit Package: history card ───────────────────────────────────────────────
 
 function PackageHistoryCard({ onGenerate }: { onGenerate: () => void }) {
+  const { toast } = useToast();
   const packagesQuery = useQuery<AuditPackage[]>({
     queryKey: ["cor-audit-packages"],
     queryFn: () => customFetch("/api/cor/audit-packages"),
     retry: 1,
   });
+
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   const packages = packagesQuery.data ?? [];
 
@@ -651,6 +697,18 @@ function PackageHistoryCard({ onGenerate }: { onGenerate: () => void }) {
     if (b < 1024) return `${b} B`;
     if (b < 1048576) return `${(b / 1024).toFixed(0)} KB`;
     return `${(b / 1048576).toFixed(1)} MB`;
+  }
+
+  async function handleRedownload(pkg: AuditPackage) {
+    setDownloadingId(pkg.id);
+    try {
+      await downloadPackageById(pkg.id);
+      toast({ title: "Package downloaded", description: `"${pkg.label}" re-downloaded successfully.` });
+    } catch (err) {
+      toast({ title: "Download failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setDownloadingId(null);
+    }
   }
 
   return (
@@ -722,17 +780,111 @@ function PackageHistoryCard({ onGenerate }: { onGenerate: () => void }) {
                     </p>
                   )}
                 </div>
-                <div className="shrink-0">
+                <div className="shrink-0 flex flex-col items-end gap-1.5">
                   {pkg.status === "ready" && (
-                    <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded" style={{ background: "#14532d33", color: "#4ade80" }}>
-                      <CheckCircle2 className="h-3 w-3 mr-1" />Ready
-                    </span>
+                    <>
+                      <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded" style={{ background: "#14532d33", color: "#4ade80" }}>
+                        <CheckCircle2 className="h-3 w-3 mr-1" />Ready
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={downloadingId === pkg.id}
+                        onClick={() => handleRedownload(pkg)}
+                        className="h-6 px-2 text-xs text-zinc-400 hover:text-zinc-200"
+                      >
+                        {downloadingId === pkg.id
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : <><Download className="h-3 w-3 mr-1" />Download</>
+                        }
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
             ))}
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Sign-off Element Compliance Panel ────────────────────────────────────────
+
+interface SignoffElementEntry {
+  ihsaElement: string;
+  documentCount: number;
+  avgCompliancePercent: number;
+  lowestCompliancePercent: number;
+  signedCount: number;
+  totalWorkers: number;
+}
+
+function SignoffElementPanel() {
+  const query = useQuery<{ compliance: SignoffElementEntry[] }>({
+    queryKey: ["cor-signoff-element-compliance"],
+    queryFn: () => customFetch("/api/cor/signoff-element-compliance"),
+    retry: 1,
+  });
+
+  const items = query.data?.compliance ?? [];
+  if (query.isLoading || items.length === 0) return null;
+
+  const belowThreshold = items.filter((i) => i.lowestCompliancePercent < 100);
+
+  return (
+    <Card style={{ background: BLACK, border: "none", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>
+            Policy Sign-off Evidence — IHSA Elements
+          </CardTitle>
+          {belowThreshold.length > 0 && (
+            <span
+              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-semibold"
+              style={{ background: "#7f1d1d20", color: "#f87171" }}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              {belowThreshold.length} element{belowThreshold.length !== 1 ? "s" : ""} incomplete
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-zinc-500 mt-1">
+          Worker acknowledgements mapped to IHSA elements as verifiable evidence
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {items.map((item) => {
+          const pct = item.lowestCompliancePercent;
+          const color = pct >= 100 ? "#22c55e" : pct >= 75 ? "#f59e0b" : "#ef4444";
+          return (
+            <div key={item.ihsaElement} className="flex items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-medium text-zinc-200 truncate">
+                    {IHSA_ELEMENTS[item.ihsaElement] ?? item.ihsaElement}
+                  </span>
+                  <span className="text-xs text-zinc-600 shrink-0">
+                    {item.documentCount} doc{item.documentCount !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#1f1f1f" }}>
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${pct}%`, background: color }}
+                  />
+                </div>
+              </div>
+              <div className="shrink-0 text-right w-24">
+                <p className="text-sm font-bold" style={{ color }}>{pct}%</p>
+                <p className="text-xs text-zinc-600">
+                  {item.signedCount}/{item.totalWorkers} signed
+                </p>
+              </div>
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -921,6 +1073,9 @@ function OverviewTab({ isAdmin, userId, onGeneratePackage }: {
           )}
         </CardContent>
       </Card>
+
+      {/* Admin only: Sign-off evidence by IHSA element */}
+      {isAdmin && <SignoffElementPanel />}
 
       {/* Admin only: Audit Package History */}
       {isAdmin && (
@@ -1195,6 +1350,9 @@ function CredentialsTab({ isAdmin, userId }: { isAdmin: boolean; userId: number 
           )}
         </CardContent>
       </Card>
+
+      {/* Expiry alerts panel */}
+      <ExpiryAlertsPanel />
 
       {/* Training matrix */}
       <Card style={{ background: BLACK, border: "none", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
@@ -1488,6 +1646,142 @@ function SignoffComplianceBadge({ pct }: { pct: number }) {
   );
 }
 
+// ── Signature canvas (HTML5 canvas drawing pad) ───────────────────────────────
+
+function SignatureCanvas({
+  onChanged,
+}: {
+  onChanged: (hasData: boolean, dataUrl: string) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const hasDataRef = useRef(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+  }, []);
+
+  function getPos(e: MouseEvent | TouchEvent, canvas: HTMLCanvasElement) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ("touches" in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  }
+
+  function startDraw(e: React.MouseEvent | React.TouchEvent) {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getPos(e.nativeEvent as any, canvas);
+    isDrawingRef.current = true;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  }
+
+  function draw(e: React.MouseEvent | React.TouchEvent) {
+    e.preventDefault();
+    if (!isDrawingRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getPos(e.nativeEvent as any, canvas);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    hasDataRef.current = true;
+    onChanged(true, canvas.toDataURL("image/png"));
+  }
+
+  function endDraw() {
+    isDrawingRef.current = false;
+  }
+
+  function clear() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasDataRef.current = false;
+    onChanged(false, "");
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-medium text-zinc-400">Draw your signature below</span>
+        <button
+          type="button"
+          onClick={clear}
+          className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+        >
+          Clear
+        </button>
+      </div>
+      <div
+        style={{ position: "relative", border: "1px solid #333", borderRadius: 8, background: "#0a0a0a", overflow: "hidden" }}
+      >
+        <canvas
+          ref={canvasRef}
+          width={480}
+          height={110}
+          style={{ display: "block", width: "100%", height: 110, cursor: "crosshair", touchAction: "none" }}
+          onMouseDown={startDraw}
+          onMouseMove={draw}
+          onMouseUp={endDraw}
+          onMouseLeave={endDraw}
+          onTouchStart={startDraw}
+          onTouchMove={draw}
+          onTouchEnd={endDraw}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: 8,
+            left: "50%",
+            transform: "translateX(-50%)",
+            borderBottom: "1px solid #2a2a2a",
+            width: "70%",
+            pointerEvents: "none",
+          }}
+        />
+        <span
+          style={{
+            position: "absolute",
+            bottom: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            color: "#333",
+            fontSize: 10,
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Sign above the line
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function DocumentViewModal({
   doc,
   onClose,
@@ -1499,11 +1793,21 @@ function DocumentViewModal({
 }) {
   const { toast } = useToast();
   const [confirmed, setConfirmed] = useState(false);
+  const [signatureData, setSignatureData] = useState("");
+  const [hasSignature, setHasSignature] = useState(false);
   const [expanded, setExpanded] = useState(true);
+
+  const handleSignatureChange = useCallback((hasData: boolean, dataUrl: string) => {
+    setHasSignature(hasData);
+    setSignatureData(dataUrl);
+  }, []);
 
   const signMutation = useMutation({
     mutationFn: () =>
-      customFetch(`/api/cor/policy-documents/${doc.id}/sign`, { method: "POST", body: JSON.stringify({}) }),
+      customFetch(`/api/cor/policy-documents/${doc.id}/sign`, {
+        method: "POST",
+        body: JSON.stringify({ signatureData: signatureData || undefined }),
+      }),
     onSuccess: () => {
       toast({ title: "Document signed", description: `You have acknowledged: "${doc.title}"` });
       onSigned();
@@ -1572,23 +1876,34 @@ function DocumentViewModal({
             </div>
           )}
 
-          <div
-            className="rounded-lg p-4"
-            style={{ background: "#ffffff06", border: "1px solid #2a2a2a" }}
-          >
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                onChange={(e) => setConfirmed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-yellow-500 cursor-pointer shrink-0"
-              />
-              <span className="text-sm text-zinc-200 leading-relaxed">
-                I confirm that I have read, understood, and agree to comply with this{" "}
-                <strong>{DOC_TYPE_LABELS[doc.documentType]}</strong>. My digital acknowledgement
-                constitutes a binding sign-off on this document as of today's date and time.
-              </span>
-            </label>
+          <div className="space-y-4">
+            <SignatureCanvas onChanged={handleSignatureChange} />
+
+            <div
+              className="rounded-lg p-4"
+              style={{ background: "#ffffff06", border: "1px solid #2a2a2a" }}
+            >
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={confirmed}
+                  onChange={(e) => setConfirmed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-yellow-500 cursor-pointer shrink-0"
+                />
+                <span className="text-sm text-zinc-200 leading-relaxed">
+                  I confirm that I have read, understood, and agree to comply with this{" "}
+                  <strong>{DOC_TYPE_LABELS[doc.documentType]}</strong>. My digital signature
+                  and acknowledgement constitute a legally binding sign-off as of today's date and time.
+                </span>
+              </label>
+            </div>
+
+            {confirmed && !hasSignature && (
+              <p className="text-xs text-amber-400 flex items-center gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Please draw your signature above to complete the sign-off.
+              </p>
+            )}
           </div>
         </div>
 
@@ -1598,7 +1913,7 @@ function DocumentViewModal({
           </Button>
           <Button
             style={{ background: GOLD, color: BLACK }}
-            disabled={!confirmed || signMutation.isPending}
+            disabled={!confirmed || !hasSignature || signMutation.isPending}
             onClick={() => signMutation.mutate()}
           >
             {signMutation.isPending ? (
@@ -1999,6 +2314,116 @@ function ActionRequiredPanel() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// ── ExpiryAlertsPanel ─────────────────────────────────────────────────────────
+
+function ExpiryAlertsPanel() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const query = useQuery<{ expiring: ExpiringCredential[] }>({
+    queryKey: ["cor-expiring-soon"],
+    queryFn: () => customFetch("/api/cor/credentials/expiring-soon"),
+    retry: 1,
+    staleTime: 120000,
+  });
+
+  const triggerMutation = useMutation({
+    mutationFn: () => customFetch("/api/cor/credentials/run-expiry-alerts", { method: "POST" }),
+    onSuccess: (data: any) => {
+      toast({ title: "Alert scan complete", description: `Sent: ${data.alerted}, Skipped: ${data.skipped}, Errors: ${data.errors}` });
+      queryClient.invalidateQueries({ queryKey: ["cor-expiring-soon"] });
+    },
+    onError: () => toast({ title: "Scan failed", variant: "destructive" }),
+  });
+
+  const expiring = query.data?.expiring ?? [];
+  const critical30 = expiring.filter((e) => e.alertWindow === "30_day");
+  const warn60 = expiring.filter((e) => e.alertWindow === "60_day");
+  const alreadyExpired = expiring.filter((e) => e.alertWindow === "expired");
+
+  if (query.isLoading) return null;
+  if (expiring.length === 0 && !query.isError) return null;
+
+  return (
+    <Card style={{ background: "#111111", border: "1px solid #2a2a2a" }}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider flex items-center gap-2" style={{ color: GOLD }}>
+            <AlertTriangle className="h-4 w-4" />
+            Certification Expiry Alerts
+          </CardTitle>
+          <Button size="sm" variant="outline"
+            style={{ height: 28, fontSize: 11, borderColor: "#3a3a3a", color: "#a1a1aa" }}
+            disabled={triggerMutation.isPending}
+            onClick={() => triggerMutation.mutate()}>
+            {triggerMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Mail className="h-3 w-3 mr-1" />}
+            Run Alert Scan
+          </Button>
+        </div>
+        {(alreadyExpired.length > 0 || critical30.length > 0 || warn60.length > 0) && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {alreadyExpired.length > 0 && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#7f1d1d44", color: "#f87171" }}>
+                {alreadyExpired.length} expired
+              </span>
+            )}
+            {critical30.length > 0 && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#78350f44", color: "#fbbf24" }}>
+                {critical30.length} within 30 days
+              </span>
+            )}
+            {warn60.length > 0 && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "#1c1917", color: "#a16207" }}>
+                {warn60.length} within 60 days
+              </span>
+            )}
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className="pt-0">
+        {query.isError && <p className="text-xs text-red-400">Could not load expiry data.</p>}
+        <div className="space-y-1">
+          {expiring.map((e) => {
+            const isExpired = e.alertWindow === "expired";
+            const is30 = e.alertWindow === "30_day";
+            const color = isExpired ? "#ef4444" : is30 ? "#f59e0b" : "#a16207";
+            return (
+              <div key={`${e.userId}-${e.credentialType}`}
+                className="flex items-center justify-between py-2 border-b last:border-0"
+                style={{ borderColor: "#1f1f1f" }}>
+                <div>
+                  <p className="text-sm font-medium text-zinc-200">
+                    {e.workerFirstName} {e.workerLastName}
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {CREDENTIAL_LABELS[e.credentialType] ?? e.credentialType}
+                    {" · "}
+                    <span style={{ color }}>
+                      {isExpired
+                        ? `Expired ${e.expirationDate}`
+                        : `Expires ${e.expirationDate} (${e.daysRemaining}d)`}
+                    </span>
+                  </p>
+                </div>
+                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{
+                  background: isExpired ? "#7f1d1d44" : is30 ? "#78350f44" : "#1c1917",
+                  color,
+                }}>
+                  {isExpired ? "EXPIRED" : is30 ? "30-DAY" : "60-DAY"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-zinc-600 mt-3">
+          Alerts are emailed to the worker and all safety managers automatically at 6 AM ET daily.
+          Use "Run Alert Scan" to send immediately.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -2589,6 +3014,22 @@ function SubcontractorsTab({ isAdmin }: { isAdmin: boolean }) {
     onError: () => toast({ title: "Remove failed", variant: "destructive" }),
   });
 
+  const inviteMut = useMutation({
+    mutationFn: (subId: number) =>
+      customFetch(`/api/cor/subcontractors/${subId}/invite`, { method: "POST" }),
+    onSuccess: (_data, subId) => {
+      const sub = subs.find((s) => s.id === subId);
+      toast({
+        title: "Invite recorded",
+        description: sub?.contactEmail
+          ? `Marked ${sub.companyName} as invited (${sub.contactEmail}). Follow up via email to request their compliance documents.`
+          : `${sub?.companyName ?? "Subcontractor"} marked as invited. Add a contact email to track follow-up.`,
+      });
+      invalidate();
+    },
+    onError: () => toast({ title: "Invite failed", variant: "destructive" }),
+  });
+
   const subs = subsQuery.data?.subcontractors ?? [];
   const summary = summaryQuery.data;
   const flagged = subs.filter((s) => s.overallStatus === "expired" || s.overallStatus === "non_compliant");
@@ -2689,7 +3130,25 @@ function SubcontractorsTab({ isAdmin }: { isAdmin: boolean }) {
                       ? <ChevronUp className="h-4 w-4 text-zinc-500 shrink-0" />
                       : <ChevronDown className="h-4 w-4 text-zinc-500 shrink-0" />}
                   </button>
-                  <div className="flex gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0">
+                    {sub.invitedAt ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded"
+                        style={{ background: "#0e3a2120", color: "#4ade80", border: "1px solid #14532d40" }}
+                        title={`Invited ${format(new Date(sub.invitedAt), "MMM d, yyyy")}`}>
+                        <Send className="h-3 w-3" />
+                        Invited
+                      </span>
+                    ) : (
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-zinc-400 hover:text-blue-300"
+                        disabled={inviteMut.isPending && inviteMut.variables === sub.id}
+                        onClick={() => inviteMut.mutate(sub.id)}
+                        title={sub.contactEmail ? `Send invite to ${sub.contactEmail}` : "Record invite (add contact email to enable email delivery)"}>
+                        {inviteMut.isPending && inviteMut.variables === sub.id
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : <><Mail className="h-3 w-3 mr-1" />Invite</>
+                        }
+                      </Button>
+                    )}
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(sub)}>
                       <Pencil className="h-3.5 w-3.5 text-zinc-400" />
                     </Button>
@@ -2703,9 +3162,24 @@ function SubcontractorsTab({ isAdmin }: { isAdmin: boolean }) {
                 {/* Expanded doc tracking */}
                 {isExpanded && (
                   <div className="mt-4 space-y-2 border-t pt-4" style={{ borderColor: "#1f1f1f" }}>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">
-                      Compliance Documents
-                    </p>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                        Compliance Documents
+                      </p>
+                      {sub.invitedAt && (
+                        <span className="text-xs text-zinc-600">
+                          Invite sent {format(new Date(sub.invitedAt), "MMM d, yyyy")}
+                        </span>
+                      )}
+                      {!sub.invitedAt && sub.contactEmail && (
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-blue-400 hover:text-blue-300"
+                          disabled={inviteMut.isPending}
+                          onClick={() => inviteMut.mutate(sub.id)}>
+                          <Mail className="h-3 w-3 mr-1" />
+                          Request Documents
+                        </Button>
+                      )}
+                    </div>
                     {ALL_SUB_DOC_TYPES.map((dt) => {
                       const doc = docMap.get(dt);
                       const required = SUB_DOC_REQUIRED[dt];
@@ -3258,6 +3732,354 @@ function SignoffsTab({ isAdmin, userId }: { isAdmin: boolean; userId: number | u
   );
 }
 
+// ── Shadow Auditor types ──────────────────────────────────────────────────────
+
+type GapSeverity = "critical" | "high" | "medium" | "low";
+type ConfidenceLevel = "high" | "medium" | "low";
+
+interface ElementAnalysis {
+  element: string;
+  name: string;
+  predictedScore: number;
+  baseScore: number;
+  entryCount: number;
+  failCount: number;
+  voiceLogCount: number;
+  daysSinceLastEntry: number | null;
+  openCapaCount: number;
+  overdueCapaCount: number;
+  signoffCompliance: number;
+}
+
+interface GapWarning {
+  element: string;
+  elementName: string;
+  severity: GapSeverity;
+  description: string;
+  scoreImpact: number;
+  actionRequired: string;
+}
+
+interface ShadowAuditorReport {
+  predictedScore: number;
+  confidenceLevel: ConfidenceLevel;
+  elementAnalysis: ElementAnalysis[];
+  gapWarnings: GapWarning[];
+  aiNarrative: string;
+  expiringCredentialCount: number;
+  flaggedSubcontractorCount: number;
+  generatedAt: string;
+  lookbackDays: number;
+}
+
+const GAP_SEVERITY_CFG: Record<GapSeverity, { label: string; bg: string; text: string; border: string }> = {
+  critical: { label: "Critical", bg: "#1a0000",    text: "#f87171", border: "#7f1d1d66" },
+  high:     { label: "High",     bg: "#1a0d00",    text: "#fb923c", border: "#9a3412aa" },
+  medium:   { label: "Medium",   bg: "#1a1500",    text: "#fbbf24", border: "#854d0e88" },
+  low:      { label: "Low",      bg: "#001a08",    text: "#4ade80", border: "#14532d88" },
+};
+
+const CONFIDENCE_CFG: Record<ConfidenceLevel, { label: string; color: string }> = {
+  high:   { label: "High confidence",   color: "#22c55e" },
+  medium: { label: "Medium confidence", color: "#f59e0b" },
+  low:    { label: "Low confidence",    color: "#94a3b8" },
+};
+
+// ── Shadow Auditor Tab ────────────────────────────────────────────────────────
+
+function ShadowAuditorTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [lookbackDays, setLookbackDays] = useState(90);
+  const [showAllElements, setShowAllElements] = useState(false);
+  const [expandedGap, setExpandedGap] = useState<string | null>(null);
+
+  const query = useQuery<ShadowAuditorReport>({
+    queryKey: ["cor-shadow-auditor", lookbackDays],
+    queryFn: () => customFetch(`/api/cor/shadow-auditor?lookbackDays=${lookbackDays}`),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  function handleRefresh() {
+    queryClient.invalidateQueries({ queryKey: ["cor-shadow-auditor"] });
+    toast({ title: "Re-running Shadow Auditor…", description: "AI analysis may take a few seconds." });
+  }
+
+  if (query.isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 py-4">
+          <Brain className="h-5 w-5 animate-pulse" style={{ color: GOLD }} />
+          <span className="text-sm text-zinc-400">Shadow Auditor is scanning your evidence…</span>
+        </div>
+        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28 rounded-xl" style={{ background: "#1a1a1a" }} />)}
+      </div>
+    );
+  }
+
+  if (query.isError) {
+    return <ErrorState message="Shadow Auditor could not complete analysis. Check that you have evidence data and try again." />;
+  }
+
+  const report = query.data;
+  if (!report) return null;
+
+  const { elementAnalysis, gapWarnings } = report;
+  const criticalGaps = gapWarnings.filter((g) => g.severity === "critical");
+  const highGaps = gapWarnings.filter((g) => g.severity === "high");
+  const coveredElements = elementAnalysis.filter((e) => e.entryCount > 0).length;
+  const displayElements = showAllElements
+    ? elementAnalysis
+    : [...elementAnalysis].sort((a, b) => a.predictedScore - b.predictedScore).slice(0, 10);
+
+  return (
+    <div className="space-y-5">
+      {/* Header controls */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <select
+            value={lookbackDays}
+            onChange={(e) => setLookbackDays(parseInt(e.target.value))}
+            className="text-xs rounded-md px-3 py-1.5"
+            style={{ background: "#1a1a1a", border: "1px solid #333", color: "#e5e5e5" }}
+          >
+            <option value={30}>Last 30 days</option>
+            <option value={60}>Last 60 days</option>
+            <option value={90}>Last 90 days</option>
+            <option value={180}>Last 180 days</option>
+          </select>
+          <span className="text-xs text-zinc-600">
+            Analyzed {format(new Date(report.generatedAt), "MMM d, yyyy · h:mm a")}
+          </span>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleRefresh}
+          disabled={query.isFetching}
+          style={{ borderColor: "#333", color: "#a1a1aa", height: 30, fontSize: 12 }}
+        >
+          {query.isFetching
+            ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Analyzing…</>
+            : <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Refresh Analysis</>}
+        </Button>
+      </div>
+
+      {/* Predicted score hero */}
+      <Card style={{ background: BLACK, border: `1px solid ${GOLD}22`, boxShadow: `0 4px 24px rgba(0,0,0,0.4)` }}>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-6 flex-wrap">
+            <div className="relative">
+              <ScoreGauge score={report.predictedScore} size={120} />
+              <div
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full whitespace-nowrap"
+                style={{ background: "#1a1a1a", color: GOLD, border: `1px solid ${GOLD}40` }}
+              >
+                AI Score
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>
+                  Predicted COR Audit Score
+                </p>
+                <span
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{ background: "#ffffff0a", color: CONFIDENCE_CFG[report.confidenceLevel].color }}
+                >
+                  {CONFIDENCE_CFG[report.confidenceLevel].label}
+                </span>
+              </div>
+              <p className="text-2xl font-bold mb-1" style={{ color: scoreColor(report.predictedScore) }}>
+                {report.predictedScore >= 80 ? "Audit Ready" : report.predictedScore >= 60 ? "Needs Attention" : "High Risk"}
+                <span className="text-base font-normal text-zinc-500 ml-2">— {report.predictedScore}%</span>
+              </p>
+              <p className="text-sm text-zinc-400 leading-relaxed italic">{report.aiNarrative}</p>
+              <div className="flex items-center gap-4 mt-3 flex-wrap">
+                <span className="text-xs text-zinc-500 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-zinc-600" />
+                  {coveredElements}/19 elements covered
+                </span>
+                {criticalGaps.length > 0 && (
+                  <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: "#f87171" }}>
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    {criticalGaps.length} critical gap{criticalGaps.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+                {report.expiringCredentialCount > 0 && (
+                  <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: "#fbbf24" }}>
+                    <Clock className="h-3.5 w-3.5" />
+                    {report.expiringCredentialCount} credential{report.expiringCredentialCount !== 1 ? "s" : ""} expiring
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Gap warnings */}
+      {gapWarnings.length > 0 && (
+        <Card style={{ background: BLACK, border: "none", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <TrendingDown className="h-4 w-4" style={{ color: GOLD }} />
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>
+                Gap Detection — {gapWarnings.length} vulnerabilit{gapWarnings.length !== 1 ? "ies" : "y"} identified
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {gapWarnings.map((gap, idx) => {
+              const cfg = GAP_SEVERITY_CFG[gap.severity];
+              const key = `${gap.element}-${idx}`;
+              const isExpanded = expandedGap === key;
+              return (
+                <div
+                  key={key}
+                  style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 8, overflow: "hidden" }}
+                >
+                  <button
+                    className="w-full flex items-start gap-3 px-4 py-3 text-left hover:opacity-80 transition-opacity"
+                    onClick={() => setExpandedGap(isExpanded ? null : key)}
+                  >
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" style={{ color: cfg.text }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <span
+                          className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                          style={{ background: `${cfg.text}22`, color: cfg.text }}
+                        >
+                          {cfg.label}
+                        </span>
+                        <span className="text-xs font-medium text-zinc-400">{gap.elementName}</span>
+                        <span className="text-xs ml-auto shrink-0 tabular-nums" style={{ color: "#ef4444" }}>
+                          {gap.scoreImpact}%
+                        </span>
+                      </div>
+                      <p className="text-sm leading-relaxed" style={{ color: cfg.text }}>{gap.description}</p>
+                    </div>
+                    {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0 text-zinc-600 mt-0.5" /> : <ChevronDown className="h-4 w-4 shrink-0 text-zinc-600 mt-0.5" />}
+                  </button>
+                  {isExpanded && (
+                    <div
+                      className="px-4 pb-3 pt-2 flex items-start gap-2"
+                      style={{ borderTop: `1px solid ${cfg.border}` }}
+                    >
+                      <Zap className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: GOLD }} />
+                      <p className="text-xs text-zinc-300 leading-relaxed">{gap.actionRequired}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Element breakdown */}
+      <Card style={{ background: BLACK, border: "none", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>
+              Predicted Score — All 19 IHSA Elements
+            </CardTitle>
+            <button
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+              onClick={() => setShowAllElements((v) => !v)}
+            >
+              {showAllElements ? "Show worst 10" : "Show all 19"}
+            </button>
+          </div>
+          {!showAllElements && (
+            <p className="text-xs text-zinc-600 mt-0.5">Showing bottom 10 by predicted score</p>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {displayElements.map((el) => {
+            const color = scoreColor(el.predictedScore);
+            const hasEntries = el.entryCount > 0;
+            return (
+              <div key={el.element} className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-sm font-medium text-zinc-200 truncate">{el.name}</span>
+                    {!hasEntries && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ background: "#7f1d1d30", color: "#f87171" }}>
+                        No evidence
+                      </span>
+                    )}
+                    {el.openCapaCount > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ background: "#9a341220", color: "#fb923c" }}>
+                        {el.openCapaCount} CAPA
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {el.daysSinceLastEntry !== null && (
+                      <span className="text-xs text-zinc-600 hidden sm:block">
+                        last {el.daysSinceLastEntry}d ago
+                      </span>
+                    )}
+                    <span className="text-sm font-bold tabular-nums w-10 text-right" style={{ color }}>
+                      {el.predictedScore}%
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "#1f1f1f" }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${el.predictedScore}%`, background: color }}
+                    />
+                  </div>
+                  {el.entryCount > 0 && (
+                    <span className="text-[10px] text-zinc-700 w-12 text-right shrink-0">
+                      {el.entryCount} entries
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Stats footer */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Critical Gaps",       value: criticalGaps.length,               color: "#f87171" },
+          { label: "High Risk Gaps",       value: highGaps.length,                   color: "#fb923c" },
+          { label: "Expiring Credentials", value: report.expiringCredentialCount,    color: "#fbbf24" },
+          { label: "Flagged Subcontractors", value: report.flaggedSubcontractorCount, color: "#ef4444" },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-lg p-4 text-center"
+            style={{ background: "#0f0f0f", border: "1px solid #1f1f1f" }}
+          >
+            <p className="text-2xl font-bold" style={{ color: stat.value > 0 ? stat.color : "#374151" }}>
+              {stat.value}
+            </p>
+            <p className="text-xs text-zinc-500 mt-1">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Confidence note */}
+      <div className="flex items-start gap-2 text-xs text-zinc-600">
+        <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+        <p>
+          Predicted score is calculated from {report.lookbackDays}-day evidence history across audit entries,
+          inspections, voice observations, CAPA tickets, policy sign-offs, and subcontractor compliance.
+          {report.confidenceLevel === "low" && " Submit more evidence across elements to improve prediction accuracy."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function CorCompliancePage() {
@@ -3319,6 +4141,7 @@ export default function CorCompliancePage() {
         <Tabs defaultValue="overview" className="space-y-5">
           <TabsList style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            {isAdmin && <TabsTrigger value="shadow-auditor">Shadow Auditor</TabsTrigger>}
             {isAdmin && <TabsTrigger value="audit-trail">Audit Trail</TabsTrigger>}
             <TabsTrigger value="credentials">{isAdmin ? "Training Matrix" : "My Credentials"}</TabsTrigger>
             <TabsTrigger value="sign-offs">{isAdmin ? "Sign-offs" : "Documents"}</TabsTrigger>
@@ -3330,6 +4153,12 @@ export default function CorCompliancePage() {
           <TabsContent value="overview">
             <OverviewTab isAdmin={isAdmin} userId={me.id} onGeneratePackage={() => setShowGenerateDialog(true)} />
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="shadow-auditor">
+              <ShadowAuditorTab />
+            </TabsContent>
+          )}
 
           {isAdmin && (
             <TabsContent value="audit-trail">

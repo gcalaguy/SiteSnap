@@ -105,7 +105,8 @@
       "Bash(curl *)",
       "Bash(mkdir -p /tmp/pwtest)",
       "Bash(npm init *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(grep -n \"div.*space-y-2\\\\|^        </div>$\" /home/runner/workspace/artifacts/web-dashboard/src/pages/cor-compliance.tsx)"
     ]
   }
 }

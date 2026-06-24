@@ -12,6 +12,8 @@ import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";
+import { logger } from "../lib/logger";
+import { processSafetySignoff } from "../services/cor/evidenceAggregator";
 
 const CreateDailyLogBody = z.object({
   projectId: z.number(),
@@ -384,6 +386,11 @@ router.post(
         signatureUrl: signatureUrl ?? null,
       })
       .returning();
+
+    processSafetySignoff(
+      { id: signoff.id, projectId: signoff.projectId, workerId: signoff.workerId, responses: signoff.responses as Record<string, unknown> | null },
+      req.companyId!,
+    ).catch((err) => logger.error({ err }, "COR evidence aggregation error (safety signoff)"));
 
     res.status(201).json(signoff);
   }),

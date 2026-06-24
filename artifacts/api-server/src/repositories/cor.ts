@@ -618,7 +618,10 @@ export async function getMyPendingSignoffs(
   if (!activeDocs.length) return [];
 
   const signed = await db
-    .select({ docId: policySignoffsTable.policyDocumentId })
+    .select({
+      docId: policySignoffsTable.policyDocumentId,
+      signedAt: policySignoffsTable.signedAt,
+    })
     .from(policySignoffsTable)
     .where(
       and(
@@ -628,8 +631,16 @@ export async function getMyPendingSignoffs(
       ),
     );
 
-  const signedIds = new Set(signed.map((s) => s.docId));
-  return activeDocs.filter((d) => !signedIds.has(d.id));
+  const signedMap = new Map(signed.map((s) => [s.docId, s.signedAt]));
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+  return activeDocs.filter((d) => {
+    const signedAt = signedMap.get(d.id);
+    if (!signedAt) return true; // never signed
+    if (d.requiresAnnualRenewal && signedAt < oneYearAgo) return true; // renewal due
+    return false;
+  });
 }
 
 export async function getMySignoffs(
@@ -680,6 +691,43 @@ export async function getPolicySignoffSummary(
   );
 
   return { totalDocs: matrix.length, signedAllCount, totalWorkers, overallPercent: avgPercent };
+}
+
+// Returns sign-off compliance aggregated per IHSA element — used to link
+// worker acknowledgements as verifiable evidence on the COR element dashboard.
+export interface SignoffElementEntry {
+  ihsaElement: string;
+  documentCount: number;
+  avgCompliancePercent: number;
+  lowestCompliancePercent: number;
+  signedCount: number;
+  totalWorkers: number;
+}
+
+export async function getSignoffElementCompliance(
+  companyId: number,
+): Promise<SignoffElementEntry[]> {
+  const matrix = await getSignoffMatrix(companyId);
+  if (!matrix.length) return [];
+
+  const byElement = new Map<string, { pcts: number[]; signedSum: number; workers: number }>();
+  for (const m of matrix) {
+    const el = m.document.ihsaElement;
+    if (!byElement.has(el)) byElement.set(el, { pcts: [], signedSum: 0, workers: m.totalWorkers });
+    const entry = byElement.get(el)!;
+    entry.pcts.push(m.compliancePercent);
+    entry.signedSum += m.signedCount;
+    entry.workers = Math.max(entry.workers, m.totalWorkers);
+  }
+
+  return Array.from(byElement.entries()).map(([element, { pcts, signedSum, workers }]) => ({
+    ihsaElement: element,
+    documentCount: pcts.length,
+    avgCompliancePercent: Math.round(pcts.reduce((s, p) => s + p, 0) / pcts.length),
+    lowestCompliancePercent: Math.min(...pcts),
+    signedCount: signedSum,
+    totalWorkers: workers,
+  }));
 }
 
 // ── Subcontractor Compliance ──────────────────────────────────────────────────
@@ -1153,6 +1201,66 @@ export async function getExpiringSoonCredentials(
   });
 }
 
+export async function getCompanyExpiringSoonCredentials(
+  companyId: number,
+  maxDays = 65,
+): Promise<Array<ExpiringCredential & { alertWindow: "30_day" | "60_day" | "expired" | "ok" }>> {
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0]!;
+  const maxDate = new Date(today.getTime() + maxDays * 86400000).toISOString().split("T")[0]!;
+
+  const rows = await db
+    .select({
+      credentialId: workerCredentialsTable.id,
+      companyId: workerCredentialsTable.companyId,
+      userId: workerCredentialsTable.userId,
+      credentialType: workerCredentialsTable.credentialType,
+      expirationDate: workerCredentialsTable.expirationDate,
+      workerFirstName: usersTable.firstName,
+      workerLastName: usersTable.lastName,
+      workerEmail: usersTable.email,
+      companyResendApiKey: companiesTable.resendApiKey,
+      companyDigestFromEmail: companiesTable.digestFromEmail,
+    })
+    .from(workerCredentialsTable)
+    .innerJoin(usersTable, eq(workerCredentialsTable.userId, usersTable.id))
+    .innerJoin(companiesTable, eq(workerCredentialsTable.companyId, companiesTable.id))
+    .where(
+      and(
+        eq(workerCredentialsTable.companyId, companyId),
+        sql`${workerCredentialsTable.status} IN ('active', 'expired')`,
+        sql`${workerCredentialsTable.expirationDate} IS NOT NULL`,
+        sql`${workerCredentialsTable.expirationDate} <= ${maxDate}`,
+      ),
+    )
+    .orderBy(asc(workerCredentialsTable.expirationDate));
+
+  return rows.map((r) => {
+    const expiry = new Date(r.expirationDate as string);
+    const daysRemaining = Math.ceil((expiry.getTime() - new Date(todayStr).getTime()) / 86400000);
+    let alertWindow: "30_day" | "60_day" | "expired" | "ok";
+    if (daysRemaining < 0) alertWindow = "expired";
+    else if (daysRemaining <= 30) alertWindow = "30_day";
+    else if (daysRemaining <= 60) alertWindow = "60_day";
+    else alertWindow = "ok";
+
+    return {
+      credentialId: r.credentialId,
+      companyId: r.companyId,
+      userId: r.userId,
+      credentialType: r.credentialType,
+      expirationDate: r.expirationDate as string,
+      daysRemaining,
+      alertWindow,
+      workerFirstName: r.workerFirstName,
+      workerLastName: r.workerLastName,
+      workerEmail: r.workerEmail,
+      companyResendApiKey: r.companyResendApiKey,
+      companyDigestFromEmail: r.companyDigestFromEmail,
+    };
+  });
+}
+
 export async function getCompanySafetyManagerEmails(companyId: number): Promise<string[]> {
   const rows = await db
     .select({ email: usersTable.email })
@@ -1355,4 +1463,201 @@ export async function getCompanyMembersForPicker(companyId: number): Promise<Arr
       ),
     )
     .orderBy(asc(usersTable.lastName), asc(usersTable.firstName));
+}
+
+// ── Shadow Auditor data aggregation ──────────────────────────────────────────
+
+export interface ShadowAuditorDataRow {
+  element: string;
+  averageScore: number;
+  entryCount: number;
+  failCount: number;
+  daysSinceLastEntry: number | null;
+}
+
+export interface ShadowAuditorCapaRow {
+  element: string;
+  openCount: number;
+  overdueCount: number;
+}
+
+export interface ShadowAuditorVoiceRow {
+  element: string;
+  count: number;
+}
+
+export interface ShadowAuditorSignoffRow {
+  element: string;
+  compliance: number;
+}
+
+export interface ShadowAuditorData {
+  elementStats: ShadowAuditorDataRow[];
+  capaByElement: ShadowAuditorCapaRow[];
+  voiceLogsByElement: ShadowAuditorVoiceRow[];
+  signoffByElement: ShadowAuditorSignoffRow[];
+  expiringCredentialCount: number;
+  flaggedSubcontractorCount: number;
+}
+
+export async function getShadowAuditorData(
+  companyId: number,
+  lookbackDays: number,
+): Promise<ShadowAuditorData> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - lookbackDays);
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const today = new Date().toISOString().split("T")[0]!;
+
+  const [elementRows, capaRows, voiceRows, signoffRows, credRow, subRow] = await Promise.all([
+    // Per-element audit stats for the lookback window
+    db
+      .select({
+        element: corAuditTrailTable.ihsaElement,
+        averageScore: sql<number>`ROUND(AVG(${corAuditTrailTable.complianceScore}), 1)`,
+        entryCount: sql<number>`COUNT(*)::int`,
+        failCount: sql<number>`SUM(CASE WHEN ${corAuditTrailTable.findingType} = 'fail' THEN 1 ELSE 0 END)::int`,
+        daysSinceLastEntry: sql<number>`EXTRACT(DAY FROM NOW() - MAX(${corAuditTrailTable.createdAt}))::int`,
+      })
+      .from(corAuditTrailTable)
+      .where(
+        and(
+          eq(corAuditTrailTable.companyId, companyId),
+          gte(corAuditTrailTable.createdAt, cutoff),
+        ),
+      )
+      .groupBy(corAuditTrailTable.ihsaElement),
+
+    // Open + overdue CAPA counts per element
+    db
+      .select({
+        element: capaTicketsTable.ihsaElement,
+        openCount: sql<number>`COUNT(*)::int`,
+        overdueCount: sql<number>`SUM(CASE WHEN ${capaTicketsTable.dueDate} < ${today} THEN 1 ELSE 0 END)::int`,
+      })
+      .from(capaTicketsTable)
+      .where(
+        and(
+          eq(capaTicketsTable.companyId, companyId),
+          inArray(capaTicketsTable.status, ["open", "in_progress"]),
+        ),
+      )
+      .groupBy(capaTicketsTable.ihsaElement),
+
+    // Voice log counts per element (last 30 days)
+    db
+      .select({
+        element: corVoiceActionLogsTable.ihsaElement,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(corVoiceActionLogsTable)
+      .where(
+        and(
+          eq(corVoiceActionLogsTable.companyId, companyId),
+          gte(corVoiceActionLogsTable.createdAt, thirtyDaysAgo),
+        ),
+      )
+      .groupBy(corVoiceActionLogsTable.ihsaElement),
+
+    // Policy signoff counts per element
+    db
+      .select({
+        ihsaElement: policyDocumentsTable.ihsaElement,
+        totalSignoffs: sql<number>`COUNT(DISTINCT ${policySignoffsTable.workerUserId})::int`,
+      })
+      .from(policyDocumentsTable)
+      .leftJoin(
+        policySignoffsTable,
+        and(
+          eq(policySignoffsTable.policyDocumentId, policyDocumentsTable.id),
+          eq(policySignoffsTable.isValid, true),
+        ),
+      )
+      .where(
+        and(
+          eq(policyDocumentsTable.companyId, companyId),
+          eq(policyDocumentsTable.isActive, true),
+        ),
+      )
+      .groupBy(policyDocumentsTable.ihsaElement),
+
+    // Count credentials expiring within 60 days or already expired
+    db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(workerCredentialsTable)
+      .innerJoin(
+        userMembershipsTable,
+        and(
+          eq(userMembershipsTable.userId, workerCredentialsTable.userId),
+          eq(userMembershipsTable.companyId, companyId),
+        ),
+      )
+      .where(
+        and(
+          eq(workerCredentialsTable.companyId, companyId),
+          or(
+            eq(workerCredentialsTable.status, "expired"),
+            and(
+              eq(workerCredentialsTable.status, "active"),
+              lte(
+                workerCredentialsTable.expirationDate,
+                sql`(CURRENT_DATE + INTERVAL '60 days')::date`,
+              ),
+            ),
+          ),
+        ),
+      ),
+
+    // Count flagged subcontractors
+    db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(subcontractorsTable)
+      .where(
+        and(
+          eq(subcontractorsTable.companyId, companyId),
+          inArray(subcontractorsTable.overallStatus, ["expired", "non_compliant"]),
+        ),
+      ),
+  ]);
+
+  // Compute signoff compliance % per element
+  const [totalWorkersRow] = await db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(userMembershipsTable)
+    .where(eq(userMembershipsTable.companyId, companyId));
+  const totalWorkers = Math.max(totalWorkersRow?.count ?? 1, 1);
+
+  const signoffByElement: ShadowAuditorSignoffRow[] = signoffRows.map((r) => ({
+    element: r.ihsaElement as string,
+    compliance: Math.round((r.totalSignoffs / totalWorkers) * 100),
+  }));
+
+  return {
+    elementStats: elementRows.map((r) => ({
+      element: r.element as string,
+      averageScore: r.averageScore ?? 0,
+      entryCount: r.entryCount ?? 0,
+      failCount: r.failCount ?? 0,
+      daysSinceLastEntry: r.daysSinceLastEntry ?? null,
+    })),
+    capaByElement: capaRows
+      .filter((r) => r.element !== null)
+      .map((r) => ({
+        element: r.element as string,
+        openCount: r.openCount ?? 0,
+        overdueCount: r.overdueCount ?? 0,
+      })),
+    voiceLogsByElement: voiceRows
+      .filter((r) => r.element !== null)
+      .map((r) => ({
+        element: r.element as string,
+        count: r.count ?? 0,
+      })),
+    signoffByElement,
+    expiringCredentialCount: credRow[0]?.count ?? 0,
+    flaggedSubcontractorCount: subRow[0]?.count ?? 0,
+  };
 }

@@ -1,17 +1,20 @@
 import { useGetMe, useListProjects, customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
@@ -97,6 +100,136 @@ function formatCredentialLabel(type: string): string {
     .join(" ");
 }
 
+// ── SVG signature pad ─────────────────────────────────────────────────────────
+
+function MobileSignaturePad({
+  onChanged,
+}: {
+  onChanged: (hasPaths: boolean, pathData: string) => void;
+}) {
+  const [completedPaths, setCompletedPaths] = useState<string[]>([]);
+  const [activePath, setActivePath] = useState("");
+  const activePathRef = useRef("");
+
+  function clear() {
+    setCompletedPaths([]);
+    setActivePath("");
+    activePathRef.current = "";
+    onChanged(false, "");
+  }
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (e) => {
+          const { locationX, locationY } = e.nativeEvent;
+          const start = `M${locationX.toFixed(1)},${locationY.toFixed(1)}`;
+          activePathRef.current = start;
+          setActivePath(start);
+        },
+        onPanResponderMove: (e) => {
+          const { locationX, locationY } = e.nativeEvent;
+          const updated =
+            activePathRef.current + ` L${locationX.toFixed(1)},${locationY.toFixed(1)}`;
+          activePathRef.current = updated;
+          setActivePath(updated);
+        },
+        onPanResponderRelease: () => {
+          const path = activePathRef.current;
+          if (path && path.includes("L")) {
+            setCompletedPaths((prev) => {
+              const next = [...prev, path];
+              onChanged(true, JSON.stringify(next));
+              return next;
+            });
+          }
+          activePathRef.current = "";
+          setActivePath("");
+        },
+      }),
+    [],
+  );
+
+  const hasPaths = completedPaths.length > 0;
+
+  return (
+    <View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+        <Text style={{ fontSize: 12, color: "#a1a1aa" }}>Draw your signature</Text>
+        {hasPaths && (
+          <TouchableOpacity onPress={clear}>
+            <Text style={{ fontSize: 12, color: "#C9A84C" }}>Clear</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <View
+        style={{
+          height: 110,
+          borderWidth: 1,
+          borderColor: "#333",
+          borderRadius: 8,
+          backgroundColor: "#0a0a0a",
+          overflow: "hidden",
+        }}
+        {...panResponder.panHandlers}
+      >
+        <Svg width="100%" height="100%">
+          {completedPaths.map((p, i) => (
+            <Path
+              key={i}
+              d={p}
+              stroke="#C9A84C"
+              strokeWidth={2.5}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+          {activePath ? (
+            <Path
+              d={activePath}
+              stroke="#C9A84C"
+              strokeWidth={2.5}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ) : null}
+        </Svg>
+        {!hasPaths && !activePath && (
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            pointerEvents="none"
+          >
+            <Text style={{ color: "#444", fontSize: 12 }}>Sign here ↑</Text>
+          </View>
+        )}
+        <View
+          style={{
+            position: "absolute",
+            bottom: 20,
+            left: "15%",
+            right: "15%",
+            borderBottomWidth: 1,
+            borderColor: "#2a2a2a",
+          }}
+          pointerEvents="none"
+        />
+      </View>
+    </View>
+  );
+}
+
 // ── Sign-off modal ────────────────────────────────────────────────────────────
 
 function SignoffModal({
@@ -111,12 +244,19 @@ function SignoffModal({
   const colors = useColors();
   const queryClient = useQueryClient();
   const [confirmed, setConfirmed] = useState(false);
+  const [hasSignature, setHasSignature] = useState(false);
+  const [signatureData, setSignatureData] = useState("");
+
+  function handleSignatureChanged(hasPaths: boolean, pathData: string) {
+    setHasSignature(hasPaths);
+    setSignatureData(pathData);
+  }
 
   const signMutation = useMutation({
     mutationFn: () =>
       customFetch(`/api/cor/policy-documents/${doc.id}/sign`, {
         method: "POST",
-        body: JSON.stringify({}),
+        body: JSON.stringify({ signatureData: signatureData || undefined }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cor-pending-signoffs"] });
@@ -217,22 +357,33 @@ function SignoffModal({
             </ScrollView>
           ) : null}
 
+          <View style={{ marginBottom: 12 }}>
+            <MobileSignaturePad onChanged={handleSignatureChanged} />
+          </View>
+
+          {confirmed && !hasSignature && (
+            <Text style={{ fontSize: 11, color: "#f59e0b", marginTop: -8, marginBottom: 8 }}>
+              Please draw your signature above before signing.
+            </Text>
+          )}
+
           <TouchableOpacity style={s.checkRow} onPress={() => setConfirmed((v) => !v)}>
             <View style={s.checkbox}>
               {confirmed && <Text style={s.checkboxInner}>✓</Text>}
             </View>
             <Text style={s.confirmText}>
               I confirm that I have read, understood, and agree to comply with this{" "}
-              {DOC_TYPE_LABELS[doc.documentType]}. My acknowledgement constitutes a digital sign-off.
+              {DOC_TYPE_LABELS[doc.documentType]}. My digital signature constitutes a legally
+              binding sign-off.
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={s.signBtn}
-            disabled={!confirmed || signMutation.isPending}
+            style={[s.signBtn, { backgroundColor: confirmed && hasSignature ? "#C9A84C" : "#333" }]}
+            disabled={!confirmed || !hasSignature || signMutation.isPending}
             onPress={() => signMutation.mutate()}
           >
-            <Text style={s.signBtnText}>
+            <Text style={[s.signBtnText, { color: confirmed && hasSignature ? "#000" : "#666" }]}>
               {signMutation.isPending ? "Signing…" : "Sign & Acknowledge"}
             </Text>
           </TouchableOpacity>
@@ -283,8 +434,33 @@ export default function CorDashboardScreen() {
 
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [signDoc, setSignDoc] = useState<PolicyDocument | null>(null);
+  const [isGeneratingPackage, setIsGeneratingPackage] = useState(false);
   const projectId = selectedProjectId ?? projects[0]?.id ?? null;
   const isWorker = me?.role === "worker";
+
+  async function handleGenerateAuditPackage() {
+    setIsGeneratingPackage(true);
+    try {
+      await customFetch("/api/cor/audit-package/generate", {
+        method: "POST",
+        body: JSON.stringify({}),
+        responseType: "blob",
+        timeoutMs: 120_000,
+      });
+      Alert.alert(
+        "Audit Package Generated",
+        "Your COR audit binder has been compiled. Open the web dashboard to download it.",
+        [
+          { text: "Open Dashboard", onPress: () => Linking.openURL("https://app.sitesnap.ca/cor-compliance") },
+          { text: "OK", style: "cancel" },
+        ],
+      );
+    } catch {
+      Alert.alert("Error", "Could not generate audit package. Please try again from the web dashboard.");
+    } finally {
+      setIsGeneratingPackage(false);
+    }
+  }
 
   // COR compliance dashboard (owner/foreman only)
   const dashboardQuery = useQuery<CorDashboard>({
@@ -313,6 +489,30 @@ export default function CorDashboardScreen() {
     queryFn: () => customFetch("/api/cor/policy-signoffs/pending"),
     enabled: me?.id != null,
   });
+
+  // Flagged subcontractors (admin only — shown on dashboard for quick action)
+  const flaggedSubsQuery = useQuery<{ flagged: Array<{ id: number; companyName: string; overallStatus: string }> }>({
+    queryKey: ["cor-subcontractors-flagged"],
+    queryFn: () => customFetch("/api/cor/subcontractors/flagged"),
+    enabled: !isWorker,
+  });
+  const flaggedSubs = flaggedSubsQuery.data?.flagged ?? [];
+
+  // Open inspection CAPAs (admin — action required queue count)
+  const capaQuery = useQuery<{ items: Array<{ id: number; priority: string; title: string; sourceItemRef: string | null; status: string }> }>({
+    queryKey: ["cor-action-required-mobile"],
+    queryFn: () => customFetch("/api/cor/capa/action-required"),
+    enabled: !isWorker,
+  });
+  const openCapas = capaQuery.data?.items ?? [];
+
+  // Credentials expiring within 65 days (admin)
+  const expiryQuery = useQuery<{ expiring: Array<{ credentialType: string; expirationDate: string; daysRemaining: number; alertWindow: string; workerFirstName: string; workerLastName: string }> }>({
+    queryKey: ["cor-expiring-mobile"],
+    queryFn: () => customFetch("/api/cor/credentials/expiring-soon"),
+    enabled: !isWorker,
+  });
+  const expiringCreds = expiryQuery.data?.expiring ?? [];
 
   const s = styles(colors);
 
@@ -350,6 +550,121 @@ export default function CorDashboardScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+      )}
+
+      {/* Generate Audit Package button (owner/foreman) */}
+      {!isWorker && (
+        <TouchableOpacity
+          onPress={handleGenerateAuditPackage}
+          disabled={isGeneratingPackage}
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 12,
+            paddingVertical: 14,
+            borderRadius: 12,
+            backgroundColor: isGeneratingPackage ? "#a07820" : "#C9A84C",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          {isGeneratingPackage ? (
+            <ActivityIndicator size="small" color="#000" />
+          ) : (
+            <Feather name="archive" size={18} color="#000" />
+          )}
+          <Text style={{ color: "#000", fontWeight: "700", fontSize: 15 }}>
+            {isGeneratingPackage ? "Generating…" : "Generate Audit Package"}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Flagged subcontractors banner (admin only) */}
+      {!isWorker && flaggedSubs.length > 0 && (
+        <View style={{
+          marginHorizontal: 16, marginBottom: 12,
+          padding: 14, borderRadius: 12,
+          backgroundColor: "#450a0a",
+          borderWidth: 1, borderColor: "#7f1d1d80",
+          flexDirection: "row", alignItems: "flex-start", gap: 10,
+        }}>
+          <Feather name="alert-triangle" size={18} color="#f87171" style={{ marginTop: 1 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: "#fca5a5", fontWeight: "700", fontSize: 13 }}>
+              {flaggedSubs.length} subcontractor{flaggedSubs.length !== 1 ? "s" : ""} require attention
+            </Text>
+            <Text style={{ color: "#f87171", fontSize: 12, marginTop: 2 }}>
+              {flaggedSubs.map((s) => s.companyName).join(", ")} — expired or non-compliant documents
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Open CAPA action-required card (admin) */}
+      {!isWorker && openCapas.length > 0 && (
+        <View style={{
+          marginHorizontal: 16, marginBottom: 12,
+          padding: 14, borderRadius: 12,
+          backgroundColor: "#1a0000",
+          borderWidth: 1, borderColor: "#7f1d1d80",
+        }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Feather name="alert-circle" size={16} color="#f87171" />
+            <Text style={{ color: "#fca5a5", fontWeight: "700", fontSize: 13 }}>
+              {openCapas.length} open CAPA{openCapas.length !== 1 ? "s" : ""} — action required
+            </Text>
+          </View>
+          {openCapas.slice(0, 3).map((item) => (
+            <View key={item.id} style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: item.priority === "critical" ? "#ef4444" : item.priority === "high" ? "#f97316" : "#f59e0b" }} />
+              <Text style={{ color: "#e5e5e5", fontSize: 12, flex: 1 }} numberOfLines={1}>
+                {item.sourceItemRef ?? item.title}
+              </Text>
+            </View>
+          ))}
+          {openCapas.length > 3 && (
+            <Text style={{ color: "#71717a", fontSize: 11, marginTop: 2 }}>
+              +{openCapas.length - 3} more — open web dashboard to manage
+            </Text>
+          )}
+        </View>
+      )}
+
+      {/* Expiry warning card (admin) */}
+      {!isWorker && expiringCreds.length > 0 && (
+        <View style={{
+          marginHorizontal: 16, marginBottom: 12,
+          padding: 14, borderRadius: 12,
+          backgroundColor: "#1c1004",
+          borderWidth: 1, borderColor: "#92400e80",
+        }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Feather name="clock" size={16} color="#fbbf24" />
+            <Text style={{ color: "#fde68a", fontWeight: "700", fontSize: 13 }}>
+              {expiringCreds.length} certification{expiringCreds.length !== 1 ? "s" : ""} expiring soon
+            </Text>
+          </View>
+          {expiringCreds.slice(0, 3).map((cred, i) => {
+            const color = cred.alertWindow === "expired" ? "#ef4444" : cred.alertWindow === "30_day" ? "#f59e0b" : "#a16207";
+            return (
+              <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+                <Text style={{ color: "#e5e5e5", fontSize: 12, flex: 1 }} numberOfLines={1}>
+                  {cred.workerFirstName} {cred.workerLastName} — {cred.credentialType.replace(/_/g, " ")}
+                </Text>
+                <Text style={{ color, fontSize: 11, fontWeight: "700" }}>
+                  {cred.alertWindow === "expired" ? "EXP" : `${cred.daysRemaining}d`}
+                </Text>
+              </View>
+            );
+          })}
+          {expiringCreds.length > 3 && (
+            <Text style={{ color: "#71717a", fontSize: 11, marginTop: 2 }}>
+              +{expiringCreds.length - 3} more — Training Matrix tab on web
+            </Text>
+          )}
+        </View>
       )}
 
       {/* Overall score card (owner/foreman) */}
@@ -517,6 +832,10 @@ export default function CorDashboardScreen() {
         ) : credentialsQuery.data?.length ? (
           credentialsQuery.data.map((cred) => {
             const dotColor = credentialStatusColor(cred.status, cred.expirationDate);
+            const daysLeft = cred.expirationDate
+              ? Math.ceil((new Date(cred.expirationDate).getTime() - Date.now()) / 86400000)
+              : null;
+            const showWarning = daysLeft !== null && daysLeft <= 30 && cred.status !== "expired" && cred.status !== "revoked";
             return (
               <View key={cred.id} style={s.credRow}>
                 <View style={[s.credDot, { backgroundColor: dotColor }]} />
@@ -529,6 +848,11 @@ export default function CorDashboardScreen() {
                   )}
                   {cred.certificateNumber && (
                     <Text style={s.credMeta}>Cert #{cred.certificateNumber}</Text>
+                  )}
+                  {showWarning && (
+                    <Text style={{ fontSize: 11, color: "#f59e0b", fontWeight: "700", marginTop: 2 }}>
+                      ⚠ Renew within {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+                    </Text>
                   )}
                 </View>
                 <Text style={[s.credStatus, { color: dotColor }]}>
