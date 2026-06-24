@@ -167,6 +167,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...(isOwnerOrForeman ? [{ name: "Permits", href: "/permits", icon: BadgeCheck, badge: 0, featureKey: "PERMITS" }] : []),
     { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "SAFETY_FORMS", permissionKey: "viewSafetyTab" },
     { name: "Inspections", href: "/inspections", icon: ClipboardCheck, badge: 0, permissionKey: "viewInspectTab" },
+    { name: "COR Compliance", href: "/cor-compliance", icon: BadgeCheck, badge: 0, featureKey: "COR_MODULE" },
     { name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TRADEHUB", permissionKey: "viewTradeHub" },
     { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT", permissionKey: "viewAskAI" },
     ...(isOwnerOrForeman ? [{ name: "RFI & Submittal", href: "/rfi-submittal", icon: MessageSquareWarning, badge: 0, featureKey: "RFI_SUBMITTAL" }] : []),

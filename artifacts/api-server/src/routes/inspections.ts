@@ -23,6 +23,8 @@ import {
   RISK_SCORING_PROMPT,
   FAILED_ITEM_ANALYSIS_PROMPT,
 } from "../lib/inspectionPrompts";
+import { processInspection } from "../services/cor/evidenceAggregator";
+import { createCapasFromInspectionItems } from "../repositories/cor";
 import { logger } from "../lib/logger";
 import { asyncHandler } from "../lib/asyncHandler";
 
@@ -290,6 +292,22 @@ router.post(
           await notifyTeam(req.companyId!, req.userId!, inspection.id, projectId ?? null, updated?.riskLevel ?? null);
         })
         .catch((err) => logger.error({ err }, "Inspection AI analysis failed"));
+      processInspection(
+        { id: inspection.id, projectId: projectId ?? null, inspectorId: req.userId!, inspectionType },
+        itemsForAI,
+        req.companyId!,
+      ).catch((err) => logger.error({ err }, "COR evidence aggregation error (inspection)"));
+
+      // Create a per-item CAPA for every failed checklist item
+      const failedItems = items
+        .filter((i) => i.status === "fail")
+        .map((i) => ({ itemName: i.itemName, severity: i.severity, comment: i.comment ?? null }));
+      if (failedItems.length > 0) {
+        createCapasFromInspectionItems(
+          { id: inspection.id, companyId: req.companyId!, projectId: projectId ?? null, inspectorId: req.userId!, inspectionType, date },
+          failedItems,
+        ).catch((err) => logger.error({ err }, "Inspection CAPA creation failed"));
+      }
     }
 
     res.status(201).json(inspection);
@@ -328,6 +346,21 @@ router.post(
         await notifyTeam(req.companyId!, req.userId!, id, inspection.projectId, updated?.riskLevel ?? null);
       })
       .catch((err) => logger.error({ err }, "Inspection submit AI failed"));
+    processInspection(
+      { id: inspection.id, projectId: inspection.projectId, inspectorId: req.userId!, inspectionType: inspection.inspectionType },
+      itemsForAI,
+      req.companyId!,
+    ).catch((err) => logger.error({ err }, "COR evidence aggregation error (inspection submit)"));
+
+    const failedItemsSubmit = items
+      .filter((i) => i.status === "fail")
+      .map((i) => ({ itemName: i.itemName, severity: i.severity, comment: i.comment ?? null }));
+    if (failedItemsSubmit.length > 0) {
+      createCapasFromInspectionItems(
+        { id: inspection.id, companyId: req.companyId!, projectId: inspection.projectId, inspectorId: req.userId!, inspectionType: inspection.inspectionType, date: inspection.date },
+        failedItemsSubmit,
+      ).catch((err) => logger.error({ err }, "Inspection CAPA creation (submit) failed"));
+    }
 
     res.json({ success: true, message: "Inspection submitted. AI analysis running." });
   }),

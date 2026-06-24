@@ -58,6 +58,7 @@ import complianceDirectivesRouter from "./complianceDirectives";
 import auditExportRouter from "./auditExport";
 import permitsRouter from "./permits";
 import inventoryRouter from "./inventory";
+import corRouter from "./cor";
 
 const router: IRouter = Router();
 
@@ -124,5 +125,6 @@ router.use(complianceDirectivesRouter);
 router.use(auditExportRouter);
 router.use(permitsRouter);
 router.use(inventoryRouter);
+router.use(corRouter);
 
 export default router;

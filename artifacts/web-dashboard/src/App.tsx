@@ -49,6 +49,7 @@ import FieldLogsPage from "@/pages/field-logs";
 import InspectionsPage from "@/pages/inspections";
 import RiskDashboardPage from "@/pages/risk-dashboard";
 import AIComplianceMonitorPage from "@/pages/ai-compliance-monitor";
+import CorCompliancePage from "@/pages/cor-compliance";
 
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
@@ -327,6 +328,7 @@ function AuthApp() {
           <Route path="/tradehub"><PermissionGuard permissionKey="viewTradeHub"><TradehubPage /></PermissionGuard></Route>
           <Route path="/risk-dashboard" component={RiskDashboardPage} />
           <Route path="/ai-compliance-monitor" component={AIComplianceMonitorPage} />
+          <Route path="/cor-compliance" component={CorCompliancePage} />
           <Route path="/media-hub" component={MediaHubTestPage} />
           <Route path="/safety-compliance"><PermissionGuard permissionKey="viewSafetyTab"><SafetyCompliancePage /></PermissionGuard></Route>
           <Route path="/rfi-submittal" component={RfiSubmittalPage} />

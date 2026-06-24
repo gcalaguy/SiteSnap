@@ -18,14 +18,21 @@ import {
 import { buildDigest } from "./lib/digest.js";
 import { buildDigestHtml } from "./lib/digestTemplate.js";
 import { sendEmail } from "./lib/mailer.js";
+import { buildCredentialExpiryHtml } from "./lib/corAlerts.js";
 import { sendOverdueReminders } from "./lib/invoiceReminders.js";
 import { logger } from "./lib/logger.js";
 import { eq, and, sql, lt, inArray } from "drizzle-orm";
 import { ObjectStorageService } from "./lib/objectStorage.js";
+import {
+  getExpiringSoonCredentials,
+  getCompanySafetyManagerEmails,
+  hasCredentialAlertBeenSent,
+  recordCredentialAlert,
+} from "./repositories/cor.js";
 
 // Distributed cron lock keys — unique per job, stored in PostgreSQL advisory locks.
 // These integers are arbitrary but must never collide with other advisory lock users.
-const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004 } as const;
+const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004, CREDENTIAL_ALERTS: 7005 } as const;
 
 /**
  * Attempt to acquire a PostgreSQL session-level advisory lock.
@@ -271,6 +278,120 @@ export async function cleanupOrphanedStorageObjects(): Promise<{
   return { scanned: allGcsPaths.length, deleted, errors };
 }
 
+const CREDENTIAL_LABELS: Record<string, string> = {
+  working_at_heights: "Working at Heights",
+  whmis: "WHMIS",
+  cor_training: "COR Training",
+  first_aid: "First Aid",
+  fall_protection: "Fall Protection",
+  confined_space: "Confined Space",
+  elevated_work_platform: "Elevated Work Platform",
+};
+
+export async function sendCredentialExpiryAlerts(): Promise<{
+  alerted: number;
+  skipped: number;
+  errors: number;
+}> {
+  let alerted = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  const appUrl = process.env["APP_BASE_URL"] ?? null;
+
+  // Fetch credentials in both the 30-day window (28–32 days) and 60-day window (58–62 days)
+  const [thirtyDay, sixtyDay] = await Promise.all([
+    getExpiringSoonCredentials(28, 32),
+    getExpiringSoonCredentials(58, 62),
+  ]);
+
+  const candidates: Array<{ cred: (typeof thirtyDay)[0]; alertType: "30_day" | "60_day" }> = [
+    ...thirtyDay.map((c) => ({ cred: c, alertType: "30_day" as const })),
+    ...sixtyDay.map((c) => ({ cred: c, alertType: "60_day" as const })),
+  ];
+
+  // Cache safety manager emails per company to avoid repeated queries
+  const managerEmailCache = new Map<number, string[]>();
+
+  for (const { cred, alertType } of candidates) {
+    try {
+      const alreadySent = await hasCredentialAlertBeenSent({
+        companyId: cred.companyId,
+        userId: cred.userId,
+        credentialType: cred.credentialType,
+        alertType,
+        sentForExpiry: cred.expirationDate,
+      });
+
+      if (alreadySent) {
+        skipped++;
+        continue;
+      }
+
+      // Collect recipients: worker + safety managers
+      if (!managerEmailCache.has(cred.companyId)) {
+        const managers = await getCompanySafetyManagerEmails(cred.companyId);
+        managerEmailCache.set(cred.companyId, managers);
+      }
+      const managerEmails = managerEmailCache.get(cred.companyId) ?? [];
+      const to = [...new Set([cred.workerEmail, ...managerEmails].filter(Boolean))];
+
+      if (to.length === 0) {
+        skipped++;
+        continue;
+      }
+
+      const label = CREDENTIAL_LABELS[cred.credentialType] ?? cred.credentialType;
+      const workerName = `${cred.workerFirstName} ${cred.workerLastName}`.trim();
+
+      const html = buildCredentialExpiryHtml({
+        workerName,
+        credentialType: cred.credentialType,
+        credentialLabel: label,
+        expiryDate: cred.expirationDate,
+        daysRemaining: cred.daysRemaining,
+        appUrl,
+      });
+
+      const daysLabel = alertType === "30_day" ? "30" : "60";
+      const subject = `[${daysLabel}-Day Alert] ${workerName}'s ${label} expires ${cred.expirationDate}`;
+
+      await sendEmail({
+        to,
+        subject,
+        html,
+        apiKey: cred.companyResendApiKey,
+        from: cred.companyDigestFromEmail,
+      });
+
+      // Log to prevent duplicate sends
+      await Promise.all(
+        to.map((email) =>
+          recordCredentialAlert({
+            companyId: cred.companyId,
+            userId: cred.userId,
+            credentialType: cred.credentialType,
+            alertType,
+            sentForExpiry: cred.expirationDate,
+            sentToEmail: email,
+          }),
+        ),
+      );
+
+      logger.info(
+        { companyId: cred.companyId, userId: cred.userId, credentialType: cred.credentialType, alertType, daysRemaining: cred.daysRemaining },
+        "Credential expiry alert sent",
+      );
+      alerted++;
+    } catch (err) {
+      logger.error({ err, userId: cred.userId, credentialType: cred.credentialType }, "Credential expiry alert failed");
+      errors++;
+    }
+  }
+
+  return { alerted, skipped, errors };
+}
+
 export function startDailyCron(): void {
   // Re-entry guards — prevent overlapping runs if a job takes longer than its interval.
   let digestRunning = false;
@@ -365,6 +486,36 @@ export function startDailyCron(): void {
     { timezone: "America/Toronto" },
   );
   logger.info("Idle lead notification cron scheduled: 9:00 AM ET");
+
+  // 6:00 AM ET every day — COR credential expiry alerts (30-day and 60-day windows)
+  let credAlertRunning = false;
+  cron.schedule(
+    "0 6 * * *",
+    async () => {
+      if (credAlertRunning) {
+        logger.warn("Credential expiry alert cron skipped — previous run still in progress (in-process)");
+        return;
+      }
+      const locked = await tryAdvisoryLock(LOCK.CREDENTIAL_ALERTS);
+      if (!locked) {
+        logger.warn("Credential expiry alert cron skipped — advisory lock held by another instance");
+        return;
+      }
+      credAlertRunning = true;
+      try {
+        logger.info("Credential expiry alert cron triggered");
+        const result = await sendCredentialExpiryAlerts();
+        logger.info(result, "Credential expiry alert cron complete");
+      } catch (err) {
+        logger.error({ err }, "Unhandled error in credential expiry alert cron");
+      } finally {
+        credAlertRunning = false;
+        await releaseAdvisoryLock(LOCK.CREDENTIAL_ALERTS);
+      }
+    },
+    { timezone: "America/Toronto" },
+  );
+  logger.info("Credential expiry alert cron scheduled: 6:00 AM ET");
 
   // 2:00 AM ET every Sunday — orphaned GCS file cleanup
   // Runs weekly to avoid hammering the GCS list API daily.
