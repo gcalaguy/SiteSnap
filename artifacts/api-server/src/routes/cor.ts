@@ -567,7 +567,7 @@ router.get(
     const includeInactive = req.query.includeInactive === "true" && req.userRole !== "worker";
     try {
       const docs = await listPolicyDocuments(req.companyId!, includeInactive);
-      res.json({ documents: docs });
+      return res.json({ documents: docs });
     } catch (err) {
       if (isMissingTable(err)) return res.json({ documents: [] });
       throw err;
@@ -668,7 +668,7 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       const pending = await getMyPendingSignoffs(req.companyId!, req.userId!);
-      res.json({ pending });
+      return res.json({ pending });
     } catch (err) {
       if (isMissingTable(err)) return res.json({ pending: [] });
       throw err;
@@ -685,7 +685,7 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       const compliance = await getSignoffElementCompliance(req.companyId!);
-      res.json({ compliance });
+      return res.json({ compliance });
     } catch (err) {
       if (isMissingTable(err)) return res.json({ compliance: [] });
       throw err;
@@ -702,7 +702,7 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       const summary = await getPolicySignoffSummary(req.companyId!);
-      res.json(summary);
+      return res.json(summary);
     } catch (err) {
       if (isMissingTable(err)) return res.json({ totalDocs: 0, signedAllCount: 0, totalWorkers: 0, overallPercent: 100 });
       throw err;
@@ -778,7 +778,7 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       const flagged = await getFlaggedSubcontractors(req.companyId!);
-      res.json({ flagged });
+      return res.json({ flagged });
     } catch (err) {
       if (isMissingTable(err)) return res.json({ flagged: [] });
       throw err;
@@ -794,7 +794,7 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       const summary = await getSubcontractorSummary(req.companyId!);
-      res.json(summary);
+      return res.json(summary);
     } catch (err) {
       if (isMissingTable(err)) return res.json({ total: 0, compliant: 0, expired: 0, nonCompliant: 0, pending: 0 });
       throw err;
@@ -810,7 +810,7 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       const subs = await listSubcontractors(req.companyId!);
-      res.json({ subcontractors: subs });
+      return res.json({ subcontractors: subs });
     } catch (err) {
       if (isMissingTable(err)) return res.json({ subcontractors: [] });
       throw err;
@@ -929,7 +929,6 @@ router.delete(
 
 // ── CAPA Tickets ──────────────────────────────────────────────────────────────
 
-const VALID_CAPA_STATUSES = ["open", "in_progress", "pending_review", "closed", "void"] as const;
 const VALID_CAPA_PRIORITIES = ["critical", "high", "medium", "low"] as const;
 const VALID_CAPA_IHSA_ELEMENTS = [
   "element_1","element_2","element_3","element_4","element_5","element_6","element_7",
@@ -983,7 +982,7 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       const items = await getActionRequiredCapas(req.companyId!);
-      res.json({ items });
+      return res.json({ items });
     } catch (err) {
       if (isMissingTable(err)) return res.json({ items: [] });
       throw err;
@@ -1000,7 +999,7 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       const summary = await getCapaSummary(req.companyId!);
-      res.json(summary);
+      return res.json(summary);
     } catch (err) {
       if (isMissingTable(err)) return res.json({ open: 0, inProgress: 0, pendingReview: 0, closed: 0, overdue: 0 });
       throw err;
@@ -1020,7 +1019,7 @@ router.get(
       const limit = Math.min(parseInt((req.query.limit as string) || "50"), 100);
       const offset = parseInt((req.query.offset as string) || "0");
       const result = await listCapaTickets(req.companyId!, { status, limit, offset });
-      res.json(result);
+      return res.json(result);
     } catch (err) {
       if (isMissingTable(err)) return res.json({ data: [], total: 0 });
       throw err;
