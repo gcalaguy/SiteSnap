@@ -54,7 +54,7 @@ const router = Router();
 /** Atomically increment the company's invoice counter and return the formatted number.
  *  Must be called inside a db.transaction() so the counter increment and the
  *  invoice insert are a single atomic unit — eliminates the SELECT count() race. */
-async function allocateInvoiceNumber(
+export async function allocateInvoiceNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   companyId: number,
 ): Promise<string> {
@@ -67,6 +67,7 @@ async function allocateInvoiceNumber(
       prefix: companiesTable.invoiceNumberPrefix,
       start: companiesTable.invoiceStartNumber,
     });
+  if (!company) throw new Error(`Company ${companyId} not found — cannot allocate invoice number`);
   const num = company.counter + ((company.start ?? 1) - 1);
   return `${company.prefix ?? "INV"}-${String(num).padStart(4, "0")}`;
 }
@@ -124,6 +125,8 @@ router.post("/invoices", requireAuth, requireCompany, requirePermission("manageF
 router.get("/quotes", requireAuth, requireCompany, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const { status } = req.query;
   const isWorker = req.userRole === "worker";
+  const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
+  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
 
   const companyFilter = eq(quotesTable.companyId, req.companyId!);
   const statusFilter = status
@@ -138,7 +141,9 @@ router.get("/quotes", requireAuth, requireCompany, requirePermission("viewQuotes
     .select()
     .from(quotesTable)
     .where(where)
-    .orderBy(desc(quotesTable.createdAt));
+    .orderBy(desc(quotesTable.createdAt))
+    .limit(limit)
+    .offset((page - 1) * limit);
   res.json(quotes);
 }))
 
@@ -146,6 +151,8 @@ router.get("/quotes", requireAuth, requireCompany, requirePermission("viewQuotes
 router.get("/invoices", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const { status } = req.query;
   const isWorker = req.userRole === "worker";
+  const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
+  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
 
   const companyFilter = eq(invoicesTable.companyId, req.companyId!);
   const statusFilter = status
@@ -160,7 +167,9 @@ router.get("/invoices", requireAuth, requireCompany, requirePermission("viewFina
     .select()
     .from(invoicesTable)
     .where(where)
-    .orderBy(desc(invoicesTable.createdAt));
+    .orderBy(desc(invoicesTable.createdAt))
+    .limit(limit)
+    .offset((page - 1) * limit);
   res.json(invoices);
 }))
 

@@ -65,11 +65,16 @@ router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
     conditions.push(eq(tasksTable.assignedToUserId, req.userId!));
   }
 
+  const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
+  const limit = Math.min(500, Math.max(1, parseInt(String(req.query.limit ?? "100"), 10)));
+
   const tasks = await db
     .select()
     .from(tasksTable)
     .where(and(...conditions))
-    .orderBy(tasksTable.createdAt);
+    .orderBy(tasksTable.createdAt)
+    .limit(limit)
+    .offset((page - 1) * limit);
 
   res.json(tasks);
 }));

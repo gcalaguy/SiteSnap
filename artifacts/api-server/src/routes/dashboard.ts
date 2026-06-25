@@ -23,9 +23,18 @@ import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
 
-// L4: TTL cache for smart-summary — regenerated at most every 5 minutes per company
+// L4: TTL cache for smart-summary — regenerated at most every 5 minutes per company.
+// Expired entries are swept on each write so the Map can't grow unboundedly.
 const smartSummaryCache = new Map<number, { summary: string; lines: string[]; expiresAt: number }>();
 const SMART_SUMMARY_TTL_MS = 5 * 60 * 1000;
+
+function setSmartSummaryCache(companyId: number, value: { summary: string; lines: string[]; expiresAt: number }) {
+  const now = Date.now();
+  for (const [k, v] of smartSummaryCache) {
+    if (v.expiresAt <= now) smartSummaryCache.delete(k);
+  }
+  smartSummaryCache.set(companyId, value);
+}
 
 
 function displayName(firstName: string, lastName: string, email?: string): string {
@@ -59,13 +68,16 @@ router.get("/dashboard/summary", requireAuth, requireCompany, asyncHandler(async
   let totalProjects = projectIds.length;
 
   if (projectIds.length > 0) {
-    const projects = await db
-      .select()
+    const [projectAgg] = await db
+      .select({
+        activeCount: sql<number>`COUNT(*) FILTER (WHERE status NOT IN ('completed','cancelled'))::int`,
+        totalBudget: sql<number>`COALESCE(SUM(budget::numeric) FILTER (WHERE budget IS NOT NULL), 0)`,
+      })
       .from(projectsTable)
       .where(inArray(projectsTable.id, projectIds));
 
-    activeProjects = projects.filter((p) => p.status !== "completed" && p.status !== "cancelled").length;
-    totalBudget = projects.reduce((s, p) => s + (p.budget ? parseFloat(p.budget) : 0), 0);
+    activeProjects = projectAgg?.activeCount ?? 0;
+    totalBudget = projectAgg ? Number(projectAgg.totalBudget) : 0;
 
     const thisMonthStart = new Date();
     thisMonthStart.setDate(1);
@@ -196,11 +208,16 @@ router.get("/dashboard/my-tasks", requireAuth, requireCompany, asyncHandler(asyn
       ? and(inArray(tasksTable.projectId, projectIds), eq(tasksTable.assignedToUserId, userId))
       : inArray(tasksTable.projectId, projectIds);
 
+  const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
+  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "100"), 10)));
+
   const tasks = await db
     .select()
     .from(tasksTable)
     .where(whereClause)
-    .orderBy(tasksTable.createdAt);
+    .orderBy(tasksTable.createdAt)
+    .limit(limit)
+    .offset((page - 1) * limit);
 
   res.json(tasks);
 }))
@@ -282,13 +299,18 @@ router.get("/dashboard/activity", requireAuth, requireCompany, asyncHandler(asyn
   }
 
   const projects = await db
-    .select()
+    .select({ id: projectsTable.id, name: projectsTable.name, createdAt: projectsTable.createdAt })
     .from(projectsTable)
     .where(inArray(projectsTable.id, projectIds));
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
 
   const members = await db
-    .select()
+    .select({
+      id: usersTable.id,
+      firstName: usersTable.firstName,
+      lastName: usersTable.lastName,
+      email: usersTable.email,
+    })
     .from(usersTable)
     .innerJoin(
       userMembershipsTable,
@@ -298,7 +320,7 @@ router.get("/dashboard/activity", requireAuth, requireCompany, asyncHandler(asyn
       ),
     );
   const userMap = Object.fromEntries(
-    members.map((u) => [u.users.id, displayName(u.users.firstName, u.users.lastName, u.users.email)]),
+    members.map((u) => [u.id, displayName(u.firstName, u.lastName, u.email)]),
   );
 
   const activity: Array<{
@@ -311,15 +333,52 @@ router.get("/dashboard/activity", requireAuth, requireCompany, asyncHandler(asyn
   }> = [];
 
   // Bulk-fetch all activity across all projects in 3 queries (was 3 queries × N projects).
+  // Each query is limited to the 20 most-recent rows so we never pull the full history
+  // into Node — the JS merge-sort below needs at most 4×20 = 80 rows to produce the
+  // final top-20 feed.
   if (projectIds.length > 0) {
     const [allReports, allRfis, allTasks] = await Promise.all([
-      db.select().from(dailyReportsTable).where(inArray(dailyReportsTable.projectId, projectIds)),
-      db.select().from(rfisTable).where(inArray(rfisTable.projectId, projectIds)),
-      db.select().from(tasksTable).where(
-        userRole === "worker"
-          ? and(inArray(tasksTable.projectId, projectIds), eq(tasksTable.assignedToUserId, userId))
-          : inArray(tasksTable.projectId, projectIds),
-      ),
+      db
+        .select({
+          id: dailyReportsTable.id,
+          projectId: dailyReportsTable.projectId,
+          submittedByUserId: dailyReportsTable.submittedByUserId,
+          workPerformed: dailyReportsTable.workPerformed,
+          createdAt: dailyReportsTable.createdAt,
+        })
+        .from(dailyReportsTable)
+        .where(inArray(dailyReportsTable.projectId, projectIds))
+        .orderBy(desc(dailyReportsTable.createdAt))
+        .limit(20),
+      db
+        .select({
+          id: rfisTable.id,
+          rfiNumber: rfisTable.rfiNumber,
+          subject: rfisTable.subject,
+          projectId: rfisTable.projectId,
+          submittedByUserId: rfisTable.submittedByUserId,
+          createdAt: rfisTable.createdAt,
+        })
+        .from(rfisTable)
+        .where(inArray(rfisTable.projectId, projectIds))
+        .orderBy(desc(rfisTable.createdAt))
+        .limit(20),
+      db
+        .select({
+          id: tasksTable.id,
+          title: tasksTable.title,
+          projectId: tasksTable.projectId,
+          assignedToUserId: tasksTable.assignedToUserId,
+          createdAt: tasksTable.createdAt,
+        })
+        .from(tasksTable)
+        .where(
+          userRole === "worker"
+            ? and(inArray(tasksTable.projectId, projectIds), eq(tasksTable.assignedToUserId, userId))
+            : inArray(tasksTable.projectId, projectIds),
+        )
+        .orderBy(desc(tasksTable.createdAt))
+        .limit(20),
     ]);
 
     for (const r of allReports) {
@@ -381,7 +440,14 @@ router.get("/dashboard/activity", requireAuth, requireCompany, asyncHandler(asyn
 
   // Worker schedules — scoped to the accessible projects
   const scheduleRows = await db
-    .select()
+    .select({
+      id: workerSchedulesTable.id,
+      userId: workerSchedulesTable.userId,
+      projectId: workerSchedulesTable.projectId,
+      startDate: workerSchedulesTable.startDate,
+      endDate: workerSchedulesTable.endDate,
+      createdAt: workerSchedulesTable.createdAt,
+    })
     .from(workerSchedulesTable)
     .where(
       and(
@@ -390,7 +456,9 @@ router.get("/dashboard/activity", requireAuth, requireCompany, asyncHandler(asyn
           ? eq(workerSchedulesTable.userId, userId)
           : inArray(workerSchedulesTable.projectId, projectIds),
       ),
-    );
+    )
+    .orderBy(desc(workerSchedulesTable.createdAt))
+    .limit(20);
   for (const s of scheduleRows) {
     const who = s.userId ? (userMap[s.userId] ?? "A worker") : "A subcontractor";
     const proj = projectMap[s.projectId] ?? "a project";
@@ -417,6 +485,7 @@ router.get("/dashboard/smart-summary", requireAuth, requireCompany, asyncHandler
 
   const cached = smartSummaryCache.get(companyId);
   if (cached && cached.expiresAt > Date.now()) {
+    res.setHeader("Cache-Control", "private, max-age=300");
     res.json({ summary: cached.summary, lines: cached.lines });
     return;
   }
@@ -514,7 +583,8 @@ router.get("/dashboard/smart-summary", requireAuth, requireCompany, asyncHandler
   }
 
   const result = { summary: lines.join(" "), lines };
-  smartSummaryCache.set(companyId, { ...result, expiresAt: Date.now() + SMART_SUMMARY_TTL_MS });
+  setSmartSummaryCache(companyId, { ...result, expiresAt: Date.now() + SMART_SUMMARY_TTL_MS });
+  res.setHeader("Cache-Control", "private, max-age=300");
   res.json(result);
 }))
 

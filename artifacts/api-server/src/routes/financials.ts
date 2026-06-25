@@ -14,6 +14,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
+import { allocateInvoiceNumber } from "./invoices";
 
 import { z } from "zod";
 
@@ -118,13 +119,19 @@ router.get("/invoices/:id/payments", requireAuth, requireCompany, requirePermiss
     .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)));
   if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
 
-  const payments = await db
-    .select()
-    .from(paymentsTable)
-    .where(and(eq(paymentsTable.invoiceId, invoiceId), eq(paymentsTable.companyId, req.companyId!)))
-    .orderBy(asc(paymentsTable.paidAt));
+  const [payments, sumRow] = await Promise.all([
+    db
+      .select()
+      .from(paymentsTable)
+      .where(and(eq(paymentsTable.invoiceId, invoiceId), eq(paymentsTable.companyId, req.companyId!)))
+      .orderBy(asc(paymentsTable.paidAt)),
+    db
+      .select({ totalPaid: sql<string>`COALESCE(SUM(${paymentsTable.amount}::numeric), 0)` })
+      .from(paymentsTable)
+      .where(and(eq(paymentsTable.invoiceId, invoiceId), eq(paymentsTable.companyId, req.companyId!))),
+  ]);
 
-  const totalPaid = payments.reduce((s, p) => s + parseFloat(p.amount ?? "0"), 0);
+  const totalPaid = parseFloat(sumRow[0]?.totalPaid ?? "0");
   const invoiceTotal = parseFloat(invoice.total ?? "0");
   const balance = Math.max(0, invoiceTotal - totalPaid);
 
@@ -173,13 +180,13 @@ router.post("/invoices/:id/payments", requireAuth, requireCompany, requirePermis
     })
     .returning();
 
-  // Check if invoice is now fully paid
-  const allPayments = await db
-    .select({ amount: paymentsTable.amount })
+  // Check if invoice is now fully paid — use a SUM aggregate instead of fetching all rows.
+  const [sumRow] = await db
+    .select({ totalPaid: sql<string>`COALESCE(SUM(${paymentsTable.amount}::numeric), 0)` })
     .from(paymentsTable)
     .where(and(eq(paymentsTable.invoiceId, invoiceId), eq(paymentsTable.companyId, req.companyId!)));
 
-  const totalPaid = allPayments.reduce((s, p) => s + parseFloat(p.amount ?? "0"), 0);
+  const totalPaid = parseFloat(sumRow?.totalPaid ?? "0");
   const invoiceTotal = parseFloat(invoice.total ?? "0");
 
   if (totalPaid >= invoiceTotal && invoice.status !== "paid") {
@@ -213,15 +220,23 @@ router.delete("/payments/:id", requireAuth, requireCompany, requirePermission("v
 // GET /change-orders
 router.get("/change-orders", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const { projectId } = req.query;
+  const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
+  const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
 
   const conditions: any[] = [eq(changeOrdersTable.companyId, req.companyId!)];
-  if (projectId) conditions.push(eq(changeOrdersTable.projectId, parseInt(projectId as string)));
+  if (projectId) {
+    const pid = parseInt(projectId as string);
+    if (isNaN(pid)) { res.status(400).json({ error: "Invalid projectId" }); return; }
+    conditions.push(eq(changeOrdersTable.projectId, pid));
+  }
 
   const orders = await db
     .select()
     .from(changeOrdersTable)
     .where(conditions.length === 1 ? conditions[0] : and(...conditions))
-    .orderBy(desc(changeOrdersTable.createdAt));
+    .orderBy(desc(changeOrdersTable.createdAt))
+    .limit(limit)
+    .offset((page - 1) * limit);
 
   res.json(orders);
 }))
@@ -432,32 +447,29 @@ router.post("/invoices/from-proposal/:proposalId", requireAuth, requireCompany, 
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
 
-  // Get next invoice number
-  const { count } = await import("drizzle-orm");
-  const [{ cnt }] = await db
-    .select({ cnt: count() })
-    .from(invoicesTable)
-    .where(eq(invoicesTable.companyId, req.companyId!));
-  const invoiceNumber = `INV-${String((cnt ?? 0) + 1).padStart(4, "0")}`;
-
-  const [invoice] = await db
-    .insert(invoicesTable)
-    .values({
-      companyId: req.companyId!,
-      title: proposal.title,
-      clientName: proposal.clientName ?? "Client",
-      clientEmail: proposal.clientEmail ?? null,
-      lineItems: lineItems as any,
-      subtotal: subtotal.toFixed(2),
-      taxRate: taxRate.toFixed(4),
-      taxAmount: taxAmount.toFixed(2),
-      total: total.toFixed(2),
-      notes: proposal.notes ?? null,
-      invoiceNumber,
-      status: "draft",
-      createdByUserId: req.userId!,
-    } as any)
-    .returning();
+  // Use the same atomic counter allocator as POST /invoices to prevent duplicate numbers
+  // under concurrent requests.
+  const [invoice] = await db.transaction(async (tx) => {
+    const invoiceNumber = await allocateInvoiceNumber(tx, req.companyId!);
+    return tx
+      .insert(invoicesTable)
+      .values({
+        companyId: req.companyId!,
+        title: proposal.title,
+        clientName: proposal.clientName ?? "Client",
+        clientEmail: proposal.clientEmail ?? null,
+        lineItems: lineItems as any,
+        subtotal: subtotal.toFixed(2),
+        taxRate: taxRate.toFixed(4),
+        taxAmount: taxAmount.toFixed(2),
+        total: total.toFixed(2),
+        notes: proposal.notes ?? null,
+        invoiceNumber,
+        status: "draft",
+        createdByUserId: req.userId!,
+      } as any)
+      .returning();
+  });
 
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.status(201).json(invoice);
