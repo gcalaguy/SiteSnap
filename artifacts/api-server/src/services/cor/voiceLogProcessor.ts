@@ -11,7 +11,7 @@ type RiskLevel = "critical" | "high" | "medium" | "low";
 interface ClassificationResult {
   riskLevel: RiskLevel;
   ihsaElement: string | null;
-  synopsis: string;
+  synopsis: string | null;
   actionRequired: string;
   usedFallback: boolean;
 }
@@ -53,7 +53,7 @@ function classifyByKeyword(transcript: string): Omit<ClassificationResult, "used
   return {
     riskLevel,
     ihsaElement,
-    synopsis: transcript.slice(0, 120).trim(),
+    synopsis: null,
     actionRequired: `Review and address the issue described: "${transcript.slice(0, 100)}"`,
   };
 }
@@ -96,7 +96,7 @@ async function classifyWithAI(transcript: string): Promise<ClassificationResult>
     return {
       riskLevel,
       ihsaElement: parsed.ihsaElement ?? null,
-      synopsis: parsed.synopsis ?? transcript.slice(0, 100),
+      synopsis: parsed.synopsis ?? null,
       actionRequired: parsed.actionRequired ?? "Review and resolve the reported issue",
       usedFallback: false,
     };
@@ -150,7 +150,7 @@ export async function processVoiceLog(
       .insert(tasksTable)
       .values({
         projectId,
-        title: `COR Action: ${classification.synopsis}`,
+        title: `COR Action: ${classification.synopsis ?? "Safety observation"}`,
         description: classification.actionRequired,
         assignedToUserId: assignedToUserId ?? null,
         status: "todo",
