@@ -76,7 +76,7 @@ IHSA element hints: element_2=PPE/hazard, element_5=training, element_6=emergenc
 async function classifyWithAI(transcript: string): Promise<ClassificationResult> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: transcript },

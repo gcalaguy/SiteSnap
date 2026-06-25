@@ -3,7 +3,7 @@ import { logger } from "./lib/logger";
 import { startDailyCron } from "./cron";
 import { pool } from "@workspace/db";
 import { instrumentPool } from "./lib/slowQueryLogger";
-import { startPgListener } from "./lib/pgListener";
+import { startPgListener, stopPgListener } from "./lib/pgListener";
 
 const rawPort = process.env["PORT"];
 
@@ -146,13 +146,25 @@ async function applyRfiWorkflowMigration() {
 
 await applyRfiWorkflowMigration();
 
+// ── Global error safety nets ─────────────────────────────────────────────────
+// Must be registered before any async work so no rejection or exception escapes.
+process.on("unhandledRejection", (reason) => {
+  logger.fatal({ reason }, "Unhandled promise rejection — exiting");
+  process.exit(1);
+});
+
+process.on("uncaughtException", (err) => {
+  logger.fatal({ err }, "Uncaught exception — exiting");
+  process.exit(1);
+});
+
 // Start LISTEN/NOTIFY listener for distributed feature cache invalidation.
 // Non-blocking — a connection failure logs a warning and retries automatically.
 startPgListener().catch((err) =>
   logger.warn({ err }, "pgListener startup error — feature cache will rely on TTL only"),
 );
 
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
@@ -161,3 +173,31 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   startDailyCron();
 });
+
+// ── Graceful shutdown ────────────────────────────────────────────────────────
+// Give in-flight requests up to 15 s to finish, then drain the DB pool and exit.
+async function shutdown(signal: string): Promise<void> {
+  logger.info({ signal }, "Received shutdown signal — draining connections");
+
+  // Stop pgListener from holding its pool connection or reconnecting
+  stopPgListener();
+
+  server.close(async () => {
+    try {
+      await pool.end();
+      logger.info("DB pool drained — exiting cleanly");
+    } catch (err) {
+      logger.error({ err }, "Error draining DB pool during shutdown");
+    }
+    process.exit(0);
+  });
+
+  // Hard exit if requests don't finish within 15 s
+  setTimeout(() => {
+    logger.error("Graceful shutdown timed out — forcing exit");
+    process.exit(1);
+  }, 15_000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT",  () => shutdown("SIGINT"));

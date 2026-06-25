@@ -30,6 +30,7 @@ import {
   ValidationError,
 } from "../lib/errors";
 import { logAuditEventFromRequest } from "../utils/logger";
+import { logger } from "../lib/logger";
 import { getTenantFinancialSummaries, type TenantFinancialSummary } from "../services/dashboardMetrics";
 import {
   validateWorkerCompliance,
@@ -429,17 +430,17 @@ router.post(
             referenceId: projectId,
             projectId,
           }).catch((notifyErr) => {
-            console.error(
-              "[compliance:notify] Failed to send COR compliance alert after member assignment",
-              { userId, projectId, companyId: req.companyId, error: notifyErr },
+            logger.error(
+              { err: notifyErr, userId, projectId, companyId: req.companyId },
+              "compliance: failed to send COR compliance alert after member assignment",
             );
           });
         }
       })
       .catch((err) => {
-        console.error(
-          "[compliance:check] Worker compliance validation failed during member assignment (fire-and-forget)",
-          { userId, projectId, companyId: req.companyId, error: err },
+        logger.error(
+          { err, userId, projectId, companyId: req.companyId },
+          "compliance: worker compliance validation failed during member assignment",
         );
       });
 

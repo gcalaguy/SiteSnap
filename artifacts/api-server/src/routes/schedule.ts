@@ -10,6 +10,7 @@ import { checkWorkerEligibility } from "../services/cor/credentialGatekeeper";
 import { hasCorModuleFeature } from "../repositories/cor";
 import { notify } from "../lib/notify";
 import { asyncHandler } from "../lib/asyncHandler";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -300,17 +301,17 @@ router.post("/schedule", requireAuth, requireCompany, requireOwnerOrForeman, asy
             referenceId: projectId,
             projectId,
           }).catch((notifyErr) => {
-            console.error(
-              "[compliance:notify] Failed to send COR compliance alert after schedule assignment",
-              { userId, projectId, companyId: req.companyId, error: notifyErr },
+            logger.error(
+              { err: notifyErr, userId, projectId, companyId: req.companyId },
+              "compliance: failed to send COR compliance alert after schedule assignment",
             );
           });
         }
       })
       .catch((err) => {
-        console.error(
-          "[compliance:check] Worker compliance validation failed during schedule assignment (fire-and-forget)",
-          { userId, projectId, companyId: req.companyId, error: err },
+        logger.error(
+          { err, userId, projectId, companyId: req.companyId },
+          "compliance: worker compliance validation failed during schedule assignment",
         );
       });
   }

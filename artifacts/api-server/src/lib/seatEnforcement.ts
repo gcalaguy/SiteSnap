@@ -1,6 +1,7 @@
 import { sql, eq, count } from 'drizzle-orm';
 import { db, companiesTable, userMembershipsTable } from '@workspace/db';
 import type { Request, Response, NextFunction } from 'express';
+import { logger } from './logger';
 
 export interface SeatInfo {
   currentSeats: number;
@@ -119,8 +120,7 @@ export const requireSeatAvailable = async (
   } catch (err) {
     // P1 fix: fail closed on seat-check errors rather than silently allowing
     // unlimited invites. Log the error so ops can diagnose Stripe sync issues.
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.error('[seatEnforcement] seat check error — blocking request:', errMsg);
+    logger.error({ err }, "seatEnforcement: seat check error — blocking request");
     res.status(503).json({
       error: 'Unable to verify seat availability. Please try again in a moment.',
       code: 'SEAT_CHECK_UNAVAILABLE',

@@ -46,7 +46,7 @@ const AiAnalysisResponseSchema = z.object({
   directives: z.array(AiDirectiveSuggestionSchema).max(5),
 });
 
-const AI_MODEL = "gpt-5-mini";
+const AI_MODEL = "gpt-4o-mini";
 
 // ── Service ───────────────────────────────────────────────────────────────────
 

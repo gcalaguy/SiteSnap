@@ -14,6 +14,7 @@
  */
 
 import { pool } from "@workspace/db";
+import { logger } from "./logger";
 
 function parseEnvInt(name: string, defaultValue: number): number {
   const raw = process.env[name];
@@ -101,7 +102,7 @@ async function dbIncrementAndGet(key: string): Promise<number> {
     setCachedDaily(key, count);
     return count;
   } catch (err) {
-    console.error("[aiRateLimiter] DB upsert failed, blocking request:", err);
+    logger.error({ err }, "aiRateLimiter: DB upsert failed, blocking request");
     return DAILY_LIMIT + 1; // Fail closed on DB error
   }
 }
@@ -164,7 +165,7 @@ export function recordAiCall(key: string): void {
   // Daily — async DB upsert (invalidate cache first so next check reads fresh)
   invalidateCachedDaily(key);
   dbIncrementAndGet(key).catch((err) => {
-    console.error("[aiRateLimiter] recordAiCall DB error:", err);
+    logger.error({ err }, "aiRateLimiter: recordAiCall DB error");
   });
 }
 

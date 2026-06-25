@@ -21,7 +21,7 @@ async function connect(): Promise<void> {
     (raw as unknown as { on: (ev: string, fn: (e: unknown) => void) => void }).on("error", (err: unknown) => {
       logger.error({ err }, "pgListener: client error — reconnecting in 5s");
       listenerClient = null;
-      setTimeout(() => connect(), 5_000);
+      setTimeout(() => connect(), 5_000).unref();
     });
 
     (raw as unknown as { on: (ev: string, fn: (msg: PgNotification) => void) => void }).on(
@@ -41,7 +41,15 @@ async function connect(): Promise<void> {
     logger.info(`pgListener: listening on channel "${CHANNEL}"`);
   } catch (err: unknown) {
     logger.error({ err }, "pgListener: failed to connect — retrying in 5s");
-    setTimeout(() => connect(), 5_000);
+    setTimeout(() => connect(), 5_000).unref();
+  }
+}
+
+/** Release the listener connection and stop reconnecting. Call during graceful shutdown. */
+export function stopPgListener(): void {
+  if (listenerClient) {
+    try { listenerClient.release(); } catch { /* ignore */ }
+    listenerClient = null;
   }
 }
 

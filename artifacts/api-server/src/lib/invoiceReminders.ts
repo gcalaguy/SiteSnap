@@ -173,7 +173,8 @@ export async function sendOverdueReminders(): Promise<{
         skipped++;
       }
     } catch (err) {
-      logger.error({ err, invoiceId: invoice.id }, "Failed to send overdue reminder");
+      const errCode = (err as any)?.statusCode ?? (err as any)?.code ?? "UNKNOWN";
+      logger.error({ errCode, invoiceId: invoice.id }, "Failed to send overdue reminder");
       errors++;
     }
   }

@@ -1,6 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
 import { openai, speechToText, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
+
+/** Returns an AbortSignal that fires after `ms` milliseconds. */
+function aiSignal(ms: number): AbortSignal {
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(new Error(`OpenAI request timed out after ${ms}ms`)), ms).unref();
+  return ctrl.signal;
+}
 import { db, companiesTable, estimatorCostModelsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
@@ -71,7 +78,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
       model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
-    });
+    }, { signal: aiSignal(45_000) });
 
     const content = response.choices[0]?.message?.content ?? "{}";
     let parsed_result: Record<string, unknown>;
@@ -128,7 +135,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
       model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
-    });
+    }, { signal: aiSignal(45_000) });
 
     const content = response.choices[0]?.message?.content ?? "{}";
     let parsed_result: Record<string, unknown>;
@@ -178,7 +185,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
       model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
-    });
+    }, { signal: aiSignal(45_000) });
 
     const content = response.choices[0]?.message?.content ?? "{}";
     let parsed_result: Record<string, unknown>;
@@ -266,7 +273,7 @@ Today's date: ${new Date().toLocaleDateString("en-CA")}`;
         { role: "system", content: systemPrompt },
         ...messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
       ],
-    });
+    }, { signal: aiSignal(30_000) });
 
     const reply = response.choices[0]?.message?.content ?? "Sorry, I couldn't generate a response. Please try again.";
     res.json({ reply });
@@ -347,7 +354,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
       model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
-    });
+    }, { signal: aiSignal(45_000) });
 
     const content = response.choices[0]?.message?.content ?? "{}";
     let result: Record<string, unknown>;
@@ -444,7 +451,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
       model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
-    });
+    }, { signal: aiSignal(45_000) });
 
     const content = response.choices[0]?.message?.content ?? "{}";
     let result: Record<string, unknown>;
@@ -591,7 +598,7 @@ router.post("/help/chat", requireAuth, requireAiQuota, asyncHandler(async (req, 
       model: "gpt-4o-mini",
       max_completion_tokens: 600,
       messages,
-    });
+    }, { signal: aiSignal(15_000) });
 
     const reply =
       response.choices[0]?.message?.content ??
@@ -778,7 +785,7 @@ Keep total output under 200 words. Only include sections that have relevant data
         { role: "system", content: systemPrompt },
         { role: "user", content: `DATA:\n${dailyData}` },
       ],
-    });
+    }, { signal: aiSignal(15_000) });
 
     const briefing = response.choices[0]?.message?.content ?? "No briefing available.";
     res.json({ briefing, generatedAt: new Date().toISOString() });
@@ -842,10 +849,10 @@ Transcript: "${transcript}"`;
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         max_completion_tokens: 256,
         messages: [{ role: "user", content: prompt }],
-      });
+      }, { signal: aiSignal(15_000) });
 
       const content = response.choices[0]?.message?.content?.trim() ?? "";
       try {
