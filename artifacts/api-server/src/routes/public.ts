@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, quotesTable, invoicesTable, companiesTable, usersTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, isNull, or, sql } from "drizzle-orm";
+import { getValidAuditorToken, recordAuditorAccess, getAuditorPortalData } from "../repositories/cor";
 import { randomUUID } from "node:crypto";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -726,6 +727,41 @@ router.post(
       company ?? null,
     ).catch((err) => {
       logger.error({ err, invoiceId: updated.id }, "Unexpected error in sendInvoiceSignedEmails");
+    });
+  }),
+);
+
+// ── Public Auditor Portal: GET ────────────────────────────────────────────────
+const auditorRateLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again shortly." },
+});
+
+router.get(
+  "/public/auditor/:token",
+  auditorRateLimiter,
+  asyncHandler(async (req, res) => {
+    const tokenValue = req.params.token as string;
+    const tokenRow = await getValidAuditorToken(tokenValue);
+    if (!tokenRow) {
+      res.status(404).json({ error: "This auditor link is invalid, expired, or has been revoked." });
+      return;
+    }
+    // Async access record — don't await, it's non-blocking bookkeeping
+    recordAuditorAccess(tokenRow.id).catch(() => undefined);
+    const data = await getAuditorPortalData(tokenRow.companyId);
+    res.setHeader("Cache-Control", "no-store, private");
+    res.json({
+      token: {
+        label: tokenRow.label,
+        expiresAt: tokenRow.expiresAt,
+        accessCount: tokenRow.accessCount + 1,
+        createdAt: tokenRow.createdAt,
+      },
+      ...data,
     });
   }),
 );
