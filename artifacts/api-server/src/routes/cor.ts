@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { db, projectsTable, userMembershipsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwner, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { canAccessProject } from "../lib/projectAccess";
 import { ForbiddenError, NotFoundError, BadRequestError } from "../lib/errors";
@@ -201,7 +201,7 @@ router.post(
   "/cor/credentials/run-expiry-alerts",
   requireAuth,
   requireCompany,
-  requireOwnerOrForeman,
+  requireOwner,
   asyncHandler(async (_req, res) => {
     const result = await sendCredentialExpiryAlerts();
     res.json({ success: true, ...result });
