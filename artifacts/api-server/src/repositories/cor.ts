@@ -1865,7 +1865,7 @@ export async function getAuditorPortalData(companyId: number): Promise<AuditorPo
       .groupBy(policySignoffsTable.policyDocumentId),
 
     db
-      .select({ id: corVoiceActionLogsTable.id, ihsaElement: corVoiceActionLogsTable.ihsaElement, riskLevel: corVoiceActionLogsTable.riskLevel, rawTranscript: corVoiceActionLogsTable.rawTranscript, createdAt: corVoiceActionLogsTable.createdAt })
+      .select({ id: corVoiceActionLogsTable.id, ihsaElement: corVoiceActionLogsTable.ihsaElement, riskLevel: corVoiceActionLogsTable.riskLevel, aiClassification: corVoiceActionLogsTable.aiClassification, createdAt: corVoiceActionLogsTable.createdAt })
       .from(corVoiceActionLogsTable)
       .where(and(eq(corVoiceActionLogsTable.companyId, companyId), gte(corVoiceActionLogsTable.createdAt, since)))
       .orderBy(desc(corVoiceActionLogsTable.createdAt))
@@ -1943,7 +1943,7 @@ export async function getAuditorPortalData(companyId: number): Promise<AuditorPo
       voiceLogs: voices.map((v) => ({
         id: v.id,
         riskLevel: v.riskLevel,
-        synopsis: v.rawTranscript,
+        synopsis: (v.aiClassification as any)?.synopsis ?? null,
         createdAt: v.createdAt,
       })),
     };
