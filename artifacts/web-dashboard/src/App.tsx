@@ -70,6 +70,7 @@ import InventoryPage from "@/pages/inventory";
 import RfiSubmittalPage from "@/pages/rfi-submittal";
 import PublicQuotePage from "@/pages/public-quote";
 import PublicInvoicePage from "@/pages/public-invoice";
+import AuditorPortalPage from "@/pages/auditor-portal";
 import { AuthGuard } from "@/components/auth-guard";
 import { AppLayout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -374,6 +375,7 @@ function ClerkProviderWithRoutes() {
           <Route path="/portal/:token" component={ClientPortal} />
           <Route path="/q/:token" component={PublicQuotePage} />
           <Route path="/i/:token" component={PublicInvoicePage} />
+          <Route path="/auditor/:token" component={AuditorPortalPage} />
           <Route path="/projects/:id/print">
             <AuthGuard>
               <ProjectPrintPage />

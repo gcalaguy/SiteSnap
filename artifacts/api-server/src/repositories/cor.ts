@@ -1722,14 +1722,16 @@ export async function getValidAuditorToken(
   return row ?? null;
 }
 
-export async function recordAuditorAccess(tokenId: number): Promise<void> {
-  await db
+export async function recordAuditorAccess(tokenId: number): Promise<number> {
+  const [row] = await db
     .update(externalAuditorTokensTable)
     .set({
       accessCount: sql`${externalAuditorTokensTable.accessCount} + 1`,
       lastAccessedAt: sql`NOW()`,
     })
-    .where(eq(externalAuditorTokensTable.id, tokenId));
+    .where(eq(externalAuditorTokensTable.id, tokenId))
+    .returning({ accessCount: externalAuditorTokensTable.accessCount });
+  return row?.accessCount ?? 0;
 }
 
 // ── Auditor Portal Data ───────────────────────────────────────────────────────
@@ -1808,159 +1810,169 @@ export async function getAuditorPortalData(companyId: number): Promise<AuditorPo
   const lookbackMs = 365 * 24 * 60 * 60 * 1000;
   const since = new Date(Date.now() - lookbackMs);
 
-  const [
-    companyRows,
-    allEntries,
-    allCapas,
-    allPolicies,
-    allSignoffs,
-    allVoiceLogs,
-    allInspections,
-    credRow,
-    subRow,
-    workerCountRow,
-  ] = await Promise.all([
-    db.select({ name: companiesTable.name }).from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1),
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SET TRANSACTION READ ONLY`);
 
-    db
-      .select({
-        id: corAuditTrailTable.id,
-        ihsaElement: corAuditTrailTable.ihsaElement,
-        sourceType: corAuditTrailTable.sourceType,
-        findingType: corAuditTrailTable.findingType,
-        findingDescription: corAuditTrailTable.findingDescription,
-        complianceScore: corAuditTrailTable.complianceScore,
-        createdAt: corAuditTrailTable.createdAt,
-      })
-      .from(corAuditTrailTable)
-      .where(and(eq(corAuditTrailTable.companyId, companyId), gte(corAuditTrailTable.createdAt, since)))
-      .orderBy(desc(corAuditTrailTable.createdAt))
-      .limit(2000),
+    const [
+      companyRows,
+      allEntries,
+      allCapas,
+      allPolicies,
+      allSignoffs,
+      allVoiceLogs,
+      allInspections,
+      credRow,
+      subRow,
+      workerCountRow,
+    ] = await Promise.all([
+      tx.select({ name: companiesTable.name }).from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1),
 
-    db
-      .select({
-        id: capaTicketsTable.id,
-        ihsaElement: capaTicketsTable.ihsaElement,
-        title: capaTicketsTable.title,
-        status: capaTicketsTable.status,
-        priority: capaTicketsTable.priority,
-        dueDate: capaTicketsTable.dueDate,
-        closedAt: capaTicketsTable.closedAt,
-      })
-      .from(capaTicketsTable)
-      .where(eq(capaTicketsTable.companyId, companyId))
-      .orderBy(desc(capaTicketsTable.createdAt))
-      .limit(500),
+      tx
+        .select({
+          id: corAuditTrailTable.id,
+          ihsaElement: corAuditTrailTable.ihsaElement,
+          sourceType: corAuditTrailTable.sourceType,
+          findingType: corAuditTrailTable.findingType,
+          findingDescription: corAuditTrailTable.findingDescription,
+          complianceScore: corAuditTrailTable.complianceScore,
+          createdAt: corAuditTrailTable.createdAt,
+        })
+        .from(corAuditTrailTable)
+        .where(and(eq(corAuditTrailTable.companyId, companyId), gte(corAuditTrailTable.createdAt, since)))
+        .orderBy(desc(corAuditTrailTable.createdAt))
+        .limit(2000),
 
-    db
-      .select({ id: policyDocumentsTable.id, title: policyDocumentsTable.title, documentType: policyDocumentsTable.documentType, ihsaElement: policyDocumentsTable.ihsaElement })
-      .from(policyDocumentsTable)
-      .where(eq(policyDocumentsTable.companyId, companyId)),
+      tx
+        .select({
+          id: capaTicketsTable.id,
+          ihsaElement: capaTicketsTable.ihsaElement,
+          title: capaTicketsTable.title,
+          status: capaTicketsTable.status,
+          priority: capaTicketsTable.priority,
+          dueDate: capaTicketsTable.dueDate,
+          closedAt: capaTicketsTable.closedAt,
+        })
+        .from(capaTicketsTable)
+        .where(eq(capaTicketsTable.companyId, companyId))
+        .orderBy(desc(capaTicketsTable.createdAt))
+        .limit(500),
 
-    db
-      .select({ documentId: policySignoffsTable.policyDocumentId, count: sql<number>`COUNT(*)::int` })
-      .from(policySignoffsTable)
-      .innerJoin(policyDocumentsTable, eq(policyDocumentsTable.id, policySignoffsTable.policyDocumentId))
-      .where(eq(policyDocumentsTable.companyId, companyId))
-      .groupBy(policySignoffsTable.policyDocumentId),
+      tx
+        .select({ id: policyDocumentsTable.id, title: policyDocumentsTable.title, documentType: policyDocumentsTable.documentType, ihsaElement: policyDocumentsTable.ihsaElement })
+        .from(policyDocumentsTable)
+        .where(eq(policyDocumentsTable.companyId, companyId)),
 
-    db
-      .select({ id: corVoiceActionLogsTable.id, ihsaElement: corVoiceActionLogsTable.ihsaElement, riskLevel: corVoiceActionLogsTable.riskLevel, aiClassification: corVoiceActionLogsTable.aiClassification, createdAt: corVoiceActionLogsTable.createdAt })
-      .from(corVoiceActionLogsTable)
-      .where(and(eq(corVoiceActionLogsTable.companyId, companyId), gte(corVoiceActionLogsTable.createdAt, since)))
-      .orderBy(desc(corVoiceActionLogsTable.createdAt))
-      .limit(500),
+      tx
+        .select({ documentId: policySignoffsTable.policyDocumentId, count: sql<number>`COUNT(*)::int` })
+        .from(policySignoffsTable)
+        .innerJoin(policyDocumentsTable, eq(policyDocumentsTable.id, policySignoffsTable.policyDocumentId))
+        .where(eq(policyDocumentsTable.companyId, companyId))
+        .groupBy(policySignoffsTable.policyDocumentId),
 
-    db
-      .select({ id: inspectionsTable.id, inspectionType: inspectionsTable.inspectionType, date: inspectionsTable.date, score: inspectionsTable.score, status: inspectionsTable.status })
-      .from(inspectionsTable)
-      .where(and(eq(inspectionsTable.companyId, companyId), gte(inspectionsTable.createdAt, since)))
-      .orderBy(desc(inspectionsTable.createdAt))
-      .limit(200),
+      tx
+        .select({ id: corVoiceActionLogsTable.id, ihsaElement: corVoiceActionLogsTable.ihsaElement, riskLevel: corVoiceActionLogsTable.riskLevel, aiClassification: corVoiceActionLogsTable.aiClassification, createdAt: corVoiceActionLogsTable.createdAt })
+        .from(corVoiceActionLogsTable)
+        .where(and(eq(corVoiceActionLogsTable.companyId, companyId), gte(corVoiceActionLogsTable.createdAt, since)))
+        .orderBy(desc(corVoiceActionLogsTable.createdAt))
+        .limit(500),
 
-    db
-      .select({ count: sql<number>`COUNT(*)::int` })
-      .from(workerCredentialsTable)
-      .innerJoin(userMembershipsTable, and(eq(userMembershipsTable.userId, workerCredentialsTable.userId), eq(userMembershipsTable.companyId, companyId)))
-      .where(and(eq(workerCredentialsTable.companyId, companyId), or(eq(workerCredentialsTable.status, "expired"), and(eq(workerCredentialsTable.status, "active"), lte(workerCredentialsTable.expirationDate, sql`(CURRENT_DATE + INTERVAL '60 days')::date`))))),
+      tx
+        .select({ id: inspectionsTable.id, inspectionType: inspectionsTable.inspectionType, date: inspectionsTable.date, score: inspectionsTable.score, status: inspectionsTable.status })
+        .from(inspectionsTable)
+        .where(and(eq(inspectionsTable.companyId, companyId), gte(inspectionsTable.createdAt, since)))
+        .orderBy(desc(inspectionsTable.createdAt))
+        .limit(200),
 
-    db
-      .select({ count: sql<number>`COUNT(*)::int` })
-      .from(subcontractorsTable)
-      .where(and(eq(subcontractorsTable.companyId, companyId), inArray(subcontractorsTable.overallStatus, ["expired", "non_compliant"]))),
+      tx
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(workerCredentialsTable)
+        .innerJoin(userMembershipsTable, and(eq(userMembershipsTable.userId, workerCredentialsTable.userId), eq(userMembershipsTable.companyId, companyId)))
+        .where(and(eq(workerCredentialsTable.companyId, companyId), or(eq(workerCredentialsTable.status, "expired"), and(eq(workerCredentialsTable.status, "active"), lte(workerCredentialsTable.expirationDate, sql`(CURRENT_DATE + INTERVAL '60 days')::date`))))),
 
-    db
-      .select({ count: sql<number>`COUNT(*)::int` })
-      .from(userMembershipsTable)
-      .where(eq(userMembershipsTable.companyId, companyId)),
-  ]);
+      tx
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(subcontractorsTable)
+        .where(and(eq(subcontractorsTable.companyId, companyId), inArray(subcontractorsTable.overallStatus, ["expired", "non_compliant"]))),
 
-  const totalWorkers = Math.max(workerCountRow[0]?.count ?? 1, 1);
-  const signoffMap = new Map(allSignoffs.map((s) => [s.documentId, s.count]));
+      tx
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(userMembershipsTable)
+        .where(
+          and(
+            eq(userMembershipsTable.companyId, companyId),
+            eq(userMembershipsTable.role, "worker"),
+            eq(userMembershipsTable.isActive, true),
+          )
+        ),
+    ]);
 
-  const elements: AuditorElementData[] = IHSA_ELEMENTS.map((key) => {
-    const entries = allEntries.filter((e) => e.ihsaElement === key);
-    const capas = allCapas.filter((c) => c.ihsaElement === key);
-    const policies = allPolicies.filter((p) => p.ihsaElement === key);
-    const voices = allVoiceLogs.filter((v) => v.ihsaElement === key);
+    const totalWorkers = Math.max(workerCountRow[0]?.count ?? 1, 1);
+    const signoffMap = new Map(allSignoffs.map((s) => [s.documentId, s.count]));
 
-    const passCount = entries.filter((e) => e.findingType === "pass").length;
-    const failCount = entries.filter((e) => e.findingType !== "pass").length;
-    const scores = entries.map((e) => e.complianceScore ?? 0).filter((s) => s > 0);
-    const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-    const lastSubmittedAt = entries[0]?.createdAt ?? null;
+    const elements: AuditorElementData[] = IHSA_ELEMENTS.map((key) => {
+      const entries = allEntries.filter((e) => e.ihsaElement === key);
+      const capas = allCapas.filter((c) => c.ihsaElement === key);
+      const policies = allPolicies.filter((p) => p.ihsaElement === key);
+      const voices = allVoiceLogs.filter((v) => v.ihsaElement === key);
+
+      const passCount = entries.filter((e) => e.findingType === "pass").length;
+      const failCount = entries.filter((e) => e.findingType !== "pass").length;
+      const scores = entries.map((e) => e.complianceScore).filter((s): s is number => s !== null);
+      const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+      const lastSubmittedAt = entries[0]?.createdAt ?? null;
+
+      return {
+        key,
+        entryCount: entries.length,
+        passCount,
+        failCount,
+        averageScore,
+        lastSubmittedAt,
+        auditEntries: entries.slice(0, 50).map((e) => ({
+          id: e.id,
+          sourceType: e.sourceType,
+          findingType: e.findingType,
+          findingDescription: e.findingDescription,
+          complianceScore: e.complianceScore,
+          createdAt: e.createdAt,
+        })),
+        capaTickets: capas.map((c) => ({
+          id: c.id,
+          title: c.title,
+          status: c.status,
+          priority: c.priority,
+          dueDate: c.dueDate,
+          closedAt: c.closedAt,
+        })),
+        policyDocuments: policies.map((p) => ({
+          id: p.id,
+          title: p.title,
+          documentType: p.documentType,
+          signedCount: signoffMap.get(p.id) ?? 0,
+          totalWorkers,
+        })),
+        voiceLogs: voices.map((v) => ({
+          id: v.id,
+          riskLevel: v.riskLevel,
+          synopsis: (v.aiClassification as any)?.synopsis ?? null,
+          createdAt: v.createdAt,
+        })),
+      };
+    });
 
     return {
-      key,
-      entryCount: entries.length,
-      passCount,
-      failCount,
-      averageScore,
-      lastSubmittedAt,
-      auditEntries: entries.slice(0, 50).map((e) => ({
-        id: e.id,
-        sourceType: e.sourceType,
-        findingType: e.findingType,
-        findingDescription: e.findingDescription,
-        complianceScore: e.complianceScore,
-        createdAt: e.createdAt,
+      companyName: companyRows[0]?.name ?? "Unknown Company",
+      elements,
+      recentInspections: allInspections.map((i) => ({
+        id: i.id,
+        inspectionType: i.inspectionType,
+        date: i.date,
+        score: i.score,
+        status: i.status,
       })),
-      capaTickets: capas.map((c) => ({
-        id: c.id,
-        title: c.title,
-        status: c.status,
-        priority: c.priority,
-        dueDate: c.dueDate,
-        closedAt: c.closedAt,
-      })),
-      policyDocuments: policies.map((p) => ({
-        id: p.id,
-        title: p.title,
-        documentType: p.documentType,
-        signedCount: signoffMap.get(p.id) ?? 0,
-        totalWorkers,
-      })),
-      voiceLogs: voices.map((v) => ({
-        id: v.id,
-        riskLevel: v.riskLevel,
-        synopsis: (v.aiClassification as any)?.synopsis ?? null,
-        createdAt: v.createdAt,
-      })),
+      expiringCredentialCount: credRow[0]?.count ?? 0,
+      flaggedSubcontractorCount: subRow[0]?.count ?? 0,
+      totalWorkerCount: totalWorkers,
     };
   });
-
-  return {
-    companyName: companyRows[0]?.name ?? "Unknown Company",
-    elements,
-    recentInspections: allInspections.map((i) => ({
-      id: i.id,
-      inspectionType: i.inspectionType,
-      date: i.date,
-      score: i.score,
-      status: i.status,
-    })),
-    expiringCredentialCount: credRow[0]?.count ?? 0,
-    flaggedSubcontractorCount: subRow[0]?.count ?? 0,
-    totalWorkerCount: totalWorkers,
-  };
 }

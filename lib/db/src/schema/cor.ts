@@ -144,6 +144,7 @@ export const corAuditTrailTable = pgTable(
     index("idx_cor_audit_trail_submitted_by").on(t.companyId, t.submittedByUserId),
     index("idx_cor_audit_trail_ihsa_element").on(t.ihsaElement),
     index("idx_cor_audit_trail_created_at").on(t.createdAt),
+    index("idx_cor_audit_trail_company_created").on(t.companyId, t.createdAt),
   ],
 );
 
@@ -175,6 +176,7 @@ export const corVoiceActionLogsTable = pgTable(
     index("idx_cor_voice_logs_company_project").on(t.companyId, t.projectId),
     index("idx_cor_voice_logs_user").on(t.companyId, t.submittedByUserId),
     index("idx_cor_voice_logs_risk_level").on(t.riskLevel),
+    index("idx_cor_voice_logs_company_created").on(t.companyId, t.createdAt),
   ],
 );
 
@@ -509,3 +511,27 @@ export const credentialAlertLogsTable = pgTable(
   ],
 );
 export type CredentialAlertLog = typeof credentialAlertLogsTable.$inferSelect;
+
+// ── External Auditor Tokens ───────────────────────────────────────────────────
+
+export const externalAuditorTokensTable = pgTable(
+  "external_auditor_tokens",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    label: text("label").notNull(),
+    createdByUserId: integer("created_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    accessCount: integer("access_count").notNull().default(0),
+    lastAccessedAt: timestamp("last_accessed_at", { withTimezone: true }),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_ext_auditor_tokens_company").on(t.companyId),
+    uniqueIndex("idx_ext_auditor_tokens_token").on(t.token),
+  ],
+);
+
+export type ExternalAuditorToken = typeof externalAuditorTokensTable.$inferSelect;

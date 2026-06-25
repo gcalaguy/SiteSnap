@@ -288,6 +288,34 @@
       "when": 1751068800000,
       "tag": "0040_capa_source_item_ref",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1751155200000,
+      "tag": "0041_cor_ihsa_19_elements",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1751241600000,
+      "tag": "0042_external_auditor_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1751328000000,
+      "tag": "0043_notification_gap_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1751414400000,
+      "tag": "0044_auditor_portal_indexes",
+      "breakpoints": true
     }
   ]
 }

@@ -750,15 +750,16 @@ router.get(
       res.status(404).json({ error: "This auditor link is invalid, expired, or has been revoked." });
       return;
     }
-    // Async access record — don't await, it's non-blocking bookkeeping
-    recordAuditorAccess(tokenRow.id).catch(() => undefined);
-    const data = await getAuditorPortalData(tokenRow.companyId);
+    const [newCount, data] = await Promise.all([
+      recordAuditorAccess(tokenRow.id),
+      getAuditorPortalData(tokenRow.companyId),
+    ]);
     res.setHeader("Cache-Control", "no-store, private");
     res.json({
       token: {
         label: tokenRow.label,
         expiresAt: tokenRow.expiresAt,
-        accessCount: tokenRow.accessCount + 1,
+        accessCount: newCount,
         createdAt: tokenRow.createdAt,
       },
       ...data,

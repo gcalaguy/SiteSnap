@@ -628,6 +628,7 @@ export const notificationsTable = pgTable("notifications", {
 }, (t) => [
   index("idx_notifications_user_id").on(t.userId),
   index("idx_notifications_is_read").on(t.isRead),
+  index("idx_notifications_type_user_ref_created").on(t.type, t.userId, t.referenceId, t.createdAt),
 ]);
 
 export type Notification = typeof notificationsTable.$inferSelect;
@@ -1586,6 +1587,8 @@ export const inspectionsTable = pgTable("inspections", {
   index("idx_inspections_company_id").on(t.companyId),
   index("idx_inspections_project_id").on(t.projectId),
   index("idx_inspections_company_project").on(t.companyId, t.projectId),
+  index("idx_inspections_company_created").on(t.companyId, t.createdAt),
+  index("idx_inspections_project_status_created").on(t.projectId, t.status, t.createdAt),
 ]);
 export type Inspection = typeof inspectionsTable.$inferSelect;
 

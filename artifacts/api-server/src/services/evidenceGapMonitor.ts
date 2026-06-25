@@ -208,13 +208,13 @@ export async function checkEvidenceGaps(): Promise<EvidenceGapResult> {
       .select({
         userId: notificationsTable.userId,
         referenceId: notificationsTable.referenceId,
-        body: notificationsTable.body,
+        type: notificationsTable.type,
         createdAt: notificationsTable.createdAt,
       })
       .from(notificationsTable)
       .where(
         and(
-          sql`${notificationsTable.type} = 'compliance_gap'`,
+          sql`${notificationsTable.type} LIKE 'compliance_gap:%'`,
           inArray(notificationsTable.userId, allForemanIds),
           inArray(notificationsTable.referenceId, allGapProjectIds),
           sql`${notificationsTable.createdAt} >= ${cooldownCutoff.toISOString()}`,
@@ -222,10 +222,7 @@ export async function checkEvidenceGaps(): Promise<EvidenceGapResult> {
       );
 
     for (const n of recentNotifs) {
-      // Body is prefixed with "[element_X]" — extract the key to build the dedup set.
-      const match = n.body.match(/\[(element_\d+)\]/);
-      if (!match) continue;
-      const elementKey = match[1];
+      const elementKey = n.type.split(":")[1];
       const el = CORE_ELEMENTS.find((e) => e.key === elementKey);
       if (!el) continue;
       const sentHoursAgo = (now.getTime() - n.createdAt.getTime()) / (1000 * 60 * 60);
@@ -266,9 +263,9 @@ export async function checkEvidenceGaps(): Promise<EvidenceGapResult> {
 
       toInsert.push({
         userId: foremanId,
-        type: "compliance_gap",
+        type: `compliance_gap:${gap.element.key}`,
         title: `Log Required: ${gap.element.label}`,
-        body: `[${gap.element.key}] Project "${gap.projectName}" needs a ${gap.element.label} log. ${ageDescription} Please submit a quick entry to stay COR-compliant.`,
+        body: `Project "${gap.projectName}" needs a ${gap.element.label} log. ${ageDescription} Please submit a quick entry to stay COR-compliant.`,
         referenceId: gap.projectId,
         projectId: gap.projectId,
       });

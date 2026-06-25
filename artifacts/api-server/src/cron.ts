@@ -20,6 +20,7 @@ import { buildDigestHtml } from "./lib/digestTemplate.js";
 import { sendEmail } from "./lib/mailer.js";
 import { buildCredentialExpiryHtml } from "./lib/corAlerts.js";
 import { sendOverdueReminders } from "./lib/invoiceReminders.js";
+import { checkEvidenceGaps } from "./services/evidenceGapMonitor.js";
 import { logger } from "./lib/logger.js";
 import { eq, and, sql, lt, inArray } from "drizzle-orm";
 import { ObjectStorageService } from "./lib/objectStorage.js";
@@ -32,7 +33,7 @@ import {
 
 // Distributed cron lock keys — unique per job, stored in PostgreSQL advisory locks.
 // These integers are arbitrary but must never collide with other advisory lock users.
-const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004, CREDENTIAL_ALERTS: 7005 } as const;
+const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004, CREDENTIAL_ALERTS: 7005, EVIDENCE_GAP_MONITOR: 7006 } as const;
 
 /**
  * Attempt to acquire a PostgreSQL session-level advisory lock.
@@ -547,4 +548,36 @@ export function startDailyCron(): void {
     { timezone: "America/Toronto" },
   );
   logger.info("Orphan cleanup cron scheduled: 2:00 AM ET Sundays");
+
+  // Every 4 hours — COR evidence gap monitor
+  // Checks active projects for stale IHSA element evidence and notifies foremen.
+  // 4-hour cadence ensures a 24-hour housekeeping gap is caught within the same workday.
+  let evidenceGapRunning = false;
+  cron.schedule(
+    "0 */4 * * *",
+    async () => {
+      if (evidenceGapRunning) {
+        logger.warn("Evidence gap monitor cron skipped — previous run still in progress");
+        return;
+      }
+      const locked = await tryAdvisoryLock(LOCK.EVIDENCE_GAP_MONITOR);
+      if (!locked) {
+        logger.warn("Evidence gap monitor cron skipped — advisory lock held by another instance");
+        return;
+      }
+      evidenceGapRunning = true;
+      try {
+        logger.info("Evidence gap monitor cron triggered");
+        const result = await checkEvidenceGaps();
+        logger.info(result, "Evidence gap monitor cron complete");
+      } catch (err) {
+        logger.error({ err }, "Unhandled error in evidence gap monitor cron");
+      } finally {
+        evidenceGapRunning = false;
+        await releaseAdvisoryLock(LOCK.EVIDENCE_GAP_MONITOR);
+      }
+    },
+    { timezone: "America/Toronto" },
+  );
+  logger.info("Evidence gap monitor cron scheduled: every 4 hours");
 }
