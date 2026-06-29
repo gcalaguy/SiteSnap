@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwner } from "../lib/auth.js";
+import { requireAuth, requireCompany, requireOwner, requireSuperAdmin } from "../lib/auth.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
+import { BadRequestError } from "../lib/errors.js";
 import { buildDigest } from "../lib/digest.js";
 import { buildDigestHtml } from "../lib/digestTemplate.js";
 import { sendEmail, ResendSandboxError } from "../lib/mailer.js";
@@ -16,7 +17,7 @@ const EmailConfigBody = z.object({
   resendApiKey: z.string().max(200).nullable().optional(),
 });
 
-router.post("/digest/send-all", requireAuth, asyncHandler(async (req, res) => {
+router.post("/digest/send-all", requireAuth, requireSuperAdmin, asyncHandler(async (req, res) => {
   const result = await sendDigestForAllCompanies();
   res.json(result);
 }))
@@ -105,7 +106,7 @@ router.get("/settings/email-config", requireAuth, requireCompany, asyncHandler(a
 router.patch("/settings/email-config", requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
   const companyId = (req as any).companyId as number;
   const bodyParsed = EmailConfigBody.safeParse(req.body);
-  if (!bodyParsed.success) { res.status(400).json({ error: bodyParsed.error.flatten() }); return; }
+  if (!bodyParsed.success) throw new BadRequestError("Malformed request payload", bodyParsed.error.flatten());
   const { fromEmail, resendApiKey } = bodyParsed.data;
 
   const updates: Partial<typeof companiesTable.$inferInsert> = {};

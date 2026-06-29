@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, timesheetsTable, timeEntriesTable, usersTable, userMembershipsTable, projectsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, inArray } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwnerOrForeman, requireTenantCtx } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
@@ -12,6 +12,7 @@ import { ApproveTimesheetBody } from "@workspace/api-zod";
 import { sendPushNotification } from "../lib/push.js";
 
 const router = Router();
+router.use(requireAuth, requireCompany, requireTenantCtx);
 
 function parseIntId(param: string): number | null {
   const n = parseInt(param, 10);
@@ -66,7 +67,7 @@ async function withSubmitter(timesheet: Record<string, unknown>, userId: number,
 }
 
 // GET /timesheets — list (owner/foreman: all; worker: own)
-router.get("/timesheets", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
+router.get("/timesheets", requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
   const { status, userId, from, to } = req.query;
 
@@ -154,7 +155,7 @@ router.get("/timesheets", requireAuth, requireCompany, requirePermission("viewTi
 }))
 
 // POST /timesheets — submit a timesheet
-router.post("/timesheets", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/timesheets", asyncHandler(async (req, res) => {
   const parsed = SubmitTimesheetBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
 
@@ -245,7 +246,7 @@ router.post("/timesheets", requireAuth, requireCompany, asyncHandler(async (req,
 }))
 
 // GET /timesheets/:timesheetId
-router.get("/timesheets/:timesheetId", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
+router.get("/timesheets/:timesheetId", requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
   const id = parseIntId(req.params.timesheetId as string);
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
@@ -281,7 +282,7 @@ router.get("/timesheets/:timesheetId", requireAuth, requireCompany, requirePermi
 }))
 
 // POST /timesheets/:timesheetId/approve
-router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.post("/timesheets/:timesheetId/approve", requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = parseIntId(req.params.timesheetId as string);
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
   const parsed = ApproveTimesheetBody.safeParse(req.body);
@@ -319,7 +320,7 @@ router.post("/timesheets/:timesheetId/approve", requireAuth, requireCompany, req
 }))
 
 // GET /timesheets/payroll-export — approved hours for payroll handoff
-router.get("/timesheets/payroll-export", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.get("/timesheets/payroll-export", requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const { from, to } = req.query;
 
   const conditions = [eq(timesheetsTable.companyId, req.companyId!), eq(timesheetsTable.status, "approved")];
@@ -347,7 +348,7 @@ router.get("/timesheets/payroll-export", requireAuth, requireCompany, requireOwn
 }))
 
 // POST /timesheets/:timesheetId/deny
-router.post("/timesheets/:timesheetId/deny", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.post("/timesheets/:timesheetId/deny", requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = parseIntId(req.params.timesheetId as string);
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
   const parsed = ReviewBody.safeParse(req.body);
@@ -381,8 +382,6 @@ const EditTimesheetBody = z.object({
 
 router.patch(
   "/timesheets/:timesheetId",
-  requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const id = parseIntId(req.params.timesheetId as string);
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
@@ -425,8 +424,6 @@ router.patch(
 // DELETE /timesheets/:timesheetId — delete own timesheet (owner/foreman can delete any)
 router.delete(
   "/timesheets/:timesheetId",
-  requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const id = parseIntId(req.params.timesheetId as string);
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
@@ -456,8 +453,6 @@ const EmailTimesheetBody = z.object({
 
 router.post(
   "/timesheets/:timesheetId/email",
-  requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const id = parseIntId(req.params.timesheetId as string);
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }

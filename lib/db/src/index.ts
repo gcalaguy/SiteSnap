@@ -1,37 +1,38 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
-import * as schema from "./schema";
+import { pool } from "./dbInstance";
 
-const { Pool } = pg;
+// Guard against double-registration when the module is hot-reloaded in dev.
+if (!(globalThis.__pgPool as any)?.__monitored) {
+  // Crash-guard: unhandled pool errors (keepalive drops, SSL renegotiation)
+  // otherwise emit an uncaught 'error' event and kill the process.
+  pool.on("error", (err) => {
+    console.error("[db] pg pool error", err);
+  });
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+  // Log a warning whenever the pool is ≥ 80 % utilised so we can right-size
+  // before users start hitting connectionTimeoutMillis errors.
+  const POOL_MAX = 20;
+  const poolMonitor = setInterval(() => {
+    const used = pool.totalCount - pool.idleCount;
+    const pct = used / POOL_MAX;
+    if (pct >= 0.8) {
+      console.warn("[db] pg pool high-watermark", {
+        total: pool.totalCount,
+        idle: pool.idleCount,
+        waiting: pool.waitingCount,
+        usedPct: Math.round(pct * 100),
+      });
+    }
+  }, 60_000);
+  poolMonitor.unref();
+
+  (pool as any).__monitored = true;
 }
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __pgPool: pg.Pool | undefined;
-}
-
-const pool: pg.Pool =
-  globalThis.__pgPool ??
-  (globalThis.__pgPool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: true }
-      : { rejectUnauthorized: false },
-    max: 20,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 2_000,
-    // Kill runaway queries after 30 s — prevents a single bad query from
-    // blocking all 20 pool connections and making the API unresponsive.
-    options: "-c statement_timeout=30000",
-  }));
 
 export { pool };
-export const db = drizzle(pool, { schema });
+// Re-export tenantDb as `db` so all consumers transparently get RLS-aware queries
+// when inside a withTenantCtx() request scope; outside one it falls back to the
+// raw pool — no behaviour change for code that doesn't use tenant context.
+export { tenantDb as db } from "./tenantCtx";
 
 async function shutdown(signal: string): Promise<void> {
   console.info(`[db] Received ${signal}. Draining connection pool…`);

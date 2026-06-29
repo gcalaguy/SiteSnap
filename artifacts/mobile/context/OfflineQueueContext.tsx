@@ -161,31 +161,27 @@ async function ensurePhotoDir(): Promise<void> {
   if (!info.exists) await FileSystem.makeDirectoryAsync(LOCAL_DIR, { intermediates: true });
 }
 
-async function uploadPhoto(photo: QueuePhoto): Promise<string | null> {
-  try {
-    const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
-      "/api/storage/uploads/request-url",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: photo.fileName, size: photo.fileSize, contentType: photo.mimeType }),
-      },
-    );
+async function uploadPhoto(photo: QueuePhoto): Promise<string> {
+  const { uploadURL, objectPath } = await customFetch<{ uploadURL: string; objectPath: string }>(
+    "/api/storage/uploads/request-url",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: photo.fileName, size: photo.fileSize, contentType: photo.mimeType }),
+    },
+  );
 
-    const dest = new URL(uploadURL);
-    if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
+  const dest = new URL(uploadURL);
+  if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
 
-    const result = await FileSystem.uploadAsync(uploadURL, photo.uri, {
-      httpMethod: "PUT",
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-      headers: { "Content-Type": photo.mimeType },
-    });
-    if (result.status < 200 || result.status >= 300) throw new Error(`Upload failed: ${result.status}`);
+  const result = await FileSystem.uploadAsync(uploadURL, photo.uri, {
+    httpMethod: "PUT",
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    headers: { "Content-Type": photo.mimeType },
+  });
+  if (result.status < 200 || result.status >= 300) throw new Error(`Upload failed: ${result.status}`);
 
-    return objectPath;
-  } catch {
-    return null;
-  }
+  return objectPath;
 }
 
 // ── Execute a single queued operation ────────────────────────────────────────
@@ -199,10 +195,8 @@ async function executeOp(item: QueuedItem): Promise<void> {
       { ...op.reportData, clientIdempotencyKey: item.id } as Parameters<typeof createDailyReport>[1],
     );
     for (const photo of op.photos) {
-      const objectPath = await uploadPhoto(photo);
-      if (objectPath) {
-        await addReportPhoto(op.projectId, report.id, { objectPath }).catch(() => {});
-      }
+      const objectPath = await uploadPhoto(photo); // throws → sync loop retries this item
+      await addReportPhoto(op.projectId, report.id, { objectPath }).catch(() => {});
     }
     return;
   }
@@ -275,6 +269,9 @@ export function OfflineQueueProvider({
       let history = await loadHistory();
       const pending = current.filter((r) => r.status === "pending");
 
+      let historyChanged = false;
+      let lastSynced: string | null = null;
+
       for (const item of pending) {
         try {
           await executeOp(item);
@@ -287,23 +284,33 @@ export function OfflineQueueProvider({
           };
 
           history = [synced, ...history].slice(0, MAX_HISTORY);
-          await persistHistory(history);
-          setSyncedHistory([...history]);
-          setLastSyncedAt(synced.syncedAt);
-
           current = current.filter((r) => r.id !== item.id);
-          await persistQueue(current);
+          lastSynced = synced.syncedAt;
+          historyChanged = true;
           setQueue([...current]);
-        } catch {
+        } catch (syncErr) {
           const newRetries = item.retries + 1;
+          console.warn("[OfflineQueue] sync item failed", { id: item.id, op: item.op, retries: newRetries, err: String(syncErr) });
+          // Exponential back-off: 500 ms × 2^retries + jitter, capped at 8 s.
+          // Prevents hammering an overloaded server on consecutive failures.
+          const backoffMs = Math.min(8_000, 500 * 2 ** item.retries) + Math.random() * 500;
+          await new Promise<void>((r) => setTimeout(r, backoffMs));
           current = current.map((r) =>
             r.id === item.id
               ? { ...r, retries: newRetries, status: newRetries >= MAX_RETRIES ? ("failed" as const) : ("pending" as const) }
               : r,
           );
-          await persistQueue(current);
           setQueue([...current]);
         }
+      }
+
+      // Single write per pass — O(1) vs per-item O(N²).
+      // daily_report items carry clientIdempotencyKey so replays on crash are safe.
+      await persistQueue(current);
+      if (historyChanged) {
+        setSyncedHistory([...history]);
+        await persistHistory(history);
+        if (lastSynced) setLastSyncedAt(lastSynced);
       }
     } finally {
       setIsSyncing(false);
@@ -314,7 +321,13 @@ export function OfflineQueueProvider({
   useEffect(() => {
     if (isOnline && !prevOnline.current) {
       const hasPending = queue.some((r) => r.status === "pending");
-      if (hasPending) syncQueue();
+      if (hasPending) {
+        // Random 0–4 s jitter: staggers the three queues so they don't all
+        // hit the server simultaneously, and spreads multi-device reconnect bursts.
+        const t = setTimeout(() => syncQueue(), Math.random() * 4000);
+        prevOnline.current = isOnline;
+        return () => clearTimeout(t);
+      }
     }
     prevOnline.current = isOnline;
   }, [isOnline, queue, syncQueue]);
@@ -346,11 +359,11 @@ export function OfflineQueueProvider({
         retries: 0,
       };
 
-      setQueue((prev) => {
-        const updated = [...prev, item];
-        persistQueue(updated).catch(() => {});
-        return updated;
-      });
+      // Capture new queue synchronously from the updater, then persist outside.
+      // React Native uses legacy synchronous mode so the updater runs before the next line.
+      let updated: QueuedItem[] = [];
+      setQueue((prev) => { updated = [...prev, item]; return updated; });
+      await persistQueue(updated);
     },
     [],
   );
@@ -363,11 +376,9 @@ export function OfflineQueueProvider({
       status: "pending",
       retries: 0,
     };
-    setQueue((prev) => {
-      const updated = [...prev, item];
-      persistQueue(updated).catch(() => {});
-      return updated;
-    });
+    let updated: QueuedItem[] = [];
+    setQueue((prev) => { updated = [...prev, item]; return updated; });
+    await persistQueue(updated);
   }, []);
 
   const enqueueSafetyForm = useCallback(async (body: CreateFormSubmissionBody) => {
@@ -378,11 +389,9 @@ export function OfflineQueueProvider({
       status: "pending",
       retries: 0,
     };
-    setQueue((prev) => {
-      const updated = [...prev, item];
-      persistQueue(updated).catch(() => {});
-      return updated;
-    });
+    let updated: QueuedItem[] = [];
+    setQueue((prev) => { updated = [...prev, item]; return updated; });
+    await persistQueue(updated);
   }, []);
 
   const retryFailed = useCallback(async () => {

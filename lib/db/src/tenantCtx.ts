@@ -1,22 +1,43 @@
-import { pool, db } from "./index";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { pool, drizzleDb } from "./dbInstance";
+
+type Tx = Parameters<Parameters<typeof drizzleDb.transaction>[0]>[0];
+
+// Stores the active tenant transaction for the duration of a withTenantCtx call.
+// AsyncLocalStorage propagates context across async boundaries so all code within
+// the same async chain (including downstream route handlers) sees the same tx.
+const tenantLocal = new AsyncLocalStorage<Tx>();
+
+/**
+ * Drizzle proxy: within a withTenantCtx call this dispatches to the active
+ * transaction (which has `app.company_id` set via SET LOCAL, activating RLS);
+ * outside a tenant context it falls back to the pool-backed drizzleDb —
+ * identical behaviour to the raw db for code that doesn't need RLS.
+ *
+ * This is re-exported as `db` from the package root so all route handlers
+ * get RLS enforcement transparently without import changes.
+ */
+export const tenantDb: typeof drizzleDb = new Proxy(drizzleDb, {
+  get(target, prop) {
+    const tx = tenantLocal.getStore();
+    const src = (tx ?? target) as any;
+    const val = src[prop];
+    return typeof val === "function" ? val.bind(src) : val;
+  },
+});
 
 /**
  * Run a callback inside a transaction with `app.company_id` set for the duration.
- * All Drizzle queries executed within the callback will be subject to RLS tenant
- * policies once those are activated (Phase 4).
- *
- * Usage:
- *   const result = await withTenantCtx(req.companyId!, async (tx) => {
- *     return tx.select().from(projectsTable).where(...);
- *   });
+ * All Drizzle queries executed through `tenantDb` (i.e. `db`) within the callback
+ * will be subject to RLS tenant policies.
  */
 export async function withTenantCtx<T>(
   companyId: number,
-  fn: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>,
+  fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
-  return db.transaction(async (tx) => {
+  return drizzleDb.transaction(async (tx) => {
     await tx.execute(`SET LOCAL app.company_id = ${companyId}`);
-    return fn(tx);
+    return tenantLocal.run(tx, () => fn(tx));
   });
 }
 

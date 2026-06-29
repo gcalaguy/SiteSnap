@@ -13,7 +13,7 @@ import {
   projectNotesTable,
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwnerOrForeman, requireTenantCtx } from "../lib/auth";
 import { getAccessibleProjectIds } from "../lib/projectAccess";
 import { CreateProjectBody, UpdateProjectBody } from "@workspace/api-zod";
 import { z } from "zod";
@@ -39,12 +39,11 @@ import {
 import { notify } from "../lib/notify";
 
 const router = Router();
+router.use(requireAuth, requireCompany, requireTenantCtx);
 
 // GET /projects
 router.get(
   "/projects",
-  requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const companyId = req.companyId!;
 
@@ -114,8 +113,6 @@ router.get(
 // POST /projects
 router.post(
   "/projects",
-  requireAuth,
-  requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = CreateProjectBody.safeParse(req.body);
@@ -177,8 +174,6 @@ router.post(
 // GET /projects/:projectId
 router.get(
   "/projects/:projectId",
-  requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
@@ -217,8 +212,6 @@ router.get(
 // PUT /projects/:projectId
 router.put(
   "/projects/:projectId",
-  requireAuth,
-  requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
@@ -263,8 +256,6 @@ router.put(
 // DELETE /projects/:projectId
 router.delete(
   "/projects/:projectId",
-  requireAuth,
-  requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
@@ -283,8 +274,6 @@ router.delete(
 // GET /projects/:projectId/summary
 router.get(
   "/projects/:projectId/summary",
-  requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
@@ -332,8 +321,6 @@ router.get(
 // GET /projects/:projectId/members
 router.get(
   "/projects/:projectId/members",
-  requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("projectId must be a number");
@@ -365,8 +352,6 @@ router.get(
 // POST /projects/:projectId/members
 router.post(
   "/projects/:projectId/members",
-  requireAuth,
-  requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
@@ -451,8 +436,6 @@ router.post(
 // DELETE /projects/:projectId/members/:memberId
 router.delete(
   "/projects/:projectId/members/:memberId",
-  requireAuth,
-  requireCompany,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
@@ -476,8 +459,6 @@ router.delete(
 // GET /projects/:projectId/notes
 router.get(
   "/projects/:projectId/notes",
-  requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("Invalid project ID");
@@ -510,8 +491,6 @@ router.get(
 // POST /projects/:projectId/notes
 router.post(
   "/projects/:projectId/notes",
-  requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) throw new BadRequestError("Invalid project ID");
@@ -536,8 +515,6 @@ router.post(
 // DELETE /projects/:projectId/notes/:noteId
 router.delete(
   "/projects/:projectId/notes/:noteId",
-  requireAuth,
-  requireCompany,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     const noteId = parseInt(req.params.noteId as string);

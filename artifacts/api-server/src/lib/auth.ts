@@ -1,5 +1,5 @@
 import { getAuth } from "@clerk/express";
-import { db, usersTable, userMembershipsTable, subscriptionsTable, plansTable } from "@workspace/db";
+import { db, usersTable, userMembershipsTable, subscriptionsTable, plansTable, withTenantCtx } from "@workspace/db";
 import type { MemberPermissions } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { Request, Response, NextFunction } from "express";
@@ -15,8 +15,44 @@ declare global {
       memberships?: Array<{ companyId: number; role: "owner" | "foreman" | "worker" }>;
       userPermissions?: MemberPermissions | null;
       user?: { email?: string | null };
+      userDisplayName?: string;
     }
   }
+}
+
+// ── In-process LRU + TTL cache — cuts requireAuth from 2-4 DB queries to 0 on warm paths ────
+class AuthTTLCache<V> {
+  private readonly store = new Map<string, { value: V; expiresAt: number }>();
+  constructor(private readonly maxSize: number, private readonly ttlMs: number) {}
+
+  get(key: string): V | undefined {
+    const entry = this.store.get(key);
+    if (!entry) return undefined;
+    if (Date.now() > entry.expiresAt) { this.store.delete(key); return undefined; }
+    this.store.delete(key);
+    this.store.set(key, entry); // refresh LRU position
+    return entry.value;
+  }
+
+  set(key: string, value: V): void {
+    if (this.store.has(key)) this.store.delete(key);
+    else if (this.store.size >= this.maxSize) this.store.delete(this.store.keys().next().value as string);
+    this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs });
+  }
+
+  delete(key: string): void { this.store.delete(key); }
+}
+
+type UserRow = typeof usersTable.$inferSelect;
+type MembershipRow = typeof userMembershipsTable.$inferSelect;
+
+const authCache = new AuthTTLCache<{ user: UserRow; memberships: MembershipRow[] }>(500, 60_000);
+// Per-company flag: subscription has been verified/provisioned — skip the check on hot paths.
+const subCache = new AuthTTLCache<true>(500, 300_000);
+
+/** Invalidate cached auth data for a user — call on /users/sync or membership changes. */
+export function invalidateAuthCache(clerkUserId: string): void {
+  authCache.delete(clerkUserId);
 }
 
 // Middleware: require a valid Clerk session and resolve the DB user
@@ -32,28 +68,39 @@ export const requireAuth = async (
     return;
   }
 
-  const [user] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.clerkUserId, clerkUserId))
-    .limit(1);
+  let user: UserRow;
+  let memberships: MembershipRow[];
 
-  if (!user) {
-    req.log?.warn({ clerkUserId, ip: req.ip, userAgent: req.headers["user-agent"] }, "Auth: user not found in DB after Clerk verification");
-    // 404, not 401 — the Clerk session IS valid; the user just hasn't been synced to the
-    // DB yet (e.g. first sign-in via social OAuth, or a sync race on a fresh account).
-    // Returning 401 here causes the client's handle401 to redirect to /sign-in, which
-    // Clerk immediately bounces back to /dashboard (session still valid) → infinite loop.
-    // 404 lets AuthGuard's retry + sync logic recover without triggering that redirect.
-    res.status(404).json({ error: "User not found. Please sync your account." });
-    return;
+  const hit = authCache.get(clerkUserId);
+  if (hit) {
+    ({ user, memberships } = hit);
+  } else {
+    const [dbUser] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.clerkUserId, clerkUserId))
+      .limit(1);
+
+    if (!dbUser) {
+      req.log?.warn({ clerkUserId, ip: req.ip, userAgent: req.headers["user-agent"] }, "Auth: user not found in DB after Clerk verification");
+      // 404, not 401 — the Clerk session IS valid; the user just hasn't been synced to the
+      // DB yet (e.g. first sign-in via social OAuth, or a sync race on a fresh account).
+      // Returning 401 here causes the client's handle401 to redirect to /sign-in, which
+      // Clerk immediately bounces back to /dashboard (session still valid) → infinite loop.
+      // 404 lets AuthGuard's retry + sync logic recover without triggering that redirect.
+      res.status(404).json({ error: "User not found. Please sync your account." });
+      return;
+    }
+
+    // Load memberships from the new multi-tenancy table (including permissions)
+    memberships = await db
+      .select()
+      .from(userMembershipsTable)
+      .where(eq(userMembershipsTable.userId, dbUser.id));
+
+    user = dbUser;
+    authCache.set(clerkUserId, { user, memberships });
   }
-
-  // Load memberships from the new multi-tenancy table (including permissions)
-  const memberships = await db
-    .select()
-    .from(userMembershipsTable)
-    .where(eq(userMembershipsTable.userId, user.id));
 
   const memList = memberships.map((m) => ({
     companyId: m.companyId,
@@ -71,6 +118,7 @@ export const requireAuth = async (
 
   req.userId = user.id;
   req.systemRole = user.systemRole;
+  req.userDisplayName = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
 
   if (activeFromMembership) {
     req.companyId = activeFromMembership.companyId;
@@ -97,7 +145,8 @@ export const requireAuth = async (
 
   // Auto-provision a default Starter subscription if the resolved company
   // has none (e.g. super-admin-created tenants or edge-case onboarding flows).
-  if (req.companyId != null) {
+  // subCache short-circuits this check on every subsequent request for the same company.
+  if (req.companyId != null && !subCache.get(String(req.companyId))) {
     try {
       const [sub] = await db
         .select({ id: subscriptionsTable.id })
@@ -124,6 +173,7 @@ export const requireAuth = async (
           req.log?.warn({ companyId: req.companyId }, "No starter plan found in DB — company has no subscription");
         }
       }
+      subCache.set(String(req.companyId), true);
     } catch (err: any) {
       req.log?.warn({ err, companyId: req.companyId }, "Failed to auto-provision default subscription");
     }
@@ -269,4 +319,37 @@ export const requireOwner = (
     return;
   }
   next();
+};
+
+/**
+ * Middleware: wrap the remaining handler chain in a transaction with
+ * `app.company_id` set so that Postgres RLS tenant-isolation policies are
+ * enforced for every query that goes through the `db` (tenantDb) export.
+ *
+ * Must be placed AFTER requireAuth + requireCompany so that req.companyId
+ * is already resolved. All downstream async code runs inside the transaction's
+ * AsyncLocalStorage context, making RLS transparent to route handlers.
+ */
+export const requireTenantCtx = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (!req.companyId) {
+    next();
+    return;
+  }
+  withTenantCtx(req.companyId, async () => {
+    await new Promise<void>((resolve) => {
+      // Commit the transaction once the response is finished.
+      const originalEnd = res.end.bind(res);
+      (res as any).end = (...args: any[]): typeof res => {
+        (res as any).end = originalEnd;
+        originalEnd(...args);
+        resolve();
+        return res;
+      };
+      next();
+    });
+  }).catch(next);
 };
