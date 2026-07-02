@@ -104,10 +104,12 @@ export function NoteQueueProvider({ children }: { children: React.ReactNode }) {
             body: JSON.stringify({ content: note.content }),
           });
           current = current.filter((n) => n.id !== note.id);
-          await persistQueue(current);
           setQueue([...current]);
-        } catch {
+        } catch (syncErr) {
           const newRetries = note.retries + 1;
+          console.warn("[NoteQueue] sync item failed", { id: note.id, projectId: note.projectId, retries: newRetries, err: String(syncErr) });
+          const backoffMs = Math.min(8_000, 500 * 2 ** note.retries) + Math.random() * 500;
+          await new Promise<void>((r) => setTimeout(r, backoffMs));
           current = current.map((n) =>
             n.id === note.id
               ? {
@@ -117,10 +119,12 @@ export function NoteQueueProvider({ children }: { children: React.ReactNode }) {
                 }
               : n
           );
-          await persistQueue(current);
           setQueue([...current]);
         }
       }
+
+      // Single write per pass — O(1) vs per-item O(N²).
+      await persistQueue(current);
     } finally {
       setIsSyncing(false);
       syncLock.current = false;
@@ -130,7 +134,11 @@ export function NoteQueueProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isOnline && !prevOnline.current) {
       const hasPending = queue.some((n) => n.status === "pending");
-      if (hasPending) syncQueue();
+      if (hasPending) {
+        const t = setTimeout(() => syncQueue(), Math.random() * 4000);
+        prevOnline.current = isOnline;
+        return () => clearTimeout(t);
+      }
     }
     prevOnline.current = isOnline;
   }, [isOnline, queue, syncQueue]);
@@ -146,11 +154,12 @@ export function NoteQueueProvider({ children }: { children: React.ReactNode }) {
         retries: 0,
         createdAt: new Date().toISOString(),
       };
-      const updated = [...queue, note];
-      setQueue(updated);
+      // Functional updater prevents stale-closure note loss on rapid concurrent enqueues.
+      let updated: QueuedNote[] = [];
+      setQueue((prev) => { updated = [...prev, note]; return updated; });
       await persistQueue(updated);
     },
-    [queue]
+    []
   );
 
   const retryFailed = useCallback(async () => {

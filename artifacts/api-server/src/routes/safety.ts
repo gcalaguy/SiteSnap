@@ -73,10 +73,17 @@ router.get("/safety/submissions", requireAuth, requireCompany, requirePermission
   try {
     const { status, workerId } = req.query as Record<string, string>;
 
+    if (workerId && isNaN(parseInt(workerId, 10))) {
+      res.status(400).json({ error: "Invalid workerId" }); return;
+    }
+
+    const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
+    const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+
     const conditions: any[] = [eq(formSubmissionsTable.companyId, req.companyId!)];
 
     if (workerId) {
-      conditions.push(eq(formSubmissionsTable.userId, parseInt(workerId)));
+      conditions.push(eq(formSubmissionsTable.userId, parseInt(workerId, 10)));
     }
 
     if (status) {
@@ -96,7 +103,9 @@ router.get("/safety/submissions", requireAuth, requireCompany, requirePermission
       .leftJoin(formTemplatesTable, eq(formSubmissionsTable.templateId, formTemplatesTable.id))
       .leftJoin(usersTable, eq(formSubmissionsTable.userId, usersTable.id))
       .where(and(...conditions))
-      .orderBy(desc(formSubmissionsTable.createdAt));
+      .orderBy(desc(formSubmissionsTable.createdAt))
+      .limit(limit)
+      .offset((page - 1) * limit);
 
     const submissionIds = rows.map((r) => r.submission.id);
     const allPhotos = submissionIds.length
@@ -143,28 +152,26 @@ router.get("/safety/submissions/:id", requireAuth, requireCompany, requirePermis
 
     if (!row) { res.status(404).json({ error: "Submission not found" }); return; }
 
-    const [template] = await db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, row.templateId));
-    const [worker] = await db.select().from(usersTable).where(eq(usersTable.id, row.userId));
-    const photos = await db.select().from(submissionPhotosTable).where(eq(submissionPhotosTable.submissionId, id));
-
-    const rawComments = await db
-      .select()
-      .from(submissionCommentsTable)
-      .where(eq(submissionCommentsTable.submissionId, id))
-      .orderBy(submissionCommentsTable.createdAt);
+    const [[template], [worker], photos, rawComments] = await Promise.all([
+      db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, row.templateId)),
+      db.select().from(usersTable).where(eq(usersTable.id, row.userId)),
+      db.select().from(submissionPhotosTable).where(eq(submissionPhotosTable.submissionId, id)),
+      db.select().from(submissionCommentsTable)
+        .where(eq(submissionCommentsTable.submissionId, id))
+        .orderBy(submissionCommentsTable.createdAt),
+    ]);
 
     const commentUserIds = [...new Set(rawComments.map((c) => c.userId))];
-    const commentUsers = commentUserIds.length
-      ? await db.select().from(usersTable).where(inArray(usersTable.id, commentUserIds))
-      : [];
+    const [commentUsers, reviewer] = await Promise.all([
+      commentUserIds.length
+        ? db.select().from(usersTable).where(inArray(usersTable.id, commentUserIds))
+        : Promise.resolve([]),
+      row.reviewedByUserId
+        ? db.select().from(usersTable).where(eq(usersTable.id, row.reviewedByUserId)).then(([rev]) => rev ?? null)
+        : Promise.resolve(null),
+    ]);
     const userMap = Object.fromEntries(commentUsers.map((u) => [u.id, u]));
     const comments = rawComments.map((c) => ({ ...c, user: userMap[c.userId] ?? null }));
-
-    let reviewer = null;
-    if (row.reviewedByUserId) {
-      const [rev] = await db.select().from(usersTable).where(eq(usersTable.id, row.reviewedByUserId));
-      reviewer = rev ?? null;
-    }
 
     res.json({ ...row, template, worker, photos, comments, reviewer });
   } catch (err: any) {

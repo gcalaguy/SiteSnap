@@ -4,6 +4,7 @@ import { db, contactsTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireFeature } from "../lib/featureGate";
+import { BadRequestError } from "../lib/errors";
 
 import { z } from "zod";
 
@@ -88,8 +89,7 @@ router.get("/contacts/:contactId", requireAuth, requireCompany, asyncHandler(asy
 router.post("/contacts", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const parsed = CreateContactBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.flatten() });
-    return;
+    throw new BadRequestError("Malformed request payload", parsed.error.flatten());
   }
 
   const { email, coiExpiration, workersCompClearanceExpiration, ...rest } = parsed.data;
@@ -118,8 +118,7 @@ router.put("/contacts/:contactId", requireAuth, requireCompany, asyncHandler(asy
 
   const parsed = UpdateContactBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.flatten() });
-    return;
+    throw new BadRequestError("Malformed request payload", parsed.error.flatten());
   }
 
   const { email, coiExpiration, workersCompClearanceExpiration, ...rest } = parsed.data;

@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ShieldCheck, Plus, Trash2, FileText, Upload } from "lucide-react";
+import { ShieldCheck, Plus, Trash2, FileText, Upload, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -144,14 +144,32 @@ export default function MyVaultPage() {
                     </p>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => deleteDoc.mutate({ id: doc.id })}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-[#D4AF37] hover:text-[#b5922e] hover:bg-[#D4AF37]/10"
+                    onClick={async () => {
+                      try {
+                        const objectId = doc.fileUrl.replace(/^\/api\/storage\/objects\//, "");
+                        const { url } = await customFetch(`/api/storage/objects/${objectId}/signed-url`) as { url: string };
+                        window.open(url, "_blank", "noopener,noreferrer");
+                      } catch {
+                        toast({ title: "Could not open document", variant: "destructive" });
+                      }
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => deleteDoc.mutate({ id: doc.id })}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

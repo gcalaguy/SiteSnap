@@ -130,11 +130,15 @@ router.get("/form-submissions", requireAuth, requireCompany, requirePermission("
   try {
     const { status, templateId, projectId, contactId } = req.query as Record<string, string>;
 
+    if (templateId && isNaN(parseInt(templateId, 10))) { res.status(400).json({ error: "Invalid templateId" }); return; }
+    if (projectId  && isNaN(parseInt(projectId,  10))) { res.status(400).json({ error: "Invalid projectId"  }); return; }
+    if (contactId  && isNaN(parseInt(contactId,  10))) { res.status(400).json({ error: "Invalid contactId"  }); return; }
+
     const conditions: any[] = [eq(formSubmissionsTable.companyId, req.companyId!)];
-    if (status) conditions.push(eq(formSubmissionsTable.status, status));
-    if (templateId) conditions.push(eq(formSubmissionsTable.templateId, parseInt(templateId)));
-    if (projectId) conditions.push(eq(formSubmissionsTable.projectId, parseInt(projectId)));
-    if (contactId) conditions.push(eq(formSubmissionsTable.contactId, parseInt(contactId)));
+    if (status)     conditions.push(eq(formSubmissionsTable.status,     status));
+    if (templateId) conditions.push(eq(formSubmissionsTable.templateId, parseInt(templateId, 10)));
+    if (projectId)  conditions.push(eq(formSubmissionsTable.projectId,  parseInt(projectId,  10)));
+    if (contactId)  conditions.push(eq(formSubmissionsTable.contactId,  parseInt(contactId,  10)));
 
     const rows = await db
       .select({

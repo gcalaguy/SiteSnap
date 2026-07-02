@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
+import * as Linking from "expo-linking";
 import { useColors } from "@/hooks/useColors";
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -169,8 +170,22 @@ export default function VaultScreen() {
   }, [docType, queryClient]);
 
   // M-P6 fix: useCallback prevents all FlatList rows re-rendering on every state change
+  const openDoc = useCallback(async (item: WorkerDoc) => {
+    try {
+      const objectId = item.fileUrl.replace(/^\/api\/storage\/objects\//, "");
+      const { url } = await customFetch<{ url: string }>(`/api/storage/objects/${objectId}/signed-url`);
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("Error", "Could not open document.");
+    }
+  }, []);
+
   const renderDoc = useCallback(({ item }: { item: WorkerDoc }) => (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+      onPress={() => openDoc(item)}
+      activeOpacity={0.7}
+    >
       <View style={styles.docRow}>
         <View style={[styles.docIcon, { backgroundColor: `${colors.primary}18` }]}>
           <Feather name="file-text" size={18} color={colors.primary} />
@@ -181,6 +196,7 @@ export default function VaultScreen() {
             Uploaded {formatDate(item.createdAt)}
           </Text>
         </View>
+        <Feather name="external-link" size={14} color={colors.primary} style={{ marginRight: 8 }} />
         <TouchableOpacity
           onPress={() =>
             Alert.alert("Delete Document", "Remove this from your vault?", [
@@ -193,8 +209,8 @@ export default function VaultScreen() {
           <Feather name="trash-2" size={16} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
-    </View>
-  ), [colors, deleteDoc]);
+    </TouchableOpacity>
+  ), [colors, deleteDoc, openDoc]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

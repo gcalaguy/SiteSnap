@@ -162,10 +162,12 @@ export function MediaQueueProvider({ children }: { children: React.ReactNode }) 
         try {
           await uploadAndPost(item);
           current = current.filter((m) => m.id !== item.id);
-          await persistQueue(current);
           setQueue([...current]);
-        } catch {
+        } catch (syncErr) {
           const newRetries = item.retries + 1;
+          console.warn("[MediaQueue] sync item failed", { id: item.id, endpoint: item.endpoint, retries: newRetries, err: String(syncErr) });
+          const backoffMs = Math.min(8_000, 500 * 2 ** item.retries) + Math.random() * 500;
+          await new Promise<void>((r) => setTimeout(r, backoffMs));
           current = current.map((m) =>
             m.id === item.id
               ? {
@@ -175,10 +177,12 @@ export function MediaQueueProvider({ children }: { children: React.ReactNode }) 
                 }
               : m
           );
-          await persistQueue(current);
           setQueue([...current]);
         }
       }
+
+      // Single write per pass — O(1) vs per-item O(N²).
+      await persistQueue(current);
     } finally {
       setIsSyncing(false);
       syncLock.current = false;
@@ -188,7 +192,11 @@ export function MediaQueueProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (isOnline && !prevOnline.current) {
       const hasPending = queue.some((m) => m.status === "pending");
-      if (hasPending) syncQueue();
+      if (hasPending) {
+        const t = setTimeout(() => syncQueue(), Math.random() * 4000);
+        prevOnline.current = isOnline;
+        return () => clearTimeout(t);
+      }
     }
     prevOnline.current = isOnline;
   }, [isOnline, queue, syncQueue]);

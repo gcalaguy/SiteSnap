@@ -9,7 +9,7 @@ import { checkAiQuota, recordAiCall, remainingAiCalls, DAILY_LIMIT } from "../li
  *
  * Returns 429 with a clear JSON error when either the daily or per-minute limit is exceeded.
  */
-export function requireAiQuota(req: Request, res: Response, next: NextFunction): void {
+export async function requireAiQuota(req: Request, res: Response, next: NextFunction): Promise<void> {
   const key = req.companyId != null ? `c:${req.companyId}` : req.userId != null ? `u:${req.userId}` : null;
 
   if (!key) {
@@ -17,7 +17,7 @@ export function requireAiQuota(req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  const result = checkAiQuota(key);
+  const result = await checkAiQuota(key);
 
   if (!result.allowed) {
     if (result.reason === "minute") {
@@ -39,7 +39,7 @@ export function requireAiQuota(req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  recordAiCall(key);
+  await recordAiCall(key);
   res.setHeader("X-AI-Requests-Remaining", remainingAiCalls(key));
   next();
 }

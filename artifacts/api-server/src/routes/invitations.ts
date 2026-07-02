@@ -191,7 +191,7 @@ router.patch(
     const [updated] = await db
       .update(invitationsTable)
       .set(updates)
-      .where(eq(invitationsTable.id, id))
+      .where(and(eq(invitationsTable.id, id), eq(invitationsTable.companyId, req.companyId!)))
       .returning();
 
     res.json({ ...updated, company: null });
@@ -219,7 +219,7 @@ router.delete(
     await db
       .update(invitationsTable)
       .set({ status: "expired" })
-      .where(eq(invitationsTable.id, id));
+      .where(and(eq(invitationsTable.id, id), eq(invitationsTable.companyId, req.companyId!)));
 
     res.status(204).end();
   }),
@@ -266,7 +266,7 @@ router.post(
     const [updated] = await db
       .update(invitationsTable)
       .set({ token: newToken, expiresAt: newExpiresAt, status: "pending" })
-      .where(eq(invitationsTable.id, id))
+      .where(and(eq(invitationsTable.id, id), eq(invitationsTable.companyId, req.companyId!)))
       .returning();
 
     sendInviteEmail({

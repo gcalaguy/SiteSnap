@@ -5,6 +5,7 @@ export interface DraftState<T> {
   hasDraft: boolean;
   restore: () => void;
   discard: () => void;
+  clearDraft: () => void;
 }
 
 // expo-secure-store keys must be alphanumeric plus underscores and dots — no colons.
@@ -86,11 +87,7 @@ export function useFormDraft<T extends Record<string, unknown>>(
       });
   }, [key]);
 
-  useEffect(() => {
-    (useFormDraft as any)._clearDraftRef = clearDraft;
-  }, [clearDraft]);
-
-  return { hasDraft, restore, discard };
+  return { hasDraft, restore, discard, clearDraft };
 }
 
 export async function clearFormDraft(

@@ -8,6 +8,10 @@ import {
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { z } from "zod/v4";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { ObjectAccessGroupType, ObjectPermission } from "../lib/objectAcl";
+
+const objectStorageService = new ObjectStorageService();
 
 const router = Router();
 
@@ -56,6 +60,24 @@ router.post("/worker/vault/upload", requireAuth, requireCompany, asyncHandler(as
         status: "active",
       })
       .returning();
+
+    // Set ACL on the stored object so only company members can access it.
+    // Best-effort: a failure here doesn't block the response since the company-
+    // membership fallback in canAccessObjectEntity still gates access.
+    if (filePath) {
+      objectStorageService.trySetObjectEntityAclPolicy(filePath, {
+        owner: String(req.userId!),
+        visibility: "private",
+        aclRules: [
+          {
+            group: { type: ObjectAccessGroupType.COMPANY_MEMBER, id: String(req.companyId!) },
+            permission: ObjectPermission.READ,
+          },
+        ],
+      }).catch((err) => {
+        req.log.error({ err, docId: doc.id }, "worker/vault: failed to set object ACL");
+      });
+    }
 
     res.status(201).json(doc);
   } catch (err: any) {

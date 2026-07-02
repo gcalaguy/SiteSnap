@@ -12,6 +12,7 @@ import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
+import { BadRequestError } from "../lib/errors";
 
 import { z } from "zod";
 
@@ -80,7 +81,7 @@ router.post("/builder-estimates", requireAuth, requireCompany, requirePermission
     items: z.array(ItemShape).optional(),
   });
   const parsed = Body.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.flatten());
 
   const { items = [], ...rest } = parsed.data;
 
@@ -118,7 +119,7 @@ router.patch("/builder-estimates/:id", requireAuth, requireCompany, requirePermi
     notes: z.string().optional().nullable(),
   });
   const parsed = Body.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.flatten());
 
   const [updated] = await db
     .update(builderEstimatesTable)
@@ -144,9 +145,11 @@ router.delete("/builder-estimates/:id", requireAuth, requireCompany, requirePerm
     .limit(1);
   if (!owned) { res.status(404).json({ error: "Not found" }); return; }
 
-  await db.delete(builderEstimateItemsTable).where(eq(builderEstimateItemsTable.estimateId, id));
-  await db.delete(proposalsTable).where(eq(proposalsTable.builderEstimateId, id));
-  await db.delete(builderEstimatesTable).where(eq(builderEstimatesTable.id, id));
+  await db.transaction(async (tx) => {
+    await tx.delete(builderEstimateItemsTable).where(eq(builderEstimateItemsTable.estimateId, id));
+    await tx.delete(proposalsTable).where(eq(proposalsTable.builderEstimateId, id));
+    await tx.delete(builderEstimatesTable).where(eq(builderEstimatesTable.id, id));
+  });
   res.status(204).send();
 }))
 
@@ -164,7 +167,7 @@ router.post("/builder-estimates/:id/items", requireAuth, requireCompany, require
   if (!estimate) { res.status(404).json({ error: "Estimate not found" }); return; }
 
   const parsed = ItemShape.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.flatten());
 
   const { quantity, unitCost, margin, sortOrder, ...rest } = parsed.data;
   const [item] = await db
@@ -189,7 +192,7 @@ router.patch("/builder-estimates/:id/items/:itemId", requireAuth, requireCompany
   if (isNaN(estimateId) || isNaN(itemId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const parsed = ItemShape.partial().safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.flatten());
 
   const updates: Record<string, unknown> = {};
   if (parsed.data.name !== undefined) updates.name = parsed.data.name;
@@ -241,7 +244,7 @@ router.post("/builder-estimates/:id/convert", requireAuth, requireCompany, requi
     notes: z.string().optional().nullable(),
   });
   const parsed = Body.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.flatten());
 
   const [proposal] = await db
     .insert(proposalsTable)
@@ -277,7 +280,7 @@ router.post("/estimate-templates", requireAuth, requireCompany, requirePermissio
     items: z.array(ItemShape).min(1),
   });
   const parsed = Body.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.flatten());
 
   const { items, ...rest } = parsed.data;
 
@@ -385,7 +388,7 @@ router.patch("/proposals/:id", requireAuth, requireCompany, requirePermission("m
     status: z.enum(["draft", "sent", "approved", "rejected"]).optional(),
   });
   const parsed = Body.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.flatten());
 
   const [updated] = await db
     .update(proposalsTable)
@@ -406,7 +409,7 @@ router.post("/proposals/:id/approve", requireAuth, requireCompany, requirePermis
     approvedByName: z.string().min(1),
   });
   const parsed = Body.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.flatten());
 
   const [updated] = await db
     .update(proposalsTable)

@@ -4,6 +4,7 @@ import { db, mediaHubPhotosTable, projectsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import { BadRequestError } from "../lib/errors";
 import { ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
@@ -38,8 +39,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const parsed = PresignedUrlBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid body", details: parsed.error });
-      return;
+      throw new BadRequestError("Invalid body", parsed.error.flatten());
     }
     try {
       const uploadURL = await objectStorage.getObjectEntityUploadURL();
@@ -65,8 +65,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const parsed = SavePhotoBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid body", details: parsed.error });
-      return;
+      throw new BadRequestError("Invalid body", parsed.error.flatten());
     }
     const { projectId, imageUrl, roomLocation, markupData } = parsed.data;
     const uploadedById = req.userId ?? null;

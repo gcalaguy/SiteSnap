@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db, rfisTable, usersTable, projectsTable } from "@workspace/db";
-import { eq, and, count, inArray, SQL } from "drizzle-orm";
+import { eq, and, count, inArray, SQL, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { BadRequestError } from "../lib/errors";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
@@ -80,14 +81,6 @@ async function verifyProjectAccess(projectId: number, companyId: number) {
   return project;
 }
 
-async function getNextRFINumber(projectId: number): Promise<string> {
-  const [result] = await db
-    .select({ count: count() })
-    .from(rfisTable)
-    .where(eq(rfisTable.projectId, projectId));
-  const num = (result?.count ?? 0) + 1;
-  return `RFI-${String(num).padStart(3, "0")}`;
-}
 
 // GET /projects/:projectId/rfis
 // Supports optional ?status= query param.
@@ -132,25 +125,34 @@ router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"),
 
   const parsed = CreateRFIBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid body", details: parsed.error });
-    return;
+    throw new BadRequestError("Invalid body", parsed.error.flatten());
   }
 
-  const rfiNumber = await getNextRFINumber(projectId);
-
   const { dueDate: rfsDueDate, ...rfisData } = parsed.data;
-  const [rfi] = await db
-    .insert(rfisTable)
-    .values({
-      ...rfisData,
-      projectId,
-      companyId: req.companyId!,
-      rfiNumber,
-      submittedByUserId: req.userId!,
-      priority: parsed.data.priority ?? "medium",
-      ...(rfsDueDate !== undefined && { dueDate: rfsDueDate instanceof Date ? rfsDueDate.toISOString().split("T")[0] : rfsDueDate }),
-    })
-    .returning();
+
+  // Advisory lock on projectId prevents two concurrent requests from reading
+  // the same RFI count and generating duplicate RFI numbers.
+  // pg_advisory_xact_lock is released automatically when the transaction ends.
+  const [rfi] = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${projectId}::bigint)`);
+    const [countResult] = await tx
+      .select({ count: count() })
+      .from(rfisTable)
+      .where(eq(rfisTable.projectId, projectId));
+    const rfiNumber = `RFI-${String((countResult?.count ?? 0) + 1).padStart(3, "0")}`;
+    return tx
+      .insert(rfisTable)
+      .values({
+        ...rfisData,
+        projectId,
+        companyId: req.companyId!,
+        rfiNumber,
+        submittedByUserId: req.userId!,
+        priority: parsed.data.priority ?? "medium",
+        ...(rfsDueDate !== undefined && { dueDate: rfsDueDate instanceof Date ? rfsDueDate.toISOString().split("T")[0] : rfsDueDate }),
+      })
+      .returning();
+  });
 
   const [submittedBy] = await db
     .select()

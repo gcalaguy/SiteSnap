@@ -49,16 +49,21 @@ export async function logAuditEventFromRequest(
 ): Promise<void> {
   const userId = req.userId;
   const companyId = req.companyId;
-  if (!userId || !companyId) {
+  if (userId == null || companyId == null) {
     return; // silently skip if auth context is missing
   }
 
-  const userName = `${req.headers["x-user-first-name"] ?? ""} ${req.headers["x-user-last-name"] ?? ""}`.trim();
-  const fallbackName = userId.toString();
+  const userName = req.userDisplayName || "";
+  if (!userName) {
+    logger.warn(
+      { userId, hasDisplay: req.userDisplayName !== undefined },
+      "logAuditEventFromRequest: empty userName — falling back to user ID",
+    );
+  }
 
   await logAuditEvent({
     userId: userId.toString(),
-    userName: userName || fallbackName,
+    userName: userName || userId.toString(),
     userRole: req.userRole ?? "unknown",
     action,
     details,

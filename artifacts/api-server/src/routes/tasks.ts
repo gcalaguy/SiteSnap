@@ -22,7 +22,7 @@ async function verifyProjectAccess(projectId: number, companyId: number) {
 const CreateTaskBody = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
-  assignedToUserId: z.coerce.number().optional(),
+  assignedToUserId: z.coerce.number().int().positive().optional(),
   priority: z.enum(["low", "medium", "high"]).optional().default("medium"),
   dueDate: z.string().optional(),
 });
@@ -30,7 +30,7 @@ const CreateTaskBody = z.object({
 const UpdateTaskBody = z.object({
   title: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
-  assignedToUserId: z.coerce.number().nullable().optional(),
+  assignedToUserId: z.coerce.number().int().positive().nullable().optional(),
   status: z.enum(["todo", "in_progress", "done"]).optional(),
   priority: z.enum(["low", "medium", "high"]).optional(),
   dueDate: z.string().nullable().optional(),
