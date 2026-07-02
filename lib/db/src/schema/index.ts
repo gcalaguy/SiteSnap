@@ -1643,7 +1643,9 @@ export const dailyLogsTable = pgTable("daily_logs", {
   weatherTemp: text("weather_temp"),
   weatherCondition: text("weather_condition"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_daily_logs_project_id").on(t.projectId),
+]);
 
 export const insertDailyLogSchema = createInsertSchema(dailyLogsTable).omit({ id: true, createdAt: true });
 export type InsertDailyLog = z.infer<typeof insertDailyLogSchema>;
@@ -1658,7 +1660,9 @@ export const sitePhotosTable = pgTable("site_photos", {
   markupData: jsonb("markup_data"),
   roomLocation: text("room_location"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_site_photos_project_id").on(t.projectId),
+]);
 
 export const insertSitePhotoSchema = createInsertSchema(sitePhotosTable).omit({ id: true, createdAt: true });
 export type InsertSitePhoto = z.infer<typeof insertSitePhotoSchema>;
@@ -1675,7 +1679,9 @@ export const safetySignoffsTable = pgTable("safety_signoffs", {
   responses: jsonb("responses").notNull(),
   signatureUrl: text("signature_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_safety_signoffs_project_id").on(t.projectId),
+]);
 
 export const insertSafetySignoffSchema = createInsertSchema(safetySignoffsTable).omit({ id: true, createdAt: true });
 export type InsertSafetySignoff = z.infer<typeof insertSafetySignoffSchema>;
@@ -1727,7 +1733,9 @@ export const mediaHubPhotosTable = pgTable("media_hub_photos", {
   roomLocation: text("room_location"),
   markupData: jsonb("markup_data"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_media_hub_photos_project_id").on(t.projectId),
+]);
 
 export const insertMediaHubPhotoSchema = createInsertSchema(mediaHubPhotosTable).omit({
   id: true,

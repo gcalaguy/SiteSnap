@@ -146,7 +146,7 @@ type ChunkResult = {
   similarity: number; filename: string; file_type: string;
 };
 
-async function vectorSearch(projectId: number, queryText: string, limit = 8): Promise<ChunkResult[]> {
+async function vectorSearch(projectId: number, companyId: number, queryText: string, limit = 8): Promise<ChunkResult[]> {
   if (!embeddingsEnabled()) return [];
   const trimmed = queryText.trim();
   if (!trimmed) return [];
@@ -164,10 +164,11 @@ async function vectorSearch(projectId: number, queryText: string, limit = 8): Pr
        FROM document_chunks dc
        JOIN project_documents pd ON dc.doc_id = pd.id
        WHERE dc.project_id = $2
+         AND dc.company_id = $3
          AND dc.embedding IS NOT NULL
        ORDER BY dc.embedding <=> $1::vector
-       LIMIT $3`,
-      [queryVec, projectId, limit]
+       LIMIT $4`,
+      [queryVec, projectId, companyId, limit]
     );
     return result.rows;
   } catch (err) {
@@ -176,7 +177,7 @@ async function vectorSearch(projectId: number, queryText: string, limit = 8): Pr
   }
 }
 
-async function fullTextSearch(projectId: number, queryText: string, limit = 8): Promise<ChunkResult[]> {
+async function fullTextSearch(projectId: number, companyId: number, queryText: string, limit = 8): Promise<ChunkResult[]> {
   const trimmed = queryText.trim();
   if (!trimmed) return [];
 
@@ -189,10 +190,11 @@ async function fullTextSearch(projectId: number, queryText: string, limit = 8): 
        FROM document_chunks dc
        JOIN project_documents pd ON dc.doc_id = pd.id
        WHERE dc.project_id = $2
+         AND dc.company_id = $3
          AND to_tsvector('english', dc.content) @@ websearch_to_tsquery('english', $1)
        ORDER BY similarity DESC
-       LIMIT $3`,
-      [trimmed, projectId, limit]
+       LIMIT $4`,
+      [trimmed, projectId, companyId, limit]
     );
     if (result.rows.length > 0) return result.rows;
   } catch (err) {
@@ -208,10 +210,11 @@ async function fullTextSearch(projectId: number, queryText: string, limit = 8): 
        FROM document_chunks dc
        JOIN project_documents pd ON dc.doc_id = pd.id
        WHERE dc.project_id = $2
+         AND dc.company_id = $3
          AND to_tsvector('english', dc.content) @@ plainto_tsquery('english', $1)
        ORDER BY similarity DESC
-       LIMIT $3`,
-      [trimmed, projectId, limit]
+       LIMIT $4`,
+      [trimmed, projectId, companyId, limit]
     );
     if (result.rows.length > 0) return result.rows;
   } catch (err) {
@@ -226,10 +229,11 @@ async function fullTextSearch(projectId: number, queryText: string, limit = 8): 
          pd.filename, pd.file_type
        FROM document_chunks dc
        JOIN project_documents pd ON dc.doc_id = pd.id
-       WHERE dc.project_id = $2
+       WHERE dc.project_id = $1
+         AND dc.company_id = $2
          AND dc.content ILIKE $3
        LIMIT $4`,
-      [projectId, `%${trimmed}%`, limit]
+      [projectId, companyId, `%${trimmed}%`, limit]
     );
     return result.rows;
   } catch {
@@ -243,9 +247,12 @@ type HybridResult = { results: ChunkResult[]; semantic: boolean };
  * Hybrid search: tries vector similarity first (if available), then falls back to full-text.
  * Returns deduplicated chunks per document, highest similarity first,
  * plus a `semantic` flag indicating whether the results came from vector search.
+ *
+ * companyId is filtered at the query layer (not just via the caller's upstream project-ownership
+ * check) so this stays safe even if a future call site skips that check.
  */
-async function hybridSearch(projectId: number, queryText: string, limit = 8): Promise<HybridResult> {
-  const vecResults = await vectorSearch(projectId, queryText, limit);
+async function hybridSearch(projectId: number, companyId: number, queryText: string, limit = 8): Promise<HybridResult> {
+  const vecResults = await vectorSearch(projectId, companyId, queryText, limit);
   if (vecResults.length > 0) {
     const byDoc = new Map<number, ChunkResult>();
     for (const c of vecResults) {
@@ -259,7 +266,7 @@ async function hybridSearch(projectId: number, queryText: string, limit = 8): Pr
       semantic: true,
     };
   }
-  const ftResults = await fullTextSearch(projectId, queryText, limit);
+  const ftResults = await fullTextSearch(projectId, companyId, queryText, limit);
   return { results: ftResults, semantic: false };
 }
 
@@ -457,7 +464,7 @@ router.post("/search", requireAuth, requireCompany, asyncHandler(async (req, res
   // Try hybrid search (vector + full-text) on document chunks
   let searchUsedVectors = false;
   try {
-    const { results: chunks, semantic: usedVectors } = await hybridSearch(projectId, query.trim(), 10);
+    const { results: chunks, semantic: usedVectors } = await hybridSearch(projectId, projectOwnership.companyId!, query.trim(), 10);
     searchUsedVectors = usedVectors;
     if (chunks.length > 0) {
       // Group by doc and return unique doc results
@@ -556,7 +563,7 @@ If the answer is not in the provided material, say so honestly. Do not guess or 
   // ── Attempt hybrid RAG (vector + full-text) ───────────────────────────────
   let usedSemanticRag = false;
   try {
-    const { results: chunks, semantic } = await hybridSearch(projectId, question.trim(), 8);
+    const { results: chunks, semantic } = await hybridSearch(projectId, project.companyId!, question.trim(), 8);
     usedSemanticRag = semantic;
 
     if (chunks.length > 0) {

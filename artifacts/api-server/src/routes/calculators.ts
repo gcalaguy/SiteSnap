@@ -3,6 +3,7 @@ import { z } from "zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import { requireAiQuota } from "../middlewares/requireAiQuota";
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const AISummaryBody = z.object({
 });
 
 // POST /calculators/ai-summary
-router.post("/calculators/ai-summary", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/calculators/ai-summary", requireAuth, requireCompany, requireAiQuota, asyncHandler(async (req, res) => {
   const parsed = AISummaryBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid body", details: parsed.error.issues });

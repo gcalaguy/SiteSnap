@@ -367,196 +367,198 @@ router.delete(
 
     const uid = targetUserId;
 
-    // Fetch all project IDs owned by this company to scope child tables without companyId
-    const companyProjectIds = (await db
-      .select({ id: projectsTable.id })
-      .from(projectsTable)
-      .where(eq(projectsTable.companyId, companyId)))
-      .map((r) => r.id);
-
-    // Nullable FKs → NULL (scoped to company to prevent cross-tenant mutation)
-    if (companyProjectIds.length > 0) {
-      await db.update(rfisTable).set({ assignedToUserId: null }).where(
-        and(eq(rfisTable.assignedToUserId, uid), inArray(rfisTable.projectId, companyProjectIds)),
-      );
-      await db.update(tasksTable).set({ assignedToUserId: null }).where(
-        and(eq(tasksTable.assignedToUserId, uid), inArray(tasksTable.projectId, companyProjectIds)),
-      );
-    }
-    await db.update(quotesTable).set({ assignedToUserId: null }).where(
-      and(eq(quotesTable.assignedToUserId, uid), eq(quotesTable.companyId, companyId)),
-    );
-    await db.update(quotesTable).set({ approvedByUserId: null }).where(
-      and(eq(quotesTable.approvedByUserId, uid), eq(quotesTable.companyId, companyId)),
-    );
-    await db.update(invoicesTable).set({ assignedToUserId: null }).where(
-      and(eq(invoicesTable.assignedToUserId, uid), eq(invoicesTable.companyId, companyId)),
-    );
-    await db.update(timesheetsTable).set({ reviewedByUserId: null }).where(
-      and(eq(timesheetsTable.reviewedByUserId, uid), eq(timesheetsTable.companyId, companyId)),
-    );
-    await db.update(formSubmissionsTable).set({ reviewedByUserId: null }).where(
-      and(eq(formSubmissionsTable.reviewedByUserId, uid), eq(formSubmissionsTable.companyId, companyId)),
-    );
-    await db.update(changeOrdersTable).set({ approvedByUserId: null }).where(
-      and(eq(changeOrdersTable.approvedByUserId, uid), eq(changeOrdersTable.companyId, companyId)),
-    );
-    // NULL quote_id on invoices referencing quotes owned by this user (scoped to company)
-    const userQuoteIds = (await db
-      .select({ id: quotesTable.id })
-      .from(quotesTable)
-      .where(and(eq(quotesTable.createdByUserId, uid), eq(quotesTable.companyId, companyId)))
-    ).map((q) => q.id);
-    if (userQuoteIds.length > 0) {
-      await db
-        .update(invoicesTable)
-        .set({ quoteId: null })
-        .where(and(inArray(invoicesTable.quoteId, userQuoteIds), eq(invoicesTable.companyId, companyId)));
-    }
-
-    // Deep children first — scoped to this company via projectId or companyId
-    const userDailyReportIds = companyProjectIds.length > 0
-      ? (await db
-          .select({ id: dailyReportsTable.id })
-          .from(dailyReportsTable)
-          .where(
-            and(
-              eq(dailyReportsTable.submittedByUserId, uid),
-              inArray(dailyReportsTable.projectId, companyProjectIds),
-            ),
-          ))
-          .map((r) => r.id)
-      : [];
-    if (userDailyReportIds.length > 0) {
-      await db.delete(dailyReportPhotosTable).where(inArray(dailyReportPhotosTable.reportId, userDailyReportIds));
-    }
-    const userSubmissionIds = (await db
-      .select({ id: formSubmissionsTable.id })
-      .from(formSubmissionsTable)
-      .where(
-        and(
-          eq(formSubmissionsTable.userId, uid),
-          eq(formSubmissionsTable.companyId, companyId),
-        ),
-      ))
-      .map((s) => s.id);
-    if (userSubmissionIds.length > 0) {
-      await db.delete(submissionCommentsTable).where(inArray(submissionCommentsTable.submissionId, userSubmissionIds));
-      await db.delete(submissionCommentsTable).where(
-        and(
-          eq(submissionCommentsTable.userId, uid),
-          inArray(submissionCommentsTable.submissionId, userSubmissionIds),
-        ),
-      );
-    }
-    const userInvoiceIds = (await db
-      .select({ id: invoicesTable.id })
-      .from(invoicesTable)
-      .where(
-        and(
-          eq(invoicesTable.createdByUserId, uid),
-          eq(invoicesTable.companyId, companyId),
-        ),
-      ))
-      .map((i) => i.id);
-    if (userInvoiceIds.length > 0) {
-      await db.delete(paymentsTable).where(
-        and(
-          inArray(paymentsTable.invoiceId, userInvoiceIds),
-          eq(paymentsTable.companyId, companyId),
-        ),
-      );
-    }
-
-    await db.delete(tradehubMessagesTable).where(eq(tradehubMessagesTable.senderId, uid));
-    await db.delete(tradehubNotificationsTable).where(eq(tradehubNotificationsTable.userId, uid));
-    await db.delete(tradehubReportsTable).where(eq(tradehubReportsTable.reporterId, uid));
-    await db.delete(tradehubReactionsTable).where(eq(tradehubReactionsTable.userId, uid));
-    await db.delete(tradehubCommentsTable).where(eq(tradehubCommentsTable.userId, uid));
-    await db.delete(tradehubJobApplicationsTable).where(eq(tradehubJobApplicationsTable.applicantId, uid));
-    await db.delete(tradehubPostsTable).where(
-      and(eq(tradehubPostsTable.userId, uid), eq(tradehubPostsTable.companyId, companyId)),
-    );
-    await db.delete(notificationsTable).where(eq(notificationsTable.userId, uid));
-    await db.delete(projectNotesTable).where(
-      and(eq(projectNotesTable.authorId, uid), eq(projectNotesTable.companyId, companyId)),
-    );
-    await db.delete(fileAttachmentsTable).where(
-      and(eq(fileAttachmentsTable.uploadedByUserId, uid), eq(fileAttachmentsTable.companyId, companyId)),
-    );
-    await db.delete(inspectionsTable).where(
-      and(eq(inspectionsTable.inspectorId, uid), eq(inspectionsTable.companyId, companyId)),
-    );
-    await db.delete(scheduleEventsTable).where(
-      and(eq(scheduleEventsTable.createdByUserId, uid), eq(scheduleEventsTable.companyId, companyId)),
-    );
-    await db.delete(workerSchedulesTable).where(
-      and(eq(workerSchedulesTable.userId, uid), eq(workerSchedulesTable.companyId, companyId)),
-    );
-    await db.delete(timeEntriesTable).where(
-      and(eq(timeEntriesTable.userId, uid), eq(timeEntriesTable.companyId, companyId)),
-    );
-    const userLeadIds = (await db
-      .select({ id: leadsTable.id })
-      .from(leadsTable)
-      .where(eq(leadsTable.companyId, companyId)))
-      .map((r) => r.id);
-    if (userLeadIds.length > 0) {
-      await db.delete(leadActivitiesTable).where(
-        and(
-          eq(leadActivitiesTable.userId, uid),
-          inArray(leadActivitiesTable.leadId, userLeadIds),
-        ),
-      );
-    }
-    await db.delete(formSubmissionsTable).where(
-      and(eq(formSubmissionsTable.userId, uid), eq(formSubmissionsTable.companyId, companyId)),
-    );
-    if (companyProjectIds.length > 0) {
-      await db.delete(projectDocumentsTable).where(
-        and(
-          eq(projectDocumentsTable.uploadedByUserId, uid),
-          inArray(projectDocumentsTable.projectId, companyProjectIds),
-        ),
-      );
-      await db.delete(dailyReportsTable).where(
-        and(
-          eq(dailyReportsTable.submittedByUserId, uid),
-          inArray(dailyReportsTable.projectId, companyProjectIds),
-        ),
-      );
-      await db.delete(rfisTable).where(
-        and(
-          eq(rfisTable.submittedByUserId, uid),
-          inArray(rfisTable.projectId, companyProjectIds),
-        ),
-      );
-    }
-    await db.delete(estimatesTable).where(
-      and(eq(estimatesTable.createdByUserId, uid), eq(estimatesTable.companyId, companyId)),
-    );
-    await db.delete(changeOrdersTable).where(
-      and(eq(changeOrdersTable.requestedByUserId, uid), eq(changeOrdersTable.companyId, companyId)),
-    );
-    await db.delete(invoicesTable).where(
-      and(eq(invoicesTable.createdByUserId, uid), eq(invoicesTable.companyId, companyId)),
-    );
-    await db.delete(quotesTable).where(
-      and(eq(quotesTable.createdByUserId, uid), eq(quotesTable.companyId, companyId)),
-    );
-    await db.delete(conversations).where(
-      and(eq(conversations.userId, uid), eq(conversations.companyId, companyId)),
-    );
-    await db.delete(projectMembersTable).where(
-      and(
-        eq(projectMembersTable.userId, uid),
-        eq(projectMembersTable.companyId, companyId),
-      ),
-    );
-
-    // Wrap the final removal steps in a transaction: invitation cleanup + user deletion
-    // must be atomic so the user is never left as a phantom member if either step fails.
+    // Entire removal cascade runs in one transaction so a failure partway through
+    // (e.g. a later delete violating a constraint) never leaves the member partially removed.
     await db.transaction(async (tx) => {
+      // Fetch all project IDs owned by this company to scope child tables without companyId
+      const companyProjectIds = (await tx
+        .select({ id: projectsTable.id })
+        .from(projectsTable)
+        .where(eq(projectsTable.companyId, companyId)))
+        .map((r) => r.id);
+
+      // Nullable FKs → NULL (scoped to company to prevent cross-tenant mutation)
+      if (companyProjectIds.length > 0) {
+        await tx.update(rfisTable).set({ assignedToUserId: null }).where(
+          and(eq(rfisTable.assignedToUserId, uid), inArray(rfisTable.projectId, companyProjectIds)),
+        );
+        await tx.update(tasksTable).set({ assignedToUserId: null }).where(
+          and(eq(tasksTable.assignedToUserId, uid), inArray(tasksTable.projectId, companyProjectIds)),
+        );
+      }
+      await tx.update(quotesTable).set({ assignedToUserId: null }).where(
+        and(eq(quotesTable.assignedToUserId, uid), eq(quotesTable.companyId, companyId)),
+      );
+      await tx.update(quotesTable).set({ approvedByUserId: null }).where(
+        and(eq(quotesTable.approvedByUserId, uid), eq(quotesTable.companyId, companyId)),
+      );
+      await tx.update(invoicesTable).set({ assignedToUserId: null }).where(
+        and(eq(invoicesTable.assignedToUserId, uid), eq(invoicesTable.companyId, companyId)),
+      );
+      await tx.update(timesheetsTable).set({ reviewedByUserId: null }).where(
+        and(eq(timesheetsTable.reviewedByUserId, uid), eq(timesheetsTable.companyId, companyId)),
+      );
+      await tx.update(formSubmissionsTable).set({ reviewedByUserId: null }).where(
+        and(eq(formSubmissionsTable.reviewedByUserId, uid), eq(formSubmissionsTable.companyId, companyId)),
+      );
+      await tx.update(changeOrdersTable).set({ approvedByUserId: null }).where(
+        and(eq(changeOrdersTable.approvedByUserId, uid), eq(changeOrdersTable.companyId, companyId)),
+      );
+      // NULL quote_id on invoices referencing quotes owned by this user (scoped to company)
+      const userQuoteIds = (await tx
+        .select({ id: quotesTable.id })
+        .from(quotesTable)
+        .where(and(eq(quotesTable.createdByUserId, uid), eq(quotesTable.companyId, companyId)))
+      ).map((q) => q.id);
+      if (userQuoteIds.length > 0) {
+        await tx
+          .update(invoicesTable)
+          .set({ quoteId: null })
+          .where(and(inArray(invoicesTable.quoteId, userQuoteIds), eq(invoicesTable.companyId, companyId)));
+      }
+
+      // Deep children first — scoped to this company via projectId or companyId
+      const userDailyReportIds = companyProjectIds.length > 0
+        ? (await tx
+            .select({ id: dailyReportsTable.id })
+            .from(dailyReportsTable)
+            .where(
+              and(
+                eq(dailyReportsTable.submittedByUserId, uid),
+                inArray(dailyReportsTable.projectId, companyProjectIds),
+              ),
+            ))
+            .map((r) => r.id)
+        : [];
+      if (userDailyReportIds.length > 0) {
+        await tx.delete(dailyReportPhotosTable).where(inArray(dailyReportPhotosTable.reportId, userDailyReportIds));
+      }
+      const userSubmissionIds = (await tx
+        .select({ id: formSubmissionsTable.id })
+        .from(formSubmissionsTable)
+        .where(
+          and(
+            eq(formSubmissionsTable.userId, uid),
+            eq(formSubmissionsTable.companyId, companyId),
+          ),
+        ))
+        .map((s) => s.id);
+      if (userSubmissionIds.length > 0) {
+        await tx.delete(submissionCommentsTable).where(inArray(submissionCommentsTable.submissionId, userSubmissionIds));
+        await tx.delete(submissionCommentsTable).where(
+          and(
+            eq(submissionCommentsTable.userId, uid),
+            inArray(submissionCommentsTable.submissionId, userSubmissionIds),
+          ),
+        );
+      }
+      const userInvoiceIds = (await tx
+        .select({ id: invoicesTable.id })
+        .from(invoicesTable)
+        .where(
+          and(
+            eq(invoicesTable.createdByUserId, uid),
+            eq(invoicesTable.companyId, companyId),
+          ),
+        ))
+        .map((i) => i.id);
+      if (userInvoiceIds.length > 0) {
+        await tx.delete(paymentsTable).where(
+          and(
+            inArray(paymentsTable.invoiceId, userInvoiceIds),
+            eq(paymentsTable.companyId, companyId),
+          ),
+        );
+      }
+
+      await tx.delete(tradehubMessagesTable).where(eq(tradehubMessagesTable.senderId, uid));
+      await tx.delete(tradehubNotificationsTable).where(eq(tradehubNotificationsTable.userId, uid));
+      await tx.delete(tradehubReportsTable).where(eq(tradehubReportsTable.reporterId, uid));
+      await tx.delete(tradehubReactionsTable).where(eq(tradehubReactionsTable.userId, uid));
+      await tx.delete(tradehubCommentsTable).where(eq(tradehubCommentsTable.userId, uid));
+      await tx.delete(tradehubJobApplicationsTable).where(eq(tradehubJobApplicationsTable.applicantId, uid));
+      await tx.delete(tradehubPostsTable).where(
+        and(eq(tradehubPostsTable.userId, uid), eq(tradehubPostsTable.companyId, companyId)),
+      );
+      await tx.delete(notificationsTable).where(eq(notificationsTable.userId, uid));
+      await tx.delete(projectNotesTable).where(
+        and(eq(projectNotesTable.authorId, uid), eq(projectNotesTable.companyId, companyId)),
+      );
+      await tx.delete(fileAttachmentsTable).where(
+        and(eq(fileAttachmentsTable.uploadedByUserId, uid), eq(fileAttachmentsTable.companyId, companyId)),
+      );
+      await tx.delete(inspectionsTable).where(
+        and(eq(inspectionsTable.inspectorId, uid), eq(inspectionsTable.companyId, companyId)),
+      );
+      await tx.delete(scheduleEventsTable).where(
+        and(eq(scheduleEventsTable.createdByUserId, uid), eq(scheduleEventsTable.companyId, companyId)),
+      );
+      await tx.delete(workerSchedulesTable).where(
+        and(eq(workerSchedulesTable.userId, uid), eq(workerSchedulesTable.companyId, companyId)),
+      );
+      await tx.delete(timeEntriesTable).where(
+        and(eq(timeEntriesTable.userId, uid), eq(timeEntriesTable.companyId, companyId)),
+      );
+      const userLeadIds = (await tx
+        .select({ id: leadsTable.id })
+        .from(leadsTable)
+        .where(eq(leadsTable.companyId, companyId)))
+        .map((r) => r.id);
+      if (userLeadIds.length > 0) {
+        await tx.delete(leadActivitiesTable).where(
+          and(
+            eq(leadActivitiesTable.userId, uid),
+            inArray(leadActivitiesTable.leadId, userLeadIds),
+          ),
+        );
+      }
+      await tx.delete(formSubmissionsTable).where(
+        and(eq(formSubmissionsTable.userId, uid), eq(formSubmissionsTable.companyId, companyId)),
+      );
+      if (companyProjectIds.length > 0) {
+        await tx.delete(projectDocumentsTable).where(
+          and(
+            eq(projectDocumentsTable.uploadedByUserId, uid),
+            inArray(projectDocumentsTable.projectId, companyProjectIds),
+          ),
+        );
+        await tx.delete(dailyReportsTable).where(
+          and(
+            eq(dailyReportsTable.submittedByUserId, uid),
+            inArray(dailyReportsTable.projectId, companyProjectIds),
+          ),
+        );
+        await tx.delete(rfisTable).where(
+          and(
+            eq(rfisTable.submittedByUserId, uid),
+            inArray(rfisTable.projectId, companyProjectIds),
+          ),
+        );
+      }
+      await tx.delete(estimatesTable).where(
+        and(eq(estimatesTable.createdByUserId, uid), eq(estimatesTable.companyId, companyId)),
+      );
+      await tx.delete(changeOrdersTable).where(
+        and(eq(changeOrdersTable.requestedByUserId, uid), eq(changeOrdersTable.companyId, companyId)),
+      );
+      await tx.delete(invoicesTable).where(
+        and(eq(invoicesTable.createdByUserId, uid), eq(invoicesTable.companyId, companyId)),
+      );
+      await tx.delete(quotesTable).where(
+        and(eq(quotesTable.createdByUserId, uid), eq(quotesTable.companyId, companyId)),
+      );
+      await tx.delete(conversations).where(
+        and(eq(conversations.userId, uid), eq(conversations.companyId, companyId)),
+      );
+      await tx.delete(projectMembersTable).where(
+        and(
+          eq(projectMembersTable.userId, uid),
+          eq(projectMembersTable.companyId, companyId),
+        ),
+      );
+
+      // Invitation cleanup + user deletion — same transaction as the rest of the cascade
+      // so the user is never left as a phantom member if any earlier step fails.
       const targetUser = await tx.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, uid));
       if (targetUser[0]?.email) {
         await tx.delete(invitationsTable).where(eq(invitationsTable.email, targetUser[0].email));

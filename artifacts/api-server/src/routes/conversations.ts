@@ -8,6 +8,7 @@ import { eq, desc, and, asc } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
+import { requireAiQuota } from "../middlewares/requireAiQuota";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { notify } from "../lib/notify";
 import { buildTenantContext } from "../lib/buildTenantContext";
@@ -124,7 +125,7 @@ router.get("/conversations", requireAuth, requireCompany, requirePermission("vie
 }))
 
 // POST /conversations — create conversation + first message
-router.post("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
+router.post("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), requireAiQuota, asyncHandler(async (req, res) => {
   const convParsed = NewConversationBody.safeParse(req.body);
   if (!convParsed.success) { res.status(400).json({ error: convParsed.error.flatten() }); return; }
   const { message } = convParsed.data;
@@ -217,6 +218,7 @@ router.post(
   requireAuth,
   requireCompany,
   requirePermission("viewClientMessages"),
+  requireAiQuota,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.conversationId as string, 10);
     if (isNaN(id)) {

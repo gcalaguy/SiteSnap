@@ -12,6 +12,8 @@ import {
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
+import { requireAiQuota } from "../middlewares/requireAiQuota";
+import { checkAiQuota, recordAiCall } from "../lib/aiRateLimiter";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
@@ -200,7 +202,7 @@ router.post("/safety/submissions", requireAuth, requireCompany, asyncHandler(asy
     }).returning();
 
     if (status === "submitted") {
-      generateAISummary(submission.id, req.companyId!, template, data).catch((err) =>
+      generateAISummaryIfWithinQuota(submission.id, req.companyId!, template, data).catch((err) =>
         logger.error({ err }, "Safety AI summary error")
       );
       notifyForemen(req.companyId!, submission.id, template.name, req.userId!).catch((err) =>
@@ -261,7 +263,7 @@ router.put("/safety/submissions/:id", requireAuth, requireCompany, asyncHandler(
     if (status === "submitted" && existing.status === "draft") {
       const [template] = await db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, existing.templateId));
       const formData = data ?? (existing.data as Record<string, any>);
-      generateAISummary(id, req.companyId!, template, formData).catch((err) =>
+      generateAISummaryIfWithinQuota(id, req.companyId!, template, formData).catch((err) =>
         logger.error({ err }, "Safety AI summary error")
       );
       notifyForemen(req.companyId!, id, template?.name ?? "Safety Form", existing.userId).catch((err) =>
@@ -373,7 +375,7 @@ router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, async
 
 // ── POST /safety/submissions/:id/incident-summary — on-demand AI incident report ──
 
-router.post("/safety/submissions/:id/incident-summary", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.post("/safety/submissions/:id/incident-summary", requireAuth, requireCompany, requireOwnerOrForeman, requireAiQuota, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
 
@@ -552,6 +554,19 @@ OUTPUT FORMAT:
 }
 
 // ── AI Summary helper ─────────────────────────────────────────────────────────
+
+// Fire-and-forget call sites can't go through the requireAiQuota middleware (it
+// would block the submission response on the AI call), so quota is checked here instead.
+async function generateAISummaryIfWithinQuota(submissionId: number, companyId: number, template: any, data: Record<string, any>) {
+  const key = `c:${companyId}`;
+  const quota = await checkAiQuota(key);
+  if (!quota.allowed) {
+    logger.warn({ companyId, submissionId }, "Safety AI summary skipped: AI quota exceeded");
+    return;
+  }
+  await recordAiCall(key);
+  await generateAISummary(submissionId, companyId, template, data);
+}
 
 async function generateAISummary(submissionId: number, companyId: number, template: any, data: Record<string, any>) {
   const fields = (template?.schema?.fields ?? []) as Array<{ id: string; label: string }>;
