@@ -160,7 +160,13 @@ export function HoursTab({ projectId }: { projectId: number }) {
       qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
       resetForm();
     },
-    onError: () => Alert.alert("Error", "Failed to log hours. Please try again."),
+    onError: (err: any) => {
+      const serverMsg: string | undefined = err?.data?.error ?? err?.message;
+      const msg = serverMsg?.includes("not assigned") || serverMsg?.includes("not found")
+        ? serverMsg
+        : "Failed to log hours. Please try again.";
+      Alert.alert("Error", msg);
+    },
   });
 
   const editHours = useMutation({

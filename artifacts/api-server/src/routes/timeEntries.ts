@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, timeEntriesTable, projectsTable, usersTable, timesheetsTable, userMembershipsTable } from "@workspace/db";
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { db, withTenantCtx, timeEntriesTable, projectsTable, usersTable, timesheetsTable, userMembershipsTable } from "@workspace/db";
+import { eq, and, desc, gte, lte, sql, isNull } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { canAccessProject } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -18,58 +18,59 @@ function getMonday(isoDate: string): string {
 
 /**
  * After any time-entry change (create, edit, delete), recalculate the
- * total hours for that week and upsert the corresponding timesheet row.
- * Uses ON CONFLICT DO UPDATE to avoid race conditions.
+ * total hours for that project+week and upsert the corresponding timesheet row.
+ * Uses SELECT-then-INSERT/UPDATE (not ON CONFLICT) so it works regardless of
+ * whether the partial unique indexes from migration 0018 are present. Runs
+ * inside withTenantCtx to satisfy the timesheets RLS policy.
  */
 async function syncTimesheetFromEntries(companyId: number, userId: number, weekStart: string, projectId?: number | null) {
-  const entries = await db
-    .select({ hours: timeEntriesTable.hours })
-    .from(timeEntriesTable)
-    .where(and(
-      eq(timeEntriesTable.companyId, companyId),
-      eq(timeEntriesTable.userId, userId),
-      gte(timeEntriesTable.date, weekStart),
-      lte(timeEntriesTable.date, sql`${weekStart}::date + interval '6 days'`)
-    ));
+  await withTenantCtx(companyId, async () => {
+    const projectFilter = projectId != null
+      ? eq(timeEntriesTable.projectId, projectId)
+      : isNull(timeEntriesTable.projectId);
 
-  const total = entries.reduce((s, e) => s + parseFloat(e.hours), 0);
+    const entries = await db
+      .select({ hours: timeEntriesTable.hours })
+      .from(timeEntriesTable)
+      .where(and(
+        eq(timeEntriesTable.companyId, companyId),
+        eq(timeEntriesTable.userId, userId),
+        projectFilter,
+        gte(timeEntriesTable.date, weekStart),
+        lte(timeEntriesTable.date, sql`${weekStart}::date + interval '6 days'`),
+      ));
 
-  const values = {
-    companyId,
-    userId,
-    weekStart,
-    status: "submitted",
-    totalHours: total.toFixed(2),
-    projectId: projectId ?? null,
-  };
-  const set = {
-    totalHours: total.toFixed(2),
-    updatedAt: new Date(),
-    projectId: projectId ?? null,
-  };
+    const total = entries.reduce((s, e) => s + parseFloat(e.hours), 0);
 
-  // Atomic upsert via ON CONFLICT — avoids race conditions when two entries
-  // are created simultaneously for the same week. The DB enforces uniqueness
-  // via two PARTIAL unique indexes (one for project_id IS NULL, one for
-  // project_id IS NOT NULL — see migration 0018), so the conflict target must
-  // match whichever one applies, including its predicate via targetWhere.
-  if (projectId != null) {
-    await db.insert(timesheetsTable)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [timesheetsTable.companyId, timesheetsTable.userId, timesheetsTable.weekStart, timesheetsTable.projectId],
-        targetWhere: sql`${timesheetsTable.projectId} IS NOT NULL`,
-        set,
+    const timesheetWhere = and(
+      eq(timesheetsTable.companyId, companyId),
+      eq(timesheetsTable.userId, userId),
+      eq(timesheetsTable.weekStart, weekStart),
+      projectId != null ? eq(timesheetsTable.projectId, projectId) : isNull(timesheetsTable.projectId),
+    );
+
+    const [existing] = await db
+      .select({ id: timesheetsTable.id })
+      .from(timesheetsTable)
+      .where(timesheetWhere)
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(timesheetsTable)
+        .set({ totalHours: total.toFixed(2), updatedAt: new Date() })
+        .where(eq(timesheetsTable.id, existing.id));
+    } else {
+      await db.insert(timesheetsTable).values({
+        companyId,
+        userId,
+        weekStart,
+        status: "submitted",
+        totalHours: total.toFixed(2),
+        projectId: projectId ?? null,
       });
-  } else {
-    await db.insert(timesheetsTable)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [timesheetsTable.companyId, timesheetsTable.userId, timesheetsTable.weekStart],
-        targetWhere: sql`${timesheetsTable.projectId} IS NULL`,
-        set,
-      });
-  }
+    }
+  });
 }
 
 const CreateTimeEntryItem = z.object({
@@ -136,16 +137,13 @@ router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
-  // Verify project belongs to company
+  // Verify project belongs to this company — any authenticated company member
+  // (worker, foreman, owner) may log hours to any company project.
   const [project] = await db.select({ id: projectsTable.id })
     .from(projectsTable)
     .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
     .limit(1);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
-    res.status(403).json({ error: "You are not assigned to this project" });
-    return;
-  }
 
   const parsed = CreateTimeEntriesBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
