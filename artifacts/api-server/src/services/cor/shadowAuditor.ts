@@ -1,6 +1,7 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { logger } from "../../lib/logger";
 import { getShadowAuditorData } from "../../repositories/cor";
+import { ELEMENT_SHORT_NAMES, ALL_ELEMENT_KEYS } from "./ihsaElements";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -40,32 +41,6 @@ export interface ShadowAuditorReport {
   generatedAt: string;
   lookbackDays: number;
 }
-
-// ── IHSA element names ────────────────────────────────────────────────────────
-
-const ELEMENT_NAMES: Record<string, string> = {
-  element_1:  "Management Leadership",
-  element_2:  "Hazard ID & Assessment",
-  element_3:  "Hazard Control",
-  element_4:  "Ongoing Inspections",
-  element_5:  "Qualifications & Training",
-  element_6:  "Emergency Response",
-  element_7:  "Incident Reporting",
-  element_8:  "Program Administration",
-  element_9:  "Worker Participation",
-  element_10: "Workplace Housekeeping",
-  element_11: "Environmental Protection",
-  element_12: "Safety Equipment & First Aid",
-  element_13: "Fire Safety",
-  element_14: "WHMIS & Controlled Products",
-  element_15: "Contractor Management",
-  element_16: "Medical Management",
-  element_17: "Joint Health & Safety Committee",
-  element_18: "Occupational Health",
-  element_19: "Records & Statistics",
-};
-
-const ALL_ELEMENTS = Object.keys(ELEMENT_NAMES);
 
 // ── Scoring algorithm ─────────────────────────────────────────────────────────
 
@@ -313,7 +288,7 @@ export async function runShadowAuditor(
 ): Promise<ShadowAuditorReport> {
   const data = await getShadowAuditorData(companyId, lookbackDays);
 
-  const elementAnalysis: ElementAnalysis[] = ALL_ELEMENTS.map((el) => {
+  const elementAnalysis: ElementAnalysis[] = ALL_ELEMENT_KEYS.map((el) => {
     const stats = data.elementStats.find((s) => s.element === el);
     const openCapa = data.capaByElement.find((c) => c.element === el)?.openCount ?? 0;
     const overdueCapa = data.capaByElement.find((c) => c.element === el)?.overdueCount ?? 0;
@@ -335,7 +310,7 @@ export async function runShadowAuditor(
 
     return {
       element: el,
-      name: ELEMENT_NAMES[el] ?? el,
+      name: ELEMENT_SHORT_NAMES[el] ?? el,
       predictedScore: predicted,
       baseScore: Math.round(baseScore),
       entryCount: stats?.entryCount ?? 0,
