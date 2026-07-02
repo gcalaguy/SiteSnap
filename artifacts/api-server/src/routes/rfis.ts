@@ -8,6 +8,7 @@ import { requirePermission } from "../lib/permissionGate";
 import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
 import { notify } from "../lib/notify";
 import { asyncHandler } from "../lib/asyncHandler";
+import { assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
 
 // GET /rfis — all RFIs across all projects for the authenticated company
 export const allRfisRouter = Router();
@@ -71,15 +72,6 @@ allRfisRouter.get(
 );
 
 const router = Router({ mergeParams: true });
-
-async function verifyProjectAccess(projectId: number, companyId: number) {
-  const [project] = await db
-    .select()
-    .from(projectsTable)
-    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, companyId)))
-    .limit(1);
-  return project;
-}
 
 
 // GET /projects/:projectId/rfis

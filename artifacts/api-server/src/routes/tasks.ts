@@ -1,23 +1,14 @@
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, tasksTable, projectsTable } from "@workspace/db";
+import { db, tasksTable } from "@workspace/db";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { notify } from "../lib/notify";
+import { assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
 import { logAuditEventFromRequest } from "../utils/logger";
 import { z } from "zod";
 
 const router = Router({ mergeParams: true });
-
-/** Verify the project exists and belongs to this company. Returns null (and sends 404) if not. */
-async function verifyProjectAccess(projectId: number, companyId: number) {
-  const [project] = await db
-    .select({ id: projectsTable.id })
-    .from(projectsTable)
-    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, companyId)))
-    .limit(1);
-  return project ?? null;
-}
 
 const CreateTaskBody = z.object({
   title: z.string().min(1),

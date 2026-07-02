@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { db, expensesTable, projectsTable, usersTable } from "@workspace/db";
+import { db, expensesTable, usersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
-import { canAccessProject } from "../lib/projectAccess";
+import { canAccessProject, assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
 
 const CreateExpenseBody = z.object({
@@ -14,15 +14,6 @@ const CreateExpenseBody = z.object({
 });
 
 const router = Router({ mergeParams: true });
-
-async function verifyProjectAccess(projectId: number, companyId: number) {
-  const [project] = await db
-    .select()
-    .from(projectsTable)
-    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, companyId)))
-    .limit(1);
-  return project;
-}
 
 // GET /projects/:projectId/expenses — workers see only their own; owner/foreman see all
 router.get("/", requireAuth, requireCompany, requirePermission("submitExpenses"), asyncHandler(async (req, res) => {

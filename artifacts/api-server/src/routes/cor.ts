@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
-import { db, projectsTable, userMembershipsTable } from "@workspace/db";
+import { db, userMembershipsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwner, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
-import { canAccessProject } from "../lib/projectAccess";
+import { canAccessProject, assertProjectInCompany as resolveProject } from "../lib/projectAccess";
 import { ForbiddenError, NotFoundError, BadRequestError } from "../lib/errors";
 import { logAuditEventFromRequest } from "../utils/logger";
 import {
@@ -92,17 +92,6 @@ const VALID_CREDENTIAL_TYPES = [
   "confined_space",
   "elevated_work_platform",
 ] as const;
-
-// ── Helper: resolve project with tenant ownership check ───────────────────────
-
-async function resolveProject(projectId: number, companyId: number) {
-  const [project] = await db
-    .select({ id: projectsTable.id, name: projectsTable.name })
-    .from(projectsTable)
-    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, companyId)))
-    .limit(1);
-  return project ?? null;
-}
 
 // ── GET /cor/projects/:projectId/dashboard ────────────────────────────────────
 

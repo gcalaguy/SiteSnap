@@ -3,7 +3,7 @@ import { db, dailyReportsTable, usersTable, projectsTable, dailyReportPhotosTabl
 import { eq, and, inArray, gte, lte, SQL } from "drizzle-orm";
 import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
-import { canAccessProject, getAccessibleProjectIds } from "../lib/projectAccess";
+import { canAccessProject, getAccessibleProjectIds, assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
 import { CreateDailyReportBody, UpdateDailyReportBody } from "@workspace/api-zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { logAuditEventFromRequest } from "../utils/logger";
@@ -83,16 +83,6 @@ allDailyReportsRouter.get(
 );
 
 const router = Router({ mergeParams: true });
-
-// Helper: verify project belongs to user's company
-async function verifyProjectAccess(projectId: number, companyId: number) {
-  const [project] = await db
-    .select()
-    .from(projectsTable)
-    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, companyId)))
-    .limit(1);
-  return project;
-}
 
 // GET /projects/:projectId/daily-reports
 router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {

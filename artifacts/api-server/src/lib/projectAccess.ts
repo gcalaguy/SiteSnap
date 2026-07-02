@@ -52,3 +52,20 @@ export async function canAccessProject(
   const ids = await getAccessibleProjectIds(companyId, userId, userRole);
   return ids.includes(projectId);
 }
+
+/**
+ * Verifies `projectId` exists and belongs to `companyId`, returning its id and name if so
+ * (or null otherwise). Shared replacement for the identical `verifyProjectAccess` /
+ * `resolveProject` helpers that were copy-pasted into several route files.
+ */
+export async function assertProjectInCompany(
+  projectId: number,
+  companyId: number,
+): Promise<{ id: number; name: string } | null> {
+  const [project] = await db
+    .select({ id: projectsTable.id, name: projectsTable.name })
+    .from(projectsTable)
+    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, companyId)))
+    .limit(1);
+  return project ?? null;
+}
