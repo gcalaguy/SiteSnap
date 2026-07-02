@@ -61,6 +61,7 @@ export const requireAuth = async (
   res: Response,
   next: NextFunction,
 ) => {
+  try {
   const auth = getAuth(req);
   const clerkUserId = auth?.userId;
   if (!clerkUserId) {
@@ -209,6 +210,9 @@ export const requireAuth = async (
   }
 
   next();
+  } catch (err) {
+    next(err);
+  }
 };
 
 // Middleware: verify Clerk session only — does NOT require a DB user record.

@@ -140,25 +140,43 @@ router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
 
   // Verify project belongs to this company — any authenticated company member
   // (worker, foreman, owner) may log hours to any company project.
-  const [project] = await db.select({ id: projectsTable.id })
-    .from(projectsTable)
-    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
-    .limit(1);
+  let project: { id: number } | undefined;
+  try {
+    [project] = await db.select({ id: projectsTable.id })
+      .from(projectsTable)
+      .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))
+      .limit(1);
+  } catch (lookupErr: any) {
+    logger.error(
+      { err: lookupErr, companyId: req.companyId, projectId },
+      "timeEntries POST: project lookup failed",
+    );
+    throw lookupErr;
+  }
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
 
   const parsed = CreateTimeEntriesBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
 
-  const entries = await db.insert(timeEntriesTable).values(
-    parsed.data.entries.map((item) => ({
-      companyId: req.companyId!,
-      projectId,
-      userId: req.userId!,
-      date: parsed.data.date,
-      hours: item.hours.toFixed(2),
-      description: item.description ?? null,
-    })),
-  ).returning();
+  let entries: any[];
+  try {
+    entries = await db.insert(timeEntriesTable).values(
+      parsed.data.entries.map((item) => ({
+        companyId: req.companyId!,
+        projectId,
+        userId: req.userId!,
+        date: parsed.data.date,
+        hours: item.hours.toFixed(2),
+        description: item.description ?? null,
+      })),
+    ).returning();
+  } catch (insertErr: any) {
+    logger.error(
+      { err: insertErr, companyId: req.companyId, userId: req.userId, projectId, date: parsed.data.date },
+      "timeEntries POST: insert failed",
+    );
+    throw insertErr;
+  }
 
   // Auto-sync the timesheet for this week — non-fatal: the time entries are
   // already committed so we return 201 even if the summary row can't be written.

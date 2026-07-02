@@ -17,6 +17,18 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  // express.json() / body-parser SyntaxError — malformed JSON in request body
+  if (
+    err instanceof SyntaxError &&
+    "status" in err &&
+    (err as any).status === 400 &&
+    "body" in err
+  ) {
+    logger.warn({ reqId: req.id ?? "no-request-id" }, "Malformed JSON in request body");
+    res.status(400).json({ error: "Invalid JSON in request body", code: "BAD_REQUEST" });
+    return;
+  }
+
   // Known application error — safe to surface the message
   if (err instanceof AppError) {
     if (err.statusCode >= 500) {
@@ -39,6 +51,7 @@ export function errorHandler(
     err !== null &&
     "issues" in err
   ) {
+    logger.warn({ issues: (err as any).issues, reqId: req.id ?? "no-request-id" }, "Unhandled Zod validation error");
     res.status(422).json({ error: "Validation failed", code: "VALIDATION_ERROR", details: (err as any).issues });
     return;
   }
