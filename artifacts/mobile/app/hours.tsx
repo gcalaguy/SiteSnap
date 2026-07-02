@@ -11,7 +11,10 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Modal,
+  KeyboardAvoidingView,
 } from "react-native";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -26,6 +29,19 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+
+function isoFromDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatDateLabel(iso: string): string {
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-CA", {
+    weekday: "short", month: "short", day: "numeric", year: "numeric",
+  });
+}
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "#6B7280",
@@ -58,6 +74,84 @@ export default function HoursScreen() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editHours, setEditHours] = useState("");
   const [editDesc, setEditDesc] = useState("");
+
+  // ── Log Hours modal state ─────────────────────────────────────────
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [logProjectId, setLogProjectId] = useState<number | null>(null);
+  const [logDate, setLogDate] = useState<Date>(new Date());
+  const [logTempDate, setLogTempDate] = useState<Date>(new Date());
+  const [showLogDatePicker, setShowLogDatePicker] = useState(false);
+  const [logHoursVal, setLogHoursVal] = useState("");
+  const [logDesc, setLogDesc] = useState("");
+  const [logHoursError, setLogHoursError] = useState("");
+
+  const resetLogForm = useCallback(() => {
+    setLogProjectId(null);
+    setLogDate(new Date());
+    setLogHoursVal("");
+    setLogDesc("");
+    setLogHoursError("");
+    setShowLogDatePicker(false);
+  }, []);
+
+  const openLogModal = useCallback(() => {
+    resetLogForm();
+    setShowLogModal(true);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, [resetLogForm]);
+
+  const logHoursMutation = useMutation({
+    mutationFn: ({ projectId, date, hours, description }: { projectId: number; date: string; hours: number; description?: string }) =>
+      customFetch(`/api/projects/${projectId}/time-entries`, {
+        method: "POST",
+        body: JSON.stringify({
+          date,
+          entries: [{ hours, description: description || undefined }],
+        }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: getListTimesheetsQueryKey() });
+      setShowLogModal(false);
+      resetLogForm();
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Hours Logged", "Your hours have been submitted for approval.");
+    },
+    onError: (err: any) => {
+      const serverMsg: string | undefined = err?.data?.error ?? err?.message;
+      const msg = serverMsg?.includes("not assigned")
+        ? "You are not assigned to this project. Ask your foreman to add you."
+        : "Failed to log hours. Please try again.";
+      Alert.alert("Error", msg);
+    },
+  });
+
+  const handleLogSubmit = useCallback(() => {
+    setLogHoursError("");
+    if (!logProjectId) {
+      setLogHoursError("Please select a project.");
+      return;
+    }
+    const h = parseFloat(logHoursVal);
+    if (!logHoursVal || isNaN(h) || h <= 0 || h > 24) {
+      setLogHoursError("Enter hours between 0.5 and 24.");
+      return;
+    }
+    logHoursMutation.mutate({
+      projectId: logProjectId,
+      date: isoFromDate(logDate),
+      hours: h,
+      description: logDesc.trim() || undefined,
+    });
+  }, [logProjectId, logHoursVal, logDate, logDesc, logHoursMutation]);
+
+  const onLogDateChange = useCallback((_event: DateTimePickerEvent, date: Date | undefined) => {
+    if (Platform.OS === "android") {
+      setShowLogDatePicker(false);
+      if (date != null) setLogDate(date);
+    } else if (date != null) {
+      setLogTempDate(date);
+    }
+  }, []);
 
   // Voice recorder for the description field — appends each transcription
   const descVoice = useVoiceRecorder((text) => {
@@ -319,7 +413,7 @@ export default function HoursScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInset + 12, backgroundColor: colors.sidebar }]}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Hours Tracking</Text>
           <Text style={styles.headerSub}>
             {isOwnerOrForeman ? "All company hours" : "My tracked hours"}
@@ -328,6 +422,16 @@ export default function HoursScreen() {
         <View style={[styles.badge, { backgroundColor: colors.primary }]}>
           <Text style={styles.badgeText}>{totalHours.toFixed(1)}h</Text>
         </View>
+        <TouchableOpacity
+          onPress={openLogModal}
+          style={[styles.logBtn, { backgroundColor: "#FFFFFF20" }]}
+          accessibilityRole="button"
+          accessibilityLabel="Log hours"
+          hitSlop={8}
+        >
+          <Feather name="plus" size={14} color="#FFFFFF" />
+          <Text style={styles.logBtnText}>Log Hours</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Voice quick-log hint — points workers to the FAB mic */}
@@ -437,6 +541,180 @@ export default function HoursScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* ── Log Hours Modal ─────────────────────────────────────────── */}
+      <Modal
+        visible={showLogModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => { setShowLogModal(false); resetLogForm(); }}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+              {/* Modal header */}
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>Log Hours</Text>
+                <TouchableOpacity onPress={() => { setShowLogModal(false); resetLogForm(); }} hitSlop={10}>
+                  <Feather name="x" size={22} color={colors.foreground} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ padding: 20, gap: 0, paddingBottom: insets.bottom + 24 }}
+                keyboardShouldPersistTaps="handled"
+              >
+                {/* Project picker */}
+                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
+                  Project <Text style={{ color: "#EF4444" }}>*</Text>
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingVertical: 4, marginBottom: 18 }}
+                >
+                  {(projects ?? []).map((p) => {
+                    const active = logProjectId === p.id;
+                    return (
+                      <TouchableOpacity
+                        key={p.id}
+                        onPress={() => { setLogProjectId(p.id); setLogHoursError(""); }}
+                        style={[
+                          styles.projectChip,
+                          {
+                            backgroundColor: active ? colors.primary : colors.background,
+                            borderColor: active ? colors.primary : colors.border,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.projectChipText, { color: active ? "#FFFFFF" : colors.foreground }]}>
+                          {p.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {(projects ?? []).length === 0 && (
+                    <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Inter_400Regular" }}>
+                      No projects assigned yet.
+                    </Text>
+                  )}
+                </ScrollView>
+
+                {/* Date picker */}
+                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
+                  Date <Text style={{ color: "#EF4444" }}>*</Text>
+                </Text>
+                <TouchableOpacity
+                  style={[styles.dateField, { backgroundColor: colors.background, borderColor: colors.border }]}
+                  onPress={() => { setLogTempDate(logDate); setShowLogDatePicker(true); }}
+                >
+                  <Feather name="calendar" size={15} color={colors.primary} />
+                  <Text style={[styles.dateFieldText, { color: colors.foreground }]}>
+                    {formatDateLabel(isoFromDate(logDate))}
+                  </Text>
+                  <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
+                </TouchableOpacity>
+
+                {/* Android date picker */}
+                {showLogDatePicker && Platform.OS === "android" && (
+                  <DateTimePicker
+                    value={logDate}
+                    mode="date"
+                    display="default"
+                    onChange={onLogDateChange}
+                    maximumDate={new Date()}
+                  />
+                )}
+
+                {/* iOS date picker in sheet */}
+                {Platform.OS === "ios" && showLogDatePicker && (
+                  <View style={[styles.iosDateBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <DateTimePicker
+                      value={logTempDate}
+                      mode="date"
+                      display="spinner"
+                      themeVariant="dark"
+                      onChange={onLogDateChange}
+                      maximumDate={new Date()}
+                      style={{ width: "100%" }}
+                    />
+                    <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 12, paddingBottom: 8, gap: 16 }}>
+                      <TouchableOpacity onPress={() => setShowLogDatePicker(false)}>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 14 }}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => { setLogDate(logTempDate); setShowLogDatePicker(false); }}>
+                        <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 14 }}>Done</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* Hours input */}
+                <Text style={[styles.fieldLabel, { color: colors.foreground, marginTop: 18 }]}>
+                  Hours Worked <Text style={{ color: "#EF4444" }}>*</Text>
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    { backgroundColor: colors.background, borderColor: logHoursError ? "#EF4444" : colors.border, color: colors.foreground },
+                  ]}
+                  value={logHoursVal}
+                  onChangeText={(t) => { setLogHoursVal(t); setLogHoursError(""); }}
+                  placeholder="e.g. 8 or 7.5"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="decimal-pad"
+                  accessibilityLabel="Hours worked"
+                />
+
+                {/* Description input */}
+                <Text style={[styles.fieldLabel, { color: colors.foreground, marginTop: 18 }]}>
+                  Description{" "}
+                  <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>optional</Text>
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    styles.textInputMulti,
+                    { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
+                  ]}
+                  value={logDesc}
+                  onChangeText={setLogDesc}
+                  placeholder="What did you work on?"
+                  placeholderTextColor={colors.mutedForeground}
+                  multiline
+                  numberOfLines={3}
+                  accessibilityLabel="Work description"
+                />
+
+                {!!logHoursError && (
+                  <Text style={{ color: "#EF4444", fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 6 }}>
+                    {logHoursError}
+                  </Text>
+                )}
+
+                {/* Submit button */}
+                <TouchableOpacity
+                  style={[
+                    styles.submitBtn,
+                    { backgroundColor: colors.primary, opacity: logHoursMutation.isPending ? 0.7 : 1, marginTop: 24 },
+                  ]}
+                  onPress={handleLogSubmit}
+                  disabled={logHoursMutation.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel="Submit hours"
+                >
+                  {logHoursMutation.isPending ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Submit Hours for Approval</Text>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -545,5 +823,104 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
+  },
+  logBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginLeft: 10,
+  },
+  logBtnText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    color: "#FFFFFF",
+  },
+  // Log Hours Modal
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "90%",
+    minHeight: 480,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 8,
+  },
+  projectChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  projectChipText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  dateField: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 4,
+  },
+  dateFieldText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  iosDateBox: {
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+  },
+  textInputMulti: {
+    minHeight: 70,
+    textAlignVertical: "top",
+    paddingTop: 10,
+  },
+  submitBtn: {
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  submitBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
   },
 });
