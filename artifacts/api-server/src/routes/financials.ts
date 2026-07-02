@@ -15,6 +15,7 @@ import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { allocateInvoiceNumber } from "./invoices";
+import { parsePagination } from "../lib/pagination";
 
 import { z } from "zod";
 
@@ -220,8 +221,7 @@ router.delete("/payments/:id", requireAuth, requireCompany, requirePermission("v
 // GET /change-orders
 router.get("/change-orders", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const { projectId } = req.query;
-  const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
-  const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+  const { limit, offset } = parsePagination(req.query, 50, 100);
 
   const conditions: any[] = [eq(changeOrdersTable.companyId, req.companyId!)];
   if (projectId) {
@@ -236,7 +236,7 @@ router.get("/change-orders", requireAuth, requireCompany, requireOwnerOrForeman,
     .where(conditions.length === 1 ? conditions[0] : and(...conditions))
     .orderBy(desc(changeOrdersTable.createdAt))
     .limit(limit)
-    .offset((page - 1) * limit);
+    .offset(offset);
 
   res.json(orders);
 }))

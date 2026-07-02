@@ -5,6 +5,7 @@ import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { notify } from "../lib/notify";
 import { assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
+import { parsePagination } from "../lib/pagination";
 import { logAuditEventFromRequest } from "../utils/logger";
 import { z } from "zod";
 
@@ -56,8 +57,7 @@ router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
     conditions.push(eq(tasksTable.assignedToUserId, req.userId!));
   }
 
-  const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
-  const limit = Math.min(500, Math.max(1, parseInt(String(req.query.limit ?? "100"), 10)));
+  const { limit, offset } = parsePagination(req.query, 100, 500);
 
   const tasks = await db
     .select()
@@ -65,7 +65,7 @@ router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
     .where(and(...conditions))
     .orderBy(tasksTable.createdAt)
     .limit(limit)
-    .offset((page - 1) * limit);
+    .offset(offset);
 
   res.json(tasks);
 }));

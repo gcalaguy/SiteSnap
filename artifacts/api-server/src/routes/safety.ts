@@ -14,6 +14,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { requireAiQuota } from "../middlewares/requireAiQuota";
 import { checkAiQuota, recordAiCall } from "../lib/aiRateLimiter";
+import { parsePagination } from "../lib/pagination";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
@@ -79,8 +80,7 @@ router.get("/safety/submissions", requireAuth, requireCompany, requirePermission
       res.status(400).json({ error: "Invalid workerId" }); return;
     }
 
-    const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
-    const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+    const { limit, offset } = parsePagination(req.query, 50, 200);
 
     const conditions: any[] = [eq(formSubmissionsTable.companyId, req.companyId!)];
 
@@ -107,7 +107,7 @@ router.get("/safety/submissions", requireAuth, requireCompany, requirePermission
       .where(and(...conditions))
       .orderBy(desc(formSubmissionsTable.createdAt))
       .limit(limit)
-      .offset((page - 1) * limit);
+      .offset(offset);
 
     const submissionIds = rows.map((r) => r.submission.id);
     const allPhotos = submissionIds.length

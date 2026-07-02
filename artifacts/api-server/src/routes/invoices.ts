@@ -10,6 +10,7 @@ import { sendReminderForInvoice } from "../lib/invoiceReminders.js";
 import { logAuditEventFromRequest } from "../utils/logger";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { buildInvoicePdfBuffer } from "../lib/invoicePdf.js";
+import { parsePagination } from "../lib/pagination";
 import { format, parseISO } from "date-fns";
 import { z } from "zod";
 
@@ -126,8 +127,7 @@ router.post("/invoices", requirePermission("manageFinancials"), asyncHandler(asy
 router.get("/quotes", requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const { status } = req.query;
   const isWorker = req.userRole === "worker";
-  const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
-  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+  const { limit, offset } = parsePagination(req.query, 50, 200);
 
   const companyFilter = eq(quotesTable.companyId, req.companyId!);
   const statusFilter = status
@@ -144,7 +144,7 @@ router.get("/quotes", requirePermission("viewQuotes"), asyncHandler(async (req, 
     .where(where)
     .orderBy(desc(quotesTable.createdAt))
     .limit(limit)
-    .offset((page - 1) * limit);
+    .offset(offset);
   res.json(quotes);
 }))
 
@@ -152,8 +152,7 @@ router.get("/quotes", requirePermission("viewQuotes"), asyncHandler(async (req, 
 router.get("/invoices", requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const { status } = req.query;
   const isWorker = req.userRole === "worker";
-  const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
-  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+  const { limit, offset } = parsePagination(req.query, 50, 200);
 
   const companyFilter = eq(invoicesTable.companyId, req.companyId!);
   const statusFilter = status
@@ -170,7 +169,7 @@ router.get("/invoices", requirePermission("viewFinancials"), asyncHandler(async 
     .where(where)
     .orderBy(desc(invoicesTable.createdAt))
     .limit(limit)
-    .offset((page - 1) * limit);
+    .offset(offset);
   res.json(invoices);
 }))
 

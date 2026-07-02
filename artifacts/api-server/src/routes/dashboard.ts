@@ -20,6 +20,7 @@ import { eq, and, gte, sql, inArray, lt, ne, isNotNull, desc } from "drizzle-orm
 import { getAccessibleProjectIds } from "../lib/projectAccess";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import { parsePagination } from "../lib/pagination";
 
 const router = Router();
 
@@ -208,8 +209,7 @@ router.get("/dashboard/my-tasks", requireAuth, requireCompany, asyncHandler(asyn
       ? and(inArray(tasksTable.projectId, projectIds), eq(tasksTable.assignedToUserId, userId))
       : inArray(tasksTable.projectId, projectIds);
 
-  const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),  10));
-  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "100"), 10)));
+  const { limit, offset } = parsePagination(req.query, 100, 200);
 
   const tasks = await db
     .select()
@@ -217,7 +217,7 @@ router.get("/dashboard/my-tasks", requireAuth, requireCompany, asyncHandler(asyn
     .where(whereClause)
     .orderBy(tasksTable.createdAt)
     .limit(limit)
-    .offset((page - 1) * limit);
+    .offset(offset);
 
   res.json(tasks);
 }))
@@ -600,9 +600,7 @@ router.get("/rfis", requireAuth, requireCompany, asyncHandler(async (req, res) =
   const projects = await db.select().from(projectsTable).where(inArray(projectsTable.id, projectIds));
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
 
-  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
-  const offset = (page - 1) * limit;
+  const { limit, offset } = parsePagination(req.query, 50, 200);
 
   const rfis = await db
     .select()
@@ -637,9 +635,7 @@ router.get("/daily-reports", requireAuth, requireCompany, asyncHandler(async (re
   const projects = await db.select().from(projectsTable).where(inArray(projectsTable.id, projectIds));
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
 
-  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-  const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
-  const offset = (page - 1) * limit;
+  const { limit, offset } = parsePagination(req.query, 50, 200);
 
   const reports = await db
     .select()
