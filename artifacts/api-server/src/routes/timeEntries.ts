@@ -4,6 +4,7 @@ import { eq, and, desc, gte, lte, sql, isNull } from "drizzle-orm";
 import { requireAuth, requireCompany } from "../lib/auth";
 import { canAccessProject } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
+import { logger } from "../lib/logger";
 import { z } from "zod";
 
 const router = Router({ mergeParams: true });
@@ -159,8 +160,16 @@ router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
     })),
   ).returning();
 
-  // Auto-sync the timesheet for this week once, after all rows are inserted
-  await syncTimesheetFromEntries(req.companyId!, req.userId!, getMonday(parsed.data.date), projectId);
+  // Auto-sync the timesheet for this week — non-fatal: the time entries are
+  // already committed so we return 201 even if the summary row can't be written.
+  try {
+    await syncTimesheetFromEntries(req.companyId!, req.userId!, getMonday(parsed.data.date), projectId);
+  } catch (syncErr: any) {
+    logger.error(
+      { err: syncErr, companyId: req.companyId, userId: req.userId, projectId, weekStart: getMonday(parsed.data.date) },
+      "timeEntries: syncTimesheetFromEntries failed — time entries saved but timesheet not updated",
+    );
+  }
 
   // Attach user info to response
   const [user] = await db
