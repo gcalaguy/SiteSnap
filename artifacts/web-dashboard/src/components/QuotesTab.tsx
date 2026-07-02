@@ -51,6 +51,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { formatCurrency } from "@/lib/format";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -70,7 +71,7 @@ const STATUS_COLORS: Record<string, string> = {
 type LineItem = { description: string; quantity: number; unit: string; unitPrice: number; total: number };
 
 function fmtCAD(v: number | string) {
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
+  return formatCurrency(v);
 }
 
 export default function QuotesTab({ projectId }: { projectId: number }) {

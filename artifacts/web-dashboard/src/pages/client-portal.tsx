@@ -30,6 +30,7 @@ import {
   Hourglass,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatCurrencyOrDash } from "@/lib/format";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -125,8 +126,7 @@ function formatDateTime(dateStr: string) {
 }
 
 function formatCurrency(amount: string | null) {
-  if (!amount) return "—";
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(parseFloat(amount));
+  return formatCurrencyOrDash(amount);
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {

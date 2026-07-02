@@ -32,6 +32,7 @@ import { SignatureBadge } from "@/components/SignatureBadge";
 import { Share2 } from "lucide-react";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "@e965/xlsx";
+import { formatCurrency as fmtCAD } from "@/lib/format";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -81,9 +82,6 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-gray-100 text-gray-400 border-gray-200",
 };
 
-function fmtCAD(v: string | number) {
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
-}
 
 interface LineItem {
   description: string;

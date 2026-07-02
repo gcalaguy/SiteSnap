@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, FileText, ChevronRight } from "lucide-react";
 import SearchBar from "@/components/SearchBar";
 import { formatDistanceToNow } from "date-fns";
+import { formatCurrency as fmtCAD } from "@/lib/format";
 
 
 const STATUS_LABELS: Record<string, string> = {
@@ -54,9 +55,6 @@ export default function Quotes() {
     return acc;
   }, {});
   const totalCount = allQuotes?.length ?? 0;
-
-  const fmtCAD = (v: string | number) =>
-    new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">

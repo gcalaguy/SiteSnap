@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getListAllInvoicesQueryKey } from "@workspace/api-client-react";
 import { useDraftRecovery } from "@/hooks/useDraftRecovery";
 import { DraftBanner } from "@/components/DraftBanner";
+import { formatCurrency as fmtCAD } from "@/lib/format";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -100,8 +101,6 @@ export default function NewInvoice() {
     toast({ title: `${toImport.length} change order(s) added to invoice` });
   }
 
-  const fmtCAD = (v: number) =>
-    new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(v);
 
   const { subtotal, taxAmount, total } = calcTotals(lineItems);
 

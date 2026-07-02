@@ -59,6 +59,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/format";
 
 // ── Brand ──────────────────────────────────────────────────────────────────────
 const GOLD = "#C9A84C";
@@ -133,7 +134,7 @@ function calcTotals(items: Item[]) {
 }
 
 function cad(v: number) {
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(v);
+  return formatCurrency(v, { maximumFractionDigits: 0 });
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {

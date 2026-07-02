@@ -11,6 +11,7 @@ import { ShieldCheck, Loader2, FileText, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { SignaturePad } from "@/components/SignaturePad";
 import { SignatureBadge } from "@/components/SignatureBadge";
+import { formatCurrency as fmtCAD } from "@/lib/format";
 
 interface PublicQuote {
   id: number;
@@ -46,9 +47,6 @@ const safeDateFmt = (value: string | Date | null | undefined, pattern: string): 
     return "";
   }
 };
-
-const fmtCAD = (v: string | number) =>
-  new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 
 export default function PublicQuotePage() {
   const params = useParams<{ token: string }>();

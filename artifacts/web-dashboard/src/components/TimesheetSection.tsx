@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { estimateTax, type TaxBreakdown } from "@/lib/canadaTax";
+import { formatCurrencyOrDash } from "@/lib/format";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -64,8 +65,7 @@ function weekRange(weekStart: string) {
   return `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`;
 }
 function fmtCAD(v: string | number | null | undefined) {
-  if (v == null) return "—";
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
+  return formatCurrencyOrDash(v);
 }
 
 const STATUS = {

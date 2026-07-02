@@ -12,6 +12,7 @@ import { ShieldCheck, Loader2, FileText, CheckCircle2, Ban, CreditCard } from "l
 import { format } from "date-fns";
 import { SignaturePad } from "@/components/SignaturePad";
 import { SignatureBadge } from "@/components/SignatureBadge";
+import { formatCurrency as fmtCAD } from "@/lib/format";
 
 interface PublicInvoice {
   id: number;
@@ -36,9 +37,6 @@ interface PublicInvoice {
   companyName?: string | null;
   terms?: string | null;
 }
-
-const fmtCAD = (v: string | number) =>
-  new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 
 async function fetchPublicInvoice(token: string): Promise<PublicInvoice> {
   const res = await fetch(`/api/public/invoices/${token}`);

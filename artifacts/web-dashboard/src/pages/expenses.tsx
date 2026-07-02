@@ -23,6 +23,7 @@ import {
 import { Receipt, Plus, Trash2, Paperclip, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/format";
 
 interface Expense {
   id: number;
@@ -161,14 +162,14 @@ export default function ExpensesPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm font-bold text-[#121212]">Total: {new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(total)}</p>
+          <p className="text-sm font-bold text-[#121212]">Total: {formatCurrency(total)}</p>
           {expenses.map((expense) => (
             <Card key={expense.id} className="border-[#D4AF37]/20">
               <CardContent className="py-4 px-5 flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
                     <p className="font-extrabold text-sm text-[#121212]">
-                      {new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(parseFloat(expense.amount))}
+                      {formatCurrency(parseFloat(expense.amount))}
                     </p>
                     <span className="flex items-center gap-1 text-xs text-[#121212]/60 font-medium">
                       <User className="h-3.5 w-3.5" style={{ color: "#D4AF37" }} />

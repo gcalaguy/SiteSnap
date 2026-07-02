@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Receipt, ChevronRight, TrendingDown, TrendingUp, Plus } from "lucide-react";
 import SearchBar from "@/components/SearchBar";
 import { formatDistanceToNow, format } from "date-fns";
+import { formatCurrency as fmtCAD } from "@/lib/format";
 
 
 const STATUS_LABELS: Record<string, string> = {
@@ -54,9 +55,6 @@ export default function Invoices() {
     return acc;
   }, {});
   const totalCount = allInvoices?.length ?? 0;
-
-  const fmtCAD = (v: string | number) =>
-    new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
 
   const totalOutstanding = (allInvoices ?? [])
     .filter((i) => i.status === "sent" || i.status === "overdue")

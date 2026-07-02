@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import SmartEstimatorTab from "@/pages/smart-estimator";
 import { format } from "date-fns";
+import { formatCurrencyOrDash } from "@/lib/format";
 
 type MaterialLine = { item: string; quantity: number; unit: string; unitCost: number; total: number };
 type LaborLine = { trade: string; hours: number; hourlyRate: number; total: number };
@@ -75,8 +76,7 @@ const LazySplatViewer = lazy(() => import("@/components/SplatViewer"));
 
 
 function fmt(n: number | undefined | null) {
-  if (n == null) return "—";
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
+  return formatCurrencyOrDash(n, { maximumFractionDigits: 0 });
 }
 
 function sumLines(lines: { total: number }[] | undefined) {

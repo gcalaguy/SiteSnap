@@ -55,6 +55,7 @@ import {
 import * as XLSX from "@e965/xlsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatCurrency as fmtCAD } from "@/lib/format";
 import ImportCostModelDialog from "@/components/ImportCostModelDialog";
 import jsPDF from "jspdf";
 import { renderSignatureBlock } from "@/lib/signaturePdf";
@@ -120,7 +121,7 @@ function buildQuotePdfDoc(
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 18;
-  const fmtC = (v: number) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(v);
+  const fmtC = fmtCAD;
   const taxRate = parseFloat(quote.taxRate ?? "0.13");
   const subtotal = lineItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
@@ -438,9 +439,6 @@ export default function QuoteDetail() {
   const [importItem, setImportItem] = useState<LineItem | null>(null);
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-
-  const fmtCAD = (v: number) =>
-    new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(v);
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: [`/api/projects/0/quotes/${quoteId}`] });
