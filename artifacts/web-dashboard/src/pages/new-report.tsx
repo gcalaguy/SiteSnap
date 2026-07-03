@@ -7,7 +7,6 @@ import { useGetProject, useCreateDailyReport, useGenerateDailyReportAI, useAddRe
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { getListDailyReportsQueryKey } from "@workspace/api-client-react";
-import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { getAiErrorMessage } from "@/hooks/useApiError";
 import { useDraftRecovery } from "@/hooks/useDraftRecovery";
 import { DraftBanner } from "@/components/DraftBanner";
@@ -17,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, Loader2, Sparkles, Camera, X, Upload, Mic, MicOff } from "lucide-react";
+import { ChevronLeft, Loader2, Sparkles, Camera, X, Upload } from "lucide-react";
 
 import {
   createDailyReportBodyWorkPerformedMax as WORK_MAX,
@@ -62,13 +61,6 @@ export default function NewReport() {
 
   const [rawInput, setRawInput] = useState("");
   const [photos, setPhotos] = useState<PhotoUpload[]>([]);
-
-  const voice = useVoiceRecorder((transcript) => {
-    setRawInput((prev) => {
-      const combined = prev ? `${prev.trimEnd()} ${transcript}` : transcript;
-      return combined.slice(0, RAW_INPUT_MAX);
-    });
-  });
 
   const form = useForm<z.infer<typeof reportSchema>>({
     resolver: zodResolver(reportSchema),
@@ -259,49 +251,19 @@ export default function NewReport() {
                 <Sparkles className="h-5 w-5 text-primary" />
                 AI Assistant
               </CardTitle>
-              <CardDescription>Paste your raw notes or voice transcript. AI will structure it into the report fields.</CardDescription>
+              <CardDescription>Paste your raw notes. AI will structure it into the report fields.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="relative">
-                <Textarea 
-                  placeholder="e.g. 5 guys on site today. Finished framing the 2nd floor. Used 50 studs. Weather was sunny. Had an issue with the lift..." 
-                  className="min-h-[180px] bg-background pr-12"
+                <Textarea
+                  placeholder="e.g. 5 guys on site today. Finished framing the 2nd floor. Used 50 studs. Weather was sunny. Had an issue with the lift..."
+                  className="min-h-[180px] bg-background"
                   value={rawInput}
                   onChange={(e) => setRawInput(e.target.value.slice(0, RAW_INPUT_MAX))}
                   maxLength={RAW_INPUT_MAX}
                 />
-                <button
-                  type="button"
-                  title={voice.state === "recording" ? "Stop recording" : "Dictate notes"}
-                  onClick={voice.toggle}
-                  disabled={voice.state === "transcribing"}
-                  className={[
-                    "absolute top-2 right-2 p-2 rounded-full transition-colors",
-                    voice.state === "recording"
-                      ? "bg-red-500 text-white animate-pulse"
-                      : voice.state === "transcribing"
-                        ? "bg-muted text-muted-foreground"
-                        : "bg-muted hover:bg-primary/10 text-muted-foreground hover:text-primary",
-                  ].join(" ")}
-                >
-                  {voice.state === "transcribing"
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : voice.state === "recording"
-                      ? <MicOff className="h-4 w-4" />
-                      : <Mic className="h-4 w-4" />}
-                </button>
               </div>
-              <div className="flex items-center justify-between gap-2">
-                {voice.state === "recording" ? (
-                  <p className="text-xs text-red-500 flex items-center gap-1.5">
-                    <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                    Recording… tap the mic to stop and transcribe
-                  </p>
-                ) : voice.error ? (
-                  <p className="text-xs text-destructive">{voice.error}</p>
-                ) : (
-                  <span />
-                )}
+              <div className="flex items-center justify-end gap-2">
                 <p className={`text-xs shrink-0 tabular-nums ${rawInput.length >= RAW_INPUT_MAX ? "text-destructive font-medium" : rawInput.length >= RAW_INPUT_MAX * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
                   {rawInput.length.toLocaleString()}/{RAW_INPUT_MAX.toLocaleString()}
                 </p>
@@ -450,7 +412,7 @@ export default function NewReport() {
 
                   <FormField control={form.control} name="notes" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Notes (Voice / Streaming)</FormLabel>
+                      <FormLabel>Notes</FormLabel>
                       <FormControl>
                         <Textarea
                           className="min-h-[60px]"

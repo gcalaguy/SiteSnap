@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch, useGetMe, useListProjects } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import {
-  BadgeCheck, Mic,
+  BadgeCheck,
   AlertTriangle, CheckCircle2, Clock, Plus, Loader2,
   ClipboardList, Activity, XCircle, Download, Package, ShieldCheck,
   FileText, PenLine, ChevronDown, ChevronUp, Users, BarChart3,
@@ -66,13 +66,6 @@ const CREDENTIAL_LABELS: Record<string, string> = {
 
 const CREDENTIAL_TYPES = Object.keys(CREDENTIAL_LABELS);
 
-const RISK_CFG = {
-  critical: { label: "Critical", bg: "#fee2e2", text: "#991b1b" },
-  high:     { label: "High",     bg: "#ffedd5", text: "#9a3412" },
-  medium:   { label: "Medium",   bg: "#fef9c3", text: "#854d0e" },
-  low:      { label: "Low",      bg: "#dcfce7", text: "#166534" },
-} as const;
-
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Project { id: number; name: string }
@@ -133,17 +126,6 @@ interface WorkerCredential {
 interface CredentialMatrixWorker {
   user: { id: number; firstName: string; lastName: string; email: string };
   credentials: WorkerCredential[];
-}
-
-interface VoiceLog {
-  id: number;
-  projectId: number;
-  rawTranscript: string;
-  riskLevel: keyof typeof RISK_CFG;
-  ihsaElement: string | null;
-  dueDate: string | null;
-  createdAt: string;
-  correctedTaskId: number | null;
 }
 
 interface UpsertCredentialForm {
@@ -450,15 +432,6 @@ function FindingPill({ type }: { type: "pass" | "fail" }) {
   return type === "pass"
     ? <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "#14532d33", color: "#4ade80" }}><CheckCircle2 className="h-3 w-3" />Pass</span>
     : <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "#7f1d1d33", color: "#f87171" }}><AlertTriangle className="h-3 w-3" />Fail</span>;
-}
-
-function RiskPill({ level }: { level: string }) {
-  const cfg = RISK_CFG[level as keyof typeof RISK_CFG] ?? RISK_CFG.low;
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold" style={{ color: cfg.text, background: cfg.bg }}>
-      {cfg.label}
-    </span>
-  );
 }
 
 function CredStatusBadge({ status, expirationDate }: { status: string; expirationDate: string | null }) {
@@ -1467,160 +1440,6 @@ function CredentialsTab({ isAdmin, userId }: { isAdmin: boolean; userId: number 
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-// ── Tab: Voice Logs ───────────────────────────────────────────────────────────
-
-function VoiceLogsTab({ isAdmin, userId }: { isAdmin: boolean; userId: number | undefined }) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const projects = useProjects();
-
-  const [adminProjectId, setAdminProjectId] = useState("");
-  const [showSubmit, setShowSubmit] = useState(false);
-  const [submitProjectId, setSubmitProjectId] = useState("");
-  const [transcript, setTranscript] = useState("");
-
-  const adminLogsQuery = useQuery<VoiceLog[]>({
-    queryKey: ["cor-voice-logs-project", adminProjectId],
-    queryFn: () => customFetch(`/api/cor/voice-log?projectId=${adminProjectId}`),
-    enabled: isAdmin && !!adminProjectId,
-    retry: 1,
-  });
-
-  const myLogsQuery = useQuery<VoiceLog[]>({
-    queryKey: ["cor-voice-logs-self"],
-    queryFn: () => customFetch("/api/cor/voice-log"),
-    enabled: !isAdmin,
-    retry: 1,
-  });
-
-  const logs = isAdmin ? adminLogsQuery.data : myLogsQuery.data;
-  const isLoading = isAdmin ? adminLogsQuery.isLoading : myLogsQuery.isLoading;
-  const isError = isAdmin ? adminLogsQuery.isError : myLogsQuery.isError;
-
-  const submitMutation = useMutation({
-    mutationFn: (body: { projectId: number; rawTranscript: string }) =>
-      customFetch("/api/cor/voice-log", { method: "POST", body: JSON.stringify(body) }),
-    onSuccess: () => {
-      toast({ title: "Observation submitted", description: "AI classification complete, corrective task created." });
-      setTranscript("");
-      setSubmitProjectId("");
-      setShowSubmit(false);
-      // Invalidate both worker self-view and admin project view
-      queryClient.invalidateQueries({ queryKey: ["cor-voice-logs-self"] });
-      queryClient.invalidateQueries({ queryKey: ["cor-voice-logs-project"] });
-    },
-    onError: () => toast({ title: "Submit failed", variant: "destructive" }),
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        {isAdmin && (
-          <ProjectSelect value={adminProjectId} onChange={setAdminProjectId} />
-        )}
-        <Button size="sm" style={{ background: GOLD, color: BLACK, marginLeft: "auto" }} onClick={() => setShowSubmit(true)}>
-          <Mic className="h-4 w-4 mr-1.5" /> Submit Observation
-        </Button>
-      </div>
-
-      {/* Submission dialog */}
-      <Dialog open={showSubmit} onOpenChange={setShowSubmit}>
-        <DialogContent style={{ background: "#0f0f0f", border: "1px solid #2a2a2a" }}>
-          <DialogHeader>
-            <DialogTitle style={{ color: "#e5e5e5" }}>Submit Voice Observation</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <Label className="text-xs text-zinc-400 mb-1 block">Project</Label>
-              <Select value={submitProjectId} onValueChange={setSubmitProjectId}>
-                <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid #333", color: "#e5e5e5" }}>
-                  <SelectValue placeholder="Select project…" />
-                </SelectTrigger>
-                <SelectContent style={{ background: "#1a1a1a", border: "1px solid #333" }}>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)} style={{ color: "#e5e5e5" }}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs text-zinc-400 mb-1 block">Observation</Label>
-              <Textarea rows={5}
-                placeholder="Describe the hazard or site condition… e.g. 'The fire extinguisher on level 2 is blocked by material pallets'"
-                value={transcript} onChange={(e) => setTranscript(e.target.value)}
-                style={{ background: "#1a1a1a", border: "1px solid #333", color: "#e5e5e5" }} />
-              <p className="text-xs text-zinc-600 mt-1">AI will classify risk level, map to an IHSA element, and create a corrective task.</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowSubmit(false)} className="text-zinc-400">Cancel</Button>
-            <Button style={{ background: GOLD, color: BLACK }}
-              disabled={!submitProjectId || !transcript.trim() || submitMutation.isPending}
-              onClick={() => submitMutation.mutate({ projectId: Number(submitProjectId), rawTranscript: transcript.trim() })}>
-              {submitMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {isAdmin && !adminProjectId && (
-        <div className="flex flex-col items-center justify-center py-16 text-zinc-600">
-          <Mic className="h-9 w-9 mb-2 opacity-30" />
-          <p className="text-sm">Select a project to view voice observations</p>
-        </div>
-      )}
-
-      {isError && <ErrorState message="Could not load voice observations." />}
-
-      {isLoading && (
-        <div className="space-y-2">{[1,2,3].map((i) => <Skeleton key={i} className="h-20 rounded-lg" style={{ background: "#1a1a1a" }} />)}</div>
-      )}
-
-      {!isLoading && !isError && (isAdmin ? !!adminProjectId : true) && (
-        <div className="space-y-3">
-          {(!logs || logs.length === 0) && (
-            <div className="flex flex-col items-center justify-center py-14 text-zinc-600">
-              <Mic className="h-8 w-8 mb-2 opacity-30" />
-              <p className="text-sm">No voice observations yet.</p>
-            </div>
-          )}
-          {logs?.map((log) => (
-            <Card key={log.id} style={{ background: BLACK, border: "none", boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <RiskPill level={log.riskLevel} />
-                    {log.ihsaElement && (
-                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#ffffff0a", color: "#71717a" }}>
-                        {IHSA_ELEMENTS[log.ihsaElement] ?? log.ihsaElement}
-                      </span>
-                    )}
-                    {log.correctedTaskId && (
-                      <span className="text-xs flex items-center gap-1" style={{ color: "#4ade80" }}>
-                        <CheckCircle2 className="h-3 w-3" /> Task #{log.correctedTaskId}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-zinc-500 shrink-0">
-                    <Clock className="h-3 w-3" />
-                    {format(new Date(log.createdAt), "MMM d, yyyy")}
-                  </div>
-                </div>
-                <p className="text-sm text-zinc-200 leading-relaxed">{log.rawTranscript}</p>
-                {log.dueDate && (
-                  <p className="text-xs text-zinc-500 mt-2">
-                    Corrective action due: {format(new Date(log.dueDate), "MMMM d, yyyy")}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -4353,7 +4172,6 @@ export default function CorCompliancePage() {
             <TabsTrigger value="sign-offs">{isAdmin ? "Sign-offs" : "Documents"}</TabsTrigger>
             {isAdmin && <TabsTrigger value="subcontractors">Subcontractors</TabsTrigger>}
             {isAdmin && <TabsTrigger value="capa">CAPA</TabsTrigger>}
-            <TabsTrigger value="voice-logs">{isAdmin ? "Voice Logs" : "My Observations"}</TabsTrigger>
             {isOwner && <TabsTrigger value="auditor-access">Auditor Access</TabsTrigger>}
           </TabsList>
 
@@ -4392,10 +4210,6 @@ export default function CorCompliancePage() {
               <CAPATab />
             </TabsContent>
           )}
-
-          <TabsContent value="voice-logs">
-            <VoiceLogsTab isAdmin={isAdmin} userId={me.id} />
-          </TabsContent>
 
           {isOwner && (
             <TabsContent value="auditor-access">

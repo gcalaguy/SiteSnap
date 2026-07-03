@@ -1261,7 +1261,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
               <Check className="h-4 w-4 text-primary flex-shrink-0" />
               <span className="text-foreground">
                 Quote <strong>{createdQuoteNumber}</strong> created as a draft.{" "}
-                <a href="/quotes" className="underline text-primary font-medium">View in Quotes →</a>
+                <a href="/financials?tab=quotes" className="underline text-primary font-medium">View in Quotes →</a>
               </span>
             </div>
           )}

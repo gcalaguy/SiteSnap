@@ -74,7 +74,7 @@ export default function DailyReportsSection({ reports }: DailyReportsSectionProp
           {report.notes && (
             <View style={{ marginTop: 4, backgroundColor: "#eff6ff", padding: 6, borderRadius: 3 }}>
               <Text style={[styles.smallText, { color: "#2563eb", fontFamily: "Helvetica-Bold" }]}>
-                Voice Notes
+                Notes
               </Text>
               <Text style={[styles.smallText, { color: "#1e3a8a" }]}>{report.notes}</Text>
             </View>

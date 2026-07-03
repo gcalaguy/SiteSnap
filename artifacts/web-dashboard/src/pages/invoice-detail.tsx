@@ -476,7 +476,7 @@ export default function InvoiceDetail() {
       await customFetch(`${BASE}/api/invoices/${invoiceId}`, { method: "DELETE" });
       queryClient.invalidateQueries({ queryKey: getListAllInvoicesQueryKey({}) });
       toast({ title: "Invoice deleted" });
-      setLocation("/invoices");
+      setLocation("/financials?tab=invoices&sub=invoices");
     } catch {
       toast({ title: "Failed to delete invoice", variant: "destructive" });
     }
@@ -614,7 +614,7 @@ export default function InvoiceDetail() {
       <div className="p-6 max-w-4xl mx-auto text-center py-20">
         <Receipt className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
         <p className="text-lg font-medium">Invoice not found</p>
-        <Button variant="ghost" className="mt-4" onClick={() => setLocation("/invoices")}>
+        <Button variant="ghost" className="mt-4" onClick={() => setLocation("/financials?tab=invoices&sub=invoices")}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Invoices
         </Button>
       </div>
@@ -629,7 +629,7 @@ export default function InvoiceDetail() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <button
-            onClick={() => setLocation("/invoices")}
+            onClick={() => setLocation("/financials?tab=invoices&sub=invoices")}
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" /> Invoices

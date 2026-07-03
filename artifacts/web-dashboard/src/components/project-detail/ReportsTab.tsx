@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
-import { Plus, ChevronDown, ChevronUp, FileText, Pencil, Trash2, Loader2, User, Cloud, Thermometer, Package, Wrench, TriangleAlert, Mic } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, FileText, Pencil, Trash2, Loader2, User, Cloud, Thermometer, Package, Wrench, TriangleAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { createDailyReportBodyWorkPerformedMax as REPORT_FIELD_MAX } from "@workspace/api-zod";
 import { PhotoThumbnail } from "./PhotoThumbnail";
@@ -219,11 +219,11 @@ export function ReportsTab({
                         </div>
                       )}
 
-                      {/* Voice / Streaming Notes */}
+                      {/* Notes */}
                       {report.notes && (
                         <div className="bg-blue-950/20 border border-blue-900/40 rounded-md p-3">
                           <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1 mb-0.5">
-                            <Mic className="h-3.5 w-3.5" /> Voice Notes
+                            <FileText className="h-3.5 w-3.5" /> Notes
                           </p>
                           <p className="text-sm text-blue-800 dark:text-blue-300">{report.notes}</p>
                         </div>

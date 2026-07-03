@@ -208,7 +208,7 @@ function TopRiskSection({ rows }: { rows: InspectionRow[] }) {
           const cfg = riskCfg(insp.riskLevel);
           const score = insp.riskScore ? parseFloat(insp.riskScore) : null;
           return (
-            <Link href="/inspections" key={insp.id}>
+            <Link href="/safety-compliance" key={insp.id}>
               <div
                 className="rounded-xl border p-4 cursor-pointer hover:brightness-110 transition-all group"
                 style={{ background: cfg.bg, borderColor: cfg.border }}
@@ -297,7 +297,7 @@ function InspectionTable({ rows }: { rows: InspectionRow[] }) {
                   <tr
                     key={insp.id}
                     className="hover:bg-white/3 transition-colors cursor-pointer"
-                    onClick={() => setLocation("/inspections")}
+                    onClick={() => setLocation("/safety-compliance")}
                   >
                     <td className="px-6 py-3">
                       <div>
@@ -319,7 +319,7 @@ function InspectionTable({ rows }: { rows: InspectionRow[] }) {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <Link href="/inspections">
+                      <Link href="/safety-compliance">
                         <Button
                           size="sm" variant="ghost"
                           className="h-7 w-7 p-0 text-zinc-500 hover:text-white"
@@ -670,7 +670,7 @@ function RiskDashboardInner() {
             Real-time construction site risk overview · last 30 days
           </p>
         </div>
-        <Link href="/inspections">
+        <Link href="/safety-compliance">
           <Button variant="outline" size="sm" className="gap-1.5">
             <Eye className="h-3.5 w-3.5" /> Manage Inspections
           </Button>
@@ -687,27 +687,27 @@ function RiskDashboardInner() {
           <div className="grid gap-4 grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Total Inspections" value={total} sub="last 30 days"
-              icon={ShieldAlert} accent={GOLD} href="/inspections"
+              icon={ShieldAlert} accent={GOLD} href="/safety-compliance"
             />
             <StatCard
               label="High Risk Jobs" value={highRisk}
               sub={highRisk === 0 ? "All clear" : `${health?.critical ?? 0} critical · ${health?.high ?? 0} high`}
               icon={AlertTriangle} accent={highRisk > 0 ? "#ea580c" : GOLD} isAlert={highRisk > 0}
-              href="/inspections"
+              href="/safety-compliance"
             />
             <StatCard
               label="Critical Alerts" value={data?.alerts.critical ?? 0}
               sub={data?.alerts.critical ? "Requires immediate action" : "No critical alerts"}
               icon={Flame} accent={(data?.alerts.critical ?? 0) > 0 ? "#dc2626" : GOLD}
               isAlert={(data?.alerts.critical ?? 0) > 0}
-              href="/inspections"
+              href="/safety-compliance"
             />
             <StatCard
               label="Avg Risk Score"
               value={avgScore != null ? `${avgScore}/10` : "—"}
               sub={avgScore == null ? "No scored inspections" : avgScore >= 7 ? "Action recommended" : avgScore >= 4 ? "Monitor closely" : "Looking good"}
               icon={CircleDot} accent={scoreColor}
-              href="/inspections"
+              href="/safety-compliance"
             />
           </div>
 

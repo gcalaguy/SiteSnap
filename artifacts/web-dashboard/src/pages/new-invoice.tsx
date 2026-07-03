@@ -148,7 +148,7 @@ export default function NewInvoice() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/invoices")}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/financials?tab=invoices&sub=invoices")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -343,7 +343,7 @@ export default function NewInvoice() {
         </Card>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => setLocation("/invoices")}>
+          <Button type="button" variant="outline" onClick={() => setLocation("/financials?tab=invoices&sub=invoices")}>
             Cancel
           </Button>
           <Button

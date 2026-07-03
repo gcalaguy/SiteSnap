@@ -22,10 +22,9 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
   ArrowLeft, Pencil, Save, Loader2, Globe, Briefcase,
-  MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2, MessageCircle, Mic,
+  MessageSquare, Sparkles, MapPin, Link as LinkIcon, Bell, CheckCircle2, MessageCircle,
   Upload, Trash2, FileText, Image as ImageIcon, X,
 } from "lucide-react";
-import { VoiceRecorder, VoicePlayer } from "@/components/voice-recorder";
 import { SignedAvatar } from "@/components/SignedAvatar";
 import { SignedImage } from "@/components/SignedImage";
 import { Button } from "@/components/ui/button";
@@ -248,15 +247,6 @@ export default function TradehubProfilePage() {
                 </Link>
               )}
 
-              {!isMe && displayData.voiceIntroUrl && (
-                <div className="mt-3">
-                  <VoicePlayer
-                    url={displayData.voiceIntroUrl}
-                    duration={displayData.voiceIntroDuration}
-                    name={displayData.displayName}
-                  />
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -287,25 +277,6 @@ export default function TradehubProfilePage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-          {isMe && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Mic className="h-4 w-4 text-primary" />
-                  Voice Introduction
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <VoiceRecorder
-                  existingUrl={profile?.voiceIntroUrl}
-                  existingDuration={profile?.voiceIntroDuration}
-                  onSaved={() => queryClient.invalidateQueries({ queryKey: getGetTradehubProfileMeQueryKey() })}
-                  onDeleted={() => queryClient.invalidateQueries({ queryKey: getGetTradehubProfileMeQueryKey() })}
-                />
-              </CardContent>
-            </Card>
-          )}
-
           {/* ── Photos & Documents ── */}
           {(isMe || profileMedia.length > 0) && (
             <Card>

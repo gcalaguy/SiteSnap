@@ -120,7 +120,7 @@ function RiskHeroSection() {
               {avgScore != null && <span>Avg score <span className="font-semibold" style={{ color: avgScore >= 7 ? "#dc2626" : avgScore >= 5 ? "#ea580c" : "#ca8a04" }}>{avgScore}/10</span></span>}
             </>
           )}
-          <Link href="/inspections">
+          <Link href="/safety-compliance">
             <button className="flex items-center gap-1 text-xs font-semibold hover:opacity-80 transition-opacity" style={{ color: GOLD }}>
               View all <ArrowRight className="h-3 w-3" />
             </button>
@@ -138,7 +138,7 @@ function RiskHeroSection() {
           const barPct = score != null ? (score / 10) * 100 : 0;
 
           return (
-            <Link href="/inspections" key={insp.id}>
+            <Link href="/safety-compliance" key={insp.id}>
               <div
                 className="flex flex-col gap-2.5 p-4 cursor-pointer transition-all hover:brightness-110 h-full"
                 style={{ background: cfg.bg }}
@@ -213,7 +213,7 @@ function RiskHeroSection() {
             const score = insp.riskScore ? parseFloat(insp.riskScore) : null;
 
             return (
-              <Link href="/inspections" key={insp.id} className="flex-1">
+              <Link href="/safety-compliance" key={insp.id} className="flex-1">
                 <div
                   className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:brightness-110 transition-all"
                   style={{ background: cfg.bg, borderRight: "1px solid #ffffff08" }}
@@ -253,7 +253,7 @@ function RiskHeroSection() {
               <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 inline-block" /> {alerts.medium} medium
             </span>
           )}
-          <Link href="/inspections" className="ml-auto">
+          <Link href="/safety-compliance" className="ml-auto">
             <span className="text-[10px] font-semibold hover:opacity-80 transition-opacity" style={{ color: GOLD }}>
               Manage alerts →
             </span>
@@ -333,7 +333,7 @@ function RiskOverviewCards({ data }: { data: RiskDashboardData }) {
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => (
-        <Link href="/inspections" key={card.label} className="block group">
+        <Link href="/safety-compliance" key={card.label} className="block group">
           <Card
             className="cursor-pointer transition-all duration-150 hover:shadow-xl"
             style={{
@@ -701,7 +701,7 @@ export default function Dashboard() {
         </Link>
 
         {isOwnerOrForeman && (
-          <Link href="/contacts" className="block group">
+          <Link href="/crm?tab=directory" className="block group">
             <Card className="cursor-pointer transition-all duration-150 hover:shadow-lg bg-white" style={{ border: "2px solid rgba(212,175,55,0.20)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-xs font-extrabold uppercase tracking-wider" style={{ color: "#D4AF37" }}>Total Contacts</CardTitle>
@@ -723,7 +723,7 @@ export default function Dashboard() {
           Financial / company-wide metrics — owners and foremen only. */}
       {isOwnerOrForeman && (
       <div className="grid gap-3 md:grid-cols-3">
-        <Link href="/leads" className="block group">
+        <Link href="/crm?tab=leads" className="block group">
           <Card className="cursor-pointer transition-all duration-150 hover:shadow-lg bg-white" style={{ border: "2px solid rgba(212,175,55,0.20)", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-extrabold uppercase tracking-wider" style={{ color: "#D4AF37" }}>Revenue Pipeline</CardTitle>
@@ -739,7 +739,7 @@ export default function Dashboard() {
           </Card>
         </Link>
 
-        <Link href="/invoices" className="block group">
+        <Link href="/financials?tab=invoices&sub=invoices" className="block group">
           <Card
             className="cursor-pointer transition-all duration-150 hover:shadow-lg bg-white"
             style={{

@@ -21,18 +21,14 @@ import Team from "@/pages/team";
 import Settings from "@/pages/settings";
 import AIChat from "@/pages/ai-chat";
 import OnboardingPage from "@/pages/onboarding";
-import Quotes from "@/pages/quotes";
 import NewQuote from "@/pages/new-quote";
 import QuoteDetail from "@/pages/quote-detail";
-import Invoices from "@/pages/invoices";
 import NewInvoice from "@/pages/new-invoice";
 import InvoiceDetail from "@/pages/invoice-detail";
 import AdminPage from "@/pages/admin";
 import SuperAdminPage from "@/pages/super-admin";
-import Schedule from "@/pages/schedule";
+import WorkforcePage from "@/pages/workforce";
 import ClientPortal from "@/pages/client-portal";
-import Hours from "@/pages/hours";
-import Estimates from "@/pages/estimates";
 import TradehubPage from "@/pages/tradehub";
 
 import TradehubPostPage from "@/pages/tradehub-post";
@@ -46,10 +42,7 @@ import RFIsPage from "@/pages/rfis";
 import ReportsPage from "@/pages/reports";
 import ExpensesPage from "@/pages/expenses";
 import FieldLogsPage from "@/pages/field-logs";
-import InspectionsPage from "@/pages/inspections";
 import RiskDashboardPage from "@/pages/risk-dashboard";
-import AIComplianceMonitorPage from "@/pages/ai-compliance-monitor";
-import CorCompliancePage from "@/pages/cor-compliance";
 
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
@@ -61,9 +54,7 @@ import AuditVaultPage from "@/pages/audit-vault";
 import WorkerPortalPage from "@/pages/worker-portal";
 import WorkerPortalSubmitPage from "@/pages/worker-portal-submit";
 import WorkerPortalDetailPage from "@/pages/worker-portal-detail";
-import Contacts from "@/pages/contacts";
-import Leads from "@/pages/leads";
-import ProposalsPage from "@/pages/proposals";
+import CrmPage from "@/pages/crm";
 import FinancialsPage from "@/pages/financials";
 import PermitsPage from "@/pages/permits";
 import InventoryPage from "@/pages/inventory";
@@ -288,9 +279,16 @@ function AuthApp() {
         <Switch>
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/projects" component={Projects} />
-          <Route path="/contacts"><RoleGuard blockedRoles={["worker"]}><Contacts /></RoleGuard></Route>
-          <Route path="/leads"><RoleGuard blockedRoles={["worker"]}><Leads /></RoleGuard></Route>
-          <Route path="/proposals" component={ProposalsPage} />
+          <Route path="/crm"><RoleGuard blockedRoles={["worker"]}><CrmPage /></RoleGuard></Route>
+          <Route path="/contacts">
+            <Redirect to="/crm?tab=directory" />
+          </Route>
+          <Route path="/leads">
+            <Redirect to="/crm?tab=leads" />
+          </Route>
+          <Route path="/proposals">
+            <Redirect to="/financials" />
+          </Route>
           <Route path="/financials" component={FinancialsPage} />
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/projects/:id/reports/new" component={NewReport} />
@@ -298,20 +296,31 @@ function AuthApp() {
           <Route path="/projects/:id/rfis/new" component={NewRFI} />
           <Route path="/quotes/new"><PermissionGuard permissionKey="viewQuotes"><NewQuote /></PermissionGuard></Route>
           <Route path="/quotes/:id"><PermissionGuard permissionKey="viewQuotes"><QuoteDetail /></PermissionGuard></Route>
-          <Route path="/quotes"><PermissionGuard permissionKey="viewQuotes"><Quotes /></PermissionGuard></Route>
+          <Route path="/quotes">
+            <Redirect to="/financials" />
+          </Route>
           <Route path="/invoices/new"><PermissionGuard permissionKey="viewFinancials"><NewInvoice /></PermissionGuard></Route>
           <Route path="/invoices/:id"><PermissionGuard permissionKey="viewFinancials"><InvoiceDetail /></PermissionGuard></Route>
-          <Route path="/invoices"><PermissionGuard permissionKey="viewFinancials"><Invoices /></PermissionGuard></Route>
+          <Route path="/invoices">
+            <Redirect to="/financials" />
+          </Route>
           <Route path="/admin" component={AdminPage} />
           <Route path="/super-admin" component={SuperAdminPage} />
           <Route path="/ai-chat"><PermissionGuard permissionKey="viewAskAI"><AIChat /></PermissionGuard></Route>
           <Route path="/team" component={Team} />
           <Route path="/settings" component={Settings} />
-          <Route path="/schedule" component={Schedule} />
-          <Route path="/hours" component={Hours} />
-          <Route path="/estimates"><PermissionGuard permissionKey="viewEstimator"><Estimates /></PermissionGuard></Route>
+          <Route path="/workforce" component={WorkforcePage} />
+          <Route path="/schedule">
+            <Redirect to="/workforce?tab=schedule" />
+          </Route>
+          <Route path="/hours">
+            <Redirect to="/workforce?tab=hours" />
+          </Route>
+          <Route path="/estimates">
+            <Redirect to="/financials" />
+          </Route>
           <Route path="/smart-estimator">
-            <Redirect to="/estimates" />
+            <Redirect to="/financials" />
           </Route>
           <Route path="/calculators" component={CalculatorsPage} />
           <Route path="/rfis"><PermissionGuard permissionKey="viewRFIs"><RFIsPage /></PermissionGuard></Route>
@@ -328,15 +337,21 @@ function AuthApp() {
           <Route path="/tradehub/profile/:userId"><PermissionGuard permissionKey="viewTradeHub"><TradehubProfilePage /></PermissionGuard></Route>
           <Route path="/tradehub"><PermissionGuard permissionKey="viewTradeHub"><TradehubPage /></PermissionGuard></Route>
           <Route path="/risk-dashboard" component={RiskDashboardPage} />
-          <Route path="/ai-compliance-monitor" component={AIComplianceMonitorPage} />
-          <Route path="/cor-compliance" component={CorCompliancePage} />
+          <Route path="/ai-compliance-monitor">
+            <Redirect to="/safety-compliance?tab=ai-compliance" />
+          </Route>
+          <Route path="/cor-compliance">
+            <Redirect to="/safety-compliance" />
+          </Route>
           <Route path="/media-hub" component={MediaHubTestPage} />
           <Route path="/safety-compliance"><PermissionGuard permissionKey="viewSafetyTab"><SafetyCompliancePage /></PermissionGuard></Route>
           <Route path="/rfi-submittal" component={RfiSubmittalPage} />
           <Route path="/worker-documents"><PermissionGuard permissionKey="viewVault"><WorkerDocumentsPage /></PermissionGuard></Route>
           <Route path="/my-vault"><PermissionGuard permissionKey="viewVault"><MyVaultPage /></PermissionGuard></Route>
           <Route path="/audit-vault"><PermissionGuard permissionKey="viewVault"><AuditVaultPage /></PermissionGuard></Route>
-          <Route path="/inspections"><PermissionGuard permissionKey="viewInspectTab"><InspectionsPage /></PermissionGuard></Route>
+          <Route path="/inspections">
+            <Redirect to="/safety-compliance" />
+          </Route>
           <Route path="/safety/submit" component={SafetySubmitPage} />
           <Route path="/safety/submissions/:id" component={SafetyDetailPage} />
           <Route path="/safety">

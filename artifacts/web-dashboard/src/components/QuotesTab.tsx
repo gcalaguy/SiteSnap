@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   useListQuotes,
@@ -38,8 +38,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Mic,
-  MicOff,
   Sparkles,
   Plus,
   Loader2,
@@ -93,12 +91,9 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
   const [step, setStep] = useState<"input" | "preview" | "done">("input");
   const [clientName, setClientName] = useState("");
   const [description, setDescription] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [aiResult, setAiResult] = useState<{ title?: string; lineItems?: LineItem[]; notes?: string } | null>(null);
-  const mediaRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
 
   const [actionLoading, setActionLoading] = useState<Record<number, string>>({});
 
@@ -115,49 +110,9 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
     setAiResult(null);
   }
 
-  async function startRecording() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
-      mediaRef.current = mr;
-      chunksRef.current = [];
-      mr.ondataavailable = (e) => chunksRef.current.push(e.data);
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64 = (reader.result as string).split(",")[1];
-          try {
-            const resp = await fetch(`${import.meta.env.BASE_URL}api/ai/transcribe`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ audio: base64 }),
-            });
-            const data = await resp.json();
-            if (data.text) setDescription((prev) => (prev ? `${prev} ${data.text}` : data.text));
-            toast({ title: "Voice transcribed", description: "Review and tap Generate." });
-          } catch {
-            toast({ title: "Transcription failed", variant: "destructive" });
-          }
-        };
-        reader.readAsDataURL(blob);
-      };
-      mr.start();
-      setIsRecording(true);
-    } catch {
-      toast({ title: "Microphone access denied", variant: "destructive" });
-    }
-  }
-
-  function stopRecording() {
-    mediaRef.current?.stop();
-    setIsRecording(false);
-  }
-
   async function handleGenerate() {
     if (!description.trim()) {
-      toast({ title: "Describe the job first — type or record your voice", variant: "destructive" });
+      toast({ title: "Describe the job first", variant: "destructive" });
       return;
     }
     setAiLoading(true);
@@ -245,11 +200,11 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Quotes</h2>
-          <p className="text-sm text-muted-foreground">Create quotes on-site using your voice</p>
+          <p className="text-sm text-muted-foreground">Create quotes on-site with AI</p>
         </div>
         <Button onClick={openDialog} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-          <Mic className="h-4 w-4" />
-          New Voice Quote
+          <Sparkles className="h-4 w-4" />
+          New AI Quote
         </Button>
       </div>
 
@@ -261,15 +216,15 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
-              <Mic className="h-8 w-8 text-primary" />
+              <Sparkles className="h-8 w-8 text-primary" />
             </div>
             <p className="text-lg font-semibold text-foreground">No quotes yet</p>
             <p className="text-sm text-muted-foreground mt-1 mb-6 max-w-xs">
-              Describe the job by voice on-site — AI fills in materials, quantities, and pricing automatically.
+              Describe the job on-site — AI fills in materials, quantities, and pricing automatically.
             </p>
             <Button onClick={openDialog} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-              <Mic className="h-4 w-4" />
-              Create First Quote by Voice
+              <Sparkles className="h-4 w-4" />
+              Create First Quote with AI
             </Button>
           </CardContent>
         </Card>
@@ -446,13 +401,13 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
         </div>
       )}
 
-      {/* Voice Quote Creation Dialog */}
+      {/* AI Quote Creation Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Mic className="h-5 w-5 text-primary" />
-              {step === "input" ? "New Voice Quote" : "AI-Generated Quote Preview"}
+              <Sparkles className="h-5 w-5 text-primary" />
+              {step === "input" ? "New AI Quote" : "AI-Generated Quote Preview"}
             </DialogTitle>
           </DialogHeader>
 
@@ -490,27 +445,7 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">Type above or record your voice on-site</p>
-              </div>
-
-              {/* Voice record button */}
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={isRecording ? stopRecording : startRecording}
-                  className={`flex flex-col items-center gap-2 px-6 py-4 rounded-xl border-2 transition-all ${
-                    isRecording
-                      ? "border-red-500 bg-red-50 text-red-600"
-                      : "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10"
-                  }`}
-                >
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-full ${isRecording ? "bg-red-500 animate-pulse" : "bg-primary"}`}>
-                    {isRecording ? <MicOff className="h-6 w-6 text-white" /> : <Mic className="h-6 w-6 text-white" />}
-                  </div>
-                  <span className="text-sm font-medium">
-                    {isRecording ? "Tap to stop recording…" : "Tap to record voice"}
-                  </span>
-                </button>
+                <p className="text-xs text-muted-foreground">Type a description on-site</p>
               </div>
             </div>
           ) : (

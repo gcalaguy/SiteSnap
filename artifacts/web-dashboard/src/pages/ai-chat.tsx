@@ -10,8 +10,6 @@ import { getAiErrorMessage } from "@/hooks/useApiError";
 import {
   Bot,
   Send,
-  Mic,
-  MicOff,
   Plus,
   Trash2,
   MessageSquare,
@@ -67,11 +65,6 @@ function AIChatInner() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
 
   const {
     data: conversations = [],
@@ -174,71 +167,6 @@ function AIChatInner() {
     },
     [activeConversationId, refetchConversations, toast],
   );
-
-  const toggleRecording = useCallback(async () => {
-    if (isRecording) {
-      mediaRecorderRef.current?.stop();
-      setIsRecording(false);
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        if (audioChunksRef.current.length === 0) return;
-
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64 = (reader.result as string).split(",")[1];
-          setIsTranscribing(true);
-          try {
-            const result = await customFetch<{ text: string }>("/api/ai/transcribe", {
-              method: "POST",
-              body: JSON.stringify({ audio: base64, format: "webm" }),
-            });
-            if (result.text) {
-              setInput((prev) => {
-                const combined = prev ? `${prev} ${result.text}` : result.text;
-                return combined.slice(0, MESSAGE_MAX);
-              });
-              textareaRef.current?.focus();
-            }
-          } catch (err) {
-            toast({
-              title: "Transcription failed",
-              description: getAiErrorMessage(err),
-              variant: "destructive",
-            });
-          } finally {
-            setIsTranscribing(false);
-          }
-        };
-        reader.readAsDataURL(blob);
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch {
-      toast({
-        title: "Microphone access denied",
-        description: "Please allow microphone access to use voice input.",
-        variant: "destructive",
-      });
-    }
-  }, [isRecording, toast]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -406,24 +334,6 @@ function AIChatInner() {
               )}
             </div>
 
-            {/* Mic button */}
-            <Button
-              variant={isRecording ? "destructive" : "outline"}
-              size="icon"
-              onClick={toggleRecording}
-              disabled={isTranscribing}
-              className={cn("h-11 w-11 flex-shrink-0", isRecording && "animate-pulse")}
-              title={isRecording ? "Stop recording" : "Voice input"}
-            >
-              {isTranscribing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isRecording ? (
-                <MicOff className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </Button>
-
             {/* Send button */}
             <Button
               size="icon"
@@ -438,13 +348,6 @@ function AIChatInner() {
               )}
             </Button>
           </div>
-
-          {isRecording && (
-            <p className="text-xs text-destructive mt-1.5 flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-full bg-destructive animate-ping" />
-              Recording… click the mic again to stop and transcribe
-            </p>
-          )}
         </div>
       </div>
     </div>

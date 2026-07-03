@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { VoiceNoteButton } from "./VoiceNoteButton";
 import { getAiErrorMessage } from "@/hooks/useApiError";
 import { useSignedDownload } from "@/hooks/useSignedUrl";
 import {
@@ -443,7 +442,6 @@ function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; i
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }}
             rows={1}
           />
-          <VoiceNoteButton onTranscript={t => setInput(q => { const next = q ? `${q} ${t}` : t; return next.slice(0, 2000); })} disabled={loading} />
           <Button size="icon" onClick={ask} disabled={loading || !input.trim()} className="shrink-0">
             <Send className="h-4 w-4" />
           </Button>

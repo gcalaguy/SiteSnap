@@ -30,13 +30,6 @@ interface PolicyDoc {
   totalWorkers: number;
 }
 
-interface VoiceLog {
-  id: number;
-  riskLevel: string;
-  synopsis: string | null;
-  createdAt: string;
-}
-
 interface Inspection {
   id: number;
   inspectionType: string;
@@ -55,7 +48,6 @@ interface ElementData {
   auditEntries: AuditEntry[];
   capaTickets: CapaTicket[];
   policyDocuments: PolicyDoc[];
-  voiceLogs: VoiceLog[];
 }
 
 interface PortalData {
@@ -136,11 +128,6 @@ function capaStatusBg(status: string): string {
   return map[status] ?? "#374151";
 }
 
-function riskColor(level: string): string {
-  const map: Record<string, string> = { Critical: "#f87171", High: "#fb923c", Medium: "#facc15", Low: "#86efac" };
-  return map[level] ?? "#9ca3af";
-}
-
 function docTypeLabel(t: string): string {
   const map: Record<string, string> = { swp: "Safe Work Procedure", jha: "Job Hazard Analysis", company_rules: "Company Rules", policy: "Policy" };
   return map[t] ?? t;
@@ -205,7 +192,7 @@ function ElementCard({ el, search }: { el: ElementData; search: string }) {
   const openCapas = el.capaTickets.filter((c) => c.status !== "closed" && c.status !== "void").length;
   const overdueCapa = el.capaTickets.filter((c) => c.status !== "closed" && c.status !== "void" && c.dueDate && new Date(c.dueDate) < new Date()).length;
 
-  const hasEvidence = el.entryCount > 0 || el.policyDocuments.length > 0 || el.voiceLogs.length > 0;
+  const hasEvidence = el.entryCount > 0 || el.policyDocuments.length > 0;
 
   // Highlight search
   const lowerSearch = search.toLowerCase();
@@ -256,7 +243,6 @@ function ElementCard({ el, search }: { el: ElementData; search: string }) {
               { label: "Last Submitted", value: fmtDate(el.lastSubmittedAt) },
               { label: "CAPAs", value: el.capaTickets.length, sub: openCapas > 0 ? `${openCapas} open` : "all closed" },
               { label: "Policies", value: el.policyDocuments.length },
-              { label: "Voice Logs", value: el.voiceLogs.length },
             ].map((stat) => (
               <div key={stat.label} style={{ background: "#1a1a1a", borderRadius: 6, padding: "8px 14px", minWidth: 80, border: "1px solid #2a2a2a" }}>
                 <div style={{ fontSize: 18, fontWeight: 700, color: "#f3f4f6", lineHeight: 1 }}>{stat.value}</div>
@@ -347,21 +333,6 @@ function ElementCard({ el, search }: { el: ElementData; search: string }) {
                     </div>
                   );
                 })}
-              </div>
-            </Section>
-          )}
-
-          {/* Voice Logs */}
-          {el.voiceLogs.length > 0 && (
-            <Section title="Voice Action Logs">
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {el.voiceLogs.slice(0, 10).map((v) => (
-                  <div key={v.id} style={{ display: "flex", gap: 10, padding: "7px 12px", background: "#1a1a1a", borderRadius: 6, alignItems: "flex-start", border: "1px solid #2a2a2a" }}>
-                    <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, background: "#1a1a1a", color: riskColor(v.riskLevel), border: `1px solid ${riskColor(v.riskLevel)}44`, whiteSpace: "nowrap", marginTop: 1 }}>{v.riskLevel}</span>
-                    <span style={{ flex: 1, fontSize: 12, color: "#d1d5db", lineHeight: 1.4 }}>{v.synopsis ?? "No synopsis recorded"}</span>
-                    <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>{fmtDate(v.createdAt)}</span>
-                  </div>
-                ))}
               </div>
             </Section>
           )}

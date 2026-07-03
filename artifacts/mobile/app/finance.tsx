@@ -16,16 +16,20 @@ import {
 } from "react-native";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes, useListChangeOrders, useCreateChangeOrder, getListChangeOrdersQueryKey, useListAllRFIs, useListProjects } from "@workspace/api-client-react";
+import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes, useListChangeOrders, useCreateChangeOrder, getListChangeOrdersQueryKey } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { getAiErrorMessage } from "@/src/utils/aiError";
+import EstimatorScreen from "@/app/estimator";
 
-type TabKey = "invoices" | "quotes" | "change-orders" | "rfis";
+// [Estimates] | [Quotes] | [Invoices] — the consolidated pre-construction & billing lifecycle hub.
+// Change Orders live as a dense secondary segment inside Invoices (progress billing/collections).
+type TabKey = "estimates" | "quotes" | "invoices";
+type InvoicesView = "invoices" | "change-orders";
 
 const INVOICE_STATUS_COLORS: Record<string, string> = {
   draft: "#6B7280",
@@ -102,49 +106,6 @@ function QuoteRow({ item }: { item: any }) {
   );
 }
 
-const RFI_STATUS_COLORS: Record<string, string> = {
-  open: "#3b82f6",
-  in_review: "#f59e0b",
-  answered: "#22c55e",
-  closed: "#6b7280",
-};
-const RFI_STATUS_LABELS: Record<string, string> = {
-  open: "Open", in_review: "In Review", answered: "Answered", closed: "Closed",
-};
-const RFI_PRIORITY_COLORS: Record<string, string> = {
-  low: "#6b7280", medium: "#f59e0b", high: "#ef4444", urgent: "#dc2626",
-};
-
-function RFIRow({ item, onPress }: { item: any; onPress: (item: any) => void }) {
-  const colors = useColors();
-  const statusColor = RFI_STATUS_COLORS[item.status] ?? "#6b7280";
-  const priorityColor = RFI_PRIORITY_COLORS[item.priority] ?? "#6b7280";
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.row, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
-      onPress={() => onPress(item)}
-    >
-      <View style={{ flex: 1, gap: 4 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{item.subject}</Text>
-        </View>
-        <Text style={[styles.rowSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {item.rfiNumber} · {item.projectName ?? "Project #" + item.projectId}
-        </Text>
-        <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
-          <View style={[styles.badge, { backgroundColor: `${statusColor}18` }]}>
-            <Text style={[styles.badgeText, { color: statusColor }]}>{RFI_STATUS_LABELS[item.status] ?? item.status}</Text>
-          </View>
-          <View style={[styles.badge, { backgroundColor: `${priorityColor}18` }]}>
-            <Text style={[styles.badgeText, { color: priorityColor }]}>{item.priority ?? "medium"}</Text>
-          </View>
-        </View>
-      </View>
-      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
-    </Pressable>
-  );
-}
-
 type AIResult = {
   title?: string;
   clientName?: string;
@@ -160,7 +121,6 @@ export default function FinanceScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
-  const { projectId: activeProjectId } = useLocalSearchParams<{ projectId?: string }>();
 
   const { data: me } = useGetMe();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
@@ -172,6 +132,7 @@ export default function FinanceScreen() {
   }, [me, isOwnerOrForeman]);
 
   const [tab, setTab] = useState<TabKey>("invoices");
+  const [invoicesView, setInvoicesView] = useState<InvoicesView>("invoices");
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [voiceFor, setVoiceFor] = useState<"invoice" | "quote">("invoice");
   const [aiLoading, setAiLoading] = useState(false);
@@ -184,22 +145,6 @@ export default function FinanceScreen() {
   const [qRefreshing, setQRefreshing] = useState(false);
 
   const [sigCOId, setSigCOId] = useState<number | null>(null);
-  const [rfiRefreshing, setRfiRefreshing] = useState(false);
-
-  // RFI modal state
-  const [showRFIModal, setShowRFIModal] = useState(false);
-  const [selectedRFI, setSelectedRFI] = useState<any>(null);
-  const [rfiEditTitle, setRfiEditTitle] = useState("");
-  const [rfiEditQuestion, setRfiEditQuestion] = useState("");
-  const [rfiEditStatus, setRfiEditStatus] = useState("open");
-  const [rfiSaving, setRfiSaving] = useState(false);
-
-  // Create RFI modal state
-  const [showCreateRFIModal, setShowCreateRFIModal] = useState(false);
-  const [createProjectId, setCreateProjectId] = useState("");
-  const [createSubject, setCreateSubject] = useState("");
-  const [createDescription, setCreateDescription] = useState("");
-  const [createSaving, setCreateSaving] = useState(false);
 
   // Create Change Order form state
   const [showCOForm, setShowCOForm] = useState(false);
@@ -236,13 +181,10 @@ export default function FinanceScreen() {
   const { data: invoices, isLoading: invLoading, isError: invError, error: invErrorObj, refetch: refetchInv, dataUpdatedAt: invUpdatedAt } = useListAllInvoices({});
   const { data: quotes, isLoading: qLoading, isError: qError, error: qErrorObj, refetch: refetchQ, dataUpdatedAt: qUpdatedAt } = useListAllQuotes({});
   const { data: changeOrders, isLoading: coLoading, isRefetching: coRefreshing, refetch: refetchCO, dataUpdatedAt: coDataUpdatedAt } = useListChangeOrders();
-  const { data: rfis, isLoading: rfiLoading, isError: rfiError, refetch: refetchRfi, dataUpdatedAt: rfiUpdatedAt } = useListAllRFIs({});
-  const { data: projects } = useListProjects();
 
   const invRelativeTime = useRelativeTime(invUpdatedAt || null);
   const qRelativeTime = useRelativeTime(qUpdatedAt || null);
   const coRelativeTime = useRelativeTime(coDataUpdatedAt || null);
-  const rfiRelativeTime = useRelativeTime(rfiUpdatedAt || null);
 
   // Debug: log quote fetch errors to help diagnose empty-list issues
   React.useEffect(() => {
@@ -277,23 +219,13 @@ export default function FinanceScreen() {
     }
   }, [refetchQ]);
 
-  const handleRefreshRfi = useCallback(async () => {
-    setRfiRefreshing(true);
-    try {
-      await refetchRfi();
-    } finally {
-      setRfiRefreshing(false);
-    }
-  }, [refetchRfi]);
-
   // Silently refetch all data sources whenever the screen comes into focus
   useFocusEffect(
     useCallback(() => {
       refetchInv();
       refetchQ();
       refetchCO();
-      refetchRfi();
-    }, [refetchInv, refetchQ, refetchCO, refetchRfi]),
+    }, [refetchInv, refetchQ, refetchCO]),
   );
 
   async function saveSignature(coId: number, base64: string) {
@@ -389,26 +321,49 @@ export default function FinanceScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
           <Feather name="arrow-left" size={22} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.headerTitle}>Finance</Text>
+        <Text style={styles.headerTitle}>Financials</Text>
         <View style={{ width: 36 }} />
       </View>
 
-      {/* Tabs */}
+      {/* Dense tap-friendly top switch: Estimates | Quotes | Invoices */}
       <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        {(["invoices", "quotes", "change-orders", "rfis"] as TabKey[]).map((t) => (
+        {(["estimates", "quotes", "invoices"] as TabKey[]).map((t) => (
           <Pressable key={t} style={styles.tabBtn} onPress={() => setTab(t)}>
             <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.mutedForeground }]}>
-              {t === "invoices" ? "Invoices" : t === "quotes" ? "Quotes" : t === "change-orders" ? "Change Orders" : "RFIs"}
+              {t === "estimates" ? "Estimates" : t === "quotes" ? "Quotes" : "Invoices"}
             </Text>
             {tab === t && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
           </Pressable>
         ))}
       </View>
 
+      {/* Secondary dense segment: progress billing vs. payment/change-order tracking */}
+      {tab === "invoices" && (
+        <View style={styles.subTabRow}>
+          {(["invoices", "change-orders"] as InvoicesView[]).map((v) => (
+            <Pressable
+              key={v}
+              onPress={() => setInvoicesView(v)}
+              style={[
+                styles.subTabPill,
+                {
+                  backgroundColor: invoicesView === v ? colors.primary : colors.card,
+                  borderColor: invoicesView === v ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.subTabPillText, { color: invoicesView === v ? "#FFFFFF" : colors.mutedForeground }]}>
+                {v === "invoices" ? "Invoices" : "Change Orders"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       {/* Last updated label */}
-      {(() => {
-        const isRefreshing = tab === "invoices" ? invRefreshing : tab === "quotes" ? qRefreshing : tab === "change-orders" ? coRefreshing : rfiRefreshing;
-        const relTime = tab === "invoices" ? invRelativeTime : tab === "quotes" ? qRelativeTime : tab === "change-orders" ? coRelativeTime : rfiRelativeTime;
+      {tab !== "estimates" && (() => {
+        const isRefreshing = tab === "quotes" ? qRefreshing : invoicesView === "invoices" ? invRefreshing : coRefreshing;
+        const relTime = tab === "quotes" ? qRelativeTime : invoicesView === "invoices" ? invRelativeTime : coRelativeTime;
         const label = isRefreshing ? "Refreshing…" : relTime;
         if (!label) return null;
         return (
@@ -419,8 +374,10 @@ export default function FinanceScreen() {
         );
       })()}
 
-      {/* List */}
-      {tab === "invoices" ? (
+      {/* Content */}
+      {tab === "estimates" ? (
+        <EstimatorScreen />
+      ) : tab === "invoices" && invoicesView === "invoices" ? (
         invLoading ? (
           <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
         ) : invError ? (
@@ -470,7 +427,7 @@ export default function FinanceScreen() {
             refreshControl={<RefreshControl refreshing={qRefreshing} onRefresh={handleRefreshQ} tintColor={colors.primary} />}
           />
         )
-      ) : tab === "change-orders" ? (
+      ) : (
         coLoading ? (
           <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
         ) : (
@@ -524,42 +481,6 @@ export default function FinanceScreen() {
             }}
           />
         )
-      ) : (
-        rfiLoading ? (
-          <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
-        ) : rfiError ? (
-          <View style={styles.center}>
-            <Feather name="alert-circle" size={28} color="#EF4444" />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground, marginTop: 12 }]}>
-              Failed to load RFIs
-            </Text>
-            <Pressable onPress={() => refetchRfi()} style={{ marginTop: 12 }}>
-              <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <FlatList
-            data={rfis ?? []}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => (
-              <RFIRow
-                item={item}
-                onPress={(rfi) => {
-                  setSelectedRFI(rfi);
-                  setRfiEditTitle(rfi.subject ?? "");
-                  setRfiEditQuestion(rfi.description ?? "");
-                  setRfiEditStatus(rfi.status ?? "open");
-                  setShowRFIModal(true);
-                }}
-              />
-            )}
-            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
-            ListEmptyComponent={
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No RFIs yet</Text>
-            }
-            refreshControl={<RefreshControl refreshing={rfiRefreshing} onRefresh={handleRefreshRfi} tintColor={colors.primary} />}
-          />
-        )
       )}
 
       {/* Signature Canvas Modal */}
@@ -571,25 +492,10 @@ export default function FinanceScreen() {
         }}
       />
 
-      {/* FABs */}
-      {tab === "rfis" && me?.role === "owner" ? (
+      {/* FABs — hidden on the Estimates tab, which has its own creation flow */}
+      {tab !== "estimates" && (
         <View style={[styles.fabRow, { bottom: insets.bottom + 20 }]}>
-          <Pressable
-            style={[styles.fab, { backgroundColor: colors.primary }]}
-            onPress={() => {
-              setCreateProjectId("");
-              setCreateSubject("");
-              setCreateDescription("");
-              setShowCreateRFIModal(true);
-            }}
-          >
-            <Feather name="plus" size={20} color="#FFFFFF" />
-            <Text style={styles.fabText}>Create RFI</Text>
-          </Pressable>
-        </View>
-      ) : tab !== "rfis" && (
-        <View style={[styles.fabRow, { bottom: insets.bottom + 20 }]}>
-          {tab === "change-orders" ? (
+          {tab === "invoices" && invoicesView === "change-orders" ? (
             <Pressable
               style={[styles.fabSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => setShowCOForm(true)}
@@ -805,219 +711,6 @@ export default function FinanceScreen() {
           </ScrollView>
         </View>
       </Modal>
-
-      {/* RFI Detail / Edit Modal */}
-      <Modal visible={showRFIModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowRFIModal(false)}>
-        <View style={[styles.modal, { backgroundColor: colors.background }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.foreground }]}>RFI Details</Text>
-            <Pressable onPress={() => setShowRFIModal(false)} hitSlop={10}>
-              <Feather name="x" size={22} color={colors.mutedForeground} />
-            </Pressable>
-          </View>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-            {selectedRFI && (
-              <>
-                <Text style={[styles.label, { color: colors.mutedForeground }]}>RFI Number</Text>
-                <Text style={{ fontSize: 15, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 12 }}>{selectedRFI.rfiNumber}</Text>
-
-                <Text style={[styles.label, { color: colors.mutedForeground }]}>Title / Subject</Text>
-                {me?.role === "owner" ? (
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-                    value={rfiEditTitle}
-                    onChangeText={setRfiEditTitle}
-                    placeholder="RFI title..."
-                    placeholderTextColor={colors.mutedForeground}
-                  />
-                ) : (
-                  <Text style={{ fontSize: 15, fontFamily: "Inter_400Regular", color: colors.foreground, marginBottom: 12 }}>{selectedRFI.subject}</Text>
-                )}
-
-                <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Question / Description</Text>
-                {me?.role === "owner" ? (
-                  <TextInput
-                    style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-                    value={rfiEditQuestion}
-                    onChangeText={setRfiEditQuestion}
-                    placeholder="Describe the question..."
-                    placeholderTextColor={colors.mutedForeground}
-                    multiline
-                    numberOfLines={4}
-                  />
-                ) : (
-                  <Text style={{ fontSize: 14, fontFamily: "Inter_400Regular", color: colors.foreground, marginBottom: 12, lineHeight: 22 }}>{selectedRFI.description}</Text>
-                )}
-
-                <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Status</Text>
-                {me?.role === "owner" ? (
-                  <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                    {(["open", "in_review", "answered", "closed"] as const).map((s) => (
-                      <Pressable
-                        key={s}
-                        onPress={() => setRfiEditStatus(s)}
-                        style={{
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: rfiEditStatus === s ? colors.primary : colors.border,
-                          backgroundColor: rfiEditStatus === s ? `${colors.primary}18` : colors.card,
-                        }}
-                      >
-                        <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: rfiEditStatus === s ? colors.primary : colors.mutedForeground }}>
-                          {s === "open" ? "Open" : s === "in_review" ? "In Review" : s === "answered" ? "Answered" : "Closed"}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : (
-                  <Text style={{ fontSize: 14, fontFamily: "Inter_400Regular", color: colors.foreground, marginBottom: 12 }}>{RFI_STATUS_LABELS[selectedRFI.status] ?? selectedRFI.status}</Text>
-                )}
-
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-                <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginBottom: 4 }}>
-                  Project: {selectedRFI.projectName ?? "Project #" + selectedRFI.projectId}
-                </Text>
-                <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
-                  Submitted by: {selectedRFI.submittedByName}
-                </Text>
-
-                {me?.role === "owner" && (
-                  <Pressable
-                    style={[styles.createBtn, { backgroundColor: colors.primary, opacity: rfiSaving ? 0.7 : 1 }]}
-                    onPress={async () => {
-                      if (!selectedRFI) return;
-                      setRfiSaving(true);
-                      try {
-                        await customFetch(`/api/projects/${selectedRFI.projectId}/rfis/${selectedRFI.id}`, {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            subject: rfiEditTitle.trim(),
-                            description: rfiEditQuestion.trim(),
-                            status: rfiEditStatus,
-                          }),
-                        });
-                        await refetchRfi();
-                        qc.invalidateQueries({ queryKey: ["/api/rfis"] });
-                        setShowRFIModal(false);
-                        Alert.alert("Saved", "RFI updated successfully.");
-                      } catch {
-                        Alert.alert("Failed to save RFI changes.");
-                      } finally {
-                        setRfiSaving(false);
-                      }
-                    }}
-                    disabled={rfiSaving}
-                  >
-                    {rfiSaving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Feather name="check" size={18} color="#FFFFFF" />}
-                    <Text style={styles.createBtnText}>{rfiSaving ? "Saving…" : "Save Changes"}</Text>
-                  </Pressable>
-                )}
-              </>
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
-
-      {/* Create RFI Modal */}
-      <Modal visible={showCreateRFIModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreateRFIModal(false)}>
-        <View style={[styles.modal, { backgroundColor: colors.background }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.foreground }]}>New RFI</Text>
-            <Pressable onPress={() => setShowCreateRFIModal(false)} hitSlop={10}>
-              <Feather name="x" size={22} color={colors.mutedForeground} />
-            </Pressable>
-          </View>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>Project</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ flexDirection: "row", gap: 8, marginBottom: 12 }}
-              keyboardShouldPersistTaps="handled"
-            >
-              {(projects ?? []).map((p: any) => {
-                const selected = String(createProjectId) === String(p.id);
-                return (
-                  <Pressable
-                    key={p.id}
-                    onPress={() => setCreateProjectId(String(p.id))}
-                    style={{
-                      paddingHorizontal: 14,
-                      paddingVertical: 8,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: selected ? colors.primary : colors.border,
-                      backgroundColor: selected ? `${colors.primary}18` : colors.card,
-                    }}
-                  >
-                    <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: selected ? colors.primary : colors.mutedForeground }}>
-                      {p.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Subject / Title</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="e.g. Foundation wall reinforcement detail"
-              placeholderTextColor={colors.mutedForeground}
-              value={createSubject}
-              onChangeText={setCreateSubject}
-            />
-            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Question / Description</Text>
-            <TextInput
-              style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="Describe the question or issue..."
-              placeholderTextColor={colors.mutedForeground}
-              value={createDescription}
-              onChangeText={setCreateDescription}
-              multiline
-              numberOfLines={4}
-            />
-            <Pressable
-              style={[styles.createBtn, { backgroundColor: colors.primary, opacity: createSaving ? 0.7 : 1 }]}
-              onPress={async () => {
-                let pid = parseInt(createProjectId, 10);
-                if (!pid || isNaN(pid)) {
-                  pid = parseInt(activeProjectId ?? "", 10);
-                }
-                if (!pid || isNaN(pid)) { Alert.alert("Enter a valid Project"); return; }
-                if (!createSubject.trim()) { Alert.alert("Enter a subject"); return; }
-                if (!createDescription.trim()) { Alert.alert("Enter a description"); return; }
-                setCreateSaving(true);
-                try {
-                  await customFetch(`/api/projects/${pid}/rfis`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      subject: createSubject.trim(),
-                      description: createDescription.trim(),
-                    }),
-                  });
-                  await refetchRfi();
-                  qc.invalidateQueries({ queryKey: ["/api/rfis"] });
-                  setShowCreateRFIModal(false);
-                  setCreateProjectId(""); setCreateSubject(""); setCreateDescription("");
-                  Alert.alert("Created", "RFI created successfully.");
-                } catch {
-                  Alert.alert("Failed to create RFI.");
-                } finally {
-                  setCreateSaving(false);
-                }
-              }}
-              disabled={createSaving}
-            >
-              {createSaving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Feather name="plus" size={18} color="#FFFFFF" />}
-              <Text style={styles.createBtnText}>{createSaving ? "Creating…" : "Create RFI"}</Text>
-            </Pressable>
-          </ScrollView>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -1031,6 +724,9 @@ const styles = StyleSheet.create({
   tabBtn: { flex: 1, alignItems: "center", paddingVertical: 12, position: "relative" },
   tabText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   tabIndicator: { position: "absolute", bottom: 0, left: "20%", right: "20%", height: 2, borderRadius: 1 },
+  subTabRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
+  subTabPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1 },
+  subTabPillText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   list: { padding: 16, gap: 8 },
   row: { flexDirection: "row", alignItems: "center", borderRadius: 10, padding: 14, borderWidth: 1, gap: 12 },
   rowTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },

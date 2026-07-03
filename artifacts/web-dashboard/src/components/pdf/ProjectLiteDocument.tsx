@@ -276,7 +276,7 @@ export default function ProjectLiteDocument({
                   <Text style={{ fontSize: 10, marginTop: 4, lineHeight: 1.3 }}>{report.workPerformed}</Text>
                   {report.notes && (
                     <View style={{ marginTop: 3, backgroundColor: "#eff6ff", padding: 4, borderRadius: 2 }}>
-                      <Text style={{ fontSize: 9, color: "#2563eb", fontFamily: "Helvetica-Bold" }}>Voice Notes</Text>
+                      <Text style={{ fontSize: 9, color: "#2563eb", fontFamily: "Helvetica-Bold" }}>Notes</Text>
                       <Text style={{ fontSize: 9, color: "#1e3a8a" }}>{report.notes}</Text>
                     </View>
                   )}

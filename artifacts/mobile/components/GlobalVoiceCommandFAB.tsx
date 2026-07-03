@@ -4,6 +4,7 @@ import {
   Alert,
   Animated,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -11,6 +12,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -39,6 +41,9 @@ import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { useVoiceIntentExecutor } from "@/hooks/useVoiceIntentExecutor";
 import { interpretVoiceCommand, type SingleAction, type VoiceIntent } from "@/src/utils/voiceRouter";
+
+const FAB_SIZE = 56;
+const FAB_EDGE_MARGIN = 16;
 
 type FabState = "idle" | "recording" | "transcribing" | "result" | "error";
 
@@ -111,6 +116,8 @@ function fuzzyMatch(query: string, candidates: string[]): string | null {
 export function GlobalVoiceCommandFAB() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const bottomOffset = Platform.OS === "ios" ? insets.bottom + 70 : insets.bottom + 80;
   const router = useRouter();
   const navigationRef = useNavigationContainerRef();
   const params = useLocalSearchParams();
@@ -126,6 +133,18 @@ export function GlobalVoiceCommandFAB() {
   const pickResolveRef = useRef<((p: { id: number; name: string }) => void) | null>(null);
   const pickRejectRef = useRef<(() => void) | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // ── Draggable FAB position — defaults to bottom-right, snaps to nearest edge on release ──
+  const posRef = useRef({
+    x: screenWidth - FAB_SIZE - FAB_EDGE_MARGIN,
+    y: screenHeight - bottomOffset - FAB_SIZE,
+  });
+  const pan = useRef(new Animated.ValueXY(posRef.current)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+  const isDragging = useRef(false);
+  const panMoveHandler = useRef(
+    Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false })
+  ).current;
 
   const projectList = useMemo(
     () => (projects ?? []).map((p) => ({ id: p.id, name: p.name })),
@@ -653,7 +672,8 @@ export function GlobalVoiceCommandFAB() {
         Risk: "/(tabs)/risk",
         Calculator: "/calculators",
         Calculators: "/calculators",
-        Schedule: "/schedule",
+        Schedule: "/workforce?tab=schedule",
+        Workforce: "/workforce",
         // Projects list is nested inside the (home) tab group
         Projects: "/(tabs)/(home)/projects",
         Ask: "/(tabs)/(home)/ask",
@@ -663,7 +683,7 @@ export function GlobalVoiceCommandFAB() {
         Proposals: "/finance",
         Estimating: "/estimator",
         Financials: "/finance",
-        Hours: "/hours",
+        Hours: "/workforce?tab=hours",
         // log.tsx and reports.tsx are nested inside the (home) tab group
         FieldLogs: "/(tabs)/(home)/log",
         Safety: "/(tabs)/safety",
@@ -680,7 +700,7 @@ export function GlobalVoiceCommandFAB() {
         Reports: "/(tabs)/(home)/reports",
         Contacts: "/contacts",
         Notifications: "/notifications",
-        Timesheets: "/timesheets",
+        Timesheets: "/workforce?tab=hours",
         Inspect: "/(tabs)/inspect",
         Admin: "/(tabs)/admin-hub",
       };
@@ -835,49 +855,92 @@ export function GlobalVoiceCommandFAB() {
     pulseAnim.setValue(1);
   }, [executor, pulseAnim]);
 
-  const bottomOffset = Platform.OS === "ios" ? insets.bottom + 70 : insets.bottom + 80;
+  // Snaps the FAB to whichever horizontal edge it's closest to, clamping
+  // vertically so it can't be dropped under the notch or the tab bar.
+  const snapToNearestEdge = (dx: number, dy: number) => {
+    const rawX = posRef.current.x + dx;
+    const rawY = posRef.current.y + dy;
+    const minY = insets.top + FAB_EDGE_MARGIN;
+    const maxY = screenHeight - insets.bottom - FAB_SIZE - FAB_EDGE_MARGIN;
+    const snappedX =
+      rawX + FAB_SIZE / 2 < screenWidth / 2
+        ? FAB_EDGE_MARGIN
+        : screenWidth - FAB_SIZE - FAB_EDGE_MARGIN;
+    const clampedY = Math.min(Math.max(rawY, minY), maxY);
+
+    posRef.current = { x: snappedX, y: clampedY };
+    Animated.spring(pan, {
+      toValue: posRef.current,
+      useNativeDriver: false,
+      friction: 7,
+      tension: 50,
+    }).start();
+  };
+
+  // Rebuilt every render so its callbacks always close over the latest
+  // `handleToggle`/`voice` state — PanResponder has no internal state of its
+  // own, so this is safe even mid-gesture (React just swaps the prop fns).
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      isDragging.current = false;
+      pan.setOffset(posRef.current);
+      pan.setValue({ x: 0, y: 0 });
+      Animated.spring(pressScale, { toValue: 0.92, useNativeDriver: false, speed: 40 }).start();
+    },
+    onPanResponderMove: (evt, gesture) => {
+      if (!isDragging.current && (Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4)) {
+        isDragging.current = true;
+      }
+      panMoveHandler(evt, gesture);
+    },
+    onPanResponderRelease: (_evt, gesture) => {
+      pan.flattenOffset();
+      Animated.spring(pressScale, { toValue: 1, useNativeDriver: false, speed: 40 }).start();
+      if (!isDragging.current) {
+        handleToggle();
+        return;
+      }
+      snapToNearestEdge(gesture.dx, gesture.dy);
+    },
+    onPanResponderTerminate: (_evt, gesture) => {
+      pan.flattenOffset();
+      Animated.spring(pressScale, { toValue: 1, useNativeDriver: false, speed: 40 }).start();
+      snapToNearestEdge(gesture.dx, gesture.dy);
+    },
+  });
 
   if (!isSignedIn) return null;
 
   return (
     <>
-      {/* ── Floating Action Button ── */}
-      <View
-        pointerEvents="box-none"
-        style={[StyleSheet.absoluteFill, { justifyContent: "flex-end", alignItems: "center", zIndex: 50 }]}
-      >
-        <TouchableOpacity
-          onPress={handleToggle}
-          activeOpacity={0.85}
+      {/* ── Floating Action Button — draggable, snaps to nearest edge on release ── */}
+      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 50 }]}>
+        <Animated.View
+          {...panResponder.panHandlers}
+          accessible
           accessibilityRole="button"
           accessibilityLabel={
             voice.state === "recording"
               ? "Stop voice command"
               : voice.state === "transcribing"
               ? "Processing voice command"
-              : "Voice command — tap to speak"
+              : "Voice command — tap to speak, drag to move"
           }
           accessibilityHint={
             voice.state === "recording"
               ? "Tap to stop recording and process your command"
-              : "Tap to start recording a voice command. Say things like 'I worked 5 hours on Oak Street' or 'Go to tasks'."
+              : "Tap to start recording a voice command. Say things like 'I worked 5 hours on Oak Street' or 'Go to tasks'. Drag to reposition."
           }
           accessibilityState={{ busy: voice.state === "transcribing" }}
-          style={{
-            position: "absolute",
-            bottom: bottomOffset,
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: voice.state === "recording" ? "#EF4444" : colors.primary,
-            alignItems: "center",
-            justifyContent: "center",
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 6,
-          }}
+          onAccessibilityTap={handleToggle}
+          style={[
+            styles.fab,
+            {
+              backgroundColor: voice.state === "recording" ? "#EF4444" : colors.primary,
+              transform: [...pan.getTranslateTransform(), { scale: pressScale }],
+            },
+          ]}
         >
           {voice.state === "transcribing" ? (
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
@@ -886,7 +949,7 @@ export function GlobalVoiceCommandFAB() {
           ) : (
             <Feather name={voice.state === "recording" ? "mic-off" : "mic"} size={24} color="#FFFFFF" />
           )}
-        </TouchableOpacity>
+        </Animated.View>
       </View>
 
       {/* ── Bottom Sheet Overlay ── */}
@@ -1142,6 +1205,21 @@ const HINTS = [
 ];
 
 const styles = StyleSheet.create({
+  fab: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.35)",

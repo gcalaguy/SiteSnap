@@ -451,7 +451,7 @@ export default function CorDashboardScreen() {
         "Audit Package Generated",
         "Your COR audit binder has been compiled. Open the web dashboard to download it.",
         [
-          { text: "Open Dashboard", onPress: () => Linking.openURL("https://app.sitesnap.ca/cor-compliance") },
+          { text: "Open Dashboard", onPress: () => Linking.openURL("https://app.sitesnap.ca/safety-compliance") },
           { text: "OK", style: "cancel" },
         ],
       );

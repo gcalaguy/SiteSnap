@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import {
-  ChevronRight, Star, Clock, ArrowLeft, Info, RotateCcw, Sparkles, Loader2, Mic,
+  ChevronRight, Star, Clock, ArrowLeft, Info, RotateCcw, Sparkles, Loader2,
   BookmarkPlus, CheckCircle2, Calculator
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Link } from "wouter";
 import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { getAiErrorMessage } from "@/hooks/useApiError";
@@ -264,11 +263,6 @@ export default function CalculatorsPage() {
                       <Button variant="outline" size="sm" className="gap-1.5" onClick={getAiSummary}>
                         <RotateCcw className="h-3.5 w-3.5" />Regenerate
                       </Button>
-                      <Link href="/tradehub/profile/me">
-                        <Button size="sm" className="gap-1.5">
-                          <Mic className="h-3.5 w-3.5" />Add to Voice Profile
-                        </Button>
-                      </Link>
                     </div>
                   </div>
                 ) : (

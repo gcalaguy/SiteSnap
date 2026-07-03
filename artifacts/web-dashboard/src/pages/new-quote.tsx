@@ -96,14 +96,14 @@ export default function NewQuote() {
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
         <button
-          onClick={() => setLocation("/quotes")}
+          onClick={() => setLocation("/financials?tab=quotes")}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" /> Quotes
         </button>
         <h1 className="text-2xl font-bold">New Quote</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Create a blank quote, then use AI fill to generate line items from a voice description.
+          Create a blank quote, then use AI fill to generate line items from a job description.
         </p>
       </div>
 
@@ -310,7 +310,7 @@ export default function NewQuote() {
                   "Create Quote"
                 )}
               </Button>
-              <Button type="button" variant="ghost" onClick={() => setLocation("/quotes")}>
+              <Button type="button" variant="ghost" onClick={() => setLocation("/financials?tab=quotes")}>
                 Cancel
               </Button>
             </div>

@@ -118,7 +118,7 @@ export default function Quotes() {
             <FileText className="h-12 w-12 text-[#D4AF37]/40 mb-4" />
             <p className="text-lg font-extrabold text-[#121212]">No quotes yet</p>
             <p className="text-sm text-[#121212]/60 mt-1 mb-6 font-medium">
-              Create your first quote — or use AI to fill it from a voice description.
+              Create your first quote — or use AI to fill it from a job description.
             </p>
             <Button asChild className="bg-[#D4AF37] hover:bg-[#b5922e] text-white font-semibold">
               <Link href="/quotes/new">

@@ -202,6 +202,7 @@ function RootLayoutNav() {
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="rfi/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="sync-queue" options={{ headerShown: false, presentation: "modal" }} />
+        <Stack.Screen name="workforce" options={{ headerShown: false }} />
         <Stack.Screen name="schedule" options={{ headerShown: false }} />
         <Stack.Screen name="timesheets" options={{ headerShown: false }} />
         <Stack.Screen name="hours" options={{ headerShown: false }} />

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -39,8 +39,6 @@ import { getAiErrorMessage } from "@/hooks/useApiError";
 import {
   ArrowLeft,
   Sparkles,
-  Mic,
-  MicOff,
   Plus,
   Trash2,
   Send,
@@ -424,8 +422,7 @@ export default function QuoteDetail() {
   const { data: me } = useGetMe();
   const deleteQuote = useDeleteQuote();
 
-  const [voiceText, setVoiceText] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
+  const [jobDescription, setJobDescription] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [title, setTitle] = useState<string | null>(null);
@@ -437,8 +434,6 @@ export default function QuoteDetail() {
   const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [importItem, setImportItem] = useState<LineItem | null>(null);
-  const mediaRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: [`/api/projects/0/quotes/${quoteId}`] });
@@ -471,7 +466,7 @@ export default function QuoteDetail() {
       await deleteQuote.mutateAsync({ projectId: realProjectId, quoteId });
       queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
       toast({ title: "Quote deleted" });
-      setLocation("/quotes");
+      setLocation("/financials?tab=quotes");
     } catch {
       toast({ title: "Failed to delete quote", variant: "destructive" });
     }
@@ -500,11 +495,11 @@ export default function QuoteDetail() {
   }
 
   async function handleAIFill() {
-    if (!voiceText.trim()) { toast({ title: "Enter a job description first", variant: "destructive" }); return; }
+    if (!jobDescription.trim()) { toast({ title: "Enter a job description first", variant: "destructive" }); return; }
     setAiLoading(true);
     try {
       const result = await generateAI.mutateAsync({
-        data: { voiceInput: voiceText, projectName: undefined, clientName: quote?.clientName ?? undefined },
+        data: { voiceInput: jobDescription, projectName: undefined, clientName: quote?.clientName ?? undefined },
       });
       if (result.lineItems) {
         const normalized: LineItem[] = (result.lineItems as unknown as Record<string, unknown>[]).map((item) => {
@@ -530,45 +525,6 @@ export default function QuoteDetail() {
     } finally {
       setAiLoading(false);
     }
-  }
-
-  async function startRecording() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
-      mediaRef.current = mr;
-      chunksRef.current = [];
-      mr.ondataavailable = (e) => chunksRef.current.push(e.data);
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64 = (reader.result as string).split(",")[1];
-          try {
-            const resp = await fetch(`${import.meta.env.BASE_URL}api/ai/transcribe`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ audio: base64 }),
-            });
-            const data = await resp.json();
-            if (data.text) setVoiceText(data.text);
-          } catch {
-            toast({ title: "Transcription failed", variant: "destructive" });
-          }
-        };
-        reader.readAsDataURL(blob);
-      };
-      mr.start();
-      setIsRecording(true);
-    } catch {
-      toast({ title: "Microphone access denied", variant: "destructive" });
-    }
-  }
-
-  function stopRecording() {
-    mediaRef.current?.stop();
-    setIsRecording(false);
   }
 
   function updateItem(idx: number, field: keyof LineItem, value: string | number) {
@@ -659,7 +615,7 @@ export default function QuoteDetail() {
     return (
       <div className="p-6 max-w-4xl mx-auto text-center py-20">
         <p className="text-lg font-medium">Quote not found</p>
-        <Button variant="ghost" className="mt-4" onClick={() => setLocation("/quotes")}>
+        <Button variant="ghost" className="mt-4" onClick={() => setLocation("/financials?tab=quotes")}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Quotes
         </Button>
       </div>
@@ -950,8 +906,8 @@ export default function QuoteDetail() {
           <CardContent className="space-y-3">
             <Textarea
               placeholder="e.g. We need to pour a concrete foundation 30 feet by 40 feet, 8 inches deep. Labour for 4 guys for 2 days, plus concrete pump rental..."
-              value={voiceText}
-              onChange={(e) => setVoiceText(e.target.value.slice(0, generateQuoteAIBodyVoiceInputMax))}
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value.slice(0, generateQuoteAIBodyVoiceInputMax))}
               rows={3}
               maxLength={generateQuoteAIBodyVoiceInputMax}
               className="resize-none bg-background"
@@ -959,29 +915,17 @@ export default function QuoteDetail() {
             <div className="flex items-center justify-between">
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={isRecording ? stopRecording : startRecording}
-                  className={isRecording ? "border-red-300 text-red-600 hover:bg-red-50" : ""}
-                >
-                  {isRecording ? (
-                    <><MicOff className="h-4 w-4 mr-1.5" /> Stop Recording</>
-                  ) : (
-                    <><Mic className="h-4 w-4 mr-1.5" /> Record Voice</>
-                  )}
-                </Button>
-                <Button
                   size="sm"
                   onClick={handleAIFill}
-                  disabled={aiLoading || !voiceText.trim()}
+                  disabled={aiLoading || !jobDescription.trim()}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   {aiLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1.5" />}
                   {aiLoading ? "Generating…" : "Generate Items"}
                 </Button>
               </div>
-              <p className={`text-xs shrink-0 tabular-nums ${voiceText.length >= generateQuoteAIBodyVoiceInputMax ? "text-destructive font-medium" : voiceText.length >= generateQuoteAIBodyVoiceInputMax * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
-                {voiceText.length.toLocaleString()}/{generateQuoteAIBodyVoiceInputMax.toLocaleString()}
+              <p className={`text-xs shrink-0 tabular-nums ${jobDescription.length >= generateQuoteAIBodyVoiceInputMax ? "text-destructive font-medium" : jobDescription.length >= generateQuoteAIBodyVoiceInputMax * 0.8 ? "text-amber-500" : "text-muted-foreground"}`}>
+                {jobDescription.length.toLocaleString()}/{generateQuoteAIBodyVoiceInputMax.toLocaleString()}
               </p>
             </div>
           </CardContent>
