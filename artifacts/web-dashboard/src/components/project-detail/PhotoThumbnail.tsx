@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
+import { Trash2 } from "lucide-react";
 
-export function PhotoThumbnail({ photo, compact }: { photo: any; compact?: boolean }) {
+export function PhotoThumbnail({ photo, compact, onDelete }: { photo: any; compact?: boolean; onDelete?: () => void }) {
   const { data: signedUrl, isLoading } = useQuery({
     queryKey: ["signed-photo-url", photo.objectPath],
     queryFn: async () => {
@@ -40,14 +41,26 @@ export function PhotoThumbnail({ photo, compact }: { photo: any; compact?: boole
   }
 
   return (
-    <img
-      src={signedUrl}
-      alt={photo.caption ?? "Site photo"}
-      className={`${sizeClass} object-cover rounded-md border border-border opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
-      onClick={(e) => {
-        e.stopPropagation();
-        window.open(signedUrl, "_blank", "noopener,noreferrer");
-      }}
-    />
+    <div className="relative group">
+      <img
+        src={signedUrl}
+        alt={photo.caption ?? "Site photo"}
+        className={`${sizeClass} object-cover rounded-md border border-border opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
+        onClick={(e) => {
+          e.stopPropagation();
+          window.open(signedUrl, "_blank", "noopener,noreferrer");
+        }}
+      />
+      {onDelete && (
+        <button
+          type="button"
+          title="Delete photo"
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="absolute top-0.5 right-0.5 p-0.5 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      )}
+    </div>
   );
 }

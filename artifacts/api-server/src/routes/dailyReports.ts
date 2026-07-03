@@ -334,6 +334,9 @@ router.delete("/:reportId", requireAuth, requireCompany, requireOwnerOrForeman, 
   const projectCheck = await verifyProjectAccess(projectId, req.companyId!);
   if (!projectCheck) { res.status(404).json({ error: "Project not found" }); return; }
 
+  // Delete associated photos first to satisfy the FK constraint
+  await db.delete(dailyReportPhotosTable).where(eq(dailyReportPhotosTable.reportId, reportId));
+
   await db
     .delete(dailyReportsTable)
     .where(and(eq(dailyReportsTable.id, reportId), eq(dailyReportsTable.projectId, projectId)));

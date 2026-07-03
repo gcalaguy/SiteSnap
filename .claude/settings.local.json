@@ -112,7 +112,9 @@
       "Bash(gh pr diff *)",
       "Bash(gh pr checks *)",
       "Bash(gh pr status *)",
-      "Bash(python3 -c \"import json,sys; j=json.load\\(sys.stdin\\); print\\(len\\(j['entries']\\), 'entries'\\); [print\\(e['idx'], e['tag']\\) for e in j['entries'][-5:]]\")"
+      "Bash(python3 -c \"import json,sys; j=json.load\\(sys.stdin\\); print\\(len\\(j['entries']\\), 'entries'\\); [print\\(e['idx'], e['tag']\\) for e in j['entries'][-5:]]\")",
+      "Bash(awk ' *)",
+      "Bash(grep -rn \"limit\\(\\\\|offset\\(\\\\|page =\\\\|pageSize\\\\|LIMIT \\\\$\" .)"
     ]
   }
 }

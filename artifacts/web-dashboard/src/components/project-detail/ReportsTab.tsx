@@ -4,6 +4,7 @@ import {
   useListDailyReports,
   useDeleteDailyReport,
   useUpdateDailyReport,
+  useDeleteReportPhoto,
   getListDailyReportsQueryKey,
 } from "@workspace/api-client-react";
 import { format } from "date-fns";
@@ -78,6 +79,16 @@ export function ReportsTab({
         toast({ title: "Daily report updated" });
       },
       onError: (err: any) => toast({ title: err?.message ?? "Failed to update report", variant: "destructive" }),
+    },
+  });
+
+  const deleteReportPhoto = useDeleteReportPhoto({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListDailyReportsQueryKey(projectId) });
+        toast({ title: "Photo deleted" });
+      },
+      onError: (err: any) => toast({ title: err?.message ?? "Failed to delete photo", variant: "destructive" }),
     },
   });
 
@@ -234,7 +245,11 @@ export function ReportsTab({
                           <p className="text-xs font-semibold text-foreground mb-2">Site Photos</p>
                           <div className="flex flex-wrap gap-2">
                             {photos.map((photo: any) => (
-                              <PhotoThumbnail key={photo.id} photo={photo} />
+                              <PhotoThumbnail
+                                key={photo.id}
+                                photo={photo}
+                                onDelete={isOwnerOrForeman ? () => deleteReportPhoto.mutate({ projectId, reportId: report.id, photoId: photo.id }) : undefined}
+                              />
                             ))}
                           </div>
                         </div>
