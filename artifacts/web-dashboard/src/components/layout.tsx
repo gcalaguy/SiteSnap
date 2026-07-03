@@ -14,10 +14,8 @@ import {
   Receipt,
   ShieldCheck,
   ShieldAlert,
-  ClipboardCheck,
   Globe,
   CalendarDays,
-  Clock,
   Calculator,
   Crown,
   Bell,
@@ -25,13 +23,12 @@ import {
   MessageSquareWarning,
   Hammer,
   BookUser,
-  TrendingUp,
-  FileSignature,
   BarChart3,
   Check,
   Menu,
   X,
   Package,
+  DollarSign,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import { useState } from "react";
@@ -55,6 +52,26 @@ const BLACK = "#0A0A0A";
 const SURFACE = "#141414";
 const SURFACE2 = "#1C1C1C";
 const GOLD_BORDER = "#2A2200";
+
+const SECTION_ORDER = ["operations", "financials", "compliance"] as const;
+const SECTION_LABELS: Record<(typeof SECTION_ORDER)[number], string> = {
+  operations: "Operations",
+  financials: "Financials",
+  compliance: "Compliance",
+};
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "sitesnap-sidebar-collapsed-sections";
+
+function readCollapsedSections(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 interface ActionCounts {
   pendingQuotes: number;
@@ -82,8 +99,21 @@ function NavBadge({ count, gold = false }: { count: number; gold?: boolean }) {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<string[]>(readCollapsedSections);
   const { data: user } = useGetMe();
   const { signOut } = useClerk();
+
+  const toggleSection = (key: string) => {
+    setCollapsedSections((prev) => {
+      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
+      try {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore write failures (e.g. private browsing storage restrictions)
+      }
+      return next;
+    });
+  };
 
   const isOwnerOrForeman = user?.role === "owner" || user?.role === "foreman";
   const isWorker = user?.role === "worker";
@@ -127,6 +157,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const quotesBadge = (counts?.pendingQuotes ?? 0) + (counts?.draftQuotes ?? 0);
   const invoicesBadge = counts?.draftInvoices ?? 0;
+  const financialsBadge = quotesBadge + invoicesBadge;
   const safetyBadge = counts?.submittedForms ?? 0;
   const hoursBadge = counts?.pendingTimesheets ?? 0;
 
@@ -146,42 +177,55 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return (user.permissions as Record<string, boolean>)[key] !== false;
   };
 
+  // Workforce hub merges Schedule + Hours, each gated by its own permission — show the
+  // nav item if the user can see either sub-tab.
+  const canViewWorkforce = hasPerm("viewSchedules") || hasPerm("viewTimesheets");
+
   const navigation = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0 },
-    { name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "RISK_DASHBOARD", permissionKey: "viewRiskTab" },
-    ...(isOwnerOrForeman ? [{ name: "AI Compliance", href: "/ai-compliance-monitor", icon: ClipboardCheck, badge: 0, featureKey: "AI_COMPLIANCE" }] : []),
-    { name: "Projects", href: "/projects", icon: Building2, badge: 0 },
-    { name: "Quotes", href: "/quotes", icon: FileText, badge: quotesBadge, permissionKey: "viewQuotes" },
-    { name: "Invoices", href: "/invoices", icon: Receipt, badge: invoicesBadge, permissionKey: "viewFinancials" },
-    ...(isOwnerOrForeman ? [{ name: "Proposals", href: "/proposals", icon: FileSignature, badge: 0, featureKey: "PROPOSALS" }] : []),
-    { name: "Estimating", href: "/estimates", icon: Calculator, badge: 0, permissionKey: "viewEstimator" },
-    ...(isOwnerOrForeman ? [{ name: "Inventory", href: "/inventory", icon: Package, badge: 0, featureKey: "INVENTORY" }] : []),
-    ...(isOwnerOrForeman ? [{ name: "Financials", href: "/financials", icon: BarChart3, badge: 0, featureKey: "FINANCIALS" }] : []),
-    ...(isWorker ? [] : [{ name: "Contacts", href: "/contacts", icon: BookUser, badge: 0, featureKey: "CONTACTS" }]),
-    ...(isWorker ? [] : [{ name: "Leads", href: "/leads", icon: TrendingUp, badge: 0, featureKey: "CONTACTS" }]),
-    ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, featureKey: "CALCULATORS" }] : []),
-    { name: "Schedule", href: "/schedule", icon: CalendarDays, badge: 0, featureKey: "SCHEDULING", permissionKey: "viewSchedules" },
-    { name: "Hours", href: "/hours", icon: Clock, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING", permissionKey: "viewTimesheets" },
-    { name: "Expenses", href: "/expenses", icon: Receipt, badge: 0, permissionKey: "submitExpenses" },
-    { name: "Field Logs", href: "/field-logs", icon: FileText, badge: 0, featureKey: "SAFETY_FORMS", permissionKey: "viewSafetyTab" },
-    ...(isOwnerOrForeman ? [{ name: "Permits", href: "/permits", icon: BadgeCheck, badge: 0, featureKey: "PERMITS" }] : []),
-    { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "SAFETY_FORMS", permissionKey: "viewSafetyTab" },
-    { name: "Inspections", href: "/inspections", icon: ClipboardCheck, badge: 0, permissionKey: "viewInspectTab" },
-    { name: "COR Compliance", href: "/cor-compliance", icon: BadgeCheck, badge: 0, featureKey: "COR_MODULE" },
-    { name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TRADEHUB", permissionKey: "viewTradeHub" },
-    { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT", permissionKey: "viewAskAI" },
-    ...(isOwnerOrForeman ? [{ name: "RFI & Submittal", href: "/rfi-submittal", icon: MessageSquareWarning, badge: 0, featureKey: "RFI_SUBMITTAL" }] : []),
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0, section: "operations" },
+    { name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "RISK_DASHBOARD", permissionKey: "viewRiskTab", section: "operations" },
+    { name: "Projects", href: "/projects", icon: Building2, badge: 0, section: "operations" },
+    ...(isOwnerOrForeman ? [{ name: "Inventory", href: "/inventory", icon: Package, badge: 0, featureKey: "INVENTORY", section: "operations" }] : []),
+    // Consolidated CRM hub — Active Leads / Directory sub-tabs.
+    ...(isWorker ? [] : [{ name: "CRM", href: "/crm", icon: BookUser, badge: 0, featureKey: "CONTACTS", section: "operations" }]),
+    ...(isOwnerOrForeman ? [{ name: "Calculators", href: "/calculators", icon: Calculator, badge: 0, featureKey: "CALCULATORS", section: "operations" }] : []),
+    // Consolidated Workforce hub — Master Schedule / Timesheets sub-tabs, each internally
+    // gated by its own permission (viewSchedules / viewTimesheets).
+    ...(canViewWorkforce ? [{ name: "Workforce", href: "/workforce", icon: CalendarDays, badge: isOwnerOrForeman ? hoursBadge : 0, featureKey: "SCHEDULING", section: "operations" }] : []),
+    { name: "TradeHub", href: "/tradehub", icon: Globe, badge: 0, featureKey: "TRADEHUB", permissionKey: "viewTradeHub", section: "operations" },
+    { name: "AI Chat", href: "/ai-chat", icon: Bot, badge: 0, featureKey: "AI_CHAT", permissionKey: "viewAskAI", section: "operations" },
+    ...(isOwnerOrForeman ? [{ name: "RFI & Submittal", href: "/rfi-submittal", icon: MessageSquareWarning, badge: 0, featureKey: "RFI_SUBMITTAL", section: "operations" }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0, section: "operations" }] : []),
+    // Consolidated pre-construction & billing lifecycle hub — Estimates & Proposals /
+    // Quotes / Invoices sub-tabs, each internally gated by its own permission/feature.
+    { name: "Financials", href: "/financials", icon: DollarSign, badge: financialsBadge, section: "financials" },
+    { name: "Expenses", href: "/expenses", icon: Receipt, badge: 0, permissionKey: "submitExpenses", section: "financials" },
+    { name: "Field Logs", href: "/field-logs", icon: FileText, badge: 0, featureKey: "SAFETY_FORMS", permissionKey: "viewSafetyTab", section: "compliance" },
+    ...(isOwnerOrForeman ? [{ name: "Permits", href: "/permits", icon: BadgeCheck, badge: 0, featureKey: "PERMITS", section: "compliance" }] : []),
+    { name: "Safety & Compliance", href: "/safety-compliance", icon: ShieldAlert, badge: isOwnerOrForeman ? safetyBadge : 0, featureKey: "SAFETY_FORMS", permissionKey: "viewSafetyTab", section: "compliance" },
     // Admin compliance review across ALL workers — owner/foreman only, distinct from the
     // worker-facing "My Vault" (own documents only) below.
-    ...(isOwnerOrForeman ? [{ name: "Worker Documents", href: "/worker-documents", icon: ShieldCheck, badge: 0, featureKey: "WORKER_DOCUMENTS" }] : []),
-    { name: "My Vault", href: "/my-vault", icon: ShieldCheck, badge: 0, permissionKey: "viewVault" },
-    ...(isOwnerOrForeman ? [{ name: "Team", href: "/team", icon: Users, badge: 0 }] : []),
-  ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0 }] : []),
+    ...(isOwnerOrForeman ? [{ name: "Worker Documents", href: "/worker-documents", icon: ShieldCheck, badge: 0, featureKey: "WORKER_DOCUMENTS", section: "compliance" }] : []),
+    { name: "My Vault", href: "/my-vault", icon: ShieldCheck, badge: 0, permissionKey: "viewVault", section: "compliance" },
+    ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0 }] : []),
   ];
 
   const adminNavigation = [
     ...(isSuperAdmin ? [{ name: "Super Admin", href: "/super-admin", icon: Crown, badge: 0 }] : []),
   ];
+
+  const isNavItemVisible = (item: (typeof navigation)[number]) => {
+    const locked = !!(item as any).featureKey && !has((item as any).featureKey);
+    const permBlocked = !!(item as any).permissionKey && !hasPerm((item as any).permissionKey);
+    return !locked && !permBlocked;
+  };
+  const visibleNavigation = navigation.filter(isNavItemVisible);
+  const navSections = SECTION_ORDER.map((key) => ({
+    key,
+    label: SECTION_LABELS[key],
+    items: visibleNavigation.filter((item) => (item as any).section === key),
+  })).filter((section) => section.items.length > 0);
+  const unsectionedNavItems = visibleNavigation.filter((item) => !(item as any).section);
 
   const firstName = user?.firstName ?? "";
   const lastName = user?.lastName ?? "";
@@ -238,61 +282,137 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <CompanySwitcher user={user} />
         </div>
 
-        {/* Nav label */}
-        <div className="px-5 pb-1 relative z-10">
-          <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: "#444" }}>Menu</p>
-        </div>
-
         {/* Nav items */}
-        <nav className="flex-1 px-3 overflow-y-auto space-y-0.5 relative z-10">
-          {navigation.map((item) => {
-            const isActive = location.startsWith(item.href);
-            const locked = !!(item as any).featureKey && !has((item as any).featureKey);
-            const permBlocked = !!(item as any).permissionKey && !hasPerm((item as any).permissionKey);
-
-            if (locked || permBlocked) return null;
-
+        <nav className="flex-1 px-3 overflow-y-auto relative z-10">
+          {navSections.map((section) => {
+            const collapsed = collapsedSections.includes(section.key);
             return (
-              <Link key={item.name} href={item.href}>
+              <div key={section.key} className="mb-3 last:mb-0">
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.key)}
+                  className="w-full flex items-center justify-between px-3 pb-1 pt-1 text-[10px] font-semibold tracking-widest uppercase transition-colors"
+                  style={{ color: "#3D3D3D" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#6B6B6B"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#3D3D3D"; }}
+                  aria-expanded={!collapsed}
+                >
+                  <span>{section.label}</span>
+                  <ChevronDown
+                    size={12}
+                    style={{
+                      transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                      transition: "transform 200ms ease",
+                      flexShrink: 0,
+                    }}
+                  />
+                </button>
                 <div
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer relative transition-all duration-150"
                   style={{
-                    background: isActive ? `${GOLD}18` : "transparent",
-                    border: isActive ? `1px solid ${GOLD}33` : "1px solid transparent",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) (e.currentTarget as HTMLElement).style.background = SURFACE2;
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent";
+                    display: "grid",
+                    gridTemplateRows: collapsed ? "0fr" : "1fr",
+                    transition: "grid-template-rows 200ms ease",
                   }}
                 >
-                  {isActive && (
-                    <div style={{
-                      position: "absolute",
-                      left: 0,
-                      top: "20%",
-                      height: "60%",
-                      width: 3,
-                      background: GOLD,
-                      borderRadius: "0 2px 2px 0",
-                    }} />
-                  )}
-                  <item.icon
-                    size={17}
-                    style={{ color: isActive ? GOLD : "#555", flexShrink: 0 }}
-                  />
-                  <span
-                    className="flex-1 text-sm font-medium truncate"
-                    style={{ color: isActive ? "#FFF" : "#888" }}
-                  >
-                    {item.name}
-                  </span>
-                  <NavBadge count={item.badge} gold={isActive} />
+                  <div className="overflow-hidden">
+                    <div className="space-y-0.5">
+                      {section.items.map((item) => {
+                        const isActive = location.startsWith(item.href);
+                        return (
+                          <Link key={item.name} href={item.href}>
+                            <div
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer relative transition-all duration-150"
+                              style={{
+                                background: isActive ? `${GOLD}18` : "transparent",
+                                border: isActive ? `1px solid ${GOLD}33` : "1px solid transparent",
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isActive) (e.currentTarget as HTMLElement).style.background = SURFACE2;
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent";
+                              }}
+                            >
+                              {isActive && (
+                                <div style={{
+                                  position: "absolute",
+                                  left: 0,
+                                  top: "20%",
+                                  height: "60%",
+                                  width: 3,
+                                  background: GOLD,
+                                  borderRadius: "0 2px 2px 0",
+                                }} />
+                              )}
+                              <item.icon
+                                size={17}
+                                style={{ color: isActive ? GOLD : "#555", flexShrink: 0 }}
+                              />
+                              <span
+                                className="flex-1 text-sm font-medium truncate"
+                                style={{ color: isActive ? "#FFF" : "#888" }}
+                              >
+                                {item.name}
+                              </span>
+                              <NavBadge count={item.badge} gold={isActive} />
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
+
+          {unsectionedNavItems.length > 0 && (
+            <div className="space-y-0.5 pt-1" style={{ borderTop: `1px solid ${GOLD_BORDER}` }}>
+              {unsectionedNavItems.map((item) => {
+                const isActive = location.startsWith(item.href);
+                return (
+                  <Link key={item.name} href={item.href}>
+                    <div
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer relative transition-all duration-150"
+                      style={{
+                        background: isActive ? `${GOLD}18` : "transparent",
+                        border: isActive ? `1px solid ${GOLD}33` : "1px solid transparent",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) (e.currentTarget as HTMLElement).style.background = SURFACE2;
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }}
+                    >
+                      {isActive && (
+                        <div style={{
+                          position: "absolute",
+                          left: 0,
+                          top: "20%",
+                          height: "60%",
+                          width: 3,
+                          background: GOLD,
+                          borderRadius: "0 2px 2px 0",
+                        }} />
+                      )}
+                      <item.icon
+                        size={17}
+                        style={{ color: isActive ? GOLD : "#555", flexShrink: 0 }}
+                      />
+                      <span
+                        className="flex-1 text-sm font-medium truncate"
+                        style={{ color: isActive ? "#FFF" : "#888" }}
+                      >
+                        {item.name}
+                      </span>
+                      <NavBadge count={item.badge} gold={isActive} />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           {adminNavigation.length > 0 && (
             <>
@@ -560,38 +680,104 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Nav items */}
-            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
-              {navigation.map((item) => {
-                const isActive = location === `${basePath}${item.href}` || location === item.href;
-                const locked = !!(item as any).featureKey && !has((item as any).featureKey);
-                const permBlocked = !!(item as any).permissionKey && !hasPerm((item as any).permissionKey);
-                if (locked || permBlocked) return null;
+            <div className="flex-1 overflow-y-auto py-3 px-3">
+              {navSections.map((section) => {
+                const collapsed = collapsedSections.includes(section.key);
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all"
-                    style={{
-                      background: isActive ? `${GOLD}18` : "transparent",
-                      border: isActive ? `1px solid ${GOLD}33` : "1px solid transparent",
-                    }}
-                  >
-                    <item.icon size={17} style={{ color: isActive ? GOLD : "#555" }} />
-                    <span className="flex-1 text-sm font-medium truncate" style={{ color: isActive ? "#FFF" : "#888" }}>
-                      {item.name}
-                    </span>
-                    {item.badge > 0 && (
-                      <span
-                        className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold"
-                        style={{ background: GOLD, color: BLACK }}
-                      >
-                        {item.badge > 99 ? "99+" : item.badge}
-                      </span>
-                    )}
-                  </Link>
+                  <div key={section.key} className="mb-3 last:mb-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(section.key)}
+                      className="w-full flex items-center justify-between px-3 pb-1 pt-1 text-[10px] font-semibold tracking-widest uppercase transition-colors"
+                      style={{ color: "#3D3D3D" }}
+                      aria-expanded={!collapsed}
+                    >
+                      <span>{section.label}</span>
+                      <ChevronDown
+                        size={12}
+                        style={{
+                          transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                          transition: "transform 200ms ease",
+                          flexShrink: 0,
+                        }}
+                      />
+                    </button>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateRows: collapsed ? "0fr" : "1fr",
+                        transition: "grid-template-rows 200ms ease",
+                      }}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="space-y-0.5">
+                          {section.items.map((item) => {
+                            const isActive = location === `${basePath}${item.href}` || location === item.href;
+                            return (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => setMobileOpen(false)}
+                                className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all"
+                                style={{
+                                  background: isActive ? `${GOLD}18` : "transparent",
+                                  border: isActive ? `1px solid ${GOLD}33` : "1px solid transparent",
+                                }}
+                              >
+                                <item.icon size={17} style={{ color: isActive ? GOLD : "#555" }} />
+                                <span className="flex-1 text-sm font-medium truncate" style={{ color: isActive ? "#FFF" : "#888" }}>
+                                  {item.name}
+                                </span>
+                                {item.badge > 0 && (
+                                  <span
+                                    className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+                                    style={{ background: GOLD, color: BLACK }}
+                                  >
+                                    {item.badge > 99 ? "99+" : item.badge}
+                                  </span>
+                                )}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
+
+              {unsectionedNavItems.length > 0 && (
+                <div className="space-y-0.5 pt-1" style={{ borderTop: `1px solid ${GOLD_BORDER}` }}>
+                  {unsectionedNavItems.map((item) => {
+                    const isActive = location === `${basePath}${item.href}` || location === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all"
+                        style={{
+                          background: isActive ? `${GOLD}18` : "transparent",
+                          border: isActive ? `1px solid ${GOLD}33` : "1px solid transparent",
+                        }}
+                      >
+                        <item.icon size={17} style={{ color: isActive ? GOLD : "#555" }} />
+                        <span className="flex-1 text-sm font-medium truncate" style={{ color: isActive ? "#FFF" : "#888" }}>
+                          {item.name}
+                        </span>
+                        {item.badge > 0 && (
+                          <span
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+                            style={{ background: GOLD, color: BLACK }}
+                          >
+                            {item.badge > 99 ? "99+" : item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
 
               {adminNavigation.length > 0 && (
                 <>
