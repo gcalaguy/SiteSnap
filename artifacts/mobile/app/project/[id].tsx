@@ -7,9 +7,6 @@ import {
   useUpdateTask,
   useGetMe,
   useCreateDailyReport,
-  useListScans,
-  useGetScanUrl,
-  getGetScanUrlQueryKey,
   useListChangeOrders,
   useListFormSubmissions,
   customFetch,
@@ -18,8 +15,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { WebView } from "react-native-webview";
 import { DocumentsTab } from "@/components/DocumentsTab";
 import { HoursTab } from "@/components/HoursTab";
 import { QuotesTab } from "@/components/QuotesTab";
@@ -35,7 +30,6 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -840,247 +834,6 @@ function ReportsTabSection({
   );
 }
 
-const SCAN_HINT_KEY = "sitesnap.scanGestureHintDismissed";
-
-function ScanWebView({ url }: { url: string }) {
-  const [webLoaded, setWebLoaded] = useState(false);
-  const [webErrored, setWebErrored] = useState(false);
-  const [showHint, setShowHint] = useState(false);
-  const hintOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    AsyncStorage.getItem(SCAN_HINT_KEY).then((val) => {
-      if (!val) {
-        setShowHint(true);
-        Animated.timing(hintOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
-      }
-    }).catch(() => {});
-  }, []);
-
-  const dismissHint = useCallback(() => {
-    Animated.timing(hintOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
-      setShowHint(false);
-    });
-    AsyncStorage.setItem(SCAN_HINT_KEY, "1").catch(() => {});
-  }, [hintOpacity]);
-
-  return (
-    <View style={{ flex: 1, backgroundColor: "#000" }}>
-      {!webLoaded && !webErrored && (
-        <View style={[StyleSheet.absoluteFillObject, scanSt.center, { zIndex: 10 }]}>
-          <ActivityIndicator size="large" color="#06b6d4" />
-          <Text style={scanSt.statusText}>Loading 3D viewer…</Text>
-        </View>
-      )}
-      {webErrored ? (
-        <View style={scanSt.center}>
-          <Feather name="alert-triangle" size={36} color="#f59e0b" />
-          <Text style={scanSt.statusText}>Failed to load 3D viewer</Text>
-          <Text style={[scanSt.statusText, { fontSize: 12, marginTop: 4 }]}>
-            Check your connection and try again.
-          </Text>
-        </View>
-      ) : (
-        <WebView
-          source={{ uri: url }}
-          style={{ flex: 1 }}
-          onLoad={() => setWebLoaded(true)}
-          onError={() => { setWebErrored(true); setWebLoaded(true); }}
-          onHttpError={() => { setWebErrored(true); setWebLoaded(true); }}
-          javaScriptEnabled
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          originWhitelist={["https://*"]}
-          allowsFullscreenVideo
-          allowsBackForwardNavigationGestures
-        />
-      )}
-      {showHint && !webErrored && (
-        <Animated.View
-          style={[scanSt.gestureHint, { opacity: hintOpacity }]}
-          pointerEvents="box-none"
-        >
-          <TouchableOpacity style={scanSt.gestureHintInner} onPress={dismissHint} activeOpacity={0.85}>
-            <View style={scanSt.gestureHintRow}>
-              <Feather name="zoom-in" size={18} color="#fff" />
-              <Text style={scanSt.gestureHintText}>Pinch to zoom</Text>
-            </View>
-            <View style={scanSt.gestureHintDivider} />
-            <View style={scanSt.gestureHintRow}>
-              <Feather name="rotate-cw" size={18} color="#fff" />
-              <Text style={scanSt.gestureHintText}>Drag to rotate</Text>
-            </View>
-            <Text style={scanSt.gestureHintDismiss}>Tap to dismiss</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-    </View>
-  );
-}
-
-function VideoWebView({ url }: { url: string }) {
-  const [loaded, setLoaded] = useState(false);
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center}
-  video{width:100%;height:100%;object-fit:contain}
-</style>
-</head>
-<body>
-<video src="${url}" controls autoplay playsinline webkit-playsinline></video>
-</body>
-</html>`;
-
-  return (
-    <View style={{ flex: 1, backgroundColor: "#000" }}>
-      {!loaded && (
-        <View style={[StyleSheet.absoluteFillObject, scanSt.center, { zIndex: 10 }]}>
-          <ActivityIndicator size="large" color="#06b6d4" />
-          <Text style={scanSt.statusText}>Loading video…</Text>
-        </View>
-      )}
-      <WebView
-        source={{ html }}
-        style={{ flex: 1 }}
-        onLoad={() => setLoaded(true)}
-        javaScriptEnabled
-        allowsInlineMediaPlayback
-        mediaPlaybackRequiresUserAction={false}
-        allowsFullscreenVideo
-        originWhitelist={["*"]}
-      />
-    </View>
-  );
-}
-
-const scanSt = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24, backgroundColor: "#000" },
-  statusText: { fontSize: 14, color: "rgba(255,255,255,0.6)", textAlign: "center" },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#111",
-  },
-  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 17, fontWeight: "700", color: "#fff" },
-  gestureHint: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    paddingBottom: 48,
-    zIndex: 20,
-  },
-  gestureHintInner: {
-    backgroundColor: "rgba(0,0,0,0.72)",
-    borderRadius: 16,
-    paddingHorizontal: 28,
-    paddingVertical: 18,
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-  },
-  gestureHintRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  gestureHintText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  gestureHintDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.2)", alignSelf: "stretch" },
-  gestureHintDismiss: { color: "rgba(255,255,255,0.45)", fontSize: 12, marginTop: 2 },
-
-  // Scan list row (project overview)
-  scanRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-  },
-  scanIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "#06b6d412",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  scanName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  scanMeta: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
-  scanBadge: {
-    backgroundColor: "#06b6d412",
-    borderWidth: 1,
-    borderColor: "#06b6d440",
-    borderRadius: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  scanBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: "#06b6d4" },
-
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  uploadScanBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  uploadScanBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#06b6d4" },
-
-  emptyScans: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    marginBottom: 8,
-  },
-  emptyScansText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
-
-  videoDeleteFab: {
-    position: "absolute",
-    bottom: 32,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(220,38,38,0.9)",
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    zIndex: 30,
-  },
-  videoDeleteFabText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    zIndex: 20,
-  },
-  overlayBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
 
 export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -1091,25 +844,6 @@ export default function ProjectDetailScreen() {
 
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [rfiStatusFilter, setRfiStatusFilter] = useState<"all" | "open" | "in_review" | "answered" | "closed">("all");
-
-  // Scan viewer state
-  const [viewingScanId, setViewingScanId] = useState<number | null>(null);
-  const [scanViewerVisible, setScanViewerVisible] = useState(false);
-
-  function openScanViewer(scanId: number) {
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setViewingScanId(scanId);
-    setScanViewerVisible(true);
-  }
-
-  function closeScanViewer() {
-    setScanViewerVisible(false);
-    setViewingScanId(null);
-  }
-
-  function deleteViewerScan() {
-    closeScanViewer();
-  }
 
   const { data: me } = useGetMe();
   const isWorker = me?.role === "worker";
@@ -1150,7 +884,6 @@ export default function ProjectDetailScreen() {
     projectId,
     rfiStatusFilter !== "all" ? { status: rfiStatusFilter as "open" | "in_review" | "answered" | "closed" } : undefined,
   );
-  const { data: scans, refetch: refetchScans } = useListScans({ projectId });
   const { data: changeOrders } = useListChangeOrders(
     isOwnerOrForeman ? { projectId } : undefined,
     { query: { enabled: isOwnerOrForeman } as any },
@@ -1167,19 +900,8 @@ export default function ProjectDetailScreen() {
       refetchReports();
       refetchTasks();
       refetchRfis();
-      refetchScans();
       if (perms.viewSafetyTab) refetchSafety();
-    }, [refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchScans, refetchSafety, perms.viewSafetyTab]),
-  );
-
-  const { data: scanUrlData, isLoading: scanUrlLoading, error: scanUrlError } = useGetScanUrl(
-    viewingScanId ?? 0,
-    {
-      query: {
-        queryKey: getGetScanUrlQueryKey(viewingScanId ?? 0),
-        enabled: viewingScanId != null && Number.isFinite(viewingScanId) && scanViewerVisible,
-      },
-    },
+    }, [refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchSafety, perms.viewSafetyTab]),
   );
 
   const [clientUploads, setClientUploads] = useState<any[]>([]);
@@ -1327,67 +1049,6 @@ export default function ProjectDetailScreen() {
             </>
           )}
 
-          {/* Site Scans section — always visible so users can upload a new scan */}
-          <>
-            <View style={{ height: 20 }} />
-            <View style={scanSt.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>Site Scans</Text>
-              <TouchableOpacity
-                style={[scanSt.uploadScanBtn, { backgroundColor: "#06b6d420", borderColor: "#06b6d440" }]}
-                onPress={() => {
-                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push({ pathname: "/site-scan", params: { projectId: String(projectId) } });
-                }}
-                activeOpacity={0.75}
-              >
-                <Feather name="upload-cloud" size={13} color="#06b6d4" />
-                <Text style={scanSt.uploadScanBtnText}>Upload Scan</Text>
-              </TouchableOpacity>
-            </View>
-            {scans != null && scans.length > 0 ? (
-              <>
-                {scans.map((scan) => (
-                  <TouchableOpacity
-                    key={scan.id}
-                    onPress={() => openScanViewer(scan.id)}
-                    activeOpacity={0.8}
-                    style={[
-                      scanSt.scanRow,
-                      { backgroundColor: colors.card, borderColor: colors.border },
-                    ]}
-                  >
-                    <View style={scanSt.scanIconWrap}>
-                      <Feather name="box" size={18} color="#06b6d4" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[scanSt.scanName, { color: colors.foreground }]} numberOfLines={1}>
-                        {scan.name}
-                      </Text>
-                      {scan.createdAt && (
-                        <Text style={[scanSt.scanMeta, { color: colors.mutedForeground }]}>
-                          {new Date(scan.createdAt).toLocaleDateString("en-CA", {
-                            month: "short", day: "numeric", year: "numeric",
-                          })}
-                        </Text>
-                      )}
-                    </View>
-                    <View style={scanSt.scanBadge}>
-                      <Text style={scanSt.scanBadgeText}>3D</Text>
-                    </View>
-                    <Feather name="chevron-right" size={16} color={colors.border} />
-                  </TouchableOpacity>
-                ))}
-              </>
-            ) : (
-              <View style={[scanSt.emptyScans, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Feather name="box" size={22} color="#06b6d440" />
-                <Text style={[scanSt.emptyScansText, { color: colors.mutedForeground }]}>
-                  No scans yet. Tap "Upload Scan" to add one.
-                </Text>
-              </View>
-            )}
-          </>
-
           {/* Project details */}
           <View style={{ height: 20 }} />
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Details</Text>
@@ -1439,9 +1100,9 @@ export default function ProjectDetailScreen() {
                 </Text>
               </View>
               {(changeOrders ?? []).length === 0 ? (
-                <View style={[scanSt.emptyScans, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.emptySection, { borderColor: colors.border }]}>
                   <Feather name="file-text" size={22} color={colors.border} />
-                  <Text style={[scanSt.emptyScansText, { color: colors.mutedForeground }]}>
+                  <Text style={[styles.emptyText, { color: colors.mutedForeground, textAlign: "center", marginTop: 8 }]}>
                     No change orders for this project
                   </Text>
                 </View>
@@ -1801,93 +1462,6 @@ export default function ProjectDetailScreen() {
         </View>
       )}
 
-      {/* 3D Scan viewer modal */}
-      <Modal visible={scanViewerVisible} animationType="slide" onRequestClose={closeScanViewer}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
-          <View style={scanSt.header}>
-            <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={scanSt.backBtn}>
-              <Feather name="x" size={22} color="#fff" />
-            </TouchableOpacity>
-            <Text style={scanSt.headerTitle}>3D Site Scan</Text>
-            <View style={{ width: 40 }} />
-          </View>
-          <View style={{ flex: 1 }}>
-            {scanUrlLoading && (
-              <View style={scanSt.center}>
-                <ActivityIndicator size="large" color="#06b6d4" />
-                <Text style={scanSt.statusText}>Loading scan…</Text>
-              </View>
-            )}
-            {scanUrlError && !scanUrlLoading && (
-              <View style={scanSt.center}>
-                <Feather name="alert-triangle" size={36} color="#f59e0b" />
-                <Text style={scanSt.statusText}>Failed to load 3D scan</Text>
-                <Text style={[scanSt.statusText, { fontSize: 12, marginTop: 4 }]}>
-                  {scanUrlError instanceof Error ? scanUrlError.message : "Unknown error"}
-                </Text>
-                <TouchableOpacity
-                  style={{ marginTop: 20, backgroundColor: "#06b6d4", borderRadius: 10, paddingVertical: 12, paddingHorizontal: 24 }}
-                  onPress={closeScanViewer}
-                >
-                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Close</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            {scanUrlData?.url && !scanUrlLoading && !scanUrlError && (() => {
-              const isVideo = scanUrlData.scan?.sourceType === "video_capture";
-              if (isVideo) {
-                return (
-                  <View style={{ flex: 1 }}>
-                    <VideoWebView url={scanUrlData.url} />
-                    <TouchableOpacity onPress={deleteViewerScan} style={scanSt.videoDeleteFab} activeOpacity={0.85}>
-                      <Feather name="trash-2" size={18} color="#fff" />
-                      <Text style={scanSt.videoDeleteFabText}>Delete video</Text>
-                    </TouchableOpacity>
-                    <View style={scanSt.overlay}>
-                      <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={scanSt.overlayBtn}>
-                        <Feather name="x" size={22} color="#fff" />
-                      </TouchableOpacity>
-                      <Text style={scanSt.headerTitle}>Site Recording</Text>
-                      <TouchableOpacity onPress={deleteViewerScan} hitSlop={10} style={scanSt.overlayBtn}>
-                        <Feather name="trash-2" size={18} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              }
-              const domain = process.env.EXPO_PUBLIC_DOMAIN;
-              if (!domain) {
-                return (
-                  <View style={scanSt.center}>
-                    <Feather name="alert-triangle" size={36} color="#f59e0b" />
-                    <Text style={scanSt.statusText}>Viewer unavailable</Text>
-                    <Text style={[scanSt.statusText, { fontSize: 12, marginTop: 4 }]}>
-                      EXPO_PUBLIC_DOMAIN is not configured.
-                    </Text>
-                  </View>
-                );
-              }
-              const viewerBase = `https://${domain}/supersplat-viewer/index.html`;
-              const params = new URLSearchParams({ content: scanUrlData.url, noui: "" });
-              const viewerUrl = `${viewerBase}?${params.toString()}`;
-              return (
-                <View style={{ flex: 1 }}>
-                  <ScanWebView url={viewerUrl} />
-                  <View style={scanSt.overlay}>
-                    <TouchableOpacity onPress={closeScanViewer} hitSlop={10} style={scanSt.overlayBtn}>
-                      <Feather name="x" size={22} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={scanSt.headerTitle}>3D Site Scan</Text>
-                    <TouchableOpacity onPress={deleteViewerScan} hitSlop={10} style={scanSt.overlayBtn}>
-                      <Feather name="trash-2" size={18} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })()}
-          </View>
-        </SafeAreaView>
-      </Modal>
     </ScrollView>
   );
 }

@@ -149,7 +149,6 @@ export const memberPermissionsSchema = z.object({
   viewPhotos: z.boolean().optional(),
   viewVault: z.boolean().optional(),
   viewEstimator: z.boolean().optional(),
-  viewSiteScan: z.boolean().optional(),
   viewTradeHub: z.boolean().optional(),
   viewAskAI: z.boolean().optional(),
 });

@@ -5,67 +5,6 @@
  * Construction AI Assistant API
  * OpenAPI spec version: 0.1.0
  */
-export type ScanRecordSourceType =
-  (typeof ScanRecordSourceType)[keyof typeof ScanRecordSourceType];
-
-export const ScanRecordSourceType = {
-  file: "file",
-  video_capture: "video_capture",
-} as const;
-
-export type ScanRecordStatus =
-  (typeof ScanRecordStatus)[keyof typeof ScanRecordStatus];
-
-export const ScanRecordStatus = {
-  ready: "ready",
-  processing: "processing",
-} as const;
-
-export interface ScanRecord {
-  id: number;
-  companyId: number;
-  createdByUserId: number;
-  projectId?: number | null;
-  name?: string | null;
-  objectPath: string;
-  fileName: string;
-  fileSizeBytes?: number | null;
-  sourceType: ScanRecordSourceType;
-  status: ScanRecordStatus;
-  thumbnailPath?: string | null;
-  createdAt: string;
-}
-
-export type CreateScanBodySourceType =
-  (typeof CreateScanBodySourceType)[keyof typeof CreateScanBodySourceType];
-
-export const CreateScanBodySourceType = {
-  file: "file",
-  video_capture: "video_capture",
-} as const;
-
-export interface CreateScanBody {
-  /** @maxLength 2000 */
-  objectPath: string;
-  /** @maxLength 500 */
-  fileName: string;
-  fileSizeBytes?: number | null;
-  sourceType?: CreateScanBodySourceType;
-  projectId?: number | null;
-  /** @maxLength 200 */
-  name?: string | null;
-}
-
-export interface UpdateScanBody {
-  /** @maxLength 200 */
-  name?: string;
-}
-
-export interface ScanUrlResponse {
-  url: string;
-  scan: ScanRecord;
-}
-
 export interface HealthStatus {
   status: string;
 }
@@ -151,7 +90,6 @@ export interface MemberPermissions {
   viewPhotos?: boolean;
   viewVault?: boolean;
   viewEstimator?: boolean;
-  viewSiteScan?: boolean;
   viewTradeHub?: boolean;
   viewAskAI?: boolean;
 }
@@ -1091,6 +1029,13 @@ export type TimesheetReviewer = {
   email?: string;
 } | null;
 
+export type TimesheetEntriesItem = {
+  id?: number;
+  date?: string;
+  hours?: string;
+  description?: string | null;
+};
+
 export interface Timesheet {
   id: number;
   companyId: number;
@@ -1114,6 +1059,7 @@ export interface Timesheet {
   updatedAt: string;
   user?: TimesheetUser;
   reviewer?: TimesheetReviewer;
+  entries?: TimesheetEntriesItem[];
 }
 
 export interface ApproveTimesheetBody {
@@ -3103,14 +3049,6 @@ export const ListTasksStatus = {
   in_progress: "in_progress",
   done: "done",
 } as const;
-
-export type ListScansParams = {
-  projectId?: number;
-};
-
-export type GetScanThumbnailUrl200 = {
-  url: string;
-};
 
 export type RejectQuoteBody = {
   reason?: string;

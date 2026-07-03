@@ -643,7 +643,7 @@ export function GlobalVoiceCommandFAB() {
     onMaterialAlert: handleMaterialAlert,
     onTriggerCamera: () => {
       addResult("camera", "Photo", "Opening camera...", "ok");
-      router.push("/(tabs)/(home)/scan-camera" as Parameters<typeof router.push>[0]);
+      router.push("/(tabs)/(home)/field-photo" as Parameters<typeof router.push>[0]);
     },
     onSafetyLog: handleSafetyLog,
     onCreateQuote: handleCreateQuote,

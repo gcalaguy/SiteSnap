@@ -18,7 +18,6 @@ const ALL_TRUE = {
   viewPhotos: true,
   viewVault: true,
   viewEstimator: true,
-  viewSiteScan: true,
   viewTradeHub: true,
   viewAskAI: true,
 };

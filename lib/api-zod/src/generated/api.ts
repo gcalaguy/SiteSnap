@@ -1458,7 +1458,6 @@ export const GetMeResponse = zod
           viewPhotos: zod.boolean().optional(),
           viewVault: zod.boolean().optional(),
           viewEstimator: zod.boolean().optional(),
-          viewSiteScan: zod.boolean().optional(),
           viewTradeHub: zod.boolean().optional(),
           viewAskAI: zod.boolean().optional(),
         })
@@ -1558,7 +1557,6 @@ export const SetActiveCompanyResponse = zod
           viewPhotos: zod.boolean().optional(),
           viewVault: zod.boolean().optional(),
           viewEstimator: zod.boolean().optional(),
-          viewSiteScan: zod.boolean().optional(),
           viewTradeHub: zod.boolean().optional(),
           viewAskAI: zod.boolean().optional(),
         })
@@ -1654,7 +1652,6 @@ export const AcceptTermsResponse = zod
           viewPhotos: zod.boolean().optional(),
           viewVault: zod.boolean().optional(),
           viewEstimator: zod.boolean().optional(),
-          viewSiteScan: zod.boolean().optional(),
           viewTradeHub: zod.boolean().optional(),
           viewAskAI: zod.boolean().optional(),
         })
@@ -1844,7 +1841,6 @@ export const ListCompanyMembersResponseItem = zod
           viewPhotos: zod.boolean().optional(),
           viewVault: zod.boolean().optional(),
           viewEstimator: zod.boolean().optional(),
-          viewSiteScan: zod.boolean().optional(),
           viewTradeHub: zod.boolean().optional(),
           viewAskAI: zod.boolean().optional(),
         })
@@ -1960,7 +1956,6 @@ export const UpdateMemberRoleResponse = zod
           viewPhotos: zod.boolean().optional(),
           viewVault: zod.boolean().optional(),
           viewEstimator: zod.boolean().optional(),
-          viewSiteScan: zod.boolean().optional(),
           viewTradeHub: zod.boolean().optional(),
           viewAskAI: zod.boolean().optional(),
         })
@@ -1996,7 +1991,6 @@ export const GetMemberPermissionsResponse = zod.object({
   viewPhotos: zod.boolean().optional(),
   viewVault: zod.boolean().optional(),
   viewEstimator: zod.boolean().optional(),
-  viewSiteScan: zod.boolean().optional(),
   viewTradeHub: zod.boolean().optional(),
   viewAskAI: zod.boolean().optional(),
 });
@@ -2028,7 +2022,6 @@ export const SetMemberPermissionsBody = zod.object({
   viewPhotos: zod.boolean().optional(),
   viewVault: zod.boolean().optional(),
   viewEstimator: zod.boolean().optional(),
-  viewSiteScan: zod.boolean().optional(),
   viewTradeHub: zod.boolean().optional(),
   viewAskAI: zod.boolean().optional(),
 });
@@ -2052,7 +2045,6 @@ export const SetMemberPermissionsResponse = zod.object({
   viewPhotos: zod.boolean().optional(),
   viewVault: zod.boolean().optional(),
   viewEstimator: zod.boolean().optional(),
-  viewSiteScan: zod.boolean().optional(),
   viewTradeHub: zod.boolean().optional(),
   viewAskAI: zod.boolean().optional(),
 });
@@ -2611,7 +2603,6 @@ export const AcceptInvitationResponse = zod
           viewPhotos: zod.boolean().optional(),
           viewVault: zod.boolean().optional(),
           viewEstimator: zod.boolean().optional(),
-          viewSiteScan: zod.boolean().optional(),
           viewTradeHub: zod.boolean().optional(),
           viewAskAI: zod.boolean().optional(),
         })
@@ -3896,118 +3887,6 @@ export const GetStorageObjectParams = zod.object({
 });
 
 /**
- * @summary List 3D scans, optionally filtered by project
- */
-export const ListScansQueryParams = zod.object({
-  projectId: zod.coerce.number().optional(),
-});
-
-export const ListScansResponseItem = zod.object({
-  id: zod.number(),
-  companyId: zod.number(),
-  createdByUserId: zod.number(),
-  projectId: zod.number().nullish(),
-  name: zod.string().nullish(),
-  objectPath: zod.string(),
-  fileName: zod.string(),
-  fileSizeBytes: zod.number().nullish(),
-  sourceType: zod.enum(["file", "video_capture"]),
-  status: zod.enum(["ready", "processing"]),
-  thumbnailPath: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-});
-export const ListScansResponse = zod.array(ListScansResponseItem);
-
-/**
- * @summary Register a 3D scan record after presigned upload
- */
-export const createScanBodyObjectPathMax = 2000;
-
-export const createScanBodyFileNameMax = 500;
-
-export const createScanBodyNameMax = 200;
-
-export const CreateScanBody = zod.object({
-  objectPath: zod.string().max(createScanBodyObjectPathMax),
-  fileName: zod.string().max(createScanBodyFileNameMax),
-  fileSizeBytes: zod.number().nullish(),
-  sourceType: zod.enum(["file", "video_capture"]).optional(),
-  projectId: zod.number().nullish(),
-  name: zod.string().max(createScanBodyNameMax).nullish(),
-});
-
-/**
- * @summary Rename a 3D scan
- */
-export const UpdateScanParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const updateScanBodyNameMax = 200;
-
-export const UpdateScanBody = zod.object({
-  name: zod.string().max(updateScanBodyNameMax).optional(),
-});
-
-export const UpdateScanResponse = zod.object({
-  id: zod.number(),
-  companyId: zod.number(),
-  createdByUserId: zod.number(),
-  projectId: zod.number().nullish(),
-  name: zod.string().nullish(),
-  objectPath: zod.string(),
-  fileName: zod.string(),
-  fileSizeBytes: zod.number().nullish(),
-  sourceType: zod.enum(["file", "video_capture"]),
-  status: zod.enum(["ready", "processing"]),
-  thumbnailPath: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-});
-
-/**
- * @summary Delete a 3D scan record
- */
-export const DeleteScanParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-/**
- * @summary Get a signed read URL for a 3D scan file
- */
-export const GetScanUrlParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const GetScanUrlResponse = zod.object({
-  url: zod.string(),
-  scan: zod.object({
-    id: zod.number(),
-    companyId: zod.number(),
-    createdByUserId: zod.number(),
-    projectId: zod.number().nullish(),
-    name: zod.string().nullish(),
-    objectPath: zod.string(),
-    fileName: zod.string(),
-    fileSizeBytes: zod.number().nullish(),
-    sourceType: zod.enum(["file", "video_capture"]),
-    status: zod.enum(["ready", "processing"]),
-    thumbnailPath: zod.string().nullish(),
-    createdAt: zod.coerce.date(),
-  }),
-});
-
-/**
- * @summary Get a signed read URL for a scan's thumbnail image
- */
-export const GetScanThumbnailUrlParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const GetScanThumbnailUrlResponse = zod.object({
-  url: zod.string(),
-});
-
-/**
  * @summary List quotes for a project
  */
 export const ListQuotesParams = zod.object({
@@ -4750,6 +4629,16 @@ export const GetTimesheetResponse = zod.object({
       email: zod.string().optional(),
     })
     .nullish(),
+  entries: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        date: zod.coerce.date().optional(),
+        hours: zod.string().optional(),
+        description: zod.string().nullish(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -4818,6 +4707,16 @@ export const ApproveTimesheetResponse = zod.object({
       email: zod.string().optional(),
     })
     .nullish(),
+  entries: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        date: zod.coerce.date().optional(),
+        hours: zod.string().optional(),
+        description: zod.string().nullish(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -4869,6 +4768,16 @@ export const DenyTimesheetResponse = zod.object({
       email: zod.string().optional(),
     })
     .nullish(),
+  entries: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        date: zod.coerce.date().optional(),
+        hours: zod.string().optional(),
+        description: zod.string().nullish(),
+      }),
+    )
+    .optional(),
 });
 
 /**

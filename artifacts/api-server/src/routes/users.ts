@@ -167,7 +167,7 @@ router.get("/users/me", requireAuth, asyncHandler(async (req, res) => {
     "viewClientMessages","viewRiskTab","viewSafetyTab","viewInspectTab",
     "manageQuotes","submitExpenses","viewAllProjects",
     "viewDailyLog","viewReports","viewRFIs","viewPhotos","viewVault",
-    "viewEstimator","viewSiteScan","viewTradeHub","viewAskAI",
+    "viewEstimator","viewTradeHub","viewAskAI",
   ] as const;
   const resolvedPerms = role === "owner"
     ? undefined

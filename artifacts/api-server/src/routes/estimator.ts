@@ -11,8 +11,6 @@ import {
   estimatorActualsTable,
   estimatesTable,
   quotesTable,
-  scansTable,
-  projectsTable,
   companiesTable,
   type EstimatorCostModel,
   type EstimatorAddon,
@@ -831,7 +829,6 @@ const SaveSmartEstimateBody = z.object({
   }),
   result: z.record(z.unknown()),
   sourcePrompt: z.string().max(5000, "sourcePrompt must be at most 5 000 characters").optional(),
-  scanId: z.number().int().positive().optional(),
 });
 
 router.post(
@@ -843,26 +840,16 @@ router.post(
     const parsed = SaveSmartEstimateBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
 
-    const { title, params, result, sourcePrompt, scanId } = parsed.data;
-
-    if (scanId != null) {
-      const [scan] = await db
-        .select({ id: scansTable.id })
-        .from(scansTable)
-        .where(and(eq(scansTable.id, scanId), eq(scansTable.companyId, req.companyId!)))
-        .limit(1);
-      if (!scan) throw new BadRequestError("Scan not found or does not belong to your company");
-    }
+    const { title, params, result, sourcePrompt } = parsed.data;
 
     const [estimate] = await db.insert(estimatesTable).values({
       companyId: req.companyId!,
       createdByUserId: req.userId!,
       title,
       scopeText: sourcePrompt ?? null,
-      sourceType: scanId ? "scan" : "smart",
+      sourceType: "smart",
       status: "ready",
       result: { ...result, _params: params },
-      scanId: scanId ?? null,
     }).returning();
 
     res.status(201).json(estimate);
@@ -886,14 +873,10 @@ router.get(
         sourceFilename: estimatesTable.sourceFilename,
         result: estimatesTable.result,
         status: estimatesTable.status,
-        scanId: estimatesTable.scanId,
         createdAt: estimatesTable.createdAt,
         updatedAt: estimatesTable.updatedAt,
-        scanProjectName: projectsTable.name,
       })
       .from(estimatesTable)
-      .leftJoin(scansTable, and(eq(estimatesTable.scanId, scansTable.id), eq(scansTable.companyId, req.companyId!)))
-      .leftJoin(projectsTable, and(eq(scansTable.projectId, projectsTable.id), eq(projectsTable.companyId, req.companyId!)))
       .where(
         and(
           eq(estimatesTable.companyId, req.companyId!),

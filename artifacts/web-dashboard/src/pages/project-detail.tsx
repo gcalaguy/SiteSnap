@@ -27,7 +27,6 @@ import { RFIsTab } from "@/components/project-detail/RFIsTab";
 import DocumentsTab from "@/components/DocumentsTab";
 import QuotesTab from "@/components/QuotesTab";
 import ClientMessagesTab from "@/components/ClientMessagesTab";
-import SiteScansTab from "@/components/SiteScansTab";
 import SafetyComplianceTab from "@/components/SafetyComplianceTab";
 import PermitsTab from "@/components/project-detail/PermitsTab";
 
@@ -42,7 +41,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { pdf } from "@react-pdf/renderer";
 import ProjectLiteDocument from "@/components/pdf/ProjectLiteDocument";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, ScanLine, Printer, Shield, BadgeCheck } from "lucide-react";
+import { Plus, ChevronLeft, MapPin, Calendar, DollarSign, FileText, AlertTriangle, CheckSquare, Loader2, FolderOpen, Users, X, CalendarDays, UserPlus, UserMinus, Share2, Copy, Check, ExternalLink, MessageCircle, Printer, Shield, BadgeCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -379,11 +378,6 @@ export default function ProjectDetail() {
                 <MessageCircle className="h-3.5 w-3.5" />Client Messages
               </TabsTrigger>
             )}
-            {hasPerm("viewSiteScan") && (
-              <TabsTrigger value="site-scans" className="px-4 whitespace-nowrap flex items-center gap-1.5">
-                <ScanLine className="h-3.5 w-3.5" />Site Scans
-              </TabsTrigger>
-            )}
             {hasPerm("viewSafetyTab") && (
               <TabsTrigger value="safety" className="px-4 whitespace-nowrap flex items-center gap-1.5">
                 <Shield className="h-3.5 w-3.5" />Safety & Compliance
@@ -672,10 +666,6 @@ export default function ProjectDetail() {
             <ClientMessagesTab projectId={projectId} />
           </TabsContent>
         )}
-
-        <TabsContent value="site-scans" className="mt-6">
-          <SiteScansTab projectId={projectId} />
-        </TabsContent>
 
         {hasPerm("viewSafetyTab") && (
           <TabsContent value="safety" className="mt-6">

@@ -21,7 +21,6 @@ const WORKER_DEFAULTS: Record<keyof MemberPermissions, boolean> = {
   viewPhotos:         true,
   viewVault:          true,
   viewEstimator:      false,
-  viewSiteScan:       false,
   viewTradeHub:       false,
   viewAskAI:          true,
 };

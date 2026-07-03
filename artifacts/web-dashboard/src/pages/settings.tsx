@@ -1172,7 +1172,6 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
     viewPhotos: true,
     viewVault: false,
     viewEstimator: false,
-    viewSiteScan: false,
     viewTradeHub: false,
     viewAskAI: true,
   };
@@ -1182,7 +1181,7 @@ function MemberPermissionsCard({ companyId, ownerId }: { companyId: number; owne
     viewSchedules: true, viewClientMessages: true, viewRiskTab: true, viewSafetyTab: true,
     viewInspectTab: true, manageQuotes: true, submitExpenses: true, viewAllProjects: true,
     viewDailyLog: true, viewReports: true, viewRFIs: true, viewPhotos: true, viewVault: true,
-    viewEstimator: true, viewSiteScan: true, viewTradeHub: true, viewAskAI: true,
+    viewEstimator: true, viewTradeHub: true, viewAskAI: true,
   };
 
   const selectedMember = editableMembers.find((m) => m.id === selectedUserId);
@@ -1332,7 +1331,6 @@ const PERMISSION_FIELDS: { key: keyof MemberPermissions; label: string; desc: st
   { key: "viewPhotos", label: "Photos", desc: "Photo quick action (mobile)." },
   { key: "viewVault", label: "Vault", desc: "Vault quick action (mobile)." },
   { key: "viewEstimator", label: "Estimator", desc: "Estimator quick action (mobile)." },
-  { key: "viewSiteScan", label: "3D Site Scan", desc: "3D site scan quick action (mobile)." },
   { key: "viewTradeHub", label: "TradeHub", desc: "TradeHub quick action (mobile)." },
   { key: "viewAskAI", label: "Ask AI", desc: "Ask AI quick action (mobile)." },
 ];
