@@ -292,9 +292,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   type="button"
                   onClick={() => toggleSection(section.key)}
                   className="w-full flex items-center justify-between px-3 pb-1 pt-1 text-[10px] font-semibold tracking-widest uppercase transition-colors"
-                  style={{ color: "#3D3D3D" }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#6B6B6B"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#3D3D3D"; }}
+                  style={{ color: "#D8D8D8" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#FFFFFF"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#D8D8D8"; }}
                   aria-expanded={!collapsed}
                 >
                   <span>{section.label}</span>
@@ -689,7 +689,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       type="button"
                       onClick={() => toggleSection(section.key)}
                       className="w-full flex items-center justify-between px-3 pb-1 pt-1 text-[10px] font-semibold tracking-widest uppercase transition-colors"
-                      style={{ color: "#3D3D3D" }}
+                      style={{ color: "#D8D8D8" }}
                       aria-expanded={!collapsed}
                     >
                       <span>{section.label}</span>
