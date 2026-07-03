@@ -12,7 +12,9 @@ function aiSignal(ms: number): AbortSignal {
 
 // Instrument every chat completion with a Sentry span so we can separate
 // LLM latency from upstream DB/validation time in Sentry performance traces.
-const _origCreate = openai.chat.completions.create.bind(openai.chat.completions);
+// Declared as a plain rest-parameter signature (rather than inheriting the SDK's
+// overloaded `create` type) so the spread below doesn't require `args` to be a tuple.
+const _origCreate: (...args: any[]) => any = openai.chat.completions.create.bind(openai.chat.completions);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (openai.chat.completions as any).create = (...args: any[]) =>
   Sentry.startSpan(

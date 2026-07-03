@@ -3256,7 +3256,6 @@ function SignoffsTab({ isAdmin, userId }: { isAdmin: boolean; userId: number | u
   const pending = pendingQuery.data?.pending ?? [];
   const matrix = matrixQuery.data?.matrix ?? [];
   const mySignoffs = mySignoffsQuery.data?.signoffs ?? [];
-  const docs = docsQuery.data?.documents ?? [];
 
   // ── Worker view ───────────────────────────────────────────────────────────
 
@@ -3317,7 +3316,7 @@ function SignoffsTab({ isAdmin, userId }: { isAdmin: boolean; userId: number | u
                   <Button
                     size="sm"
                     onClick={() => setViewDoc(doc)}
-                    style={{ background: GOLD, color: BLACK, fontWeight: 600, shrink: 0 }}
+                    style={{ background: GOLD, color: BLACK, fontWeight: 600 }}
                     className="shrink-0"
                   >
                     <PenLine className="h-3.5 w-3.5 mr-1.5" />

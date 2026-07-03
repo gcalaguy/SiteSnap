@@ -290,7 +290,7 @@ function SignoffModal({
       marginBottom: 16,
     },
     title: { fontSize: 17, fontWeight: "700", color: colors.text, marginBottom: 4 },
-    meta: { fontSize: 12, color: colors.textSecondary, marginBottom: 16 },
+    meta: { fontSize: 12, color: colors.mutedForeground, marginBottom: 16 },
     content: {
       fontSize: 13,
       color: colors.text,
@@ -327,12 +327,12 @@ function SignoffModal({
       alignItems: "center",
     },
     signBtnText: {
-      color: confirmed ? "#000" : colors.textSecondary,
+      color: confirmed ? "#000" : colors.mutedForeground,
       fontWeight: "700",
       fontSize: 15,
     },
     cancelBtn: { alignItems: "center", marginTop: 10, paddingVertical: 8 },
-    cancelText: { color: colors.textSecondary, fontSize: 14 },
+    cancelText: { color: colors.mutedForeground, fontSize: 14 },
   });
 
   return (
@@ -351,7 +351,7 @@ function SignoffModal({
           ) : null}
           {doc.contentText ? (
             <ScrollView style={{ maxHeight: 200, marginBottom: 16 }} nestedScrollEnabled>
-              <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 20 }}>
+              <Text style={{ fontSize: 13, color: colors.mutedForeground, lineHeight: 20 }}>
                 {doc.contentText}
               </Text>
             </ScrollView>
@@ -416,7 +416,7 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
       }}
     >
       <Text style={{ fontSize: size * 0.28, fontWeight: "700", color }}>{score}</Text>
-      <Text style={{ fontSize: 9, color: colors.textSecondary }}>/ 100</Text>
+      <Text style={{ fontSize: 9, color: colors.mutedForeground }}>/ 100</Text>
     </View>
   );
 }
@@ -429,8 +429,7 @@ export default function CorDashboardScreen() {
   const router = useRouter();
 
   const { data: me } = useGetMe();
-  const { data: projectsData } = useListProjects();
-  const projects = projectsData?.projects ?? [];
+  const { data: projects = [] } = useListProjects();
 
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [signDoc, setSignDoc] = useState<PolicyDocument | null>(null);
@@ -930,13 +929,13 @@ function styles(colors: ReturnType<typeof useColors>) {
     cardTitle: {
       fontSize: 13,
       fontWeight: "600",
-      color: colors.textSecondary,
+      color: colors.mutedForeground,
       textTransform: "uppercase",
       letterSpacing: 0.6,
       marginBottom: 12,
     },
     scoreRow: { flexDirection: "row", alignItems: "center" },
-    scoreLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: 4 },
+    scoreLabel: { fontSize: 13, color: colors.mutedForeground, marginBottom: 4 },
     scoreSubLabel: { fontSize: 15, fontWeight: "700" },
     projectChip: {
       paddingHorizontal: 12,
@@ -947,7 +946,7 @@ function styles(colors: ReturnType<typeof useColors>) {
       borderColor: colors.border,
     },
     projectChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    projectChipText: { fontSize: 13, color: colors.textSecondary },
+    projectChipText: { fontSize: 13, color: colors.mutedForeground },
     projectChipTextActive: { color: "#fff", fontWeight: "600" },
     elementRow: {
       flexDirection: "row",
@@ -957,7 +956,7 @@ function styles(colors: ReturnType<typeof useColors>) {
       borderBottomColor: colors.border,
     },
     elementName: { fontSize: 14, color: colors.text, fontWeight: "500" },
-    elementMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+    elementMeta: { fontSize: 12, color: colors.mutedForeground, marginTop: 2 },
     elementBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
     elementBadgeText: { fontSize: 14, fontWeight: "700" },
     findingRow: {
@@ -968,7 +967,7 @@ function styles(colors: ReturnType<typeof useColors>) {
     },
     findingDot: { width: 8, height: 8, borderRadius: 4, marginTop: 4 },
     findingDesc: { fontSize: 13, color: colors.text },
-    findingMeta: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+    findingMeta: { fontSize: 11, color: colors.mutedForeground, marginTop: 2 },
     credRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -979,8 +978,8 @@ function styles(colors: ReturnType<typeof useColors>) {
     },
     credDot: { width: 10, height: 10, borderRadius: 5 },
     credType: { fontSize: 14, color: colors.text, fontWeight: "500" },
-    credMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+    credMeta: { fontSize: 12, color: colors.mutedForeground, marginTop: 1 },
     credStatus: { fontSize: 12, fontWeight: "600" },
-    emptyText: { fontSize: 13, color: colors.textSecondary, fontStyle: "italic" },
+    emptyText: { fontSize: 13, color: colors.mutedForeground, fontStyle: "italic" },
   });
 }
