@@ -49,7 +49,7 @@ export default function ExpensesScreen() {
   const [showForm, setShowForm] = useState(false);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [receiptAsset, setReceiptAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const {
@@ -76,7 +76,7 @@ export default function ExpensesScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.85 });
     if (result.canceled || !result.assets.length) return;
-    setReceiptUri(result.assets[0].uri);
+    setReceiptAsset(result.assets[0]);
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -88,21 +88,27 @@ export default function ExpensesScreen() {
     setSubmitting(true);
     try {
       let receiptObjectPath: string | undefined;
-      if (receiptUri) {
-        const filename = `receipt_${Date.now()}.jpg`;
+      if (receiptAsset) {
+        // Don't assume JPEG — the Photos library returns HEIC on most iPhones
+        // by default, and storing it under a "image/jpeg" Content-Type left
+        // receipts undecodable in any browser that opened the signed URL.
+        const ext = (receiptAsset.fileName?.split(".").pop() ?? "jpg").toLowerCase();
+        const mimeType = receiptAsset.mimeType ?? `image/${ext}`;
+        const filename = receiptAsset.fileName ?? `receipt_${Date.now()}.${ext}`;
+
         const { uploadURL, objectPath } = (await customFetch("/api/storage/uploads/request-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: filename, size: 0, contentType: "image/jpeg" }),
+          body: JSON.stringify({ name: filename, size: receiptAsset.fileSize ?? 0, contentType: mimeType }),
         })) as { uploadURL: string; objectPath: string };
 
         const dest = new URL(uploadURL);
         if (!dest.protocol.startsWith("https")) throw new Error("Unexpected upload destination");
 
-        const result = await FileSystem.uploadAsync(uploadURL, receiptUri, {
+        const result = await FileSystem.uploadAsync(uploadURL, receiptAsset.uri, {
           httpMethod: "PUT",
           uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-          headers: { "Content-Type": "image/jpeg" },
+          headers: { "Content-Type": mimeType },
         });
         if (result.status < 200 || result.status >= 300) throw new Error(`Receipt upload failed: ${result.status}`);
         receiptObjectPath = objectPath;
@@ -118,14 +124,14 @@ export default function ExpensesScreen() {
       setShowForm(false);
       setAmount("");
       setDescription("");
-      setReceiptUri(null);
+      setReceiptAsset(null);
       Alert.alert("Submitted", "Expense submitted.");
     } catch (err: any) {
       Alert.alert("Failed to submit", err?.message ?? "Could not submit expense.");
     } finally {
       setSubmitting(false);
     }
-  }, [activeProjectId, amount, description, receiptUri, qc]);
+  }, [activeProjectId, amount, description, receiptAsset, qc]);
 
   const renderExpense = useCallback(({ item }: { item: Expense }) => (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -255,7 +261,7 @@ export default function ExpensesScreen() {
               >
                 <Feather name="paperclip" size={16} color={colors.primary} />
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14 }}>
-                  {receiptUri ? "Receipt attached" : "Attach receipt (optional)"}
+                  {receiptAsset ? "Receipt attached" : "Attach receipt (optional)"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity

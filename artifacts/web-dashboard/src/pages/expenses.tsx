@@ -20,10 +20,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Receipt, Plus, Trash2, Paperclip, User } from "lucide-react";
+import { Receipt, Plus, Trash2, Paperclip, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/format";
+import { useSignedDownload } from "@/hooks/useSignedUrl";
 
 interface Expense {
   id: number;
@@ -176,10 +177,7 @@ export default function ExpensesPage() {
                       {expense.submittedByName}
                     </span>
                     {expense.receiptObjectPath && (
-                      <span className="flex items-center gap-1 text-xs text-[#D4AF37] font-medium">
-                        <Paperclip className="h-3.5 w-3.5" />
-                        Receipt attached
-                      </span>
+                      <ReceiptLink objectPath={expense.receiptObjectPath} />
                     )}
                   </div>
                   <p className="text-sm text-[#121212]/80">{expense.description}</p>
@@ -233,5 +231,20 @@ export default function ExpensesPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ReceiptLink({ objectPath }: { objectPath: string }) {
+  const { open, isFetching } = useSignedDownload(objectPath);
+  return (
+    <button
+      type="button"
+      onClick={open}
+      disabled={isFetching}
+      className="flex items-center gap-1 text-xs text-[#D4AF37] font-medium hover:underline disabled:opacity-50"
+    >
+      {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
+      View receipt
+    </button>
   );
 }
