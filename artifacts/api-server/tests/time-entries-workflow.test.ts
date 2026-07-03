@@ -94,14 +94,14 @@ describe("POST /projects/:projectId/time-entries — log hours", () => {
   it("worker can log hours and gets 201", async () => {
     const res = await request(testApp)
       .post(`/api/projects/${projectId}/time-entries`)
-      .send({ date: "2025-02-03", hours: 4, description: "First entry" });
+      .send({ date: "2025-02-03", entries: [{ hours: 4, description: "First entry" }] });
     expect(res.status).toBe(201);
   });
 
   it("logging a second entry in the same week upserts the timesheet without 500ing", async () => {
     const res = await request(testApp)
       .post(`/api/projects/${projectId}/time-entries`)
-      .send({ date: "2025-02-04", hours: 3.5, description: "Second entry, same week" });
+      .send({ date: "2025-02-04", entries: [{ hours: 3.5, description: "Second entry, same week" }] });
     expect(res.status).toBe(201);
 
     const [ts] = await db

@@ -343,17 +343,26 @@ export const requireTenantCtx = (
     next();
     return;
   }
-  withTenantCtx(req.companyId, async () => {
-    await new Promise<void>((resolve) => {
-      // Commit the transaction once the response is finished.
-      const originalEnd = res.end.bind(res);
-      (res as any).end = (...args: any[]): typeof res => {
-        (res as any).end = originalEnd;
-        originalEnd(...args);
-        resolve();
+  const originalEnd = res.end.bind(res);
+  let deferredEndArgs: unknown[] = [];
+  withTenantCtx(req.companyId, () =>
+    new Promise<void>((resolveTx) => {
+      // Hold the response until the transaction actually commits — resolving
+      // this promise lets the transaction callback return, which is what
+      // triggers Drizzle's COMMIT. Flushing the response (originalEnd) any
+      // earlier would let a fast follow-up request race the COMMIT and read
+      // stale, pre-commit data over a different pooled connection.
+      (res as any).end = (...args: unknown[]): typeof res => {
+        deferredEndArgs = args;
+        resolveTx();
         return res;
       };
       next();
-    });
-  }).catch(next);
+    }),
+  )
+    .then(() => {
+      (res as any).end = originalEnd;
+      originalEnd(...(deferredEndArgs as []));
+    })
+    .catch(next);
 };
