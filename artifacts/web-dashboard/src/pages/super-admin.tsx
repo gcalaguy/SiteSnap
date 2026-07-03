@@ -6,35 +6,40 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  BarChart3,
+  Building2,
   CheckCircle2,
   ChevronDown,
   Copy,
   CreditCard,
   Crown,
   DatabaseZap,
+  DollarSign,
   Gift,
+  KeyRound,
   Pencil,
+  Search,
   ShieldCheck,
   Star,
   Trash2,
   Users,
   Zap,
+  type LucideIcon,
 } from "lucide-react";
 
-const GOLD = "#D4AF37";
-const BLACK = "#111111";
-
-type Price = { id: string; unitAmount: number; currency: string; recurring: { interval: string } | null };
-type StripePlanObj = { id: string; name: string; description: string; metadata: { plan?: string; slug?: string }; prices: Price[] };
 type Plan = { id: number; name: string; slug: string; description: string | null; monthlyPrice: string; yearlyPrice: string; maxSeats: number; isActive: boolean; featureIds: number[] };
 type Feature = { id: number; name: string; key: string; description: string | null; isEnabled: boolean };
 type TenantRow = { id: number; name: string; subscription: { id: number; planId: number; status: string; billingCycle: string } | null; plan: { id: number; name: string; slug: string } | null; userCount: number };
-type TenantDetail = TenantRow & { users: Array<{ id: number; email: string; firstName: string; lastName: string; role: string; systemRole: string | null }> };
+type TenantDetail = TenantRow & {
+  users: Array<{ id: number; email: string; firstName: string; lastName: string; role: string; systemRole: string | null }>;
+  claimToken?: string | null;
+  claimOwnerEmail?: string | null;
+};
 
 type MemberDialogProps = {
   open: boolean;
@@ -81,95 +86,45 @@ type FeatureDialogState = {
   open: boolean;
 };
 
-type ManageSectionsProps = {
-  plans: Plan[];
-  features: Feature[];
-  tenants: TenantRow[];
-  tenantDetail?: TenantDetail;
-  onOpenPlan: () => void;
-  onOpenFeature: () => void;
-  onOpenTenant: () => void;
-  onSelectTenant: (id: number) => void;
-  onEditPlan: (plan: Plan) => void;
-  onEditFeature: (feature: Feature) => void;
-  onEditTenant: (tenant: TenantRow | TenantDetail) => void;
-  onDeleteTenant: (tenant: TenantRow | TenantDetail) => void;
-  onReissueLink: (tenant: TenantRow | TenantDetail) => void;
-  onEditTenantUser: (userId: number, role: string) => void;
-  onDeleteTenantUser: (userId: number) => void;
-  onDeleteFeature: (feature: Feature) => void;
-  onToggleFeaturePlan: (featureId: number, planId: number, checked: boolean) => void;
-  collapsed: { plans: boolean; features: boolean; tenants: boolean };
-  setCollapsed: (value: { plans: boolean; features: boolean; tenants: boolean }) => void;
-};
-
 function formatCAD(cents: number) {
   return `$${(cents / 100).toFixed(0)} CAD`;
 }
 
 function planIcon(planSlug: string | undefined) {
-  if (planSlug === "starter") return <Zap className="h-6 w-6 text-blue-500" />;
-  if (planSlug === "pro") return <Star className="h-6 w-6 text-primary" />;
-  if (planSlug === "business" || planSlug === "enterprise") return <Crown className="h-6 w-6 text-[#121212] font-bold" />;
-  return <CreditCard className="h-6 w-6 text-muted-foreground" />;
+  if (planSlug === "starter") return <Zap className="h-4 w-4 text-blue-500" />;
+  if (planSlug === "pro") return <Star className="h-4 w-4 text-[#D4AF37]" />;
+  if (planSlug === "business" || planSlug === "enterprise") return <Crown className="h-4 w-4 text-[#121212]" />;
+  return <CreditCard className="h-4 w-4 text-gray-400" />;
 }
 
-function StripePlansTab() {
-  const { toast } = useToast();
-  const [interval, setInterval] = useState<"month" | "year">("month");
-  const { data: plansData, isLoading } = useQuery({ queryKey: ["billing-plans"], queryFn: () => customFetch<{ plans: StripePlanObj[] }>("/api/billing/plans") });
-  const { data: dbPlans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
-  const { data: dbFeatures = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
-  const checkoutMut = useMutation({ mutationFn: ({ priceId }: { priceId: string }) => customFetch<{ url: string }>("/api/billing/checkout", { method: "POST", body: JSON.stringify({ priceId }) }), onSuccess: (data) => { window.location.href = data.url; }, onError: (err: any) => toast({ title: "Checkout failed", description: err.message, variant: "destructive" }) });
-  const plans = plansData?.plans ?? [];
-  const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <h2 className="text-lg font-semibold text-[#121212]">Choose a Plan</h2>
-        <div className="ml-auto flex items-center gap-1 rounded-lg p-1 bg-white border border-gray-200">
-          {(["month", "year"] as const).map((v) => (
-            <button key={v} onClick={() => setInterval(v)} className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${interval === v ? "font-semibold" : "text-gray-500 hover:text-gray-700"}`} style={interval === v ? { background: GOLD, color: BLACK } : undefined}>
-              {v === "month" ? "Monthly" : "Annual"}
-            </button>
-          ))}
-        </div>
-      </div>
-      {isLoading ? <div className="h-40 rounded-xl bg-gray-100 animate-pulse" /> : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans.map((plan) => {
-            const price = plan.prices.find((p) => p.recurring?.interval === interval);
-            const planSlug = (plan.metadata.plan ?? plan.metadata.slug ?? "").replace("business", "enterprise");
-            const features = (dbPlans.find((p) => p.slug === planSlug)?.featureIds ?? []).map((id) => dbFeatures.find((f) => f.id === id)?.name).filter((name): name is string => Boolean(name));
-            return (
-              <Card key={plan.id} className="border-gray-200 bg-white text-[#121212]">
-                <CardHeader>
-                  <div className="flex items-center gap-3">{planIcon(planSlug)}<CardTitle>{plan.name}</CardTitle></div>
-                  <CardDescription className="text-gray-500">{plan.description}</CardDescription>
-                  <div className="text-3xl font-bold">{price ? formatCAD(price.unitAmount) : "—"}</div>
-                </CardHeader>
-                <CardContent>
-                  <button onClick={() => setExpandedPlans((prev) => {
-                    const next = new Set(prev);
-                    next.has(plan.id.toString()) ? next.delete(plan.id.toString()) : next.add(plan.id.toString());
-                    return next;
-                  })} className="flex w-full items-center justify-between text-sm mb-2 text-gray-600 hover:text-[#121212]">
-                    <span>{expandedPlans.has(plan.id.toString()) ? "Hide features" : `View ${features.length} features`}</span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${expandedPlans.has(plan.id.toString()) ? "rotate-180" : ""}`} />
-                  </button>
-                  {expandedPlans.has(plan.id.toString()) && <div className="space-y-1">{features.map((f) => <div key={f} className="flex gap-2 text-sm text-gray-600"><CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />{f}</div>)}</div>}
-                  <Separator className="my-3 bg-gray-200" />
-                  <Button className="w-full" onClick={() => price && checkoutMut.mutate({ priceId: price.id })} disabled={!price || checkoutMut.isPending}>{checkoutMut.isPending ? "Redirecting…" : "Get Started"}</Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-      <CreateCompanyCard />
-    </div>
-  );
+function tierBadgeClasses(slug?: string | null) {
+  switch (slug) {
+    case "starter": return "bg-blue-100 text-blue-700";
+    case "basic": return "bg-purple-100 text-purple-700";
+    case "pro": return "bg-[#D4AF37]/15 text-[#8a6d1f]";
+    case "enterprise":
+    case "business": return "bg-[#121212] text-[#D4AF37]";
+    default: return "bg-gray-100 text-gray-500";
+  }
 }
+
+function statusDotClasses(status?: string | null) {
+  if (status === "active") return "bg-green-500";
+  if (status === "trialing") return "bg-blue-500";
+  if (status === "past_due") return "bg-amber-500";
+  if (status === "canceled") return "bg-red-500";
+  return "bg-gray-300";
+}
+
+function statusBadgeClasses(status?: string | null) {
+  if (status === "active") return "bg-green-100 text-green-700";
+  if (status === "trialing") return "bg-blue-100 text-blue-700";
+  if (status === "past_due") return "bg-amber-100 text-amber-700";
+  if (status === "canceled") return "bg-red-100 text-red-700";
+  return "bg-gray-100 text-gray-600";
+}
+
+// ── Invite Generator ─────────────────────────────────────────────────────────
 
 function CreateCompanyCard() {
   const { toast } = useToast();
@@ -201,15 +156,15 @@ function CreateCompanyCard() {
 
   return (
     <>
-      <div className="rounded-xl p-5 border border-gray-200 bg-white shadow-lg border-t-[#e5e7eb] border-r-[#e5e7eb] border-b-[#e5e7eb] border-l-[#e5e7eb]">
-        <div className="flex items-start justify-between gap-4 flex-wrap border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-t-[#e5e7eb] border-r-[#e5e7eb] border-b-[#e5e7eb] border-l-[#e5e7eb]">
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-lg">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2"><Gift className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Share Sign-up Link</span></div>
+            <div className="flex items-center gap-2"><Gift className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs font-extrabold uppercase tracking-wider text-[#D4AF37]">Share Sign-up Link</span></div>
             <h3 className="text-lg font-semibold text-[#121212]">Invite a new subscriber</h3>
-            <p className="text-sm text-gray-500 max-w-2xl font-semibold">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
+            <p className="max-w-2xl text-sm font-semibold text-gray-500">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" className="border-white/20 text-[#121212] font-bold hover:bg-gray-50 bg-[#d4af37]" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "", ownerEmail: "" }); }}>Create New Company</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="border-white/20 bg-[#d4af37] font-bold text-[#121212] hover:bg-gray-50" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "", ownerEmail: "" }); }}>Create New Company</Button>
           </div>
         </div>
       </div>
@@ -217,15 +172,15 @@ function CreateCompanyCard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
             <h3 className="text-lg font-semibold text-[#121212]">Create New Company</h3>
-            <p className="text-sm text-gray-500 font-semibold">Enter company details. A shareable link will be generated for the owner to claim it.</p>
+            <p className="text-sm font-semibold text-gray-500">Enter company details. A shareable link will be generated for the owner to claim it.</p>
             {createdLink ? (
               <div className="mt-4 space-y-3">
                 <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-green-600 mb-1">Invite email sent — link below as a backup</div>
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-green-600">Invite email sent — link below as a backup</div>
                   <div className="break-all text-sm text-[#121212]">{createdLink}</div>
                 </div>
                 <div className="flex gap-2">
-                  <Button className="flex-1 bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => { navigator.clipboard.writeText(createdLink); toast({ title: "Link copied to clipboard" }); }}><Copy className="h-4 w-4 mr-2" />Copy Link</Button>
+                  <Button className="flex-1 bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => { navigator.clipboard.writeText(createdLink); toast({ title: "Link copied to clipboard" }); }}><Copy className="mr-2 h-4 w-4" />Copy Link</Button>
                   <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setOpen(false)}>Close</Button>
                 </div>
                 <div className="flex gap-2">
@@ -255,7 +210,7 @@ function CreateCompanyCard() {
                 </div>
                 <div className="mt-2 flex justify-end gap-2">
                   <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !companyForm.name.trim() || !companyForm.city.trim() || !companyForm.province.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.ownerEmail.trim())}>{createCompany.isPending ? "Creating\u2026" : "Create & Send Invite"}</Button>
+                  <Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !companyForm.name.trim() || !companyForm.city.trim() || !companyForm.province.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.ownerEmail.trim())}>{createCompany.isPending ? "Creating…" : "Create & Send Invite"}</Button>
                 </div>
               </div>
             )}
@@ -266,246 +221,120 @@ function CreateCompanyCard() {
   );
 }
 
-function ManageTab() {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const [planOpen, setPlanOpen] = useState(false);
-  const [featureOpen, setFeatureOpen] = useState(false);
-  const [tenantOpen, setTenantOpen] = useState(false);
-  const [tenantDetailId, setTenantDetailId] = useState<number | null>(null);
-  const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
-  const [editingFeatureId, setEditingFeatureId] = useState<number | null>(null);
-  const [editingTenantId, setEditingTenantId] = useState<number | null>(null);
-  const [planFeatureIds, setPlanFeatureIds] = useState<number[]>([]);
-  const [planForm, setPlanForm] = useState({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true });
-  const [featureForm, setFeatureForm] = useState({ name: "", key: "", description: "", isEnabled: true });
-  const [tenantForm, setTenantForm] = useState({ name: "", planId: "", status: "active", billingCycle: "monthly", userCount: "", website: "", phone: "", email: "" });
-  const [selectedTenantUserId, setSelectedTenantUserId] = useState("");
-  const [selectedTenantUserRole, setSelectedTenantUserRole] = useState("worker");
-  const [memberOpen, setMemberOpen] = useState(false);
-  const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
-  const [memberForm, setMemberForm] = useState({ firstName: "", lastName: "", email: "", role: "worker" });
-  const [collapsed, setCollapsed] = useState({ plans: true, features: true, tenants: true });
-  const [reissueOpen, setReissueOpen] = useState(false);
-  const [reissuedLink, setReissuedLink] = useState<string | null>(null);
-
-  const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
-  const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
-  const { data: tenants = [] } = useQuery<TenantRow[]>({ queryKey: ["admin-tenants"], queryFn: () => customFetch<TenantRow[]>("/api/admin/tenants") });
-  const { data: tenantDetail } = useQuery<TenantDetail>({ queryKey: ["admin-tenant-detail", tenantDetailId], queryFn: () => customFetch<TenantDetail>(`/api/admin/tenants/${tenantDetailId}`), enabled: tenantDetailId !== null });
-
-  const refresh = () => {
-    qc.invalidateQueries({ queryKey: ["admin-plans"] });
-    qc.invalidateQueries({ queryKey: ["admin-features"] });
-    qc.invalidateQueries({ queryKey: ["admin-tenants"] });
-    qc.invalidateQueries({ queryKey: ["admin-tenant-detail"] });
-  };
-
-  const savePlan = useMutation({
-    mutationFn: async () => {
-      const payload = { name: planForm.name.trim(), slug: planForm.slug.trim(), description: planForm.description.trim() || null, monthlyPrice: String(Number(planForm.monthlyPrice)), yearlyPrice: String(Number(planForm.yearlyPrice)), maxSeats: Number(planForm.maxSeats) || 5, isActive: planForm.isActive };
-      return editingPlanId ? customFetch(`/api/admin/plans/${editingPlanId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/plans", { method: "POST", body: JSON.stringify(payload) });
-    },
-    onSuccess: async (res: any) => {
-      if (res?.id && planFeatureIds.length > 0) await customFetch(`/api/admin/plans/${res.id}/features`, { method: "PUT", body: JSON.stringify({ featureIds: planFeatureIds }) });
-      setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan saved" });
-    },
-    onError: (e: any) => toast({ title: "Plan save failed", description: e.message, variant: "destructive" }),
-  });
-
-  const deletePlan = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/plans/${id}`, { method: "DELETE" }), onSuccess: () => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan deleted" }); }, onError: (e: any) => toast({ title: "Plan delete failed", description: e.message, variant: "destructive" }) });
-  const saveFeature = useMutation({ mutationFn: () => { const payload = { ...featureForm, description: featureForm.description || null }; return editingFeatureId ? customFetch(`/api/admin/features/${editingFeatureId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/features", { method: "POST", body: JSON.stringify(payload) }); }, onSuccess: () => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); refresh(); toast({ title: "Feature saved" }); }, onError: (e: any) => toast({ title: "Feature save failed", description: e.message, variant: "destructive" }) });
-  const deleteFeature = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/features/${id}`, { method: "DELETE" }), onSuccess: () => { refresh(); toast({ title: "Feature deleted" }); }, onError: (e: any) => toast({ title: "Feature delete failed", description: e.message, variant: "destructive" }) });
-  const assignPlanFeatures = useMutation({
-    mutationFn: ({ planId, featureIds }: { planId: number; featureIds: number[] }) =>
-      customFetch(`/api/admin/plans/${planId}/features`, { method: "POST", body: JSON.stringify({ featureIds }) }),
-    onSuccess: () => { refresh(); toast({ title: "Feature assignments updated" }); },
-    onError: (e: any) => toast({ title: "Assignment failed", description: e.message, variant: "destructive" }),
-  });
-  const saveTenant = useMutation({
-    mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}/subscription`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        planId: tenantForm.planId ? Number(tenantForm.planId) : undefined,
-        status: tenantForm.status,
-        billingCycle: tenantForm.billingCycle,
-      }),
-    }),
-    onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant updated" }); },
-    onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
-  });
-  const saveTenantUserRole = useMutation({
-    mutationFn: ({ userId, role, companyId }: { userId: number; role: string; companyId: number }) => customFetch(`/api/admin/users/${userId}/company-role`, {
-      method: "PATCH",
-      body: JSON.stringify({ role, companyId }),
-    }),
-    onSuccess: () => { refresh(); setTenantDetailId((current) => current); toast({ title: "User role updated" }); },
-    onError: (e: any) => toast({ title: "Role update failed", description: e.message, variant: "destructive" }),
-  });
-  const deleteTenantUser = useMutation({
-    mutationFn: ({ userId, companyId }: { userId: number; companyId: number }) => customFetch(`/api/admin/tenants/${companyId}/users/${userId}`, { method: "DELETE" }),
-    onSuccess: () => { refresh(); setTenantDetailId((current) => current); toast({ title: "User removed from tenant" }); },
-    onError: (e: any) => toast({ title: "Remove failed", description: e.message, variant: "destructive" }),
-  });
-  const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
-  const reissueLink = useMutation({
-    mutationFn: (id: number) => customFetch<{ link: string }>(`/api/admin/tenants/${id}/reissue-link`, { method: "POST" }),
-    onSuccess: (data) => { setReissuedLink(data.link); setReissueOpen(true); toast({ title: "Link reissued" }); },
-    onError: (e: any) => toast({ title: "Reissue failed", description: e.message, variant: "destructive" }),
-  });
-  const saveMember = useMutation({
-    mutationFn: ({ userId, payload }: { userId: number; payload: { firstName: string; lastName: string; email: string } }) =>
-      customFetch(`/api/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(payload) }),
-    onSuccess: () => { refresh(); setMemberOpen(false); setEditingMemberId(null); toast({ title: "Member updated" }); },
-    onError: (e: any) => toast({ title: "Member update failed", description: e.message, variant: "destructive" }),
-  });
-
+function InviteGeneratorTab() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] border-t-[#e5e7eb] border-r-[#e5e7eb] border-b-[#e5e7eb] border-l-[#e5e7eb]" onClick={() => setPlanOpen(true)}>
-          <div className="flex items-center gap-2"><DatabaseZap className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Plan Administration</span></div>
-          <h3 className="mt-2 text-lg font-semibold">Plans</h3>
-          <p className="mt-1 text-sm text-gray-500 font-semibold">Create, edit, activate, or delete plan tiers.</p>
-        </button>
-        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]" onClick={() => setFeatureOpen(true)}>
-          <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Feature Administration</span></div>
-          <h3 className="mt-2 text-lg font-semibold">Features</h3>
-          <p className="mt-1 text-sm text-gray-500 font-semibold">Create enabled/disabled features and assign them to plans.</p>
-        </button>
-        <button className="rounded-xl border border-gray-200 p-5 text-left transition-colors hover:bg-gray-50 shadow-sm bg-[#f9fafb] border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]" onClick={() => setTenantOpen(true)}>
-          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs uppercase tracking-wider text-[#D4AF37] font-extrabold">Tenant Administration</span></div>
-          <h3 className="mt-2 text-lg font-semibold">Tenants</h3>
-          <p className="mt-1 text-sm text-gray-500 font-semibold">View tenant users, subscription state, and plan assignment.</p>
-        </button>
+      <div>
+        <h2 className="text-lg font-semibold text-[#121212]">Invite Generator</h2>
+        <p className="mt-1 text-sm text-gray-500">Spin up a new company tenant and generate a one-time claim link for its owner.</p>
       </div>
       <CreateCompanyCard />
-      <Tabs defaultValue="manage" className="space-y-6">
-        <TabsList className="border border-gray-200 bg-white">
-          <TabsTrigger value="manage" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold">Manage</TabsTrigger>
-          <TabsTrigger value="billing" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold">Billing Plans</TabsTrigger>
-        </TabsList>
-        <TabsContent value="manage">
-          <ManageAdminSections
-            plans={plans}
-            features={features}
-            tenants={tenants}
-            tenantDetail={tenantDetail}
-            onOpenPlan={() => setPlanOpen(true)}
-            onOpenFeature={() => setFeatureOpen(true)}
-            onOpenTenant={() => setTenantOpen(true)}
-            onSelectTenant={setTenantDetailId}
-            onEditPlan={(p) => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats, isActive: p.isActive }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}
-            onEditFeature={(f) => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "", isEnabled: f.isEnabled }); setFeatureOpen(true); }}
-            onEditTenant={(t) => { setEditingTenantId(t.id); setSelectedTenantUserId(""); setSelectedTenantUserRole("worker"); setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "" }); setTenantOpen(true); }}
-            onDeleteTenant={(t) => deleteTenant.mutate(t.id)}
-            onReissueLink={(t) => reissueLink.mutate(t.id)}
-            onDeleteFeature={(f) => deleteFeature.mutate(f.id)}
-            onToggleFeaturePlan={(featureId, planId, checked) => {
-              const plan = plans.find((p) => p.id === planId);
-              if (!plan) return;
-              const nextIds = checked ? [...new Set([...plan.featureIds, featureId])] : plan.featureIds.filter((id) => id !== featureId);
-              assignPlanFeatures.mutate({ planId, featureIds: nextIds });
-            }}
-            onEditTenantUser={(userId, role) => {
-              const u = tenantDetail?.users.find((x) => x.id === userId);
-              if (u) {
-                setEditingMemberId(userId);
-                setMemberForm({ firstName: u.firstName || "", lastName: u.lastName || "", email: u.email || "", role });
-                setMemberOpen(true);
-              }
-            }}
-            onDeleteTenantUser={(userId) => {
-              if (tenantDetailId != null && confirm("Remove this user from the tenant?")) {
-                deleteTenantUser.mutate({ userId, companyId: tenantDetailId });
-              }
-            }}
-            collapsed={collapsed}
-            setCollapsed={setCollapsed}
-          />
-        </TabsContent>
-        <TabsContent value="billing"><StripePlansTab /></TabsContent>
-      </Tabs>
-      <PlanDialog
-        open={planOpen}
-        form={planForm}
-        featureIds={planFeatureIds}
-        onChange={setPlanForm}
-        onFeatureIdsChange={setPlanFeatureIds}
-        onSave={() => savePlan.mutate()}
-        onCancel={() => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); }}
-        onDelete={editingPlanId ? () => deletePlan.mutate(editingPlanId) : undefined}
-        isSaving={savePlan.isPending}
-        isDeleting={deletePlan.isPending}
-      />
-      <FeatureDialog
-        open={featureOpen}
-        form={featureForm}
-        onChange={setFeatureForm}
-        onSave={() => saveFeature.mutate()}
-        onCancel={() => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); }}
-        onDelete={editingFeatureId ? () => deleteFeature.mutate(editingFeatureId) : undefined}
-        isSaving={saveFeature.isPending}
-        isDeleting={deleteFeature.isPending}
-      />
-      <TenantDialog
-        open={tenantOpen}
-        onOpenChange={setTenantOpen}
-        tenantId={editingTenantId}
-        tenantForm={tenantForm}
-        setTenantForm={setTenantForm}
-        plans={plans}
-        selectedUserId={selectedTenantUserId}
-        onSelectedUserIdChange={(id) => {
-          setSelectedTenantUserId(id);
-          setSelectedTenantUserRole(tenantDetail?.users.find((user: { id: number; email: string; firstName: string; lastName: string; role: string; systemRole: string | null }) => String(user.id) === id)?.role ?? "worker");
-        }}
-        onSelectedUserRoleChange={(role) => {
-          setSelectedTenantUserRole(role);
-          setTenantDetailId((current) => current);
-        }}
-        onSave={() => {
-          saveTenant.mutate();
-          if (selectedTenantUserId && editingTenantId != null) {
-            saveTenantUserRole.mutate({ userId: Number(selectedTenantUserId), role: selectedTenantUserRole, companyId: editingTenantId });
-          }
-        }}
-        isSaving={saveTenant.isPending || saveTenantUserRole.isPending}
-        users={tenantDetail?.users}
-      />
-      <MemberDialog
-        open={memberOpen}
-        onOpenChange={setMemberOpen}
-        form={memberForm}
-        onChange={setMemberForm}
-        onSave={() => {
-          if (editingMemberId != null && tenantDetailId != null) {
-            saveMember.mutate({ userId: editingMemberId, payload: { firstName: memberForm.firstName, lastName: memberForm.lastName, email: memberForm.email } });
-            if (memberForm.role) {
-              saveTenantUserRole.mutate({ userId: editingMemberId, role: memberForm.role, companyId: tenantDetailId });
-            }
-          }
-        }}
-        isSaving={saveMember.isPending || saveTenantUserRole.isPending}
-      />
-      {reissueOpen && reissuedLink && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
-            <h3 className="text-lg font-semibold text-[#121212]">Reissued Sign-up Link</h3>
-            <p className="text-sm text-gray-500 font-semibold">Copy the link below and share it with the company owner.</p>
-            <div className="mt-4 space-y-3">
-              <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
-                <div className="text-xs font-semibold uppercase tracking-wider text-green-600 mb-1">Shareable Link</div>
-                <div className="break-all text-sm text-[#121212]">{reissuedLink}</div>
-              </div>
-              <div className="flex gap-2">
-                <Button className="flex-1 bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => { navigator.clipboard.writeText(reissuedLink); toast({ title: "Link copied to clipboard" }); }}><Copy className="h-4 w-4 mr-2" />Copy Link</Button>
-                <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setReissueOpen(false)}>Close</Button>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => { const subject = encodeURIComponent("Your Site Snap company sign-up link"); const body = encodeURIComponent(`Hi,\n\nHere is your updated sign-up link for Site Snap:\n\n${reissuedLink}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Send via Email</Button>
-              </div>
-            </div>
+    </div>
+  );
+}
+
+// ── Tenant Directory (master-detail) ─────────────────────────────────────────
+
+function TenantFeaturesEditor({
+  tenantId,
+  features,
+  planFeatureIds,
+  initialActiveFeatures,
+}: {
+  tenantId: number;
+  features: Feature[];
+  planFeatureIds: number[];
+  initialActiveFeatures: string[] | null;
+}) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const planKeys = features.filter((f) => planFeatureIds.includes(f.id)).map((f) => f.key);
+  const [customized, setCustomized] = useState(initialActiveFeatures != null);
+  const [selected, setSelected] = useState<string[]>(initialActiveFeatures ?? planKeys);
+
+  const save = useMutation({
+    mutationFn: (activeFeatures: string[] | null) => customFetch(`/api/admin/tenants/${tenantId}/features`, { method: "PATCH", body: JSON.stringify({ activeFeatures }) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-tenant-features", tenantId] }); toast({ title: "Tenant features updated" }); },
+    onError: (e: any) => toast({ title: "Update failed", description: e.message, variant: "destructive" }),
+  });
+
+  if (!customized) {
+    return (
+      <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 p-4 text-sm text-gray-500">
+        <p>This tenant currently uses the default features included in its plan.</p>
+        <Button size="sm" variant="outline" className="mt-3 border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setCustomized(true)}>Customize for this tenant</Button>
+      </div>
+    );
+  }
+
+  if (features.length === 0) {
+    return <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 p-4 text-center text-sm text-gray-500">No features exist yet.</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+        {features.map((f) => (
+          <label key={f.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-50">
+            <span className="text-[#121212]">{f.name}</span>
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+              checked={selected.includes(f.key)}
+              onChange={(e) => setSelected((prev) => (e.target.checked ? [...prev, f.key] : prev.filter((k) => k !== f.key)))}
+            />
+          </label>
+        ))}
+      </div>
+      <div className="flex justify-end gap-2 pt-1">
+        <Button size="sm" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => { setCustomized(false); setSelected(planKeys); save.mutate(null); }}>Reset to plan defaults</Button>
+        <Button size="sm" className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => save.mutate(selected)} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save"}</Button>
+      </div>
+    </div>
+  );
+}
+
+function TenantFeaturesPanel({ tenantId, features, planFeatureIds }: { tenantId: number; features: Feature[]; planFeatureIds: number[] }) {
+  const { data, isLoading } = useQuery<{ activeFeatures: string[] | null }>({
+    queryKey: ["admin-tenant-features", tenantId],
+    queryFn: () => customFetch(`/api/admin/tenants/${tenantId}/features`),
+  });
+
+  if (isLoading || !data) {
+    return (
+      <div className="space-y-2">
+        {[0, 1, 2].map((i) => <div key={i} className="h-6 rounded bg-gray-100 animate-pulse" />)}
+      </div>
+    );
+  }
+
+  return <TenantFeaturesEditor tenantId={tenantId} features={features} planFeatureIds={planFeatureIds} initialActiveFeatures={data.activeFeatures} />;
+}
+
+function ClaimTokenPanel({ tenant, onReissue, isReissuing }: { tenant: TenantDetail; onReissue: () => void; isReissuing: boolean }) {
+  const { toast } = useToast();
+  const claimed = !tenant.claimToken;
+  const link = tenant.claimToken ? `${window.location.origin}/sign-up?token=${tenant.claimToken}` : null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge className={claimed ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>{claimed ? "Claimed" : "Pending Claim"}</Badge>
+        {claimed && tenant.claimOwnerEmail && <span className="text-xs text-gray-500">by {tenant.claimOwnerEmail}</span>}
+      </div>
+      {link ? (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="break-all text-xs text-[#121212]">{link}</div>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => { navigator.clipboard.writeText(link); toast({ title: "Link copied to clipboard" }); }}><Copy className="mr-1.5 h-3.5 w-3.5" />Copy</Button>
+            <Button size="sm" variant="outline" className="border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={onReissue} disabled={isReissuing}>{isReissuing ? "Reissuing…" : "Reissue"}</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 p-3 text-xs text-gray-500">
+          Ownership has been claimed. Generate a new link if you need to transfer ownership.
+          <div className="mt-2">
+            <Button size="sm" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={onReissue} disabled={isReissuing}>{isReissuing ? "Generating…" : "Generate New Link"}</Button>
           </div>
         </div>
       )}
@@ -513,161 +342,373 @@ function ManageTab() {
   );
 }
 
-function ManageAdminSections({ plans, features, tenants, tenantDetail, onOpenPlan, onOpenFeature, onOpenTenant, onSelectTenant, onEditPlan, onEditFeature, onEditTenant, onDeleteTenant, onReissueLink, onEditTenantUser, onDeleteTenantUser, onDeleteFeature, onToggleFeaturePlan, collapsed, setCollapsed }: ManageSectionsProps) {
+type TenantDirectoryTabProps = {
+  tenants: TenantRow[];
+  plans: Plan[];
+  features: Feature[];
+  tenantDetail?: TenantDetail;
+  tenantDetailId: number | null;
+  onSelectTenant: (id: number) => void;
+  onEditTenant: (tenant: TenantDetail) => void;
+  onDeleteTenant: (tenant: TenantDetail) => void;
+  onReissueLink: (tenant: TenantDetail) => void;
+  isReissuing: boolean;
+  onEditTenantUser: (userId: number, role: string) => void;
+  onDeleteTenantUser: (userId: number) => void;
+  onGoToInvite: () => void;
+};
+
+function TenantDirectoryTab({
+  tenants,
+  plans,
+  features,
+  tenantDetail,
+  tenantDetailId,
+  onSelectTenant,
+  onEditTenant,
+  onDeleteTenant,
+  onReissueLink,
+  isReissuing,
+  onEditTenantUser,
+  onDeleteTenantUser,
+  onGoToInvite,
+}: TenantDirectoryTabProps) {
+  const [query, setQuery] = useState("");
+  const filtered = tenants.filter((t) => t.name.toLowerCase().includes(query.trim().toLowerCase()));
+
   return (
-    <div className="space-y-6">
+    <div className="grid items-start gap-6 lg:grid-cols-[340px_1fr]">
+      {/* Left: high-density tenant list */}
       <Card className="border-gray-200 bg-white text-[#121212]">
-        <CardHeader className="cursor-pointer select-none border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] rounded-tl-[10px] rounded-tr-[10px] rounded-br-[10px] rounded-bl-[10px] border-t-gray-200 border-r-gray-200 border-b-gray-200 border-l-gray-200" onClick={() => setCollapsed({ ...collapsed, plans: !collapsed.plans })}>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Plans</CardTitle>
-              <CardDescription className="text-gray-500 font-semibold">Create and manage plan tiers.</CardDescription>
-            </div>
-            <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.plans ? "" : "rotate-180"}`} />
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-bold text-[#121212]">Tenant Directory</CardTitle>
+          <CardDescription className="text-gray-500">{tenants.length} compan{tenants.length === 1 ? "y" : "ies"}</CardDescription>
+          <div className="relative mt-2">
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+            <Input className="border-gray-300 bg-white pl-8 text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" placeholder="Search tenants…" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
         </CardHeader>
-        {!collapsed.plans && <CardContent>
-          <div className="space-y-2">
-            {plans.map((p) => (
-              <button key={p.id} onClick={() => onEditPlan(p)} className="w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-left hover:bg-gray-100">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-[#121212]">{p.name}</span>
-                  <Badge className={p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}>{p.isActive ? "Enabled" : "Disabled"}</Badge>
-                </div>
-                <div className="mt-1 text-xs text-gray-500">{p.slug} · {p.maxSeats} seats · {p.featureIds.length} features</div>
-              </button>
-            ))}
-            <Button className="mt-3 bg-[#D4AF37] text-white font-bold hover:bg-[#b5922e]" onClick={onOpenPlan}>New Plan</Button>
-          </div>
-        </CardContent>}
-      </Card>
-
-      <Card className="border-gray-200 bg-white text-[#121212]">
-        <CardHeader className="cursor-pointer select-none border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] rounded-tl-[10px] rounded-tr-[10px] rounded-br-[10px] rounded-bl-[10px] border-t-gray-200 border-r-gray-200 border-b-gray-200 border-l-gray-200" onClick={() => setCollapsed({ ...collapsed, features: !collapsed.features })}>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Features</CardTitle>
-              <CardDescription className="text-gray-500 font-semibold">Create feature flags and assign them to plans.</CardDescription>
+        <CardContent className="pt-0">
+          {tenants.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-4 py-10 text-center">
+              <Building2 className="h-8 w-8 text-gray-300" />
+              <p className="mt-3 text-sm font-semibold text-[#121212]">No tenants yet</p>
+              <p className="mt-1 text-xs text-gray-500">Create your first company to get started.</p>
+              <Button size="sm" className="mt-3 bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={onGoToInvite}>Invite a Company</Button>
             </div>
-            <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.features ? "" : "rotate-180"}`} />
-          </div>
-        </CardHeader>
-        {!collapsed.features && <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="py-2 pr-4 text-left font-semibold text-[#121212]">Feature</th>
-                  {plans.map((p) => (
-                    <th key={p.id} className="px-2 py-2 text-center text-xs font-semibold text-gray-600">{p.name}</th>
-                  ))}
-                  <th className="px-2 py-2 text-right"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {features.map((f) => (
-                  <tr key={f.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-2 pr-4">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => onEditFeature(f)} className="text-left">
-                          <span className="font-semibold text-[#121212]">{f.name}</span>
-                        </button>
-                        <Badge className={f.isEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}>{f.isEnabled ? "Enabled" : "Disabled"}</Badge>
+          ) : filtered.length === 0 ? (
+            <div className="px-2 py-8 text-center text-sm text-gray-500">No tenants match "{query}".</div>
+          ) : (
+            <ScrollArea className="h-[65vh] pr-2">
+              <div className="space-y-1.5">
+                {filtered.map((t) => {
+                  const selected = t.id === tenantDetailId;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => onSelectTenant(t.id)}
+                      className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${selected ? "border-[#D4AF37] bg-[#D4AF37]/10" : "border-transparent hover:bg-gray-50"}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-semibold text-[#121212]">{t.name}</span>
+                        <Badge className={`shrink-0 px-1.5 py-0 text-[10px] ${tierBadgeClasses(t.plan?.slug)}`}>{t.plan?.name ?? "No Plan"}</Badge>
                       </div>
-                      <div className="text-xs text-gray-500">{f.key}</div>
-                    </td>
-                    {plans.map((p) => {
-                      const checked = p.featureIds.includes(f.id);
-                      return (
-                        <td key={`${f.id}-${p.id}`} className="px-2 py-2 text-center">
-                          <label className="inline-flex cursor-pointer items-center">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) => onToggleFeaturePlan(f.id, p.id, e.target.checked)}
-                              className="h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
-                            />
-                          </label>
-                        </td>
-                      );
-                    })}
-                    <td className="px-2 py-2 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => onEditFeature(f)} className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#D4AF37]"><Pencil className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => onDeleteFeature(f)} className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                        <span className={`inline-block h-1.5 w-1.5 rounded-full ${statusDotClasses(t.subscription?.status)}`} />
+                        <span className="capitalize">{t.subscription?.status ?? "no subscription"}</span>
+                        <span>·</span>
+                        <span>{t.userCount} user{t.userCount === 1 ? "" : "s"}</span>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <Button className="mt-3 bg-[#D4AF37] text-white font-bold hover:bg-[#b5922e]" onClick={onOpenFeature}>New Feature</Button>
-        </CardContent>}
-      </Card>
-
-      <Card className="border-gray-200 bg-white text-[#121212]">
-        <CardHeader className="cursor-pointer select-none border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px] rounded-tl-[10px] rounded-tr-[10px] rounded-br-[10px] rounded-bl-[10px] border-t-[#e5e7eb] border-r-[#e5e7eb] border-b-[#e5e7eb] border-l-[#e5e7eb]" onClick={() => setCollapsed({ ...collapsed, tenants: !collapsed.tenants })}>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="leading-none tracking-tight text-[#D4AF37] font-extrabold">Tenants</CardTitle>
-              <CardDescription className="text-gray-500 font-semibold">View tenants, subscription status, and clickable user emails.</CardDescription>
-            </div>
-            <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.tenants ? "" : "rotate-180"}`} />
-          </div>
-        </CardHeader>
-        {!collapsed.tenants && <CardContent>
-          <div className="space-y-2">
-            {tenants.map((t) => (
-              <button key={t.id} onClick={() => { onSelectTenant(t.id); onEditTenant(t); }} className="w-full rounded-lg border border-gray-200 bg-white p-3 text-left hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-[#121212]">{t.name}</span>
-                  <span className="text-xs text-gray-500">{t.userCount} users</span>
-                </div>
-                <div className="mt-1 text-xs text-gray-500">{t.plan?.name ?? "No plan"} · {t.subscription?.status ?? "No subscription"}</div>
-              </button>
-            ))}
-            <Button className="mt-3 bg-[#D4AF37] text-white font-bold hover:bg-[#b5922e]" onClick={onOpenTenant}>Manage Tenant</Button>
-          </div>
-          {tenantDetail && (
-            <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-semibold text-[#121212]">{tenantDetail.name}</div>
-                  <div className="text-xs text-gray-500">{tenantDetail.plan?.name ?? "No plan"} · {tenantDetail.subscription?.status ?? "No subscription"}</div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => onEditTenant(tenantDetail)}>Edit Tenant</Button>
-                  <Button variant="outline" className="border-green-600/40 text-green-600 hover:bg-green-50" onClick={() => onReissueLink(tenantDetail)}>Reissue Link</Button>
-                  <Button variant="outline" className="border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => onDeleteTenant(tenantDetail)}>Delete Tenant</Button>
-                </div>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="mt-4 space-y-2">
-                {tenantDetail.users.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="text-[#121212]">{u.firstName} {u.lastName}</div>
-                      <span className="text-xs uppercase tracking-wider text-gray-500">{u.role}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <a className="text-[#D4AF37] hover:text-[#b5922e]" href={`mailto:${u.email}`}>{u.email}</a>
-                      <div className="flex gap-1">
-                        <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 hover:bg-gray-100 h-7 text-xs px-2" onClick={() => onEditTenantUser(u.id, u.role)}>Edit</Button>
-                        <Button variant="outline" size="sm" className="border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10 h-7 text-xs px-2" onClick={() => onDeleteTenantUser(u.id)}>Delete</Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </ScrollArea>
           )}
-        </CardContent>}
+        </CardContent>
       </Card>
+
+      {/* Right: dynamic tenant control panel */}
+      {!tenantDetail ? (
+        <div className="flex min-h-[65vh] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-10 text-center">
+          <Building2 className="h-10 w-10 text-gray-300" />
+          <h3 className="mt-4 text-sm font-semibold text-[#121212]">Select a tenant</h3>
+          <p className="mt-1 max-w-xs text-sm text-gray-500">Choose a company from the directory to manage its features, claim tokens, and users.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-bold text-[#121212]">{tenantDetail.name}</h2>
+                <Badge className={tierBadgeClasses(tenantDetail.plan?.slug)}>{tenantDetail.plan?.name ?? "No Plan"}</Badge>
+                <Badge className={statusBadgeClasses(tenantDetail.subscription?.status)}>{tenantDetail.subscription?.status ?? "No subscription"}</Badge>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">{tenantDetail.userCount} user{tenantDetail.userCount === 1 ? "" : "s"} · billing {tenantDetail.subscription?.billingCycle ?? "—"}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => onEditTenant(tenantDetail)}>Edit Tenant</Button>
+              <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => onDeleteTenant(tenantDetail)}>Delete</Button>
+            </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="border-gray-200 bg-white text-[#121212]">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2"><DatabaseZap className="h-4 w-4 text-[#D4AF37]" /><CardTitle className="text-sm font-extrabold text-[#D4AF37]">Manage Features</CardTitle></div>
+                <CardDescription className="text-gray-500">Override the plan's default features for this tenant only.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TenantFeaturesPanel key={tenantDetail.id} tenantId={tenantDetail.id} features={features} planFeatureIds={plans.find((p) => p.id === tenantDetail.plan?.id)?.featureIds ?? []} />
+              </CardContent>
+            </Card>
+
+            <Card className="border-gray-200 bg-white text-[#121212]">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-[#D4AF37]" /><CardTitle className="text-sm font-extrabold text-[#D4AF37]">Claim Token</CardTitle></div>
+                <CardDescription className="text-gray-500">Manage this tenant's ownership sign-up link.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ClaimTokenPanel key={tenantDetail.id} tenant={tenantDetail} onReissue={() => onReissueLink(tenantDetail)} isReissuing={isReissuing} />
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="border-gray-200 bg-white text-[#121212]">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2"><Users className="h-4 w-4 text-[#D4AF37]" /><CardTitle className="text-sm font-extrabold text-[#D4AF37]">User Management</CardTitle></div>
+              <CardDescription className="text-gray-500">Members with access to this tenant.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {tenantDetail.users.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-4 py-8 text-center text-sm text-gray-500">No users on this tenant yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {tenantDetail.users.map((u) => (
+                    <div key={u.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="text-[#121212]">{u.firstName} {u.lastName}</div>
+                        <span className="text-xs uppercase tracking-wider text-gray-500">{u.role}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <a className="text-[#D4AF37] hover:text-[#b5922e]" href={`mailto:${u.email}`}>{u.email}</a>
+                        <div className="flex gap-1">
+                          <Button variant="outline" size="sm" className="h-7 border-gray-300 px-2 text-xs text-gray-700 hover:bg-gray-100" onClick={() => onEditTenantUser(u.id, u.role)}>Edit</Button>
+                          <Button variant="outline" size="sm" className="h-7 border-[#D4AF37]/40 px-2 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => onDeleteTenantUser(u.id)}>Delete</Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
 
-function PlanDialog({ open, form, featureIds, onChange, onFeatureIdsChange, onSave, onCancel, onDelete, isSaving, isDeleting }: PlanDialogState) {
+// ── System Analytics ─────────────────────────────────────────────────────────
+
+function StatCard({ label, value, icon: Icon }: { label: string; value: string | number; icon: LucideIcon }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <Icon className="h-3.5 w-3.5 text-[#D4AF37]" />
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-bold text-[#121212]">{value}</div>
+    </div>
+  );
+}
+
+type SystemAnalyticsTabProps = {
+  tenants: TenantRow[];
+  plans: Plan[];
+  features: Feature[];
+  onOpenPlan: () => void;
+  onOpenFeature: () => void;
+  onEditPlan: (plan: Plan) => void;
+  onEditFeature: (feature: Feature) => void;
+  onDeleteFeature: (feature: Feature) => void;
+  onToggleFeaturePlan: (featureId: number, planId: number, checked: boolean) => void;
+  collapsed: { plans: boolean; features: boolean };
+  setCollapsed: (value: { plans: boolean; features: boolean }) => void;
+};
+
+function SystemAnalyticsTab({
+  tenants,
+  plans,
+  features,
+  onOpenPlan,
+  onOpenFeature,
+  onEditPlan,
+  onEditFeature,
+  onDeleteFeature,
+  onToggleFeaturePlan,
+  collapsed,
+  setCollapsed,
+}: SystemAnalyticsTabProps) {
+  const totalTenants = tenants.length;
+  const totalUsers = tenants.reduce((sum, t) => sum + (t.userCount ?? 0), 0);
+  const activeSubs = tenants.filter((t) => t.subscription?.status === "active").length;
+  const mrr = tenants.reduce((sum, t) => {
+    if (t.subscription?.status !== "active" || !t.plan) return sum;
+    const fullPlan = plans.find((p) => p.id === t.plan!.id);
+    if (!fullPlan) return sum;
+    const monthly = t.subscription.billingCycle === "yearly" ? Number(fullPlan.yearlyPrice) / 12 : Number(fullPlan.monthlyPrice);
+    return sum + (Number.isFinite(monthly) ? monthly : 0);
+  }, 0);
+  const planCounts = plans.map((p) => ({ plan: p, count: tenants.filter((t) => t.plan?.id === p.id).length }));
+  const maxCount = Math.max(1, ...planCounts.map((pc) => pc.count));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-[#121212]">System Analytics</h2>
+        <p className="mt-1 text-sm text-gray-500">Live snapshot of tenants, revenue, plans, and features.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard label="Tenants" value={totalTenants} icon={Building2} />
+        <StatCard label="Total Users" value={totalUsers} icon={Users} />
+        <StatCard label="Active Subscriptions" value={activeSubs} icon={CheckCircle2} />
+        <StatCard label="Est. Monthly Revenue" value={`$${mrr.toFixed(0)} CAD`} icon={DollarSign} />
+      </div>
+
+      <Card className="border-gray-200 bg-white text-[#121212]">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-bold text-[#121212]">Plan Distribution</CardTitle>
+          <CardDescription className="text-gray-500">Tenants per plan tier</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {planCounts.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-4 py-8 text-center text-sm text-gray-500">No plans configured yet.</div>
+          ) : (
+            <div className="space-y-3">
+              {planCounts.map(({ plan, count }) => (
+                <div key={plan.id}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 font-medium text-[#121212]">{planIcon(plan.slug)}{plan.name}</span>
+                    <span className="text-gray-500">{count} tenant{count === 1 ? "" : "s"}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-gray-100">
+                    <div className="h-2 rounded-full bg-[#D4AF37]" style={{ width: `${(count / maxCount) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="border-gray-200 bg-white text-[#121212]">
+          <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, plans: !collapsed.plans })}>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-extrabold tracking-tight text-[#D4AF37]">Plan Administration</CardTitle>
+                <CardDescription className="font-semibold text-gray-500">Create and manage plan tiers.</CardDescription>
+              </div>
+              <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.plans ? "" : "rotate-180"}`} />
+            </div>
+          </CardHeader>
+          {!collapsed.plans && (
+            <CardContent>
+              {plans.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-4 py-8 text-center text-sm text-gray-500">No plans yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {plans.map((p) => (
+                    <button key={p.id} onClick={() => onEditPlan(p)} className="w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-left hover:bg-gray-100">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 font-semibold text-[#121212]">{planIcon(p.slug)}{p.name}</span>
+                        <Badge className={p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}>{p.isActive ? "Enabled" : "Disabled"}</Badge>
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">{p.slug} · {formatCAD(Math.round(Number(p.monthlyPrice) * 100))}/mo · {p.maxSeats} seats · {p.featureIds.length} features</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Button className="mt-3 bg-[#D4AF37] font-bold text-white hover:bg-[#b5922e]" onClick={onOpenPlan}>New Plan</Button>
+            </CardContent>
+          )}
+        </Card>
+
+        <Card className="border-gray-200 bg-white text-[#121212]">
+          <CardHeader className="cursor-pointer select-none" onClick={() => setCollapsed({ ...collapsed, features: !collapsed.features })}>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-extrabold tracking-tight text-[#D4AF37]">Feature Administration</CardTitle>
+                <CardDescription className="font-semibold text-gray-500">Create feature flags and assign them to plans.</CardDescription>
+              </div>
+              <ChevronDown className={`h-5 w-5 text-[#D4AF37] transition-transform ${collapsed.features ? "" : "rotate-180"}`} />
+            </div>
+          </CardHeader>
+          {!collapsed.features && (
+            <CardContent>
+              {features.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-4 py-8 text-center text-sm text-gray-500">No features yet.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="py-2 pr-4 text-left font-semibold text-[#121212]">Feature</th>
+                        {plans.map((p) => (<th key={p.id} className="px-2 py-2 text-center text-xs font-semibold text-gray-600">{p.name}</th>))}
+                        <th className="px-2 py-2 text-right"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {features.map((f) => (
+                        <tr key={f.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-2 pr-4">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => onEditFeature(f)} className="text-left"><span className="font-semibold text-[#121212]">{f.name}</span></button>
+                              <Badge className={f.isEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}>{f.isEnabled ? "Enabled" : "Disabled"}</Badge>
+                            </div>
+                            <div className="text-xs text-gray-500">{f.key}</div>
+                          </td>
+                          {plans.map((p) => {
+                            const checked = p.featureIds.includes(f.id);
+                            return (
+                              <td key={`${f.id}-${p.id}`} className="px-2 py-2 text-center">
+                                <label className="inline-flex cursor-pointer items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(e) => onToggleFeaturePlan(f.id, p.id, e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                                  />
+                                </label>
+                              </td>
+                            );
+                          })}
+                          <td className="px-2 py-2 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => onEditFeature(f)} className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#D4AF37]"><Pencil className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => onDeleteFeature(f)} className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <Button className="mt-3 bg-[#D4AF37] font-bold text-white hover:bg-[#b5922e]" onClick={onOpenFeature}>New Feature</Button>
+            </CardContent>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ── Shared dialogs ────────────────────────────────────────────────────────────
+
+function PlanDialog({ open, form, onChange, onSave, onCancel, onDelete, isSaving, isDeleting }: PlanDialogState) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -675,7 +716,7 @@ function PlanDialog({ open, form, featureIds, onChange, onFeatureIdsChange, onSa
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-[#121212]">Plan Administration</h3>
-            <p className="text-sm text-gray-500 font-semibold">Create, edit, activate, or delete plan tiers.</p>
+            <p className="text-sm font-semibold text-gray-500">Create, edit, activate, or delete plan tiers.</p>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -701,7 +742,7 @@ function FeatureDialog({ open, form, onChange, onSave, onCancel, onDelete, isSav
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
         <h3 className="text-lg font-semibold text-[#121212]">Feature Administration</h3>
-        <p className="text-sm text-gray-500 font-semibold">Create enabled/disabled features and assign them to plans.</p>
+        <p className="text-sm font-semibold text-gray-500">Create enabled/disabled features and assign them to plans.</p>
         <div className="mt-4 grid gap-4">
           <div><Label className="text-[#D4AF37]">Name</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} /></div>
           <div><Label className="text-[#D4AF37]">Key</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={form.key} onChange={(e) => onChange({ ...form, key: e.target.value })} /></div>
@@ -723,7 +764,7 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
       <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
         <h3 className="text-lg font-semibold text-[#121212]">Tenant Administration</h3>
-        <p className="text-sm text-gray-500 font-semibold">Update tenant profile, subscription, billing cycle, and plan.</p>
+        <p className="text-sm font-semibold text-gray-500">Update tenant profile, subscription, billing cycle, and plan.</p>
         {tenantId !== null && <p className="mt-1 text-xs uppercase tracking-wider text-[#D4AF37]">Editing tenant #{tenantId}</p>}
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           <div>
@@ -809,7 +850,7 @@ function MemberDialog({ open, onOpenChange, form, onChange, onSave, isSaving }: 
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
       <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
         <h3 className="text-lg font-semibold text-[#121212]">Edit Member</h3>
-        <p className="text-sm text-gray-500 font-semibold">Update first name, last name, email, and company role.</p>
+        <p className="text-sm font-semibold text-gray-500">Update first name, last name, email, and company role.</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
             <Label className="text-[#121212]">First Name</Label>
@@ -845,21 +886,252 @@ function MemberDialog({ open, onOpenChange, form, onChange, onSave, isSaving }: 
   );
 }
 
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function SuperAdminPage() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("tenants");
+  const [planOpen, setPlanOpen] = useState(false);
+  const [featureOpen, setFeatureOpen] = useState(false);
+  const [tenantOpen, setTenantOpen] = useState(false);
+  const [tenantDetailId, setTenantDetailId] = useState<number | null>(null);
+  const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
+  const [editingFeatureId, setEditingFeatureId] = useState<number | null>(null);
+  const [editingTenantId, setEditingTenantId] = useState<number | null>(null);
+  const [planFeatureIds, setPlanFeatureIds] = useState<number[]>([]);
+  const [planForm, setPlanForm] = useState({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true });
+  const [featureForm, setFeatureForm] = useState({ name: "", key: "", description: "", isEnabled: true });
+  const [tenantForm, setTenantForm] = useState({ name: "", planId: "", status: "active", billingCycle: "monthly", userCount: "", website: "", phone: "", email: "" });
+  const [selectedTenantUserId, setSelectedTenantUserId] = useState("");
+  const [selectedTenantUserRole, setSelectedTenantUserRole] = useState("worker");
+  const [memberOpen, setMemberOpen] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
+  const [memberForm, setMemberForm] = useState({ firstName: "", lastName: "", email: "", role: "worker" });
+  const [collapsed, setCollapsed] = useState({ plans: true, features: true });
+  const [reissueOpen, setReissueOpen] = useState(false);
+  const [reissuedLink, setReissuedLink] = useState<string | null>(null);
+
+  const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
+  const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
+  const { data: tenants = [] } = useQuery<TenantRow[]>({ queryKey: ["admin-tenants"], queryFn: () => customFetch<TenantRow[]>("/api/admin/tenants") });
+  const { data: tenantDetail } = useQuery<TenantDetail>({ queryKey: ["admin-tenant-detail", tenantDetailId], queryFn: () => customFetch<TenantDetail>(`/api/admin/tenants/${tenantDetailId}`), enabled: tenantDetailId !== null });
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["admin-plans"] });
+    qc.invalidateQueries({ queryKey: ["admin-features"] });
+    qc.invalidateQueries({ queryKey: ["admin-tenants"] });
+    qc.invalidateQueries({ queryKey: ["admin-tenant-detail"] });
+  };
+
+  const savePlan = useMutation({
+    mutationFn: async () => {
+      const payload = { name: planForm.name.trim(), slug: planForm.slug.trim(), description: planForm.description.trim() || null, monthlyPrice: String(Number(planForm.monthlyPrice)), yearlyPrice: String(Number(planForm.yearlyPrice)), maxSeats: Number(planForm.maxSeats) || 5, isActive: planForm.isActive };
+      return editingPlanId ? customFetch(`/api/admin/plans/${editingPlanId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/plans", { method: "POST", body: JSON.stringify(payload) });
+    },
+    onSuccess: async (res: any) => {
+      if (res?.id && planFeatureIds.length > 0) await customFetch(`/api/admin/plans/${res.id}/features`, { method: "PUT", body: JSON.stringify({ featureIds: planFeatureIds }) });
+      setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan saved" });
+    },
+    onError: (e: any) => toast({ title: "Plan save failed", description: e.message, variant: "destructive" }),
+  });
+
+  const deletePlan = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/plans/${id}`, { method: "DELETE" }), onSuccess: () => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan deleted" }); }, onError: (e: any) => toast({ title: "Plan delete failed", description: e.message, variant: "destructive" }) });
+  const saveFeature = useMutation({ mutationFn: () => { const payload = { ...featureForm, description: featureForm.description || null }; return editingFeatureId ? customFetch(`/api/admin/features/${editingFeatureId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/features", { method: "POST", body: JSON.stringify(payload) }); }, onSuccess: () => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); refresh(); toast({ title: "Feature saved" }); }, onError: (e: any) => toast({ title: "Feature save failed", description: e.message, variant: "destructive" }) });
+  const deleteFeature = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/features/${id}`, { method: "DELETE" }), onSuccess: () => { refresh(); toast({ title: "Feature deleted" }); }, onError: (e: any) => toast({ title: "Feature delete failed", description: e.message, variant: "destructive" }) });
+  const assignPlanFeatures = useMutation({
+    mutationFn: ({ planId, featureIds }: { planId: number; featureIds: number[] }) =>
+      customFetch(`/api/admin/plans/${planId}/features`, { method: "POST", body: JSON.stringify({ featureIds }) }),
+    onSuccess: () => { refresh(); toast({ title: "Feature assignments updated" }); },
+    onError: (e: any) => toast({ title: "Assignment failed", description: e.message, variant: "destructive" }),
+  });
+  const saveTenant = useMutation({
+    mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}/subscription`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        planId: tenantForm.planId ? Number(tenantForm.planId) : undefined,
+        status: tenantForm.status,
+        billingCycle: tenantForm.billingCycle,
+      }),
+    }),
+    onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); refresh(); toast({ title: "Tenant updated" }); },
+    onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
+  });
+  const saveTenantUserRole = useMutation({
+    mutationFn: ({ userId, role, companyId }: { userId: number; role: string; companyId: number }) => customFetch(`/api/admin/users/${userId}/company-role`, {
+      method: "PATCH",
+      body: JSON.stringify({ role, companyId }),
+    }),
+    onSuccess: () => { refresh(); toast({ title: "User role updated" }); },
+    onError: (e: any) => toast({ title: "Role update failed", description: e.message, variant: "destructive" }),
+  });
+  const deleteTenantUser = useMutation({
+    mutationFn: ({ userId, companyId }: { userId: number; companyId: number }) => customFetch(`/api/admin/tenants/${companyId}/users/${userId}`, { method: "DELETE" }),
+    onSuccess: () => { refresh(); toast({ title: "User removed from tenant" }); },
+    onError: (e: any) => toast({ title: "Remove failed", description: e.message, variant: "destructive" }),
+  });
+  const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
+  const reissueLink = useMutation({
+    mutationFn: (id: number) => customFetch<{ link: string }>(`/api/admin/tenants/${id}/reissue-link`, { method: "POST" }),
+    onSuccess: (data) => { setReissuedLink(data.link); setReissueOpen(true); refresh(); toast({ title: "Link reissued" }); },
+    onError: (e: any) => toast({ title: "Reissue failed", description: e.message, variant: "destructive" }),
+  });
+  const saveMember = useMutation({
+    mutationFn: ({ userId, payload }: { userId: number; payload: { firstName: string; lastName: string; email: string } }) =>
+      customFetch(`/api/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    onSuccess: () => { refresh(); setMemberOpen(false); setEditingMemberId(null); toast({ title: "Member updated" }); },
+    onError: (e: any) => toast({ title: "Member update failed", description: e.message, variant: "destructive" }),
+  });
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-[#121212]"><ShieldCheck className="h-6 w-6 text-[#D4AF37]" /> Super Admin</h1>
-        <p className="mt-1 text-sm text-gray-500 font-semibold">Manage plans, features, and tenants.</p>
+        <p className="mt-1 text-sm font-semibold text-gray-500">Manage tenants, invites, and system-wide configuration.</p>
       </div>
-      <Tabs defaultValue="manage" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="border border-gray-200 bg-white">
-          <TabsTrigger value="manage" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold">Manage</TabsTrigger>
-          <TabsTrigger value="billing" className="text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold">Billing Plans</TabsTrigger>
+          <TabsTrigger value="tenants" className="gap-1.5 font-semibold text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white"><Building2 className="h-3.5 w-3.5" />Tenant Directory</TabsTrigger>
+          <TabsTrigger value="invite" className="gap-1.5 font-semibold text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white"><Gift className="h-3.5 w-3.5" />Invite Generator</TabsTrigger>
+          <TabsTrigger value="analytics" className="gap-1.5 font-semibold text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white"><BarChart3 className="h-3.5 w-3.5" />System Analytics</TabsTrigger>
         </TabsList>
-        <TabsContent value="manage"><ManageTab /></TabsContent>
-        <TabsContent value="billing"><StripePlansTab /></TabsContent>
+        <TabsContent value="tenants">
+          <TenantDirectoryTab
+            tenants={tenants}
+            plans={plans}
+            features={features}
+            tenantDetail={tenantDetail}
+            tenantDetailId={tenantDetailId}
+            onSelectTenant={setTenantDetailId}
+            onEditTenant={(t) => {
+              setEditingTenantId(t.id);
+              setSelectedTenantUserId("");
+              setSelectedTenantUserRole("worker");
+              setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "" });
+              setTenantOpen(true);
+            }}
+            onDeleteTenant={(t) => { if (confirm(`Delete tenant "${t.name}"? This cannot be undone.`)) deleteTenant.mutate(t.id); }}
+            onReissueLink={(t) => reissueLink.mutate(t.id)}
+            isReissuing={reissueLink.isPending}
+            onEditTenantUser={(userId, role) => {
+              const u = tenantDetail?.users.find((x) => x.id === userId);
+              if (u) {
+                setEditingMemberId(userId);
+                setMemberForm({ firstName: u.firstName || "", lastName: u.lastName || "", email: u.email || "", role });
+                setMemberOpen(true);
+              }
+            }}
+            onDeleteTenantUser={(userId) => {
+              if (tenantDetailId != null && confirm("Remove this user from the tenant?")) {
+                deleteTenantUser.mutate({ userId, companyId: tenantDetailId });
+              }
+            }}
+            onGoToInvite={() => setActiveTab("invite")}
+          />
+        </TabsContent>
+        <TabsContent value="invite"><InviteGeneratorTab /></TabsContent>
+        <TabsContent value="analytics">
+          <SystemAnalyticsTab
+            tenants={tenants}
+            plans={plans}
+            features={features}
+            onOpenPlan={() => setPlanOpen(true)}
+            onOpenFeature={() => setFeatureOpen(true)}
+            onEditPlan={(p) => { setEditingPlanId(p.id); setPlanForm({ name: p.name, slug: p.slug, description: p.description ?? "", monthlyPrice: p.monthlyPrice, yearlyPrice: p.yearlyPrice, maxSeats: p.maxSeats, isActive: p.isActive }); setPlanFeatureIds(p.featureIds); setPlanOpen(true); }}
+            onEditFeature={(f) => { setEditingFeatureId(f.id); setFeatureForm({ name: f.name, key: f.key, description: f.description ?? "", isEnabled: f.isEnabled }); setFeatureOpen(true); }}
+            onDeleteFeature={(f) => deleteFeature.mutate(f.id)}
+            onToggleFeaturePlan={(featureId, planId, checked) => {
+              const plan = plans.find((p) => p.id === planId);
+              if (!plan) return;
+              const nextIds = checked ? [...new Set([...plan.featureIds, featureId])] : plan.featureIds.filter((id) => id !== featureId);
+              assignPlanFeatures.mutate({ planId, featureIds: nextIds });
+            }}
+            collapsed={collapsed}
+            setCollapsed={setCollapsed}
+          />
+        </TabsContent>
       </Tabs>
+
+      <PlanDialog
+        open={planOpen}
+        form={planForm}
+        featureIds={planFeatureIds}
+        onChange={setPlanForm}
+        onFeatureIdsChange={setPlanFeatureIds}
+        onSave={() => savePlan.mutate()}
+        onCancel={() => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); }}
+        onDelete={editingPlanId ? () => deletePlan.mutate(editingPlanId) : undefined}
+        isSaving={savePlan.isPending}
+        isDeleting={deletePlan.isPending}
+      />
+      <FeatureDialog
+        open={featureOpen}
+        form={featureForm}
+        onChange={setFeatureForm}
+        onSave={() => saveFeature.mutate()}
+        onCancel={() => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); }}
+        onDelete={editingFeatureId ? () => deleteFeature.mutate(editingFeatureId) : undefined}
+        isSaving={saveFeature.isPending}
+        isDeleting={deleteFeature.isPending}
+      />
+      <TenantDialog
+        open={tenantOpen}
+        onOpenChange={setTenantOpen}
+        tenantId={editingTenantId}
+        tenantForm={tenantForm}
+        setTenantForm={setTenantForm}
+        plans={plans}
+        selectedUserId={selectedTenantUserId}
+        onSelectedUserIdChange={(id) => {
+          setSelectedTenantUserId(id);
+          setSelectedTenantUserRole(tenantDetail?.users.find((user) => String(user.id) === id)?.role ?? "worker");
+        }}
+        onSelectedUserRoleChange={(role) => setSelectedTenantUserRole(role)}
+        onSave={() => {
+          saveTenant.mutate();
+          if (selectedTenantUserId && editingTenantId != null) {
+            saveTenantUserRole.mutate({ userId: Number(selectedTenantUserId), role: selectedTenantUserRole, companyId: editingTenantId });
+          }
+        }}
+        isSaving={saveTenant.isPending || saveTenantUserRole.isPending}
+        users={tenantDetail?.users}
+      />
+      <MemberDialog
+        open={memberOpen}
+        onOpenChange={setMemberOpen}
+        form={memberForm}
+        onChange={setMemberForm}
+        onSave={() => {
+          if (editingMemberId != null && tenantDetailId != null) {
+            saveMember.mutate({ userId: editingMemberId, payload: { firstName: memberForm.firstName, lastName: memberForm.lastName, email: memberForm.email } });
+            if (memberForm.role) {
+              saveTenantUserRole.mutate({ userId: editingMemberId, role: memberForm.role, companyId: tenantDetailId });
+            }
+          }
+        }}
+        isSaving={saveMember.isPending || saveTenantUserRole.isPending}
+      />
+      {reissueOpen && reissuedLink && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
+            <h3 className="text-lg font-semibold text-[#121212]">Reissued Sign-up Link</h3>
+            <p className="text-sm font-semibold text-gray-500">Copy the link below and share it with the company owner.</p>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
+                <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-green-600">Shareable Link</div>
+                <div className="break-all text-sm text-[#121212]">{reissuedLink}</div>
+              </div>
+              <div className="flex gap-2">
+                <Button className="flex-1 bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => { navigator.clipboard.writeText(reissuedLink); toast({ title: "Link copied to clipboard" }); }}><Copy className="mr-2 h-4 w-4" />Copy Link</Button>
+                <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setReissueOpen(false)}>Close</Button>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => { const subject = encodeURIComponent("Your Site Snap company sign-up link"); const body = encodeURIComponent(`Hi,\n\nHere is your updated sign-up link for Site Snap:\n\n${reissuedLink}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Send via Email</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
