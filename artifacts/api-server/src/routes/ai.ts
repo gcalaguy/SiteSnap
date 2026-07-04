@@ -23,7 +23,7 @@ const _origCreate: (...args: any[]) => any = openai.chat.completions.create.bind
   );
 import { db, companiesTable, estimatorCostModelsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { searchWeb, formatSearchContext, webSearchEnabled } from "../lib/webSearch.js";
 import { canSearchWeb, recordWebSearch } from "../lib/webSearchRateLimiter.js";
@@ -629,13 +629,23 @@ router.post("/help/chat", requireAuth, requireAiQuota, asyncHandler(async (req, 
   }
 }));
 
-// ── POST /ai/foreman-briefing — daily AI briefing for foreman ─────────────────
+// ── POST /ai/foreman-briefing — daily AI briefing, scoped to the caller's role ─
+//   - owner / super_admin: macro org-wide summary — project risks, outstanding
+//     invoices, high-priority safety flags, compliance metrics across all sites.
+//   - foreman: scoped strictly to the projects they are actively assigned to
+//     (project_members) — site schedules, crew safety sign-offs, field logs.
+//   - worker: scoped to only their own assigned tasks, clock-in schedule, and
+//     personal document/certification compliance.
+// Scoping happens here, server-side, from req.userId/req.userRole — never a
+// client-supplied scope. If a role has literally nothing to report, we return
+// a deterministic empty-state message without spending an LLM call.
 const ForemanBriefingInput = z.strictObject({});
 
 router.post(
   "/ai/foreman-briefing",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireAiQuota,
   asyncHandler(async (req, res) => {
     const parsed = ForemanBriefingInput.safeParse(req.body);
@@ -644,113 +654,93 @@ router.post(
       return;
     }
 
-    const { db, inspectionsTable, inspectionAlertsTable, projectsTable, tasksTable, dailyReportsTable } =
-      await import("@workspace/db");
-    const { eq, and, lt, ne, inArray, desc, sql } = await import("drizzle-orm");
+    const {
+      db,
+      inspectionsTable,
+      inspectionAlertsTable,
+      projectsTable,
+      tasksTable,
+      dailyReportsTable,
+      projectMembersTable,
+      workerSchedulesTable,
+      workerDocumentsTable,
+      formSubmissionsTable,
+      invoicesTable,
+    } = await import("@workspace/db");
+    const { eq, and, lt, lte, gte, ne, inArray, desc, sql, isNotNull } = await import("drizzle-orm");
 
     const companyId = req.companyId!;
+    const userId = req.userId!;
+    const userRole = req.userRole!;
+    const isFullVisibility = userRole === "owner" || req.systemRole === "super_admin";
     const today = new Date().toISOString().slice(0, 10);
+    const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const dateHeader = `DATE: ${new Date().toLocaleDateString("en-CA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`;
 
-    // Gather data in parallel
-    const [criticalAlerts, highRiskInspections, overdueTasks, activeProjects, recentReports] =
-      await Promise.all([
-        // Unread critical/high alerts
-        db
-          .select({
-            id: inspectionAlertsTable.id,
-            message: inspectionAlertsTable.message,
-            severity: inspectionAlertsTable.severity,
-            type: inspectionAlertsTable.type,
-          })
-          .from(inspectionAlertsTable)
-          .where(
-            and(
-              eq(inspectionAlertsTable.companyId, companyId),
-              eq(inspectionAlertsTable.isRead, false),
-              inArray(inspectionAlertsTable.severity, ["critical", "high"]),
-            ),
-          )
-          .orderBy(desc(inspectionAlertsTable.createdAt))
-          .limit(10),
+    let dailyData: string;
+    let systemPrompt: string;
 
-        // High/Critical risk inspections last 30 days
-        db
-          .select({
-            id: inspectionsTable.id,
-            inspectionType: inspectionsTable.inspectionType,
-            riskLevel: inspectionsTable.riskLevel,
-            riskScore: inspectionsTable.riskScore,
-            date: inspectionsTable.date,
-            projectName: projectsTable.name,
-          })
-          .from(inspectionsTable)
-          .leftJoin(projectsTable, eq(projectsTable.id, inspectionsTable.projectId))
-          .where(
-            and(
-              eq(inspectionsTable.companyId, companyId),
-              inArray(inspectionsTable.riskLevel, ["Critical", "High"]),
-              sql`${inspectionsTable.createdAt} >= NOW() - INTERVAL '30 days'`,
-            ),
-          )
-          .orderBy(desc(inspectionsTable.riskScore))
-          .limit(5),
+    if (isFullVisibility) {
+      // ---- Owner / Executive: macro org-wide summary across all job sites ----
+      const [criticalAlerts, highRiskInspections, overdueTasks, activeProjects, recentReports, outstandingInvoices, expiringDocs] =
+        await Promise.all([
+          db
+            .select({ id: inspectionAlertsTable.id, message: inspectionAlertsTable.message, severity: inspectionAlertsTable.severity, type: inspectionAlertsTable.type })
+            .from(inspectionAlertsTable)
+            .where(and(eq(inspectionAlertsTable.companyId, companyId), eq(inspectionAlertsTable.isRead, false), inArray(inspectionAlertsTable.severity, ["critical", "high"])))
+            .orderBy(desc(inspectionAlertsTable.createdAt))
+            .limit(10),
+          db
+            .select({ id: inspectionsTable.id, inspectionType: inspectionsTable.inspectionType, riskLevel: inspectionsTable.riskLevel, riskScore: inspectionsTable.riskScore, date: inspectionsTable.date, projectName: projectsTable.name })
+            .from(inspectionsTable)
+            .leftJoin(projectsTable, eq(projectsTable.id, inspectionsTable.projectId))
+            .where(and(eq(inspectionsTable.companyId, companyId), inArray(inspectionsTable.riskLevel, ["Critical", "High"]), sql`${inspectionsTable.createdAt} >= NOW() - INTERVAL '30 days'`))
+            .orderBy(desc(inspectionsTable.riskScore))
+            .limit(5),
+          db
+            .select({ id: tasksTable.id, title: tasksTable.title, priority: tasksTable.priority, dueDate: tasksTable.dueDate, projectName: projectsTable.name })
+            .from(tasksTable)
+            .leftJoin(projectsTable, eq(projectsTable.id, tasksTable.projectId))
+            .where(and(eq(projectsTable.companyId, companyId), lt(tasksTable.dueDate, today), ne(tasksTable.status, "done")))
+            .limit(8),
+          db
+            .select({ name: projectsTable.name, status: projectsTable.status })
+            .from(projectsTable)
+            .where(and(eq(projectsTable.companyId, companyId), eq(projectsTable.status, "active")))
+            .limit(6),
+          db
+            .select({ projectName: projectsTable.name, reportDate: dailyReportsTable.reportDate, issues: dailyReportsTable.issues })
+            .from(dailyReportsTable)
+            .leftJoin(projectsTable, eq(projectsTable.id, dailyReportsTable.projectId))
+            .where(and(eq(projectsTable.companyId, companyId), sql`${dailyReportsTable.reportDate}::date >= NOW() - INTERVAL '2 days'`))
+            .orderBy(desc(dailyReportsTable.reportDate))
+            .limit(5),
+          // Total outstanding company-wide invoices
+          db
+            .select({ total: invoicesTable.total })
+            .from(invoicesTable)
+            .where(and(eq(invoicesTable.companyId, companyId), sql`${invoicesTable.status} IN ('sent', 'overdue')`)),
+          // Compliance: worker certifications expiring within 30 days or already expired, company-wide
+          db
+            .select({ id: workerDocumentsTable.id })
+            .from(workerDocumentsTable)
+            .where(and(eq(workerDocumentsTable.companyId, companyId), eq(workerDocumentsTable.status, "active"), isNotNull(workerDocumentsTable.expirationDate), lt(workerDocumentsTable.expirationDate, new Date(in30Days))))
+            ,
+        ]);
 
-        // Overdue tasks
-        db
-          .select({
-            id: tasksTable.id,
-            title: tasksTable.title,
-            priority: tasksTable.priority,
-            dueDate: tasksTable.dueDate,
-            projectName: projectsTable.name,
-          })
-          .from(tasksTable)
-          .leftJoin(projectsTable, eq(projectsTable.id, tasksTable.projectId))
-          .where(
-            and(
-              eq(projectsTable.companyId, companyId),
-              lt(tasksTable.dueDate, today),
-              ne(tasksTable.status, "done"),
-            ),
-          )
-          .limit(8),
+      const outstandingAmt = outstandingInvoices.reduce((s, r) => s + parseFloat(r.total ?? "0"), 0);
+      const fmtAmt = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(outstandingAmt);
 
-        // Active projects
-        db
-          .select({ name: projectsTable.name, status: projectsTable.status })
-          .from(projectsTable)
-          .where(and(eq(projectsTable.companyId, companyId), eq(projectsTable.status, "active")))
-          .limit(6),
+      dailyData = `
+${dateHeader}
 
-        // Recent daily reports
-        db
-          .select({
-            projectName: projectsTable.name,
-            reportDate: dailyReportsTable.reportDate,
-            issues: dailyReportsTable.issues,
-          })
-          .from(dailyReportsTable)
-          .leftJoin(projectsTable, eq(projectsTable.id, dailyReportsTable.projectId))
-          .where(
-            and(
-              eq(projectsTable.companyId, companyId),
-              sql`${dailyReportsTable.reportDate}::date >= NOW() - INTERVAL '2 days'`,
-            ),
-          )
-          .orderBy(desc(dailyReportsTable.reportDate))
-          .limit(5),
-      ]);
-
-    const dailyData = `
-DATE: ${new Date().toLocaleDateString("en-CA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-
-UNREAD CRITICAL/HIGH ALERTS (${criticalAlerts.length}):
+UNREAD CRITICAL/HIGH SAFETY ALERTS (${criticalAlerts.length}):
 ${criticalAlerts.length === 0 ? "None" : criticalAlerts.map((a) => `- [${a.severity.toUpperCase()}] ${a.message}`).join("\n")}
 
 HIGH/CRITICAL RISK INSPECTIONS (last 30 days, ${highRiskInspections.length}):
 ${highRiskInspections.length === 0 ? "None" : highRiskInspections.map((i) => `- ${i.inspectionType} inspection on ${i.date} — ${i.projectName ?? "No project"} — Risk ${i.riskLevel} (score: ${i.riskScore ?? "N/A"}/10)`).join("\n")}
 
-OVERDUE TASKS (${overdueTasks.length}):
+OVERDUE TASKS COMPANY-WIDE (${overdueTasks.length}):
 ${overdueTasks.length === 0 ? "None" : overdueTasks.map((t) => `- [${t.priority}] "${t.title}" — ${t.projectName ?? "No project"} — due ${t.dueDate}`).join("\n")}
 
 ACTIVE PROJECTS (${activeProjects.length}):
@@ -758,43 +748,187 @@ ${activeProjects.length === 0 ? "None" : activeProjects.map((p) => `- ${p.name}`
 
 RECENT DAILY REPORTS (last 48 hrs, ${recentReports.length}):
 ${recentReports.length === 0 ? "None" : recentReports.map((r) => `- ${r.projectName ?? "Unknown"} on ${r.reportDate}${r.issues ? `: Issues: ${r.issues}` : ""}`).join("\n")}
+
+OUTSTANDING INVOICES (${outstandingInvoices.length}, totalling ${fmtAmt}):
+${outstandingInvoices.length === 0 ? "None" : `${outstandingInvoices.length} invoice(s) outstanding totalling ${fmtAmt}`}
+
+COMPLIANCE (worker certifications expiring within 30 days or expired, company-wide):
+${expiringDocs.length === 0 ? "None" : `${expiringDocs.length} certification(s) need attention`}
 `.trim();
 
-    const systemPrompt = `You are a construction operations assistant generating a daily foreman briefing.
+      systemPrompt = `You are a construction operations assistant generating a daily executive briefing for a company owner.
 
-Your goal is to help the foreman prioritize their day efficiently.
+Your goal is to give the owner a macro-level, org-wide picture across every active job site.
 
 INSTRUCTIONS:
 - Be concise and actionable
-- Focus only on important items
-- Do NOT include unnecessary detail
+- Prioritize safety, financial exposure, and compliance risk across the whole company
+- Use clear, professional language
+
+OUTPUT FORMAT:
+1. 🚨 Critical Alerts (if any)
+2. ⚠️ High-Risk Areas
+3. 💰 Financial Snapshot (outstanding invoices)
+4. 📋 Compliance Metrics
+5. 🛠️ Priority Actions for Today
+6. 📉 Issues & Delays
+
+Keep total output under 200 words. Only include sections that have relevant data. If a section has no data, skip it entirely.`;
+    } else if (userRole === "foreman") {
+      // ---- Foreman / Site Lead: strictly the projects they are actively assigned to ----
+      const memberRows = await db
+        .select({ projectId: projectMembersTable.projectId })
+        .from(projectMembersTable)
+        .where(and(eq(projectMembersTable.companyId, companyId), eq(projectMembersTable.userId, userId)));
+      const projectIds = [...new Set(memberRows.map((r) => r.projectId))];
+
+      if (projectIds.length === 0) {
+        res.json({ briefing: "You have no active project assignments right now — check back once you're assigned to a job site.", generatedAt: new Date().toISOString() });
+        return;
+      }
+
+      const [criticalAlerts, highRiskInspections, overdueTasks, myProjects, recentReports, pendingSignoffs, crewSchedule] =
+        await Promise.all([
+          db
+            .select({ id: inspectionAlertsTable.id, message: inspectionAlertsTable.message, severity: inspectionAlertsTable.severity, type: inspectionAlertsTable.type })
+            .from(inspectionAlertsTable)
+            .where(and(eq(inspectionAlertsTable.companyId, companyId), inArray(inspectionAlertsTable.projectId, projectIds), eq(inspectionAlertsTable.isRead, false), inArray(inspectionAlertsTable.severity, ["critical", "high"])))
+            .orderBy(desc(inspectionAlertsTable.createdAt))
+            .limit(10),
+          db
+            .select({ id: inspectionsTable.id, inspectionType: inspectionsTable.inspectionType, riskLevel: inspectionsTable.riskLevel, riskScore: inspectionsTable.riskScore, date: inspectionsTable.date, projectName: projectsTable.name })
+            .from(inspectionsTable)
+            .leftJoin(projectsTable, eq(projectsTable.id, inspectionsTable.projectId))
+            .where(and(inArray(inspectionsTable.projectId, projectIds), inArray(inspectionsTable.riskLevel, ["Critical", "High"]), sql`${inspectionsTable.createdAt} >= NOW() - INTERVAL '30 days'`))
+            .orderBy(desc(inspectionsTable.riskScore))
+            .limit(5),
+          db
+            .select({ id: tasksTable.id, title: tasksTable.title, priority: tasksTable.priority, dueDate: tasksTable.dueDate, projectName: projectsTable.name })
+            .from(tasksTable)
+            .leftJoin(projectsTable, eq(projectsTable.id, tasksTable.projectId))
+            .where(and(inArray(tasksTable.projectId, projectIds), lt(tasksTable.dueDate, today), ne(tasksTable.status, "done")))
+            .limit(8),
+          db
+            .select({ name: projectsTable.name, status: projectsTable.status })
+            .from(projectsTable)
+            .where(and(inArray(projectsTable.id, projectIds), eq(projectsTable.status, "active")))
+            .limit(6),
+          db
+            .select({ projectName: projectsTable.name, reportDate: dailyReportsTable.reportDate, issues: dailyReportsTable.issues })
+            .from(dailyReportsTable)
+            .leftJoin(projectsTable, eq(projectsTable.id, dailyReportsTable.projectId))
+            .where(and(inArray(dailyReportsTable.projectId, projectIds), sql`${dailyReportsTable.reportDate}::date >= NOW() - INTERVAL '2 days'`))
+            .orderBy(desc(dailyReportsTable.reportDate))
+            .limit(5),
+          // Urgent field logs / safety directives needing sign-off on your sites
+          db
+            .select({ id: formSubmissionsTable.id, projectName: projectsTable.name })
+            .from(formSubmissionsTable)
+            .leftJoin(projectsTable, eq(projectsTable.id, formSubmissionsTable.projectId))
+            .where(and(inArray(formSubmissionsTable.projectId, projectIds), sql`${formSubmissionsTable.status} = 'submitted'`))
+            .limit(10),
+          // Crew scheduled on your sites today
+          db
+            .select({ projectName: projectsTable.name, startDate: workerSchedulesTable.startDate, endDate: workerSchedulesTable.endDate })
+            .from(workerSchedulesTable)
+            .leftJoin(projectsTable, eq(projectsTable.id, workerSchedulesTable.projectId))
+            .where(and(inArray(workerSchedulesTable.projectId, projectIds), lte(workerSchedulesTable.startDate, today), gte(workerSchedulesTable.endDate, today)))
+            .limit(15),
+        ]);
+
+      dailyData = `
+${dateHeader}
+
+UNREAD CRITICAL/HIGH ALERTS ON YOUR SITES (${criticalAlerts.length}):
+${criticalAlerts.length === 0 ? "None" : criticalAlerts.map((a) => `- [${a.severity.toUpperCase()}] ${a.message}`).join("\n")}
+
+HIGH/CRITICAL RISK INSPECTIONS ON YOUR SITES (last 30 days, ${highRiskInspections.length}):
+${highRiskInspections.length === 0 ? "None" : highRiskInspections.map((i) => `- ${i.inspectionType} inspection on ${i.date} — ${i.projectName ?? "No project"} — Risk ${i.riskLevel} (score: ${i.riskScore ?? "N/A"}/10)`).join("\n")}
+
+OVERDUE TASKS ON YOUR SITES (${overdueTasks.length}):
+${overdueTasks.length === 0 ? "None" : overdueTasks.map((t) => `- [${t.priority}] "${t.title}" — ${t.projectName ?? "No project"} — due ${t.dueDate}`).join("\n")}
+
+YOUR ASSIGNED ACTIVE PROJECTS (${myProjects.length}):
+${myProjects.length === 0 ? "None" : myProjects.map((p) => `- ${p.name}`).join("\n")}
+
+RECENT DAILY REPORTS ON YOUR SITES (last 48 hrs, ${recentReports.length}):
+${recentReports.length === 0 ? "None" : recentReports.map((r) => `- ${r.projectName ?? "Unknown"} on ${r.reportDate}${r.issues ? `: Issues: ${r.issues}` : ""}`).join("\n")}
+
+FIELD LOGS/FORMS AWAITING YOUR SIGN-OFF (${pendingSignoffs.length}):
+${pendingSignoffs.length === 0 ? "None" : pendingSignoffs.map((f) => `- Submission on ${f.projectName ?? "your site"} awaiting review`).join("\n")}
+
+CREW SCHEDULED TODAY (${crewSchedule.length}):
+${crewSchedule.length === 0 ? "None" : crewSchedule.map((s) => `- ${s.projectName ?? "a site"} (${s.startDate} to ${s.endDate})`).join("\n")}
+`.trim();
+
+      systemPrompt = `You are a construction operations assistant generating a daily briefing for a foreman/site lead.
+
+Your goal is to help the foreman prioritize their day across ONLY the job sites they are assigned to.
+
+INSTRUCTIONS:
+- Be concise and actionable
+- Focus only on important items on the foreman's own assigned sites
 - Prioritize safety, risk, and delays
 - Use clear, professional language
 
 OUTPUT FORMAT:
-
 1. 🚨 Critical Alerts (if any)
-- List urgent issues requiring immediate attention
-
 2. ⚠️ High-Risk Areas
-- Highlight jobs or inspections with high risk
-
 3. 🛠️ Priority Actions for Today
-- List 3–5 clear actions the foreman should take
-
-4. 📅 Today's Schedule Insights
-- Highlight any risks, delays, or conflicts
-
-5. 📉 Issues & Delays
-- Overdue or unresolved issues
-
-6. 👷 Workforce Notes
-- Attendance issues or performance concerns (if data available)
-
-7. ✅ Quick Wins
-- Easy actions that improve the day
+4. 📅 Today's Site Schedule
+5. 📝 Sign-offs Needed
+6. 📉 Issues & Delays
 
 Keep total output under 200 words. Only include sections that have relevant data. If a section has no data, skip it entirely.`;
+    } else {
+      // ---- Standard Worker / Crew Member: only their own tasks, schedule, and document compliance ----
+      const [myTasks, myScheduleToday, myDocs] = await Promise.all([
+        db
+          .select({ id: tasksTable.id, title: tasksTable.title, priority: tasksTable.priority, dueDate: tasksTable.dueDate, projectName: projectsTable.name })
+          .from(tasksTable)
+          .leftJoin(projectsTable, eq(projectsTable.id, tasksTable.projectId))
+          .where(and(eq(tasksTable.assignedToUserId, userId), ne(tasksTable.status, "done"), lte(tasksTable.dueDate, today)))
+          .limit(10),
+        db
+          .select({ projectName: projectsTable.name, startDate: workerSchedulesTable.startDate, endDate: workerSchedulesTable.endDate })
+          .from(workerSchedulesTable)
+          .leftJoin(projectsTable, eq(projectsTable.id, workerSchedulesTable.projectId))
+          .where(and(eq(workerSchedulesTable.userId, userId), lte(workerSchedulesTable.startDate, today), gte(workerSchedulesTable.endDate, today)))
+          .limit(5),
+        db
+          .select({ id: workerDocumentsTable.id, documentType: workerDocumentsTable.documentType, expirationDate: workerDocumentsTable.expirationDate })
+          .from(workerDocumentsTable)
+          .where(and(eq(workerDocumentsTable.workerId, userId), eq(workerDocumentsTable.companyId, companyId), eq(workerDocumentsTable.status, "active"), isNotNull(workerDocumentsTable.expirationDate), lt(workerDocumentsTable.expirationDate, new Date(in30Days))))
+          .limit(10),
+      ]);
+
+      if (myTasks.length === 0 && myScheduleToday.length === 0 && myDocs.length === 0) {
+        res.json({ briefing: "You're all caught up! No critical alerts for your assigned tasks today.", generatedAt: new Date().toISOString() });
+        return;
+      }
+
+      dailyData = `
+${dateHeader}
+
+YOUR TASKS DUE TODAY OR OVERDUE (${myTasks.length}):
+${myTasks.length === 0 ? "None" : myTasks.map((t) => `- [${t.priority}] "${t.title}" — ${t.projectName ?? "No project"} — due ${t.dueDate}`).join("\n")}
+
+YOUR SCHEDULE TODAY (${myScheduleToday.length}):
+${myScheduleToday.length === 0 ? "None" : myScheduleToday.map((s) => `- ${s.projectName ?? "a site"} (${s.startDate} to ${s.endDate})`).join("\n")}
+
+YOUR CERTIFICATIONS EXPIRING WITHIN 30 DAYS (${myDocs.length}):
+${myDocs.length === 0 ? "None" : myDocs.map((d) => `- ${d.documentType} expires ${d.expirationDate}`).join("\n")}
+`.trim();
+
+      systemPrompt = `You are a construction field assistant generating a short daily briefing for a crew member — NOT a manager.
+
+INSTRUCTIONS:
+- Extremely concise: use short bullet points only, no paragraphs
+- Cover at most 3 short sections: Today's Tasks, Your Schedule, Compliance Alerts
+- Only include a section if it has data — skip empty sections entirely
+- Keep total output under 60 words so it can be read on-site without scrolling
+- Use a friendly, direct tone`;
+    }
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",

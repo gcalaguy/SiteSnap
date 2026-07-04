@@ -24,14 +24,23 @@ import {
   ChevronLeft, ChevronRight, Plus, Loader2, Truck, Wrench,
   Package, AlertTriangle, CheckCircle2, XCircle,
   MapPin, Calendar, RotateCcw, Pencil, Trash2, ArrowRightLeft,
-  Search, Layers,
+  Search, Layers, Warehouse, RefreshCw, Boxes,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // ─── Constants & Helpers ──────────────────────────────────────────────────────
+// Shared visual language with the Projects screen (pages/projects.tsx):
+// crisp 1px borders over heavy shadows, gold accent, glowing status-dot pills.
 
 const GOLD = "#D4AF37";
-const BLACK = "#0A0A0A";
+const SURFACE = "#FFFFFF";
+const SURFACE2 = "#F8F8F8";
+const SURFACE3 = "#F0F0F0";
+const BORDER = "#E5E5E5";
+const TEXT = "#111111";
+const MUTED = "#888888";
+
+const GOLD_BUTTON = "bg-[#D4AF37] text-white hover:bg-[#b5922e]";
 
 const SCHEDULE_COLORS = [
   "#D4AF37", "#3B82F6", "#10B981", "#8B5CF6",
@@ -120,14 +129,71 @@ type CheckoutRow = {
 type Project = { id: number; name: string; status: string };
 type Member = { id: number; firstName: string; lastName: string; role: string };
 
-// ─── Skeleton Components ──────────────────────────────────────────────────────
+// ─── Shared Presentational Pieces ─────────────────────────────────────────────
+
+function Pill({ label, color, bg, border, icon: Icon }: { label: string; color: string; bg: string; border: string; icon?: typeof CheckCircle2 }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold whitespace-nowrap"
+      style={{ background: bg, color, border: `1px solid ${border}` }}
+    >
+      {Icon ? <Icon size={9} /> : (
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: color, boxShadow: `0 0 5px 1px ${color}99` }} />
+      )}
+      {label}
+    </span>
+  );
+}
+
+function SearchBox({ value, onChange, placeholder, className = "" }: { value: string; onChange: (v: string) => void; placeholder: string; className?: string }) {
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${className}`}
+      style={{ background: SURFACE2, border: `1px solid ${BORDER}` }}
+    >
+      <Search size={13} style={{ color: MUTED, flexShrink: 0 }} />
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-transparent border-none outline-none text-xs flex-1"
+        style={{ color: TEXT }}
+      />
+    </div>
+  );
+}
+
+function StatTile({ label, value, icon: Icon, color = GOLD, loading }: { label: string; value: React.ReactNode; icon: React.ElementType; color?: string; loading?: boolean }) {
+  return (
+    <div className="rounded-xl p-4 bg-white" style={{ border: `2px solid ${color}30`, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color }}>{label}</span>
+        <Icon size={15} style={{ color }} />
+      </div>
+      <p className="text-2xl font-extrabold" style={{ color: TEXT }}>{loading ? "—" : value}</p>
+    </div>
+  );
+}
+
+function EmptyBlock({ icon: Icon, title, sub }: { icon: React.ElementType; title: string; sub: string }) {
+  return (
+    <div className="py-16 text-center rounded-2xl" style={{ border: `1px dashed ${BORDER}`, background: SURFACE2 }}>
+      <div className="rounded-full p-3 mb-3 inline-flex" style={{ background: `${GOLD}14` }}>
+        <Icon size={26} style={{ color: GOLD }} />
+      </div>
+      <p className="text-sm font-extrabold" style={{ color: TEXT }}>{title}</p>
+      <p className="text-xs mt-1" style={{ color: MUTED }}>{sub}</p>
+    </div>
+  );
+}
 
 function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-4 animate-pulse">
-      <div className="h-4 w-2/3 bg-gray-100 rounded mb-3" />
-      <div className="h-8 w-1/3 bg-gray-100 rounded mb-2" />
-      <div className="h-3 w-1/2 bg-gray-100 rounded" />
+    <div className="rounded-2xl bg-white p-4 animate-pulse" style={{ border: `1px solid ${BORDER}` }}>
+      <div className="h-4 w-2/3 rounded mb-3" style={{ background: SURFACE3 }} />
+      <div className="h-8 w-1/3 rounded mb-2" style={{ background: SURFACE3 }} />
+      <div className="h-3 w-1/2 rounded" style={{ background: SURFACE3 }} />
     </div>
   );
 }
@@ -218,33 +284,33 @@ function DispatchBoard() {
   return (
     <div className="space-y-4">
       {/* Location Overview Widget */}
-      <div className="rounded-xl border border-gray-100 bg-white overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
+      <div className="rounded-2xl overflow-hidden bg-white" style={{ border: `1px solid ${BORDER}` }}>
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${BORDER}`, background: SURFACE2 }}>
           <div className="flex items-center gap-2">
             <MapPin size={15} style={{ color: GOLD }} />
-            <span className="text-sm font-semibold text-gray-700">Active Project Locations</span>
+            <span className="text-sm font-semibold" style={{ color: TEXT }}>Active Project Locations</span>
           </div>
-          <span className="text-xs text-gray-400">{activeProjects.length} sites</span>
+          <span className="text-xs" style={{ color: MUTED }}>{activeProjects.length} sites</span>
         </div>
         {activeProjects.length === 0 ? (
-          <div className="px-4 py-6 text-center text-sm text-gray-400">
-            No active projects. <a className="underline" href="/projects">Add a project</a> to see locations here.
+          <div className="px-4 py-6 text-center text-sm" style={{ color: MUTED }}>
+            No active projects. <a className="underline" href="/projects" style={{ color: GOLD }}>Add a project</a> to see locations here.
           </div>
         ) : (
           <div className="flex gap-2 p-3 overflow-x-auto">
             {activeProjects.slice(0, 8).map((p, i) => (
               <div
                 key={p.id}
-                className="flex-shrink-0 flex items-center gap-2 rounded-lg border px-3 py-2"
-                style={{ borderColor: "#f0f0f0", background: "#fafafa", minWidth: 160 }}
+                className="flex-shrink-0 flex items-center gap-2 rounded-lg px-3 py-2"
+                style={{ border: `1px solid ${BORDER}`, background: SURFACE2, minWidth: 160 }}
               >
                 <div
                   className="h-2.5 w-2.5 rounded-full flex-shrink-0"
                   style={{ background: SCHEDULE_COLORS[i % SCHEDULE_COLORS.length] }}
                 />
                 <div>
-                  <p className="text-xs font-medium text-gray-800 truncate max-w-[120px]">{p.name}</p>
-                  <p className="text-[10px] text-gray-400 capitalize">{p.status.replace("_", " ")}</p>
+                  <p className="text-xs font-medium truncate max-w-[120px]" style={{ color: TEXT }}>{p.name}</p>
+                  <p className="text-[10px] capitalize" style={{ color: MUTED }}>{p.status.replace("_", " ")}</p>
                 </div>
               </div>
             ))}
@@ -253,12 +319,12 @@ function DispatchBoard() {
       </div>
 
       {/* Timeline Header Controls */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setWeekStart((w) => subWeeks(w, 1))}>
             <ChevronLeft size={14} />
           </Button>
-          <span className="text-sm font-semibold text-gray-700 min-w-[180px] text-center">
+          <span className="text-sm font-semibold min-w-[180px] text-center" style={{ color: TEXT }}>
             {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
           </span>
           <Button variant="outline" size="sm" onClick={() => setWeekStart((w) => addWeeks(w, 1))}>
@@ -268,27 +334,28 @@ function DispatchBoard() {
             Today
           </Button>
         </div>
-        <Button size="sm" style={{ background: GOLD, color: BLACK }} onClick={() => setAddAssetModal(true)}>
+        <Button size="sm" className={GOLD_BUTTON} onClick={() => setAddAssetModal(true)}>
           <Plus size={14} className="mr-1" /> Add Asset
         </Button>
       </div>
 
       {/* Timeline Grid */}
-      <div className="rounded-xl border border-gray-100 bg-white overflow-hidden">
+      <div className="rounded-2xl overflow-hidden bg-white" style={{ border: `1px solid ${BORDER}` }}>
         {/* Day headers */}
-        <div className="flex border-b border-gray-100" style={{ background: "#fafafa" }}>
-          <div className="w-48 flex-shrink-0 px-4 py-2.5 border-r border-gray-100">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Asset</span>
+        <div className="flex" style={{ borderBottom: `1px solid ${BORDER}`, background: SURFACE2 }}>
+          <div className="w-48 flex-shrink-0 px-4 py-2.5" style={{ borderRight: `1px solid ${BORDER}` }}>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: MUTED }}>Asset</span>
           </div>
           {days.map((day) => (
             <div
               key={day.toISOString()}
-              className="flex-1 px-2 py-2.5 text-center border-r border-gray-50 last:border-r-0"
+              className="flex-1 px-2 py-2.5 text-center last:border-r-0"
+              style={{ borderRight: `1px solid ${SURFACE3}` }}
             >
-              <p className="text-[10px] font-semibold text-gray-400 uppercase">{format(day, "EEE")}</p>
+              <p className="text-[10px] font-extrabold uppercase" style={{ color: MUTED }}>{format(day, "EEE")}</p>
               <p
                 className="text-sm font-bold mt-0.5"
-                style={{ color: isSameDay(day, new Date()) ? GOLD : "#374151" }}
+                style={{ color: isSameDay(day, new Date()) ? GOLD : TEXT }}
               >
                 {format(day, "d")}
               </p>
@@ -299,29 +366,27 @@ function DispatchBoard() {
         {/* Rows */}
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex border-b border-gray-50 animate-pulse">
-              <div className="w-48 flex-shrink-0 px-4 py-3 border-r border-gray-100">
-                <div className="h-3.5 w-32 bg-gray-100 rounded mb-1" />
-                <div className="h-2.5 w-20 bg-gray-100 rounded" />
+            <div key={i} className="flex animate-pulse" style={{ borderBottom: `1px solid ${SURFACE3}` }}>
+              <div className="w-48 flex-shrink-0 px-4 py-3" style={{ borderRight: `1px solid ${BORDER}` }}>
+                <div className="h-3.5 w-32 rounded mb-1" style={{ background: SURFACE3 }} />
+                <div className="h-2.5 w-20 rounded" style={{ background: SURFACE3 }} />
               </div>
               {Array.from({ length: 7 }).map((_, j) => (
-                <div key={j} className="flex-1 p-1.5 border-r border-gray-50 last:border-r-0">
+                <div key={j} className="flex-1 p-1.5 last:border-r-0" style={{ borderRight: `1px solid ${SURFACE3}` }}>
                   <div className="h-7 rounded" />
                 </div>
               ))}
             </div>
           ))
         ) : boardAssets.length === 0 ? (
-          <div className="py-16 text-center">
-            <Truck size={32} className="mx-auto mb-3 text-gray-200" />
-            <p className="text-sm text-gray-400 font-medium">No fleet or heavy equipment added yet</p>
-            <p className="text-xs text-gray-300 mt-1">Click "Add Asset" to get started</p>
+          <div className="py-16">
+            <EmptyBlock icon={Truck} title="No fleet or heavy equipment added yet" sub={'Click "Add Asset" to get started'} />
           </div>
         ) : (
           boardAssets.map((asset) => (
-            <div key={asset.id} className="flex border-b border-gray-50 last:border-b-0 hover:bg-gray-50/50 group">
+            <div key={asset.id} className="flex last:border-b-0 group" style={{ borderBottom: `1px solid ${SURFACE3}` }}>
               {/* Asset name column */}
-              <div className="w-48 flex-shrink-0 px-4 py-2.5 border-r border-gray-100 flex items-center gap-2">
+              <div className="w-48 flex-shrink-0 px-4 py-2.5 flex items-center gap-2" style={{ borderRight: `1px solid ${BORDER}` }}>
                 <div
                   className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
                   style={{ background: `${GOLD}18`, border: `1px solid ${GOLD}33` }}
@@ -329,8 +394,8 @@ function DispatchBoard() {
                   <Truck size={13} style={{ color: GOLD }} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-gray-800 truncate">{asset.name}</p>
-                  <p className="text-[10px] text-gray-400 capitalize">{asset.assetType}</p>
+                  <p className="text-xs font-semibold truncate" style={{ color: TEXT }}>{asset.name}</p>
+                  <p className="text-[10px] capitalize" style={{ color: MUTED }}>{asset.assetType}</p>
                 </div>
               </div>
 
@@ -341,7 +406,8 @@ function DispatchBoard() {
                 return (
                   <div
                     key={day.toISOString()}
-                    className="flex-1 p-1 border-r border-gray-50 last:border-r-0 cursor-pointer"
+                    className="flex-1 p-1 last:border-r-0 cursor-pointer"
+                    style={{ borderRight: `1px solid ${SURFACE3}` }}
                     onClick={() => {
                       if (schedule) {
                         setScheduleModal({ open: true, assetId: asset.id, assetName: asset.name, date: day, existing: schedule });
@@ -355,7 +421,7 @@ function DispatchBoard() {
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div
-                              className="h-8 rounded flex items-center px-2 overflow-hidden"
+                              className="h-8 rounded-md flex items-center px-2 overflow-hidden"
                               style={{
                                 background: `${schedule.color}22`,
                                 border: `1px solid ${schedule.color}55`,
@@ -401,8 +467,11 @@ function DispatchBoard() {
                         </Tooltip>
                       </TooltipProvider>
                     ) : (
-                      <div className="h-8 rounded border border-dashed border-gray-200 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Plus size={10} className="text-gray-300" />
+                      <div
+                        className="h-8 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ border: `1px dashed ${BORDER}` }}
+                      >
+                        <Plus size={10} style={{ color: MUTED }} />
                       </div>
                     )}
                   </div>
@@ -511,34 +580,25 @@ function MaterialsBoard() {
       {/* Summary Strip */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "In Stock", status: "in_stock", icon: CheckCircle2, color: "#16a34a", bg: "#f0fdf4" },
-          { label: "Low Stock", status: "low_stock", icon: AlertTriangle, color: "#d97706", bg: "#fffbeb" },
-          { label: "Out of Stock", status: "out_of_stock", icon: XCircle, color: "#dc2626", bg: "#fef2f2" },
-        ].map(({ label, status, icon: Icon, color, bg }) => {
+          { label: "In Stock", status: "in_stock", icon: CheckCircle2, color: "#16a34a" },
+          { label: "Low Stock", status: "low_stock", icon: AlertTriangle, color: "#d97706" },
+          { label: "Out of Stock", status: "out_of_stock", icon: XCircle, color: "#dc2626" },
+        ].map(({ label, status, icon, color }) => {
           const count = materials.filter((m) => m.stockStatus === status).length;
           return (
-            <div key={status} className="rounded-xl border p-4 flex items-center gap-3" style={{ background: bg, borderColor: `${color}30` }}>
-              <Icon size={20} style={{ color }} />
-              <div>
-                <p className="text-2xl font-bold" style={{ color }}>{isLoading ? "—" : count}</p>
-                <p className="text-xs text-gray-500">{label}</p>
-              </div>
-            </div>
+            <StatTile key={status} label={label} value={count} icon={icon} color={color} loading={isLoading} />
           );
         })}
       </div>
 
       {/* Controls */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input
-            className="pl-8"
-            placeholder="Search materials…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchBox
+          className="flex-1 min-w-[200px]"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search materials…"
+        />
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Category" />
@@ -551,7 +611,7 @@ function MaterialsBoard() {
             ))}
           </SelectContent>
         </Select>
-        <Button size="sm" style={{ background: GOLD, color: BLACK }} onClick={() => setAddModal(true)}>
+        <Button size="sm" className={GOLD_BUTTON} onClick={() => setAddModal(true)}>
           <Plus size={14} className="mr-1" /> Add Material
         </Button>
       </div>
@@ -562,11 +622,7 @@ function MaterialsBoard() {
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : materials.length === 0 ? (
-        <div className="py-16 text-center rounded-xl border border-dashed border-gray-200">
-          <Package size={32} className="mx-auto mb-3 text-gray-200" />
-          <p className="text-sm text-gray-400 font-medium">No materials found</p>
-          <p className="text-xs text-gray-300 mt-1">Add bulk commodities to track stock levels</p>
-        </div>
+        <EmptyBlock icon={Package} title="No materials found" sub="Add bulk commodities to track stock levels" />
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {materials.map((m) => {
@@ -576,23 +632,16 @@ function MaterialsBoard() {
             return (
               <div
                 key={m.id}
-                className="rounded-xl border bg-white p-4 group relative transition-shadow hover:shadow-md"
-                style={{ borderColor: badge.border }}
+                className="rounded-2xl bg-white p-4 group relative transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+                style={{ border: `1px solid ${BORDER}` }}
               >
                 {/* Stoplight badge */}
-                <div
-                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold mb-3"
-                  style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}
-                >
-                  <span
-                    className="h-1.5 w-1.5 rounded-full inline-block"
-                    style={{ background: badge.color }}
-                  />
-                  {badge.label}
+                <div className="mb-3">
+                  <Pill label={badge.label} color={badge.color} bg={badge.bg} border={badge.border} />
                 </div>
 
-                <p className="text-sm font-semibold text-gray-800 mb-1 truncate">{m.name}</p>
-                <p className="text-xs text-gray-400 mb-3">
+                <p className="text-sm font-semibold mb-1 truncate" style={{ color: TEXT }}>{m.name}</p>
+                <p className="text-xs mb-3" style={{ color: MUTED }}>
                   {MATERIAL_CATEGORY_LABELS[m.category] ?? m.category}
                   {m.location ? ` · ${m.location}` : ""}
                 </p>
@@ -600,13 +649,13 @@ function MaterialsBoard() {
                 {/* Quantity */}
                 <div className="flex items-end justify-between">
                   <div>
-                    <p className="text-2xl font-black text-gray-900">{qty % 1 === 0 ? qty : qty.toFixed(1)}</p>
-                    <p className="text-[11px] text-gray-400">{UNIT_LABELS[m.unit] ?? m.unit} on hand</p>
+                    <p className="text-2xl font-black" style={{ color: TEXT }}>{qty % 1 === 0 ? qty : qty.toFixed(1)}</p>
+                    <p className="text-[11px]" style={{ color: MUTED }}>{UNIT_LABELS[m.unit] ?? m.unit} on hand</p>
                   </div>
                   {threshold !== null && (
                     <div className="text-right">
-                      <p className="text-xs text-gray-400">Reorder at</p>
-                      <p className="text-xs font-bold text-gray-600">{threshold} {UNIT_LABELS[m.unit]}</p>
+                      <p className="text-[10px]" style={{ color: MUTED }}>Reorder at</p>
+                      <p className="text-xs font-bold" style={{ color: TEXT }}>{threshold} {UNIT_LABELS[m.unit]}</p>
                     </div>
                   )}
                 </div>
@@ -634,13 +683,16 @@ function MaterialsBoard() {
                 {/* Action menu */}
                 <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    className="p-1 rounded hover:bg-gray-100"
+                    className="p-1 rounded-md"
+                    style={{ background: "transparent" }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = SURFACE2; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                     onClick={() => setEditMaterial(m)}
                   >
-                    <Pencil size={12} className="text-gray-400" />
+                    <Pencil size={12} style={{ color: MUTED }} />
                   </button>
                   <button
-                    className="p-1 rounded hover:bg-red-50"
+                    className="p-1 rounded-md hover:bg-red-50"
                     onClick={() => setDeleteId(m.id)}
                   >
                     <Trash2 size={12} className="text-red-400" />
@@ -761,34 +813,14 @@ function ToolsGrid() {
     <div className="space-y-4">
       {/* Summary */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border p-4 flex items-center gap-3" style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
-          <CheckCircle2 size={20} style={{ color: "#16a34a" }} />
-          <div>
-            <p className="text-2xl font-bold" style={{ color: "#16a34a" }}>{isLoading ? "—" : inYard}</p>
-            <p className="text-xs text-gray-500">In Yard</p>
-          </div>
-        </div>
-        <div className="rounded-xl border p-4 flex items-center gap-3" style={{ background: "#fffbeb", borderColor: "#fde68a" }}>
-          <ArrowRightLeft size={20} style={{ color: "#d97706" }} />
-          <div>
-            <p className="text-2xl font-bold" style={{ color: "#d97706" }}>{isLoading ? "—" : checkedOut}</p>
-            <p className="text-xs text-gray-500">Checked Out</p>
-          </div>
-        </div>
+        <StatTile label="In Yard" value={inYard} icon={CheckCircle2} color="#16a34a" loading={isLoading} />
+        <StatTile label="Checked Out" value={checkedOut} icon={ArrowRightLeft} color="#d97706" loading={isLoading} />
       </div>
 
       {/* Controls */}
       <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input
-            className="pl-8"
-            placeholder="Search tools…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <Button size="sm" style={{ background: GOLD, color: BLACK }} onClick={() => setAddToolModal(true)}>
+        <SearchBox className="flex-1" value={search} onChange={setSearch} placeholder="Search tools…" />
+        <Button size="sm" className={GOLD_BUTTON} onClick={() => setAddToolModal(true)}>
           <Plus size={14} className="mr-1" /> Add Tool
         </Button>
       </div>
@@ -799,11 +831,7 @@ function ToolsGrid() {
           {Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : tools.length === 0 ? (
-        <div className="py-16 text-center rounded-xl border border-dashed border-gray-200">
-          <Wrench size={32} className="mx-auto mb-3 text-gray-200" />
-          <p className="text-sm text-gray-400 font-medium">No small tools added yet</p>
-          <p className="text-xs text-gray-300 mt-1">Track lasers, saws, generators and other high-theft items</p>
-        </div>
+        <EmptyBlock icon={Wrench} title="No small tools added yet" sub="Track lasers, saws, generators and other high-theft items" />
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {tools.map((tool) => {
@@ -823,8 +851,8 @@ function ToolsGrid() {
             return (
               <div
                 key={tool.id}
-                className="rounded-xl border bg-white p-4 flex flex-col items-center text-center transition-shadow hover:shadow-md group relative"
-                style={{ borderColor: isOut ? "#fde68a" : "#f0f0f0" }}
+                className="rounded-2xl bg-white p-4 flex flex-col items-center text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] group relative"
+                style={{ border: `1px solid ${isOut ? "#fde68a" : BORDER}` }}
               >
                 {/* Tool Icon or Photo */}
                 <div
@@ -841,8 +869,8 @@ function ToolsGrid() {
                   )}
                 </div>
 
-                <p className="text-xs font-bold text-gray-800 truncate w-full mb-0.5">{tool.name}</p>
-                <p className="text-[10px] text-gray-400 capitalize mb-3">{tool.assetType}</p>
+                <p className="text-xs font-bold truncate w-full mb-0.5" style={{ color: TEXT }}>{tool.name}</p>
+                <p className="text-[10px] capitalize mb-3" style={{ color: MUTED }}>{tool.assetType}</p>
 
                 {/* Status */}
                 {isOut ? (
@@ -853,9 +881,9 @@ function ToolsGrid() {
                     >
                       {holderInitials}
                     </div>
-                    <p className="text-[10px] font-semibold text-gray-700 truncate max-w-full">{holderName}</p>
+                    <p className="text-[10px] font-semibold truncate max-w-full" style={{ color: TEXT }}>{holderName}</p>
                     {checkout?.projectName && (
-                      <p className="text-[9px] text-gray-400 truncate max-w-full">{checkout.projectName}</p>
+                      <p className="text-[9px] truncate max-w-full" style={{ color: MUTED }}>{checkout.projectName}</p>
                     )}
                     <button
                       className="mt-1 text-[10px] font-semibold rounded-full px-2 py-0.5 transition-colors"
@@ -868,13 +896,7 @@ function ToolsGrid() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-1 w-full">
-                    <span
-                      className="inline-flex items-center gap-1 text-[10px] font-bold rounded-full px-2 py-0.5"
-                      style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }}
-                    >
-                      <CheckCircle2 size={9} />
-                      In Yard
-                    </span>
+                    <Pill label="In Yard" color="#16a34a" bg="#f0fdf4" border="#bbf7d0" icon={CheckCircle2} />
                     <button
                       className="mt-1 text-[10px] font-semibold rounded-full px-3 py-1 transition-colors"
                       style={{ background: `${GOLD}18`, color: GOLD, border: `1px solid ${GOLD}44` }}
@@ -927,7 +949,7 @@ function ToolsGrid() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              style={{ background: GOLD, color: BLACK }}
+              className={GOLD_BUTTON}
               onClick={() => returnId && returnTool.mutate(returnId.checkoutId)}
             >
               {returnTool.isPending ? <Loader2 size={14} className="animate-spin" /> : "Confirm Return"}
@@ -1022,7 +1044,7 @@ function AddAssetModal({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button style={{ background: GOLD, color: BLACK }} onClick={handleSave} disabled={saving || !form.name.trim()}>
+          <Button className={GOLD_BUTTON} onClick={handleSave} disabled={saving || !form.name.trim()}>
             {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
             Add Asset
           </Button>
@@ -1145,7 +1167,7 @@ function ScheduleAssetModal({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button style={{ background: GOLD, color: BLACK }} onClick={handleSave} disabled={saving}>
+          <Button className={GOLD_BUTTON} onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
             {existing ? "Update" : "Schedule"}
           </Button>
@@ -1276,7 +1298,7 @@ function MaterialModal({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button style={{ background: GOLD, color: BLACK }} onClick={handleSave} disabled={saving || !form.name.trim()}>
+          <Button className={GOLD_BUTTON} onClick={handleSave} disabled={saving || !form.name.trim()}>
             {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
             {existing ? "Update" : "Add Material"}
           </Button>
@@ -1298,34 +1320,34 @@ function PurchaseOrderModal({ material, onClose }: { material: MaterialRow; onCl
           <DialogTitle>Purchase Order Draft</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2 text-sm">
-          <div className="rounded-lg p-3" style={{ background: "#fafafa", border: "1px solid #f0f0f0" }}>
-            <p className="font-semibold text-gray-800">{material.name}</p>
-            <p className="text-gray-400 text-xs">{MATERIAL_CATEGORY_LABELS[material.category] ?? material.category}</p>
+          <div className="rounded-lg p-3" style={{ background: SURFACE2, border: `1px solid ${BORDER}` }}>
+            <p className="font-semibold" style={{ color: TEXT }}>{material.name}</p>
+            <p className="text-xs" style={{ color: MUTED }}>{MATERIAL_CATEGORY_LABELS[material.category] ?? material.category}</p>
           </div>
           <div className="space-y-1.5 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500">Current Stock</span>
-              <span className="font-medium">{material.quantityOnHand} {UNIT_LABELS[material.unit]}</span>
+              <span style={{ color: MUTED }}>Current Stock</span>
+              <span className="font-medium" style={{ color: TEXT }}>{material.quantityOnHand} {UNIT_LABELS[material.unit]}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Order Qty</span>
-              <span className="font-medium">{reorderQty} {UNIT_LABELS[material.unit]}</span>
+              <span style={{ color: MUTED }}>Order Qty</span>
+              <span className="font-medium" style={{ color: TEXT }}>{reorderQty} {UNIT_LABELS[material.unit]}</span>
             </div>
             {unitCost > 0 && (
-              <div className="flex justify-between border-t pt-1.5 mt-1.5">
-                <span className="text-gray-500">Estimated Total</span>
-                <span className="font-bold">${total.toFixed(2)}</span>
+              <div className="flex justify-between pt-1.5 mt-1.5" style={{ borderTop: `1px solid ${BORDER}` }}>
+                <span style={{ color: MUTED }}>Estimated Total</span>
+                <span className="font-bold" style={{ color: TEXT }}>${total.toFixed(2)}</span>
               </div>
             )}
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs" style={{ color: MUTED }}>
             Review and send this PO to your preferred supplier. Quantities can be adjusted before sending.
           </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
           <Button
-            style={{ background: GOLD, color: BLACK }}
+            className={GOLD_BUTTON}
             onClick={() => {
               const text = `PURCHASE ORDER\n\nItem: ${material.name}\nQty: ${reorderQty} ${UNIT_LABELS[material.unit]}${unitCost > 0 ? `\nUnit Cost: $${unitCost.toFixed(2)}\nTotal: $${total.toFixed(2)}` : ""}\n\nPlease fulfill at earliest availability.`;
               navigator.clipboard.writeText(text).catch(() => {});
@@ -1392,7 +1414,7 @@ function CheckoutToolModal({
         <div className="space-y-3 py-2">
           <div className="rounded-lg px-3 py-2" style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}33` }}>
             <p className="text-sm font-semibold" style={{ color: GOLD }}>{tool.name}</p>
-            <p className="text-xs text-gray-400 capitalize">{tool.assetType}</p>
+            <p className="text-xs capitalize" style={{ color: MUTED }}>{tool.assetType}</p>
           </div>
           <div>
             <Label className="text-xs">Assign to Team Member</Label>
@@ -1436,7 +1458,7 @@ function CheckoutToolModal({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button style={{ background: GOLD, color: BLACK }} onClick={handleSave} disabled={saving}>
+          <Button className={GOLD_BUTTON} onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
             Check Out
           </Button>
@@ -1457,54 +1479,96 @@ const TABS = [
 type TabKey = typeof TABS[number]["key"];
 
 export default function InventoryPage() {
+  const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabKey>("dispatch");
-  const { data: summary } = useQuery({
+  const { data: summary, dataUpdatedAt } = useQuery({
     queryKey: ["/inventory/summary"],
     queryFn: () => customFetch("/api/inventory/summary") as any,
     staleTime: 60_000,
   });
   const s = summary as any;
 
+  const [lastUpdatedLabel, setLastUpdatedLabel] = useState<string>("");
+  useEffect(() => {
+    function computeLabel() {
+      if (!dataUpdatedAt) return "";
+      const secs = Math.floor((Date.now() - dataUpdatedAt) / 1000);
+      if (secs < 5) return "just now";
+      if (secs < 60) return `${secs}s ago`;
+      const mins = Math.floor(secs / 60);
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      return `${hrs}h ago`;
+    }
+    setLastUpdatedLabel(computeLabel());
+    const id = setInterval(() => setLastUpdatedLabel(computeLabel()), 10_000);
+    return () => clearInterval(id);
+  }, [dataUpdatedAt]);
+
+  function refreshAll() {
+    qc.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).startsWith("/inventory") });
+  }
+
   return (
-    <div className="min-h-screen" style={{ background: "#F8F8F8" }}>
+    <div className="min-h-screen" style={{ background: SURFACE2, fontFamily: "'Inter', sans-serif" }}>
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6 space-y-5">
         {/* Page Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start justify-between mb-1 gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Inventory & Assets</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Fleet · Equipment · Materials · Tools</p>
+            <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2" style={{ color: TEXT }}>
+              <Warehouse className="h-6 w-6" style={{ color: GOLD }} />
+              Inventory &amp; Assets
+            </h1>
+            <p className="text-sm mt-0.5 font-medium" style={{ color: MUTED }}>Fleet · Equipment · Materials · Tools</p>
           </div>
-          {/* KPI Strip */}
-          <div className="flex gap-3 flex-wrap">
-            {[
-              { label: "Total Assets", value: s?.totalAssets ?? "—", color: GOLD },
-              { label: "Material Alerts", value: s?.materialAlerts ?? "—", color: s?.materialAlerts > 0 ? "#dc2626" : "#16a34a" },
-              { label: "Checked Out", value: s?.activeCheckouts ?? "—", color: "#d97706" },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="rounded-lg border bg-white px-4 py-2.5" style={{ borderColor: "#f0f0f0" }}>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide">{label}</p>
-                <p className="text-xl font-black" style={{ color }}>{value}</p>
-              </div>
-            ))}
+          <div className="flex items-center gap-2">
+            {lastUpdatedLabel && (
+              <span className="text-xs hidden sm:block" style={{ color: `${MUTED}99` }}>
+                Updated {lastUpdatedLabel}
+              </span>
+            )}
+            <button
+              onClick={refreshAll}
+              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border"
+              style={{ borderColor: `${GOLD}40`, color: MUTED }}
+            >
+              <RefreshCw size={12} style={{ color: GOLD }} /> Refresh
+            </button>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1" style={{ width: "fit-content" }}>
-          {TABS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-              style={{
-                background: activeTab === key ? BLACK : "transparent",
-                color: activeTab === key ? "#fff" : "#666",
-              }}
-            >
-              <Icon size={14} />
-              {label}
-            </button>
-          ))}
+        {/* KPI Stat Cards */}
+        <div className="grid grid-cols-3 gap-3">
+          <StatTile label="Total Assets" value={s?.totalAssets ?? "—"} icon={Boxes} />
+          <StatTile
+            label="Material Alerts"
+            value={s?.materialAlerts ?? "—"}
+            icon={AlertTriangle}
+            color={s?.materialAlerts > 0 ? "#dc2626" : "#16a34a"}
+          />
+          <StatTile label="Checked Out" value={s?.activeCheckouts ?? "—"} icon={ArrowRightLeft} color="#d97706" />
+        </div>
+
+        {/* Section Switcher */}
+        <div className="flex items-center rounded-lg p-1 gap-1" style={{ background: SURFACE2, border: `1px solid ${BORDER}`, width: "fit-content" }}>
+          {TABS.map(({ key, label, icon: Icon }) => {
+            const isActive = activeTab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold transition-all"
+                style={{
+                  background: isActive ? SURFACE : "transparent",
+                  color: isActive ? GOLD : MUTED,
+                  boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                }}
+              >
+                <Icon size={14} />
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Tab Content */}

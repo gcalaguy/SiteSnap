@@ -8,8 +8,10 @@ import {
   builderEstimateItemsTable,
   proposalsTable,
   projectsTable,
+  expensesTable,
+  usersTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwnerOrForeman, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
@@ -89,6 +91,38 @@ router.get("/financials/summary", requireAuth, requireCompany, requirePermission
     approvedChangeOrdersValue: approvedChangeOrdersValue.toFixed(2),
     recentPayments,
   });
+}))
+
+// ── Expenses (company-wide, for the Accounting hub) ───────────────────────────
+
+// GET /financials/expenses — every expense across all projects, with receipt + status,
+// for the macro-level accounting/bookkeeping view. Project-level access is not needed
+// here since this is explicitly the owner/foreman company-wide financial rollup.
+router.get("/financials/expenses", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
+  const { limit, offset } = parsePagination(req.query, 50, 200);
+
+  const rows = await db
+    .select({
+      expense: expensesTable,
+      projectName: projectsTable.name,
+      submittedByFirstName: usersTable.firstName,
+      submittedByLastName: usersTable.lastName,
+    })
+    .from(expensesTable)
+    .leftJoin(projectsTable, eq(projectsTable.id, expensesTable.projectId))
+    .leftJoin(usersTable, eq(usersTable.id, expensesTable.submittedByUserId))
+    .where(eq(expensesTable.companyId, req.companyId!))
+    .orderBy(desc(expensesTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  res.json(rows.map((r) => ({
+    ...r.expense,
+    projectName: r.projectName ?? "Unknown project",
+    submittedByName: r.submittedByFirstName && r.submittedByLastName
+      ? `${r.submittedByFirstName} ${r.submittedByLastName}`
+      : "Unknown",
+  })));
 }))
 
 // ── Payments ──────────────────────────────────────────────────────────────────

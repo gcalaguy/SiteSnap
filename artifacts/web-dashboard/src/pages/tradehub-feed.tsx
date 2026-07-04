@@ -56,8 +56,10 @@ interface Post {
 
 function Avatar({ profile, author, size = 10 }: { profile: Post["profile"]; author: Post["author"]; size?: number }) {
   const initials = profile?.displayName
-    ? profile.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
-    : author ? `${author.firstName[0]}${author.lastName[0]}` : "??";
+    ? profile.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "??"
+    : author
+      ? `${author.firstName?.[0] ?? ""}${author.lastName?.[0] ?? ""}`.toUpperCase() || "??"
+      : "??";
   const sz = `w-${size} h-${size}`;
   return (
     <SignedAvatar

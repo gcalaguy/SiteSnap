@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import {
   listTradehubJobs,
   getListTradehubJobsQueryKey,
 } from "@workspace/api-client-react";
 import { format } from "date-fns";
-import { Briefcase, MapPin, DollarSign, Clock, Loader2, ArrowLeft, Filter, X } from "lucide-react";
+import { Briefcase, MapPin, DollarSign, Clock, Loader2, ArrowLeft, Filter, X, Zap, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,15 @@ import { SignedAvatar } from "@/components/SignedAvatar";
 
 const TRADES = ["Electrician","Plumber","HVAC","General Contractor","Carpenter","Welder","Roofer","Painter","Mason","Ironworker","Concrete","Landscaping","Other"];
 const PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
+const LOGO_COLORS = ["#1d4ed8", "#0f766e", "#b45309", "#7c3aed", "#be185d", "#0369a1"];
+function logoColorFor(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return LOGO_COLORS[hash % LOGO_COLORS.length];
+}
 
 export default function TradehubJobsPage() {
   const [tradeFilter, setTradeFilter] = useState("all");
@@ -33,6 +42,7 @@ export default function TradehubJobsPage() {
   });
 
   const jobs: any[] = data?.pages.flatMap((p: any) => p.posts) ?? [];
+  const [, navigate] = useLocation();
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -41,8 +51,8 @@ export default function TradehubJobsPage() {
           <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div className="flex items-center gap-3 flex-1">
-          <div className="p-2 bg-green-100 rounded-xl">
-            <Briefcase className="h-5 w-5 text-green-700" />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: BLACK }}>
+            <Briefcase className="h-5 w-5" style={{ color: GOLD }} />
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">Job Board</h1>
@@ -50,7 +60,7 @@ export default function TradehubJobsPage() {
           </div>
         </div>
         <Link href="/tradehub">
-          <Button variant="outline" className="gap-2 text-sm">
+          <Button className="gap-2 text-sm font-semibold" style={{ background: BLACK, color: GOLD }}>
             <Briefcase className="h-4 w-4" />Post a Job
           </Button>
         </Link>
@@ -113,65 +123,76 @@ export default function TradehubJobsPage() {
           {jobs.map((job) => {
             const authorName = job.profile?.displayName ?? `${job.author?.firstName ?? ""} ${job.author?.lastName ?? ""}`.trim();
             const initials = authorName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+            const logoColor = logoColorFor(authorName || String(job.id));
 
             return (
-              <Link key={job.id} href={`/tradehub/posts/${job.id}`}>
-                <Card className="cursor-pointer hover:shadow-md hover:border-primary/30 transition-all">
-                  <CardContent className="p-5">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-green-50 border border-green-100 flex items-center justify-center flex-shrink-0">
-                        <SignedAvatar
-                          url={job.profile?.avatarUrl}
-                          sizeClass="w-12 h-12"
-                          fallback={<span className="font-bold text-green-700 text-sm">{initials}</span>}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground text-base mb-1 hover:text-primary transition-colors">
-                          {job.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {authorName}
-                          {job.profile?.isVerified && (
-                            <span className="ml-1.5 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">✓</span>
-                          )}
-                        </p>
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{job.content}</p>
-                        <div className="flex items-center gap-3 flex-wrap">
-                          {job.trade && (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Briefcase className="h-3 w-3" />{job.trade}
-                            </span>
-                          )}
-                          {(job.location || job.province) && (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <MapPin className="h-3 w-3" />{[job.location, job.province].filter(Boolean).join(", ")}
-                            </span>
-                          )}
-                          {job.budget && (
-                            <span className="flex items-center gap-1 text-xs text-green-700 font-medium">
-                              <DollarSign className="h-3 w-3" />{job.budget}
-                            </span>
-                          )}
-                          {job.jobType && (
-                            <Badge variant="outline" className="text-xs">{job.jobType}</Badge>
-                          )}
-                          <span className="ml-auto text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {format(new Date(job.createdAt), "MMM d")}
-                          </span>
-                        </div>
-                      </div>
-                      {job.applicationCount > 0 && (
-                        <div className="flex-shrink-0 text-center">
-                          <p className="text-lg font-bold text-foreground">{job.applicationCount}</p>
-                          <p className="text-xs text-muted-foreground">applied</p>
-                        </div>
-                      )}
+              <Card key={job.id}
+                className="cursor-pointer hover:shadow-lg hover:border-primary/30 transition-all overflow-hidden"
+                onClick={() => navigate(`/tradehub/posts/${job.id}`)}>
+                <CardContent className="p-5">
+                  <div className="flex items-start gap-4">
+                    {/* Company logo placeholder */}
+                    <div className="w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0 relative" style={{ background: `${logoColor}18`, border: `1px solid ${logoColor}33` }}>
+                      <SignedAvatar
+                        url={job.profile?.avatarUrl}
+                        sizeClass="w-14 h-14"
+                        fallback={<span className="font-bold text-sm" style={{ color: logoColor }}>{initials || <Building2 className="h-5 w-5" style={{ color: logoColor }} />}</span>}
+                      />
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-foreground text-base mb-0.5 hover:text-primary transition-colors leading-snug">
+                            {job.title}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {authorName}
+                            {job.profile?.isVerified && (
+                              <span className="ml-1.5 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">✓</span>
+                            )}
+                          </p>
+                        </div>
+                        {job.budget && (
+                          <span className="flex-shrink-0 flex items-center gap-1 text-sm font-bold px-3 py-1 rounded-full" style={{ background: `${GOLD}20`, color: "#8a6d1f" }}>
+                            <DollarSign className="h-3.5 w-3.5" />{job.budget}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2 my-2.5">{job.content}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {job.trade && (
+                          <Badge variant="outline" className="text-xs gap-1"><Briefcase className="h-3 w-3" />{job.trade}</Badge>
+                        )}
+                        {(job.location || job.province) && (
+                          <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground border border-border">
+                            <MapPin className="h-3 w-3" />{[job.location, job.province].filter(Boolean).join(", ")}
+                          </span>
+                        )}
+                        {job.jobType && (
+                          <Badge variant="outline" className="text-xs">{job.jobType}</Badge>
+                        )}
+                        <span className="ml-auto text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {format(new Date(job.createdAt), "MMM d")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/40">
+                    <span className="text-xs text-muted-foreground">
+                      {job.applicationCount > 0 ? `${job.applicationCount} applicant${job.applicationCount !== 1 ? "s" : ""}` : "Be the first to apply"}
+                    </span>
+                    <Button
+                      size="sm"
+                      className="gap-1.5 font-semibold shadow-sm"
+                      style={{ background: BLACK, color: GOLD }}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/tradehub/posts/${job.id}`); }}
+                    >
+                      <Zap className="h-3.5 w-3.5" />Quick Apply
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
           {hasNextPage && (

@@ -312,6 +312,9 @@ export const expensesTable = pgTable("expenses", {
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
   description: text("description").notNull(),
   receiptObjectPath: text("receipt_object_path"),
+  vendorName: text("vendor_name"),
+  taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }),
+  expenseDate: date("expense_date"),
   status: text("status").notNull().default("submitted"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [

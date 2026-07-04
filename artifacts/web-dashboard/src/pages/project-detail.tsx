@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useSearch } from "wouter";
 import {
   useGetProject,
   useGetProjectSummary,
@@ -100,7 +100,12 @@ export default function ProjectDetail() {
     changeOrders: false,
     safety: false,
   });
-  const [activeTab, setActiveTab] = useState("overview");
+  // Deep-linkable via /projects/:id?tab=overview|tasks|reports|cost|rfis|quotes|team|documents|client-messages|safety|change-orders|permits
+  const search = useSearch();
+  const [activeTab, setActiveTab] = useState(() => {
+    const requestedTab = new URLSearchParams(search).get("tab");
+    return requestedTab || "overview";
+  });
 
   const { data: me } = useGetMe();
   const companyId = me?.company?.id;

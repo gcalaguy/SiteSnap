@@ -616,8 +616,8 @@ export default function Dashboard() {
         <RiskOverviewCards data={riskData} />
       )}
 
-      {/* Smart Summary Banner */}
-      {smartSummary?.summary && (
+      {/* Smart Summary Banner — content is already scoped server-side to the caller's role/assignments */}
+      {smartSummary && (
         <Card className="border-amber-200/40 bg-gradient-to-r from-amber-50/80 to-orange-50/60">
           <CardContent className="flex items-start gap-3 pt-4 pb-4">
             <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0"
@@ -626,7 +626,11 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Smart Insights</p>
-              <p className="text-sm text-gray-700 leading-relaxed">{smartSummary.summary}</p>
+              {smartSummary.summary ? (
+                <p className="text-sm text-gray-700 leading-relaxed">{smartSummary.summary}</p>
+              ) : (
+                <p className="text-sm text-gray-500 leading-relaxed">No current insights for your assigned tasks.</p>
+              )}
             </div>
           </CardContent>
         </Card>

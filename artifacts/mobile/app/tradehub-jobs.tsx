@@ -29,6 +29,17 @@ import {
 const TRADES = ["Electrician", "Plumber", "HVAC", "General Contractor", "Carpenter", "Welder", "Roofer", "Painter", "Mason", "Ironworker", "Concrete", "Landscaping", "Other"];
 const PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"];
 
+const LOGO_COLORS = ["#1d4ed8", "#0f766e", "#b45309", "#7c3aed", "#be185d", "#0369a1"];
+function logoColorFor(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return LOGO_COLORS[hash % LOGO_COLORS.length];
+}
+function posterInitials(item: TradehubPost) {
+  const name = item.profile?.displayName ?? `${item.author?.firstName ?? ""} ${item.author?.lastName ?? ""}`.trim();
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
+}
+
 function timeAgo(dateStr: string) {
   const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
   if (diff < 60) return "just now";
@@ -79,21 +90,30 @@ export default function TradehubJobsScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
   function renderJob({ item }: { item: TradehubPost }) {
+    const logoColor = logoColorFor(item.profile?.displayName ?? String(item.id));
     return (
       <TouchableOpacity
         style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
         onPress={() => router.push(`/tradehub-post/${item.id}` as any)}
-        activeOpacity={0.82}
+        activeOpacity={0.9}
       >
         <View style={styles.cardTop}>
-          <View style={[styles.badge, { backgroundColor: "#D4AF3718" }]}>
-            <Feather name="briefcase" size={11} color="#D4AF37" />
-            <Text style={[styles.badgeText, { color: "#D4AF37" }]}>Job</Text>
+          {/* Company logo placeholder */}
+          <View style={[styles.logo, { backgroundColor: logoColor + "18", borderColor: logoColor + "33" }]}>
+            <Text style={[styles.logoText, { color: logoColor }]}>{posterInitials(item)}</Text>
           </View>
-          <Text style={[styles.time, { color: colors.mutedForeground }]}>{timeAgo(item.createdAt)}</Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={2}>{item.title}</Text>
+            <Text style={[styles.time, { color: colors.mutedForeground }]}>{timeAgo(item.createdAt)}</Text>
+          </View>
+          {item.budget && (
+            <View style={[styles.salaryTag]}>
+              <Feather name="dollar-sign" size={12} color="#8a6d1f" />
+              <Text style={styles.salaryText}>{item.budget}</Text>
+            </View>
+          )}
         </View>
 
-        <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={2}>{item.title}</Text>
         <Text style={[styles.body, { color: colors.mutedForeground }]} numberOfLines={3}>{item.content}</Text>
 
         <View style={styles.metaRow}>
@@ -103,27 +123,26 @@ export default function TradehubJobsScreen() {
               <Text style={[styles.tagText, { color: colors.mutedForeground }]}>{item.trade}</Text>
             </View>
           )}
-          {item.province && (
+          {(item.location || item.province) && (
             <View style={[styles.tag, { borderColor: colors.border }]}>
               <Feather name="map-pin" size={11} color={colors.mutedForeground} />
-              <Text style={[styles.tagText, { color: colors.mutedForeground }]}>{item.province}</Text>
-            </View>
-          )}
-          {item.budget && (
-            <View style={[styles.tag, { borderColor: "#22C55E44", backgroundColor: "#22C55E0A" }]}>
-              <Feather name="dollar-sign" size={11} color="#22C55E" />
-              <Text style={[styles.tagText, { color: "#22C55E" }]}>{item.budget}</Text>
+              <Text style={[styles.tagText, { color: colors.mutedForeground }]}>{[item.location, item.province].filter(Boolean).join(", ")}</Text>
             </View>
           )}
         </View>
 
-        <TouchableOpacity
-          style={[styles.applyBtn, { backgroundColor: colors.primary }]}
-          onPress={() => setApplyPost(item)}
-        >
-          <Feather name="send" size={13} color="#FFFFFF" />
-          <Text style={styles.applyText}>Apply Now</Text>
-        </TouchableOpacity>
+        <View style={styles.cardFooter}>
+          <Text style={[styles.applicantsText, { color: colors.mutedForeground }]}>
+            {item.applicationCount > 0 ? `${item.applicationCount} applicant${item.applicationCount !== 1 ? "s" : ""}` : "Be the first to apply"}
+          </Text>
+          <TouchableOpacity
+            style={styles.applyBtn}
+            onPress={() => setApplyPost(item)}
+          >
+            <Feather name="zap" size={13} color="#D4AF37" />
+            <Text style={styles.applyText}>Quick Apply</Text>
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     );
   }
@@ -283,7 +302,13 @@ const styles = StyleSheet.create({
   filterChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   feedContent: { padding: 12, gap: 10 },
   card: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 8 },
-  cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  logo: { width: 44, height: 44, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  logoText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  salaryTag: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: "#D4AF3722" },
+  salaryText: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#8a6d1f" },
+  cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(128,128,128,0.2)" },
+  applicantsText: { fontSize: 12, fontFamily: "Inter_400Regular" },
   badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   badgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   time: { fontSize: 11, fontFamily: "Inter_400Regular" },
@@ -297,11 +322,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 10,
-    marginTop: 4,
+    backgroundColor: "#111111",
   },
-  applyText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" },
+  applyText: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#D4AF37" },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
   retryBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 },
   empty: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },

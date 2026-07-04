@@ -57,9 +57,20 @@ function parseBriefing(raw: string): BriefingLine[] {
   return out.slice(0, 12);
 }
 
+// Backend returns a single unstructured sentence (no bullets/newlines) for the
+// deterministic "nothing to report" cases — render those as a calm placeholder
+// instead of running them through the bullet parser as a one-item list.
+function isMotivationalPlaceholder(raw: string): boolean {
+  const trimmed = raw.trim();
+  return trimmed.length > 0 && !trimmed.includes("\n") && !/^[-•]/.test(trimmed) && trimmed.length < 160;
+}
+
 function AiBriefingCard({ colors }: { colors: any }) {
   const [expanded, setExpanded] = useState(false);
   const [lines, setLines] = useState<BriefingLine[]>([]);
+  const [placeholder, setPlaceholder] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
   const { mutate, isPending } = useMutation({
     mutationFn: () =>
@@ -71,8 +82,22 @@ function AiBriefingCard({ colors }: { colors: any }) {
       const raw = typeof data === "string"
         ? data
         : (data as any)?.briefing ?? (data as any)?.summary ?? JSON.stringify(data);
-      setLines(parseBriefing(raw));
-      setExpanded(true);
+      setLoadError(false);
+      setHasFetched(true);
+      if (isMotivationalPlaceholder(raw)) {
+        setPlaceholder(raw.trim());
+        setLines([]);
+      } else {
+        setPlaceholder(null);
+        setLines(parseBriefing(raw));
+        setExpanded(true);
+      }
+    },
+    onError: () => {
+      setLoadError(true);
+      setHasFetched(true);
+      setPlaceholder(null);
+      setLines([]);
     },
   });
 
@@ -111,17 +136,31 @@ function AiBriefingCard({ colors }: { colors: any }) {
             Generating briefing…
           </Text>
         </View>
-      ) : lines.length === 0 ? (
+      ) : loadError ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <Feather name="wifi-off" size={13} color="rgba(255,255,255,0.4)" />
+          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "Inter_400Regular" }}>
+            Couldn't load your briefing — tap refresh to try again.
+          </Text>
+        </View>
+      ) : placeholder ? (
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 12 }}>
+          <Feather name="check-circle" size={15} color="#10b981" style={{ marginTop: 1 }} />
+          <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", flex: 1, lineHeight: 18, fontFamily: "Inter_400Regular" }}>
+            {placeholder}
+          </Text>
+        </View>
+      ) : !hasFetched || lines.length === 0 ? (
         <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 10, fontFamily: "Inter_400Regular" }}>
           Tap refresh to generate your daily briefing.
         </Text>
       ) : (
         <>
-          <View style={{ marginTop: 10, gap: 6 }}>
+          <View style={{ marginTop: 10, gap: 5 }}>
             {displayLines.map((l, i) => (
-              <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-                <Feather name={l.icon as any} size={13} color={l.color} style={{ marginTop: 2 }} />
-                <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", flex: 1, lineHeight: 18, fontFamily: "Inter_400Regular" }}>
+              <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 7 }}>
+                <Feather name={l.icon as any} size={12} color={l.color} style={{ marginTop: 2 }} />
+                <Text style={{ fontSize: 12.5, color: "rgba(255,255,255,0.8)", flex: 1, lineHeight: 17, fontFamily: "Inter_400Regular" }}>
                   {l.text}
                 </Text>
               </View>

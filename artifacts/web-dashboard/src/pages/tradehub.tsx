@@ -8,7 +8,7 @@ import {
   Globe, Plus, ThumbsUp, MessageSquare, Briefcase, Search, Bell, User,
   ChevronRight, X, Send, Loader2, Sparkles, MessageCircle, MapPin, BadgeCheck,
   ArrowUp, ArrowUpDown, Clock, DollarSign, Calendar, ShieldAlert,
-  CheckCircle2, ImagePlus,
+  CheckCircle2, ImagePlus, Share2, Users, Bookmark, Layers3, Flame, TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import { SignedImage } from "@/components/SignedImage";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
+const ORANGE = "#FF6B00";
 
 const TRADES = ["Electrician","Plumber","HVAC","General Contractor","Carpenter","Welder","Roofer","Painter","Mason","Ironworker","Concrete","Landscaping","Other"];
 const PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
@@ -65,8 +66,10 @@ interface ForumPost {
 
 function Avatar({ profile, author, size = 10 }: { profile: Post["profile"]; author: Post["author"]; size?: number }) {
   const initials = profile?.displayName
-    ? profile.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
-    : author ? `${author.firstName[0]}${author.lastName[0]}` : "??";
+    ? profile.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "??"
+    : author
+      ? `${author.firstName?.[0] ?? ""}${author.lastName?.[0] ?? ""}`.toUpperCase() || "??"
+      : "??";
   const sz = `w-${size} h-${size}`;
   return (
     <SignedAvatar
@@ -79,74 +82,99 @@ function Avatar({ profile, author, size = 10 }: { profile: Post["profile"]; auth
 }
 
 function FeedPostCard({ post, onReact }: { post: Post; onReact: (id: number) => void }) {
+  const { toast } = useToast();
   const tc = typeConfig[post.type] ?? typeConfig.discussion;
   const Icon = tc.icon;
   const displayName = post.profile?.displayName ?? `${post.author?.firstName} ${post.author?.lastName}`;
+
+  function handleShare() {
+    const url = `${window.location.origin}/tradehub/posts/${post.id}`;
+    navigator.clipboard?.writeText(url);
+    toast({ title: "Link copied", description: "Post link copied to clipboard." });
+  }
+
   return (
-    <div className="bg-card border border-border/60 rounded-xl overflow-hidden hover:border-border hover:shadow-md transition-all group"
-      style={{ borderLeft: `3px solid ${tc.accent}` }}>
-      <div className="p-5 border-t-[#121010] border-r-[#121010] border-b-[#121010] border-l-[#121010]">
-        <div className="flex items-center justify-between mb-3 opacity-[1] border-t-[#0f0f0f] border-r-[#0f0f0f] border-b-[#0f0f0f] border-l-[#0f0f0f] rounded-tl-[0px] rounded-tr-[0px] rounded-br-[0px] rounded-bl-[0px] border-t-[1px] border-r-[1px] border-b-[1px] border-l-[1px]">
-          <Link href={`/tradehub/profile/${post.userId}`}>
-            <div className="flex items-center gap-2.5 cursor-pointer">
-              <Avatar profile={post.profile} author={post.author} size={9} />
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-semibold text-foreground hover:underline leading-tight ml-[20px] mr-[20px]">{displayName}</span>
-                  {post.profile?.isVerified && <BadgeCheck className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "#3b82f6" }} />}
-                </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {post.profile?.trade && <span className="text-xs text-muted-foreground">{post.profile.trade}</span>}
-                  {post.province && <><span className="text-muted-foreground/40 text-xs">·</span><span className="flex items-center gap-0.5 text-xs text-muted-foreground"><MapPin className="h-2.5 w-2.5" />{post.province}</span></>}
-                </div>
+    <div className="bg-card border border-border/60 rounded-xl overflow-hidden hover:border-border hover:shadow-md transition-all group">
+      {/* Post anatomy: avatar, name, trade/role badge, timestamp */}
+      <div className="flex items-center justify-between px-5 pt-4 pb-3">
+        <Link href={`/tradehub/profile/${post.userId}`}>
+          <div className="flex items-center gap-2.5 cursor-pointer">
+            <Avatar profile={post.profile} author={post.author} size={10} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold text-foreground hover:underline leading-tight">{displayName}</span>
+                {post.profile?.isVerified && <BadgeCheck className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "#3b82f6" }} />}
+              </div>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {post.profile?.trade && (
+                  <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded" style={{ background: `${GOLD}18`, color: GOLD }}>
+                    {post.profile.trade}
+                  </span>
+                )}
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  {post.province && <><MapPin className="h-3 w-3" />{post.province}<span className="text-muted-foreground/40">·</span></>}
+                  {format(new Date(post.createdAt), "MMM d")}
+                </span>
               </div>
             </div>
-          </Link>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
-              style={{ background: `${tc.accent}18`, color: tc.accent }}><Icon className="h-3 w-3" />{tc.label}</span>
-            <span className="text-xs text-muted-foreground">{format(new Date(post.createdAt), "MMM d")}</span>
-          </div>
-        </div>
-        <Link href={`/tradehub/posts/${post.id}`}>
-          <div className="cursor-pointer mb-3">
-            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors mb-1 leading-snug">{post.title}</h3>
-            <p className="text-sm line-clamp-2 leading-relaxed text-[#004fff]">{post.content}</p>
           </div>
         </Link>
-        {post.type === "job" && (post.budget || post.jobType) && (
-          <div className="flex gap-2 flex-wrap mb-3">
-            {post.jobType && <span className="text-xs border border-border rounded-full px-2.5 py-0.5 text-muted-foreground">{post.jobType}</span>}
-            {post.budget && <span className="text-xs rounded-full px-2.5 py-0.5 font-semibold" style={{ background: `${GOLD}20`, color: GOLD }}>{post.budget}</span>}
-          </div>
-        )}
-        {post.media.length > 0 && (
-          <div className={`mb-3 grid gap-1.5 rounded-lg overflow-hidden ${post.media.length === 1 ? "" : "grid-cols-2"}`}>
-            {post.media.slice(0, 4).map((m) => (
-              <SignedImage key={m.id} src={m.url} alt="" className="object-cover w-full aspect-video" />
-            ))}
-          </div>
-        )}
-        <div className="flex items-center gap-1 pt-3 border-t border-border/40">
-          <button onClick={() => onReact(post.id)}
-            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${post.hasReacted ? "font-semibold" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-            style={post.hasReacted ? { color: GOLD, background: `${GOLD}15` } : undefined}>
-            <ThumbsUp className={`h-3.5 w-3.5 ${post.hasReacted ? "fill-current" : ""}`} />{post.reactionCount > 0 ? post.reactionCount : "Like"}
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0"
+          style={{ background: `${tc.accent}18`, color: tc.accent }}><Icon className="h-3 w-3" />{tc.label}</span>
+      </div>
+
+      <Link href={`/tradehub/posts/${post.id}`}>
+        <div className="cursor-pointer px-5 pb-3">
+          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors mb-1 leading-snug">{post.title}</h3>
+          <p className="text-sm line-clamp-2 leading-relaxed text-muted-foreground">{post.content}</p>
+        </div>
+      </Link>
+
+      {post.type === "job" && (post.budget || post.jobType) && (
+        <div className="flex gap-2 flex-wrap px-5 pb-3">
+          {post.jobType && <span className="text-xs border border-border rounded-full px-2.5 py-0.5 text-muted-foreground">{post.jobType}</span>}
+          {post.budget && <span className="text-xs rounded-full px-2.5 py-0.5 font-semibold" style={{ background: `${GOLD}20`, color: GOLD }}>{post.budget}</span>}
+        </div>
+      )}
+
+      {/* Media block: edge-to-edge, full visual priority */}
+      {post.media.length > 0 && (
+        <div className={`grid gap-0.5 mb-3 ${post.media.length === 1 ? "" : "grid-cols-2"}`}>
+          {post.media.slice(0, 4).map((m) => (
+            <SignedImage key={m.id} src={m.url} alt="" className="object-cover w-full aspect-video rounded-xl" />
+          ))}
+        </div>
+      )}
+
+      {/* Interaction bar */}
+      <div className="flex items-center gap-1 px-3 py-1.5 border-t border-border/40">
+        <button onClick={() => onReact(post.id)}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${post.hasReacted ? "font-semibold" : "text-muted-foreground"}`}
+          style={post.hasReacted ? { color: ORANGE, background: `${ORANGE}15` } : undefined}
+          onMouseEnter={(e) => { if (!post.hasReacted) { e.currentTarget.style.color = ORANGE; e.currentTarget.style.background = `${ORANGE}12`; } }}
+          onMouseLeave={(e) => { if (!post.hasReacted) { e.currentTarget.style.color = ""; e.currentTarget.style.background = ""; } }}>
+          <ThumbsUp className={`h-3.5 w-3.5 ${post.hasReacted ? "fill-current" : ""}`} />{post.reactionCount > 0 ? post.reactionCount : "Like"}
+        </button>
+        <Link href={`/tradehub/posts/${post.id}`}>
+          <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg text-muted-foreground transition-colors"
+            onMouseEnter={(e) => { e.currentTarget.style.color = ORANGE; e.currentTarget.style.background = `${ORANGE}12`; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = ""; e.currentTarget.style.background = ""; }}>
+            <MessageSquare className="h-3.5 w-3.5" />{post.commentCount > 0 ? post.commentCount : "Comment"}
           </button>
-          <Link href={`/tradehub/posts/${post.id}`}>
-            <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-              <MessageSquare className="h-3.5 w-3.5" />{post.commentCount > 0 ? post.commentCount : "Comment"}
+        </Link>
+        <button onClick={handleShare} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg text-muted-foreground transition-colors"
+          onMouseEnter={(e) => { e.currentTarget.style.color = ORANGE; e.currentTarget.style.background = `${ORANGE}12`; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = ""; e.currentTarget.style.background = ""; }}>
+          <Share2 className="h-3.5 w-3.5" />Share
+        </button>
+        {post.type === "job" && (
+          <Link href={`/tradehub/posts/${post.id}`} className="ml-auto">
+            <button className="text-xs px-4 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90"
+              style={post.applicationCount > 0 ? { background: `${GOLD}20`, color: GOLD } : { background: BLACK, color: GOLD }}>
+              {post.applicationCount > 0 ? `${post.applicationCount} Applied` : "Apply Now"}
             </button>
           </Link>
-          {post.type === "job" && (
-            <Link href={`/tradehub/posts/${post.id}`} className="ml-auto">
-              <button className="text-xs px-4 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90"
-                style={post.applicationCount > 0 ? { background: `${GOLD}20`, color: GOLD } : { background: BLACK, color: GOLD }}>
-                {post.applicationCount > 0 ? `${post.applicationCount} Applied` : "Apply Now"}
-              </button>
-            </Link>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
@@ -166,9 +194,13 @@ function ForumPostCard({ post, onReact }: { post: ForumPost; onReact: (id: numbe
                   <span className="text-sm font-semibold text-foreground hover:underline leading-tight">{displayName}</span>
                   {post.profile?.isVerified && <BadgeCheck className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "#3b82f6" }} />}
                 </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {post.profile?.trade && <span className="text-xs text-muted-foreground">{post.profile.trade}</span>}
-                  {post.province && <><span className="text-muted-foreground/40 text-xs">·</span><span className="flex items-center gap-0.5 text-xs text-muted-foreground"><MapPin className="h-2.5 w-2.5" />{post.province}</span></>}
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {post.profile?.trade && (
+                    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded" style={{ background: `${GOLD}18`, color: GOLD }}>
+                      {post.profile.trade}
+                    </span>
+                  )}
+                  {post.province && <span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" />{post.province}</span>}
                 </div>
               </div>
             </div>
@@ -696,8 +728,15 @@ export default function TradehubPage() {
   const hasFeedFilters = feedTrade !== "all" || feedProvince !== "all";
   const hasTenderFilters = tenderTrade !== "all" || tenderProvince !== "all";
 
+  const trendingJobs = [...tenders]
+    .sort((a, b) => b.applicationCount - a.applicationCount)
+    .slice(0, 4);
+  const hotDiscussions = [...allForumPosts]
+    .sort((a, b) => b.reactionCount - a.reactionCount)
+    .slice(0, 4);
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6 ml-[0px] mr-[0px] mt-[0px] mb-[0px] pl-[0px] pr-[0px] pt-[24px] pb-[24px]">
+    <div className="p-6 max-w-[1440px] mx-auto space-y-6 ml-[0px] mr-[0px] mt-[0px] mb-[0px] pl-[0px] pr-[0px] pt-[24px] pb-[24px]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -740,9 +779,10 @@ export default function TradehubPage() {
           );
         })}
       </div>
-      <div className="grid lg:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <aside className="lg:col-span-1 space-y-3 text-left ml-[0px] mr-[0px] mt-[11px] mb-[11px] pl-[0px] pr-[0px] pt-[0px] pb-[0px]">
+      {/* 3-Column Social Grid: 20% profile/nav — 55% activity feed — 25% trending sidebar (web only, stacks on small screens) */}
+      <div className="grid lg:grid-cols-[20fr_55fr_25fr] gap-6">
+        {/* Left Column: profile snapshot + localized nav links */}
+        <aside className="order-2 lg:order-none space-y-3 text-left ml-[0px] mr-[0px] mt-[11px] mb-[11px] pl-[0px] pr-[0px] pt-[0px] pb-[0px]">
           <div className="rounded-xl p-4" style={{ background: BLACK }}>
             {myProfile ? (
               <Link href="/tradehub/profile/me">
@@ -783,6 +823,23 @@ export default function TradehubPage() {
                   <Icon className="h-4 w-4 flex-shrink-0" style={{ color: GOLD }} />{label}
                 </button>
               </Link>
+            ))}
+          </div>
+
+          <div className="rounded-xl py-2" style={{ background: BLACK }}>
+            {[
+              { label: "My Network", icon: Users },
+              { label: "Saved Jobs", icon: Bookmark },
+              { label: "Groups", icon: Layers3 },
+            ].map(({ label, icon: Icon }) => (
+              <button key={label}
+                className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium transition-colors rounded-lg mx-auto"
+                style={{ color: "#a1a1aa", width: "calc(100% - 8px)", marginLeft: 4 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = GOLD; (e.currentTarget as HTMLButtonElement).style.background = "rgba(201,168,76,0.08)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#a1a1aa"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                onClick={() => toast({ title: label, description: "Coming soon to TradeHub." })}>
+                <span className="flex items-center gap-3"><Icon className="h-4 w-4 flex-shrink-0" style={{ color: GOLD }} />{label}</span>
+              </button>
             ))}
           </div>
 
@@ -836,8 +893,8 @@ export default function TradehubPage() {
           )}
         </aside>
 
-        {/* Main Content */}
-        <div className="lg:col-span-3 space-y-4">
+        {/* Center Column: main vertical activity feed */}
+        <div className="order-1 lg:order-none min-w-0 space-y-4">
           {/* ── Marketplace Feed ── */}
           {activeTab === "feed" && (
             <>
@@ -950,6 +1007,73 @@ export default function TradehubPage() {
             </>
           )}
         </div>
+
+        {/* Right Column: high-density trending sidebar */}
+        <aside className="order-3 lg:order-none space-y-3">
+          <div className="rounded-xl p-4 space-y-3" style={{ background: BLACK }}>
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5" style={{ color: GOLD }} />
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Trending Job Openings</p>
+            </div>
+            {trendingJobs.length === 0 ? (
+              <p className="text-xs" style={{ color: "#71717a" }}>No open tenders yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {trendingJobs.map((job) => (
+                  <button key={job.id} onClick={() => setActiveTab("tenders")}
+                    className="w-full text-left rounded-lg p-2.5 transition-colors"
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(201,168,76,0.08)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
+                    <p className="text-sm font-semibold text-white truncate leading-snug">{job.projectTitle}</p>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <span className="text-xs" style={{ color: "#a1a1aa" }}>{job.companyName}</span>
+                      {job.applicationCount > 0 && (
+                        <span className="text-xs font-semibold" style={{ color: GOLD }}>· {job.applicationCount} applied</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setActiveTab("tenders")}
+              className="w-full text-xs py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors font-medium"
+              style={{ color: GOLD, background: "#1f1f1f" }}>
+              View All Tenders<ChevronRight className="h-3 w-3" />
+            </button>
+          </div>
+
+          <div className="rounded-xl p-4 space-y-3" style={{ background: BLACK }}>
+            <div className="flex items-center gap-1.5">
+              <Flame className="h-3.5 w-3.5" style={{ color: ORANGE }} />
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Hot Discussions</p>
+            </div>
+            {hotDiscussions.length === 0 ? (
+              <p className="text-xs" style={{ color: "#71717a" }}>No discussions yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {hotDiscussions.map((post) => (
+                  <Link key={post.id} href={`/tradehub/posts/${post.id}`}>
+                    <div className="w-full text-left rounded-lg p-2.5 transition-colors cursor-pointer"
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(201,168,76,0.08)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
+                      <p className="text-sm font-semibold text-white truncate leading-snug">{post.title}</p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <ArrowUp className="h-3 w-3" style={{ color: ORANGE }} />
+                        <span className="text-xs font-semibold" style={{ color: ORANGE }}>{post.reactionCount}</span>
+                        <span className="text-xs" style={{ color: "#71717a" }}>· {post.commentCount} comments</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setActiveTab("forums")}
+              className="w-full text-xs py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors font-medium"
+              style={{ color: GOLD, background: "#1f1f1f" }}>
+              View All Discussions<ChevronRight className="h-3 w-3" />
+            </button>
+          </div>
+        </aside>
       </div>
       <CreatePostModal open={showCreate} onClose={() => setShowCreate(false)} />
       <CreateTenderModal open={showTenderCreate} onClose={() => setShowTenderCreate(false)} />

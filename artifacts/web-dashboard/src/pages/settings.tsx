@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Camera, Hash, Save, Download, Calculator, Crown, Archive, HardDrive, FolderOpen, Package, Layers, ToggleRight } from "lucide-react";
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Info, RefreshCw, Link2, Link2Off, BookOpen, DollarSign, Globe, ImageIcon, Upload, X, FileText, Users, UserPlus, ChevronDown, ChevronRight, ShieldCheck, RotateCcw, Hash, Save, Download, Calculator, Crown, Archive, HardDrive, FolderOpen, Package, Layers, ToggleRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
@@ -1335,35 +1335,6 @@ const PERMISSION_FIELDS: { key: keyof MemberPermissions; label: string; desc: st
   { key: "viewAskAI", label: "Ask AI", desc: "Ask AI quick action (mobile)." },
 ];
 
-// ── Media Hub Test Card ──────────────────────────────────────────────────────
-
-function MediaHubTestCard() {
-  const [_, navigate] = useLocation();
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Camera className="h-5 w-5 text-primary" />
-          Media Hub Test
-        </CardTitle>
-        <CardDescription>
-          End-to-end photo upload pipeline test page.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => navigate("/media-hub")}
-        >
-          <Camera className="mr-2 h-4 w-4" />
-          Open Media Hub Test
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ── Drive Sync Card (Automated Network/Local Drive Backup) ───────────────────
 
 function DriveSyncCard() {
@@ -1817,7 +1788,6 @@ export default function Settings() {
 
       <TeamSeatsCard />
       {user?.role === "owner" && company && <FeaturesCard companyId={company.id} />}
-      <MediaHubTestCard />
       {user?.role === "owner" && company && <MemberPermissionsCard companyId={company.id} ownerId={user.id} />}
       {company && <CompanyLogoCard company={company} />}
       {company && <DocumentTemplatesCard company={company} />}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearch } from "wouter";
-import { Calculator, FileText, Receipt } from "lucide-react";
+import { Calculator, FileText, Receipt, Wallet } from "lucide-react";
 import { useGetMe } from "@workspace/api-client-react";
 import { FeatureGuard } from "@/components/FeatureGuard";
 import EstimatesPage from "@/pages/estimates";
@@ -8,11 +8,12 @@ import ProposalsPage from "@/pages/proposals";
 import QuotesPage from "@/pages/quotes";
 import InvoicesPage from "@/pages/invoices";
 import PaymentsChangeOrdersPage from "@/pages/payments-change-orders";
+import CompanyExpensesPage from "@/pages/company-expenses";
 
 // Consolidated pre-construction & billing lifecycle hub:
-//   Estimates & Proposals  ->  Quotes  ->  Invoices (progress billing, payments, change orders)
-// Deep-linkable via /financials?tab=estimating|quotes|invoices&sub=estimates|proposals|invoices|payments
-type MainTab = "estimating" | "quotes" | "invoices";
+//   Estimates & Proposals  ->  Quotes  ->  Invoices (progress billing, payments, change orders)  ->  Expenses
+// Deep-linkable via /financials?tab=estimating|quotes|invoices|expenses&sub=estimates|proposals|invoices|payments
+type MainTab = "estimating" | "quotes" | "invoices" | "expenses";
 type EstimatingSubTab = "estimates" | "proposals";
 type InvoicesSubTab = "invoices" | "payments";
 
@@ -30,6 +31,7 @@ export default function FinancialsHubPage() {
   const canViewQuotes = hasPerm("viewQuotes");
   const canViewInvoices = hasPerm("viewFinancials");
   const canViewPayments = isOwnerOrForeman;
+  const canViewExpenses = hasPerm("viewFinancials");
 
   const canViewEstimating = canViewEstimates || canViewProposals;
   const canViewInvoicesTab = canViewInvoices || canViewPayments;
@@ -41,8 +43,9 @@ export default function FinancialsHubPage() {
   const [tab, setTab] = useState<MainTab>(() => {
     if (requestedTab === "quotes" && canViewQuotes) return "quotes";
     if (requestedTab === "invoices" && canViewInvoicesTab) return "invoices";
+    if (requestedTab === "expenses" && canViewExpenses) return "expenses";
     if (requestedTab === "estimating" && canViewEstimating) return "estimating";
-    return canViewEstimating ? "estimating" : canViewQuotes ? "quotes" : "invoices";
+    return canViewEstimating ? "estimating" : canViewQuotes ? "quotes" : canViewInvoicesTab ? "invoices" : "expenses";
   });
   const [estimatingSubTab, setEstimatingSubTab] = useState<EstimatingSubTab>(() => {
     if (requestedSub === "proposals" && canViewProposals) return "proposals";
@@ -92,6 +95,12 @@ export default function FinancialsHubPage() {
               Invoices
             </button>
           )}
+          {canViewExpenses && (
+            <button className={tabBtnClass(tab === "expenses")} onClick={() => setTab("expenses")}>
+              <Wallet className="h-4 w-4" />
+              Expenses
+            </button>
+          )}
         </div>
       </div>
 
@@ -136,6 +145,7 @@ export default function FinancialsHubPage() {
             {invoicesSubTab === "payments" && canViewPayments && <PaymentsChangeOrdersPage />}
           </>
         )}
+        {tab === "expenses" && canViewExpenses && <CompanyExpensesPage />}
       </div>
     </div>
   );

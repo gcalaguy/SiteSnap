@@ -14,6 +14,7 @@ import {
   Alert,
   Modal,
   KeyboardAvoidingView,
+  Share,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -28,6 +29,9 @@ import {
   TradehubPost,
   ListTradehubFeedType,
 } from "@workspace/api-client-react";
+import { SignedImage } from "@/components/SignedImage";
+
+const ORANGE = "#FF6B00";
 
 const TYPE_LABELS: Record<ListTradehubFeedType, string> = {
   discussion: "Discussion",
@@ -50,6 +54,12 @@ const TYPE_ICONS: Record<ListTradehubFeedType, string> = {
 function authorName(author: TradehubPost["author"]): string {
   if (!author) return "Unknown";
   return `${author.firstName ?? ""} ${author.lastName ?? ""}`.trim() || "Unknown";
+}
+
+function initialsFor(profile: TradehubPost["profile"], author: TradehubPost["author"]): string {
+  if (profile?.displayName) return profile.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "??";
+  if (author) return (`${author.firstName?.[0] ?? ""}${author.lastName?.[0] ?? ""}`.toUpperCase() || "??");
+  return "??";
 }
 
 function timeAgo(dateStr: string) {
@@ -128,19 +138,36 @@ export default function TradeHubScreen() {
     const typeColor = TYPE_COLORS[item.type] ?? colors.primary;
     const typeLabel = TYPE_LABELS[item.type] ?? item.type;
     const typeIcon = (TYPE_ICONS[item.type] ?? "file-text") as any;
+    const name = item.profile?.displayName ?? authorName(item.author);
     return (
       <TouchableOpacity
         style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         onPress={() => router.push(`/tradehub-post/${item.id}` as any)}
-        activeOpacity={0.82}
+        activeOpacity={0.9}
       >
-        {/* Type badge */}
-        <View style={styles.postTop}>
+        {/* Post anatomy: avatar, name, trade/role badge, timestamp */}
+        <View style={styles.postHeader}>
+          <View style={[styles.avatar, { backgroundColor: colors.primary + "22" }]}>
+            <Text style={[styles.avatarText, { color: colors.primary }]}>{initialsFor(item.profile, item.author)}</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Text style={[styles.authorName, { color: colors.foreground }]} numberOfLines={1}>{name}</Text>
+              {item.profile?.isVerified && <Feather name="check-circle" size={12} color="#3B82F6" />}
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+              {item.profile?.trade && (
+                <View style={[styles.tradeBadge, { backgroundColor: colors.primary + "18" }]}>
+                  <Text style={[styles.tradeBadgeText, { color: colors.primary }]}>{item.profile.trade}</Text>
+                </View>
+              )}
+              <Text style={[styles.timeText, { color: colors.mutedForeground }]}>{timeAgo(item.createdAt)}</Text>
+            </View>
+          </View>
           <View style={[styles.typeBadge, { backgroundColor: typeColor + "18" }]}>
             <Feather name={typeIcon} size={11} color={typeColor} />
             <Text style={[styles.typeText, { color: typeColor }]}>{typeLabel}</Text>
           </View>
-          <Text style={[styles.timeText, { color: colors.mutedForeground }]}>{timeAgo(item.createdAt)}</Text>
         </View>
 
         <Text style={[styles.postTitle, { color: colors.foreground }]} numberOfLines={2}>
@@ -150,29 +177,45 @@ export default function TradeHubScreen() {
           {item.content}
         </Text>
 
-        {/* Footer */}
-        <View style={styles.postFooter}>
-          <Text style={[styles.authorText, { color: colors.mutedForeground }]}>{authorName(item.author)}</Text>
-          <View style={styles.postActions}>
-            <Pressable
-              style={styles.actionBtn}
-              onPress={() => react.mutate({ id: item.id })}
-              hitSlop={8}
-            >
-              <Feather
-                name="thumbs-up"
-                size={14}
-                color={item.hasReacted ? colors.primary : colors.mutedForeground}
-              />
-              <Text style={[styles.actionCount, { color: item.hasReacted ? colors.primary : colors.mutedForeground }]}>
-                {item.reactionCount}
-              </Text>
-            </Pressable>
-            <View style={styles.actionBtn}>
-              <Feather name="message-square" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.actionCount, { color: colors.mutedForeground }]}>{item.commentCount}</Text>
-            </View>
+        {/* Media block: edge-to-edge, full visual priority on mobile */}
+        {item.media && item.media.length > 0 && (
+          <View style={styles.mediaBlock}>
+            <SignedImage objectPath={item.media[0].url} style={styles.mediaImage} resizeMode="cover" />
           </View>
+        )}
+
+        {/* Interaction bar */}
+        <View style={styles.postFooter}>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => react.mutate({ id: item.id })}
+            hitSlop={8}
+          >
+            <Feather
+              name="thumbs-up"
+              size={14}
+              color={item.hasReacted ? ORANGE : colors.mutedForeground}
+            />
+            <Text style={[styles.actionCount, { color: item.hasReacted ? ORANGE : colors.mutedForeground }]}>
+              {item.reactionCount > 0 ? item.reactionCount : "Like"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => router.push(`/tradehub-post/${item.id}` as any)}
+            hitSlop={8}
+          >
+            <Feather name="message-square" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.actionCount, { color: colors.mutedForeground }]}>{item.commentCount > 0 ? item.commentCount : "Comment"}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => Share.share({ message: `${item.title} — TradeHub`, url: `https://tradehub/posts/${item.id}` }).catch(() => {})}
+            hitSlop={8}
+          >
+            <Feather name="share-2" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.actionCount, { color: colors.mutedForeground }]}>Share</Text>
+          </Pressable>
         </View>
       </TouchableOpacity>
     );
@@ -374,16 +417,22 @@ const styles = StyleSheet.create({
   },
   filterChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   feedContent: { padding: 12, gap: 10 },
-  postCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 8 },
+  postCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 8, overflow: "hidden" },
+  postHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  avatarText: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  authorName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  tradeBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 },
+  tradeBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   postTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   typeBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   typeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   timeText: { fontSize: 11, fontFamily: "Inter_400Regular" },
   postTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", lineHeight: 21 },
   postBody: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
-  postFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
-  authorText: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  postActions: { flexDirection: "row", gap: 14 },
+  mediaBlock: { marginHorizontal: -14 },
+  mediaImage: { width: "100%", aspectRatio: 16 / 9, borderRadius: 12 },
+  postFooter: { flexDirection: "row", alignItems: "center", gap: 18, marginTop: 4 },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 5 },
   actionCount: { fontSize: 13, fontFamily: "Inter_500Medium" },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },

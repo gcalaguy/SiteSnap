@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   db,
   projectsTable,
+  projectMembersTable,
   dailyReportsTable,
   rfisTable,
   costAnalysesTable,
@@ -18,23 +19,24 @@ import {
 } from "@workspace/db";
 import { eq, and, gte, sql, inArray, lt, ne, isNotNull, desc } from "drizzle-orm";
 import { getAccessibleProjectIds } from "../lib/projectAccess";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { parsePagination } from "../lib/pagination";
 
 const router = Router();
 
-// L4: TTL cache for smart-summary — regenerated at most every 5 minutes per company.
-// Expired entries are swept on each write so the Map can't grow unboundedly.
-const smartSummaryCache = new Map<number, { summary: string; lines: string[]; expiresAt: number }>();
+// L4: TTL cache for smart-summary — regenerated at most every 5 minutes, keyed per
+// scope (company-wide for owners/super admins, per-user for foremen/workers since
+// their insights differ by assigned projects/tasks).
+const smartSummaryCache = new Map<string, { summary: string; lines: string[]; expiresAt: number }>();
 const SMART_SUMMARY_TTL_MS = 5 * 60 * 1000;
 
-function setSmartSummaryCache(companyId: number, value: { summary: string; lines: string[]; expiresAt: number }) {
+function setSmartSummaryCache(cacheKey: string, value: { summary: string; lines: string[]; expiresAt: number }) {
   const now = Date.now();
   for (const [k, v] of smartSummaryCache) {
     if (v.expiresAt <= now) smartSummaryCache.delete(k);
   }
-  smartSummaryCache.set(companyId, value);
+  smartSummaryCache.set(cacheKey, value);
 }
 
 
@@ -479,11 +481,20 @@ router.get("/dashboard/activity", requireAuth, requireCompany, asyncHandler(asyn
   res.json(activity.slice(0, 20));
 }))
 
-// GET /dashboard/smart-summary — rule-based insight text (cached 5 min per company)
-router.get("/dashboard/smart-summary", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+// GET /dashboard/smart-summary — rule-based insight text, scoped to the caller's role:
+//   - owner / super_admin: company-wide insights across all projects, invoices, and leads.
+//   - foreman: insights limited to the projects they are actively assigned to (project_members).
+//   - worker: insights limited to their own assigned tasks, timesheets, and submitted forms.
+// Scoping happens here, server-side, from req.userId/req.userRole — never trust a client-supplied scope.
+router.get("/dashboard/smart-summary", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
+  const userId = req.userId!;
+  const userRole = req.userRole!;
+  const isFullVisibility = userRole === "owner" || req.systemRole === "super_admin";
 
-  const cached = smartSummaryCache.get(companyId);
+  const cacheKey = isFullVisibility ? `${companyId}:company` : `${companyId}:${userRole}:${userId}`;
+
+  const cached = smartSummaryCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     res.setHeader("Cache-Control", "private, max-age=300");
     res.json({ summary: cached.summary, lines: cached.lines });
@@ -491,99 +502,198 @@ router.get("/dashboard/smart-summary", requireAuth, requireCompany, asyncHandler
   }
 
   const today = new Date().toISOString().split("T")[0]!;
-
-  // Active projects
-  const allProjects = await db
-    .select({ id: projectsTable.id, status: projectsTable.status })
-    .from(projectsTable)
-    .where(eq(projectsTable.companyId, companyId));
-  const activeCount = allProjects.filter(
-    (p) => p.status !== "completed" && p.status !== "cancelled",
-  ).length;
-
-  // Overdue invoices
-  const overdueRows = await db
-    .select({ total: invoicesTable.total })
-    .from(invoicesTable)
-    .where(
-      and(
-        eq(invoicesTable.companyId, companyId),
-        sql`${invoicesTable.status} IN ('sent', 'overdue')`,
-        isNotNull(invoicesTable.dueDate),
-        lt(invoicesTable.dueDate, today),
-      ),
-    );
-  const overdueAmt = overdueRows.reduce((s, r) => s + parseFloat(r.total ?? "0"), 0);
-
-  // Idle leads (not updated in 7 days, not won/lost)
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const idleLeadRows = await db
-    .select({ id: leadsTable.id })
-    .from(leadsTable)
-    .where(
-      and(
-        eq(leadsTable.companyId, companyId),
-        sql`${leadsTable.stage} NOT IN ('won', 'lost')`,
-        lt(leadsTable.updatedAt, sevenDaysAgo),
-      ),
-    );
-
-  // Pending form reviews
-  const [formsResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(formSubmissionsTable)
-    .where(
-      and(
-        eq(formSubmissionsTable.companyId, companyId),
-        sql`${formSubmissionsTable.status} = 'submitted'`,
-      ),
-    );
-  const pendingForms = formsResult?.count ?? 0;
-
-  // Overdue tasks
-  const taskRows = await db
-    .select({ id: tasksTable.id })
-    .from(tasksTable)
-    .innerJoin(projectsTable, eq(tasksTable.projectId, projectsTable.id))
-    .where(
-      and(
-        eq(projectsTable.companyId, companyId),
-        ne(tasksTable.status, "done"),
-        isNotNull(tasksTable.dueDate),
-        lt(tasksTable.dueDate, today),
-      ),
-    );
-
-  // Build insight sentences
   const lines: string[] = [];
 
-  if (activeCount === 0) {
-    lines.push("No active projects at the moment — a great time to pursue new leads.");
+  if (isFullVisibility) {
+    // ---- Owner / Super Admin: compiled insights across all projects, financials, and compliance logs ----
+    const allProjects = await db
+      .select({ id: projectsTable.id, status: projectsTable.status })
+      .from(projectsTable)
+      .where(eq(projectsTable.companyId, companyId));
+    const activeCount = allProjects.filter(
+      (p) => p.status !== "completed" && p.status !== "cancelled",
+    ).length;
+
+    const overdueRows = await db
+      .select({ total: invoicesTable.total })
+      .from(invoicesTable)
+      .where(
+        and(
+          eq(invoicesTable.companyId, companyId),
+          sql`${invoicesTable.status} IN ('sent', 'overdue')`,
+          isNotNull(invoicesTable.dueDate),
+          lt(invoicesTable.dueDate, today),
+        ),
+      );
+    const overdueAmt = overdueRows.reduce((s, r) => s + parseFloat(r.total ?? "0"), 0);
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const idleLeadRows = await db
+      .select({ id: leadsTable.id })
+      .from(leadsTable)
+      .where(
+        and(
+          eq(leadsTable.companyId, companyId),
+          sql`${leadsTable.stage} NOT IN ('won', 'lost')`,
+          lt(leadsTable.updatedAt, sevenDaysAgo),
+        ),
+      );
+
+    const [formsResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(formSubmissionsTable)
+      .where(
+        and(
+          eq(formSubmissionsTable.companyId, companyId),
+          sql`${formSubmissionsTable.status} = 'submitted'`,
+        ),
+      );
+    const pendingForms = formsResult?.count ?? 0;
+
+    const taskRows = await db
+      .select({ id: tasksTable.id })
+      .from(tasksTable)
+      .innerJoin(projectsTable, eq(tasksTable.projectId, projectsTable.id))
+      .where(
+        and(
+          eq(projectsTable.companyId, companyId),
+          ne(tasksTable.status, "done"),
+          isNotNull(tasksTable.dueDate),
+          lt(tasksTable.dueDate, today),
+        ),
+      );
+
+    if (activeCount === 0) {
+      lines.push("No active projects at the moment — a great time to pursue new leads.");
+    } else {
+      lines.push(`You currently have ${activeCount} active project${activeCount !== 1 ? "s" : ""} in progress.`);
+    }
+
+    if (overdueRows.length > 0) {
+      const fmtAmt = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(overdueAmt);
+      lines.push(`${overdueRows.length} invoice${overdueRows.length !== 1 ? "s are" : " is"} overdue totalling ${fmtAmt} — consider following up with clients.`);
+    } else {
+      lines.push("All invoices are up to date.");
+    }
+
+    if (idleLeadRows.length > 0) {
+      lines.push(`${idleLeadRows.length} lead${idleLeadRows.length !== 1 ? "s have" : " has"} had no activity in over 7 days — worth a follow-up.`);
+    }
+
+    if (taskRows.length > 0) {
+      lines.push(`${taskRows.length} task${taskRows.length !== 1 ? "s are" : " is"} past due across your projects.`);
+    }
+
+    if (pendingForms > 0) {
+      lines.push(`${pendingForms} safety form${pendingForms !== 1 ? "s are" : " is"} pending review.`);
+    }
+  } else if (userRole === "foreman") {
+    // ---- Foreman / Project Manager: strictly the projects they are actively assigned to ----
+    const memberRows = await db
+      .select({ projectId: projectMembersTable.projectId })
+      .from(projectMembersTable)
+      .where(and(eq(projectMembersTable.companyId, companyId), eq(projectMembersTable.userId, userId)));
+    const projectIds = [...new Set(memberRows.map((r) => r.projectId))];
+
+    if (projectIds.length > 0) {
+      const assignedProjects = await db
+        .select({ id: projectsTable.id, status: projectsTable.status })
+        .from(projectsTable)
+        .where(inArray(projectsTable.id, projectIds));
+      const activeCount = assignedProjects.filter(
+        (p) => p.status !== "completed" && p.status !== "cancelled",
+      ).length;
+
+      const taskRows = await db
+        .select({ id: tasksTable.id })
+        .from(tasksTable)
+        .where(
+          and(
+            inArray(tasksTable.projectId, projectIds),
+            ne(tasksTable.status, "done"),
+            isNotNull(tasksTable.dueDate),
+            lt(tasksTable.dueDate, today),
+          ),
+        );
+
+      const [formsResult] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(formSubmissionsTable)
+        .where(
+          and(
+            inArray(formSubmissionsTable.projectId, projectIds),
+            sql`${formSubmissionsTable.status} = 'submitted'`,
+          ),
+        );
+      const pendingForms = formsResult?.count ?? 0;
+
+      if (activeCount === 0) {
+        lines.push("No active job sites at the moment among your assigned projects.");
+      } else {
+        lines.push(`You are currently assigned to ${activeCount} active job site${activeCount !== 1 ? "s" : ""}.`);
+      }
+
+      if (taskRows.length > 0) {
+        lines.push(`${taskRows.length} task${taskRows.length !== 1 ? "s are" : " is"} past due on your assigned projects.`);
+      }
+
+      if (pendingForms > 0) {
+        lines.push(`${pendingForms} safety form${pendingForms !== 1 ? "s are" : " is"} pending review on your job sites.`);
+      }
+    }
   } else {
-    lines.push(`You currently have ${activeCount} active project${activeCount !== 1 ? "s" : ""} in progress.`);
-  }
+    // ---- Standard Worker / Field User: only their own tasks, timesheets, and submitted logs ----
+    const taskRows = await db
+      .select({ id: tasksTable.id })
+      .from(tasksTable)
+      .where(
+        and(
+          eq(tasksTable.assignedToUserId, userId),
+          ne(tasksTable.status, "done"),
+          isNotNull(tasksTable.dueDate),
+          lt(tasksTable.dueDate, today),
+        ),
+      );
 
-  if (overdueRows.length > 0) {
-    const fmtAmt = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(overdueAmt);
-    lines.push(`${overdueRows.length} invoice${overdueRows.length !== 1 ? "s are" : " is"} overdue totalling ${fmtAmt} — consider following up with clients.`);
-  } else {
-    lines.push("All invoices are up to date.");
-  }
+    const [timesheetResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(timesheetsTable)
+      .where(
+        and(
+          eq(timesheetsTable.companyId, companyId),
+          eq(timesheetsTable.userId, userId),
+          sql`${timesheetsTable.status} = 'submitted'`,
+        ),
+      );
+    const pendingTimesheets = timesheetResult?.count ?? 0;
 
-  if (idleLeadRows.length > 0) {
-    lines.push(`${idleLeadRows.length} lead${idleLeadRows.length !== 1 ? "s have" : " has"} had no activity in over 7 days — worth a follow-up.`);
-  }
+    const [formsResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(formSubmissionsTable)
+      .where(
+        and(
+          eq(formSubmissionsTable.companyId, companyId),
+          eq(formSubmissionsTable.userId, userId),
+          sql`${formSubmissionsTable.status} = 'submitted'`,
+        ),
+      );
+    const pendingForms = formsResult?.count ?? 0;
 
-  if (taskRows.length > 0) {
-    lines.push(`${taskRows.length} task${taskRows.length !== 1 ? "s are" : " is"} past due across your projects.`);
-  }
+    if (taskRows.length > 0) {
+      lines.push(`You have ${taskRows.length} past-due task${taskRows.length !== 1 ? "s" : ""} assigned to you.`);
+    }
 
-  if (pendingForms > 0) {
-    lines.push(`${pendingForms} safety form${pendingForms !== 1 ? "s are" : " is"} pending review.`);
+    if (pendingTimesheets > 0) {
+      lines.push(`${pendingTimesheets} of your timesheet${pendingTimesheets !== 1 ? "s are" : " is"} awaiting review.`);
+    }
+
+    if (pendingForms > 0) {
+      lines.push(`${pendingForms} of your submitted form${pendingForms !== 1 ? "s are" : " is"} pending review.`);
+    }
   }
 
   const result = { summary: lines.join(" "), lines };
-  setSmartSummaryCache(companyId, { ...result, expiresAt: Date.now() + SMART_SUMMARY_TTL_MS });
+  setSmartSummaryCache(cacheKey, { ...result, expiresAt: Date.now() + SMART_SUMMARY_TTL_MS });
   res.setHeader("Cache-Control", "private, max-age=300");
   res.json(result);
 }))
