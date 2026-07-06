@@ -1,33 +1,71 @@
 import { Router } from "express";
 import { createReadStream } from "fs";
-import { eq, and, or, desc, sql, inArray, type SQL } from "drizzle-orm";
-import {
-  db,
-  usersTable,
-  companiesTable,
-  tradehubProfilesTable,
-  tradehubPostsTable,
-  tradehubPostMediaTable,
-  tradehubProfileMediaTable,
-  tradehubCommentsTable,
-  tradehubReactionsTable,
-  tradehubJobApplicationsTable,
-  tradehubReportsTable,
-  tradehubNotificationsTable,
-  tradehubConversationsTable,
-  tradehubConversationParticipantsTable,
-  tradehubMessagesTable,
-  tradehubSavedCalculationsTable,
-  jobPostingsTable,
-  jobPostingApplicationsTable,
-} from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { notify } from "../lib/notify";
 import { diskUpload, cleanupUpload } from "../lib/upload.js";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage.js";
 import { ObjectPermission } from "../lib/objectAcl.js";
 import { z } from "zod";
+
+import {
+  getUserById,
+  getProfileByUserId,
+  insertNotification,
+  listFeedPosts,
+  listPublicPosts,
+  insertPost,
+  getPostById,
+  deletePost,
+  listPostsByUser,
+  listPostsByIds,
+  listCommentsForPost,
+  listUsersNamesByIds,
+  listProfilesByUserIds,
+  listJobApplicationsForPost,
+  insertComment,
+  getUserReactionForPost,
+  deleteReaction,
+  insertReaction,
+  listJobPosts,
+  getJobApplication,
+  insertJobApplication,
+  getJobApplicationById,
+  updateJobApplicationStatus,
+  listMyJobApplications,
+  insertJobPosting,
+  getJobPostingById,
+  getJobPostingApplication,
+  insertJobPostingApplication,
+  insertPostMedia,
+  listNotificationsForUser,
+  markAllNotificationsRead,
+  insertReport,
+  listProfileMediaForUser,
+  insertProfileMedia,
+  getOwnedProfileMedia,
+  deleteProfileMedia,
+  listSavedCalculationIdsForUser,
+  deleteSavedCalculationById,
+  insertSavedCalculation,
+  listSavedCalculationsForUser,
+  listPublicSavedCalculationsForUser,
+  getOwnedSavedCalculation,
+  updateSavedCalculationPin,
+  deleteSavedCalculation,
+  searchProfiles,
+} from "../repositories/tradehub";
+import { checkPostRateLimit, enrichPost } from "../services/tradehub/feedService";
+import { listJobPostingsWithMeta } from "../services/tradehub/jobsService";
+import { getPublicProfile, upsertProfile, saveVoiceIntro, clearVoiceIntro } from "../services/tradehub/profileService";
+import {
+  startOrContinueConversation,
+  listConversationsWithMeta,
+  isConversationParticipant,
+  listMessagesForConversation,
+  sendConversationMessage,
+  markConversationAsRead,
+} from "../services/tradehub/messagingService";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -76,79 +114,6 @@ const CreateReportBody = z.object({
   reason: z.string().min(1).max(1000),
 });
 
-// ── Rate limiting (simple in-memory, per process) ─────────────────────────────
-const postCounts = new Map<string, { count: number; resetAt: number }>();
-function checkPostRateLimit(userId: number): boolean {
-  const key = String(userId);
-  const now = Date.now();
-  const entry = postCounts.get(key);
-  if (!entry || entry.resetAt < now) {
-    postCounts.set(key, { count: 1, resetAt: now + 24 * 60 * 60 * 1000 });
-    return true;
-  }
-  if (entry.count >= 20) return false;
-  entry.count++;
-  return true;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-async function enrichPost(post: any, currentUserId?: number) {
-  const [author] = await db
-    .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email })
-    .from(usersTable)
-    .where(eq(usersTable.id, post.userId));
-
-  const [profile] = await db
-    .select()
-    .from(tradehubProfilesTable)
-    .where(eq(tradehubProfilesTable.userId, post.userId));
-
-  const media = await db
-    .select()
-    .from(tradehubPostMediaTable)
-    .where(eq(tradehubPostMediaTable.postId, post.id));
-
-  const [{ count: commentCount }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(tradehubCommentsTable)
-    .where(eq(tradehubCommentsTable.postId, post.id));
-
-  const [{ count: reactionCount }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(tradehubReactionsTable)
-    .where(eq(tradehubReactionsTable.postId, post.id));
-
-  let hasReacted = false;
-  if (currentUserId) {
-    const [reaction] = await db
-      .select()
-      .from(tradehubReactionsTable)
-      .where(and(eq(tradehubReactionsTable.postId, post.id), eq(tradehubReactionsTable.userId, currentUserId)))
-      .limit(1);
-    hasReacted = !!reaction;
-  }
-
-  let applicationCount = 0;
-  if (post.type === "job") {
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(tradehubJobApplicationsTable)
-      .where(eq(tradehubJobApplicationsTable.postId, post.id));
-    applicationCount = count;
-  }
-
-  return {
-    ...post,
-    author: author ?? null,
-    profile: profile ?? null,
-    media,
-    commentCount,
-    reactionCount,
-    applicationCount,
-    hasReacted,
-  };
-}
-
 // ── FEED ─────────────────────────────────────────────────────────────────────
 
 // GET /tradehub/feed?type=&province=&trade=&page=
@@ -159,31 +124,7 @@ router.get("/tradehub/feed", requireAuth, asyncHandler(async (req, res) => {
     const limit = 20;
     const offset = (pageNum - 1) * limit;
 
-    const conditions: SQL[] = [];
-    if (req.companyId) {
-      conditions.push(
-        or(
-          eq(tradehubPostsTable.visibility, "public"),
-          and(
-            eq(tradehubPostsTable.visibility, "internal"),
-            eq(tradehubPostsTable.companyId, req.companyId),
-          ),
-        )!,
-      );
-    } else {
-      conditions.push(eq(tradehubPostsTable.visibility, "public"));
-    }
-    if (type) conditions.push(eq(tradehubPostsTable.type, type));
-    if (province) conditions.push(eq(tradehubPostsTable.province, province));
-    if (trade) conditions.push(eq(tradehubPostsTable.trade, trade));
-
-    const posts = await db
-      .select()
-      .from(tradehubPostsTable)
-      .where(and(...conditions))
-      .orderBy(desc(tradehubPostsTable.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const posts = await listFeedPosts({ companyId: req.companyId ?? null, type, province, trade, limit, offset });
 
     const enriched = await Promise.all(posts.map((p) => enrichPost(p, req.userId)));
     res.json({ posts: enriched, page: pageNum, hasMore: posts.length === limit });
@@ -203,16 +144,7 @@ router.get("/tradehub/posts", requireAuth, asyncHandler(async (req, res) => {
     const limit = 30;
     const offset = (pageNum - 1) * limit;
 
-    const conditions: SQL[] = [eq(tradehubPostsTable.visibility, "public")];
-    if (kind && kind !== "all") conditions.push(eq(tradehubPostsTable.type, kind));
-
-    const posts = await db
-      .select()
-      .from(tradehubPostsTable)
-      .where(and(...conditions))
-      .orderBy(desc(tradehubPostsTable.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const posts = await listPublicPosts({ kind, limit, offset });
 
     const enriched = await Promise.all(posts.map((p) => enrichPost(p, req.userId)));
     res.json(enriched);
@@ -237,7 +169,7 @@ router.post("/tradehub/posts", requireAuth, asyncHandler(async (req, res) => {
     }
     const { type = "discussion", title, content, trade, location, province, budget, jobType, visibility = "public" } = parsed.data;
 
-    const [post] = await db.insert(tradehubPostsTable).values({
+    const post = await insertPost({
       userId: req.userId!,
       companyId: req.companyId ?? null,
       type,
@@ -249,7 +181,7 @@ router.post("/tradehub/posts", requireAuth, asyncHandler(async (req, res) => {
       budget: budget ?? null,
       jobType: jobType ?? null,
       visibility,
-    }).returning();
+    });
 
     res.json(await enrichPost(post, req.userId));
   } catch (err: any) {
@@ -262,25 +194,17 @@ router.post("/tradehub/posts", requireAuth, asyncHandler(async (req, res) => {
 router.get("/tradehub/posts/:id", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, id)).limit(1);
+    const post = await getPostById(id);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
     const enriched = await enrichPost(post, req.userId);
 
     // Get comments with authors
-    const rawComments = await db
-      .select()
-      .from(tradehubCommentsTable)
-      .where(eq(tradehubCommentsTable.postId, id))
-      .orderBy(tradehubCommentsTable.createdAt);
+    const rawComments = await listCommentsForPost(id);
 
     const commentUserIds = [...new Set(rawComments.map((c) => c.userId))];
-    const commentUsers = commentUserIds.length
-      ? await db.select().from(usersTable).where(inArray(usersTable.id, commentUserIds))
-      : [];
-    const commentProfiles = commentUserIds.length
-      ? await db.select().from(tradehubProfilesTable).where(inArray(tradehubProfilesTable.userId, commentUserIds))
-      : [];
+    const commentUsers = await listUsersNamesByIds(commentUserIds);
+    const commentProfiles = await listProfilesByUserIds(commentUserIds);
     const userMap = Object.fromEntries(commentUsers.map((u) => [u.id, u]));
     const profileMap = Object.fromEntries(commentProfiles.map((p) => [p.userId, p]));
 
@@ -293,11 +217,7 @@ router.get("/tradehub/posts/:id", requireAuth, asyncHandler(async (req, res) => 
     // Job applications summary (only for post owner)
     let applications: any[] = [];
     if (post.type === "job" && post.userId === req.userId) {
-      applications = await db
-        .select()
-        .from(tradehubJobApplicationsTable)
-        .where(eq(tradehubJobApplicationsTable.postId, id))
-        .orderBy(desc(tradehubJobApplicationsTable.createdAt));
+      applications = await listJobApplicationsForPost(id);
     }
 
     res.json({ ...enriched, comments, applications });
@@ -311,18 +231,12 @@ router.get("/tradehub/posts/:id", requireAuth, asyncHandler(async (req, res) => 
 router.delete("/tradehub/posts/:id", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, id)).limit(1);
+    const post = await getPostById(id);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
     if (post.userId !== req.userId && req.systemRole !== "super_admin") {
       res.status(403).json({ error: "You can only delete your own posts" }); return;
     }
-    if (req.companyId) {
-      await db.delete(tradehubPostsTable).where(
-        and(eq(tradehubPostsTable.id, id), eq(tradehubPostsTable.companyId, req.companyId))
-      );
-    } else {
-      await db.delete(tradehubPostsTable).where(eq(tradehubPostsTable.id, id));
-    }
+    await deletePost(id, req.companyId ?? null);
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "tradehub/posts/:id DELETE error");
@@ -340,21 +254,21 @@ router.post("/tradehub/posts/:id/comments", requireAuth, asyncHandler(async (req
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
     const { content } = parsed.data;
 
-    const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, postId)).limit(1);
+    const post = await getPostById(postId);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
-    const [comment] = await db.insert(tradehubCommentsTable).values({
+    const comment = await insertComment({
       postId,
       userId: req.userId!,
       content: content.trim(),
-    }).returning();
+    });
 
-    const [author] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-    const [profile] = await db.select().from(tradehubProfilesTable).where(eq(tradehubProfilesTable.userId, req.userId!));
+    const author = await getUserById(req.userId!);
+    const profile = await getProfileByUserId(req.userId!);
 
     // Notify post author
     if (post.userId !== req.userId) {
-      await db.insert(tradehubNotificationsTable).values({
+      await insertNotification({
         userId: post.userId,
         type: "comment",
         referenceId: postId,
@@ -383,25 +297,21 @@ router.post("/tradehub/posts/:id/comments", requireAuth, asyncHandler(async (req
 router.post("/tradehub/posts/:id/react", requireAuth, asyncHandler(async (req, res) => {
   try {
     const postId = parseInt(req.params.id as string);
-    const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, postId)).limit(1);
+    const post = await getPostById(postId);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
-    const [existing] = await db
-      .select()
-      .from(tradehubReactionsTable)
-      .where(and(eq(tradehubReactionsTable.postId, postId), eq(tradehubReactionsTable.userId, req.userId!)))
-      .limit(1);
+    const existing = await getUserReactionForPost(postId, req.userId!);
 
     if (existing) {
-      await db.delete(tradehubReactionsTable).where(eq(tradehubReactionsTable.id, existing.id));
+      await deleteReaction(existing.id);
       res.json({ reacted: false });
     } else {
-      await db.insert(tradehubReactionsTable).values({ postId, userId: req.userId!, type: "like" });
+      await insertReaction({ postId, userId: req.userId!, type: "like" });
 
       // Notify post author
       if (post.userId !== req.userId) {
-        const [liker] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-        await db.insert(tradehubNotificationsTable).values({
+        const liker = await getUserById(req.userId!);
+        await insertNotification({
           userId: post.userId,
           type: "reaction",
           referenceId: postId,
@@ -427,20 +337,7 @@ router.get("/tradehub/jobs", requireAuth, asyncHandler(async (req, res) => {
     const limit = 20;
     const offset = (pageNum - 1) * limit;
 
-    const conditions: SQL[] = [
-      eq(tradehubPostsTable.visibility, "public"),
-      eq(tradehubPostsTable.type, "job"),
-    ];
-    if (province) conditions.push(eq(tradehubPostsTable.province, province));
-    if (trade) conditions.push(eq(tradehubPostsTable.trade, trade));
-
-    const posts = await db
-      .select()
-      .from(tradehubPostsTable)
-      .where(and(...conditions))
-      .orderBy(desc(tradehubPostsTable.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const posts = await listJobPosts({ province, trade, limit, offset });
 
     const enriched = await Promise.all(posts.map((p) => enrichPost(p, req.userId)));
     res.json({ posts: enriched, page: pageNum, hasMore: posts.length === limit });
@@ -462,27 +359,23 @@ router.post("/tradehub/jobs/:id/apply", requireAuth, asyncHandler(async (req, re
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
     const { message } = parsed.data;
 
-    const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, postId)).limit(1);
+    const post = await getPostById(postId);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
     if (post.type !== "job") { res.status(400).json({ error: "This is not a job post" }); return; }
     if (post.userId === req.userId) { res.status(400).json({ error: "Cannot apply to your own job" }); return; }
 
-    const [existing] = await db
-      .select()
-      .from(tradehubJobApplicationsTable)
-      .where(and(eq(tradehubJobApplicationsTable.postId, postId), eq(tradehubJobApplicationsTable.applicantId, req.userId!)))
-      .limit(1);
+    const existing = await getJobApplication(postId, req.userId!);
     if (existing) { res.status(400).json({ error: "Already applied to this job" }); return; }
 
-    const [application] = await db.insert(tradehubJobApplicationsTable).values({
+    const application = await insertJobApplication({
       postId,
       applicantId: req.userId!,
       message: message?.trim() ?? null,
-    }).returning();
+    });
 
     // Notify job poster
-    const [applicant] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-    await db.insert(tradehubNotificationsTable).values({
+    const applicant = await getUserById(req.userId!);
+    await insertNotification({
       userId: post.userId,
       type: "application",
       referenceId: postId,
@@ -508,20 +401,16 @@ router.patch("/tradehub/applications/:id", requireAuth, asyncHandler(async (req,
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
     const { status } = parsed.data;
 
-    const [app] = await db.select().from(tradehubJobApplicationsTable).where(eq(tradehubJobApplicationsTable.id, id)).limit(1);
+    const app = await getJobApplicationById(id);
     if (!app) { res.status(404).json({ error: "Application not found" }); return; }
 
-    const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, app.postId)).limit(1);
-    if (post?.userId !== req.userId) { res.status(403).json({ error: "Not your job post" }); return; }
+    const post = await getPostById(app.postId);
+    if (!post || post.userId !== req.userId) { res.status(403).json({ error: "Not your job post" }); return; }
 
-    const [updated] = await db
-      .update(tradehubJobApplicationsTable)
-      .set({ status })
-      .where(and(eq(tradehubJobApplicationsTable.id, id), eq(tradehubJobApplicationsTable.postId, app.postId)))
-      .returning();
+    const updated = await updateJobApplicationStatus(id, app.postId, status);
 
     // Notify applicant
-    await db.insert(tradehubNotificationsTable).values({
+    await insertNotification({
       userId: app.applicantId,
       type: "application_update",
       referenceId: app.postId,
@@ -541,64 +430,7 @@ router.patch("/tradehub/applications/:id", requireAuth, asyncHandler(async (req,
 router.get("/tradehub/job-postings", requireAuth, asyncHandler(async (req, res) => {
   try {
     const { province, trade, search } = req.query as Record<string, string>;
-    const conditions: SQL[] = [eq(jobPostingsTable.status, "open")];
-    if (province) conditions.push(eq(jobPostingsTable.province, province));
-    if (trade) conditions.push(eq(jobPostingsTable.trade, trade));
-
-    const rows = await db
-      .select()
-      .from(jobPostingsTable)
-      .where(and(...conditions))
-      .orderBy(desc(jobPostingsTable.createdAt));
-
-    if (rows.length === 0) { res.json([]); return; }
-
-    // Batch all ancillary lookups — one query each instead of N per posting.
-    const postingIds = rows.map((r) => r.id);
-    const posterIds = [...new Set(rows.map((r) => r.createdBy).filter(Boolean))] as number[];
-    const companyIds = [...new Set(rows.map((r) => r.companyId).filter(Boolean))] as number[];
-
-    const [posters, companies, appCounts, myApps] = await Promise.all([
-      posterIds.length
-        ? db.select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName })
-            .from(usersTable).where(inArray(usersTable.id, posterIds))
-        : [],
-      companyIds.length
-        ? db.select({ id: companiesTable.id, name: companiesTable.name })
-            .from(companiesTable).where(inArray(companiesTable.id, companyIds))
-        : [],
-      db.select({ jobPostingId: jobPostingApplicationsTable.jobPostingId, count: sql<number>`count(*)::int` })
-        .from(jobPostingApplicationsTable)
-        .where(inArray(jobPostingApplicationsTable.jobPostingId, postingIds))
-        .groupBy(jobPostingApplicationsTable.jobPostingId),
-      req.userId
-        ? db.select({ jobPostingId: jobPostingApplicationsTable.jobPostingId })
-            .from(jobPostingApplicationsTable)
-            .where(and(
-              inArray(jobPostingApplicationsTable.jobPostingId, postingIds),
-              eq(jobPostingApplicationsTable.applicantId, req.userId),
-            ))
-        : [],
-    ]);
-
-    const posterMap = new Map(posters.map((u) => [u.id, `${u.firstName} ${u.lastName}`]));
-    const companyMap = new Map(companies.map((c) => [c.id, c.name]));
-    const appCountMap = new Map(appCounts.map((r) => [r.jobPostingId, r.count]));
-    const appliedSet = new Set(myApps.map((r) => r.jobPostingId));
-
-    const result = rows.map((jp) => ({
-      ...jp,
-      posterName: posterMap.get(jp.createdBy) ?? "Unknown",
-      companyName: companyMap.get(jp.companyId) ?? "Unknown",
-      applicationCount: appCountMap.get(jp.id) ?? 0,
-      hasApplied: appliedSet.has(jp.id),
-    }));
-
-    if (search) {
-      const q = search.toLowerCase();
-      res.json(result.filter((r) => r.projectTitle.toLowerCase().includes(q) || r.description.toLowerCase().includes(q)));
-      return;
-    }
+    const result = await listJobPostingsWithMeta({ province, trade, search, userId: req.userId });
     res.json(result);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/job-postings error");
@@ -607,12 +439,12 @@ router.get("/tradehub/job-postings", requireAuth, asyncHandler(async (req, res) 
 }));
 
 // POST /tradehub/job-postings
-router.post("/tradehub/job-postings", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/tradehub/job-postings", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const parsed = CreateJobPostingBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
     const { projectTitle, description, scopeOfWork, budgetEstimate, targetedStartDate, location, province, trade } = parsed.data;
-    const [created] = await db.insert(jobPostingsTable).values({
+    const created = await insertJobPosting({
       companyId: req.companyId!,
       createdBy: req.userId!,
       projectTitle: projectTitle.trim(),
@@ -623,7 +455,7 @@ router.post("/tradehub/job-postings", requireAuth, requireCompany, asyncHandler(
       location: location?.trim() ?? null,
       province: province ?? null,
       trade: trade ?? null,
-    }).returning();
+    });
     res.status(201).json(created);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/job-postings POST error");
@@ -643,40 +475,32 @@ router.post("/tradehub/job-postings/:id/apply", requireAuth, asyncHandler(async 
     if (!parsed.success) { res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() }); return; }
     const { message } = parsed.data;
 
-    const [jp] = await db.select().from(jobPostingsTable).where(eq(jobPostingsTable.id, jobPostingId)).limit(1);
+    const jp = await getJobPostingById(jobPostingId);
     if (!jp) { res.status(404).json({ error: "Job posting not found" }); return; }
     if (jp.status !== "open") { res.status(400).json({ error: "This tender is closed" }); return; }
     if (jp.createdBy === req.userId) { res.status(400).json({ error: "Cannot apply to your own posting" }); return; }
 
     // Compliance gate: check applicant's tradehub profile compliance status
-    const [profile] = await db
-      .select()
-      .from(tradehubProfilesTable)
-      .where(eq(tradehubProfilesTable.userId, req.userId!))
-      .limit(1);
+    const profile = await getProfileByUserId(req.userId!);
     if (profile && profile.complianceStatus === "non_compliant") {
       res.status(409).json({ code: "COMPLIANCE_ERROR", error: "You must update your liability insurance in settings to bid on projects." });
       return;
     }
 
-    const [existing] = await db
-      .select()
-      .from(jobPostingApplicationsTable)
-      .where(and(eq(jobPostingApplicationsTable.jobPostingId, jobPostingId), eq(jobPostingApplicationsTable.applicantId, req.userId!)))
-      .limit(1);
+    const existing = await getJobPostingApplication(jobPostingId, req.userId!);
     if (existing) { res.status(400).json({ error: "Already applied to this tender" }); return; }
 
-    const [application] = await db.insert(jobPostingApplicationsTable).values({
+    const application = await insertJobPostingApplication({
       jobPostingId,
       applicantId: req.userId!,
       applicantProfileId: profile?.id ?? null,
       message: message?.trim() ?? null,
-    }).returning();
+    });
 
-    const [applicant] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-    const [applicantProfile] = await db.select().from(tradehubProfilesTable).where(eq(tradehubProfilesTable.userId, req.userId!));
+    const applicant = await getUserById(req.userId!);
+    const applicantProfile = await getProfileByUserId(req.userId!);
     const appName = applicantProfile?.displayName ?? `${applicant?.firstName ?? "Someone"}`;
-    await db.insert(tradehubNotificationsTable).values({
+    await insertNotification({
       userId: jp.createdBy,
       type: "application",
       referenceId: jobPostingId,
@@ -775,7 +599,7 @@ const PostMediaBody = z.object({
 router.post("/tradehub/posts/:id/media", requireAuth, asyncHandler(async (req, res) => {
   try {
     const postId = parseInt(req.params.id as string);
-    const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, postId)).limit(1);
+    const post = await getPostById(postId);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
     if (post.userId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
 
@@ -783,12 +607,12 @@ router.post("/tradehub/posts/:id/media", requireAuth, asyncHandler(async (req, r
     if (!parsed.success) { res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() }); return; }
     const { url, objectPath, mediaType } = parsed.data;
 
-    const [media] = await db.insert(tradehubPostMediaTable).values({
+    const media = await insertPostMedia({
       postId,
       url,
       objectPath: objectPath ?? null,
       mediaType,
-    }).returning();
+    });
     res.json(media);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/posts/:id/media POST error");
@@ -801,11 +625,7 @@ router.post("/tradehub/posts/:id/media", requireAuth, asyncHandler(async (req, r
 // GET /tradehub/profile/me
 router.get("/tradehub/profile/me", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const [profile] = await db
-      .select()
-      .from(tradehubProfilesTable)
-      .where(eq(tradehubProfilesTable.userId, req.userId!))
-      .limit(1);
+    const profile = await getProfileByUserId(req.userId!);
     res.json(profile ?? null);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/me error");
@@ -817,44 +637,9 @@ router.get("/tradehub/profile/me", requireAuth, asyncHandler(async (req, res) =>
 router.get("/tradehub/profile/:userId", requireAuth, asyncHandler(async (req, res) => {
   try {
     const userId = parseInt(req.params.userId as string);
-    const [profile] = await db
-      .select()
-      .from(tradehubProfilesTable)
-      .where(eq(tradehubProfilesTable.userId, userId))
-      .limit(1);
-
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-    if (!user) { res.status(404).json({ error: "User not found" }); return; }
-
-    const posts = await db
-      .select()
-      .from(tradehubPostsTable)
-      .where(and(eq(tradehubPostsTable.userId, userId), eq(tradehubPostsTable.visibility, "public")))
-      .orderBy(desc(tradehubPostsTable.createdAt))
-      .limit(10);
-
-    if (profile) {
-      res.json({ ...profile, user, recentPosts: posts });
-    } else {
-      // Synthetic minimal profile for users who haven't set up their TradeHub profile yet
-      res.json({
-        id: null,
-        userId,
-        displayName: [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
-        trade: null,
-        location: null,
-        province: null,
-        bio: null,
-        website: null,
-        avatarUrl: null,
-        isVerified: false,
-        memberSince: user.createdAt ?? null,
-        createdAt: user.createdAt ?? null,
-        updatedAt: null,
-        user,
-        recentPosts: posts,
-      });
-    }
+    const result = await getPublicProfile(userId);
+    if (!result) { res.status(404).json({ error: "User not found" }); return; }
+    res.json(result);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/:userId error");
     res.status(500).json({ error: "Failed to load profile" });
@@ -866,36 +651,9 @@ router.put("/tradehub/profile", requireAuth, asyncHandler(async (req, res) => {
   try {
     const parsed = UpdateProfileBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
-    const { displayName, trade, location, province, bio, website, avatarUrl } = parsed.data;
 
-    const [existing] = await db
-      .select()
-      .from(tradehubProfilesTable)
-      .where(eq(tradehubProfilesTable.userId, req.userId!))
-      .limit(1);
-
-    if (existing) {
-      const [updated] = await db
-        .update(tradehubProfilesTable)
-        .set({ displayName: displayName.trim(), trade: trade ?? null, location: location ?? null, province: province ?? null, bio: bio ?? null, website: website ?? null, avatarUrl: avatarUrl ?? null, updatedAt: new Date() })
-        .where(eq(tradehubProfilesTable.userId, req.userId!))
-        .returning();
-      res.json(updated);
-    } else {
-      const [created] = await db.insert(tradehubProfilesTable).values({
-        userId: req.userId!,
-        companyId: req.companyId ?? null,
-        displayName: displayName.trim(),
-        trade: trade ?? null,
-        location: location ?? null,
-        province: province ?? null,
-        bio: bio ?? null,
-        website: website ?? null,
-        avatarUrl: avatarUrl ?? null,
-        complianceStatus: "compliant",
-      }).returning();
-      res.json(created);
-    }
+    const result = await upsertProfile(req.userId!, req.companyId ?? null, parsed.data);
+    res.json(result);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile PUT error");
     res.status(500).json({ error: "Failed to save profile" });
@@ -907,12 +665,7 @@ router.put("/tradehub/profile", requireAuth, asyncHandler(async (req, res) => {
 // GET /tradehub/notifications
 router.get("/tradehub/notifications", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const notifications = await db
-      .select()
-      .from(tradehubNotificationsTable)
-      .where(eq(tradehubNotificationsTable.userId, req.userId!))
-      .orderBy(desc(tradehubNotificationsTable.createdAt))
-      .limit(30);
+    const notifications = await listNotificationsForUser(req.userId!, 30);
     res.json(notifications);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/notifications error");
@@ -923,10 +676,7 @@ router.get("/tradehub/notifications", requireAuth, asyncHandler(async (req, res)
 // POST /tradehub/notifications/read-all
 router.post("/tradehub/notifications/read-all", requireAuth, asyncHandler(async (req, res) => {
   try {
-    await db
-      .update(tradehubNotificationsTable)
-      .set({ isRead: true })
-      .where(eq(tradehubNotificationsTable.userId, req.userId!));
+    await markAllNotificationsRead(req.userId!);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to mark notifications read" });
@@ -941,12 +691,12 @@ router.post("/tradehub/reports", requireAuth, asyncHandler(async (req, res) => {
     const parsed = CreateReportBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
     const { targetType, targetId, reason } = parsed.data;
-    const [report] = await db.insert(tradehubReportsTable).values({
+    const report = await insertReport({
       reporterId: req.userId!,
       targetType,
       targetId,
       reason: reason.trim(),
-    }).returning();
+    });
     res.json(report);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/reports error");
@@ -959,12 +709,7 @@ router.post("/tradehub/reports", requireAuth, asyncHandler(async (req, res) => {
 // GET /tradehub/my-posts
 router.get("/tradehub/my-posts", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const posts = await db
-      .select()
-      .from(tradehubPostsTable)
-      .where(eq(tradehubPostsTable.userId, req.userId!))
-      .orderBy(desc(tradehubPostsTable.createdAt))
-      .limit(50);
+    const posts = await listPostsByUser(req.userId!, 50);
     const enriched = await Promise.all(posts.map((p) => enrichPost(p, req.userId)));
     res.json(enriched);
   } catch (err: any) {
@@ -975,17 +720,10 @@ router.get("/tradehub/my-posts", requireAuth, asyncHandler(async (req, res) => {
 // GET /tradehub/my-applications
 router.get("/tradehub/my-applications", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const apps = await db
-      .select()
-      .from(tradehubJobApplicationsTable)
-      .where(eq(tradehubJobApplicationsTable.applicantId, req.userId!))
-      .orderBy(desc(tradehubJobApplicationsTable.createdAt))
-      .limit(50);
+    const apps = await listMyJobApplications(req.userId!, 50);
 
     const postIds = apps.map((a) => a.postId);
-    const posts = postIds.length
-      ? await db.select().from(tradehubPostsTable).where(inArray(tradehubPostsTable.id, postIds))
-      : [];
+    const posts = await listPostsByIds(postIds);
     const postMap = Object.fromEntries(posts.map((p) => [p.id, p]));
 
     res.json(apps.map((a) => ({ ...a, post: postMap[a.postId] ?? null })));
@@ -1011,11 +749,7 @@ const SaveCalculationBody = z.object({
 // GET /tradehub/profile/me/media — list my profile media
 router.get("/tradehub/profile/me/media", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const media = await db
-      .select()
-      .from(tradehubProfileMediaTable)
-      .where(eq(tradehubProfileMediaTable.userId, req.userId!))
-      .orderBy(desc(tradehubProfileMediaTable.createdAt));
+    const media = await listProfileMediaForUser(req.userId!);
     res.json(media);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/me/media GET error");
@@ -1027,11 +761,7 @@ router.get("/tradehub/profile/me/media", requireAuth, asyncHandler(async (req, r
 router.get("/tradehub/profile/:userId/media", requireAuth, asyncHandler(async (req, res) => {
   try {
     const userId = parseInt(req.params.userId as string);
-    const media = await db
-      .select()
-      .from(tradehubProfileMediaTable)
-      .where(eq(tradehubProfileMediaTable.userId, userId))
-      .orderBy(desc(tradehubProfileMediaTable.createdAt));
+    const media = await listProfileMediaForUser(userId);
     res.json(media);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/:userId/media GET error");
@@ -1053,13 +783,13 @@ router.post("/tradehub/profile/me/media", requireAuth, asyncHandler(async (req, 
     if (!parsed.success) { res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() }); return; }
     const { url, objectPath, mediaType, fileName } = parsed.data;
 
-    const [media] = await db.insert(tradehubProfileMediaTable).values({
+    const media = await insertProfileMedia({
       userId: req.userId!,
       url,
       objectPath: objectPath ?? null,
       mediaType,
       fileName: fileName ?? null,
-    }).returning();
+    });
     res.json(media);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/me/media POST error");
@@ -1071,13 +801,9 @@ router.post("/tradehub/profile/me/media", requireAuth, asyncHandler(async (req, 
 router.delete("/tradehub/profile/media/:id", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    const [item] = await db
-      .select()
-      .from(tradehubProfileMediaTable)
-      .where(and(eq(tradehubProfileMediaTable.id, id), eq(tradehubProfileMediaTable.userId, req.userId!)))
-      .limit(1);
+    const item = await getOwnedProfileMedia(id, req.userId!);
     if (!item) { res.status(404).json({ error: "Not found" }); return; }
-    await db.delete(tradehubProfileMediaTable).where(and(eq(tradehubProfileMediaTable.id, id), eq(tradehubProfileMediaTable.userId, req.userId!)));
+    await deleteProfileMedia(id, req.userId!);
     res.json({ ok: true });
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/media DELETE error");
@@ -1092,18 +818,14 @@ router.post("/tradehub/profile/calculations", requireAuth, asyncHandler(async (r
     if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() }); return; }
     const { calculatorId, calculatorName, category, inputs, results, summary, aiSummary } = parsed.data;
     // Cap at 20 saved calculations per user — delete oldest if needed
-    const existing = await db
-      .select({ id: tradehubSavedCalculationsTable.id })
-      .from(tradehubSavedCalculationsTable)
-      .where(eq(tradehubSavedCalculationsTable.userId, req.userId!))
-      .orderBy(desc(tradehubSavedCalculationsTable.createdAt));
+    const existing = await listSavedCalculationIdsForUser(req.userId!);
     if (existing.length >= 20) {
       const toDelete = existing.slice(19).map((r) => r.id);
       for (const id of toDelete) {
-        await db.delete(tradehubSavedCalculationsTable).where(eq(tradehubSavedCalculationsTable.id, id));
+        await deleteSavedCalculationById(id);
       }
     }
-    const [saved] = await db.insert(tradehubSavedCalculationsTable).values({
+    const saved = await insertSavedCalculation({
       userId: req.userId!,
       calculatorId,
       calculatorName,
@@ -1113,7 +835,7 @@ router.post("/tradehub/profile/calculations", requireAuth, asyncHandler(async (r
       summary: summary ?? "",
       aiSummary: aiSummary ?? null,
       isPinned: false,
-    }).returning();
+    });
     res.json(saved);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/calculations POST error");
@@ -1124,11 +846,7 @@ router.post("/tradehub/profile/calculations", requireAuth, asyncHandler(async (r
 // GET /tradehub/profile/me/calculations — own saved calculations
 router.get("/tradehub/profile/me/calculations", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const calcs = await db
-      .select()
-      .from(tradehubSavedCalculationsTable)
-      .where(eq(tradehubSavedCalculationsTable.userId, req.userId!))
-      .orderBy(desc(tradehubSavedCalculationsTable.isPinned), desc(tradehubSavedCalculationsTable.createdAt));
+    const calcs = await listSavedCalculationsForUser(req.userId!);
     res.json(calcs);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/me/calculations GET error");
@@ -1141,12 +859,7 @@ router.get("/tradehub/profile/:userId/calculations", requireAuth, asyncHandler(a
   try {
     const profileUserId = parseInt(req.params.userId as string);
     if (isNaN(profileUserId)) { res.status(400).json({ error: "Invalid userId" }); return; }
-    const calcs = await db
-      .select()
-      .from(tradehubSavedCalculationsTable)
-      .where(eq(tradehubSavedCalculationsTable.userId, profileUserId))
-      .orderBy(desc(tradehubSavedCalculationsTable.isPinned), desc(tradehubSavedCalculationsTable.createdAt))
-      .limit(10);
+    const calcs = await listPublicSavedCalculationsForUser(profileUserId, 10);
     res.json(calcs);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/:userId/calculations GET error");
@@ -1159,13 +872,9 @@ router.patch("/tradehub/profile/calculations/:id/pin", requireAuth, asyncHandler
   try {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    const [calc] = await db.select().from(tradehubSavedCalculationsTable)
-      .where(and(eq(tradehubSavedCalculationsTable.id, id), eq(tradehubSavedCalculationsTable.userId, req.userId!)));
+    const calc = await getOwnedSavedCalculation(id, req.userId!);
     if (!calc) { res.status(404).json({ error: "Not found" }); return; }
-    const [updated] = await db.update(tradehubSavedCalculationsTable)
-      .set({ isPinned: !calc.isPinned })
-      .where(and(eq(tradehubSavedCalculationsTable.id, id), eq(tradehubSavedCalculationsTable.userId, req.userId!)))
-      .returning();
+    const updated = await updateSavedCalculationPin(id, req.userId!, !calc.isPinned);
     res.json(updated);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/calculations PATCH pin error");
@@ -1178,8 +887,7 @@ router.delete("/tradehub/profile/calculations/:id", requireAuth, asyncHandler(as
   try {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    await db.delete(tradehubSavedCalculationsTable)
-      .where(and(eq(tradehubSavedCalculationsTable.id, id), eq(tradehubSavedCalculationsTable.userId, req.userId!)));
+    await deleteSavedCalculation(id, req.userId!);
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/calculations DELETE error");
@@ -1201,37 +909,8 @@ router.put("/tradehub/profile/voice", requireAuth, asyncHandler(async (req, res)
     if (!parsedVoice.success) { res.status(400).json({ error: "Invalid body", details: parsedVoice.error.flatten() }); return; }
     const { objectPath, duration } = parsedVoice.data;
 
-    // Build a serve URL from the objectPath (e.g. /objects/uploads/uuid)
-    const voiceIntroUrl = objectPath.startsWith("/objects/")
-      ? `/api/storage${objectPath}`
-      : objectPath;
-
-    const [existing] = await db
-      .select()
-      .from(tradehubProfilesTable)
-      .where(eq(tradehubProfilesTable.userId, req.userId!))
-      .limit(1);
-
-    if (existing) {
-      const [updated] = await db
-        .update(tradehubProfilesTable)
-        .set({ voiceIntroUrl, voiceIntroObjectPath: objectPath, voiceIntroDuration: duration ?? null, updatedAt: new Date() })
-        .where(eq(tradehubProfilesTable.userId, req.userId!))
-        .returning();
-      res.json(updated);
-    } else {
-      // Create a minimal profile if none exists yet
-      const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-      const [created] = await db.insert(tradehubProfilesTable).values({
-        userId: req.userId!,
-        companyId: req.companyId ?? null,
-        displayName: `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "TradeHub User",
-        voiceIntroUrl,
-        voiceIntroObjectPath: objectPath,
-        voiceIntroDuration: duration ?? null,
-      }).returning();
-      res.json(created);
-    }
+    const result = await saveVoiceIntro(req.userId!, req.companyId ?? null, objectPath, duration);
+    res.json(result);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/voice PUT error");
     res.status(500).json({ error: "Failed to save voice intro" });
@@ -1241,10 +920,7 @@ router.put("/tradehub/profile/voice", requireAuth, asyncHandler(async (req, res)
 // DELETE /tradehub/profile/voice
 router.delete("/tradehub/profile/voice", requireAuth, asyncHandler(async (req, res) => {
   try {
-    await db
-      .update(tradehubProfilesTable)
-      .set({ voiceIntroUrl: null, voiceIntroObjectPath: null, voiceIntroDuration: null, updatedAt: new Date() })
-      .where(eq(tradehubProfilesTable.userId, req.userId!));
+    await clearVoiceIntro(req.userId!);
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "tradehub/profile/voice DELETE error");
@@ -1260,13 +936,7 @@ router.get("/tradehub/users/search", requireAuth, asyncHandler(async (req, res) 
     const q = (req.query.q as string ?? "").trim();
     if (q.length < 2) { res.json([]); return; }
 
-    const profiles = await db
-      .select()
-      .from(tradehubProfilesTable)
-      .where(
-        sql`(lower(${tradehubProfilesTable.displayName}) LIKE ${`%${q.toLowerCase()}%`} OR lower(${tradehubProfilesTable.trade}) LIKE ${`%${q.toLowerCase()}%`})`
-      )
-      .limit(15);
+    const profiles = await searchProfiles(q.toLowerCase(), 15);
 
     // Exclude self
     const filtered = profiles.filter((p) => p.userId !== req.userId);
@@ -1292,56 +962,7 @@ router.post("/tradehub/conversations", requireAuth, asyncHandler(async (req, res
       res.status(400).json({ error: "Cannot message yourself" }); return;
     }
 
-    // Check if a conversation already exists between these two users
-    const existing = await db.execute(
-      sql`SELECT cp1.conversation_id FROM tradehub_conversation_participants cp1
-          JOIN tradehub_conversation_participants cp2 ON cp1.conversation_id = cp2.conversation_id
-          WHERE cp1.user_id = ${req.userId} AND cp2.user_id = ${recipientId}
-          LIMIT 1`
-    );
-
-    let conversationId: number;
-    if (existing.rows.length > 0) {
-      conversationId = (existing.rows[0] as any).conversation_id;
-    } else {
-      const [conv] = await db.insert(tradehubConversationsTable).values({}).returning();
-      conversationId = conv.id;
-      await db.insert(tradehubConversationParticipantsTable).values([
-        { conversationId, userId: req.userId! },
-        { conversationId, userId: recipientId },
-      ]);
-    }
-
-    // Send the first message
-    await db.insert(tradehubMessagesTable).values({
-      conversationId,
-      senderId: req.userId!,
-      content: message.trim(),
-    });
-
-    // Update conversation timestamp
-    await db.update(tradehubConversationsTable)
-      .set({ updatedAt: new Date() })
-      .where(eq(tradehubConversationsTable.id, conversationId));
-
-    // Notify recipient
-    const [sender] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-    const [senderProfile] = await db.select().from(tradehubProfilesTable).where(eq(tradehubProfilesTable.userId, req.userId!));
-    const senderName = senderProfile?.displayName ?? `${sender?.firstName ?? ""} ${sender?.lastName ?? ""}`.trim();
-    await db.insert(tradehubNotificationsTable).values({
-      userId: recipientId,
-      type: "message",
-      referenceId: conversationId,
-      message: `${senderName} sent you a message on TradeHub`,
-    }).catch(() => {});
-    notify({
-      userId: recipientId,
-      actorUserId: req.userId,
-      type: "tradehub_message",
-      title: "New TradeHub message",
-      body: `${senderName} sent you a message on TradeHub`,
-      referenceId: conversationId,
-    }).catch(() => {});
+    const conversationId = await startOrContinueConversation(req.userId!, recipientId, message);
 
     res.json({ conversationId });
   } catch (err: any) {
@@ -1353,82 +974,7 @@ router.post("/tradehub/conversations", requireAuth, asyncHandler(async (req, res
 // GET /tradehub/conversations — list my conversations
 router.get("/tradehub/conversations", requireAuth, asyncHandler(async (req, res) => {
   try {
-    const myConvIds = await db
-      .select({ conversationId: tradehubConversationParticipantsTable.conversationId })
-      .from(tradehubConversationParticipantsTable)
-      .where(eq(tradehubConversationParticipantsTable.userId, req.userId!));
-
-    if (myConvIds.length === 0) { res.json([]); return; }
-
-    const ids = myConvIds.map((r) => r.conversationId);
-    const conversations = await db
-      .select()
-      .from(tradehubConversationsTable)
-      .where(inArray(tradehubConversationsTable.id, ids))
-      .orderBy(desc(tradehubConversationsTable.updatedAt));
-
-    const result = await Promise.all(
-      conversations.map(async (conv) => {
-        // Get other participant
-        const [otherPart] = await db
-          .select()
-          .from(tradehubConversationParticipantsTable)
-          .where(
-            and(
-              eq(tradehubConversationParticipantsTable.conversationId, conv.id),
-              sql`${tradehubConversationParticipantsTable.userId} != ${req.userId}`
-            )
-          )
-          .limit(1);
-
-        let otherParticipant = null;
-        if (otherPart) {
-          const [profile] = await db
-            .select()
-            .from(tradehubProfilesTable)
-            .where(eq(tradehubProfilesTable.userId, otherPart.userId))
-            .limit(1);
-          otherParticipant = profile ?? { userId: otherPart.userId, displayName: "Unknown" };
-        }
-
-        // Last message
-        const [lastMessage] = await db
-          .select()
-          .from(tradehubMessagesTable)
-          .where(eq(tradehubMessagesTable.conversationId, conv.id))
-          .orderBy(desc(tradehubMessagesTable.createdAt))
-          .limit(1);
-
-        // Unread count
-        const myPart = await db
-          .select()
-          .from(tradehubConversationParticipantsTable)
-          .where(
-            and(
-              eq(tradehubConversationParticipantsTable.conversationId, conv.id),
-              eq(tradehubConversationParticipantsTable.userId, req.userId!)
-            )
-          )
-          .limit(1);
-
-        const lastReadAt = myPart[0]?.lastReadAt;
-        const [{ count: unreadCount }] = await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(tradehubMessagesTable)
-          .where(
-            and(
-              eq(tradehubMessagesTable.conversationId, conv.id),
-              sql`${tradehubMessagesTable.senderId} != ${req.userId}`,
-              lastReadAt
-                ? sql`${tradehubMessagesTable.createdAt} > ${lastReadAt}`
-                : sql`1=1`
-            )
-          );
-
-        return { ...conv, otherParticipant, lastMessage: lastMessage ?? null, unreadCount };
-      })
-    );
-
+    const result = await listConversationsWithMeta(req.userId!);
     res.json(result);
   } catch (err: any) {
     req.log.error({ err }, "tradehub/conversations GET error");
@@ -1442,24 +988,10 @@ router.get("/tradehub/conversations/:id/messages", requireAuth, asyncHandler(asy
     const convId = parseInt(req.params.id as string);
 
     // Verify participant
-    const [part] = await db
-      .select()
-      .from(tradehubConversationParticipantsTable)
-      .where(
-        and(
-          eq(tradehubConversationParticipantsTable.conversationId, convId),
-          eq(tradehubConversationParticipantsTable.userId, req.userId!)
-        )
-      )
-      .limit(1);
-    if (!part) { res.status(403).json({ error: "Not a participant" }); return; }
+    const isMember = await isConversationParticipant(convId, req.userId!);
+    if (!isMember) { res.status(403).json({ error: "Not a participant" }); return; }
 
-    const messages = await db
-      .select()
-      .from(tradehubMessagesTable)
-      .where(eq(tradehubMessagesTable.conversationId, convId))
-      .orderBy(tradehubMessagesTable.createdAt)
-      .limit(100);
+    const messages = await listMessagesForConversation(convId);
 
     res.json(messages);
   } catch (err: any) {
@@ -1480,48 +1012,8 @@ router.post("/tradehub/conversations/:id/messages", requireAuth, asyncHandler(as
     if (!parsed.success) { res.status(400).json({ error: "content required and must be non-empty", details: parsed.error.flatten() }); return; }
     const { content } = parsed.data;
 
-    // Verify participant
-    const participants = await db
-      .select()
-      .from(tradehubConversationParticipantsTable)
-      .where(eq(tradehubConversationParticipantsTable.conversationId, convId));
-
-    const isMember = participants.some((p) => p.userId === req.userId);
-    if (!isMember) { res.status(403).json({ error: "Not a participant" }); return; }
-
-    const [msg] = await db.insert(tradehubMessagesTable).values({
-      conversationId: convId,
-      senderId: req.userId!,
-      content: content.trim(),
-    }).returning();
-
-    // Update conversation timestamp
-    await db.update(tradehubConversationsTable)
-      .set({ updatedAt: new Date() })
-      .where(eq(tradehubConversationsTable.id, convId));
-
-    // Notify the other participant
-    const other = participants.find((p) => p.userId !== req.userId);
-    if (other) {
-      const [senderProfile] = await db.select().from(tradehubProfilesTable).where(eq(tradehubProfilesTable.userId, req.userId!));
-      const [senderUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
-      const name = senderProfile?.displayName ?? `${senderUser?.firstName ?? ""}`.trim();
-      const preview = `${content.trim().slice(0, 60)}${content.trim().length > 60 ? "…" : ""}`;
-      await db.insert(tradehubNotificationsTable).values({
-        userId: other.userId,
-        type: "message",
-        referenceId: convId,
-        message: `${name}: ${preview}`,
-      }).catch(() => {});
-      notify({
-        userId: other.userId,
-        actorUserId: req.userId,
-        type: "tradehub_message",
-        title: "New TradeHub message",
-        body: `${name}: ${preview}`,
-        referenceId: convId,
-      }).catch(() => {});
-    }
+    const msg = await sendConversationMessage(convId, req.userId!, content);
+    if (!msg) { res.status(403).json({ error: "Not a participant" }); return; }
 
     res.json(msg);
   } catch (err: any) {
@@ -1534,15 +1026,7 @@ router.post("/tradehub/conversations/:id/messages", requireAuth, asyncHandler(as
 router.post("/tradehub/conversations/:id/read", requireAuth, asyncHandler(async (req, res) => {
   try {
     const convId = parseInt(req.params.id as string);
-    await db
-      .update(tradehubConversationParticipantsTable)
-      .set({ lastReadAt: new Date() })
-      .where(
-        and(
-          eq(tradehubConversationParticipantsTable.conversationId, convId),
-          eq(tradehubConversationParticipantsTable.userId, req.userId!)
-        )
-      );
+    await markConversationAsRead(convId, req.userId!);
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: "Failed to mark read" });

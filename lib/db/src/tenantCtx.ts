@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { sql } from "drizzle-orm";
 import { pool, drizzleDb } from "./dbInstance";
 
 type Tx = Parameters<Parameters<typeof drizzleDb.transaction>[0]>[0];
@@ -36,7 +37,7 @@ export async function withTenantCtx<T>(
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
   return drizzleDb.transaction(async (tx) => {
-    await tx.execute(`SET LOCAL app.company_id = ${companyId}`);
+    await tx.execute(sql`SET LOCAL app.company_id = ${companyId}`);
     return tenantLocal.run(tx, () => fn(tx));
   });
 }
