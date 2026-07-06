@@ -4,6 +4,7 @@ import { db, expensesTable, usersTable, costAnalysesTable } from "@workspace/db"
 import { eq, and, desc } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../lib/objectStorage.js";
+import { convertHeicToJpeg, isHeic } from "../lib/imageConvert.js";
 import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
@@ -186,9 +187,13 @@ router.post("/ocr", requireAuth, requireCompany, requireTenantCtx, requirePermis
     }
 
     const objectFile = await objectStorageService.getObjectEntityFile(parsed.data.objectPath);
-    const [fileContent] = await objectFile.download();
+    let [fileContent] = await objectFile.download();
     const [metadata] = await objectFile.getMetadata();
-    const mimeType = (metadata.contentType as string) || "image/jpeg";
+    let mimeType = (metadata.contentType as string) || "image/jpeg";
+    if (isHeic(mimeType)) {
+      fileContent = await convertHeicToJpeg(fileContent);
+      mimeType = "image/jpeg";
+    }
     const base64 = fileContent.toString("base64");
 
     const prompt = `You are an OCR assistant extracting structured data from a receipt photo for a Canadian construction company's expense-tracking system.

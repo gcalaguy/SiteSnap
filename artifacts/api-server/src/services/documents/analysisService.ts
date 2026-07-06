@@ -2,6 +2,7 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../../lib/objectStorage.js";
 import { logger } from "../../lib/logger.js";
 import { convertPDFPagesToImages } from "../../lib/pdfOcr.js";
+import { convertHeicToJpeg, isHeic } from "../../lib/imageConvert.js";
 import {
   getDocument,
   updateDocument,
@@ -35,9 +36,13 @@ export async function runImageAnalysis(
 ): Promise<AnalysisResult> {
   try {
     const objectFile = await objectStorageService.getObjectEntityFile(doc.objectPath);
-    const [fileContent] = await objectFile.download();
+    let [fileContent] = await objectFile.download();
+    let mimeType = doc.fileType.includes("/") ? doc.fileType : `image/${doc.fileType}`;
+    if (isHeic(mimeType)) {
+      fileContent = await convertHeicToJpeg(fileContent);
+      mimeType = "image/jpeg";
+    }
     const base64 = fileContent.toString("base64");
-    const mimeType = doc.fileType.includes("/") ? doc.fileType : `image/${doc.fileType}`;
 
     const prompt = `You are a construction document analyst for Canadian construction companies.
 
