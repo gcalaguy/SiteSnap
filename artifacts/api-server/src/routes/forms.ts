@@ -8,7 +8,7 @@ import {
   usersTable,
   contactsTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";
@@ -45,7 +45,7 @@ const UpdateSubmissionStatusBody = z.object({
 // ── Form Templates (at /forms) ────────────────────────────────────────────────
 
 // GET /forms — list all active templates
-router.get("/forms", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/forms", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const templates = await db
     .select()
     .from(formTemplatesTable)
@@ -55,7 +55,7 @@ router.get("/forms", requireAuth, requireCompany, asyncHandler(async (req, res) 
 }))
 
 // GET /forms/:id — get a single template
-router.get("/forms/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/forms/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -68,7 +68,7 @@ router.get("/forms/:id", requireAuth, requireCompany, asyncHandler(async (req, r
   res.json(template);
 }))
 
-router.post("/forms", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.post("/forms", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const parsed = CreateFormBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
 
@@ -86,7 +86,7 @@ router.post("/forms", requireAuth, requireCompany, requireOwnerOrForeman, asyncH
 }))
 
 // PUT /forms/:id — update form template
-router.put("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.put("/forms/:id", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -104,7 +104,7 @@ router.put("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, asy
 }))
 
 // DELETE /forms/:id — deactivate form template
-router.delete("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.delete("/forms/:id", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -126,7 +126,7 @@ router.delete("/forms/:id", requireAuth, requireCompany, requireOwnerOrForeman, 
 //   2. userId     — optional worker restriction (not in composite index, applied after)
 //   3. status     — optional filter (second column of composite index)
 // When both companyId and status are present the planner uses the full composite index.
-router.get("/form-submissions", requireAuth, requireCompany, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
+router.get("/form-submissions", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
   try {
     const { status, templateId, projectId, contactId } = req.query as Record<string, string>;
 
@@ -172,7 +172,7 @@ router.get("/form-submissions", requireAuth, requireCompany, requirePermission("
 }))
 
 // POST /form-submissions — create submission with contact + project linking
-router.post("/form-submissions", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/form-submissions", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const parsed = CreateSubmissionBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
@@ -199,7 +199,7 @@ router.post("/form-submissions", requireAuth, requireCompany, asyncHandler(async
 }))
 
 // GET /form-submissions/:id
-router.get("/form-submissions/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/form-submissions/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -224,7 +224,7 @@ router.get("/form-submissions/:id", requireAuth, requireCompany, asyncHandler(as
 }))
 
 // PATCH /form-submissions/:id/status — review/approve
-router.patch("/form-submissions/:id/status", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.patch("/form-submissions/:id/status", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 

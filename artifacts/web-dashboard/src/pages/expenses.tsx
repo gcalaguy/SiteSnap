@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch, useListProjects } from "@workspace/api-client-react";
+import { customFetch, useListProjects, ApiError } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,7 +94,7 @@ export default function ExpensesPage() {
       setReceiptFile(null);
       setUploading(false);
     },
-    onError: (e: any) => {
+    onError: (e: ApiError) => {
       setUploading(false);
       toast({ title: "Failed to submit expense", description: e?.message, variant: "destructive" });
     },
@@ -106,7 +106,7 @@ export default function ExpensesPage() {
       qc.invalidateQueries({ queryKey: ["expenses", activeProjectId] });
       toast({ title: "Expense deleted" });
     },
-    onError: (e: any) => toast({ title: "Failed to delete expense", description: e?.message, variant: "destructive" }),
+    onError: (e: ApiError) => toast({ title: "Failed to delete expense", description: e?.message, variant: "destructive" }),
   });
 
   const total = expenses.reduce((s, e) => s + parseFloat(e.amount), 0);
@@ -235,11 +235,12 @@ export default function ExpensesPage() {
 }
 
 function ReceiptLink({ objectPath }: { objectPath: string }) {
+  const { toast } = useToast();
   const { open, isFetching } = useSignedDownload(objectPath);
   return (
     <button
       type="button"
-      onClick={open}
+      onClick={() => open((message) => toast({ title: message, variant: "destructive" }))}
       disabled={isFetching}
       className="flex items-center gap-1 text-xs text-[#D4AF37] font-medium hover:underline disabled:opacity-50"
     >

@@ -781,7 +781,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
             ) : (
               <div className="space-y-2">
                 {savedEstimates.map((e) => {
-                  const result = e.result as any;
+                  const result = e.result as { summary?: { priceToClient?: number } } | null;
                   const price = result?.summary?.priceToClient;
                   return (
                     <div key={e.id} className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/20">

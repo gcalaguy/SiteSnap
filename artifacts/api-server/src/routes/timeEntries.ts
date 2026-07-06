@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, withTenantCtx, timeEntriesTable, projectsTable, usersTable, timesheetsTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, isNull } from "drizzle-orm";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { canAccessProject } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
 import { logger } from "../lib/logger";
@@ -85,7 +85,7 @@ const CreateTimeEntriesBody = z.object({
 });
 
 // GET /projects/:projectId/time-entries — list entries for a project
-router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
   if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
@@ -132,7 +132,7 @@ router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
 }))
 
 // POST /projects/:projectId/time-entries — log one or more hours+description rows for a date
-router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   if (!req.companyId) { res.status(403).json({ error: "No company associated with this account" }); return; }
 
   const projectId = parseInt(req.params.projectId as string);
@@ -219,7 +219,7 @@ const EditTimeEntryBody = z.object({
   description: z.string().max(500).nullable().optional(),
 });
 
-router.patch("/:entryId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/:entryId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const entryId = parseInt(req.params.entryId as string);
   if (isNaN(projectId) || isNaN(entryId)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -284,7 +284,7 @@ router.patch("/:entryId", requireAuth, requireCompany, asyncHandler(async (req, 
 }))
 
 // DELETE /projects/:projectId/time-entries/:entryId — delete own entry (owner/foreman can delete any)
-router.delete("/:entryId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.delete("/:entryId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const entryId = parseInt(req.params.entryId as string);
   if (isNaN(projectId) || isNaN(entryId)) { res.status(400).json({ error: "Invalid id" }); return; }

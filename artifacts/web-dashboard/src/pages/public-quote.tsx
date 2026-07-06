@@ -118,8 +118,8 @@ export default function PublicQuotePage() {
       setQuote(body);
       await reloadQuote();
       toast({ title: "Quote signed", description: "Thank you — your signature has been recorded." });
-    } catch (e: any) {
-      toast({ title: e.message, variant: "destructive" });
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Failed to submit signature", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }

@@ -9,6 +9,7 @@ import {
   useGetMe,
   customFetch,
 } from "@workspace/api-client-react";
+import { formatCurrency } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -542,12 +543,7 @@ function ForemanBriefingCard() {
 }
 
 function fmt(n: number, opts?: Intl.NumberFormatOptions) {
-  return new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: "CAD",
-    maximumFractionDigits: 0,
-    ...opts,
-  }).format(n);
+  return formatCurrency(n, { maximumFractionDigits: 0, ...opts });
 }
 
 export default function Dashboard() {

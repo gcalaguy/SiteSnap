@@ -1,26 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
 import { Trash2 } from "lucide-react";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
+import type { DailyReportPhoto } from "@workspace/api-client-react";
 
-export function PhotoThumbnail({ photo, compact, onDelete }: { photo: any; compact?: boolean; onDelete?: () => void }) {
-  const { data: signedUrl, isLoading } = useQuery({
-    queryKey: ["signed-photo-url", photo.objectPath],
-    queryFn: async () => {
-      const path = photo.objectPath?.replace(/^\//, "");
-      if (!path) return null;
-      const rest = path.startsWith("objects/")
-        ? path.replace(/^objects\//, "")
-        : path.startsWith("api/storage/objects/")
-          ? path.replace(/^api\/storage\/objects\//, "")
-          : null;
-      if (!rest) return null;
-      const { url } = (await customFetch(`/api/storage/objects/${rest}/signed-url`)) as { url: string };
-      return url;
-    },
-    enabled: !!photo.objectPath,
-    staleTime: 10 * 60 * 1000,
-    gcTime: 15 * 60 * 1000,
-  });
+export function PhotoThumbnail({ photo, compact, onDelete }: { photo: DailyReportPhoto; compact?: boolean; onDelete?: () => void }) {
+  const { data: signedUrl, isLoading } = useSignedUrl(photo.objectPath);
 
   const sizeClass = compact ? "h-16 w-16" : "h-24 w-24";
 

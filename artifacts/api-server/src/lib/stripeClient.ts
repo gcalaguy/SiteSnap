@@ -1,7 +1,17 @@
 import Stripe from 'stripe';
 import { StripeSync } from 'stripe-replit-sync';
 
-async function getStripeCredentials(): Promise<{ publishableKey: string; secretKey: string; webhookSecret?: string }> {
+type StripeCredentials = { publishableKey: string; secretKey: string; webhookSecret?: string };
+
+// Cached for the lifetime of the process — the Replit connector round-trip and
+// Stripe/StripeSync construction only need to happen once, not on every request.
+// A shared in-flight promise also dedupes concurrent cold-start callers instead
+// of each firing its own connector fetch.
+let credentialsPromise: Promise<StripeCredentials> | null = null;
+let cachedStripeClient: Stripe | null = null;
+let cachedStripeSync: StripeSync | null = null;
+
+async function fetchStripeCredentials(): Promise<StripeCredentials> {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
@@ -50,9 +60,23 @@ async function getStripeCredentials(): Promise<{ publishableKey: string; secretK
   };
 }
 
-export async function getUncachableStripeClient(): Promise<Stripe> {
+function getStripeCredentials(): Promise<StripeCredentials> {
+  if (!credentialsPromise) {
+    credentialsPromise = fetchStripeCredentials().catch((err) => {
+      // Don't cache a failed fetch — a transient connector hiccup shouldn't
+      // permanently break Stripe access for the rest of the process lifetime.
+      credentialsPromise = null;
+      throw err;
+    });
+  }
+  return credentialsPromise;
+}
+
+export async function getStripeClient(): Promise<Stripe> {
+  if (cachedStripeClient) return cachedStripeClient;
   const { secretKey } = await getStripeCredentials();
-  return new Stripe(secretKey, { apiVersion: '2025-08-27.basil' as any });
+  cachedStripeClient = new Stripe(secretKey, { apiVersion: '2025-08-27.basil' as any });
+  return cachedStripeClient;
 }
 
 export async function getStripePublishableKey(): Promise<string> {
@@ -61,13 +85,15 @@ export async function getStripePublishableKey(): Promise<string> {
 }
 
 export async function getStripeSync(): Promise<StripeSync> {
+  if (cachedStripeSync) return cachedStripeSync;
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error('DATABASE_URL environment variable is required');
 
   const { secretKey, webhookSecret } = await getStripeCredentials();
-  return new StripeSync({
+  cachedStripeSync = new StripeSync({
     poolConfig: { connectionString: databaseUrl },
     stripeSecretKey: secretKey,
     stripeWebhookSecret: webhookSecret ?? '',
   });
+  return cachedStripeSync;
 }

@@ -6,7 +6,9 @@ import {
   useUpdateDailyReport,
   useDeleteReportPhoto,
   getListDailyReportsQueryKey,
+  ApiError,
 } from "@workspace/api-client-react";
+import type { DailyReport, DailyReportPhoto, CreateDailyReportBody } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { queryClient } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +24,10 @@ import { createDailyReportBodyWorkPerformedMax as REPORT_FIELD_MAX } from "@work
 import { PhotoThumbnail } from "./PhotoThumbnail";
 import type { Member } from "./TasksTab";
 import { getMemberName } from "./TasksTab";
+
+// The daily-reports list endpoint enriches each report with its uploaded photos,
+// but that isn't reflected in the generated `DailyReport` contract type.
+type DailyReportWithPhotos = DailyReport & { photos?: DailyReportPhoto[] };
 
 export function ReportsTab({
   projectId,
@@ -48,12 +54,12 @@ export function ReportsTab({
   const selectedMember = selectedWorkerId ? members.find((m) => m.id === selectedWorkerId) : null;
 
   const filteredReports = selectedWorkerId
-    ? (reports ?? []).filter((r: any) => r.submittedByUserId === selectedWorkerId)
+    ? (reports ?? []).filter((r) => r.submittedByUserId === selectedWorkerId)
     : (reports ?? []);
 
   useEffect(() => {
     if (!editingReportId) return;
-    const r = filteredReports.find((x: any) => x.id === editingReportId);
+    const r = filteredReports.find((x) => x.id === editingReportId);
     if (r) {
       setEditReportWork(r.workPerformed ?? "");
       setEditReportMaterials(r.materialsUsed ?? "");
@@ -67,7 +73,7 @@ export function ReportsTab({
         queryClient.invalidateQueries({ queryKey: getListDailyReportsQueryKey(projectId) });
         toast({ title: "Daily report deleted" });
       },
-      onError: (err: any) => toast({ title: err?.message ?? "Failed to delete report", variant: "destructive" }),
+      onError: (err: ApiError) => toast({ title: err?.message ?? "Failed to delete report", variant: "destructive" }),
     },
   });
 
@@ -78,7 +84,7 @@ export function ReportsTab({
         setEditingReportId(null);
         toast({ title: "Daily report updated" });
       },
-      onError: (err: any) => toast({ title: err?.message ?? "Failed to update report", variant: "destructive" }),
+      onError: (err: ApiError) => toast({ title: err?.message ?? "Failed to update report", variant: "destructive" }),
     },
   });
 
@@ -88,7 +94,7 @@ export function ReportsTab({
         queryClient.invalidateQueries({ queryKey: getListDailyReportsQueryKey(projectId) });
         toast({ title: "Photo deleted" });
       },
-      onError: (err: any) => toast({ title: err?.message ?? "Failed to delete photo", variant: "destructive" }),
+      onError: (err: ApiError) => toast({ title: err?.message ?? "Failed to delete photo", variant: "destructive" }),
     },
   });
 
@@ -114,8 +120,8 @@ export function ReportsTab({
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {filteredReports.map((report: any) => {
-            const photos: any[] = report.photos ?? [];
+          {filteredReports.map((report) => {
+            const photos: DailyReportPhoto[] = (report as DailyReportWithPhotos).photos ?? [];
             const isExpanded = expandedReportId === report.id;
             return (
               <Card
@@ -244,7 +250,7 @@ export function ReportsTab({
                         <div>
                           <p className="text-xs font-semibold text-foreground mb-2">Site Photos</p>
                           <div className="flex flex-wrap gap-2">
-                            {photos.map((photo: any) => (
+                            {photos.map((photo) => (
                               <PhotoThumbnail
                                 key={photo.id}
                                 photo={photo}
@@ -270,7 +276,7 @@ export function ReportsTab({
                     <>
                       {photos.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {photos.slice(0, 3).map((photo: any) => (
+                          {photos.slice(0, 3).map((photo) => (
                             <PhotoThumbnail key={photo.id} photo={photo} compact />
                           ))}
                           {photos.length > 3 && (
@@ -297,7 +303,7 @@ export function ReportsTab({
 
       {/* Edit Daily Report Dialog */}
       {(() => {
-        const report = filteredReports.find((r: any) => r.id === editingReportId);
+        const report = filteredReports.find((r) => r.id === editingReportId);
         if (!report) return null;
         return (
           <Dialog open={!!editingReportId} onOpenChange={() => setEditingReportId(null)}>
@@ -345,19 +351,20 @@ export function ReportsTab({
                     const tempVal = (document.getElementById(`edit-report-temp-${report.id}`) as HTMLInputElement)?.value;
                     const equipmentVal = (document.getElementById(`edit-report-equipment-${report.id}`) as HTMLInputElement)?.value;
                     const crewVal = (document.getElementById(`edit-report-crew-${report.id}`) as HTMLInputElement)?.value;
+                    const data: CreateDailyReportBody = {
+                      reportDate: dateVal ? new Date(dateVal).toISOString() : report.reportDate,
+                      workPerformed: editReportWork,
+                      weather: weatherVal || undefined,
+                      temperature: tempVal || undefined,
+                      materialsUsed: editReportMaterials || undefined,
+                      equipment: equipmentVal || undefined,
+                      issues: editReportIssues || undefined,
+                      crewCount: crewVal ? Number(crewVal) : report.crewCount,
+                    };
                     updateDailyReport.mutate({
                       projectId,
                       reportId: report.id,
-                      data: {
-                        reportDate: dateVal ? new Date(dateVal).toISOString() : report.reportDate,
-                        workPerformed: editReportWork,
-                        weather: weatherVal || undefined,
-                        temperature: tempVal || undefined,
-                        materialsUsed: editReportMaterials || undefined,
-                        equipment: equipmentVal || undefined,
-                        issues: editReportIssues || undefined,
-                        crewCount: crewVal ? Number(crewVal) : undefined,
-                      } as any,
+                      data,
                     });
                   }}
                   disabled={updateDailyReport.isPending || editReportWork.length >= REPORT_FIELD_MAX || editReportMaterials.length >= REPORT_FIELD_MAX || editReportIssues.length >= REPORT_FIELD_MAX}

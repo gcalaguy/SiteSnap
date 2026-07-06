@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
@@ -13,10 +13,12 @@ import {
   useListTradeReviews,
   useSubmitTradeReview,
   getGetTradehubProfileMeQueryKey,
+  getGetTradehubProfileQueryKey,
   getListTradehubNotificationsQueryKey,
   getGetTradeReviewSummaryQueryKey,
   getListTradeReviewsQueryKey,
-  GetTradeReviewSummaryTargetType
+  GetTradeReviewSummaryTargetType,
+  type UpsertTradehubProfileBody,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -47,6 +49,30 @@ const typeConfig: Record<string, { label: string; color: string; icon: React.Ele
   showcase:   { label: "Showcase",   color: "bg-emerald-100 text-emerald-700", icon: Sparkles },
 };
 
+interface ProfileFormState {
+  displayName: string;
+  trade: string;
+  location: string;
+  province: string;
+  bio: string;
+  website: string;
+  complianceStatus: string;
+  avatarUrl: string;
+}
+
+interface ProfileMediaItem {
+  id: number;
+  url: string;
+  objectPath: string | null;
+  mediaType: string;
+  fileName: string | null;
+  createdAt: string;
+}
+
+interface UploadErrorBody {
+  error?: string;
+}
+
 export default function TradehubProfilePage() {
   const { userId } = useParams<{ userId: string }>();
 
@@ -56,12 +82,12 @@ export default function TradehubProfilePage() {
 
   const isMe = userId === "me";
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ displayName: "", trade: "", location: "", province: "", bio: "", website: "", complianceStatus: "compliant", avatarUrl: "" });
+  const [form, setForm] = useState<ProfileFormState>({ displayName: "", trade: "", location: "", province: "", bio: "", website: "", complianceStatus: "compliant", avatarUrl: "" });
 
   const { data: profileMe, isLoading: loadingMe } = useGetTradehubProfileMe();
   const { data: profileOther, isLoading: loadingOther } = useGetTradehubProfile(
     parseInt(userId ?? "0"),
-    { query: { enabled: !!userId && userId !== "me" } as any },
+    { query: { queryKey: getGetTradehubProfileQueryKey(parseInt(userId ?? "0")), enabled: !!userId && userId !== "me" } },
   );
   const profile = isMe ? profileMe : profileOther;
   const isLoading = isMe ? loadingMe : loadingOther;
@@ -76,12 +102,12 @@ export default function TradehubProfilePage() {
 
   const { data: reviewSummary } = useGetTradeReviewSummary(
     { targetType: targetType as GetTradeReviewSummaryTargetType, targetUserId },
-    { query: { enabled: !isMe && !!targetUserId } as any },
+    { query: { queryKey: getGetTradeReviewSummaryQueryKey({ targetType: targetType as GetTradeReviewSummaryTargetType, targetUserId }), enabled: !isMe && !!targetUserId } },
   );
 
   const { data: reviewList } = useListTradeReviews(
     { targetType: targetType as GetTradeReviewSummaryTargetType, targetUserId, page: 1, limit: 10 },
-    { query: { enabled: !isMe && !!targetUserId } as any },
+    { query: { queryKey: getListTradeReviewsQueryKey({ targetType: targetType as GetTradeReviewSummaryTargetType, targetUserId, page: 1, limit: 10 }), enabled: !isMe && !!targetUserId } },
   );
 
   const submitReviewMutation = useSubmitTradeReview({
@@ -92,8 +118,8 @@ export default function TradehubProfilePage() {
         setShowReviewModal(false);
         toast({ title: "Review submitted!" });
       },
-      onError: (err: any) => {
-        toast({ title: "Error", description: err?.message || "Failed to submit review", variant: "destructive" });
+      onError: (err) => {
+        toast({ title: "Error", description: err.message || "Failed to submit review", variant: "destructive" });
       },
     },
   });
@@ -130,17 +156,17 @@ export default function TradehubProfilePage() {
     },
   });
 
-  const { data: myMedia = [] } = useQuery<any[]>({
+  const { data: myMedia = [] } = useQuery<ProfileMediaItem[]>({
     queryKey: ["tradehub-profile-media-me"],
     queryFn: () => customFetch("/api/tradehub/profile/me/media"),
     enabled: isMe,
   });
-  const { data: theirMedia = [] } = useQuery<any[]>({
+  const { data: theirMedia = [] } = useQuery<ProfileMediaItem[]>({
     queryKey: ["tradehub-profile-media", userId],
     queryFn: () => customFetch(`/api/tradehub/profile/${userId}/media`),
     enabled: !isMe,
   });
-  const profileMedia: any[] = isMe ? myMedia : theirMedia;
+  const profileMedia: ProfileMediaItem[] = isMe ? myMedia : theirMedia;
 
   const addMediaMutation = useMutation({
     mutationFn: (payload: { url: string; objectPath?: string; mediaType: string; fileName?: string }) =>
@@ -171,7 +197,7 @@ export default function TradehubProfilePage() {
         <Card>
           <CardContent className="pt-6 space-y-4">
             <ProfileForm form={form} setForm={setForm} />
-            <Button className="w-full gap-2" onClick={() => saveMutation.mutate({ data: form as any })} disabled={!form.displayName.trim() || saveMutation.isPending}>
+            <Button className="w-full gap-2" onClick={() => saveMutation.mutate({ data: form as UpsertTradehubProfileBody })} disabled={!form.displayName.trim() || saveMutation.isPending}>
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Create Profile
             </Button>
@@ -188,7 +214,7 @@ export default function TradehubProfilePage() {
   const displayData = profile;
   const recentPosts = isMe ? [] : (displayData.recentPosts ?? []);
   const initials = displayData.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "??";
-  const unreadNotifs = notifications.filter((n: any) => !n.isRead);
+  const unreadNotifs = notifications.filter((n) => !n.isRead);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -299,11 +325,11 @@ export default function TradehubProfilePage() {
                 ) : (
                   <div className="space-y-3">
                     {/* Photos */}
-                    {profileMedia.filter((m: any) => m.mediaType === "photo").length > 0 && (
+                    {profileMedia.filter((m) => m.mediaType === "photo").length > 0 && (
                       <div>
                         <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Photos</p>
                         <div className="grid grid-cols-3 gap-1.5">
-                          {profileMedia.filter((m: any) => m.mediaType === "photo").map((m: any) => (
+                          {profileMedia.filter((m) => m.mediaType === "photo").map((m) => (
                             <div key={m.id} className="relative group aspect-square rounded-lg overflow-hidden bg-muted">
                               <SignedImage src={m.url} alt={m.fileName ?? ""} className="object-cover w-full h-full" />
                               {isMe && (
@@ -320,11 +346,11 @@ export default function TradehubProfilePage() {
                       </div>
                     )}
                     {/* Documents */}
-                    {profileMedia.filter((m: any) => m.mediaType === "document").length > 0 && (
+                    {profileMedia.filter((m) => m.mediaType === "document").length > 0 && (
                       <div>
                         <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Documents</p>
                         <div className="space-y-1.5">
-                          {profileMedia.filter((m: any) => m.mediaType === "document").map((m: any) => (
+                          {profileMedia.filter((m) => m.mediaType === "document").map((m) => (
                             <div key={m.id} className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors group">
                               <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                               <a
@@ -361,7 +387,7 @@ export default function TradehubProfilePage() {
                 <ProfileForm form={form} setForm={setForm} />
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
-                  <Button onClick={() => saveMutation.mutate({ data: form as any })} disabled={!form.displayName.trim() || saveMutation.isPending} className="gap-2">
+                  <Button onClick={() => saveMutation.mutate({ data: form as UpsertTradehubProfileBody })} disabled={!form.displayName.trim() || saveMutation.isPending} className="gap-2">
                     {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save Changes
                   </Button>
@@ -385,7 +411,7 @@ export default function TradehubProfilePage() {
                 )}
               </CardHeader>
               <CardContent className="space-y-2">
-                {notifications.slice(0, 10).map((n: any) => (
+                {notifications.slice(0, 10).map((n) => (
                   <div key={n.id} className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${n.isRead ? "bg-muted/30" : "bg-primary/5 border border-primary/10"}`}>
                     <Bell className={`h-4 w-4 flex-shrink-0 mt-0.5 ${n.isRead ? "text-muted-foreground" : "text-primary"}`} />
                     <div className="flex-1 min-w-0">
@@ -407,7 +433,7 @@ export default function TradehubProfilePage() {
             <Card>
               <CardHeader><CardTitle className="text-base">Recent Posts</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                {recentPosts.map((post: any) => {
+                {recentPosts.map((post) => {
                   const tc = typeConfig[post.type] ?? typeConfig.discussion;
                   const Icon = tc.icon;
                   return (
@@ -490,8 +516,8 @@ function ProfileMediaUploader({ onUploaded }: {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as any).error ?? "Upload failed");
+        const err: UploadErrorBody = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Upload failed");
       }
       const { objectPath, fileName } = await res.json() as { objectPath: string; fileName: string };
       const isImage = file.type.startsWith("image/");
@@ -502,8 +528,8 @@ function ProfileMediaUploader({ onUploaded }: {
         fileName: file.name ?? fileName,
       });
       toast({ title: isImage ? "Photo uploaded!" : "Document uploaded!" });
-    } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Upload failed", variant: "destructive" });
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -533,7 +559,7 @@ function ProfileMediaUploader({ onUploaded }: {
   );
 }
 
-function ProfileForm({ form, setForm }: { form: any; setForm: any }) {
+function ProfileForm({ form, setForm }: { form: ProfileFormState; setForm: Dispatch<SetStateAction<ProfileFormState>> }) {
   const { toast } = useToast();
   const [avatarUploading, setAvatarUploading] = useState(false);
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -548,12 +574,12 @@ function ProfileForm({ form, setForm }: { form: any; setForm: any }) {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/tradehub/uploads/file", { method: "POST", body: fd, credentials: "include" });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error((e as any).error ?? "Upload failed"); }
+      if (!res.ok) { const e: UploadErrorBody = await res.json().catch(() => ({})); throw new Error(e.error ?? "Upload failed"); }
       const { objectPath } = await res.json() as { objectPath: string };
-      setForm((p: any) => ({ ...p, avatarUrl: objectPath }));
+      setForm((p) => ({ ...p, avatarUrl: objectPath }));
       toast({ title: "Photo updated — save to apply." });
-    } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Upload failed", variant: "destructive" });
     } finally {
       setAvatarUploading(false);
       if (avatarRef.current) avatarRef.current.value = "";
@@ -579,11 +605,11 @@ function ProfileForm({ form, setForm }: { form: any; setForm: any }) {
 
       <div className="space-y-1.5">
         <Label>Display Name *</Label>
-        <Input value={form.displayName} onChange={(e) => setForm((p: any) => ({ ...p, displayName: e.target.value }))} placeholder="Your name as tradespeople will see it" />
+        <Input value={form.displayName} onChange={(e) => setForm((p) => ({ ...p, displayName: e.target.value }))} placeholder="Your name as tradespeople will see it" />
       </div>
       <div className="space-y-1.5">
         <Label>Trade</Label>
-        <Select value={form.trade} onValueChange={(v) => setForm((p: any) => ({ ...p, trade: v }))}>
+        <Select value={form.trade} onValueChange={(v) => setForm((p) => ({ ...p, trade: v }))}>
           <SelectTrigger><SelectValue placeholder="Select your trade" /></SelectTrigger>
           <SelectContent>{TRADES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
         </Select>
@@ -591,11 +617,11 @@ function ProfileForm({ form, setForm }: { form: any; setForm: any }) {
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>City</Label>
-          <Input value={form.location} onChange={(e) => setForm((p: any) => ({ ...p, location: e.target.value }))} placeholder="e.g. Calgary" />
+          <Input value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} placeholder="e.g. Calgary" />
         </div>
         <div className="space-y-1.5">
           <Label>Province</Label>
-          <Select value={form.province} onValueChange={(v) => setForm((p: any) => ({ ...p, province: v }))}>
+          <Select value={form.province} onValueChange={(v) => setForm((p) => ({ ...p, province: v }))}>
             <SelectTrigger><SelectValue placeholder="Prov." /></SelectTrigger>
             <SelectContent>{PROVINCES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
           </Select>
@@ -603,15 +629,15 @@ function ProfileForm({ form, setForm }: { form: any; setForm: any }) {
       </div>
       <div className="space-y-1.5">
         <Label>Bio</Label>
-        <Textarea value={form.bio} onChange={(e) => setForm((p: any) => ({ ...p, bio: e.target.value }))} placeholder="A few lines about your experience, specialties, and availability…" rows={3} />
+        <Textarea value={form.bio} onChange={(e) => setForm((p) => ({ ...p, bio: e.target.value }))} placeholder="A few lines about your experience, specialties, and availability…" rows={3} />
       </div>
       <div className="space-y-1.5">
         <Label>Website / LinkedIn</Label>
-        <Input value={form.website} onChange={(e) => setForm((p: any) => ({ ...p, website: e.target.value }))} placeholder="https://" />
+        <Input value={form.website} onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))} placeholder="https://" />
       </div>
       <div className="space-y-1.5">
         <Label>Compliance Status</Label>
-        <Select value={form.complianceStatus} onValueChange={(v) => setForm((p: any) => ({ ...p, complianceStatus: v }))}>
+        <Select value={form.complianceStatus} onValueChange={(v) => setForm((p) => ({ ...p, complianceStatus: v }))}>
           <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="compliant">Compliant</SelectItem>

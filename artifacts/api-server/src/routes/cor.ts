@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { db, userMembershipsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwner, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwner, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { canAccessProject, assertProjectInCompany as resolveProject } from "../lib/projectAccess";
 import { ForbiddenError, NotFoundError, BadRequestError } from "../lib/errors";
@@ -99,6 +99,7 @@ router.get(
   "/cor/projects/:projectId/dashboard",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
@@ -118,6 +119,7 @@ router.get(
   "/cor/projects/:projectId/audit-trail",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
@@ -148,6 +150,7 @@ router.get(
   "/cor/company/summary",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const summary = await getCompanyCorSummary(req.companyId!);
@@ -161,6 +164,7 @@ router.get(
   "/cor/credentials",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const matrix = await getWorkerCredentialMatrix(req.companyId!);
@@ -175,6 +179,7 @@ router.get(
   "/cor/credentials/expiring-soon",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const expiring = await getCompanyExpiringSoonCredentials(req.companyId!);
@@ -190,6 +195,7 @@ router.post(
   "/cor/credentials/run-expiry-alerts",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (_req, res) => {
     const result = await sendCredentialExpiryAlerts();
@@ -204,6 +210,7 @@ router.get(
   "/cor/credentials/:userId",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const targetUserId = parseInt(req.params.userId as string);
     if (isNaN(targetUserId)) throw new BadRequestError("Invalid user ID");
@@ -238,6 +245,7 @@ router.put(
   "/cor/credentials/:userId/:credentialType",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const targetUserId = parseInt(req.params.userId as string);
@@ -287,6 +295,7 @@ router.post(
   "/cor/credentials/check",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = CheckEligibilityBody.safeParse(req.body);
@@ -320,6 +329,7 @@ router.post(
   "/cor/voice-log",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const parsed = VoiceLogBody.safeParse(req.body);
     if (!parsed.success) throw new BadRequestError("Invalid request body", parsed.error.flatten());
@@ -372,6 +382,7 @@ router.get(
   "/cor/voice-log",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     if (req.userRole === "worker") {
       const logs = await getMyVoiceLogs(req.companyId!, req.userId!);
@@ -398,6 +409,7 @@ router.get(
   "/cor/my-audit",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const entries = await getMyCorAuditEntries(req.companyId!, req.userId!);
     res.json(entries);
@@ -417,6 +429,7 @@ router.post(
   "/cor/audit-package/generate",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = GeneratePackageBody.safeParse(req.body);
@@ -459,6 +472,7 @@ router.get(
   "/cor/audit-packages",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const packages = await listAuditPackages(req.companyId!);
@@ -472,6 +486,7 @@ router.get(
   "/cor/audit-package/:id/verification",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const packageId = parseInt(req.params.id as string);
@@ -494,6 +509,7 @@ router.get(
   "/cor/audit-package/:id/download",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const packageId = parseInt(req.params.id as string);
@@ -552,6 +568,7 @@ router.get(
   "/cor/policy-documents",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const includeInactive = req.query.includeInactive === "true" && req.userRole !== "worker";
     try {
@@ -569,6 +586,7 @@ router.post(
   "/cor/policy-documents",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = CreatePolicyDocBody.safeParse(req.body);
@@ -597,6 +615,7 @@ router.delete(
   "/cor/policy-documents/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -617,6 +636,7 @@ router.post(
   "/cor/policy-documents/:id/sign",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const docId = parseInt(req.params.id as string);
     if (isNaN(docId)) throw new BadRequestError("Invalid document ID");
@@ -654,6 +674,7 @@ router.get(
   "/cor/policy-signoffs/pending",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     try {
       const pending = await getMyPendingSignoffs(req.companyId!, req.userId!);
@@ -670,6 +691,7 @@ router.get(
   "/cor/signoff-element-compliance",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     try {
@@ -687,6 +709,7 @@ router.get(
   "/cor/policy-signoffs/summary",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     try {
@@ -704,6 +727,7 @@ router.get(
   "/cor/policy-signoffs",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     try {
       if (req.userRole === "worker") {
@@ -763,6 +787,7 @@ router.get(
   "/cor/subcontractors/flagged",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     try {
@@ -779,6 +804,7 @@ router.get(
   "/cor/subcontractors/summary",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     try {
@@ -795,6 +821,7 @@ router.get(
   "/cor/subcontractors",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     try {
@@ -811,6 +838,7 @@ router.post(
   "/cor/subcontractors",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = CreateSubBody.safeParse(req.body);
@@ -831,6 +859,7 @@ router.put(
   "/cor/subcontractors/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -849,6 +878,7 @@ router.delete(
   "/cor/subcontractors/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -865,6 +895,7 @@ router.post(
   "/cor/subcontractors/:id/invite",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -884,6 +915,7 @@ router.post(
   "/cor/subcontractors/:id/docs",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const subId = parseInt(req.params.id as string);
@@ -905,6 +937,7 @@ router.delete(
   "/cor/subcontractors/:id/docs/:docId",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const subId = parseInt(req.params.id as string);
@@ -955,6 +988,7 @@ router.get(
   "/cor/members",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const members = await getCompanyMembersForPicker(req.companyId!);
@@ -967,6 +1001,7 @@ router.get(
   "/cor/capa/action-required",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     try {
@@ -984,6 +1019,7 @@ router.get(
   "/cor/capa/summary",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     try {
@@ -1001,6 +1037,7 @@ router.get(
   "/cor/capa",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     try {
@@ -1021,6 +1058,7 @@ router.post(
   "/cor/capa",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const parsed = CreateCapaBody.safeParse(req.body);
@@ -1058,6 +1096,7 @@ router.get(
   "/cor/capa/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -1078,6 +1117,7 @@ router.put(
   "/cor/capa/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -1112,6 +1152,7 @@ router.post(
   "/cor/capa/:id/close",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -1136,6 +1177,7 @@ router.delete(
   "/cor/capa/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -1157,6 +1199,7 @@ router.post(
   "/cor/auditor-tokens",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     if (req.userRole !== "owner") {
       throw new ForbiddenError("Only owners can generate auditor access links.");
@@ -1180,6 +1223,7 @@ router.get(
   "/cor/auditor-tokens",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     if (req.userRole !== "owner") {
       throw new ForbiddenError("Only owners can view auditor access links.");
@@ -1193,6 +1237,7 @@ router.delete(
   "/cor/auditor-tokens/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     if (req.userRole !== "owner") {
       throw new ForbiddenError("Only owners can revoke auditor access links.");
@@ -1213,6 +1258,7 @@ router.get(
   "/cor/shadow-auditor",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const lookbackDays = Math.min(

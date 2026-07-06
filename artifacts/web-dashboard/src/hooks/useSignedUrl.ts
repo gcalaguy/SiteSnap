@@ -62,24 +62,31 @@ export function useSignedOrDirectUrl(url: string | null | undefined) {
   return { url: resolvedUrl, isLoading };
 }
 
-/** Download a file via its signed URL. Opens in a new tab. */
+/**
+ * Download a file via its signed URL. Opens in a new tab.
+ * Pass onError to surface failures (e.g. a deleted/missing object) to the
+ * user — otherwise a 404 here looks like the button silently did nothing.
+ */
 export function useSignedDownload(objectPath: string | null | undefined) {
   const [isFetching, setIsFetching] = useState(false);
   const { data: signedUrl } = useSignedUrl(objectPath);
 
-  async function open() {
+  async function open(onError?: (message: string) => void) {
     if (signedUrl) {
       window.open(signedUrl, "_blank", "noopener,noreferrer");
       return;
     }
     const path = getSignedUrlPath(objectPath);
-    if (!path) return;
+    if (!path) {
+      onError?.("This file's path isn't recognized.");
+      return;
+    }
     setIsFetching(true);
     try {
       const { url } = (await customFetch(path)) as { url: string };
       window.open(url, "_blank", "noopener,noreferrer");
     } catch {
-      // silently fail – caller can show toast
+      onError?.("This file could not be found. It may have been deleted.");
     } finally {
       setIsFetching(false);
     }

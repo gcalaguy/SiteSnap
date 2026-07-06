@@ -8,7 +8,7 @@ import {
   estimateTemplateItemsTable,
   proposalsTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
@@ -54,7 +54,7 @@ async function getEstimateWithItems(estimateId: number, companyId: number) {
 // ─── Builder Estimates CRUD ───────────────────────────────────────────────────
 
 // GET /builder-estimates
-router.get("/builder-estimates", requireAuth, requireCompany, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
+router.get("/builder-estimates", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const estimates = await db
     .select()
     .from(builderEstimatesTable)
@@ -64,7 +64,7 @@ router.get("/builder-estimates", requireAuth, requireCompany, requirePermission(
 }))
 
 // GET /builder-estimates/:id
-router.get("/builder-estimates/:id", requireAuth, requireCompany, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
+router.get("/builder-estimates/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const data = await getEstimateWithItems(id, req.companyId!);
@@ -73,7 +73,7 @@ router.get("/builder-estimates/:id", requireAuth, requireCompany, requirePermiss
 }))
 
 // POST /builder-estimates
-router.post("/builder-estimates", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.post("/builder-estimates", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const Body = z.object({
     title: z.string().min(1),
     projectId: z.coerce.number().int().positive().optional().nullable(),
@@ -109,7 +109,7 @@ router.post("/builder-estimates", requireAuth, requireCompany, requirePermission
 }))
 
 // PATCH /builder-estimates/:id
-router.patch("/builder-estimates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.patch("/builder-estimates/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -133,7 +133,7 @@ router.patch("/builder-estimates/:id", requireAuth, requireCompany, requirePermi
 }))
 
 // DELETE /builder-estimates/:id
-router.delete("/builder-estimates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.delete("/builder-estimates/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -156,7 +156,7 @@ router.delete("/builder-estimates/:id", requireAuth, requireCompany, requirePerm
 // ─── Line Items ───────────────────────────────────────────────────────────────
 
 // POST /builder-estimates/:id/items
-router.post("/builder-estimates/:id/items", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.post("/builder-estimates/:id/items", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const estimateId = parseInt(req.params.id as string);
   if (isNaN(estimateId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -186,7 +186,7 @@ router.post("/builder-estimates/:id/items", requireAuth, requireCompany, require
 }))
 
 // PATCH /builder-estimates/:id/items/:itemId
-router.patch("/builder-estimates/:id/items/:itemId", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.patch("/builder-estimates/:id/items/:itemId", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const estimateId = parseInt(req.params.id as string);
   const itemId = parseInt(req.params.itemId as string);
   if (isNaN(estimateId) || isNaN(itemId)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -213,7 +213,7 @@ router.patch("/builder-estimates/:id/items/:itemId", requireAuth, requireCompany
 }))
 
 // DELETE /builder-estimates/:id/items/:itemId
-router.delete("/builder-estimates/:id/items/:itemId", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.delete("/builder-estimates/:id/items/:itemId", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const estimateId = parseInt(req.params.id as string);
   const itemId = parseInt(req.params.itemId as string);
   if (isNaN(estimateId) || isNaN(itemId)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -228,7 +228,7 @@ router.delete("/builder-estimates/:id/items/:itemId", requireAuth, requireCompan
 }))
 
 // POST /builder-estimates/:id/convert — create proposal from estimate
-router.post("/builder-estimates/:id/convert", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.post("/builder-estimates/:id/convert", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const estimateId = parseInt(req.params.id as string);
   if (isNaN(estimateId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -263,7 +263,7 @@ router.post("/builder-estimates/:id/convert", requireAuth, requireCompany, requi
 // ─── Estimate Templates ───────────────────────────────────────────────────────
 
 // GET /estimate-templates
-router.get("/estimate-templates", requireAuth, requireCompany, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
+router.get("/estimate-templates", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const templates = await db
     .select()
     .from(estimateTemplatesTable)
@@ -273,7 +273,7 @@ router.get("/estimate-templates", requireAuth, requireCompany, requirePermission
 }))
 
 // POST /estimate-templates — save current estimate as template
-router.post("/estimate-templates", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.post("/estimate-templates", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const Body = z.object({
     name: z.string().min(1),
     description: z.string().optional().nullable(),
@@ -311,7 +311,7 @@ router.post("/estimate-templates", requireAuth, requireCompany, requirePermissio
 }))
 
 // GET /estimate-templates/:id/items
-router.get("/estimate-templates/:id/items", requireAuth, requireCompany, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
+router.get("/estimate-templates/:id/items", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -331,7 +331,7 @@ router.get("/estimate-templates/:id/items", requireAuth, requireCompany, require
 }))
 
 // DELETE /estimate-templates/:id
-router.delete("/estimate-templates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.delete("/estimate-templates/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -351,7 +351,7 @@ router.delete("/estimate-templates/:id", requireAuth, requireCompany, requirePer
 // ─── Proposals ────────────────────────────────────────────────────────────────
 
 // GET /proposals
-router.get("/proposals", requireAuth, requireCompany, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
+router.get("/proposals", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const proposals = await db
     .select()
     .from(proposalsTable)
@@ -361,7 +361,7 @@ router.get("/proposals", requireAuth, requireCompany, requirePermission("viewQuo
 }))
 
 // GET /proposals/:id
-router.get("/proposals/:id", requireAuth, requireCompany, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
+router.get("/proposals/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -376,7 +376,7 @@ router.get("/proposals/:id", requireAuth, requireCompany, requirePermission("vie
 }))
 
 // PATCH /proposals/:id
-router.patch("/proposals/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.patch("/proposals/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -401,7 +401,7 @@ router.patch("/proposals/:id", requireAuth, requireCompany, requirePermission("m
 }))
 
 // POST /proposals/:id/approve — simulate e-signature approval
-router.post("/proposals/:id/approve", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.post("/proposals/:id/approve", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -427,7 +427,7 @@ router.post("/proposals/:id/approve", requireAuth, requireCompany, requirePermis
 }))
 
 // DELETE /proposals/:id
-router.delete("/proposals/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.delete("/proposals/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 

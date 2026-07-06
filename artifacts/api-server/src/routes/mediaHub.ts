@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { db, mediaHubPhotosTable, projectsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { db, mediaHubPhotosTable } from "@workspace/db";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import { assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
 import { BadRequestError } from "../lib/errors";
 import { ObjectStorageService } from "../lib/objectStorage";
 
@@ -22,20 +22,12 @@ const SavePhotoBody = z.object({
   markupData: z.unknown().nullable().optional(),
 });
 
-async function verifyProjectAccess(projectId: number, companyId: number) {
-  const [project] = await db
-    .select({ id: projectsTable.id })
-    .from(projectsTable)
-    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, companyId)))
-    .limit(1);
-  return project ?? null;
-}
-
 // POST /api/media/presigned-url
 router.post(
   "/media/presigned-url",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const parsed = PresignedUrlBody.safeParse(req.body);
     if (!parsed.success) {
@@ -62,6 +54,7 @@ router.post(
   "/media/save-photo",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const parsed = SavePhotoBody.safeParse(req.body);
     if (!parsed.success) {
@@ -73,6 +66,18 @@ router.post(
     const project = await verifyProjectAccess(projectId, req.companyId!);
     if (!project) {
       res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    try {
+      await objectStorage.trySetCompanyReadAcl(
+        imageUrl,
+        String(req.userId!),
+        String(req.companyId!),
+      );
+    } catch (err) {
+      req.log.error({ err }, "Rejected photo with invalid or already-owned object path");
+      res.status(400).json({ error: "Invalid photo reference" });
       return;
     }
 

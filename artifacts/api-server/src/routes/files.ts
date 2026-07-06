@@ -1,16 +1,18 @@
 import { Router } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, fileAttachmentsTable, usersTable } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import { ObjectStorageService } from "../lib/objectStorage";
 import { z } from "zod";
 
 const router = Router();
+const objectStorageService = new ObjectStorageService();
 
 const VALID_ENTITY_TYPES = ["project", "contact", "task", "form_submission"] as const;
 
 // GET /files?entityType=X&entityId=Y
-router.get("/files", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/files", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const { entityType, entityId } = req.query as Record<string, string>;
 
   const conditions: any[] = [eq(fileAttachmentsTable.companyId, req.companyId!)];
@@ -46,9 +48,21 @@ const RegisterFileBody = z.object({
   objectPath: z.string().min(1),
 });
 
-router.post("/files", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/files", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const parsed = RegisterFileBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+
+  try {
+    await objectStorageService.trySetCompanyReadAcl(
+      parsed.data.objectPath,
+      String(req.userId!),
+      String(req.companyId!),
+    );
+  } catch (err) {
+    req.log.warn({ err }, "Rejected file with invalid or already-owned object path");
+    res.status(400).json({ error: "Invalid file reference" });
+    return;
+  }
 
   const [file] = await db
     .insert(fileAttachmentsTable)
@@ -68,7 +82,7 @@ router.post("/files", requireAuth, requireCompany, asyncHandler(async (req, res)
 }))
 
 // DELETE /files/:id
-router.delete("/files/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.delete("/files/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 

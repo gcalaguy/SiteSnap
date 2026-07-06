@@ -8,6 +8,7 @@ import {
   getListMyWorkerDocumentsQueryKey,
   WorkerDocumentUploadDocumentType,
   type WorkerDocument,
+  ApiError,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,7 @@ export default function MyVaultPage() {
         setFile(null);
         setUploading(false);
       },
-      onError: (e: any) => {
+      onError: (e: ApiError) => {
         setUploading(false);
         toast({ title: "Failed to upload document", description: e?.message, variant: "destructive" });
       },
@@ -79,7 +80,7 @@ export default function MyVaultPage() {
         qc.invalidateQueries({ queryKey: getListMyWorkerDocumentsQueryKey() });
         toast({ title: "Document deleted" });
       },
-      onError: (e: any) => toast({ title: "Failed to delete document", description: e?.message, variant: "destructive" }),
+      onError: (e: ApiError) => toast({ title: "Failed to delete document", description: e?.message, variant: "destructive" }),
     },
   });
 
@@ -97,9 +98,10 @@ export default function MyVaultPage() {
           filePath: objectPath,
         },
       });
-    } catch (e: any) {
+    } catch (e) {
       setUploading(false);
-      toast({ title: "Upload failed", description: e?.message, variant: "destructive" });
+      const message = e instanceof Error ? e.message : undefined;
+      toast({ title: "Upload failed", description: message, variant: "destructive" });
     }
   }
 

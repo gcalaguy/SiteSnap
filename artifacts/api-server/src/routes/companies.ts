@@ -1,20 +1,5 @@
 import { Router } from "express";
-import {
-  db, usersTable, userMembershipsTable, companiesTable, invitationsTable,
-  subscriptionsTable, plansTable, featuresTable,
-  rfisTable, tasksTable, quotesTable, invoicesTable, timesheetsTable,
-  formSubmissionsTable, changeOrdersTable, dailyReportsTable,
-  dailyReportPhotosTable, submissionCommentsTable, paymentsTable,
-  tradehubMessagesTable, tradehubNotificationsTable, tradehubReportsTable,
-  tradehubReactionsTable, tradehubCommentsTable, tradehubJobApplicationsTable,
-  tradehubPostsTable, notificationsTable, projectNotesTable,
-  fileAttachmentsTable, inspectionsTable, scheduleEventsTable,
-  workerSchedulesTable, timeEntriesTable, leadActivitiesTable,
-  projectDocumentsTable, estimatesTable, projectMembersTable,
-  projectsTable, leadsTable, conversations,
-} from "@workspace/db";
-import { eq, and, inArray } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwner } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import {
   CreateCompanyBody,
@@ -27,6 +12,30 @@ import {
 import crypto from "crypto";
 import { z } from "zod";
 import { logAuditEventFromRequest } from "../utils/logger";
+import {
+  getCompanyById,
+  getCompanySettings,
+  updateCompanyProfile,
+  updateCompanyLogo,
+  updateCompanyQuoteTemplate,
+  updateCompanyInvoiceTemplate,
+  updateCompanyDocumentSettings,
+  listCompanyMembers,
+  getMembership,
+} from "../repositories/companies";
+import {
+  createCompany,
+  resolveClaimInviteToken,
+  claimCompany,
+} from "../services/companies/provisioningService";
+import {
+  removeMember,
+  updateMemberRole,
+  renameMember,
+  getMemberPermissions,
+  updateMemberPermissions,
+} from "../services/companies/membershipService";
+import { getAvailableFeatures, toggleFeature } from "../services/companies/featuresService";
 
 const UpdateCompanyProfileBody = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -59,38 +68,20 @@ router.post("/companies", requireAuth, asyncHandler(async (req, res) => {
   // Generate a unique 8-char referral code for this company
   const referralCode = crypto.randomBytes(4).toString("hex").toUpperCase();
 
-  const [company] = await db
-    .insert(companiesTable)
-    .values({ ...parsed.data, referralCode, referredByCode })
-    .returning();
-
-  // Assign requester as owner: write to memberships only (Phase 4)
-  await db
-    .insert(userMembershipsTable)
-    .values({ userId: req.userId!, companyId: company.id, role: "owner", isActive: true })
-    .onConflictDoNothing();
-  await db
-    .update(usersTable)
-    .set({ activeCompanyId: company.id })
-    .where(eq(usersTable.id, req.userId!));
+  const company = await createCompany(req.userId!, parsed.data, referralCode, referredByCode);
 
   res.status(201).json(company);
 }));
 
 // GET /companies/:companyId
-router.get("/companies/:companyId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/companies/:companyId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
     return;
   }
 
-  const [company] = await db
-    .select()
-    .from(companiesTable)
-    .where(eq(companiesTable.id, companyId))
-    .limit(1);
-
+  const company = await getCompanyById(companyId);
   if (!company) {
     res.status(404).json({ error: "Company not found" });
     return;
@@ -100,26 +91,14 @@ router.get("/companies/:companyId", requireAuth, requireCompany, asyncHandler(as
 }));
 
 // GET /companies/:companyId/settings
-router.get("/companies/:companyId/settings", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/companies/:companyId/settings", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
     return;
   }
 
-  const [row] = await db
-    .select({
-      estimatorConfig: companiesTable.estimatorConfig,
-      quoteNumberPrefix: companiesTable.quoteNumberPrefix,
-      invoiceNumberPrefix: companiesTable.invoiceNumberPrefix,
-      quoteStartNumber: companiesTable.quoteStartNumber,
-      invoiceStartNumber: companiesTable.invoiceStartNumber,
-      defaultQuoteTerms: companiesTable.defaultQuoteTerms,
-      defaultInvoiceNotes: companiesTable.defaultInvoiceNotes,
-    })
-    .from(companiesTable)
-    .where(eq(companiesTable.id, companyId))
-    .limit(1);
+  const row = await getCompanySettings(companyId);
 
   res.json({
     estimatorConfig: (row?.estimatorConfig ?? {}) as Record<string, unknown>,
@@ -133,7 +112,7 @@ router.get("/companies/:companyId/settings", requireAuth, requireCompany, asyncH
 }));
 
 // PATCH /companies/:companyId — update company profile details
-router.patch("/companies/:companyId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/companies/:companyId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -162,17 +141,13 @@ router.patch("/companies/:companyId", requireAuth, requireCompany, asyncHandler(
     return;
   }
 
-  const [updated] = await db
-    .update(companiesTable)
-    .set(update as any)
-    .where(eq(companiesTable.id, companyId))
-    .returning();
+  const updated = await updateCompanyProfile(companyId, update);
 
   res.json(updated);
 }));
 
 // PATCH /companies/:companyId/logo — update company logo path
-router.patch("/companies/:companyId/logo", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/companies/:companyId/logo", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -188,17 +163,13 @@ router.patch("/companies/:companyId/logo", requireAuth, requireCompany, asyncHan
   // Empty string clears the logo (removes it); any non-empty path sets it
   const logoPath = parsed.data.logoPath || null;
 
-  const [updated] = await db
-    .update(companiesTable)
-    .set({ logoPath })
-    .where(eq(companiesTable.id, companyId))
-    .returning();
+  const updated = await updateCompanyLogo(companyId, logoPath);
 
   res.json(updated);
 }));
 
 // PATCH /companies/:companyId/quote-template — set or clear quote template path
-router.patch("/companies/:companyId/quote-template", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/companies/:companyId/quote-template", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -214,17 +185,13 @@ router.patch("/companies/:companyId/quote-template", requireAuth, requireCompany
   // Empty string is treated the same as null — clears the template
   const templatePath = parsed.data.templatePath || null;
 
-  const [updated] = await db
-    .update(companiesTable)
-    .set({ quoteTemplatePath: templatePath })
-    .where(eq(companiesTable.id, companyId))
-    .returning();
+  const updated = await updateCompanyQuoteTemplate(companyId, templatePath);
 
   res.json(updated);
 }));
 
 // PATCH /companies/:companyId/invoice-template — set or clear invoice template path
-router.patch("/companies/:companyId/invoice-template", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/companies/:companyId/invoice-template", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -240,17 +207,13 @@ router.patch("/companies/:companyId/invoice-template", requireAuth, requireCompa
   // Empty string is treated the same as null — clears the template
   const templatePath = parsed.data.templatePath || null;
 
-  const [updated] = await db
-    .update(companiesTable)
-    .set({ invoiceTemplatePath: templatePath })
-    .where(eq(companiesTable.id, companyId))
-    .returning();
+  const updated = await updateCompanyInvoiceTemplate(companyId, templatePath);
 
   res.json(updated);
 }));
 
 // PATCH /companies/:companyId/document-settings — update numbering + boilerplate
-router.patch("/companies/:companyId/document-settings", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/companies/:companyId/document-settings", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = parseInt(req.params.companyId as string);
   if (companyId !== req.companyId) {
     res.status(403).json({ error: "Access denied" });
@@ -294,11 +257,7 @@ router.patch("/companies/:companyId/document-settings", requireAuth, requireComp
     return;
   }
 
-  const [updated] = await db
-    .update(companiesTable)
-    .set(update)
-    .where(eq(companiesTable.id, companyId))
-    .returning();
+  const updated = await updateCompanyDocumentSettings(companyId, update);
 
   res.json(updated);
 }));
@@ -308,6 +267,7 @@ router.get(
   "/companies/:companyId/members",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
     if (companyId !== req.companyId) {
@@ -315,27 +275,7 @@ router.get(
       return;
     }
 
-    const members = await db
-      .select({
-        id: usersTable.id,
-        clerkUserId: usersTable.clerkUserId,
-        email: usersTable.email,
-        firstName: usersTable.firstName,
-        lastName: usersTable.lastName,
-        createdAt: usersTable.createdAt,
-        pushToken: usersTable.pushToken,
-        termsAcceptedAt: usersTable.termsAcceptedAt,
-        activeCompanyId: usersTable.activeCompanyId,
-        role: userMembershipsTable.role,
-      })
-      .from(usersTable)
-      .innerJoin(
-        userMembershipsTable,
-        and(
-          eq(userMembershipsTable.userId, usersTable.id),
-          eq(userMembershipsTable.companyId, companyId),
-        ),
-      );
+    const members = await listCompanyMembers(companyId);
 
     const result = members.map((m) => ({ ...m, company: null }));
     res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -350,6 +290,7 @@ router.delete(
   "/companies/:companyId/members/:userId",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
@@ -365,207 +306,7 @@ router.delete(
       return;
     }
 
-    const uid = targetUserId;
-
-    // Entire removal cascade runs in one transaction so a failure partway through
-    // (e.g. a later delete violating a constraint) never leaves the member partially removed.
-    await db.transaction(async (tx) => {
-      // Fetch all project IDs owned by this company to scope child tables without companyId
-      const companyProjectIds = (await tx
-        .select({ id: projectsTable.id })
-        .from(projectsTable)
-        .where(eq(projectsTable.companyId, companyId)))
-        .map((r) => r.id);
-
-      // Nullable FKs → NULL (scoped to company to prevent cross-tenant mutation)
-      if (companyProjectIds.length > 0) {
-        await tx.update(rfisTable).set({ assignedToUserId: null }).where(
-          and(eq(rfisTable.assignedToUserId, uid), inArray(rfisTable.projectId, companyProjectIds)),
-        );
-        await tx.update(tasksTable).set({ assignedToUserId: null }).where(
-          and(eq(tasksTable.assignedToUserId, uid), inArray(tasksTable.projectId, companyProjectIds)),
-        );
-      }
-      await tx.update(quotesTable).set({ assignedToUserId: null }).where(
-        and(eq(quotesTable.assignedToUserId, uid), eq(quotesTable.companyId, companyId)),
-      );
-      await tx.update(quotesTable).set({ approvedByUserId: null }).where(
-        and(eq(quotesTable.approvedByUserId, uid), eq(quotesTable.companyId, companyId)),
-      );
-      await tx.update(invoicesTable).set({ assignedToUserId: null }).where(
-        and(eq(invoicesTable.assignedToUserId, uid), eq(invoicesTable.companyId, companyId)),
-      );
-      await tx.update(timesheetsTable).set({ reviewedByUserId: null }).where(
-        and(eq(timesheetsTable.reviewedByUserId, uid), eq(timesheetsTable.companyId, companyId)),
-      );
-      await tx.update(formSubmissionsTable).set({ reviewedByUserId: null }).where(
-        and(eq(formSubmissionsTable.reviewedByUserId, uid), eq(formSubmissionsTable.companyId, companyId)),
-      );
-      await tx.update(changeOrdersTable).set({ approvedByUserId: null }).where(
-        and(eq(changeOrdersTable.approvedByUserId, uid), eq(changeOrdersTable.companyId, companyId)),
-      );
-      // NULL quote_id on invoices referencing quotes owned by this user (scoped to company)
-      const userQuoteIds = (await tx
-        .select({ id: quotesTable.id })
-        .from(quotesTable)
-        .where(and(eq(quotesTable.createdByUserId, uid), eq(quotesTable.companyId, companyId)))
-      ).map((q) => q.id);
-      if (userQuoteIds.length > 0) {
-        await tx
-          .update(invoicesTable)
-          .set({ quoteId: null })
-          .where(and(inArray(invoicesTable.quoteId, userQuoteIds), eq(invoicesTable.companyId, companyId)));
-      }
-
-      // Deep children first — scoped to this company via projectId or companyId
-      const userDailyReportIds = companyProjectIds.length > 0
-        ? (await tx
-            .select({ id: dailyReportsTable.id })
-            .from(dailyReportsTable)
-            .where(
-              and(
-                eq(dailyReportsTable.submittedByUserId, uid),
-                inArray(dailyReportsTable.projectId, companyProjectIds),
-              ),
-            ))
-            .map((r) => r.id)
-        : [];
-      if (userDailyReportIds.length > 0) {
-        await tx.delete(dailyReportPhotosTable).where(inArray(dailyReportPhotosTable.reportId, userDailyReportIds));
-      }
-      const userSubmissionIds = (await tx
-        .select({ id: formSubmissionsTable.id })
-        .from(formSubmissionsTable)
-        .where(
-          and(
-            eq(formSubmissionsTable.userId, uid),
-            eq(formSubmissionsTable.companyId, companyId),
-          ),
-        ))
-        .map((s) => s.id);
-      if (userSubmissionIds.length > 0) {
-        await tx.delete(submissionCommentsTable).where(inArray(submissionCommentsTable.submissionId, userSubmissionIds));
-        await tx.delete(submissionCommentsTable).where(
-          and(
-            eq(submissionCommentsTable.userId, uid),
-            inArray(submissionCommentsTable.submissionId, userSubmissionIds),
-          ),
-        );
-      }
-      const userInvoiceIds = (await tx
-        .select({ id: invoicesTable.id })
-        .from(invoicesTable)
-        .where(
-          and(
-            eq(invoicesTable.createdByUserId, uid),
-            eq(invoicesTable.companyId, companyId),
-          ),
-        ))
-        .map((i) => i.id);
-      if (userInvoiceIds.length > 0) {
-        await tx.delete(paymentsTable).where(
-          and(
-            inArray(paymentsTable.invoiceId, userInvoiceIds),
-            eq(paymentsTable.companyId, companyId),
-          ),
-        );
-      }
-
-      await tx.delete(tradehubMessagesTable).where(eq(tradehubMessagesTable.senderId, uid));
-      await tx.delete(tradehubNotificationsTable).where(eq(tradehubNotificationsTable.userId, uid));
-      await tx.delete(tradehubReportsTable).where(eq(tradehubReportsTable.reporterId, uid));
-      await tx.delete(tradehubReactionsTable).where(eq(tradehubReactionsTable.userId, uid));
-      await tx.delete(tradehubCommentsTable).where(eq(tradehubCommentsTable.userId, uid));
-      await tx.delete(tradehubJobApplicationsTable).where(eq(tradehubJobApplicationsTable.applicantId, uid));
-      await tx.delete(tradehubPostsTable).where(
-        and(eq(tradehubPostsTable.userId, uid), eq(tradehubPostsTable.companyId, companyId)),
-      );
-      await tx.delete(notificationsTable).where(eq(notificationsTable.userId, uid));
-      await tx.delete(projectNotesTable).where(
-        and(eq(projectNotesTable.authorId, uid), eq(projectNotesTable.companyId, companyId)),
-      );
-      await tx.delete(fileAttachmentsTable).where(
-        and(eq(fileAttachmentsTable.uploadedByUserId, uid), eq(fileAttachmentsTable.companyId, companyId)),
-      );
-      await tx.delete(inspectionsTable).where(
-        and(eq(inspectionsTable.inspectorId, uid), eq(inspectionsTable.companyId, companyId)),
-      );
-      await tx.delete(scheduleEventsTable).where(
-        and(eq(scheduleEventsTable.createdByUserId, uid), eq(scheduleEventsTable.companyId, companyId)),
-      );
-      await tx.delete(workerSchedulesTable).where(
-        and(eq(workerSchedulesTable.userId, uid), eq(workerSchedulesTable.companyId, companyId)),
-      );
-      await tx.delete(timeEntriesTable).where(
-        and(eq(timeEntriesTable.userId, uid), eq(timeEntriesTable.companyId, companyId)),
-      );
-      const userLeadIds = (await tx
-        .select({ id: leadsTable.id })
-        .from(leadsTable)
-        .where(eq(leadsTable.companyId, companyId)))
-        .map((r) => r.id);
-      if (userLeadIds.length > 0) {
-        await tx.delete(leadActivitiesTable).where(
-          and(
-            eq(leadActivitiesTable.userId, uid),
-            inArray(leadActivitiesTable.leadId, userLeadIds),
-          ),
-        );
-      }
-      await tx.delete(formSubmissionsTable).where(
-        and(eq(formSubmissionsTable.userId, uid), eq(formSubmissionsTable.companyId, companyId)),
-      );
-      if (companyProjectIds.length > 0) {
-        await tx.delete(projectDocumentsTable).where(
-          and(
-            eq(projectDocumentsTable.uploadedByUserId, uid),
-            inArray(projectDocumentsTable.projectId, companyProjectIds),
-          ),
-        );
-        await tx.delete(dailyReportsTable).where(
-          and(
-            eq(dailyReportsTable.submittedByUserId, uid),
-            inArray(dailyReportsTable.projectId, companyProjectIds),
-          ),
-        );
-        await tx.delete(rfisTable).where(
-          and(
-            eq(rfisTable.submittedByUserId, uid),
-            inArray(rfisTable.projectId, companyProjectIds),
-          ),
-        );
-      }
-      await tx.delete(estimatesTable).where(
-        and(eq(estimatesTable.createdByUserId, uid), eq(estimatesTable.companyId, companyId)),
-      );
-      await tx.delete(changeOrdersTable).where(
-        and(eq(changeOrdersTable.requestedByUserId, uid), eq(changeOrdersTable.companyId, companyId)),
-      );
-      await tx.delete(invoicesTable).where(
-        and(eq(invoicesTable.createdByUserId, uid), eq(invoicesTable.companyId, companyId)),
-      );
-      await tx.delete(quotesTable).where(
-        and(eq(quotesTable.createdByUserId, uid), eq(quotesTable.companyId, companyId)),
-      );
-      await tx.delete(conversations).where(
-        and(eq(conversations.userId, uid), eq(conversations.companyId, companyId)),
-      );
-      await tx.delete(projectMembersTable).where(
-        and(
-          eq(projectMembersTable.userId, uid),
-          eq(projectMembersTable.companyId, companyId),
-        ),
-      );
-
-      // Invitation cleanup + user deletion — same transaction as the rest of the cascade
-      // so the user is never left as a phantom member if any earlier step fails.
-      const targetUser = await tx.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, uid));
-      if (targetUser[0]?.email) {
-        await tx.delete(invitationsTable).where(eq(invitationsTable.email, targetUser[0].email));
-      }
-      // Delete user — cascades userMembershipsTable, tradehubProfiles, etc.
-      await tx.delete(usersTable).where(eq(usersTable.id, uid));
-    });
+    await removeMember(companyId, targetUserId);
 
     logAuditEventFromRequest(req, "Member Removed", `User ${targetUserId} removed from company ${companyId}`).catch(() => {});
     res.status(204).send();
@@ -577,6 +318,7 @@ router.patch(
   "/companies/:companyId/members/:userId",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
@@ -594,21 +336,8 @@ router.patch(
     }
 
     // Dual-write role to memberships + legacy columns (Phase 0)
-    await db
-      .update(userMembershipsTable)
-      .set({ role: parsed.data.role })
-      .where(
-        and(
-          eq(userMembershipsTable.userId, targetUserId),
-          eq(userMembershipsTable.companyId, companyId),
-        ),
-      );
+    const updated = await updateMemberRole(companyId, targetUserId, parsed.data.role);
     logAuditEventFromRequest(req, "Member Role Changed", `User ${targetUserId} role changed to ${parsed.data.role}`).catch(() => {});
-    const [updated] = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.id, targetUserId))
-      .limit(1);
 
     res.json({ ...updated, company: null });
   }),
@@ -619,6 +348,7 @@ router.patch(
   "/companies/:companyId/members/:userId/name",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
@@ -629,34 +359,13 @@ router.patch(
       return;
     }
 
-    // Verify target user is a member of this company (tenant scoping)
-    const membership = await db
-      .select()
-      .from(userMembershipsTable)
-      .where(
-        and(
-          eq(userMembershipsTable.userId, targetUserId),
-          eq(userMembershipsTable.companyId, companyId),
-        ),
-      )
-      .limit(1);
-
-    if (membership.length === 0) {
-      res.status(404).json({ error: "Member not found in this company" });
-      return;
-    }
-
     const { firstName, lastName } = req.body;
     if (typeof firstName !== "string" || typeof lastName !== "string") {
       res.status(400).json({ error: "firstName and lastName are required" });
       return;
     }
 
-    const [updated] = await db
-      .update(usersTable)
-      .set({ firstName: firstName.trim(), lastName: lastName.trim() })
-      .where(eq(usersTable.id, targetUserId))
-      .returning();
+    const updated = await renameMember(companyId, targetUserId, firstName, lastName);
 
     if (!updated) {
       res.status(404).json({ error: "Member not found" });
@@ -672,6 +381,7 @@ router.get(
   "/companies/:companyId/members/:userId/permissions",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
@@ -688,16 +398,7 @@ router.get(
       return;
     }
 
-    const [membership] = await db
-      .select({ permissions: userMembershipsTable.permissions, role: userMembershipsTable.role })
-      .from(userMembershipsTable)
-      .where(
-        and(
-          eq(userMembershipsTable.userId, targetUserId),
-          eq(userMembershipsTable.companyId, companyId),
-        ),
-      )
-      .limit(1);
+    const membership = await getMemberPermissions(companyId, targetUserId);
 
     if (!membership) {
       res.status(404).json({ error: "Member not found" });
@@ -713,6 +414,7 @@ router.put(
   "/companies/:companyId/members/:userId/permissions",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
@@ -730,17 +432,7 @@ router.put(
     }
 
     // Verify target user is a member of this company
-    const [membership] = await db
-      .select({ role: userMembershipsTable.role })
-      .from(userMembershipsTable)
-      .where(
-        and(
-          eq(userMembershipsTable.userId, targetUserId),
-          eq(userMembershipsTable.companyId, companyId),
-        ),
-      )
-      .limit(1);
-
+    const membership = await getMembership(companyId, targetUserId);
     if (!membership) {
       res.status(404).json({ error: "Member not found" });
       return;
@@ -754,18 +446,9 @@ router.put(
       return;
     }
 
-    const [updated] = await db
-      .update(userMembershipsTable)
-      .set({ permissions: parsed.data })
-      .where(
-        and(
-          eq(userMembershipsTable.userId, targetUserId),
-          eq(userMembershipsTable.companyId, companyId),
-        ),
-      )
-      .returning();
+    const updatedPermissions = await updateMemberPermissions(companyId, targetUserId, parsed.data);
 
-    res.json(updated?.permissions ?? {});
+    res.json(updatedPermissions ?? {});
   }),
 );
 
@@ -775,6 +458,7 @@ router.get(
   "/companies/:companyId/features",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);
     if (companyId !== req.companyId) {
@@ -799,18 +483,14 @@ router.get("/companies/claim-invite/:token", asyncHandler(async (req, res) => {
     return;
   }
 
-  const [company] = await db
-    .select({ id: companiesTable.id })
-    .from(companiesTable)
-    .where(eq(companiesTable.claimToken, token))
-    .limit(1);
+  const companyId = await resolveClaimInviteToken(token);
 
-  if (!company) {
+  if (!companyId) {
     res.status(404).json({ error: "Invalid or expired signup invite" });
     return;
   }
 
-  res.json({ companyId: company.id });
+  res.json({ companyId });
 }));
 
 // POST /companies/:companyId/claim — claim a pre-created company as owner
@@ -831,50 +511,6 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
     return;
   }
 
-  const [company] = await db
-    .select()
-    .from(companiesTable)
-    .where(eq(companiesTable.id, companyId))
-    .limit(1);
-
-  if (!company) {
-    // Return 403 (not 404) to avoid leaking which IDs exist
-    res.status(403).json({ error: "Invalid company ID or claim token" });
-    return;
-  }
-
-  // Verify the token. Companies without a claimToken cannot be claimed here.
-  if (!company.claimToken || company.claimToken !== suppliedToken) {
-    res.status(403).json({ error: "Invalid company ID or claim token" });
-    return;
-  }
-
-  // Verify the caller's own email matches the address the claim token was issued
-  // to (P0 security fix — mirrors the invite-accept check in routes/invitations.ts).
-  // Without this, anyone who obtains the claim link (forwarded email, leaked URL,
-  // browser history) could claim the company as owner regardless of identity.
-  if (company.claimOwnerEmail) {
-    const [caller] = await db
-      .select({ email: usersTable.email })
-      .from(usersTable)
-      .where(eq(usersTable.id, req.userId!))
-      .limit(1);
-    if (!caller || caller.email.toLowerCase().trim() !== company.claimOwnerEmail.toLowerCase().trim()) {
-      res.status(403).json({ error: "Invalid company ID or claim token" });
-      return;
-    }
-  }
-
-  // Verify no user is already owner via memberships
-  const existingMembers = await db
-    .select()
-    .from(userMembershipsTable)
-    .where(eq(userMembershipsTable.companyId, companyId));
-  if (existingMembers.length > 0) {
-    res.status(409).json({ error: "Company already claimed" });
-    return;
-  }
-
   // Extract onboarding fields from request body
   const companyName = typeof req.body.companyName === "string"
     ? req.body.companyName.trim()
@@ -883,70 +519,20 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
     ? req.body.planTier.trim().toLowerCase()
     : "starter";
 
-  // Resolve plan outside the transaction (read-only; no risk of partial state)
-  const [matchedPlan] = await db
-    .select()
-    .from(plansTable)
-    .where(eq(plansTable.slug, planTier))
-    .limit(1);
-  const fallbackPlan = matchedPlan
-    ? matchedPlan
-    : (await db.select().from(plansTable).where(eq(plansTable.slug, "starter")).limit(1))[0];
+  const result = await claimCompany({
+    companyId,
+    requestingUserId: req.userId!,
+    suppliedToken,
+    companyName,
+    planTier,
+  });
 
-  // All mutations in one transaction — prevents orphaned records on network failure
-  let updatedUser: typeof usersTable.$inferSelect;
-  let updatedCompany: typeof companiesTable.$inferSelect;
-  try {
-    ({ updatedUser, updatedCompany } = await db.transaction(async (tx) => {
-      // Update company name if provided
-      if (companyName) {
-        await tx
-          .update(companiesTable)
-          .set({ name: companyName })
-          .where(eq(companiesTable.id, companyId));
-      }
-
-      // Provision subscription
-      if (fallbackPlan) {
-        await tx
-          .insert(subscriptionsTable)
-          .values({
-            companyId,
-            planId: fallbackPlan.id,
-            status: "active",
-            billingCycle: "monthly",
-          })
-          .onConflictDoNothing();
-      }
-
-      // Assign authenticated user as owner
-      await tx
-        .insert(userMembershipsTable)
-        .values({ userId: req.userId!, companyId, role: "owner", isActive: true })
-        .onConflictDoNothing();
-
-      const [user] = await tx
-        .update(usersTable)
-        .set({ activeCompanyId: companyId })
-        .where(eq(usersTable.id, req.userId!))
-        .returning();
-
-      // Burn the one-time claim token (and its bound email) so it cannot be reused
-      const [cmp] = await tx
-        .update(companiesTable)
-        .set({ claimToken: null, claimOwnerEmail: null })
-        .where(eq(companiesTable.id, companyId))
-        .returning();
-
-      return { updatedUser: user, updatedCompany: cmp };
-    }));
-  } catch (err) {
-    req.log?.error({ err, companyId }, "Failed to claim company");
-    res.status(500).json({ error: "Failed to claim company. Please try again." });
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
     return;
   }
 
-  res.json({ company: updatedCompany, user: updatedUser });
+  res.json({ company: result.company, user: result.user });
 }));
 
 // ── Self-service feature management (company owner) ─────────────────────────
@@ -958,6 +544,7 @@ router.get(
   "/companies/:companyId/features/available",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string, 10);
@@ -966,16 +553,7 @@ router.get(
       return;
     }
 
-    const { getCompanyFeatureKeys } = await import("../lib/featureGate");
-    const [allFeatures, activeKeys] = await Promise.all([
-      db.select().from(featuresTable).where(eq(featuresTable.isEnabled, true)),
-      getCompanyFeatureKeys(companyId),
-    ]);
-
-    const result = allFeatures.map((f) => ({
-      ...f,
-      active: activeKeys.some((k) => k.toUpperCase() === f.key.toUpperCase()),
-    }));
+    const result = await getAvailableFeatures(companyId);
 
     res.json({ features: result });
   }),
@@ -988,6 +566,7 @@ router.patch(
   "/companies/:companyId/features/toggle",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string, 10);
@@ -1006,44 +585,13 @@ router.patch(
       return;
     }
 
-    const normalizedKey = featureKey.toUpperCase();
-
-    // Verify the feature actually exists and is enabled in the system
-    const [feature] = await db
-      .select()
-      .from(featuresTable)
-      .where(eq(featuresTable.key, normalizedKey))
-      .limit(1);
-    if (!feature || !feature.isEnabled) {
+    const result = await toggleFeature(companyId, featureKey, enabled);
+    if (!result) {
       res.status(404).json({ error: "Feature not found" });
       return;
     }
 
-    const { getCompanyFeatureKeys, invalidateFeatureCache } = await import("../lib/featureGate");
-    const { notifyFeatureCacheInvalidate } = await import("../lib/pgListener");
-
-    // Snapshot the current effective feature set then apply the toggle
-    const currentKeys = await getCompanyFeatureKeys(companyId);
-    let nextKeys: string[];
-    if (enabled) {
-      nextKeys = currentKeys.includes(normalizedKey)
-        ? currentKeys
-        : [...currentKeys, normalizedKey];
-    } else {
-      nextKeys = currentKeys.filter((k) => k.toUpperCase() !== normalizedKey);
-    }
-
-    await db
-      .update(companiesTable)
-      .set({ activeFeatures: nextKeys })
-      .where(eq(companiesTable.id, companyId));
-
-    invalidateFeatureCache(companyId);
-    // Broadcast to all API instances via Postgres NOTIFY so every pod invalidates
-    // its local in-memory cache immediately rather than waiting for the 5 s TTL.
-    await notifyFeatureCacheInvalidate(companyId);
-
-    res.json({ ok: true, featureKey: normalizedKey, enabled, activeFeatures: nextKeys });
+    res.json({ ok: true, featureKey: result.normalizedKey, enabled, activeFeatures: result.activeFeatures });
   }),
 );
 

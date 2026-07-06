@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { eq, and, isNotNull, or } from 'drizzle-orm';
-import { requireAuth, requireCompany, requireOwner } from '../lib/auth';
+import { requireAuth, requireCompany, requireTenantCtx, requireOwner } from '../lib/auth';
 import { asyncHandler } from "../lib/asyncHandler";
 import { db, companiesTable, usersTable, userMembershipsTable, plansTable } from '@workspace/db';
 import { z } from "zod";
 import {
-  getUncachableStripeClient,
+  getStripeClient,
   getStripePublishableKey,
 } from '../lib/stripeClient';
 import {
@@ -48,7 +48,7 @@ router.get('/billing/plans', asyncHandler(async (req, res) => {
   }
 }))
 
-router.get('/billing/subscription', requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get('/billing/subscription', requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const [company] = await db
       .select()
@@ -73,7 +73,7 @@ const CheckoutBody = z.object({
   seats: z.number().int().min(1).max(100).optional(),
 });
 
-router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
+router.post('/billing/checkout', requireAuth, requireCompany, requireTenantCtx, requireOwner, asyncHandler(async (req, res) => {
   try {
     const parsed = CheckoutBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: 'Malformed request payload', details: parsed.error.flatten() }); return; }
@@ -109,7 +109,7 @@ router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyn
       .from(companiesTable)
       .where(eq(companiesTable.id, req.companyId!));
 
-    const stripe = await getUncachableStripeClient();
+    const stripe = await getStripeClient();
 
     let customerId = company.stripeCustomerId ?? undefined;
     if (!customerId) {
@@ -161,7 +161,7 @@ router.post('/billing/checkout', requireAuth, requireCompany, requireOwner, asyn
   }
 }))
 
-router.get('/billing/seats', requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get('/billing/seats', requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const seatInfo = await getCompanySeatInfo(req.companyId!);
     res.json(seatInfo);
@@ -171,7 +171,7 @@ router.get('/billing/seats', requireAuth, requireCompany, asyncHandler(async (re
   }
 }))
 
-router.post('/billing/portal', requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
+router.post('/billing/portal', requireAuth, requireCompany, requireTenantCtx, requireOwner, asyncHandler(async (req, res) => {
   try {
     const [company] = await db
       .select()
@@ -183,7 +183,7 @@ router.post('/billing/portal', requireAuth, requireCompany, requireOwner, asyncH
       return;
     }
 
-    const stripe = await getUncachableStripeClient();
+    const stripe = await getStripeClient();
     const domain = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
 
     const portalSession = await stripe.billingPortal.sessions.create({

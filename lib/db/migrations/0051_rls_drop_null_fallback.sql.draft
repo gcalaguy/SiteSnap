@@ -1,0 +1,143 @@
+-- DRAFT — DO NOT RUN YET.
+--
+-- This file is intentionally named *.sql.draft (not *.sql) so it is never
+-- picked up by a migration runner. Rename to 0051_rls_drop_null_fallback.sql
+-- ONLY after ALL of the following are true:
+--
+--   1. Every test in tests/rls-tenant-isolation.test.ts passes (Phase 0 gate).
+--   2. A manual audit confirms every route file that reads/writes a table in
+--      the list below goes through requireTenantCtx — grep for the table's
+--      Drizzle export across artifacts/api-server/src and check each call
+--      site executes inside a withTenantCtx() transaction. Cron jobs, scripts,
+--      and background workers count too — anything hitting these tables
+--      outside a tenant transaction will silently see ZERO rows once this
+--      migration runs (RESTRICTIVE with no escape hatch), not an error.
+--   3. user_memberships and subscriptions are EXCLUDED below on purpose — see
+--      migration 0050's header comment. Do not add them here until
+--      requireAuth() no longer needs to read them before tenant context
+--      exists (e.g. via a SECURITY DEFINER bootstrap function, or by moving
+--      that lookup outside RLS entirely). Restricting them today would break
+--      login for every user on every request.
+--
+-- WHAT THIS DOES: removes the `current_tenant_id() IS NULL OR` escape hatch
+-- from every tenant_isolation policy (except the two listed above), and
+-- removes the `company_id IS NULL OR` global-default clause is KEPT for
+-- estimator_cost_models/estimator_addons — that one is a permanent product
+-- behavior (system defaults visible to everyone), not a rollout safety net.
+--
+-- AFTER THIS RUNS: any query against these tables that isn't wrapped in
+-- withTenantCtx() will see zero rows, not all rows. That is the point — this
+-- is the actual lockdown. There is no more graceful degradation past this.
+
+DO $$
+BEGIN
+  -- Standard direct company_id tables (51) — full RESTRICTIVE, no fallback.
+  ALTER POLICY tenant_isolation ON ai_compliance_directives    USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON asset_schedules             USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON audit_logs                  USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON builder_estimates           USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON capa_tickets                USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON change_orders               USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON contacts                    USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON conversations               USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON cor_audit_log_entries       USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON cor_audit_packages          USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON cor_audit_trail             USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON cor_voice_action_logs       USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON credential_alert_logs       USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON daily_reports               USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON document_chunks             USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON equipment                   USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON estimates                   USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON estimate_templates          USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON estimator_actuals           USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON expenses                    USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON external_auditor_tokens     USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON file_attachments            USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON form_submissions            USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON inspection_alerts           USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON inspections                 USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON inventory_assets            USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON inventory_materials         USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON invitations                 USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON job_postings                USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON leads                       USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON payments                    USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON permits                     USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON policy_documents            USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON policy_signoffs             USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON project_members             USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON project_notes               USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON proposals                   USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON provider_tokens             USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON quickbooks_connections      USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON rfis                        USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON scans                       USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON schedule_events             USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON subcontractor_docs          USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON subcontractors              USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON time_entries                USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON tool_checkouts              USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON worker_credentials          USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON worker_documents            USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON worker_schedules            USING (company_id = current_tenant_id());
+
+  -- NOTE: subscriptions and user_memberships intentionally omitted — see above.
+
+  -- Original 4 (already RESTRICTIVE-capable from migration 0029, currently
+  -- PERMISSIVE-with-fallback from 0046) — bring in line with the rest.
+  ALTER POLICY tenant_isolation ON projects                    USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON invoices                    USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON quotes                      USING (company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON timesheets                  USING (company_id = current_tenant_id());
+
+  -- Nullable global-default tables — drop the rollout fallback but KEEP the
+  -- "company_id IS NULL means global" branch, which is a permanent behavior.
+  ALTER POLICY tenant_isolation ON estimator_cost_models
+    USING (company_id IS NULL OR company_id = current_tenant_id());
+  ALTER POLICY tenant_isolation ON estimator_addons
+    USING (company_id IS NULL OR company_id = current_tenant_id());
+
+  -- Indirect join-based tables (20) — drop the rollout fallback, keep the EXISTS.
+  ALTER POLICY tenant_isolation ON lead_activities
+    USING (EXISTS (SELECT 1 FROM leads p WHERE p.id = lead_activities.lead_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON daily_report_photos
+    USING (EXISTS (SELECT 1 FROM daily_reports p WHERE p.id = daily_report_photos.report_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON submission_photos
+    USING (EXISTS (SELECT 1 FROM form_submissions p WHERE p.id = submission_photos.submission_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON submission_comments
+    USING (EXISTS (SELECT 1 FROM form_submissions p WHERE p.id = submission_comments.submission_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON builder_estimate_items
+    USING (EXISTS (SELECT 1 FROM builder_estimates p WHERE p.id = builder_estimate_items.estimate_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON estimate_template_items
+    USING (EXISTS (SELECT 1 FROM estimate_templates p WHERE p.id = estimate_template_items.template_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON job_posting_applications
+    USING (EXISTS (SELECT 1 FROM job_postings p WHERE p.id = job_posting_applications.job_posting_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON schedule_event_assignees
+    USING (EXISTS (SELECT 1 FROM schedule_events p WHERE p.id = schedule_event_assignees.event_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON inspection_items
+    USING (EXISTS (SELECT 1 FROM inspections p WHERE p.id = inspection_items.inspection_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON messages
+    USING (EXISTS (SELECT 1 FROM conversations p WHERE p.id = messages.conversation_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON cost_analyses
+    USING (EXISTS (SELECT 1 FROM projects p WHERE p.id = cost_analyses.project_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON tasks
+    USING (EXISTS (SELECT 1 FROM projects p WHERE p.id = tasks.project_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON project_documents
+    USING (EXISTS (SELECT 1 FROM projects p WHERE p.id = project_documents.project_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON client_portal_tokens
+    USING (EXISTS (SELECT 1 FROM projects p WHERE p.id = client_portal_tokens.project_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON client_portal_uploads
+    USING (EXISTS (SELECT 1 FROM projects p WHERE p.id = client_portal_uploads.project_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON client_portal_messages
+    USING (EXISTS (SELECT 1 FROM projects p WHERE p.id = client_portal_messages.project_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON daily_logs
+    USING (EXISTS (SELECT 1 FROM projects p WHERE p.id = daily_logs.project_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON site_photos
+    USING (EXISTS (SELECT 1 FROM projects p WHERE p.id = site_photos.project_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON safety_signoffs
+    USING (EXISTS (SELECT 1 FROM projects p WHERE p.id = safety_signoffs.project_id AND p.company_id = current_tenant_id()));
+  ALTER POLICY tenant_isolation ON media_hub_photos
+    USING (EXISTS (SELECT 1 FROM projects p WHERE p.id = media_hub_photos.project_id AND p.company_id = current_tenant_id()));
+END
+$$;

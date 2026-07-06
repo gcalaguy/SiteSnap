@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { eq, count } from "drizzle-orm";
 import { db, companiesTable } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
 
 // GET /api/referrals — get my company's referral code + referred count
-router.get("/referrals", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/referrals", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const [company] = await db
     .select()
     .from(companiesTable)

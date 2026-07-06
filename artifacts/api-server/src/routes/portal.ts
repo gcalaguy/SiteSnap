@@ -13,7 +13,7 @@ import {
   invoicesTable,
   usersTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth.js";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { requirePermission } from "../lib/permissionGate.js";
 import { ObjectStorageService } from "../lib/objectStorage.js";
@@ -54,6 +54,7 @@ router.post(
   "/projects/:projectId/portal/token",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewClientMessages"),
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
@@ -81,6 +82,7 @@ router.delete(
   "/projects/:projectId/portal/token",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewClientMessages"),
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
@@ -105,6 +107,7 @@ router.get(
   "/projects/:projectId/portal/uploads",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewClientMessages"),
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
@@ -129,6 +132,7 @@ router.get(
   "/projects/:projectId/portal/messages",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
@@ -166,6 +170,7 @@ router.post(
   "/projects/:projectId/portal/messages",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
@@ -412,6 +417,26 @@ router.post("/portal/:token/uploads", asyncHandler(async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid request body" }); return; }
 
   const { filename, fileType, objectPath, fileSize } = parsed.data;
+
+  const [project] = await db.select({ companyId: projectsTable.companyId }).from(projectsTable)
+    .where(eq(projectsTable.id, portalToken.projectId)).limit(1);
+  if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+
+  try {
+    // No authenticated user here (public client-portal link) — "portal" is a
+    // sentinel owner, never equal to a real (numeric) userId, so it can't be
+    // hijacked by a subsequent same-owner update from an actual user.
+    await objectStorageService.trySetCompanyReadAcl(
+      objectPath,
+      `portal:${portalToken.id}`,
+      String(project.companyId),
+    );
+  } catch (err) {
+    req.log.warn({ err }, "Rejected portal upload with invalid or already-owned object path");
+    res.status(400).json({ error: "Invalid file reference" });
+    return;
+  }
+
   const [created] = await db.insert(clientPortalUploadsTable).values({
     portalTokenId: portalToken.id,
     projectId: portalToken.projectId,

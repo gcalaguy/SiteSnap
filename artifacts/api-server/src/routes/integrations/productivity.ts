@@ -24,7 +24,7 @@ import {
   changeOrdersTable,
   providerTokensTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany } from "../../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../../lib/auth";
 import { requirePermission } from "../../lib/permissionGate";
 import { z } from "zod";
 import {
@@ -46,6 +46,7 @@ router.post(
   "/integrations/export-sheets",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewFinancials"),
   async (req, res) => {
     const companyId = req.companyId!;
@@ -180,6 +181,7 @@ router.post(
   "/integrations/create-google-calendar-event",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   async (req, res) => {
     const userId = req.userId!;
     const companyId = req.companyId!;
@@ -233,6 +235,7 @@ router.post(
   "/integrations/create-outlook-event",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   async (req, res) => {
     const userId = req.userId!;
     const companyId = req.companyId!;

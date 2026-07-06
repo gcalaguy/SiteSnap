@@ -9,7 +9,7 @@ import {
   userMembershipsTable,
   projectsTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
 import { canAccessProject, getAccessibleProjectIds } from "../lib/projectAccess";
@@ -172,6 +172,7 @@ router.get(
   "/inspections",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewInspectTab"),
   requireFeature("INSPECTIONS"),
   asyncHandler(async (req, res) => {
@@ -213,6 +214,7 @@ router.get(
   "/inspections/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireFeature("INSPECTIONS"),
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -246,6 +248,7 @@ router.post(
   "/inspections",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireFeature("INSPECTIONS"),
   requireAiQuota,
   asyncHandler(async (req, res) => {
@@ -320,6 +323,7 @@ router.post(
   "/inspections/:id/submit",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireFeature("INSPECTIONS"),
   requireAiQuota,
   asyncHandler(async (req, res) => {
@@ -372,6 +376,7 @@ router.get(
   "/inspection-alerts",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireFeature("INSPECTIONS"),
   asyncHandler(async (req, res) => {
     const alerts = await db
@@ -396,6 +401,7 @@ router.patch(
   "/inspection-alerts/:id/read",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -410,6 +416,7 @@ router.patch(
   "/inspection-alerts/read-all",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     await db.update(inspectionAlertsTable).set({ isRead: true }).where(eq(inspectionAlertsTable.companyId, req.companyId!));
     res.json({ success: true });

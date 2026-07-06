@@ -14,7 +14,7 @@ import { Router } from "express";
 import { db, rfisTable, projectsTable, usersTable } from "@workspace/db";
 import { eq, and, asc, count } from "drizzle-orm";
 import { z } from "zod";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { checkRfiAccess } from "../lib/objectAcl";
 
@@ -71,6 +71,7 @@ router.post(
   "/rfis",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     if (req.userRole !== "foreman" && req.userRole !== "owner") {
       res.status(403).json({ error: "Only Foremen and Owners can log RFIs" });
@@ -121,6 +122,7 @@ router.put(
   "/rfis/:id/status",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     if (req.userRole !== "owner" && req.userRole !== "foreman") {
       res.status(403).json({ error: "Only Owners and Foremen can change RFI status" });
@@ -173,6 +175,7 @@ router.get(
   "/rfis/project/:projectId",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string, 10);
     if (isNaN(projectId)) {

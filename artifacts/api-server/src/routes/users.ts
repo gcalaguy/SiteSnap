@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable } from "@workspace/db";
 import { eq, and, gt, ilike } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { requireAuth, requireClerkSession, requireCompany } from "../lib/auth";
+import { requireAuth, requireClerkSession, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { resolvePermission } from "../lib/permissionGate";
 import { SyncUserBody } from "@workspace/api-zod";
@@ -254,7 +254,7 @@ router.post("/users/accept-terms", requireAuth, asyncHandler(async (req, res) =>
 }))
 
 // GET /users/me/features — list feature keys the company's active plan includes
-router.get("/users/me/features", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/users/me/features", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const features = await getCompanyFeatureKeys(req.companyId!);
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.set("Pragma", "no-cache");

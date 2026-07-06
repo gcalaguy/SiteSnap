@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { and, eq, desc } from "drizzle-orm";
 import { db, permitsTable, projectsTable } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { requireFeature } from "../lib/featureGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import {
@@ -106,6 +106,7 @@ router.get(
   "/permits/global",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireFeature("PERMITS"),
   requirePermitAdmin,
   asyncHandler(async (req, res) => {
@@ -158,6 +159,7 @@ router.get(
   "/permits/project/:projectId",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireFeature("PERMITS"),
   asyncHandler(async (req, res) => {
     const projectId = parseInt(req.params.projectId as string, 10);
@@ -220,6 +222,7 @@ router.post(
   "/permits",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireFeature("PERMITS"),
   requirePermitAdmin,
   asyncHandler(async (req, res) => {
@@ -294,6 +297,7 @@ router.patch(
   "/permits/:permitId",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireFeature("PERMITS"),
   requirePermitAdmin,
   asyncHandler(async (req, res) => {
@@ -371,6 +375,7 @@ router.delete(
   "/permits/:permitId",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireFeature("PERMITS"),
   requirePermitAdmin,
   asyncHandler(async (req, res) => {

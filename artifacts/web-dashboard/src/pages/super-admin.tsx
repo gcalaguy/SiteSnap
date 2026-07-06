@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { customFetch } from "@workspace/api-client-react";
+import { formatCurrency } from "@/lib/format";
+import { customFetch, ApiError } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -87,7 +88,7 @@ type FeatureDialogState = {
 };
 
 function formatCAD(cents: number) {
-  return `$${(cents / 100).toFixed(0)} CAD`;
+  return `${formatCurrency(cents / 100, { maximumFractionDigits: 0 })} CAD`;
 }
 
 function planIcon(planSlug: string | undefined) {
@@ -151,7 +152,7 @@ function CreateCompanyCard() {
       setCreatedLink(link);
       toast({ title: "Company created", description: `Invite email sent to ${companyForm.ownerEmail.trim()}. You can also share the link below directly.` });
     },
-    onError: (err: any) => toast({ title: "Failed to create company", description: err?.message, variant: "destructive" }),
+    onError: (err: ApiError) => toast({ title: "Failed to create company", description: err?.message, variant: "destructive" }),
   });
 
   return (
@@ -255,7 +256,7 @@ function TenantFeaturesEditor({
   const save = useMutation({
     mutationFn: (activeFeatures: string[] | null) => customFetch(`/api/admin/tenants/${tenantId}/features`, { method: "PATCH", body: JSON.stringify({ activeFeatures }) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-tenant-features", tenantId] }); toast({ title: "Tenant features updated" }); },
-    onError: (e: any) => toast({ title: "Update failed", description: e.message, variant: "destructive" }),
+    onError: (e: ApiError) => toast({ title: "Update failed", description: e.message, variant: "destructive" }),
   });
 
   if (!customized) {
@@ -927,23 +928,23 @@ export default function SuperAdminPage() {
   const savePlan = useMutation({
     mutationFn: async () => {
       const payload = { name: planForm.name.trim(), slug: planForm.slug.trim(), description: planForm.description.trim() || null, monthlyPrice: String(Number(planForm.monthlyPrice)), yearlyPrice: String(Number(planForm.yearlyPrice)), maxSeats: Number(planForm.maxSeats) || 5, isActive: planForm.isActive };
-      return editingPlanId ? customFetch(`/api/admin/plans/${editingPlanId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/plans", { method: "POST", body: JSON.stringify(payload) });
+      return editingPlanId ? customFetch<Plan>(`/api/admin/plans/${editingPlanId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch<Plan>("/api/admin/plans", { method: "POST", body: JSON.stringify(payload) });
     },
-    onSuccess: async (res: any) => {
+    onSuccess: async (res) => {
       if (res?.id && planFeatureIds.length > 0) await customFetch(`/api/admin/plans/${res.id}/features`, { method: "PUT", body: JSON.stringify({ featureIds: planFeatureIds }) });
       setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan saved" });
     },
-    onError: (e: any) => toast({ title: "Plan save failed", description: e.message, variant: "destructive" }),
+    onError: (e: ApiError) => toast({ title: "Plan save failed", description: e.message, variant: "destructive" }),
   });
 
-  const deletePlan = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/plans/${id}`, { method: "DELETE" }), onSuccess: () => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan deleted" }); }, onError: (e: any) => toast({ title: "Plan delete failed", description: e.message, variant: "destructive" }) });
-  const saveFeature = useMutation({ mutationFn: () => { const payload = { ...featureForm, description: featureForm.description || null }; return editingFeatureId ? customFetch(`/api/admin/features/${editingFeatureId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/features", { method: "POST", body: JSON.stringify(payload) }); }, onSuccess: () => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); refresh(); toast({ title: "Feature saved" }); }, onError: (e: any) => toast({ title: "Feature save failed", description: e.message, variant: "destructive" }) });
-  const deleteFeature = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/features/${id}`, { method: "DELETE" }), onSuccess: () => { refresh(); toast({ title: "Feature deleted" }); }, onError: (e: any) => toast({ title: "Feature delete failed", description: e.message, variant: "destructive" }) });
+  const deletePlan = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/plans/${id}`, { method: "DELETE" }), onSuccess: () => { setPlanOpen(false); setEditingPlanId(null); setPlanForm({ name: "", slug: "", description: "", monthlyPrice: "", yearlyPrice: "", maxSeats: 5, isActive: true }); setPlanFeatureIds([]); refresh(); toast({ title: "Plan deleted" }); }, onError: (e: ApiError) => toast({ title: "Plan delete failed", description: e.message, variant: "destructive" }) });
+  const saveFeature = useMutation({ mutationFn: () => { const payload = { ...featureForm, description: featureForm.description || null }; return editingFeatureId ? customFetch(`/api/admin/features/${editingFeatureId}`, { method: "PATCH", body: JSON.stringify(payload) }) : customFetch("/api/admin/features", { method: "POST", body: JSON.stringify(payload) }); }, onSuccess: () => { setFeatureOpen(false); setEditingFeatureId(null); setFeatureForm({ name: "", key: "", description: "", isEnabled: true }); refresh(); toast({ title: "Feature saved" }); }, onError: (e: ApiError) => toast({ title: "Feature save failed", description: e.message, variant: "destructive" }) });
+  const deleteFeature = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/features/${id}`, { method: "DELETE" }), onSuccess: () => { refresh(); toast({ title: "Feature deleted" }); }, onError: (e: ApiError) => toast({ title: "Feature delete failed", description: e.message, variant: "destructive" }) });
   const assignPlanFeatures = useMutation({
     mutationFn: ({ planId, featureIds }: { planId: number; featureIds: number[] }) =>
       customFetch(`/api/admin/plans/${planId}/features`, { method: "POST", body: JSON.stringify({ featureIds }) }),
     onSuccess: () => { refresh(); toast({ title: "Feature assignments updated" }); },
-    onError: (e: any) => toast({ title: "Assignment failed", description: e.message, variant: "destructive" }),
+    onError: (e: ApiError) => toast({ title: "Assignment failed", description: e.message, variant: "destructive" }),
   });
   const saveTenant = useMutation({
     mutationFn: () => customFetch(`/api/admin/tenants/${editingTenantId}/subscription`, {
@@ -955,7 +956,7 @@ export default function SuperAdminPage() {
       }),
     }),
     onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); refresh(); toast({ title: "Tenant updated" }); },
-    onError: (e: any) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
+    onError: (e: ApiError) => toast({ title: "Tenant update failed", description: e.message, variant: "destructive" }),
   });
   const saveTenantUserRole = useMutation({
     mutationFn: ({ userId, role, companyId }: { userId: number; role: string; companyId: number }) => customFetch(`/api/admin/users/${userId}/company-role`, {
@@ -963,24 +964,24 @@ export default function SuperAdminPage() {
       body: JSON.stringify({ role, companyId }),
     }),
     onSuccess: () => { refresh(); toast({ title: "User role updated" }); },
-    onError: (e: any) => toast({ title: "Role update failed", description: e.message, variant: "destructive" }),
+    onError: (e: ApiError) => toast({ title: "Role update failed", description: e.message, variant: "destructive" }),
   });
   const deleteTenantUser = useMutation({
     mutationFn: ({ userId, companyId }: { userId: number; companyId: number }) => customFetch(`/api/admin/tenants/${companyId}/users/${userId}`, { method: "DELETE" }),
     onSuccess: () => { refresh(); toast({ title: "User removed from tenant" }); },
-    onError: (e: any) => toast({ title: "Remove failed", description: e.message, variant: "destructive" }),
+    onError: (e: ApiError) => toast({ title: "Remove failed", description: e.message, variant: "destructive" }),
   });
-  const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: any) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
+  const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: ApiError) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
   const reissueLink = useMutation({
     mutationFn: (id: number) => customFetch<{ link: string }>(`/api/admin/tenants/${id}/reissue-link`, { method: "POST" }),
     onSuccess: (data) => { setReissuedLink(data.link); setReissueOpen(true); refresh(); toast({ title: "Link reissued" }); },
-    onError: (e: any) => toast({ title: "Reissue failed", description: e.message, variant: "destructive" }),
+    onError: (e: ApiError) => toast({ title: "Reissue failed", description: e.message, variant: "destructive" }),
   });
   const saveMember = useMutation({
     mutationFn: ({ userId, payload }: { userId: number; payload: { firstName: string; lastName: string; email: string } }) =>
       customFetch(`/api/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(payload) }),
     onSuccess: () => { refresh(); setMemberOpen(false); setEditingMemberId(null); toast({ title: "Member updated" }); },
-    onError: (e: any) => toast({ title: "Member update failed", description: e.message, variant: "destructive" }),
+    onError: (e: ApiError) => toast({ title: "Member update failed", description: e.message, variant: "destructive" }),
   });
 
   return (

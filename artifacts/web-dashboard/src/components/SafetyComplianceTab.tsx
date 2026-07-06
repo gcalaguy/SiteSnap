@@ -1,15 +1,23 @@
 import { useState } from "react";
-import { useListFormSubmissions } from "@workspace/api-client-react";
+import { useListFormSubmissions, type FormSubmissionRecord } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, FileCheck, Shield, AlertTriangle, CheckCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, FileCheck, Shield, AlertTriangle, CheckCircle, type LucideIcon } from "lucide-react";
 import { format } from "date-fns";
 
 interface SafetyComplianceTabProps {
   projectId: number;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
+// The API returns a few reviewer-facing fields beyond the generated
+// FormSubmissionRecord contract (see artifacts/api-server/src/routes/forms.ts).
+interface SafetyFormSubmission extends FormSubmissionRecord {
+  workerEmail?: string | null;
+  reviewedAt?: string | null;
+  reviewNotes?: string | null;
+}
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: LucideIcon }> = {
   draft: { label: "Draft", color: "text-muted-foreground", bg: "bg-muted border-border", icon: FileCheck },
   submitted: { label: "Submitted", color: "text-blue-400", bg: "bg-blue-950/20 border-blue-900/40", icon: Shield },
   reviewed: { label: "Reviewed", color: "text-amber-400", bg: "bg-amber-950/20 border-amber-900/40", icon: AlertTriangle },
@@ -49,7 +57,7 @@ export default function SafetyComplianceTab({ projectId }: SafetyComplianceTabPr
       </div>
 
       <div className="space-y-3">
-        {submissions.map((s: any) => {
+        {submissions.map((s: SafetyFormSubmission) => {
           const isExpanded = expandedId === s.id;
           const cfg = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.draft;
           const Icon = cfg.icon;

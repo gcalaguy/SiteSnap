@@ -46,7 +46,7 @@ function displayName(firstName: string, lastName: string, email?: string): strin
 }
 
 // GET /dashboard/summary — company-wide (or worker-scoped) overview
-router.get("/dashboard/summary", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/dashboard/summary", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -194,7 +194,7 @@ router.get("/dashboard/summary", requireAuth, requireCompany, asyncHandler(async
 }))
 
 // GET /dashboard/my-tasks — all tasks assigned to the current worker across all their projects
-router.get("/dashboard/my-tasks", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/dashboard/my-tasks", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -225,7 +225,7 @@ router.get("/dashboard/my-tasks", requireAuth, requireCompany, asyncHandler(asyn
 }))
 
 // GET /dashboard/action-counts — badge counts for sidebar nav
-router.get("/dashboard/action-counts", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/dashboard/action-counts", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -288,7 +288,7 @@ router.get("/dashboard/action-counts", requireAuth, requireCompany, asyncHandler
 }))
 
 // GET /dashboard/activity — recent activity feed (worker-scoped + tasks + schedules)
-router.get("/dashboard/activity", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/dashboard/activity", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -699,7 +699,7 @@ router.get("/dashboard/smart-summary", requireAuth, requireCompany, requireTenan
 }))
 
 // GET /rfis — company-wide RFI list (worker-scoped to accessible projects)
-router.get("/rfis", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/rfis", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;
@@ -734,7 +734,7 @@ router.get("/rfis", requireAuth, requireCompany, asyncHandler(async (req, res) =
 }))
 
 // GET /daily-reports — company-wide daily report list (worker-scoped to accessible projects)
-router.get("/daily-reports", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/daily-reports", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const userId = req.userId!;
   const userRole = req.userRole!;

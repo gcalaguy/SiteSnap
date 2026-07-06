@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission, ObjectAccessGroupType } from "../lib/objectAcl";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { scanFile } from "../lib/virusScan";
 
 const router: IRouter = Router();
@@ -64,6 +64,7 @@ router.post(
   "/storage/uploads/file",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   diskUpload.single("file"),
   async (req: Request, res: Response) => {
     if (!req.file) {
@@ -111,7 +112,7 @@ router.post(
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
  */
-router.post("/storage/uploads/request-url", requireAuth, requireCompany, async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", requireAuth, requireCompany, requireTenantCtx, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -161,6 +162,7 @@ router.post(
   "/storage/uploads/company-asset",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   diskUpload.single("file"),
   async (req: Request, res: Response) => {
     if (!req.file) {
@@ -250,6 +252,7 @@ router.get(
   "/storage/objects/*path/signed-url",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   async (req: Request, res: Response) => {
     try {
       const raw = req.params.path;
@@ -261,7 +264,6 @@ router.get(
         userId: req.userId != null ? String(req.userId) : undefined,
         objectFile,
         requestedPermission: ObjectPermission.READ,
-        fallbackCompanyId: req.companyId != null ? String(req.companyId) : undefined,
       });
 
       if (!canAccess) {
@@ -293,6 +295,7 @@ router.get(
   "/storage/objects/*path",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   async (req: Request, res: Response) => {
     try {
       const raw = req.params.path;
@@ -304,7 +307,6 @@ router.get(
         userId: req.userId != null ? String(req.userId) : undefined,
         objectFile,
         requestedPermission: ObjectPermission.READ,
-        fallbackCompanyId: req.companyId != null ? String(req.companyId) : undefined,
       });
 
       if (!canAccess) {

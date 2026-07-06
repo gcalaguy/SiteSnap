@@ -13,7 +13,10 @@ import {
   useRemoveProjectMember,
   useListChangeOrders,
   getListProjectMembersQueryKey,
+  getListCompanyMembersQueryKey,
+  getListChangeOrdersQueryKey,
   customFetch,
+  ApiError,
 } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { queryClient } from "@/lib/queryClient";
@@ -120,12 +123,12 @@ export default function ProjectDetail() {
 
   const { data: members = [], isLoading: membersLoading } = useListCompanyMembers(
     companyId ?? 0,
-    { query: { enabled: !!companyId } as any }
+    { query: { queryKey: getListCompanyMembersQueryKey(companyId ?? 0), enabled: !!companyId } }
   ) as { data: Member[]; isLoading: boolean };
 
   // Project-level member assignments (controls which workers can see this project)
   const { data: projectMembers = [] } = useListProjectMembers(projectId);
-  const assignedIds = new Set(projectMembers.map((m: any) => m.id));
+  const assignedIds = new Set(projectMembers.map((m) => m.id));
   const unassignedMembers = members.filter((m) => !assignedIds.has(m.id));
 
   const addProjectMember = useAddProjectMember({
@@ -136,7 +139,7 @@ export default function ProjectDetail() {
         setAddMemberUserId("");
         toast({ title: "Worker added to project" });
       },
-      onError: (err: any) => toast({ title: err?.message ?? "Failed to add worker", variant: "destructive" }),
+      onError: (err: ApiError) => toast({ title: err?.message ?? "Failed to add worker", variant: "destructive" }),
     },
   });
 
@@ -146,7 +149,7 @@ export default function ProjectDetail() {
         queryClient.invalidateQueries({ queryKey: getListProjectMembersQueryKey(projectId) });
         toast({ title: "Worker removed from project" });
       },
-      onError: (err: any) => toast({ title: err?.message ?? "Failed to remove worker", variant: "destructive" }),
+      onError: (err: ApiError) => toast({ title: err?.message ?? "Failed to remove worker", variant: "destructive" }),
     },
   });
 
@@ -165,7 +168,7 @@ export default function ProjectDetail() {
       setAssignUserId(""); setAssignStartDate(""); setAssignEndDate(""); setAssignNotes("");
       toast({ title: "Worker scheduled on project" });
     },
-    onError: (err: any) => toast({ title: err?.message ?? "Failed to assign", variant: "destructive" }),
+    onError: (err: ApiError) => toast({ title: err?.message ?? "Failed to assign", variant: "destructive" }),
   });
 
 
@@ -175,10 +178,10 @@ export default function ProjectDetail() {
     if (portalToken) return;
     setPortalLoading(true);
     try {
-      const res = await customFetch(`/api/projects/${projectId}/portal/token`, {
+      const res = await customFetch<{ token: string }>(`/api/projects/${projectId}/portal/token`, {
         method: "POST",
       });
-      setPortalToken((res as any).token);
+      setPortalToken(res.token);
     } catch {
       toast({ title: "Failed to generate portal link", variant: "destructive" });
       setShowPortalDialog(false);
@@ -203,13 +206,13 @@ export default function ProjectDetail() {
   const { data: allProjectTasks = [] } = useListTasks(projectId);
   const { data: changeOrders = [] } = useListChangeOrders(
     isOwnerOrForeman ? { projectId } : undefined,
-    { query: { enabled: isOwnerOrForeman } as any },
+    { query: { queryKey: getListChangeOrdersQueryKey(isOwnerOrForeman ? { projectId } : undefined), enabled: isOwnerOrForeman } },
   );
 
   const selectedMember = selectedWorkerId ? members.find((m) => m.id === selectedWorkerId) : null;
 
   const filteredReports = selectedWorkerId
-    ? (reports ?? []).filter((r: any) => r.submittedByUserId === selectedWorkerId)
+    ? (reports ?? []).filter((r) => r.submittedByUserId === selectedWorkerId)
     : (reports ?? []);
 
   const getStatusBadge = (status?: string) => {
@@ -524,7 +527,7 @@ export default function ProjectDetail() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {projectMembers.map((m: any) => (
+                    {projectMembers.map((m) => (
                       <div key={m.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
@@ -623,7 +626,7 @@ export default function ProjectDetail() {
             </div>
           ) : (
             <div className="space-y-2">
-              {projectMembers.map((m: any) => (
+              {projectMembers.map((m) => (
                 <div key={m.id} className="flex items-center justify-between p-4 border rounded-md bg-card">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-9 w-9">
@@ -695,7 +698,7 @@ export default function ProjectDetail() {
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  {changeOrders.map((co: any) => {
+                  {changeOrders.map((co) => {
                     const statusColors: Record<string, string> = {
                       pending: "bg-amber-950/30 text-amber-400 border-amber-900/50",
                       approved: "bg-green-950/30 text-green-400 border-green-900/50",

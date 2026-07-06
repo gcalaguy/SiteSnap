@@ -40,6 +40,8 @@ interface FormTemplate {
   schema: { fields: FormField[] };
 }
 
+type FieldValue = string | string[];
+
 const categoryColor: Record<string, string> = {
   injury: "bg-red-100 text-red-700",
   safety: "bg-blue-100 text-blue-700",
@@ -53,8 +55,8 @@ function FormFieldRenderer({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FieldValue | undefined;
+  onChange: (val: FieldValue) => void;
 }) {
   const id = `field-${field.id}`;
 
@@ -89,7 +91,7 @@ function FormFieldRenderer({
 
     case "select":
       return (
-        <Select value={value ?? ""} onValueChange={onChange}>
+        <Select value={typeof value === "string" ? value : ""} onValueChange={onChange}>
           <SelectTrigger id={id}>
             <SelectValue placeholder="Select an option…" />
           </SelectTrigger>
@@ -105,7 +107,7 @@ function FormFieldRenderer({
 
     case "radio":
       return (
-        <RadioGroup value={value ?? ""} onValueChange={onChange}>
+        <RadioGroup value={typeof value === "string" ? value : ""} onValueChange={onChange}>
           {field.options?.map((opt) => (
             <div key={opt} className="flex items-center space-x-2">
               <RadioGroupItem value={opt} id={`${id}-${opt}`} />
@@ -167,7 +169,7 @@ export default function SafetySubmitPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
     templateParam ? parseInt(templateParam) : null
   );
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, FieldValue>>({});
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
 
@@ -179,7 +181,7 @@ export default function SafetySubmitPage() {
       selectedContactId,
     }),
     (state) => {
-      if (state.formData && typeof state.formData === "object") setFormData(state.formData as Record<string, unknown>);
+      if (state.formData && typeof state.formData === "object") setFormData(state.formData as Record<string, FieldValue>);
       if (typeof state.selectedProjectId === "number" || state.selectedProjectId === null) setSelectedProjectId(state.selectedProjectId as number | null);
       if (typeof state.selectedContactId === "number" || state.selectedContactId === null) setSelectedContactId(state.selectedContactId as number | null);
     }
@@ -203,7 +205,7 @@ export default function SafetySubmitPage() {
 
   const saveMutation = useMutation({
     mutationFn: (payload: { status: "draft" | "submitted" }) =>
-      customFetch("/api/safety/submissions", {
+      customFetch<{ id: number }>("/api/safety/submissions", {
         method: "POST",
         body: JSON.stringify({
           templateId: selectedTemplateId,
@@ -213,7 +215,7 @@ export default function SafetySubmitPage() {
           contactId: selectedContactId,
         }),
       }),
-    onSuccess: (data: any, vars) => {
+    onSuccess: (data, vars) => {
       queryClient.invalidateQueries({ queryKey: ["safety-submissions"] });
       draft.clearDraft();
       if (vars.status === "submitted") {
@@ -231,7 +233,7 @@ export default function SafetySubmitPage() {
     },
   });
 
-  const handleFieldChange = (fieldId: string, value: any) => {
+  const handleFieldChange = (fieldId: string, value: FieldValue) => {
     setFormData((prev) => ({ ...prev, [fieldId]: value }));
   };
 

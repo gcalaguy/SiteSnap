@@ -9,7 +9,7 @@ import {
   usersTable,
   userMembershipsTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireFeature } from "../lib/featureGate";
 
@@ -81,7 +81,7 @@ async function getLeadWithContact(leadId: number, companyId: number) {
 }
 
 // GET /leads
-router.get("/leads", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/leads", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
 
   const leads = await db
@@ -106,7 +106,7 @@ router.get("/leads", requireAuth, requireCompany, asyncHandler(async (req, res) 
 }))
 
 // GET /leads/:leadId
-router.get("/leads/:leadId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/leads/:leadId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -117,7 +117,7 @@ router.get("/leads/:leadId", requireAuth, requireCompany, asyncHandler(async (re
 }))
 
 // POST /leads
-router.post("/leads", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/leads", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const parsed = CreateLeadBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
@@ -137,7 +137,7 @@ router.post("/leads", requireAuth, requireCompany, asyncHandler(async (req, res)
 }))
 
 // PATCH /leads/:leadId
-router.patch("/leads/:leadId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/leads/:leadId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -163,7 +163,7 @@ router.patch("/leads/:leadId", requireAuth, requireCompany, asyncHandler(async (
 }))
 
 // DELETE /leads/:leadId
-router.delete("/leads/:leadId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.delete("/leads/:leadId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -186,7 +186,7 @@ router.delete("/leads/:leadId", requireAuth, requireCompany, asyncHandler(async 
 }))
 
 // POST /leads/:leadId/convert — convert a Won lead into a Project
-router.post("/leads/:leadId/convert", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/leads/:leadId/convert", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -231,7 +231,7 @@ router.post("/leads/:leadId/convert", requireAuth, requireCompany, asyncHandler(
 }))
 
 // GET /leads/:leadId/activities
-router.get("/leads/:leadId/activities", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/leads/:leadId/activities", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 
@@ -280,7 +280,7 @@ router.get("/leads/:leadId/activities", requireAuth, requireCompany, asyncHandle
 }))
 
 // POST /leads/:leadId/activities
-router.post("/leads/:leadId/activities", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/leads/:leadId/activities", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const leadId = parseInt(req.params.leadId as string);
   if (isNaN(leadId)) { res.status(400).json({ error: "Invalid leadId" }); return; }
 

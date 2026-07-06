@@ -9,7 +9,7 @@ import {
   usersTable,
   userMembershipsTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { requireAiQuota } from "../middlewares/requireAiQuota";
@@ -20,9 +20,11 @@ import { sendEmail, ResendSandboxError } from "../lib/mailer";
 import { logger } from "../lib/logger";
 import { processComplianceEvent } from "../services/compliance/processor";
 import { processFormSubmission } from "../services/cor/evidenceAggregator";
+import { ObjectStorageService } from "../lib/objectStorage";
 import { z } from "zod";
 
 const router = Router();
+const objectStorageService = new ObjectStorageService();
 
 // ── Zod schemas ────────────────────────────────────────────────────────────────
 const CreateSubmissionBody = z.object({
@@ -55,7 +57,7 @@ const AddPhotoBody = z.object({
 // ── Templates ─────────────────────────────────────────────────────────────────
 
 // GET /safety/templates
-router.get("/safety/templates", requireAuth, requireCompany, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
+router.get("/safety/templates", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
   const templates = await db
     .select()
     .from(formTemplatesTable)
@@ -72,7 +74,7 @@ router.get("/safety/templates", requireAuth, requireCompany, requirePermission("
 //   2. userId     — optional worker/filter (not in composite index, but applied after)
 //   3. status     — optional filter (second column of composite index)
 // When both companyId and status are present the planner uses the full composite index.
-router.get("/safety/submissions", requireAuth, requireCompany, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
+router.get("/safety/submissions", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
   try {
     const { status, workerId } = req.query as Record<string, string>;
 
@@ -142,7 +144,7 @@ router.get("/safety/submissions", requireAuth, requireCompany, requirePermission
 }))
 
 // GET /safety/submissions/:id
-router.get("/safety/submissions/:id", requireAuth, requireCompany, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
+router.get("/safety/submissions/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewSafetyTab"), asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
 
@@ -183,7 +185,7 @@ router.get("/safety/submissions/:id", requireAuth, requireCompany, requirePermis
 }))
 
 // POST /safety/submissions — create draft or submit
-router.post("/safety/submissions", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/safety/submissions", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const parsed = CreateSubmissionBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
@@ -232,7 +234,7 @@ router.post("/safety/submissions", requireAuth, requireCompany, asyncHandler(asy
 }))
 
 // PUT /safety/submissions/:id — update draft
-router.put("/safety/submissions/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.put("/safety/submissions/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const bodyParsed = UpdateSubmissionBody.safeParse(req.body);
@@ -279,7 +281,7 @@ router.put("/safety/submissions/:id", requireAuth, requireCompany, asyncHandler(
 }))
 
 // POST /safety/submissions/:id/review
-router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const reviewParsed = ReviewSubmissionBody.safeParse(req.body);
@@ -314,7 +316,7 @@ router.post("/safety/submissions/:id/review", requireAuth, requireCompany, requi
 }))
 
 // POST /safety/submissions/:id/comments
-router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const commentParsed = AddCommentBody.safeParse(req.body);
@@ -344,7 +346,7 @@ router.post("/safety/submissions/:id/comments", requireAuth, requireCompany, asy
 }))
 
 // POST /safety/submissions/:id/photos
-router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const photoParsed = AddPhotoBody.safeParse(req.body);
@@ -358,6 +360,20 @@ router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, async
       .limit(1);
 
     if (!existing) { res.status(404).json({ error: "Submission not found" }); return; }
+
+    if (objectPath) {
+      try {
+        await objectStorageService.trySetCompanyReadAcl(
+          objectPath,
+          String(req.userId!),
+          String(req.companyId!),
+        );
+      } catch (err) {
+        req.log.warn({ err }, "Rejected photo with invalid or already-owned object path");
+        res.status(400).json({ error: "Invalid photo reference" });
+        return;
+      }
+    }
 
     const [photo] = await db.insert(submissionPhotosTable).values({
       submissionId: id,
@@ -375,7 +391,7 @@ router.post("/safety/submissions/:id/photos", requireAuth, requireCompany, async
 
 // ── POST /safety/submissions/:id/incident-summary — on-demand AI incident report ──
 
-router.post("/safety/submissions/:id/incident-summary", requireAuth, requireCompany, requireOwnerOrForeman, requireAiQuota, asyncHandler(async (req, res) => {
+router.post("/safety/submissions/:id/incident-summary", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, requireAiQuota, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
 

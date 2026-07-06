@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { db, costAnalysesTable, projectsTable } from "@workspace/db";
+import { db, costAnalysesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import { assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
 import { CreateCostAnalysisBody } from "@workspace/api-zod";
 
 const UpdateCostAnalysisBody = z.object({
@@ -18,17 +19,8 @@ const UpdateCostAnalysisBody = z.object({
 
 const router = Router({ mergeParams: true });
 
-async function verifyProjectAccess(projectId: number, companyId: number) {
-  const [project] = await db
-    .select()
-    .from(projectsTable)
-    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, companyId)))
-    .limit(1);
-  return project;
-}
-
 // GET /projects/:projectId/cost-analyses
-router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -42,7 +34,7 @@ router.get("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
 }))
 
 // POST /projects/:projectId/cost-analyses
-router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -73,7 +65,7 @@ router.post("/", requireAuth, requireCompany, asyncHandler(async (req, res) => {
 }))
 
 // PUT /projects/:projectId/cost-analyses/:analysisId
-router.put("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.put("/:analysisId", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const analysisId = parseInt(req.params.analysisId as string);
   const parsed = UpdateCostAnalysisBody.safeParse(req.body);
@@ -115,7 +107,7 @@ router.put("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, a
 }))
 
 // DELETE /projects/:projectId/cost-analyses/:analysisId
-router.delete("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.delete("/:analysisId", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const analysisId = parseInt(req.params.analysisId as string);
   await db
@@ -125,7 +117,7 @@ router.delete("/:analysisId", requireAuth, requireCompany, requireOwnerOrForeman
 }))
 
 // GET /projects/:projectId/cost-analyses/:analysisId
-router.get("/:analysisId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/:analysisId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const analysisId = parseInt(req.params.analysisId as string);
 

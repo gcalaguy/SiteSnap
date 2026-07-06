@@ -63,7 +63,7 @@ const RFIAIInput = z.strictObject({
 });
 
 // ── Daily Report AI Agent ────────────────────────────────────────────────────
-router.post("/ai/daily-report/generate", requireAuth, requireCompany, requireAiQuota, asyncHandler(async (req, res) => {
+router.post("/ai/daily-report/generate", requireAuth, requireCompany, requireTenantCtx, requireAiQuota, asyncHandler(async (req, res) => {
   const parsed = DailyReportAIInput.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
@@ -114,7 +114,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 }));
 
 // ── Cost Analysis AI Agent ───────────────────────────────────────────────────
-router.post("/ai/cost-analysis/generate", requireAuth, requireCompany, requireAiQuota, asyncHandler(async (req, res) => {
+router.post("/ai/cost-analysis/generate", requireAuth, requireCompany, requireTenantCtx, requireAiQuota, asyncHandler(async (req, res) => {
   const parsed = CostAnalysisAIInput.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
@@ -170,7 +170,7 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
 }));
 
 // ── RFI AI Agent ─────────────────────────────────────────────────────────────
-router.post("/ai/rfi/generate", requireAuth, requireCompany, requireAiQuota, asyncHandler(async (req, res) => {
+router.post("/ai/rfi/generate", requireAuth, requireCompany, requireTenantCtx, requireAiQuota, asyncHandler(async (req, res) => {
   const parsed = RFIAIInput.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
@@ -233,7 +233,7 @@ const AssistantInput = z.strictObject({
   context: z.string().max(5000).optional().nullable(),
 });
 
-router.post("/ai/assistant", requireAuth, requireCompany, requireAiQuota, asyncHandler(async (req, res) => {
+router.post("/ai/assistant", requireAuth, requireCompany, requireTenantCtx, requireAiQuota, asyncHandler(async (req, res) => {
   const parsed = AssistantInput.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
@@ -308,7 +308,7 @@ const QuoteAIInput = z.strictObject({
   clientName: z.string().max(200).optional().nullable(),
 });
 
-router.post("/ai/quote/generate", requireAuth, requireCompany, requireAiQuota, asyncHandler(async (req, res) => {
+router.post("/ai/quote/generate", requireAuth, requireCompany, requireTenantCtx, requireAiQuota, asyncHandler(async (req, res) => {
   const parsed = QuoteAIInput.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
@@ -404,7 +404,7 @@ const InvoiceAIInput = z.strictObject({
   clientName: z.string().max(200).optional().nullable(),
 });
 
-router.post("/ai/invoice/generate", requireAuth, requireCompany, requireAiQuota, asyncHandler(async (req, res) => {
+router.post("/ai/invoice/generate", requireAuth, requireCompany, requireTenantCtx, requireAiQuota, asyncHandler(async (req, res) => {
   const parsed = InvoiceAIInput.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });

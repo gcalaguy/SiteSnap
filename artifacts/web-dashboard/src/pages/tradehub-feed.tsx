@@ -8,6 +8,7 @@ import {
   useCreateTradehubPost,
   listTradehubFeed,
   getListTradehubFeedQueryKey,
+  type TradehubPost,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -43,16 +44,7 @@ const typeConfig: Record<string, { label: string; accent: string; icon: React.El
   showcase:   { label: "Showcase",   accent: "#a855f7", icon: Sparkles },
 };
 
-interface Post {
-  id: number; userId: number; type: string; title: string; content: string;
-  trade: string | null; location: string | null; province: string | null;
-  budget: string | null; jobType: string | null; createdAt: string;
-  commentCount: number; reactionCount: number; hasReacted: boolean;
-  applicationCount: number;
-  author: { id: number; firstName: string; lastName: string } | null;
-  profile: { displayName: string; trade: string | null; isVerified: boolean; avatarUrl: string | null } | null;
-  media: Array<{ id: number; url: string }>;
-}
+type Post = TradehubPost;
 
 function Avatar({ profile, author, size = 10 }: { profile: Post["profile"]; author: Post["author"]; size?: number }) {
   const initials = profile?.displayName
@@ -224,7 +216,7 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
         onClose();
         setTitle(""); setContent(""); setType("discussion");
       },
-      onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to post", variant: "destructive" }),
+      onError: (err) => toast({ title: "Error", description: err?.message ?? "Failed to post", variant: "destructive" }),
     },
   });
 
@@ -351,23 +343,23 @@ export default function TradehubFeedPage() {
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: getListTradehubFeedQueryKey(feedParams),
     queryFn: ({ pageParam = 1 }) => listTradehubFeed({ ...feedParams, page: pageParam as number }),
-    getNextPageParam: (last: any) => last.hasMore ? last.page + 1 : undefined,
+    getNextPageParam: (last) => last.hasMore ? last.page + 1 : undefined,
     initialPageParam: 1,
   });
 
   const { data: notifications = [] } = useListTradehubNotifications();
-  const unreadCount = notifications.filter((n: any) => !n.isRead).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const { data: myProfile } = useGetTradehubProfileMe();
 
   const reactMutation = useReactToTradehubPost({
     mutation: {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTradehubFeedQueryKey() }),
-      onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed", variant: "destructive" }),
+      onError: (err) => toast({ title: "Error", description: err?.message ?? "Failed", variant: "destructive" }),
     },
   });
 
-  const allPosts: Post[] = data?.pages.flatMap((p: any) => p.posts) ?? [];
+  const allPosts: Post[] = data?.pages.flatMap((p) => p.posts) ?? [];
   const posts = search.trim()
     ? allPosts.filter(p =>
         p.title.toLowerCase().includes(search.toLowerCase()) ||

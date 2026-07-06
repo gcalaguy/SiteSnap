@@ -168,7 +168,7 @@ function RiskTrendChart({ trend }: { trend: TrendPoint[] }) {
                 contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
                 labelStyle={{ color: "#d4d4d4", fontWeight: 600 }}
                 itemStyle={{ color: GOLD }}
-                formatter={(val: any) => val == null ? ["No data", "Risk Score"] : [`${val}/10`, "Risk Score"]}
+                formatter={(val) => val == null ? ["No data", "Risk Score"] : [`${val}/10`, "Risk Score"]}
               />
               <ReferenceLine y={7} stroke="#ea580c" strokeDasharray="4 2" strokeOpacity={0.5} />
               <ReferenceLine y={9} stroke="#dc2626" strokeDasharray="4 2" strokeOpacity={0.5} />

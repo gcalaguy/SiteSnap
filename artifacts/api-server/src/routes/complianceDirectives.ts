@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, aiComplianceDirectivesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { asyncHandler } from "../lib/asyncHandler";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { BadRequestError, NotFoundError } from "../lib/errors";
 import { z } from "zod";
 
@@ -12,6 +12,7 @@ router.get(
   "/compliance/directives",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const companyId = req.companyId!;
     const projectId = req.query.projectId ? Number(req.query.projectId) : undefined;
@@ -44,6 +45,7 @@ router.patch(
   "/compliance/directives/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) throw new BadRequestError("Invalid directive ID");

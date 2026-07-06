@@ -82,8 +82,8 @@ export default function MediaHubTestPage() {
       toast({ title: "Photo saved to Media Hub", description: `ID #${photo.id}` });
       if (fileRef.current) fileRef.current.value = "";
       setRoomLocation("");
-    } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
       setStatus("idle");
     }
   };

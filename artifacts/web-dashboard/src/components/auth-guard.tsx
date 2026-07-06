@@ -42,7 +42,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     query: {
       queryKey: getGetMeQueryKey(),
       enabled: isSignedIn && !!clerkUser && clerkLoaded,
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error) => {
         // Stop retrying after 3 attempts or on non-auth errors
         if (failureCount >= 3) return false;
         const status = error?.status ?? error?.response?.status;

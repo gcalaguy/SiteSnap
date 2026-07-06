@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwner, requireSuperAdmin } from "../lib/auth.js";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwner, requireSuperAdmin } from "../lib/auth.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { BadRequestError } from "../lib/errors.js";
 import { buildDigest } from "../lib/digest.js";
@@ -22,7 +22,7 @@ router.post("/digest/send-all", requireAuth, requireSuperAdmin, asyncHandler(asy
   res.json(result);
 }))
 
-router.post("/digest/preview", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/digest/preview", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = (req as any).companyId as number;
   const digest = await buildDigest(companyId);
 
@@ -35,7 +35,7 @@ router.post("/digest/preview", requireAuth, requireCompany, asyncHandler(async (
   res.type("html").send(html);
 }))
 
-router.post("/digest/send-now", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/digest/send-now", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = (req as any).companyId as number;
 
   const [[company], digest] = await Promise.all([
@@ -88,7 +88,7 @@ function buildEmailConfigResponse(company: { digestFromEmail: string | null; res
   return { fromEmail, isCustomDomain: !isDefault, resendKeySet };
 }
 
-router.get("/settings/email-config", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/settings/email-config", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = (req as any).companyId as number;
   const [company] = await db
     .select({ digestFromEmail: companiesTable.digestFromEmail, resendApiKey: companiesTable.resendApiKey })
@@ -103,7 +103,7 @@ router.get("/settings/email-config", requireAuth, requireCompany, asyncHandler(a
   res.json(buildEmailConfigResponse(company));
 }))
 
-router.patch("/settings/email-config", requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
+router.patch("/settings/email-config", requireAuth, requireCompany, requireTenantCtx, requireOwner, asyncHandler(async (req, res) => {
   const companyId = (req as any).companyId as number;
   const bodyParsed = EmailConfigBody.safeParse(req.body);
   if (!bodyParsed.success) throw new BadRequestError("Malformed request payload", bodyParsed.error.flatten());

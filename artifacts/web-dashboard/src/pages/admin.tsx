@@ -1,5 +1,5 @@
 import { useGetMe } from "@workspace/api-client-react";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, type Company } from "@workspace/api-client-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -163,7 +163,7 @@ function AdminPage() {
 
   const { data: subData, isLoading: subLoading, isError: subError } = useQuery({
     queryKey: ["billing-subscription"],
-    queryFn: () => customFetch<{ subscription: Subscription | null; company: any }>(`${basePath}/api/billing/subscription`),
+    queryFn: () => customFetch<{ subscription: Subscription | null; company: Company | null }>(`${basePath}/api/billing/subscription`),
   });
 
   const { data: seatInfo, isLoading: seatsLoading, isError: seatsError } = useQuery<SeatInfo>({
@@ -174,7 +174,7 @@ function AdminPage() {
   const portalMutation = useMutation({
     mutationFn: () => customFetch<{ url: string }>(`${basePath}/api/billing/portal`, { method: "POST" }),
     onSuccess: (data) => { window.location.href = data.url; },
-    onError: (err: any) => toast({ title: "Could not open billing portal", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => toast({ title: "Could not open billing portal", description: err.message, variant: "destructive" }),
   });
 
   if (me?.role !== "owner") {

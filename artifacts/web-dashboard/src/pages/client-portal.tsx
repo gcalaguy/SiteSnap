@@ -30,7 +30,7 @@ import {
   Hourglass,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrencyOrDash } from "@/lib/format";
+import { formatCurrencyOrDash, formatDate, formatFileSize } from "@/lib/format";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -101,21 +101,6 @@ type PortalData = {
   messages: PortalMessage[];
 };
 
-function formatFileSize(bytes: number | null) {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-CA", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 function formatDateTime(dateStr: string) {
   return new Date(dateStr).toLocaleString("en-CA", {
     month: "short",
@@ -123,10 +108,6 @@ function formatDateTime(dateStr: string) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function formatCurrency(amount: string | null) {
-  return formatCurrencyOrDash(amount);
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
@@ -291,8 +272,8 @@ export default function ClientPortal() {
         setUploadProgress(baseProgress + 100);
       }
       toast({ title: "File(s) uploaded successfully" });
-    } catch (e: any) {
-      toast({ title: e.message ?? "Upload failed", variant: "destructive" });
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Upload failed", variant: "destructive" });
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -313,8 +294,8 @@ export default function ClientPortal() {
       if (!res.ok) throw new Error("Failed to send message");
       await res.json();
       setMessageText("");
-    } catch (e: any) {
-      toast({ title: e.message ?? "Failed to send", variant: "destructive" });
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Failed to send", variant: "destructive" });
     } finally {
       setSendingMessage(false);
     }
@@ -523,7 +504,7 @@ export default function ClientPortal() {
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-xl font-bold text-slate-900">{formatCurrency(inv.total)}</p>
+                          <p className="text-xl font-bold text-slate-900">{formatCurrencyOrDash(inv.total)}</p>
                           <p className="text-xs text-slate-400">CAD incl. tax</p>
                         </div>
                       </div>

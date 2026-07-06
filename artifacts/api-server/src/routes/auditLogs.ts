@@ -1,11 +1,16 @@
 import { Router } from "express";
 import { db, auditLogsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { requireAuth, requireAuditAccess } from "../lib/auth";
+import { requireAuth, requireAuditAccess, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
+import type { Request, Response, NextFunction } from "express";
 
 const router = Router();
-const guard = [requireAuth, requireAuditAccess];
+// Super admins deliberately see logs across every company, so they must NOT be
+// wrapped in a single-tenant transaction — only scope regular Enterprise owners.
+const tenantCtxUnlessSuperAdmin = (req: Request, res: Response, next: NextFunction) =>
+  req.systemRole === "super_admin" ? next() : requireTenantCtx(req, res, next);
+const guard = [requireAuth, requireAuditAccess, tenantCtxUnlessSuperAdmin];
 
 // GET /api/audit-logs — read-only audit log viewer
 // Super admins see all logs; Enterprise tenant owners see only their own company's logs.

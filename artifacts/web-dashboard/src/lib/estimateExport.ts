@@ -1,12 +1,13 @@
 import { format } from "date-fns";
 
-type MaterialLine = { item: string; quantity: number; unit: string; unitCost: number; total: number };
-type LaborLine = { trade: string; hours: number; hourlyRate: number; total: number };
-type EquipmentLine = { item: string; days: number; dayRate: number; total: number };
+export type MaterialLine = { item: string; quantity: number; unit: string; unitCost: number; total: number };
+export type LaborLine = { trade: string; hours: number; hourlyRate: number; total: number };
+export type EquipmentLine = { item: string; days: number; dayRate: number; total: number };
 
-type EstimateResult = {
+export type EstimateResult = {
   title?: string;
-  summary?: string;
+  // Legacy AI estimator uses a plain string; Smart Estimator uses a pricing object — only the string form is rendered here.
+  summary?: unknown;
   materials?: MaterialLine[];
   labor?: LaborLine[];
   equipment?: EquipmentLine[];
@@ -17,9 +18,11 @@ type EstimateResult = {
   totalHigh?: number;
   assumptions?: string[];
   notes?: string;
+  lineItems?: unknown[];
+  costModelUsed?: unknown;
 };
 
-type Estimate = {
+export type Estimate = {
   id: number;
   title: string;
   scopeText: string | null;
@@ -150,7 +153,7 @@ export async function downloadEstimatePDF(estimate: Estimate, open = false, logo
   }
 
   // ── Summary ─────────────────────────────────────────────────────────────────
-  if (r.summary) {
+  if (typeof r.summary === "string" && r.summary) {
     y += 2;
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
@@ -388,23 +391,23 @@ export async function downloadEstimateDocx(estimate: Estimate, logoDataUrl?: str
     });
   }
 
-  const sections: any[] = [];
+  const sections: (InstanceType<typeof Paragraph> | InstanceType<typeof Table>)[] = [];
 
   if (logoDataUrl) {
     try {
       const base64 = logoDataUrl.split(",")[1] ?? "";
       const mime = logoDataUrl.split(";")[0].replace("data:", "");
-      const type = mime.includes("jpeg") || mime.includes("jpg") ? "jpg" : "png";
+      const type: "jpg" | "png" = mime.includes("jpeg") || mime.includes("jpg") ? "jpg" : "png";
       sections.push(new Paragraph({
         spacing: { after: 120 },
-        children: [new ImageRun({ data: base64, transformation: { width: 160, height: 54 }, type } as any)],
+        children: [new ImageRun({ data: base64, transformation: { width: 160, height: 54 }, type })],
       }));
     } catch { }
   }
 
   // Company info block
   if (companyInfo) {
-    const infoRuns: any[] = [];
+    const infoRuns: InstanceType<typeof TextRun>[] = [];
     if (companyInfo.name) {
       infoRuns.push(new TextRun({ text: companyInfo.name, bold: true, size: 20, color: DARK }));
       infoRuns.push(new TextRun({ text: "\n", size: 20 }));
@@ -450,7 +453,7 @@ export async function downloadEstimateDocx(estimate: Estimate, logoDataUrl?: str
   }
 
   // Summary
-  if (r.summary) {
+  if (typeof r.summary === "string" && r.summary) {
     sections.push(new Paragraph({
       spacing: { before: 120, after: 240 },
       children: [new TextRun({ text: r.summary, size: 20, color: "444444" })],

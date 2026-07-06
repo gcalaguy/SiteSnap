@@ -15,6 +15,9 @@ import {
   type InspectionRow,
   type InspectionAlertRow,
   type InspectionDetail,
+  type CreateInspectionBodyInspectionType,
+  type Project,
+  ApiError,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -68,7 +71,7 @@ function CreateInspectionDialog({ open, onClose }: { open: boolean; onClose: () 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: projectsData } = useListProjects();
-  const projects = (projectsData as any)?.projects ?? (Array.isArray(projectsData) ? projectsData : []);
+  const projects: Project[] = Array.isArray(projectsData) ? projectsData : [];
 
   const [projectId, setProjectId] = useState("");
   const [inspectionType, setInspectionType] = useState("");
@@ -85,7 +88,7 @@ function CreateInspectionDialog({ open, onClose }: { open: boolean; onClose: () 
         toast({ title: submitNow ? "Inspection submitted!" : "Inspection saved as draft." });
         onClose();
       },
-      onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to create inspection", variant: "destructive" }),
+      onError: (err: ApiError) => toast({ title: "Error", description: err?.message ?? "Failed to create inspection", variant: "destructive" }),
     },
   });
 
@@ -116,7 +119,7 @@ function CreateInspectionDialog({ open, onClose }: { open: boolean; onClose: () 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No project</SelectItem>
-                  {projects.map((p: any) => (
+                  {projects.map((p) => (
                     <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -196,9 +199,9 @@ function CreateInspectionDialog({ open, onClose }: { open: boolean; onClose: () 
             onClick={() => createMutation.mutate({
               data: {
                 projectId: (projectId && projectId !== "none") ? parseInt(projectId) : null,
-                inspectionType: inspectionType as any,
+                inspectionType: inspectionType as CreateInspectionBodyInspectionType,
                 date,
-                items: items.map((it) => ({ itemName: it.itemName, status: it.status as any })),
+                items: items.map((it) => ({ itemName: it.itemName, status: it.status })),
                 submit: submitNow,
               },
             })}
@@ -329,7 +332,7 @@ export default function InspectionsPage() {
   );
   const { data: rawAlerts = [] } = useListInspectionAlerts();
   const { data: projectsData } = useListProjects();
-  const projects = (projectsData as any)?.projects ?? (Array.isArray(projectsData) ? projectsData : []);
+  const projects: Project[] = Array.isArray(projectsData) ? projectsData : [];
 
   const markReadMutation = useMarkInspectionAlertRead({
     mutation: {
@@ -429,7 +432,7 @@ export default function InspectionsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Projects</SelectItem>
-                {projects.map((p: any) => (
+                {projects.map((p) => (
                   <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                 ))}
               </SelectContent>

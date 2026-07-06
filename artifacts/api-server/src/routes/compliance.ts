@@ -8,7 +8,7 @@ import { z } from "zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { processComplianceEvent } from "../services/compliance/processor";
 import { BadRequestError } from "../lib/errors";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 
 const router = Router();
@@ -86,6 +86,7 @@ router.post(
   "/compliance/test",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewRiskTab"),
   asyncHandler(async (req, res) => {
     const parsed = TestPayloadSchema.safeParse(req.body);

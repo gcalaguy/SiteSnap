@@ -114,7 +114,10 @@
       "Bash(gh pr status *)",
       "Bash(python3 -c \"import json,sys; j=json.load\\(sys.stdin\\); print\\(len\\(j['entries']\\), 'entries'\\); [print\\(e['idx'], e['tag']\\) for e in j['entries'][-5:]]\")",
       "Bash(awk ' *)",
-      "Bash(grep -rn \"limit\\(\\\\|offset\\(\\\\|page =\\\\|pageSize\\\\|LIMIT \\\\$\" .)"
+      "Bash(grep -rn \"limit\\(\\\\|offset\\(\\\\|page =\\\\|pageSize\\\\|LIMIT \\\\$\" .)",
+      "Bash(git -C /home/runner/workspace status --short)",
+      "Bash(grep -rnE \"\\\\\\\\\\\\$\\\\{[a-zA-Z_.?]+\\\\}\\\\\\\\\\\\$\\\\{[a-zA-Z_.?]+\\\\}\" artifacts/web-dashboard/src artifacts/mobile)",
+      "Bash(git status *)"
     ]
   }
 }

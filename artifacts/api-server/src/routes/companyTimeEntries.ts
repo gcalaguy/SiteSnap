@@ -1,14 +1,14 @@
 import { Router } from "express";
 import { db, timeEntriesTable, projectsTable, usersTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
 
 // GET /time-entries — owner/foreman see company-wide entries; workers see only their own
 // Query params: projectId, userId (ignored for workers), from (YYYY-MM-DD), to (YYYY-MM-DD)
-router.get("/time-entries", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/time-entries", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const { projectId, userId, from, to } = req.query;
   const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
 

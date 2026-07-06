@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@workspace/db';
-import { getUncachableStripeClient } from './stripeClient';
+import { getStripeClient } from './stripeClient';
 
 export async function getStripeProduct(productId: string) {
   const result = await db.execute(
@@ -16,7 +16,7 @@ export async function getStripeProduct(productId: string) {
  * require webhook events to populate and may be absent on a fresh instance.
  */
 export async function listProductsWithPrices() {
-  const stripe = await getUncachableStripeClient();
+  const stripe = await getStripeClient();
 
   const [productsRes, pricesRes] = await Promise.all([
     stripe.products.list({ active: true, limit: 100 }),
@@ -76,7 +76,7 @@ export async function listProductsWithPrices() {
  */
 export async function getStripeSubscription(subscriptionId: string) {
   try {
-    const stripe = await getUncachableStripeClient();
+    const stripe = await getStripeClient();
     const sub = await stripe.subscriptions.retrieve(subscriptionId, {
       expand: ['items.data.price.product'],
     });

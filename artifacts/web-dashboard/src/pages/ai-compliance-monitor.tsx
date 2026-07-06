@@ -20,7 +20,7 @@ import {
   TrendingUp,
   BarChart3,
 } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { formatDate as fmtDate } from "@/lib/format";
 import type { ComplianceDirective, ComplianceDashboardRow } from "@workspace/api-client-react";
 
 const GOLD = "#C9A84C";
@@ -140,11 +140,6 @@ function DirectiveCard({ d, onComplete, onDismiss }: {
       </div>
     </div>
   );
-}
-
-function fmtDate(iso: string | null) {
-  if (!iso) return "\u2014";
-  try { return format(parseISO(iso), "MMM d, yyyy"); } catch { return iso; }
 }
 
 // ── Project Safety Card ──────────────────────────────────────────────────────

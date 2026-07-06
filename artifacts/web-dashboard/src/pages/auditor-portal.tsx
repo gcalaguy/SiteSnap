@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { formatDate as fmtDate } from "@/lib/format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -89,11 +90,6 @@ const ELEMENT_NUMBERS: Record<string, number> = Object.fromEntries(
 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmtDate(d: string | null | undefined): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
-}
 
 function timeUntilExpiry(expiresAt: string): string {
   const diff = new Date(expiresAt).getTime() - Date.now();

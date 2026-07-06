@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, ApiError, type TradehubProfile, type TradehubNotification } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
@@ -239,7 +239,7 @@ function TenderCard({
   onApply,
 }: {
   tender: JobPosting;
-  myProfile: any;
+  myProfile: TradehubProfile | undefined;
   onApply: (id: number, msg: string) => void;
 }) {
   const isNonCompliant = myProfile?.complianceStatus === "non_compliant";
@@ -426,7 +426,7 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
       onClose();
       setTitle(""); setContent(""); setType("discussion");
     },
-    onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to post", variant: "destructive" }),
+    onError: (err: Error) => toast({ title: "Error", description: err?.message ?? "Failed to post", variant: "destructive" }),
   });
 
   return (
@@ -581,7 +581,7 @@ function CreateTenderModal({ open, onClose }: { open: boolean; onClose: () => vo
       onClose();
       setProjectTitle(""); setDescription(""); setScopeOfWork(""); setBudgetEstimate(""); setTargetedStartDate(""); setLocation(""); setProvince(""); setTrade("");
     },
-    onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to post tender", variant: "destructive" }),
+    onError: (err: Error) => toast({ title: "Error", description: err?.message ?? "Failed to post tender", variant: "destructive" }),
   });
 
   return (
@@ -634,9 +634,9 @@ export default function TradehubPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showTenderCreate, setShowTenderCreate] = useState(false);
 
-  const { data: notifications = [] } = useQuery<any[]>({ queryKey: ["tradehub-notifications"], queryFn: () => customFetch("/api/tradehub/notifications") });
-  const unreadCount = notifications.filter((n: any) => !n.isRead).length;
-  const { data: myProfile } = useQuery<any>({ queryKey: ["tradehub-profile-me"], queryFn: () => customFetch("/api/tradehub/profile/me") });
+  const { data: notifications = [] } = useQuery<TradehubNotification[]>({ queryKey: ["tradehub-notifications"], queryFn: () => customFetch("/api/tradehub/notifications") });
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const { data: myProfile } = useQuery<TradehubProfile>({ queryKey: ["tradehub-profile-me"], queryFn: () => customFetch("/api/tradehub/profile/me") });
 
   // ── Marketplace Feed state ──
   const [feedType, setFeedType] = useState("all");
@@ -651,8 +651,8 @@ export default function TradehubPage() {
 
   const feedQuery = useInfiniteQuery({
     queryKey: ["tradehub-feed", feedType, feedTrade, feedProvince],
-    queryFn: ({ pageParam = 1 }) => customFetch(`/api/tradehub/feed?${feedParams.toString()}&page=${pageParam}`),
-    getNextPageParam: (last: any) => last.hasMore ? last.page + 1 : undefined,
+    queryFn: ({ pageParam = 1 }) => customFetch<{ posts: Post[]; page: number; hasMore: boolean }>(`/api/tradehub/feed?${feedParams.toString()}&page=${pageParam}`),
+    getNextPageParam: (last) => last.hasMore ? last.page + 1 : undefined,
     initialPageParam: 1,
   });
 
@@ -664,7 +664,7 @@ export default function TradehubPage() {
     },
   });
 
-  const allFeedPosts: Post[] = feedQuery.data?.pages.flatMap((p: any) => p.posts) ?? [];
+  const allFeedPosts: Post[] = feedQuery.data?.pages.flatMap((p) => p.posts) ?? [];
   const feedPosts = feedSearch.trim()
     ? allFeedPosts.filter((p) => p.title.toLowerCase().includes(feedSearch.toLowerCase()) || p.content.toLowerCase().includes(feedSearch.toLowerCase()))
     : allFeedPosts;
@@ -678,12 +678,12 @@ export default function TradehubPage() {
 
   const forumQuery = useInfiniteQuery({
     queryKey: ["tradehub-forum", forumSort],
-    queryFn: ({ pageParam = 1 }) => customFetch(`/api/tradehub/feed?${forumParams.toString()}&page=${pageParam}`),
-    getNextPageParam: (last: any) => last.hasMore ? last.page + 1 : undefined,
+    queryFn: ({ pageParam = 1 }) => customFetch<{ posts: ForumPost[]; page: number; hasMore: boolean }>(`/api/tradehub/feed?${forumParams.toString()}&page=${pageParam}`),
+    getNextPageParam: (last) => last.hasMore ? last.page + 1 : undefined,
     initialPageParam: 1,
   });
 
-  const allForumPosts: ForumPost[] = forumQuery.data?.pages.flatMap((p: any) => p.posts) ?? [];
+  const allForumPosts: ForumPost[] = forumQuery.data?.pages.flatMap((p) => p.posts) ?? [];
   const forumPosts = forumSearch.trim()
     ? allForumPosts.filter((p) => p.title.toLowerCase().includes(forumSearch.toLowerCase()) || p.content.toLowerCase().includes(forumSearch.toLowerCase()))
     : allForumPosts;
@@ -710,8 +710,9 @@ export default function TradehubPage() {
       queryClient.invalidateQueries({ queryKey: ["tradehub-tenders"] });
       toast({ title: "Application sent!", description: "The poster will be notified." });
     },
-    onError: (err: any) => {
-      if (err?.code === "COMPLIANCE_ERROR") {
+    onError: (err: Error) => {
+      const code = err instanceof ApiError ? (err.data as { code?: string } | null)?.code : undefined;
+      if (code === "COMPLIANCE_ERROR") {
         toast({ title: "Compliance required", description: err.message, variant: "destructive" });
       } else {
         toast({ title: "Error", description: err?.message ?? "Failed to apply", variant: "destructive" });

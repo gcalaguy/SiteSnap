@@ -29,7 +29,7 @@ import {
   getCompanySafetyManagerEmails,
   hasCredentialAlertBeenSent,
   recordCredentialAlert,
-} from "./repositories/cor.js";
+} from "./repositories/cor/index.js";
 
 // Distributed cron lock keys — unique per job, stored in PostgreSQL advisory locks.
 // These integers are arbitrary but must never collide with other advisory lock users.

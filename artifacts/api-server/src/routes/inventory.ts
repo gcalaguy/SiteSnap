@@ -10,7 +10,7 @@ import {
   usersTable,
   contactsTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { requireFeature } from "../lib/featureGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import { z } from "zod";
@@ -94,7 +94,7 @@ function stockStatus(qty: string | null, threshold: string | null): "in_stock" |
 // ─── Assets ───────────────────────────────────────────────────────────────────
 
 // GET /inventory/assets
-router.get("/inventory/assets", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/inventory/assets", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const category = typeof req.query.category === "string" ? req.query.category : undefined;
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
@@ -151,7 +151,7 @@ router.get("/inventory/assets", requireAuth, requireCompany, asyncHandler(async 
 }));
 
 // POST /inventory/assets
-router.post("/inventory/assets", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/inventory/assets", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const parsed = AssetBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
@@ -172,7 +172,7 @@ router.post("/inventory/assets", requireAuth, requireCompany, asyncHandler(async
 }));
 
 // PATCH /inventory/assets/:id
-router.patch("/inventory/assets/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/inventory/assets/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -201,7 +201,7 @@ router.patch("/inventory/assets/:id", requireAuth, requireCompany, asyncHandler(
 }));
 
 // DELETE /inventory/assets/:id
-router.delete("/inventory/assets/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.delete("/inventory/assets/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -216,7 +216,7 @@ router.delete("/inventory/assets/:id", requireAuth, requireCompany, asyncHandler
 // ─── Asset Schedules (Dispatch Board) ────────────────────────────────────────
 
 // GET /inventory/schedules?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
-router.get("/inventory/schedules", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/inventory/schedules", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const startDate = typeof req.query.startDate === "string" ? req.query.startDate : undefined;
   const endDate = typeof req.query.endDate === "string" ? req.query.endDate : undefined;
@@ -256,7 +256,7 @@ router.get("/inventory/schedules", requireAuth, requireCompany, asyncHandler(asy
 }));
 
 // POST /inventory/schedules
-router.post("/inventory/schedules", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/inventory/schedules", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const parsed = ScheduleBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
@@ -283,7 +283,7 @@ router.post("/inventory/schedules", requireAuth, requireCompany, asyncHandler(as
 }));
 
 // PATCH /inventory/schedules/:id
-router.patch("/inventory/schedules/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/inventory/schedules/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -306,7 +306,7 @@ router.patch("/inventory/schedules/:id", requireAuth, requireCompany, asyncHandl
 }));
 
 // DELETE /inventory/schedules/:id
-router.delete("/inventory/schedules/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.delete("/inventory/schedules/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -321,7 +321,7 @@ router.delete("/inventory/schedules/:id", requireAuth, requireCompany, asyncHand
 // ─── Materials ────────────────────────────────────────────────────────────────
 
 // GET /inventory/materials?category=lumber&search=
-router.get("/inventory/materials", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/inventory/materials", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const category = typeof req.query.category === "string" ? req.query.category : undefined;
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
@@ -364,7 +364,7 @@ router.get("/inventory/materials", requireAuth, requireCompany, asyncHandler(asy
 }));
 
 // POST /inventory/materials
-router.post("/inventory/materials", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/inventory/materials", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const parsed = MaterialBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
@@ -384,7 +384,7 @@ router.post("/inventory/materials", requireAuth, requireCompany, asyncHandler(as
 }));
 
 // PATCH /inventory/materials/:id
-router.patch("/inventory/materials/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/inventory/materials/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -414,7 +414,7 @@ router.patch("/inventory/materials/:id", requireAuth, requireCompany, asyncHandl
 }));
 
 // DELETE /inventory/materials/:id
-router.delete("/inventory/materials/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.delete("/inventory/materials/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -429,7 +429,7 @@ router.delete("/inventory/materials/:id", requireAuth, requireCompany, asyncHand
 // ─── Tool Checkouts ───────────────────────────────────────────────────────────
 
 // GET /inventory/tool-checkouts?status=checked_out
-router.get("/inventory/tool-checkouts", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/inventory/tool-checkouts", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
   const status = typeof req.query.status === "string" ? req.query.status : "checked_out";
 
@@ -471,7 +471,7 @@ router.get("/inventory/tool-checkouts", requireAuth, requireCompany, asyncHandle
 }));
 
 // POST /inventory/tool-checkouts  (check a tool out)
-router.post("/inventory/tool-checkouts", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/inventory/tool-checkouts", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const parsed = CheckoutBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
@@ -505,7 +505,7 @@ router.post("/inventory/tool-checkouts", requireAuth, requireCompany, asyncHandl
 }));
 
 // PATCH /inventory/tool-checkouts/:id/return  (return a tool)
-router.patch("/inventory/tool-checkouts/:id/return", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/inventory/tool-checkouts/:id/return", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -533,7 +533,7 @@ router.patch("/inventory/tool-checkouts/:id/return", requireAuth, requireCompany
 }));
 
 // DELETE /inventory/tool-checkouts/:id
-router.delete("/inventory/tool-checkouts/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.delete("/inventory/tool-checkouts/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -548,7 +548,7 @@ router.delete("/inventory/tool-checkouts/:id", requireAuth, requireCompany, asyn
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 // GET /inventory/summary — dashboard counts for sidebar badge
-router.get("/inventory/summary", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/inventory/summary", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
 
   const [assetCounts, materialRows, activeCheckouts] = await Promise.all([

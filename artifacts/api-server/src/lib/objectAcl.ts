@@ -203,6 +203,14 @@ export async function checkRfiAccess({
   return !!assignedRfi;
 }
 
+/**
+ * Sets the ACL policy on an object. First-write-wins: if the object already
+ * carries a policy owned by someone else, the write is rejected rather than
+ * silently reassigning ownership. Without this, any route that trusts a
+ * client-supplied object path (e.g. to attach it to a new record) would let
+ * an attacker hand over an existing object path belonging to another tenant
+ * and hijack its ACL to grant themselves access.
+ */
 export async function setObjectAclPolicy(
   objectFile: File,
   aclPolicy: ObjectAclPolicy,
@@ -210,6 +218,13 @@ export async function setObjectAclPolicy(
   const [exists] = await objectFile.exists();
   if (!exists) {
     throw new Error(`Object not found: ${objectFile.name}`);
+  }
+
+  const existingPolicy = await getObjectAclPolicy(objectFile);
+  if (existingPolicy && existingPolicy.owner !== aclPolicy.owner) {
+    throw new Error(
+      `Object ${objectFile.name} already has an ACL policy owned by a different owner`,
+    );
   }
 
   await objectFile.setMetadata({

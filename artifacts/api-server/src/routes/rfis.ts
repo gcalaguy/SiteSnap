@@ -3,7 +3,7 @@ import { db, rfisTable, usersTable, projectsTable } from "@workspace/db";
 import { eq, and, count, inArray, SQL, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { BadRequestError } from "../lib/errors";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { CreateRFIBody, UpdateRFIBody } from "@workspace/api-zod";
 import { notify } from "../lib/notify";
@@ -16,6 +16,7 @@ allRfisRouter.get(
   "/rfis",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewRFIs"),
   asyncHandler(async (req, res) => {
     const { projectId: projectIdParam, status: statusParam } = req.query as Record<string, string | undefined>;
@@ -78,7 +79,7 @@ const router = Router({ mergeParams: true });
 // Supports optional ?status= query param.
 // Column order in WHERE matches idx_rfis_project_status (projectId, status)
 // so the planner can use the full composite index when both columns are provided.
-router.get("/", requireAuth, requireCompany, requirePermission("viewRFIs"), asyncHandler(async (req, res) => {
+router.get("/", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewRFIs"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -110,7 +111,7 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewRFIs"), asyn
 }))
 
 // POST /projects/:projectId/rfis
-router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.post("/", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -172,7 +173,7 @@ router.post("/", requireAuth, requireCompany, requirePermission("manageQuotes"),
 }))
 
 // GET /projects/:projectId/rfis/:rfiId
-router.get("/:rfiId", requireAuth, requireCompany, requirePermission("viewRFIs"), asyncHandler(async (req, res) => {
+router.get("/:rfiId", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewRFIs"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const rfiId = parseInt(req.params.rfiId as string);
 
@@ -194,7 +195,7 @@ router.get("/:rfiId", requireAuth, requireCompany, requirePermission("viewRFIs")
 }))
 
 // PUT /projects/:projectId/rfis/:rfiId
-router.put("/:rfiId", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.put("/:rfiId", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const rfiId = parseInt(req.params.rfiId as string);
 
@@ -230,7 +231,7 @@ router.put("/:rfiId", requireAuth, requireCompany, requirePermission("manageQuot
 }))
 
 // DELETE /projects/:projectId/rfis/:rfiId
-router.delete("/:rfiId", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.delete("/:rfiId", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const rfiId = parseInt(req.params.rfiId as string);
 

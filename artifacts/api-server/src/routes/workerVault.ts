@@ -5,11 +5,10 @@ import {
   usersTable,
   workerDocumentsTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { z } from "zod/v4";
 import { ObjectStorageService } from "../lib/objectStorage";
-import { ObjectAccessGroupType, ObjectPermission } from "../lib/objectAcl";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -38,7 +37,7 @@ const uploadBodySchema = z.object({
 // ── WORKER ENDPOINTS ───────────────────────────────────────────────────────────
 
 // POST /worker/vault/upload
-router.post("/worker/vault/upload", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/worker/vault/upload", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const parsed = uploadBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -47,6 +46,23 @@ router.post("/worker/vault/upload", requireAuth, requireCompany, asyncHandler(as
     }
 
     const { documentType, fileUrl, filePath, expirationDate } = parsed.data;
+
+    // Claim the object's ACL before persisting the row: rejects paths that
+    // are malformed, don't exist, or already belong to another owner (which
+    // would otherwise let a client hijack someone else's uploaded file).
+    if (filePath) {
+      try {
+        await objectStorageService.trySetCompanyReadAcl(
+          filePath,
+          String(req.userId!),
+          String(req.companyId!),
+        );
+      } catch (err) {
+        req.log.warn({ err }, "worker/vault: rejected invalid or already-owned object path");
+        res.status(400).json({ error: "Invalid file reference" });
+        return;
+      }
+    }
 
     const [doc] = await db
       .insert(workerDocumentsTable)
@@ -61,24 +77,6 @@ router.post("/worker/vault/upload", requireAuth, requireCompany, asyncHandler(as
       })
       .returning();
 
-    // Set ACL on the stored object so only company members can access it.
-    // Best-effort: a failure here doesn't block the response since the company-
-    // membership fallback in canAccessObjectEntity still gates access.
-    if (filePath) {
-      objectStorageService.trySetObjectEntityAclPolicy(filePath, {
-        owner: String(req.userId!),
-        visibility: "private",
-        aclRules: [
-          {
-            group: { type: ObjectAccessGroupType.COMPANY_MEMBER, id: String(req.companyId!) },
-            permission: ObjectPermission.READ,
-          },
-        ],
-      }).catch((err) => {
-        req.log.error({ err, docId: doc.id }, "worker/vault: failed to set object ACL");
-      });
-    }
-
     res.status(201).json(doc);
   } catch (err: any) {
     req.log.error({ err }, "worker/vault/upload error");
@@ -87,7 +85,7 @@ router.post("/worker/vault/upload", requireAuth, requireCompany, asyncHandler(as
 }))
 
 // GET /worker/vault/my-documents
-router.get("/worker/vault/my-documents", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/worker/vault/my-documents", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const docs = await db
       .select()
@@ -108,7 +106,7 @@ router.get("/worker/vault/my-documents", requireAuth, requireCompany, asyncHandl
 }))
 
 // DELETE /worker/vault/documents/:id
-router.delete("/worker/vault/documents/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.delete("/worker/vault/documents/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     const [existing] = await db
@@ -137,7 +135,7 @@ router.delete("/worker/vault/documents/:id", requireAuth, requireCompany, asyncH
 // ── TENANT (OWNER/FOREMAN) ENDPOINTS ──────────────────────────────────────────
 
 // GET /tenant/vault/all-documents
-router.get("/tenant/vault/all-documents", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/tenant/vault/all-documents", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     if (req.userRole !== "owner" && req.userRole !== "foreman") {
       res.status(403).json({ error: "Owner or foreman access required" });
@@ -178,7 +176,7 @@ router.get("/tenant/vault/all-documents", requireAuth, requireCompany, asyncHand
 }))
 
 // GET /tenant/vault/worker/:workerId
-router.get("/tenant/vault/worker/:workerId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/tenant/vault/worker/:workerId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   try {
     if (req.userRole !== "owner" && req.userRole !== "foreman") {
       res.status(403).json({ error: "Owner or foreman access required" });

@@ -5,7 +5,9 @@ import {
   useDeleteRFI,
   useUpdateRFI,
   getListRFIsQueryKey,
+  ApiError,
 } from "@workspace/api-client-react";
+import type { UpdateRFIBody, RFIPriority, RFIStatus } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { queryClient } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,7 +51,7 @@ export function RFIsTab({
 
   useEffect(() => {
     if (!editingRfiId) return;
-    const r = (rfis ?? []).find((x: any) => x.id === editingRfiId);
+    const r = (rfis ?? []).find((x) => x.id === editingRfiId);
     if (r) {
       setEditRfiDesc(r.description ?? "");
       setEditRfiResponse(r.response ?? "");
@@ -62,7 +64,7 @@ export function RFIsTab({
         queryClient.invalidateQueries({ queryKey: getListRFIsQueryKey(projectId) });
         toast({ title: "RFI deleted" });
       },
-      onError: (err: any) => toast({ title: err?.message ?? "Failed to delete RFI", variant: "destructive" }),
+      onError: (err: ApiError) => toast({ title: err?.message ?? "Failed to delete RFI", variant: "destructive" }),
     },
   });
 
@@ -73,7 +75,7 @@ export function RFIsTab({
         setEditingRfiId(null);
         toast({ title: "RFI updated" });
       },
-      onError: (err: any) => toast({ title: err?.message ?? "Failed to update RFI", variant: "destructive" }),
+      onError: (err: ApiError) => toast({ title: err?.message ?? "Failed to update RFI", variant: "destructive" }),
     },
   });
 
@@ -214,7 +216,7 @@ export function RFIsTab({
 
       {/* Edit RFI Dialog */}
       {(() => {
-        const rfi = rfis?.find((r: any) => r.id === editingRfiId);
+        const rfi = rfis?.find((r) => r.id === editingRfiId);
         if (!rfi) return null;
         return (
           <Dialog open={!!editingRfiId} onOpenChange={() => setEditingRfiId(null)}>
@@ -268,17 +270,18 @@ export function RFIsTab({
                     const priority = (document.getElementById(`edit-rfi-priority-${rfi.id}`) as HTMLInputElement)?.value;
                     const status = (document.getElementById(`edit-rfi-status-${rfi.id}`) as HTMLInputElement)?.value;
                     const due = (document.getElementById(`edit-rfi-due-${rfi.id}`) as HTMLInputElement)?.value;
+                    const data: UpdateRFIBody & { subject?: string; description?: string } = {
+                      subject,
+                      description: editRfiDesc,
+                      priority: (priority || rfi.priority) as RFIPriority,
+                      status: (status || rfi.status) as RFIStatus,
+                      dueDate: due ? new Date(due).toISOString() : undefined,
+                      response: editRfiResponse || undefined,
+                    };
                     updateRFI.mutate({
                       projectId,
                       rfiId: rfi.id,
-                      data: {
-                        subject,
-                        description: editRfiDesc,
-                        priority: priority || rfi.priority,
-                        status: status || rfi.status,
-                        dueDate: due ? new Date(due).toISOString() : undefined,
-                        response: editRfiResponse || undefined,
-                      } as any,
+                      data,
                     });
                   }}
                   disabled={updateRFI.isPending || editRfiDesc.length >= RFI_DESC_MAX || editRfiResponse.length >= RFI_RESPONSE_MAX}

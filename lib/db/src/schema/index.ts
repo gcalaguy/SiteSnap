@@ -609,6 +609,7 @@ export const documentChunksTable = pgTable("document_chunks", {
 }, (t) => [
   index("document_chunks_project_idx").on(t.projectId),
   index("document_chunks_doc_idx").on(t.docId),
+  index("document_chunks_company_idx").on(t.companyId),
 ]);
 
 export type DocumentChunk = typeof documentChunksTable.$inferSelect;
@@ -1647,6 +1648,7 @@ export const dailyLogsTable = pgTable("daily_logs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_daily_logs_project_id").on(t.projectId),
+  index("idx_daily_logs_project_created").on(t.projectId, t.createdAt),
 ]);
 
 export const insertDailyLogSchema = createInsertSchema(dailyLogsTable).omit({ id: true, createdAt: true });
@@ -1664,6 +1666,7 @@ export const sitePhotosTable = pgTable("site_photos", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_site_photos_project_id").on(t.projectId),
+  index("idx_site_photos_project_created").on(t.projectId, t.createdAt),
 ]);
 
 export const insertSitePhotoSchema = createInsertSchema(sitePhotosTable).omit({ id: true, createdAt: true });
@@ -1683,6 +1686,7 @@ export const safetySignoffsTable = pgTable("safety_signoffs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_safety_signoffs_project_id").on(t.projectId),
+  index("idx_safety_signoffs_project_created").on(t.projectId, t.createdAt),
 ]);
 
 export const insertSafetySignoffSchema = createInsertSchema(safetySignoffsTable).omit({ id: true, createdAt: true });
@@ -1737,6 +1741,7 @@ export const mediaHubPhotosTable = pgTable("media_hub_photos", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_media_hub_photos_project_id").on(t.projectId),
+  index("idx_media_hub_photos_project_created").on(t.projectId, t.createdAt),
 ]);
 
 export const insertMediaHubPhotoSchema = createInsertSchema(mediaHubPhotosTable).omit({

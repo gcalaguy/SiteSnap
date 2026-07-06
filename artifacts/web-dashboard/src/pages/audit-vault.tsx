@@ -11,7 +11,7 @@ import { format } from "date-fns";
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
 
-const renderSafeTimestamp = (dateString: any) => {
+const renderSafeTimestamp = (dateString: string | null | undefined) => {
   if (!dateString) return "N/A";
   try {
     const d = new Date(dateString);

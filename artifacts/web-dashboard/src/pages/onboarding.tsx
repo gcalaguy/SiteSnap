@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useUser } from "@clerk/react";
-import { useCreateCompany, useAcceptInvitation, useSyncUser, useGetMe, getGetMeQueryKey, customFetch } from "@workspace/api-client-react";
+import { useCreateCompany, useAcceptInvitation, useSyncUser, useGetMe, getGetMeQueryKey, customFetch, type CreateCompanyBody } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 
@@ -117,7 +117,7 @@ export default function OnboardingPage() {
         setSignupInviteCompanyId(String(data.companyId));
         setSignupInviteLoading(false);
       })
-      .catch((err: any) => {
+      .catch((err: Error) => {
         setSignupInviteError(err?.message || "Invalid or expired invite link.");
         setSignupInviteLoading(false);
       });
@@ -170,7 +170,7 @@ export default function OnboardingPage() {
         toast({ title: "Workspace created successfully" });
         setLocation("/dashboard");
       })
-      .catch((err: any) => {
+      .catch((err: Error) => {
         toast({
           title: "Failed to create workspace",
           description: err?.message || "Invalid or expired invite.",
@@ -280,7 +280,7 @@ export default function OnboardingPage() {
         toast({ title: "Workspace created successfully" });
         setLocation("/dashboard");
       })
-      .catch((err: any) => {
+      .catch((err: Error) => {
         toast({
           title: "Failed to create workspace",
           description: err?.message || "Company may already be claimed or invalid.",
@@ -326,7 +326,7 @@ export default function OnboardingPage() {
 
   function doCreate(values: z.infer<typeof companySchema>) {
     createCompany.mutate(
-      { data: { ...values, ...(refCode ? { referredByCode: refCode } : {}) } as any },
+      { data: { ...values, ...(refCode ? { referredByCode: refCode } : {}) } as CreateCompanyBody & { referredByCode?: string } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
@@ -335,7 +335,7 @@ export default function OnboardingPage() {
           toast({ title: "Company created successfully" });
           setLocation("/dashboard");
         },
-        onError: (err: any) => {
+        onError: (err) => {
           toast({
             title: "Failed to create company",
             description: err?.message || "An error occurred",
@@ -392,9 +392,9 @@ export default function OnboardingPage() {
           toast({ title: "Joined company successfully" });
           setLocation("/dashboard");
         },
-        onError: (err: any) => {
+        onError: (err) => {
           // 410 means the invite was expired but a fresh one was auto-sent
-          if (err?.status === 410 || err?.statusCode === 410) {
+          if (err?.status === 410) {
             toast({
               title: "Invite link expired",
               description:

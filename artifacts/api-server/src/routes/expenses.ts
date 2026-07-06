@@ -110,6 +110,20 @@ router.post("/", requireAuth, requireCompany, requireTenantCtx, requirePermissio
     return;
   }
 
+  if (parsed.data.receiptObjectPath) {
+    try {
+      await objectStorageService.trySetCompanyReadAcl(
+        parsed.data.receiptObjectPath,
+        String(req.userId!),
+        String(req.companyId!),
+      );
+    } catch (err) {
+      req.log.warn({ err }, "Rejected receipt with invalid or already-owned object path");
+      res.status(400).json({ error: "Invalid receipt reference" });
+      return;
+    }
+  }
+
   // Expenses submitted from the OCR quick-review flow are marked "processed" since a
   // human already confirmed the extracted values; plain manual entries stay "submitted"
   // (shown to accounting as "Pending Review") until someone reviews them.
@@ -156,6 +170,21 @@ router.post("/ocr", requireAuth, requireCompany, requireTenantCtx, requirePermis
   }
 
   try {
+    // Claim the freshly-uploaded receipt for this user's company before scanning it.
+    // Also doubles as the access check: it fails if the path belongs to an object
+    // already ACL'd to someone else, so OCR can't be used to read arbitrary files.
+    try {
+      await objectStorageService.trySetCompanyReadAcl(
+        parsed.data.objectPath,
+        String(req.userId!),
+        String(req.companyId!),
+      );
+    } catch (err) {
+      req.log.warn({ err }, "Rejected OCR request for invalid or already-owned object path");
+      res.status(404).json({ error: "Object not found" });
+      return;
+    }
+
     const objectFile = await objectStorageService.getObjectEntityFile(parsed.data.objectPath);
     const [fileContent] = await objectFile.download();
     const [metadata] = await objectFile.getMetadata();

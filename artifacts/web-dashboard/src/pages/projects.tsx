@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatCompactCurrency } from "@/lib/format";
 import { Link } from "wouter";
 import {
   useListProjects,
@@ -7,6 +8,7 @@ import {
   useGetProjectSummary,
 } from "@workspace/api-client-react";
 import type { Project, ProjectMember } from "@workspace/api-client-react";
+import { ApiError } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { getListProjectsQueryKey } from "@workspace/api-client-react";
@@ -63,11 +65,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; b
   cancelled: { label: "Cancelled",   color: "#DC2626", bg: "#FEE2E2", border: "#FECACA" },
 };
 
-function formatCompact(n: number): string {
-  if (n >= 1_000_000) return `$${Math.round((n / 1_000_000) * 10) / 10}M`;
-  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
-  return `$${Math.round(n).toLocaleString()}`;
-}
+const formatCompact = formatCompactCurrency;
 
 const projectSchema = z.object({
   name:        z.string().min(2, "Project name must be at least 2 characters"),
@@ -444,7 +442,7 @@ export default function Projects() {
           setIsDialogOpen(false);
           form.reset();
         },
-        onError: (err: any) => {
+        onError: (err: ApiError) => {
           toast({ title: "Failed to create project", description: err?.message || "An error occurred", variant: "destructive" });
         },
       }

@@ -5,6 +5,7 @@ import { Wallet, Paperclip, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/format";
 import { useSignedDownload } from "@/hooks/useSignedUrl";
+import { useToast } from "@/hooks/use-toast";
 
 interface CompanyExpense {
   id: number;
@@ -104,11 +105,12 @@ export default function CompanyExpensesPage() {
 }
 
 function ReceiptLink({ objectPath }: { objectPath: string }) {
+  const { toast } = useToast();
   const { open, isFetching } = useSignedDownload(objectPath);
   return (
     <button
       type="button"
-      onClick={open}
+      onClick={() => open((message) => toast({ title: message, variant: "destructive" }))}
       disabled={isFetching}
       className="flex items-center gap-1 text-xs text-[#D4AF37] font-medium hover:underline disabled:opacity-50"
     >

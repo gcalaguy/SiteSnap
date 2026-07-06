@@ -11,6 +11,9 @@ import {
   getListLeadsQueryKey,
   getListLeadActivitiesQueryKey,
   getListProjectsQueryKey,
+  type CreateLeadBodySource,
+  type UpdateLeadBody,
+  type CreateActivityBodyType,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -241,7 +244,7 @@ export default function Leads() {
 
   const convertLead = useConvertLead({
     mutation: {
-      onSuccess: (data: any) => {
+      onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
         toast({ title: `Project "${data.project?.name}" created!` });
@@ -275,7 +278,7 @@ export default function Leads() {
       data: {
         contactId: parseInt(form.contactId),
         title: form.title.trim(),
-        source: form.source as any,
+        source: form.source as CreateLeadBodySource,
         estimatedValue: form.estimatedValue ? parseFloat(form.estimatedValue) : undefined,
         notes: form.notes.trim() || undefined,
         stage: form.stage,
@@ -720,13 +723,12 @@ function LeadDetail({
   onDelete: (id: number) => void;
   onStageChange: (stage: Stage) => void;
   onConvert: () => void;
-  onUpdate: (data: any) => void;
+  onUpdate: (data: UpdateLeadBody) => void;
 }) {
   const { toast } = useToast();
   const { data: activities = [], isLoading: loadingActivities } = useListLeadActivities(
     lead.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { query: { enabled: !!lead.id } as any },
+    { query: { queryKey: getListLeadActivitiesQueryKey(lead.id), enabled: !!lead.id } },
   );
 
   const createActivity = useCreateLeadActivity({
@@ -756,7 +758,7 @@ function LeadDetail({
     }
     createActivity.mutate({
       leadId: lead.id,
-      data: { type: activityForm.type as any, notes: activityForm.notes.trim() },
+      data: { type: activityForm.type as CreateActivityBodyType, notes: activityForm.notes.trim() },
     });
   }
 

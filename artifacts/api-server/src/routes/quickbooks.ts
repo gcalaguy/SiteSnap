@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, quickbooksConnectionsTable, invoicesTable, costAnalysesTable, projectsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { createHmac, timingSafeEqual } from "crypto";
-import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwner } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 
 // HMAC key used to sign the QB OAuth state parameter.
@@ -171,7 +171,7 @@ router.get("/quickbooks/status", requireAuth, asyncHandler(async (req, res) => {
 }))
 
 // ── GET /api/quickbooks/auth-url ─────────────────────────────────────────────
-router.get("/quickbooks/auth-url", requireAuth, requireCompany, requireOwner, (req, res) => {
+router.get("/quickbooks/auth-url", requireAuth, requireCompany, requireTenantCtx, requireOwner, (req, res) => {
   const clientId = getClientId();
   if (!clientId) {
     res.status(503).json({ error: "QuickBooks integration not configured. Set QB_CLIENT_ID and QB_CLIENT_SECRET." });
@@ -279,14 +279,14 @@ router.get("/quickbooks/callback", asyncHandler(async (req, res) => {
 }))
 
 // ── DELETE /api/quickbooks/disconnect ─────────────────────────────────────────
-router.delete("/quickbooks/disconnect", requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
+router.delete("/quickbooks/disconnect", requireAuth, requireCompany, requireTenantCtx, requireOwner, asyncHandler(async (req, res) => {
   await db.delete(quickbooksConnectionsTable)
     .where(eq(quickbooksConnectionsTable.companyId, req.companyId!));
   res.json({ ok: true });
 }))
 
 // ── POST /api/quickbooks/sync/invoices ────────────────────────────────────────
-router.post("/quickbooks/sync/invoices", requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
+router.post("/quickbooks/sync/invoices", requireAuth, requireCompany, requireTenantCtx, requireOwner, asyncHandler(async (req, res) => {
   try {
     const conn = await getValidToken(req.companyId!);
 
@@ -348,7 +348,7 @@ router.post("/quickbooks/sync/invoices", requireAuth, requireCompany, requireOwn
 }))
 
 // ── POST /api/quickbooks/sync/costs ──────────────────────────────────────────
-router.post("/quickbooks/sync/costs", requireAuth, requireCompany, requireOwner, asyncHandler(async (req, res) => {
+router.post("/quickbooks/sync/costs", requireAuth, requireCompany, requireTenantCtx, requireOwner, asyncHandler(async (req, res) => {
   try {
     const conn = await getValidToken(req.companyId!);
 

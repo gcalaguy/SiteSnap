@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, dailyReportPhotosTable, projectsTable, dailyReportsTable } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
+import { ObjectStorageService } from "../lib/objectStorage";
 import { z } from "zod";
 
 const router = Router({ mergeParams: true });
+const objectStorageService = new ObjectStorageService();
 
 /** Verify the report belongs to this company via project ownership */
 async function verifyReportAccess(reportId: number, projectId: number, companyId: number) {
@@ -25,7 +27,7 @@ const AddPhotoBody = z.object({
 });
 
 // GET /projects/:projectId/daily-reports/:reportId/photos
-router.get("/", requireAuth, requireCompany, requirePermission("viewPhotos"), asyncHandler(async (req, res) => {
+router.get("/", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewPhotos"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
   if (isNaN(reportId) || isNaN(projectId)) {
@@ -46,7 +48,7 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewPhotos"), as
 }))
 
 // POST /projects/:projectId/daily-reports/:reportId/photos
-router.post("/", requireAuth, requireCompany, requirePermission("viewPhotos"), asyncHandler(async (req, res) => {
+router.post("/", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewPhotos"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
   if (isNaN(reportId) || isNaN(projectId)) {
@@ -63,6 +65,18 @@ router.post("/", requireAuth, requireCompany, requirePermission("viewPhotos"), a
     return;
   }
 
+  try {
+    await objectStorageService.trySetCompanyReadAcl(
+      parsed.data.objectPath,
+      String(req.userId!),
+      String(req.companyId!),
+    );
+  } catch (err) {
+    req.log.warn({ err }, "Rejected photo with invalid or already-owned object path");
+    res.status(400).json({ error: "Invalid photo reference" });
+    return;
+  }
+
   const [photo] = await db
     .insert(dailyReportPhotosTable)
     .values({
@@ -76,7 +90,7 @@ router.post("/", requireAuth, requireCompany, requirePermission("viewPhotos"), a
 }))
 
 // DELETE /projects/:projectId/daily-reports/:reportId/photos/:photoId
-router.delete("/:photoId", requireAuth, requireCompany, requirePermission("viewPhotos"), asyncHandler(async (req, res) => {
+router.delete("/:photoId", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewPhotos"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
   const photoId = parseInt(req.params.photoId as string);

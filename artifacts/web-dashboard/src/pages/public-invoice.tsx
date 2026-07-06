@@ -88,8 +88,8 @@ export default function PublicInvoicePage() {
       if (!res.ok) throw new Error(body.error ?? "Failed to submit signature");
       await reloadInvoice();
       toast({ title: "Invoice acknowledged", description: "Thank you — your signature has been recorded." });
-    } catch (e: any) {
-      toast({ title: e.message, variant: "destructive" });
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Failed to submit signature", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, estimatesTable } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth.js";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { requirePermission } from "../lib/permissionGate.js";
 import { openai } from "@workspace/integrations-openai-ai-server";
@@ -174,7 +174,7 @@ ${buildEstimatePrompt("Based on the attached plan/image")}`,
 
 // ── GET /api/estimates ────────────────────────────────────────────────────────
 
-router.get("/estimates", requireAuth, requireCompany, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
+router.get("/estimates", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -196,7 +196,7 @@ const GenerateTextBody = z.object({
   scope: z.string().min(20, "Please provide at least 20 characters of scope description").max(10000, "Scope must be at most 10 000 characters"),
 });
 
-router.post("/estimates/generate", requireAuth, requireCompany, requirePermission("manageQuotes"), requireAiQuota, asyncHandler(async (req, res) => {
+router.post("/estimates/generate", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), requireAiQuota, asyncHandler(async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -248,6 +248,7 @@ router.post(
   "/estimates/generate-from-file",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("manageQuotes"),
   requireAiQuota,
   diskUpload.single("file"),
@@ -331,7 +332,7 @@ const EmailEstimateBody = z.object({
   message: z.string().max(2000, "Message must be at most 2 000 characters").optional(),
 });
 
-router.post("/estimates/:id/email", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.post("/estimates/:id/email", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -505,7 +506,7 @@ const PatchEstimateBody = z.object({
   result: z.record(z.unknown()).optional(),
 });
 
-router.patch("/estimates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.patch("/estimates/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });
@@ -539,7 +540,7 @@ router.patch("/estimates/:id", requireAuth, requireCompany, requirePermission("m
 
 // ── DELETE /api/estimates/:id ─────────────────────────────────────────────────
 
-router.delete("/estimates/:id", requireAuth, requireCompany, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+router.delete("/estimates/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
   const role = req.userRole;
   if (role !== "owner" && role !== "foreman") {
     res.status(403).json({ error: "Foreman or owner role required" });

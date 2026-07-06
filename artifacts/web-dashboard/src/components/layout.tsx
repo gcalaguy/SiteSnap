@@ -29,6 +29,7 @@ import {
   X,
   Package,
   DollarSign,
+  type LucideIcon,
 } from "lucide-react";
 import { useClerk } from "@clerk/react";
 import { useState } from "react";
@@ -71,6 +72,16 @@ function readCollapsedSections(): string[] {
   } catch {
     return [];
   }
+}
+
+interface NavItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  badge: number;
+  featureKey?: string;
+  permissionKey?: string;
+  section?: string;
 }
 
 interface ActionCounts {
@@ -181,7 +192,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   // nav item if the user can see either sub-tab.
   const canViewWorkforce = hasPerm("viewSchedules") || hasPerm("viewTimesheets");
 
-  const navigation = [
+  const navigation: NavItem[] = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: 0, section: "operations" },
     { name: "Risk Dashboard", href: "/risk-dashboard", icon: BarChart3, badge: 0, featureKey: "RISK_DASHBOARD", permissionKey: "viewRiskTab", section: "operations" },
     { name: "Projects", href: "/projects", icon: Building2, badge: 0, section: "operations" },
@@ -210,22 +221,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...(isOwnerOrForeman ? [{ name: "Settings", href: "/settings", icon: Settings, badge: 0 }] : []),
   ];
 
-  const adminNavigation = [
+  const adminNavigation: NavItem[] = [
     ...(isSuperAdmin ? [{ name: "Super Admin", href: "/super-admin", icon: Crown, badge: 0 }] : []),
   ];
 
-  const isNavItemVisible = (item: (typeof navigation)[number]) => {
-    const locked = !!(item as any).featureKey && !has((item as any).featureKey);
-    const permBlocked = !!(item as any).permissionKey && !hasPerm((item as any).permissionKey);
+  const isNavItemVisible = (item: NavItem) => {
+    const locked = !!item.featureKey && !has(item.featureKey);
+    const permBlocked = !!item.permissionKey && !hasPerm(item.permissionKey);
     return !locked && !permBlocked;
   };
   const visibleNavigation = navigation.filter(isNavItemVisible);
   const navSections = SECTION_ORDER.map((key) => ({
     key,
     label: SECTION_LABELS[key],
-    items: visibleNavigation.filter((item) => (item as any).section === key),
+    items: visibleNavigation.filter((item) => item.section === key),
   })).filter((section) => section.items.length > 0);
-  const unsectionedNavItems = visibleNavigation.filter((item) => !(item as any).section);
+  const unsectionedNavItems = visibleNavigation.filter((item) => !item.section);
 
   const firstName = user?.firstName ?? "";
   const lastName = user?.lastName ?? "";

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable } from "@workspace/db";
 import { eq, and, lt } from "drizzle-orm";
 import { getAuth, clerkClient } from "@clerk/express";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireSeatAvailable } from "../lib/seatEnforcement";
 import { CreateInvitationBody } from "@workspace/api-zod";
@@ -56,6 +56,7 @@ router.post(
   "/invitations",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   requireSeatAvailable,
   asyncHandler(async (req, res) => {
@@ -163,6 +164,7 @@ router.patch(
   "/invitations/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -203,6 +205,7 @@ router.delete(
   "/invitations/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -230,6 +233,7 @@ router.post(
   "/invitations/:id/resend",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -286,6 +290,7 @@ router.get(
   "/invitations/company",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const invitations = await db
       .select()

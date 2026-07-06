@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   customFetch, useGetMe, useListProjects, useListCompanyMembers,
-  useListTimesheets,
+  getListCompanyMembersQueryKey, useListTimesheets, ApiError,
 } from "@workspace/api-client-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import TimesheetSection from "@/components/TimesheetSection";
+import TimesheetSection, { type Timesheet as WorkerTimesheet } from "@/components/TimesheetSection";
 
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -89,9 +89,8 @@ export default function HoursPage() {
   const { toast } = useToast();
   const { data: me } = useGetMe();
   const { data: projects } = useListProjects();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: members } = useListCompanyMembers(me?.activeCompanyId ?? 0, {
-    query: { enabled: !!me?.activeCompanyId } as any,
+    query: { queryKey: getListCompanyMembersQueryKey(me?.activeCompanyId ?? 0), enabled: !!me?.activeCompanyId },
   });
 
   const isPrivileged = me?.role === "owner" || me?.role === "foreman";
@@ -187,7 +186,7 @@ export default function HoursPage() {
       setLogOpen(false);
       setLogRows([{ hours: "", description: "" }]);
     },
-    onError: (e: any) => toast({ title: "Failed to log hours", description: e?.message, variant: "destructive" }),
+    onError: (e: ApiError) => toast({ title: "Failed to log hours", description: e?.message, variant: "destructive" }),
   });
 
   const logRowsValid = logRows.length > 0 && logRows.every((row) => row.hours && parseFloat(row.hours) > 0);
@@ -868,7 +867,7 @@ export default function HoursPage() {
       )}
 
       <TimesheetSection
-        timesheets={timesheets as any}
+        timesheets={timesheets as unknown as WorkerTimesheet[]}
         isLoading={tsLoading}
         members={members ?? []}
         isPrivileged={isPrivileged}

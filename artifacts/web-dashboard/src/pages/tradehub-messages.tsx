@@ -11,6 +11,8 @@ import {
   useMarkTradehubConversationRead,
   getListTradehubConversationsQueryKey,
   getListTradehubMessagesQueryKey,
+  getSearchTradehubUsersQueryKey,
+  type TradehubUserSearchResult,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, isToday, isYesterday } from "date-fns";
@@ -35,20 +37,20 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<TradehubUserSearchResult | null>(null);
 
   const { data: results = [], isLoading } = useSearchTradehubUsers(
     { q: search },
-    { query: { enabled: search.trim().length >= 2 } as any },
+    { query: { queryKey: getSearchTradehubUsersQueryKey({ q: search }), enabled: search.trim().length >= 2 } },
   );
 
   const createMutation = useCreateTradehubConversation({
     mutation: {
-      onSuccess: (data: any) => {
+      onSuccess: (data) => {
         onCreated(data.conversationId);
         onClose();
       },
-      onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Failed to start conversation", variant: "destructive" }),
+      onError: (err) => toast({ title: "Error", description: err?.message ?? "Failed to start conversation", variant: "destructive" }),
     },
   });
 
@@ -80,7 +82,7 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
                   ) : results.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-6">No users found</p>
                   ) : (
-                    results.map((u: any) => {
+                    results.map((u) => {
                       const initials = u.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "??";
                       return (
                         <button
@@ -128,7 +130,7 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
           <DialogFooter>
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button
-              onClick={() => createMutation.mutate({ data: { recipientId: selectedUser.id ?? selectedUser.userId, message } })}
+              onClick={() => createMutation.mutate({ data: { recipientId: selectedUser.userId, message } })}
               disabled={!message.trim() || createMutation.isPending}
               className="gap-2"
             >
@@ -154,12 +156,12 @@ export default function TradehubMessagesPage() {
   const conversationId = conversationIdStr ? parseInt(conversationIdStr) : undefined;
 
   const { data: conversations = [], isLoading: loadingConvs } = useListTradehubConversations({
-    query: { refetchInterval: 10000 } as any,
+    query: { queryKey: getListTradehubConversationsQueryKey(), refetchInterval: 10000 },
   });
 
   const { data: messages = [], isLoading: loadingMsgs } = useListTradehubMessages(
     conversationId ?? 0,
-    { query: { enabled: !!conversationId, refetchInterval: 5000 } as any },
+    { query: { queryKey: getListTradehubMessagesQueryKey(conversationId ?? 0), enabled: !!conversationId, refetchInterval: 5000 } },
   );
 
   useEffect(() => {
@@ -183,7 +185,7 @@ export default function TradehubMessagesPage() {
     },
   });
 
-  const activeConv = conversations.find((c: any) => c.id === conversationId);
+  const activeConv = conversations.find((c) => c.id === conversationId);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -231,7 +233,7 @@ export default function TradehubMessagesPage() {
                 </Button>
               </div>
             ) : (
-              conversations.map((conv: any) => {
+              conversations.map((conv) => {
                 const other = conv.otherParticipant;
                 const initials = other?.displayName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "??";
                 const isActive = conv.id === conversationId;
@@ -252,7 +254,7 @@ export default function TradehubMessagesPage() {
                           {other?.displayName ?? "Unknown"}
                         </p>
                         <p className="text-[10px] text-muted-foreground flex-shrink-0">
-                          {conv.lastMessage ? formatTime(conv.lastMessage.createdAt) : ""}
+                          {conv.lastMessage?.createdAt ? formatTime(conv.lastMessage.createdAt) : ""}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -316,7 +318,7 @@ export default function TradehubMessagesPage() {
                     <p className="text-sm text-muted-foreground">No messages yet. Say hello!</p>
                   </div>
                 ) : (
-                  messages.map((msg: any, i: number) => {
+                  messages.map((msg, i) => {
                     const isMe = msg.senderId === me?.id;
                     const showDate = i === 0 || format(new Date(messages[i - 1].createdAt), "yyyy-MM-dd") !== format(new Date(msg.createdAt), "yyyy-MM-dd");
 

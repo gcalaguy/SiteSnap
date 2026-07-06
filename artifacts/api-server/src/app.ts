@@ -3,6 +3,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
+import { PgRateLimitStore } from "./lib/pgRateLimitStore";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
@@ -64,6 +65,8 @@ const globalLimiter = rateLimit({
   skip: (req) =>
     req.path === "/api/healthz" ||
     req.path.startsWith("/api/stripe/webhook"),
+  // Shared across every load-balanced instance via Postgres — see pgRateLimitStore.
+  store: new PgRateLimitStore("global"),
 });
 
 const aiLimiter = rateLimit({
@@ -72,6 +75,7 @@ const aiLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "AI rate limit exceeded — wait a moment", code: "RATE_LIMITED" },
+  store: new PgRateLimitStore("ai"),
 });
 
 // B4 fix: dedicated upload rate limiter — 30 uploads per 10 minutes per IP.
@@ -83,6 +87,7 @@ const uploadLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Upload rate limit exceeded — please wait before uploading again", code: "RATE_LIMITED" },
+  store: new PgRateLimitStore("upload"),
 });
 
 app.use(globalLimiter);

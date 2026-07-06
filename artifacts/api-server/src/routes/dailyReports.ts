@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, dailyReportsTable, usersTable, projectsTable, dailyReportPhotosTable } from "@workspace/db";
 import { eq, and, inArray, gte, lte, SQL } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { canAccessProject, getAccessibleProjectIds, assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
 import { CreateDailyReportBody, UpdateDailyReportBody } from "@workspace/api-zod";
@@ -15,6 +15,7 @@ allDailyReportsRouter.get(
   "/daily-reports",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewTimesheets"),
   asyncHandler(async (req, res) => {
     const { projectId: projectIdParam, from: fromParam, to: toParam } = req.query as Record<string, string | undefined>;
@@ -85,7 +86,7 @@ allDailyReportsRouter.get(
 const router = Router({ mergeParams: true });
 
 // GET /projects/:projectId/daily-reports
-router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
+router.get("/", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const project = await verifyProjectAccess(projectId, req.companyId!);
   if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -132,7 +133,7 @@ router.get("/", requireAuth, requireCompany, requirePermission("viewTimesheets")
 // POST /projects/:projectId/daily-reports
 // Upsert: if a report already exists for the given date, append incoming notes
 // to the existing record instead of creating a duplicate.
-router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"), asyncHandler(async (req, res) => {
+router.post("/", requireAuth, requireCompany, requireTenantCtx, requirePermission("submitExpenses"), asyncHandler(async (req, res) => {
   if (!req.companyId) { res.status(403).json({ error: "No company associated with this account" }); return; }
 
   const projectId = parseInt(req.params.projectId as string);
@@ -260,7 +261,7 @@ router.post("/", requireAuth, requireCompany, requirePermission("submitExpenses"
 }))
 
 // GET /projects/:projectId/daily-reports/:reportId
-router.get("/:reportId", requireAuth, requireCompany, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
+router.get("/:reportId", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
   if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
@@ -286,7 +287,7 @@ router.get("/:reportId", requireAuth, requireCompany, requirePermission("viewTim
 }))
 
 // PUT /projects/:projectId/daily-reports/:reportId
-router.put("/:reportId", requireAuth, requireCompany, requirePermission("submitExpenses"), asyncHandler(async (req, res) => {
+router.put("/:reportId", requireAuth, requireCompany, requireTenantCtx, requirePermission("submitExpenses"), asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
 
@@ -327,7 +328,7 @@ router.put("/:reportId", requireAuth, requireCompany, requirePermission("submitE
 }))
 
 // DELETE /projects/:projectId/daily-reports/:reportId
-router.delete("/:reportId", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.delete("/:reportId", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const reportId = parseInt(req.params.reportId as string);
 

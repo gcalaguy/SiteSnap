@@ -53,8 +53,8 @@ export default function ClientMessagesTab({ projectId }: Props) {
       );
       setReply("");
     },
-    onError: (e: any) =>
-      toast({ title: e?.message ?? "Failed to send reply", variant: "destructive" }),
+    onError: (e: unknown) =>
+      toast({ title: e instanceof Error ? e.message : "Failed to send reply", variant: "destructive" }),
   });
 
   function handleSend() {
@@ -64,7 +64,7 @@ export default function ClientMessagesTab({ projectId }: Props) {
 
   // No active portal (API returns 400 "No active portal link")
   const noPortal =
-    isError && (error as any)?.message?.includes("No active portal");
+    isError && error instanceof Error && error.message.includes("No active portal");
 
   if (isLoading) {
     return (

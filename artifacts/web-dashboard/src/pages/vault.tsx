@@ -30,7 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-const renderSafeDate = (dateString: any) => {
+const renderSafeDate = (dateString: string | number | Date | null | undefined) => {
   if (!dateString) return 'N/A';
   try {
     const d = new Date(dateString);

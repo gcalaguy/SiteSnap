@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { toast as toastFn } from "@/hooks/use-toast";
 import { customFetch } from "@workspace/api-client-react";
 import {
   useListBuilderEstimates,
@@ -111,6 +112,16 @@ type Template = {
   createdAt: string;
   items?: Item[];
 };
+
+type TemplateItem = {
+  name: string;
+  description?: string | null;
+  quantity: string | number;
+  unitCost: string | number;
+  margin: string | number;
+};
+
+type ToastFn = typeof toastFn;
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function n(v: string | number | undefined | null) {
@@ -331,7 +342,7 @@ export default function Proposals() {
     if (!selectedEstimate) return;
     setIsSubmitting(true);
     try {
-      const tpl = await apiFetch(`/estimate-templates/${template.id}/items`) as { items?: any[] };
+      const tpl = await apiFetch(`/estimate-templates/${template.id}/items`) as { items?: TemplateItem[] };
       for (const item of tpl.items ?? []) {
         await apiFetch(`/builder-estimates/${selectedEstimate.id}/items`, {
           method: "POST",
@@ -438,7 +449,7 @@ export default function Proposals() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search proposals and estimates..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm bg-white text-[#121212] focus:border-[#D4AF37] outline-none" />
         </div>
-        <Tabs value={tab} onValueChange={(v) => { setTab(v as any); setFilter("all"); }} className="w-fit">
+        <Tabs value={tab} onValueChange={(v) => { setTab(v as "estimates" | "proposals"); setFilter("all"); }} className="w-fit">
           <TabsList className="border border-gray-200 bg-white">
             <TabsTrigger value="estimates" className="text-gray-500 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold text-xs">Estimate Builder</TabsTrigger>
             <TabsTrigger value="proposals" className="text-gray-500 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white font-semibold text-xs">Proposals</TabsTrigger>
@@ -733,7 +744,7 @@ function EstimateBuilder({
   onConvert: () => void;
   onSaveTemplate: () => void;
   onLoadTemplate: () => void;
-  toast: any;
+  toast: ToastFn;
 }) {
   const items = estimate.items ?? [];
   const [editingTitle, setEditingTitle] = useState(false);
@@ -987,7 +998,7 @@ function ProposalView({
   onApprove: () => void;
   onDelete: () => void;
   onUpdate: (updated: Partial<Proposal>) => void;
-  toast: any;
+  toast: ToastFn;
 }) {
   const estimate = proposal.estimate;
   const items = estimate?.items ?? [];

@@ -4,7 +4,7 @@ import {
   useGetMe, useListCompanyMembers, useListInvitations,
   useCreateInvitation, useRemoveCompanyMember, useUpdateMemberRole,
   useUpdateInvitation, useRevokeInvitation, useResendInvitation,
-  customFetch,
+  customFetch, ApiError,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -146,7 +146,7 @@ export default function Team() {
       toast({ title: "Name updated" });
       setEditingMember(null);
     },
-    onError: (err: any) =>
+    onError: (err: ApiError) =>
       toast({ title: "Failed to update name", description: err?.message, variant: "destructive" }),
   });
 
@@ -204,7 +204,7 @@ export default function Team() {
           setNewInviteToken(data.token);
           setIsLinkDialogOpen(true);
         },
-        onError: (err: any) =>
+        onError: (err: ApiError) =>
           toast({ title: "Failed to send invitation", description: err?.message, variant: "destructive" }),
       },
     );

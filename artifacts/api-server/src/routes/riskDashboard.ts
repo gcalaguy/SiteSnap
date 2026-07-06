@@ -7,7 +7,7 @@ import {
   projectsTable,
   usersTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { getAccessibleProjectIds } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -18,6 +18,7 @@ router.get(
   "/risk-dashboard",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewRiskTab"),
   asyncHandler(async (req, res) => {
     const companyId = req.companyId!;

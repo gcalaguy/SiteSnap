@@ -34,6 +34,12 @@ interface FormTemplate {
   schema: { fields: FormField[] };
 }
 
+type FieldValue = string | string[] | undefined;
+
+interface SafetySubmission {
+  id: number;
+}
+
 const categoryEmoji: Record<string, string> = {
   injury: "🩹",
   safety: "⚠️",
@@ -61,8 +67,8 @@ function FormFieldRenderer({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FieldValue;
+  onChange: (val: FieldValue) => void;
 }) {
   const id = `field-${field.id}`;
 
@@ -98,7 +104,7 @@ function FormFieldRenderer({
 
     case "select":
       return (
-        <Select value={value ?? ""} onValueChange={onChange}>
+        <Select value={(value as string) ?? ""} onValueChange={onChange}>
           <SelectTrigger id={id} className="text-base">
             <SelectValue placeholder="Select an option…" />
           </SelectTrigger>
@@ -112,7 +118,7 @@ function FormFieldRenderer({
 
     case "radio":
       return (
-        <RadioGroup value={value ?? ""} onValueChange={onChange} className="space-y-2">
+        <RadioGroup value={(value as string) ?? ""} onValueChange={onChange} className="space-y-2">
           {field.options?.map((opt) => (
             <div key={opt} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
               <RadioGroupItem value={opt} id={`${id}-${opt}`} />
@@ -177,7 +183,7 @@ export default function WorkerPortalSubmitPage() {
   const queryClient = useQueryClient();
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, FieldValue>>({});
 
   const { data: templates = [], isLoading } = useQuery<FormTemplate[]>({
     queryKey: ["safety-templates"],
@@ -188,7 +194,7 @@ export default function WorkerPortalSubmitPage() {
 
   const saveMutation = useMutation({
     mutationFn: (payload: { status: "draft" | "submitted" }) =>
-      customFetch("/api/safety/submissions", {
+      customFetch<SafetySubmission>("/api/safety/submissions", {
         method: "POST",
         body: JSON.stringify({
           templateId: selectedTemplateId,
@@ -196,7 +202,7 @@ export default function WorkerPortalSubmitPage() {
           status: payload.status,
         }),
       }),
-    onSuccess: (data: any, vars) => {
+    onSuccess: (data, vars) => {
       queryClient.invalidateQueries({ queryKey: ["safety-submissions"] });
       if (vars.status === "submitted") {
         toast({

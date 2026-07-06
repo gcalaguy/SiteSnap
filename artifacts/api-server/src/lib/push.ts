@@ -1,4 +1,5 @@
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+const EXPO_PUSH_TIMEOUT_MS = 5_000;
 
 interface ExpoPushMessage {
   to: string;
@@ -27,6 +28,7 @@ export async function sendPushNotification(
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(message),
+      signal: AbortSignal.timeout(EXPO_PUSH_TIMEOUT_MS),
     });
   } catch {
     // Intentionally swallowed — notification failure must never break the main request

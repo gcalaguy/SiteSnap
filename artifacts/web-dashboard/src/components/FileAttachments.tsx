@@ -143,8 +143,8 @@ export default function FileAttachments({ entityType, entityId, readOnly = false
 
       const { mirrorUploadedFile } = await import("@/lib/driveSyncPipeline");
       await mirrorUploadedFile(file);
-    } catch (err: any) {
-      toast({ title: "Upload failed", description: err?.message ?? "Please try again", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Please try again", variant: "destructive" });
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -269,10 +269,11 @@ export default function FileAttachments({ entityType, entityId, readOnly = false
 }
 
 function DownloadButton({ objectPath, fileName }: { objectPath: string; fileName: string }) {
+  const { toast } = useToast();
   const { open, isFetching } = useSignedDownload(objectPath);
   return (
     <button
-      onClick={open}
+      onClick={() => open((message) => toast({ title: message, variant: "destructive" }))}
       disabled={isFetching}
       className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
       title="Download"

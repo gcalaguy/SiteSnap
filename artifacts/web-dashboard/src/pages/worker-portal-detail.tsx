@@ -31,7 +31,7 @@ interface FormField {
 interface SubmissionDetail {
   id: number;
   status: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   aiSummary: string | null;
   reviewNotes: string | null;
   reviewedAt: string | null;
@@ -54,7 +54,7 @@ const categoryEmoji: Record<string, string> = {
   injury: "🩹", safety: "⚠️", hazard: "🔶", toolbox: "🛠️",
 };
 
-function renderValue(field: FormField, val: any): string {
+function renderValue(field: FormField, val: unknown): string {
   if (val === undefined || val === null || val === "") return "—";
   if (Array.isArray(val)) return val.join(", ") || "—";
   return String(val);

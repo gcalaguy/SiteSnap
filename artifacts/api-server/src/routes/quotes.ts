@@ -4,7 +4,6 @@ import {
   db,
   quotesTable,
   invoicesTable,
-  projectsTable,
   usersTable,
   userMembershipsTable,
   companiesTable,
@@ -13,6 +12,7 @@ import { eq, and, sql, desc, inArray, or } from "drizzle-orm";
 import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
+import { assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
 import { ConvertQuoteToInvoiceBody } from "@workspace/api-zod";
 import { invalidateDashboardMetricsCache } from "../services/dashboardMetrics";
 import { Resend } from "resend";
@@ -139,15 +139,6 @@ async function notifyQuoteSubmitted(quote: {
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth, requireCompany, requireTenantCtx);
-
-async function verifyProjectAccess(projectId: number, companyId: number) {
-  const [project] = await db
-    .select()
-    .from(projectsTable)
-    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, companyId)))
-    .limit(1);
-  return project ?? null;
-}
 
 /** Atomically increment the company's quote counter and return the formatted number.
  *  Must be called inside a db.transaction() so the counter increment and the

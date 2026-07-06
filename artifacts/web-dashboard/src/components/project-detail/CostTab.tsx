@@ -5,7 +5,9 @@ import {
   useDeleteCostAnalysis,
   useUpdateCostAnalysis,
   getListCostAnalysesQueryKey,
+  ApiError,
 } from "@workspace/api-client-react";
+import type { CreateCostAnalysisBody } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +41,7 @@ export function CostTab({
         queryClient.invalidateQueries({ queryKey: getListCostAnalysesQueryKey(projectId) });
         toast({ title: "Cost analysis deleted" });
       },
-      onError: (err: any) => toast({ title: err?.message ?? "Failed to delete cost record", variant: "destructive" }),
+      onError: (err: ApiError) => toast({ title: err?.message ?? "Failed to delete cost record", variant: "destructive" }),
     },
   });
 
@@ -50,7 +52,7 @@ export function CostTab({
         setEditingCostId(null);
         toast({ title: "Cost analysis updated" });
       },
-      onError: (err: any) => toast({ title: err?.message ?? "Failed to update cost record", variant: "destructive" }),
+      onError: (err: ApiError) => toast({ title: err?.message ?? "Failed to update cost record", variant: "destructive" }),
     },
   });
 
@@ -174,7 +176,7 @@ export function CostTab({
 
       {/* Edit Cost Analysis Dialog */}
       {(() => {
-        const cost = costAnalyses?.find((c: any) => c.id === editingCostId);
+        const cost = costAnalyses?.find((c) => c.id === editingCostId);
         if (!cost) return null;
         return (
           <Dialog open={!!editingCostId} onOpenChange={() => setEditingCostId(null)}>
@@ -203,12 +205,12 @@ export function CostTab({
                       projectId,
                       analysisId: cost.id,
                       data: {
-                        periodLabel: label,
+                        periodLabel: label ?? cost.periodLabel,
                         labourCost: isNaN(labour) ? cost.labourCost : labour,
                         materialsCost: isNaN(materials) ? cost.materialsCost : materials,
                         equipmentCost: isNaN(equipment) ? cost.equipmentCost : equipment,
                         otherCost: isNaN(other) ? cost.otherCost : other,
-                      } as any,
+                      } satisfies CreateCostAnalysisBody,
                     });
                   }}
                   disabled={updateCostAnalysis.isPending}

@@ -5,7 +5,7 @@ import {
   messages as messagesTable,
 } from "@workspace/db";
 import { eq, desc, and, asc } from "drizzle-orm";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { requireAiQuota } from "../middlewares/requireAiQuota";
@@ -105,7 +105,7 @@ function generateTitle(firstMessage: string): string {
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 // GET /conversations
-router.get("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
+router.get("/conversations", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
   try {
     const convos = await db
       .select()
@@ -125,7 +125,7 @@ router.get("/conversations", requireAuth, requireCompany, requirePermission("vie
 }))
 
 // POST /conversations — create conversation + first message
-router.post("/conversations", requireAuth, requireCompany, requirePermission("viewClientMessages"), requireAiQuota, asyncHandler(async (req, res) => {
+router.post("/conversations", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewClientMessages"), requireAiQuota, asyncHandler(async (req, res) => {
   const convParsed = NewConversationBody.safeParse(req.body);
   if (!convParsed.success) { res.status(400).json({ error: convParsed.error.flatten() }); return; }
   const { message } = convParsed.data;
@@ -175,7 +175,7 @@ router.post("/conversations", requireAuth, requireCompany, requirePermission("vi
 }))
 
 // GET /conversations/:conversationId
-router.get("/conversations/:conversationId", requireAuth, requireCompany, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
+router.get("/conversations/:conversationId", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.conversationId as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid conversation ID" });
@@ -217,6 +217,7 @@ router.post(
   "/conversations/:conversationId/messages",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewClientMessages"),
   requireAiQuota,
   asyncHandler(async (req, res) => {
@@ -297,7 +298,7 @@ router.post(
 );
 
 // DELETE /conversations/:conversationId
-router.delete("/conversations/:conversationId", requireAuth, requireCompany, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
+router.delete("/conversations/:conversationId", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewClientMessages"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.conversationId as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid conversation ID" });

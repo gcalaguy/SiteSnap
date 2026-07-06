@@ -4,13 +4,13 @@ import {
   dailyLogsTable,
   sitePhotosTable,
   safetySignoffsTable,
-  projectsTable,
   usersTable,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwner } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwner } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
+import { assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
 import { z } from "zod";
 import { logger } from "../lib/logger";
 import { processSafetySignoff } from "../services/cor/evidenceAggregator";
@@ -37,21 +37,6 @@ const CreateSafetySignoffBody = z.object({
 
 const router = Router();
 
-// Helper: verify project belongs to user's company
-async function verifyProjectAccess(projectId: number, companyId: number) {
-  const [project] = await db
-    .select()
-    .from(projectsTable)
-    .where(
-      and(
-        eq(projectsTable.id, projectId),
-        eq(projectsTable.companyId, companyId),
-      ),
-    )
-    .limit(1);
-  return project;
-}
-
 // ── Daily Logs ───────────────────────────────────────────────────────────
 
 // POST /api/field/daily-log
@@ -59,6 +44,7 @@ router.post(
   "/field/daily-log",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewTimesheets"),
   asyncHandler(async (req, res) => {
     const parsed = CreateDailyLogBody.safeParse(req.body);
@@ -94,6 +80,7 @@ router.get(
   "/field/daily-log",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewTimesheets"),
   asyncHandler(async (req, res) => {
     const projectId = req.query.projectId
@@ -134,6 +121,7 @@ router.put(
   "/field/daily-log/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -180,6 +168,7 @@ router.delete(
   "/field/daily-log/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -217,6 +206,7 @@ router.post(
   "/field/photo-upload",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewTimesheets"),
   asyncHandler(async (req, res) => {
     const parsed = CreateSitePhotoBody.safeParse(req.body);
@@ -251,6 +241,7 @@ router.get(
   "/field/photo-upload",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewTimesheets"),
   asyncHandler(async (req, res) => {
     const projectId = req.query.projectId
@@ -281,6 +272,7 @@ router.put(
   "/field/photo-upload/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -325,6 +317,7 @@ router.delete(
   "/field/photo-upload/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -362,6 +355,7 @@ router.post(
   "/field/safety-check",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewTimesheets"),
   asyncHandler(async (req, res) => {
     const parsed = CreateSafetySignoffBody.safeParse(req.body);
@@ -401,6 +395,7 @@ router.get(
   "/field/safety-check",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewTimesheets"),
   asyncHandler(async (req, res) => {
     const projectId = req.query.projectId
@@ -431,6 +426,7 @@ router.put(
   "/field/safety-check/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
@@ -478,6 +474,7 @@ router.delete(
   "/field/safety-check/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);

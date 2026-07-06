@@ -1,4 +1,4 @@
-import { useListAllDailyReports, useListProjects, useUpdateDailyReport } from "@workspace/api-client-react";
+import { useListAllDailyReports, useListProjects, useUpdateDailyReport, ApiError, type DailyReportListItem } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,7 +30,7 @@ export default function ReportsPage() {
   const [projectId, setProjectId] = useState<number | undefined>(undefined);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [editingReport, setEditingReport] = useState<any | null>(null);
+  const [editingReport, setEditingReport] = useState<DailyReportListItem | null>(null);
   const [editForm, setEditForm] = useState({ workPerformed: "", notes: "", issues: "" });
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -49,11 +49,11 @@ export default function ReportsPage() {
         toast({ title: "Report updated" });
         setEditingReport(null);
       },
-      onError: (e: any) => toast({ title: "Failed to update report", description: e?.message, variant: "destructive" }),
+      onError: (e: ApiError) => toast({ title: "Failed to update report", description: e?.message, variant: "destructive" }),
     },
   });
 
-  function openEdit(report: any) {
+  function openEdit(report: DailyReportListItem) {
     setEditingReport(report);
     setEditForm({
       workPerformed: report.workPerformed ?? "",

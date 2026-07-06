@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGetMe, useListProjects, customFetch } from "@workspace/api-client-react";
+import { useGetMe, useListProjects, customFetch, ApiError } from "@workspace/api-client-react";
 import { useSignedDownload } from "@/hooks/useSignedUrl";
 import { useToast } from "@/hooks/use-toast";
 import { FeatureGuard } from "@/components/FeatureGuard";
@@ -219,7 +219,7 @@ export function PermitFormDialog({
       });
       onClose();
     },
-    onError: (e: any) => {
+    onError: (e: ApiError) => {
       toast({
         title: editing ? "Update failed" : "Create failed",
         description: e?.message ?? "Something went wrong",
@@ -358,7 +358,7 @@ function PermitsPageContent() {
   const [deleting, setDeleting] = useState<Permit | null>(null);
 
   const projectList = useMemo(
-    () => projects.map((p: any) => ({ id: p.id as number, name: p.name as string })),
+    () => projects.map((p) => ({ id: p.id, name: p.name })),
     [projects],
   );
   const effectiveProjectId = selectedProjectId || (projectList[0] ? String(projectList[0].id) : "");
@@ -386,7 +386,7 @@ function PermitsPageContent() {
       toast({ title: "Permit deleted", description: permit.title });
       setDeleting(null);
     },
-    onError: (e: any) => {
+    onError: (e: ApiError) => {
       toast({
         title: "Delete failed",
         description: e?.message ?? "Something went wrong",
@@ -427,8 +427,8 @@ function PermitsPageContent() {
 
   const accessDenied =
     !isAdmin &&
-    projectQuery.error != null &&
-    (projectQuery.error as any)?.status === 403;
+    projectQuery.error instanceof ApiError &&
+    projectQuery.error.status === 403;
 
   if (activeQuery.isLoading) {
     return (

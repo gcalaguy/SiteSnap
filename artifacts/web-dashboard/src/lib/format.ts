@@ -25,3 +25,52 @@ export function formatCurrencyOrDash(
   if (amount === null || amount === undefined || amount === "") return "—";
   return formatCurrency(amount, options);
 }
+
+/**
+ * Abbreviated currency for compact displays ($1.5M, $12K, $850). Consolidates
+ * the near-identical K/M abbreviation logic duplicated in the leads and
+ * projects pages.
+ */
+export function formatCompactCurrency(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+/**
+ * Shared short-date formatter ("Jul 4, 2026"). Consolidates the near-identical
+ * `fmtDate` implementations copy-pasted across the ai-compliance-monitor,
+ * auditor-portal, and client-portal pages.
+ */
+export function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-CA", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+/**
+ * Shared date+time formatter ("Jul 4, 2026, 9:00 p.m.").
+ */
+export function formatDateTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" });
+}
+
+/**
+ * Shared file-size formatter. Consolidates the identical `formatSize`/`fmtSize`/
+ * `fmtBytes` implementations copy-pasted across DocumentsTab, FileAttachments,
+ * cor-compliance, and the client portal.
+ */
+export function formatFileSize(bytes: number | null | undefined): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

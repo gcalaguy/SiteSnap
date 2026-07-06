@@ -11,7 +11,7 @@ import {
   expensesTable,
   usersTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany, requireOwnerOrForeman, requireTenantCtx } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { requireFeature } from "../lib/featureGate";
@@ -26,7 +26,7 @@ router.use(requireFeature("FINANCIALS"));
 
 // ── Financial Summary ─────────────────────────────────────────────────────────
 
-router.get("/financials/summary", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
+router.get("/financials/summary", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const companyId = req.companyId!;
 
   // Use SQL aggregates — avoids loading all rows into Node memory.
@@ -128,7 +128,7 @@ router.get("/financials/expenses", requireAuth, requireCompany, requireTenantCtx
 // ── Payments ──────────────────────────────────────────────────────────────────
 
 // GET /payments — paginated payments for company (?page=1&limit=50)
-router.get("/payments", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
+router.get("/payments", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
   const offset = (page - 1) * limit;
@@ -144,7 +144,7 @@ router.get("/payments", requireAuth, requireCompany, requirePermission("viewFina
 }))
 
 // GET /invoices/:id/payments — payments + balance for one invoice
-router.get("/invoices/:id/payments", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
+router.get("/invoices/:id/payments", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.id as string);
   if (isNaN(invoiceId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -188,7 +188,7 @@ const RecordPaymentBody = z.object({
   notes: z.string().optional().nullable(),
 });
 
-router.post("/invoices/:id/payments", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
+router.post("/invoices/:id/payments", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.id as string);
   if (isNaN(invoiceId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -236,7 +236,7 @@ router.post("/invoices/:id/payments", requireAuth, requireCompany, requirePermis
 }))
 
 // DELETE /payments/:id
-router.delete("/payments/:id", requireAuth, requireCompany, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
+router.delete("/payments/:id", requireAuth, requireCompany, requireTenantCtx, requirePermission("viewFinancials"), asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -253,7 +253,7 @@ router.delete("/payments/:id", requireAuth, requireCompany, requirePermission("v
 // ── Change Orders ─────────────────────────────────────────────────────────────
 
 // GET /change-orders
-router.get("/change-orders", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.get("/change-orders", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const { projectId } = req.query;
   const { limit, offset } = parsePagination(req.query, 50, 100);
 
@@ -276,7 +276,7 @@ router.get("/change-orders", requireAuth, requireCompany, requireOwnerOrForeman,
 }))
 
 // GET /change-orders/:id
-router.get("/change-orders/:id", requireAuth, requireCompany, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.get("/change-orders/:id", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -298,7 +298,7 @@ const CreateChangeOrderBody = z.object({
   notes: z.string().optional().nullable(),
 });
 
-router.post("/change-orders", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/change-orders", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const parsed = CreateChangeOrderBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
@@ -336,7 +336,7 @@ const UpdateChangeOrderBody = z.object({
   signedAt: z.string().datetime().optional().nullable(),
 });
 
-router.patch("/change-orders/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.patch("/change-orders/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -363,7 +363,7 @@ router.patch("/change-orders/:id", requireAuth, requireCompany, asyncHandler(asy
 }))
 
 // POST /change-orders/:id/approve
-router.post("/change-orders/:id/approve", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/change-orders/:id/approve", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   if (req.userRole !== "owner" && req.userRole !== "foreman") {
     res.status(403).json({ error: "Owner or foreman required to approve" }); return;
   }
@@ -383,7 +383,7 @@ router.post("/change-orders/:id/approve", requireAuth, requireCompany, asyncHand
 }))
 
 // POST /change-orders/:id/reject
-router.post("/change-orders/:id/reject", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/change-orders/:id/reject", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   if (req.userRole !== "owner" && req.userRole !== "foreman") {
     res.status(403).json({ error: "Owner or foreman required to reject" }); return;
   }
@@ -403,7 +403,7 @@ router.post("/change-orders/:id/reject", requireAuth, requireCompany, asyncHandl
 }))
 
 // GET /projects/:projectId/approved-change-orders — for invoice line-item integration
-router.get("/projects/:projectId/approved-change-orders", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.get("/projects/:projectId/approved-change-orders", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
@@ -430,7 +430,7 @@ router.get("/projects/:projectId/approved-change-orders", requireAuth, requireCo
 }))
 
 // DELETE /change-orders/:id
-router.delete("/change-orders/:id", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.delete("/change-orders/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -446,7 +446,7 @@ router.delete("/change-orders/:id", requireAuth, requireCompany, asyncHandler(as
 
 // ── Invoice from Proposal ─────────────────────────────────────────────────────
 
-router.post("/invoices/from-proposal/:proposalId", requireAuth, requireCompany, asyncHandler(async (req, res) => {
+router.post("/invoices/from-proposal/:proposalId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const proposalId = parseInt(req.params.proposalId as string);
   if (isNaN(proposalId)) { res.status(400).json({ error: "Invalid id" }); return; }
 

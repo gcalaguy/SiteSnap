@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGetMe, customFetch } from "@workspace/api-client-react";
+import { useGetMe, customFetch, ApiError } from "@workspace/api-client-react";
 import {
   type Permit,
   PermitFormDialog,
@@ -54,7 +54,7 @@ export default function PermitsTab({ projectId }: { projectId: number }) {
       toast({ title: "Permit deleted", description: permit.title });
       setDeleting(null);
     },
-    onError: (e: any) => {
+    onError: (e) => {
       toast({
         title: "Delete failed",
         description: e?.message ?? "Something went wrong",
@@ -64,7 +64,7 @@ export default function PermitsTab({ projectId }: { projectId: number }) {
     },
   });
 
-  const accessDenied = error != null && (error as any)?.status === 403;
+  const accessDenied = error instanceof ApiError && error.status === 403;
 
   if (isLoading) {
     return (

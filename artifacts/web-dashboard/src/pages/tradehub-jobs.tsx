@@ -37,11 +37,11 @@ export default function TradehubJobsPage() {
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: getListTradehubJobsQueryKey(jobParams),
     queryFn: ({ pageParam = 1 }) => listTradehubJobs({ ...jobParams, page: pageParam as number }),
-    getNextPageParam: (last: any) => last.hasMore ? last.page + 1 : undefined,
+    getNextPageParam: (last) => last.hasMore ? last.page + 1 : undefined,
     initialPageParam: 1,
   });
 
-  const jobs: any[] = data?.pages.flatMap((p: any) => p.posts) ?? [];
+  const jobs = data?.pages.flatMap((p) => p.posts) ?? [];
   const [, navigate] = useLocation();
 
   return (

@@ -48,7 +48,7 @@ interface SubmissionDetail {
   userId: number;
   companyId: number;
   status: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   aiSummary: string | null;
   reviewNotes: string | null;
   reviewedAt: string | null;
@@ -99,7 +99,7 @@ function SignedPhotoLink({ photo }: { photo: { id: number; url: string; filename
   );
 }
 
-function renderFieldValue(field: FormField, value: any): string {
+function renderFieldValue(field: FormField, value: unknown): string {
   if (value === undefined || value === null || value === "") return "—";
   if (Array.isArray(value)) return value.join(", ") || "—";
   return String(value);
@@ -485,7 +485,7 @@ export default function SafetyDetailPage() {
     try {
       const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
       const fields = submission.template?.schema?.fields ?? [];
-      const children: any[] = [
+      const children: InstanceType<typeof Paragraph>[] = [
         new Paragraph({ text: submission.template?.name ?? "Safety Form", heading: HeadingLevel.HEADING_1 }),
         new Paragraph({ children: [new TextRun({ text: "Worker: ", bold: true }), new TextRun(submission.worker ? `${submission.worker.firstName} ${submission.worker.lastName}` : "—")] }),
         new Paragraph({ children: [new TextRun({ text: "Date: ", bold: true }), new TextRun(format(new Date(submission.createdAt), "MMMM d, yyyy h:mm a"))] }),
@@ -711,7 +711,7 @@ export default function SafetyDetailPage() {
                   <>
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-muted-foreground">Decision</label>
-                      <Select value={reviewStatus} onValueChange={(v: any) => setReviewStatus(v)}>
+                      <Select value={reviewStatus} onValueChange={(v) => setReviewStatus(v as "reviewed" | "approved")}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="reviewed">Reviewed</SelectItem>

@@ -10,6 +10,7 @@ import {
   getListSafetySignoffsQueryKey,
   customFetch,
 } from "@workspace/api-client-react";
+import type { SitePhotoRecord, DailyLogRecord } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import {
   Card,
@@ -117,13 +118,13 @@ function PhotoCard({
   handleDelete,
   handleUpdatePhoto,
 }: {
-  photo: any;
+  photo: SitePhotoRecord;
   isOwner: boolean;
   editingPhotoId: number | null;
   setEditingPhotoId: (id: number | null) => void;
   setLightboxUrl: (url: string | null) => void;
   handleDelete: (type: string, id: number) => void;
-  handleUpdatePhoto: (id: number, data: any) => void;
+  handleUpdatePhoto: (id: number, data: { roomLocation?: string }) => void;
 }) {
   const { data: signedUrl, isLoading } = useSignedUrl(photo.imageUrl);
   const imgUrl = signedUrl || undefined;
@@ -262,7 +263,7 @@ function LogEditForm({
   onSave,
   isSaving,
 }: {
-  log: any;
+  log: DailyLogRecord;
   onCancel: () => void;
   onSave: (data: { notes?: string; weatherTemp?: string; weatherCondition?: string }) => void;
   isSaving: boolean;

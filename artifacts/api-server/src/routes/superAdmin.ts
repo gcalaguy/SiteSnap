@@ -17,7 +17,7 @@ import { z } from "zod/v4";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireSuperAdmin } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
-import { getUncachableStripeClient } from "../lib/stripeClient";
+import { getStripeClient } from "../lib/stripeClient";
 import { sendEmail, ResendSandboxError, buildAppBase, escapeHtml } from "../lib/mailer";
 import { logger } from "../lib/logger";
 import crypto from "crypto";
@@ -27,7 +27,7 @@ const guard = [requireAuth, requireSuperAdmin];
 
 // ── Stripe price helpers ───────────────────────────────────────────────────────
 
-type StripeClient = Awaited<ReturnType<typeof getUncachableStripeClient>>;
+type StripeClient = Awaited<ReturnType<typeof getStripeClient>>;
 
 /** Create (or recreate) a monthly/yearly Stripe price for a plan product. */
 async function createStripePrice(
@@ -94,7 +94,7 @@ router.post("/admin/plans", ...guard, asyncHandler(async (req, res) => {
   const [plan] = await db.insert(plansTable).values(body).returning();
 
   try {
-    const stripe = await getUncachableStripeClient();
+    const stripe = await getStripeClient();
     const product = await stripe.products.create({
       name: plan.name,
       description: plan.description ?? undefined,
@@ -161,7 +161,7 @@ router.patch("/admin/plans/:id", ...guard, asyncHandler(async (req, res) => {
 
   if (plan.stripeProductId) {
     try {
-      const stripe = await getUncachableStripeClient();
+      const stripe = await getStripeClient();
       const stripeUpdates: Record<string, string | null> = {};
 
       await stripe.products.update(plan.stripeProductId, {
@@ -230,7 +230,7 @@ router.delete("/admin/plans/:id", ...guard, asyncHandler(async (req, res) => {
 
   if (plan?.stripeProductId) {
     try {
-      const stripe = await getUncachableStripeClient();
+      const stripe = await getStripeClient();
       if (plan.stripeMonthlyPriceId) {
         await stripe.prices.update(plan.stripeMonthlyPriceId, { active: false }).catch(() => {});
       }
@@ -255,7 +255,7 @@ router.post("/admin/plans/:id/sync-stripe", ...guard, asyncHandler(async (req, r
 
   const stripeUpdates: Record<string, string | null> = {};
   const warnings: string[] = [];
-  const stripe = await getUncachableStripeClient().catch((err) => {
+  const stripe = await getStripeClient().catch((err) => {
     warnings.push(`stripe client unavailable: ${err?.message ?? String(err)}`);
     return null;
   });
@@ -655,7 +655,7 @@ router.delete("/admin/tenants/:id", ...guard, asyncHandler(async (req, res) => {
   // customer is not billed for a tenant that no longer exists.
   if (company.stripeSubscriptionId) {
     try {
-      const stripe = await getUncachableStripeClient();
+      const stripe = await getStripeClient();
       await stripe.subscriptions.cancel(company.stripeSubscriptionId);
     } catch (stripeErr: any) {
       // Log but do not block deletion — billing failure must not leave orphaned tenant data.

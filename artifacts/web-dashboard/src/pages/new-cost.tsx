@@ -2,7 +2,7 @@ import { useParams, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useGetProject, useCreateCostAnalysis, useGenerateCostAnalysisAI } from "@workspace/api-client-react";
+import { useGetProject, useCreateCostAnalysis, useGenerateCostAnalysisAI, ApiError } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { getListCostAnalysesQueryKey, getGetProjectSummaryQueryKey } from "@workspace/api-client-react";
@@ -70,7 +70,7 @@ export default function NewCost() {
           form.setValue("aiAnalysis", data.analysis);
           toast({ title: "AI Analysis Complete" });
         },
-        onError: (err: any) => {
+        onError: (err: ApiError) => {
           toast({ title: "AI Analysis Failed", description: err.message, variant: "destructive" });
         }
       }
@@ -87,7 +87,7 @@ export default function NewCost() {
           toast({ title: "Cost record saved" });
           setLocation(`/projects/${projectId}`);
         },
-        onError: (err: any) => {
+        onError: (err: ApiError) => {
           toast({ title: "Error saving record", description: err.message, variant: "destructive" });
         }
       }

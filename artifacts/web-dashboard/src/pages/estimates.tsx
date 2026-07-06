@@ -477,8 +477,8 @@ function EstimateEditor({
       queryClient.invalidateQueries({ queryKey: ["estimates"] });
       onSave(updated);
       toast({ title: "Estimate saved" });
-    } catch (e: any) {
-      toast({ title: "Failed to save", description: e?.message, variant: "destructive" });
+    } catch (e) {
+      toast({ title: "Failed to save", description: e instanceof Error ? e.message : undefined, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -900,8 +900,8 @@ export default function EstimatesPage() {
       setEmailDialogOpen(false);
       setEmailTo("");
       setEmailMessage("");
-    } catch (e: any) {
-      const msg = e?.message ?? "";
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
       if (msg.includes("sandbox")) {
         toast({
           title: "Email sandbox restriction",
@@ -1004,7 +1004,7 @@ export default function EstimatesPage() {
                     setExportingPdf(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await downloadEstimatePDF(activeEstimate as any, false, logo, me?.company ?? undefined);
+                      await downloadEstimatePDF(activeEstimate, false, logo, me?.company ?? undefined);
                     } catch { toast({ title: "PDF export failed", variant: "destructive" }); }
                     finally { setExportingPdf(false); }
                   }}
@@ -1019,7 +1019,7 @@ export default function EstimatesPage() {
                     setExportingDocx(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await downloadEstimateDocx(activeEstimate as any, logo, me?.company ?? undefined);
+                      await downloadEstimateDocx(activeEstimate, logo, me?.company ?? undefined);
                     } catch { toast({ title: "Word export failed", variant: "destructive" }); }
                     finally { setExportingDocx(false); }
                   }}
@@ -1034,7 +1034,7 @@ export default function EstimatesPage() {
                     setPrinting(true);
                     try {
                       const logo = await fetchLogoDataUrl();
-                      await printEstimate(activeEstimate as any, logo, me?.company ?? undefined);
+                      await printEstimate(activeEstimate, logo, me?.company ?? undefined);
                     } catch { toast({ title: "Print failed", variant: "destructive" }); }
                     finally { setPrinting(false); }
                   }}

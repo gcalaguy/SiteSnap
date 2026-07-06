@@ -60,10 +60,10 @@ export function WorkerCalculator() {
     if (!result || !activeCalc) return;
     setAiLoading(true);
     try {
-      const data = await customFetch("/api/calculators/ai-summary", {
+      const data = await customFetch<{ summary: string }>("/api/calculators/ai-summary", {
         method: "POST",
         body: JSON.stringify({ calculator: activeCalc.name, inputs, summary: result.summary, results: result.results }),
-      }) as any;
+      });
       setAiSummary(data.summary);
     } catch {
       toast({ title: "AI unavailable", description: "Could not generate AI summary.", variant: "destructive" });

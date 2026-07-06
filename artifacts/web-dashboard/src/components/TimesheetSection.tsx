@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "@e965/xlsx";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch, useApproveTimesheet, useDenyTimesheet, getListTimesheetsQueryKey } from "@workspace/api-client-react";
+import { customFetch, useApproveTimesheet, useDenyTimesheet, getListTimesheetsQueryKey, type UserWithCompany } from "@workspace/api-client-react";
 import { format, addDays } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -435,8 +435,8 @@ function TimesheetRow({
         setApproveSigner("");
         toast({ title: "Timesheet approved & signed" });
       },
-      onError: (e: any) => toast({
-        title: e?.message ?? "Failed to approve",
+      onError: (e: unknown) => toast({
+        title: e instanceof Error ? e.message : "Failed to approve",
         variant: "destructive",
       }),
     },
@@ -497,8 +497,8 @@ function TimesheetRow({
       setEmailTo("");
       toast({ title: "Timesheet emailed successfully" });
     },
-    onError: (e: any) => {
-      const msg = e?.message ?? "Failed to send email";
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Failed to send email";
       toast({ title: msg, variant: "destructive" });
     },
   });
@@ -896,9 +896,9 @@ function TimesheetRow({
 type Props = {
   timesheets: Timesheet[];
   isLoading: boolean;
-  members: any[];
+  members: UserWithCompany[];
   isPrivileged: boolean;
-  me: any;
+  me: UserWithCompany | undefined;
   province?: string | null;
   companyName?: string | null;
   tsStatusFilter: "all" | "submitted" | "approved" | "denied";

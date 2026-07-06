@@ -80,7 +80,7 @@ export default function TradehubPostPage() {
         setShowApply(false);
         toast({ title: "Application sent!", description: "The poster will be notified." });
       },
-      onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Already applied or failed", variant: "destructive" }),
+      onError: (err) => toast({ title: "Error", description: err?.message ?? "Already applied or failed", variant: "destructive" }),
     },
   });
 
@@ -132,7 +132,7 @@ export default function TradehubPostPage() {
     ? postData.profile.displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
     : `${postData.author?.firstName?.[0] ?? ""}${postData.author?.lastName?.[0] ?? ""}`;
 
-  const myApplication = postData.applications?.find((a: any) => a.applicantId === me?.id);
+  const myApplication = postData.applications?.find((a) => a.applicantId === me?.id);
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
@@ -202,7 +202,7 @@ export default function TradehubPostPage() {
 
           {postData.media?.length > 0 && (
             <div className="mt-4 grid grid-cols-2 gap-2">
-              {postData.media.map((m: any) => (
+              {postData.media.map((m) => (
                 <SignedImage key={m.id} src={m.url} alt="" className="rounded-lg object-cover w-full aspect-video" />
               ))}
             </div>
@@ -247,7 +247,7 @@ export default function TradehubPostPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {(postData.applications ?? []).map((app: any) => (
+            {(postData.applications ?? []).map((app) => (
               <div key={app.id} className="border rounded-xl p-4">
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <div>
@@ -284,7 +284,7 @@ export default function TradehubPostPage() {
             <p className="text-sm text-muted-foreground text-center py-4">No comments yet. Be the first!</p>
           ) : (
             <div className="space-y-4">
-              {(postData.comments ?? []).map((c: any) => {
+              {(postData.comments ?? []).map((c) => {
                 const cInitials = c.profile?.displayName
                   ? c.profile.displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
                   : `${c.author?.firstName?.[0] ?? ""}${c.author?.lastName?.[0] ?? ""}`;

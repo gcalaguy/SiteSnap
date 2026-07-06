@@ -182,7 +182,7 @@ function ChangeStatusDialog({
       toast({ title: `RFI marked as ${next}` });
       onOpenChange(false);
     },
-    onError: (e: any) =>
+    onError: (e: Error) =>
       toast({ title: "Failed to update status", description: e?.message, variant: "destructive" }),
   });
 

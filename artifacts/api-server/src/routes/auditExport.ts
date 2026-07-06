@@ -19,7 +19,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { asyncHandler } from "../lib/asyncHandler";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { NotFoundError } from "../lib/errors";
 import { buildSafetyAuditPdfBuffer } from "../lib/safetyAuditPdf";
 import type { AuditTimelineItem } from "../lib/safetyAuditPdf";
@@ -33,6 +33,7 @@ router.get(
   "/compliance/dashboard",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const companyId = req.companyId!;
 
@@ -106,6 +107,7 @@ router.get(
   "/projects/:projectId/compliance/audit-export",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const projectId = Number(req.params.projectId);
     const companyId = req.companyId!;

@@ -63,7 +63,7 @@ export default function TradehubNotificationsPage() {
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {allNotifs.map((n: any, i: number) => (
+              {allNotifs.map((n, i) => (
                 <div
                   key={n.id}
                   className={`flex items-start gap-4 p-4 transition-colors ${n.isRead ? "" : "bg-primary/5"} ${i === 0 ? "rounded-t-xl" : ""} ${i === allNotifs.length - 1 ? "rounded-b-xl" : ""}`}

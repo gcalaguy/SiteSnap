@@ -9,7 +9,7 @@ import {
   companiesTable,
 } from "@workspace/db";
 import { eq, and, lt, gt, ne, inArray, gte, lte } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
@@ -80,6 +80,7 @@ router.get(
   "/equipment",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewSchedules"),
   asyncHandler(async (req, res) => {
     const rows = await db
@@ -96,6 +97,7 @@ router.post(
   "/equipment",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewSchedules"),
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
@@ -115,6 +117,7 @@ router.patch(
   "/equipment/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
@@ -137,6 +140,7 @@ router.delete(
   "/equipment/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
@@ -184,6 +188,7 @@ router.get(
   "/schedule/events",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewSchedules"),
   asyncHandler(async (req, res) => {
     const { from, to, projectId, type } = req.query as Record<string, string | undefined>;
@@ -244,6 +249,7 @@ router.post(
   "/schedule/events",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewSchedules"),
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
@@ -454,6 +460,7 @@ router.patch(
   "/schedule/events/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
@@ -534,6 +541,7 @@ router.delete(
   "/schedule/events/:id",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
@@ -550,6 +558,7 @@ router.get(
   "/schedule/availability",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   asyncHandler(async (req, res) => {
     const { resourceType, resourceId, date } = req.query as Record<string, string>;
     if (!resourceType || !resourceId || !date) {

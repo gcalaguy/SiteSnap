@@ -7,7 +7,7 @@ import {
   usersTable,
   projectDocumentsTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { ObjectStorageService } from "../lib/objectStorage";
@@ -40,6 +40,7 @@ router.get(
   "/companies/:companyId/accounting/export-data",
   requireAuth,
   requireCompany,
+  requireTenantCtx,
   requirePermission("viewFinancials"),
   asyncHandler(async (req, res) => {
     const companyId = parseInt(req.params.companyId as string);

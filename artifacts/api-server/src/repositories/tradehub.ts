@@ -40,6 +40,22 @@ export async function getUserById(userId: number) {
   return user;
 }
 
+// Public-safe projection for user data exposed to other users (e.g. profile pages).
+// Never select email, clerkUserId, systemRole, pushToken, or other sensitive columns here.
+export async function getPublicUserById(userId: number) {
+  const [user] = await db
+    .select({
+      id: usersTable.id,
+      firstName: usersTable.firstName,
+      lastName: usersTable.lastName,
+      createdAt: usersTable.createdAt,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  return user;
+}
+
 export async function getProfileByUserId(userId: number): Promise<TradehubProfile | undefined> {
   const [profile] = await db.select().from(tradehubProfilesTable).where(eq(tradehubProfilesTable.userId, userId)).limit(1);
   return profile;

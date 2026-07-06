@@ -120,8 +120,8 @@ function PushToCostsPanel({
         title: "Added to Cost Tracking",
         description: `${currency}$${fields.amount!.toLocaleString()} added as ${CATEGORY_LABELS[category]} cost.`,
       });
-    } catch (err: any) {
-      toast({ title: "Failed to push cost", description: err?.message ?? "Unknown error", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Failed to push cost", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -805,10 +805,11 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
 }
 
 function DocDownloadButton({ objectPath }: { objectPath: string }) {
+  const { toast } = useToast();
   const { open, isFetching } = useSignedDownload(objectPath);
   return (
     <button
-      onClick={open}
+      onClick={() => open((message) => toast({ title: message, variant: "destructive" }))}
       disabled={isFetching}
       className="p-1.5 rounded-md text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
       title="Download"

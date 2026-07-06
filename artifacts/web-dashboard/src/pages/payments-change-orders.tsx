@@ -12,6 +12,7 @@ import {
   useDeleteChangeOrder,
   useApproveChangeOrder,
   useRejectChangeOrder,
+  ApiError,
 } from "@workspace/api-client-react";
 import type {
   FinancialSummary,
@@ -20,6 +21,7 @@ import type {
   Invoice,
   Project,
   RecordPaymentBody,
+  RecordPaymentBodyMethod,
   CreateChangeOrderBody,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -189,7 +191,7 @@ function PaymentsChangeOrdersInner() {
         setPaymentForm({ invoiceId: "", amount: "", method: "e-transfer", notes: "" });
         toast({ title: "Payment recorded" });
       },
-      onError: (err: any) => {
+      onError: (err: ApiError) => {
         toast({ title: err?.message ?? "Failed to record payment", variant: "destructive" });
       },
     },
@@ -218,7 +220,7 @@ function PaymentsChangeOrdersInner() {
         setCoForm({ projectId: "", title: "", description: "", amount: "", notes: "" });
         toast({ title: "Change order created" });
       },
-      onError: (err: any) => {
+      onError: (err: ApiError) => {
         toast({ title: err?.message ?? "Failed to create change order", variant: "destructive" });
       },
     },
@@ -272,7 +274,7 @@ function PaymentsChangeOrdersInner() {
     }
     const body: RecordPaymentBody = {
       amount: parseFloat(paymentForm.amount),
-      method: paymentForm.method as any,
+      method: paymentForm.method as RecordPaymentBodyMethod,
       notes: paymentForm.notes.trim() || undefined,
     };
     recordPaymentMutation.mutate({
@@ -404,7 +406,7 @@ function PaymentsChangeOrdersInner() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="flex-1 flex flex-col min-h-0">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "overview" | "payments" | "change-orders")} className="flex-1 flex flex-col min-h-0">
         <TabsList className="flex-shrink-0 w-fit bg-white border border-[#D4AF37]/20">
           <TabsTrigger value="overview" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white">Overview</TabsTrigger>
           <TabsTrigger value="payments" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white">Payments</TabsTrigger>
