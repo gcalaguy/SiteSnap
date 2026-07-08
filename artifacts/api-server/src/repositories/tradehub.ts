@@ -5,8 +5,7 @@ import {
   companiesTable,
   tradehubProfilesTable,
   tradehubPostsTable,
-  tradehubPostMediaTable,
-  tradehubProfileMediaTable,
+  tradehubMediaTable,
   tradehubCommentsTable,
   tradehubReactionsTable,
   tradehubJobApplicationsTable,
@@ -30,7 +29,15 @@ export type TradehubConversation = typeof tradehubConversationsTable.$inferSelec
 export type TradehubConversationParticipant = typeof tradehubConversationParticipantsTable.$inferSelect;
 export type TradehubMessage = typeof tradehubMessagesTable.$inferSelect;
 export type TradehubSavedCalculation = typeof tradehubSavedCalculationsTable.$inferSelect;
-export type TradehubProfileMedia = typeof tradehubProfileMediaTable.$inferSelect;
+export type TradehubProfileMedia = {
+  id: number;
+  userId: number;
+  url: string;
+  objectPath: string | null;
+  mediaType: string;
+  fileName: string | null;
+  createdAt: Date;
+};
 export type TradehubNotification = typeof tradehubNotificationsTable.$inferSelect;
 
 // ── Shared lookups ─────────────────────────────────────────────────────────────
@@ -125,16 +132,27 @@ export async function insertPost(data: typeof tradehubPostsTable.$inferInsert): 
   return post;
 }
 
-export async function getPostById(id: number): Promise<TradehubPost | undefined> {
+// viewerCompanyId scopes "internal" (company-only) posts the same way
+// listFeedPosts does — a post marked internal is only visible to members of
+// the company that posted it. Public posts are visible to everyone. Passing
+// null (no company) only ever matches public posts.
+export async function getPostById(id: number, viewerCompanyId: number | null): Promise<TradehubPost | undefined> {
   const [post] = await db.select().from(tradehubPostsTable).where(eq(tradehubPostsTable.id, id)).limit(1);
+  if (!post) return undefined;
+  if (post.visibility === "internal" && post.companyId !== viewerCompanyId) return undefined;
   return post;
 }
 
 export async function deletePost(id: number, companyId: number | null): Promise<void> {
-  if (companyId) {
-    await db.delete(tradehubPostsTable).where(and(eq(tradehubPostsTable.id, id), eq(tradehubPostsTable.companyId, companyId)));
-  } else {
-    await db.delete(tradehubPostsTable).where(eq(tradehubPostsTable.id, id));
+  // tradehub_media has no DB-level FK to tradehub_posts (it's a polymorphic
+  // owner_type/owner_id table), so post media must be cleaned up explicitly —
+  // there's no ON DELETE CASCADE to rely on here. Only cascade the media
+  // delete if the post row itself actually matched and was deleted.
+  const deleted = companyId
+    ? await db.delete(tradehubPostsTable).where(and(eq(tradehubPostsTable.id, id), eq(tradehubPostsTable.companyId, companyId))).returning({ id: tradehubPostsTable.id })
+    : await db.delete(tradehubPostsTable).where(eq(tradehubPostsTable.id, id)).returning({ id: tradehubPostsTable.id });
+  if (deleted.length > 0) {
+    await db.delete(tradehubMediaTable).where(and(eq(tradehubMediaTable.ownerType, "post"), eq(tradehubMediaTable.ownerId, id)));
   }
 }
 
@@ -164,7 +182,11 @@ export async function listPostsByIds(ids: number[]): Promise<TradehubPost[]> {
 // ── Post enrichment primitives ────────────────────────────────────────────────
 
 export async function getPostMedia(postId: number) {
-  return db.select().from(tradehubPostMediaTable).where(eq(tradehubPostMediaTable.postId, postId));
+  const rows = await db
+    .select()
+    .from(tradehubMediaTable)
+    .where(and(eq(tradehubMediaTable.ownerType, "post"), eq(tradehubMediaTable.ownerId, postId)));
+  return rows.map((r) => ({ id: r.id, postId: r.ownerId, url: r.url, objectPath: r.objectPath, mediaType: r.mediaType, createdAt: r.createdAt }));
 }
 
 export async function getPostCommentCount(postId: number): Promise<number> {
@@ -346,9 +368,12 @@ export async function insertJobPostingApplication(data: typeof jobPostingApplica
 
 // ── Post Media ─────────────────────────────────────────────────────────────────
 
-export async function insertPostMedia(data: typeof tradehubPostMediaTable.$inferInsert) {
-  const [media] = await db.insert(tradehubPostMediaTable).values(data).returning();
-  return media;
+export async function insertPostMedia(data: { postId: number; url: string; objectPath: string | null; mediaType: string }) {
+  const [media] = await db
+    .insert(tradehubMediaTable)
+    .values({ ownerType: "post", ownerId: data.postId, url: data.url, objectPath: data.objectPath, mediaType: data.mediaType })
+    .returning();
+  return { id: media.id, postId: media.ownerId, url: media.url, objectPath: media.objectPath, mediaType: media.mediaType, createdAt: media.createdAt };
 }
 
 // ── Profiles ───────────────────────────────────────────────────────────────────
@@ -401,26 +426,38 @@ export async function insertReport(data: typeof tradehubReportsTable.$inferInser
 
 // ── Profile Media ──────────────────────────────────────────────────────────────
 
-export async function listProfileMediaForUser(userId: number): Promise<TradehubProfileMedia[]> {
-  return db.select().from(tradehubProfileMediaTable).where(eq(tradehubProfileMediaTable.userId, userId)).orderBy(desc(tradehubProfileMediaTable.createdAt));
+function toProfileMedia(row: typeof tradehubMediaTable.$inferSelect): TradehubProfileMedia {
+  return { id: row.id, userId: row.ownerId, url: row.url, objectPath: row.objectPath, mediaType: row.mediaType, fileName: row.fileName, createdAt: row.createdAt };
 }
 
-export async function insertProfileMedia(data: typeof tradehubProfileMediaTable.$inferInsert) {
-  const [media] = await db.insert(tradehubProfileMediaTable).values(data).returning();
-  return media;
+export async function listProfileMediaForUser(userId: number): Promise<TradehubProfileMedia[]> {
+  const rows = await db
+    .select()
+    .from(tradehubMediaTable)
+    .where(and(eq(tradehubMediaTable.ownerType, "profile"), eq(tradehubMediaTable.ownerId, userId)))
+    .orderBy(desc(tradehubMediaTable.createdAt));
+  return rows.map(toProfileMedia);
+}
+
+export async function insertProfileMedia(data: { userId: number; url: string; objectPath: string | null; mediaType: string; fileName: string | null }): Promise<TradehubProfileMedia> {
+  const [media] = await db
+    .insert(tradehubMediaTable)
+    .values({ ownerType: "profile", ownerId: data.userId, url: data.url, objectPath: data.objectPath, mediaType: data.mediaType, fileName: data.fileName })
+    .returning();
+  return toProfileMedia(media);
 }
 
 export async function getOwnedProfileMedia(id: number, userId: number): Promise<TradehubProfileMedia | undefined> {
   const [item] = await db
     .select()
-    .from(tradehubProfileMediaTable)
-    .where(and(eq(tradehubProfileMediaTable.id, id), eq(tradehubProfileMediaTable.userId, userId)))
+    .from(tradehubMediaTable)
+    .where(and(eq(tradehubMediaTable.id, id), eq(tradehubMediaTable.ownerType, "profile"), eq(tradehubMediaTable.ownerId, userId)))
     .limit(1);
-  return item;
+  return item ? toProfileMedia(item) : undefined;
 }
 
 export async function deleteProfileMedia(id: number, userId: number): Promise<void> {
-  await db.delete(tradehubProfileMediaTable).where(and(eq(tradehubProfileMediaTable.id, id), eq(tradehubProfileMediaTable.userId, userId)));
+  await db.delete(tradehubMediaTable).where(and(eq(tradehubMediaTable.id, id), eq(tradehubMediaTable.ownerType, "profile"), eq(tradehubMediaTable.ownerId, userId)));
 }
 
 // ── Saved Calculations ─────────────────────────────────────────────────────────

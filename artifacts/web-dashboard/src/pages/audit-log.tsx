@@ -56,7 +56,7 @@ async function fetchAuditLogs(): Promise<AuditLogEntry[]> {
   return customFetch<AuditLogEntry[]>(`${import.meta.env.BASE_URL}api/audit-logs`, { method: "GET" });
 }
 
-export default function AuditVaultPage() {
+export default function AuditLogPage() {
   const [search, setSearch] = useState("");
 
   const { data: logs, isLoading, error } = useQuery<AuditLogEntry[], Error>({
@@ -81,7 +81,7 @@ export default function AuditVaultPage() {
       <div className="flex items-center gap-3 mb-6">
         <ShieldCheck size={22} style={{ color: GOLD }} />
         <h1 className="text-xl font-bold tracking-tight" style={{ color: BLACK }}>
-          Audit Vault
+          Audit Log
         </h1>
       </div>
 

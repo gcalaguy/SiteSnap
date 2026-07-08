@@ -23,7 +23,15 @@ function formatDate(d: Date | string | null) {
 }
 
 function escapeCsv(val: string | number | null | undefined) {
-  const str = String(val ?? "");
+  let str = String(val ?? "");
+  // Neutralize CSV/formula injection (CWE-1236): a value starting with one of
+  // these characters is interpreted as a formula by Excel/Sheets on open,
+  // which can exfiltrate data or run macros via a crafted vendor name / AI
+  // summary embedded in an uploaded receipt (both OCR'd, attacker-controlled).
+  // Prefixing with a single quote forces the cell to be read as plain text.
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
   if (str.includes(",") || str.includes('"') || str.includes("\n")) {
     return `"${str.replace(/"/g, '""')}"`;
   }

@@ -375,9 +375,13 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, requireTenantCt
   const totalLow = r.totalLow ?? subtotal;
   const totalHigh = r.totalHigh ?? (subtotal + contingency);
 
+  // estimate.result is stored as an unvalidated JSON blob (z.record(z.unknown())
+  // on the PATCH endpoint, plus AI-generated on creation) — every cell must be
+  // escaped, including ones that are "supposed to" be numbers, since nothing
+  // enforces that shape before it reaches this email template.
   function tableRows(rows: any[], cols: (k: any) => string[]) {
     return (rows ?? []).map((row) =>
-      `<tr>${cols(row).map((c, i) => `<td style="padding:7px 10px;border-bottom:1px solid #eee;${i > 0 ? "text-align:right;" : ""}">${c}</td>`).join("")}</tr>`
+      `<tr>${cols(row).map((c, i) => `<td style="padding:7px 10px;border-bottom:1px solid #eee;${i > 0 ? "text-align:right;" : ""}">${esc(c)}</td>`).join("")}</tr>`
     ).join("");
   }
 
@@ -433,12 +437,12 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, requireTenantCt
   const assumptionsSection = (r.assumptions ?? []).length > 0 ? `
     <h3 style="color:#172034;margin:24px 0 8px">Assumptions</h3>
     <ul style="font-size:13px;color:#444;padding-left:20px;margin:0">
-      ${(r.assumptions as string[]).map((a) => `<li style="margin-bottom:4px">${a}</li>`).join("")}
+      ${(r.assumptions as unknown[]).map((a) => `<li style="margin-bottom:4px">${esc(a)}</li>`).join("")}
     </ul>` : "";
 
   const notesSection = r.notes ? `
     <h3 style="color:#172034;margin:24px 0 8px">Notes</h3>
-    <p style="font-size:13px;color:#444;margin:0">${r.notes}</p>` : "";
+    <p style="font-size:13px;color:#444;margin:0">${esc(r.notes)}</p>` : "";
 
   const personalNote = message ? `
     <div style="background:#fff8f0;border-left:4px solid #FF6600;padding:12px 16px;margin-bottom:24px;border-radius:4px">
@@ -458,12 +462,12 @@ router.post("/estimates/:id/email", requireAuth, requireCompany, requireTenantCt
     <div style="padding:32px">
       ${personalNote}
       <h1 style="color:#172034;margin:0 0 4px;font-size:22px">${esc(estimate.title)}</h1>
-      ${r.summary ? `<p style="color:#555;font-size:14px;margin:8px 0 0">${r.summary}</p>` : ""}
+      ${r.summary ? `<p style="color:#555;font-size:14px;margin:8px 0 0">${esc(r.summary)}</p>` : ""}
 
       <div style="background:#172034;border-radius:8px;padding:20px 24px;margin:24px 0">
         <div style="color:#FF6600;font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Estimated Total Range (CAD)</div>
         <div style="color:#fff;font-size:28px;font-weight:bold">${cad(totalLow)} – ${cad(totalHigh)}</div>
-        <div style="color:#aaa;font-size:12px;margin-top:6px">Subtotal ${cad(subtotal)} · Contingency (${r.contingencyPct ?? 10}%) ${cad(contingency)} · excl. HST/GST</div>
+        <div style="color:#aaa;font-size:12px;margin-top:6px">Subtotal ${cad(subtotal)} · Contingency (${esc(r.contingencyPct ?? 10)}%) ${cad(contingency)} · excl. HST/GST</div>
       </div>
 
       ${materialsSection}

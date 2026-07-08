@@ -11,7 +11,7 @@ import {
   clientPortalUploadsTable,
   submissionPhotosTable,
   scansTable,
-  tradehubPostMediaTable,
+  tradehubMediaTable,
   tradehubProfilesTable,
   fileAttachmentsTable,
 } from "@workspace/db";
@@ -33,7 +33,7 @@ import {
 
 // Distributed cron lock keys — unique per job, stored in PostgreSQL advisory locks.
 // These integers are arbitrary but must never collide with other advisory lock users.
-const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004, CREDENTIAL_ALERTS: 7005, EVIDENCE_GAP_MONITOR: 7006 } as const;
+const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004, CREDENTIAL_ALERTS: 7005, EVIDENCE_GAP_MONITOR: 7006, EXPORT_RECEIPT_CLEANUP: 7007 } as const;
 
 /**
  * Attempt to acquire a PostgreSQL session-level advisory lock.
@@ -221,7 +221,10 @@ async function collectReferencedObjectPaths(): Promise<Set<string>> {
       db.select({ p: clientPortalUploadsTable.objectPath }).from(clientPortalUploadsTable),
       db.select({ p: submissionPhotosTable.objectPath }).from(submissionPhotosTable),
       db.select({ p: scansTable.objectPath }).from(scansTable),
-      db.select({ p: tradehubPostMediaTable.objectPath }).from(tradehubPostMediaTable),
+      // Covers both post and profile media — tradehub_media replaced the separate
+      // tradehub_post_media/tradehub_profile_media tables (the latter's objectPaths
+      // were previously not protected here at all).
+      db.select({ p: tradehubMediaTable.objectPath }).from(tradehubMediaTable),
       db.select({ p: tradehubProfilesTable.voiceIntroObjectPath }).from(tradehubProfilesTable),
       db.select({ p: fileAttachmentsTable.objectPath }).from(fileAttachmentsTable),
     ]);
@@ -277,6 +280,14 @@ export async function cleanupOrphanedStorageObjects(): Promise<{
   }
 
   return { scanned: allGcsPaths.length, deleted, errors };
+}
+
+/** Deletes tenant export receipts that expired without ever being consumed by a delete. */
+export async function cleanupExpiredTenantExportReceipts(): Promise<{ deleted: number }> {
+  const result = await db.execute(
+    sql`DELETE FROM tenant_export_receipts WHERE consumed_at IS NULL AND expires_at < now()`,
+  );
+  return { deleted: result.rowCount ?? 0 };
 }
 
 const CREDENTIAL_LABELS: Record<string, string> = {
@@ -580,4 +591,34 @@ export function startDailyCron(): void {
     { timezone: "America/Toronto" },
   );
   logger.info("Evidence gap monitor cron scheduled: every 4 hours");
+
+  // 3:00 AM ET every Sunday — expired tenant export receipts cleanup
+  let exportReceiptCleanupRunning = false;
+  cron.schedule(
+    "0 3 * * 0",
+    async () => {
+      if (exportReceiptCleanupRunning) {
+        logger.warn("Tenant export receipt cleanup cron skipped — previous run still in progress");
+        return;
+      }
+      const locked = await tryAdvisoryLock(LOCK.EXPORT_RECEIPT_CLEANUP);
+      if (!locked) {
+        logger.warn("Tenant export receipt cleanup cron skipped — advisory lock held by another instance");
+        return;
+      }
+      exportReceiptCleanupRunning = true;
+      try {
+        logger.info("Tenant export receipt cleanup cron triggered");
+        const result = await cleanupExpiredTenantExportReceipts();
+        logger.info(result, "Tenant export receipt cleanup cron complete");
+      } catch (err) {
+        logger.error({ err }, "Unhandled error in tenant export receipt cleanup cron");
+      } finally {
+        exportReceiptCleanupRunning = false;
+        await releaseAdvisoryLock(LOCK.EXPORT_RECEIPT_CLEANUP);
+      }
+    },
+    { timezone: "America/Toronto" },
+  );
+  logger.info("Tenant export receipt cleanup cron scheduled: 3:00 AM ET Sundays");
 }

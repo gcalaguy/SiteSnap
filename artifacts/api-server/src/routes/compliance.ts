@@ -5,6 +5,8 @@
 
 import { Router } from "express";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
+import { db, projectsTable } from "@workspace/db";
 import { asyncHandler } from "../lib/asyncHandler";
 import { processComplianceEvent } from "../services/compliance/processor";
 import { BadRequestError } from "../lib/errors";
@@ -34,7 +36,6 @@ const WorkTypeEnum = z.enum([
 ]);
 
 const TestPayloadSchema = z.object({
-  companyId: z.number().int().positive(),
   projectId: z.number().int().positive(),
   sourceType: z.enum([
     "FIELD_LOG",
@@ -68,17 +69,22 @@ const TestPayloadSchema = z.object({
  *
  * Bypasses the 15-minute debounce window by design.
  *
+ * companyId is never taken from the request — it's always the caller's own
+ * req.companyId, and projectId is verified to belong to that company before
+ * the pipeline runs. This prevents a caller from targeting another tenant's
+ * project or writing directives into another company (P0 fix).
+ *
  * Example — work-type only (rules engine, zero AI tokens):
- * { "companyId": 4, "projectId": 1, "sourceType": "FIELD_LOG",
+ * { "projectId": 1, "sourceType": "FIELD_LOG",
  *   "workType": "excavation", "text": "Starting dig today." }
  *
  * Example — full pipeline with context enrichment (default):
- * { "companyId": 4, "projectId": 1, "sourceType": "FIELD_LOG",
+ * { "projectId": 1, "sourceType": "FIELD_LOG",
  *   "workType": "roofing",
  *   "text": "Worker fell from scaffolding. No harness worn." }
  *
  * Example — text only, no DB context:
- * { "companyId": 4, "projectId": 1, "sourceType": "FIELD_LOG",
+ * { "projectId": 1, "sourceType": "FIELD_LOG",
  *   "enrichContext": false,
  *   "text": "Near miss — crane load swung into exclusion zone." }
  */
@@ -94,7 +100,22 @@ router.post(
       throw new BadRequestError(parsed.error.message);
     }
 
-    const { enrichContext, ...eventPayload } = parsed.data;
+    const { enrichContext, ...rest } = parsed.data;
+
+    // P0: never trust a client-supplied companyId, and verify the project
+    // actually belongs to the caller's company before running the pipeline
+    // against it — otherwise a caller could target another tenant's project.
+    const [project] = await db
+      .select({ companyId: projectsTable.companyId })
+      .from(projectsTable)
+      .where(eq(projectsTable.id, rest.projectId))
+      .limit(1);
+    if (!project || project.companyId !== req.companyId) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const eventPayload = { ...rest, companyId: req.companyId! };
 
     const directives = await processComplianceEvent(eventPayload, {
       enrichContext,

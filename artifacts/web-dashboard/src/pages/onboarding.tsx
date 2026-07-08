@@ -32,6 +32,9 @@ const companySchema = z.object({
 
 const claimSchema = z.object({
   companyName: z.string().min(2, "Company name must be at least 2 characters"),
+  province: z.string().min(2, "Province is required"),
+  city: z.string().min(2, "City is required"),
+  phone: z.string().optional(),
   planTier: z.enum(["starter", "basic", "pro", "enterprise"]),
 });
 
@@ -94,7 +97,7 @@ export default function OnboardingPage() {
 
   const claimForm = useForm<z.infer<typeof claimSchema>>({
     resolver: zodResolver(claimSchema),
-    defaultValues: { companyName: "", planTier: "starter" },
+    defaultValues: { companyName: "", province: "", city: "", phone: "", planTier: "starter" },
   });
 
   const [inviteToken, setInviteToken] = useState(resolvedToken);
@@ -499,6 +502,47 @@ export default function OnboardingPage() {
                         </FormItem>
                       )}
                     />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={claimForm.control}
+                        name="city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Toronto" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={claimForm.control}
+                        name="province"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Province</FormLabel>
+                            <FormControl>
+                              <Input placeholder="ON" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={claimForm.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone Number (Optional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="555-123-4567" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField
                       control={claimForm.control}
                       name="planTier"
@@ -559,6 +603,47 @@ export default function OnboardingPage() {
                         <FormLabel>Company Name</FormLabel>
                         <FormControl>
                           <Input placeholder="Acme Construction Ltd." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={claimForm.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Toronto" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={claimForm.control}
+                      name="province"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Province</FormLabel>
+                          <FormControl>
+                            <Input placeholder="ON" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={claimForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="555-123-4567" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

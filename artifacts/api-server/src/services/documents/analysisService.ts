@@ -1,4 +1,4 @@
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { extractJson, extractText } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../../lib/objectStorage.js";
 import { logger } from "../../lib/logger.js";
 import { convertPDFPagesToImages } from "../../lib/pdfOcr.js";
@@ -63,23 +63,12 @@ Analyze this image (receipt, invoice, site photo, delivery slip, safety inspecti
 
 Respond with ONLY the JSON object. No markdown. No explanation.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.4",
-      max_completion_tokens: 8192,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "text", text: prompt },
-          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" } },
-        ],
-      }],
+    const parsed = await extractJson<Record<string, unknown>>({
+      prompt,
+      images: [{ mimeType, base64 }],
+      maxTokens: 8192,
+      fallback: { documentType: "Unknown", summary: "Uploaded and stored.", extractedData: {}, confidence: "low", ocrText: "" },
     });
-
-    const content = response.choices[0]?.message?.content ?? "{}";
-    let parsed: Record<string, unknown>;
-    try { parsed = JSON.parse(content); } catch {
-      parsed = { documentType: "Unknown", summary: "Uploaded and stored.", extractedData: {}, confidence: "low", ocrText: "" };
-    }
 
     const ocrText = typeof parsed.ocrText === "string" ? parsed.ocrText : "";
     const summary = typeof parsed.summary === "string" ? parsed.summary : null;
@@ -142,25 +131,12 @@ Then analyze and return ONLY a JSON object:
 
 Respond with ONLY the JSON object. No markdown. No explanation.`;
 
-        const visionContent: any = [
-          { type: "text", text: ocrPrompt },
-          ...images.map(img => ({
-            type: "image_url" as const,
-            image_url: { url: `data:${img.mimeType};base64,${img.base64}`, detail: "high" as const },
-          })),
-        ];
-
-        const visionResponse = await openai.chat.completions.create({
-          model: "gpt-5.4",
-          max_completion_tokens: 8192,
-          messages: [{ role: "user", content: visionContent }],
+        const visionParsed = await extractJson<Record<string, unknown>>({
+          prompt: ocrPrompt,
+          images,
+          maxTokens: 8192,
+          fallback: { documentType: "PDF", summary: "Scanned PDF document uploaded.", extractedData: {}, confidence: "low", ocrText: "" },
         });
-
-        const visionResultText = visionResponse.choices[0]?.message?.content ?? "{}";
-        let visionParsed: Record<string, unknown>;
-        try { visionParsed = JSON.parse(visionResultText); } catch {
-          visionParsed = { documentType: "PDF", summary: "Scanned PDF document uploaded.", extractedData: {}, confidence: "low", ocrText: "" };
-        }
 
         const ocrText = typeof visionParsed.ocrText === "string" ? visionParsed.ocrText : "";
         rawText = ocrText.trim() || rawText.trim();
@@ -190,17 +166,11 @@ ${rawText.slice(0, 6000)}
 
 Respond with ONLY the JSON object. No markdown.`;
 
-          const classifyResponse = await openai.chat.completions.create({
-            model: "gpt-5.4",
-            max_completion_tokens: 2048,
-            messages: [{ role: "user", content: classifyPrompt }],
+          const classifyParsed = await extractJson<Record<string, unknown>>({
+            prompt: classifyPrompt,
+            maxTokens: 2048,
+            fallback: { documentType: "PDF", summary: "PDF document uploaded.", extractedData: {}, confidence: "low" },
           });
-
-          const classifyContent = classifyResponse.choices[0]?.message?.content ?? "{}";
-          let classifyParsed: Record<string, unknown>;
-          try { classifyParsed = JSON.parse(classifyContent); } catch {
-            classifyParsed = { documentType: "PDF", summary: "PDF document uploaded.", extractedData: {}, confidence: "low" };
-          }
 
           const summary = typeof classifyParsed.summary === "string" ? classifyParsed.summary : (typeof visionParsed.summary === "string" ? visionParsed.summary : "PDF document stored.");
           await updateDocument(docId, projectId, {
@@ -245,17 +215,11 @@ ${textForAnalysis || "(No text could be extracted from this PDF)"}
 
 Respond with ONLY the JSON object. No markdown.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.4",
-      max_completion_tokens: 2048,
-      messages: [{ role: "user", content: prompt }],
+    const parsed = await extractJson<Record<string, unknown>>({
+      prompt,
+      maxTokens: 2048,
+      fallback: { documentType: "PDF", summary: "PDF document uploaded.", extractedData: {}, confidence: "low" },
     });
-
-    const content = response.choices[0]?.message?.content ?? "{}";
-    let parsed: Record<string, unknown>;
-    try { parsed = JSON.parse(content); } catch {
-      parsed = { documentType: "PDF", summary: "PDF document uploaded.", extractedData: {}, confidence: "low" };
-    }
 
     const summary = typeof parsed.summary === "string" ? parsed.summary : "PDF document stored.";
     const extractedText = rawText.trim() || summary;
@@ -304,17 +268,11 @@ ${textForAnalysis || "(No text could be extracted)"}
 
 Respond with ONLY the JSON object. No markdown.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.4",
-      max_completion_tokens: 2048,
-      messages: [{ role: "user", content: prompt }],
+    const parsed = await extractJson<Record<string, unknown>>({
+      prompt,
+      maxTokens: 2048,
+      fallback: { documentType: "Word Document", summary: "Document uploaded.", extractedData: {}, confidence: "low" },
     });
-
-    const content = response.choices[0]?.message?.content ?? "{}";
-    let parsed: Record<string, unknown>;
-    try { parsed = JSON.parse(content); } catch {
-      parsed = { documentType: "Word Document", summary: "Document uploaded.", extractedData: {}, confidence: "low" };
-    }
 
     const summary = typeof parsed.summary === "string" ? parsed.summary : "Word document stored.";
     const extractedText = rawText.trim() || summary;
@@ -354,17 +312,12 @@ Based on the filename and file type, generate a professional document profile as
 
 Respond with ONLY the JSON object, no markdown.`;
 
-    const response = await openai.chat.completions.create({
+    const parsed = await extractJson<Record<string, unknown>>({
+      prompt,
       model: "gpt-5-mini",
-      max_completion_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
+      maxTokens: 1024,
+      fallback: { documentType: ext, summary: `${ext} document uploaded.`, extractedData: {}, confidence: "low" },
     });
-
-    const content = response.choices[0]?.message?.content ?? "{}";
-    let parsed: Record<string, unknown>;
-    try { parsed = JSON.parse(content); } catch {
-      parsed = { documentType: ext, summary: `${ext} document uploaded.`, extractedData: {}, confidence: "low" };
-    }
 
     const summary = typeof parsed.summary === "string" ? parsed.summary : `${ext} document stored.`;
 
@@ -400,19 +353,7 @@ export async function reindexDocument(
         const images = await convertPDFPagesToImages(fileContent, OCR_MAX_PAGES, OCR_DPI);
         if (images.length > 0) {
           const ocrPrompt = `Extract ALL visible text from these scanned PDF pages verbatim. Return ONLY the raw text, no JSON, no explanations.`;
-          const visionContent: Parameters<typeof openai.chat.completions.create>[0]["messages"][number]["content"] = [
-            { type: "text", text: ocrPrompt },
-            ...images.map(img => ({
-              type: "image_url" as const,
-              image_url: { url: `data:${img.mimeType};base64,${img.base64}`, detail: "high" as const },
-            })),
-          ];
-          const ocrResponse = await openai.chat.completions.create({
-            model: "gpt-5.4",
-            max_completion_tokens: 8192,
-            messages: [{ role: "user", content: visionContent }],
-          });
-          rawText = ocrResponse.choices[0]?.message?.content ?? "";
+          rawText = await extractText({ prompt: ocrPrompt, images, maxTokens: 8192 });
         }
       }
 

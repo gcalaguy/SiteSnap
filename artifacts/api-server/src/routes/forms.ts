@@ -8,12 +8,20 @@ import {
   usersTable,
   contactsTable,
 } from "@workspace/db";
-import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, requireSuperAdmin } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
 import { z } from "zod";
 
 const router = Router();
+
+// Safe projection for embedding a user in a response — excludes email,
+// clerkUserId, systemRole, and pushToken, none of which any caller here needs.
+const PUBLIC_USER_COLUMNS = {
+  id: usersTable.id,
+  firstName: usersTable.firstName,
+  lastName: usersTable.lastName,
+} as const;
 
 const CreateFormBody = z.object({
   name: z.string().min(1),
@@ -68,7 +76,12 @@ router.get("/forms/:id", requireAuth, requireCompany, requireTenantCtx, asyncHan
   res.json(template);
 }))
 
-router.post("/forms", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+// form_templates has no companyId — it's a single platform-wide shared
+// library (every company reads the same rows via GET /forms), not tenant
+// data, so requireOwnerOrForeman alone let any single company's staff edit
+// or deactivate a template used by every other tenant. Mutating it is
+// restricted to super admins; no frontend currently calls these routes.
+router.post("/forms", requireAuth, requireSuperAdmin, asyncHandler(async (req, res) => {
   const parsed = CreateFormBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
 
@@ -86,7 +99,7 @@ router.post("/forms", requireAuth, requireCompany, requireTenantCtx, requireOwne
 }))
 
 // PUT /forms/:id — update form template
-router.put("/forms/:id", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.put("/forms/:id", requireAuth, requireSuperAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -104,7 +117,7 @@ router.put("/forms/:id", requireAuth, requireCompany, requireTenantCtx, requireO
 }))
 
 // DELETE /forms/:id — deactivate form template
-router.delete("/forms/:id", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
+router.delete("/forms/:id", requireAuth, requireSuperAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -211,7 +224,7 @@ router.get("/form-submissions/:id", requireAuth, requireCompany, requireTenantCt
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
 
   const [template] = await db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, row.templateId));
-  const [worker] = await db.select().from(usersTable).where(eq(usersTable.id, row.userId));
+  const [worker] = await db.select(PUBLIC_USER_COLUMNS).from(usersTable).where(eq(usersTable.id, row.userId));
   const photos = await db.select().from(submissionPhotosTable).where(eq(submissionPhotosTable.submissionId, id));
 
   let contact = null;

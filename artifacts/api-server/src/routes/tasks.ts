@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, tasksTable } from "@workspace/db";
-import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { notify } from "../lib/notify";
 import { assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
@@ -71,7 +71,7 @@ router.get("/", requireAuth, requireCompany, requireTenantCtx, asyncHandler(asyn
 }));
 
 // POST /projects/:projectId/tasks
-router.post("/", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
+router.post("/", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   if (!req.companyId) { res.status(403).json({ error: "No company associated with this account" }); return; }
 
   const projectId = parseInt(req.params.projectId as string);
@@ -140,6 +140,26 @@ router.patch("/:taskId", requireAuth, requireCompany, requireTenantCtx, asyncHan
     return;
   }
 
+  // Workers may only flip the status of their own assigned task — reassigning,
+  // retitling, or reprioritizing any task in the project is a PM action.
+  if (req.userRole === "worker") {
+    const [existing] = await db
+      .select({ assignedToUserId: tasksTable.assignedToUserId })
+      .from(tasksTable)
+      .where(and(eq(tasksTable.id, taskId), eq(tasksTable.projectId, projectId)))
+      .limit(1);
+    if (!existing) { res.status(404).json({ error: "Task not found" }); return; }
+    if (existing.assignedToUserId !== req.userId) {
+      res.status(403).json({ error: "You can only update tasks assigned to you" });
+      return;
+    }
+    const { title, description, assignedToUserId, priority, dueDate } = parsed.data;
+    if (title !== undefined || description !== undefined || assignedToUserId !== undefined || priority !== undefined || dueDate !== undefined) {
+      res.status(403).json({ error: "You can only update the status of your own tasks" });
+      return;
+    }
+  }
+
   const updates: Record<string, unknown> = {};
   if (parsed.data.title !== undefined) updates.title = parsed.data.title;
   if (parsed.data.description !== undefined) updates.description = parsed.data.description;
@@ -179,7 +199,7 @@ router.patch("/:taskId", requireAuth, requireCompany, requireTenantCtx, asyncHan
 }));
 
 // DELETE /projects/:projectId/tasks/:taskId
-router.delete("/:taskId", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
+router.delete("/:taskId", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);
   const taskId = parseInt(req.params.taskId as string);
   if (isNaN(projectId) || isNaN(taskId)) {

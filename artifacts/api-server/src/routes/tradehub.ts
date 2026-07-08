@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import {
   getUserById,
+  getPublicUserById,
   getProfileByUserId,
   insertNotification,
   listFeedPosts,
@@ -194,7 +195,7 @@ router.post("/tradehub/posts", requireAuth, asyncHandler(async (req, res) => {
 router.get("/tradehub/posts/:id", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    const post = await getPostById(id);
+    const post = await getPostById(id, req.companyId ?? null);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
     const enriched = await enrichPost(post, req.userId);
@@ -231,12 +232,17 @@ router.get("/tradehub/posts/:id", requireAuth, asyncHandler(async (req, res) => 
 router.delete("/tradehub/posts/:id", requireAuth, asyncHandler(async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
-    const post = await getPostById(id);
+    const isSuperAdmin = req.systemRole === "super_admin";
+    // Super admins moderate posts across every company, so they must bypass
+    // the same-company visibility scoping getPostById applies to everyone else.
+    const post = isSuperAdmin
+      ? (await listPostsByIds([id]))[0]
+      : await getPostById(id, req.companyId ?? null);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
-    if (post.userId !== req.userId && req.systemRole !== "super_admin") {
+    if (post.userId !== req.userId && !isSuperAdmin) {
       res.status(403).json({ error: "You can only delete your own posts" }); return;
     }
-    await deletePost(id, req.companyId ?? null);
+    await deletePost(id, isSuperAdmin ? null : (req.companyId ?? null));
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "tradehub/posts/:id DELETE error");
@@ -254,7 +260,7 @@ router.post("/tradehub/posts/:id/comments", requireAuth, asyncHandler(async (req
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
     const { content } = parsed.data;
 
-    const post = await getPostById(postId);
+    const post = await getPostById(postId, req.companyId ?? null);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
     const comment = await insertComment({
@@ -263,7 +269,10 @@ router.post("/tradehub/posts/:id/comments", requireAuth, asyncHandler(async (req
       content: content.trim(),
     });
 
-    const author = await getUserById(req.userId!);
+    // getPublicUserById, not getUserById — this author object is returned
+    // directly in the response below, so it must never carry email/
+    // clerkUserId/systemRole/pushToken.
+    const author = await getPublicUserById(req.userId!);
     const profile = await getProfileByUserId(req.userId!);
 
     // Notify post author
@@ -297,7 +306,7 @@ router.post("/tradehub/posts/:id/comments", requireAuth, asyncHandler(async (req
 router.post("/tradehub/posts/:id/react", requireAuth, asyncHandler(async (req, res) => {
   try {
     const postId = parseInt(req.params.id as string);
-    const post = await getPostById(postId);
+    const post = await getPostById(postId, req.companyId ?? null);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
     const existing = await getUserReactionForPost(postId, req.userId!);
@@ -359,7 +368,7 @@ router.post("/tradehub/jobs/:id/apply", requireAuth, asyncHandler(async (req, re
     if (!parsed.success) { res.status(400).json({ error: "Malformed request payload", details: parsed.error.flatten() }); return; }
     const { message } = parsed.data;
 
-    const post = await getPostById(postId);
+    const post = await getPostById(postId, req.companyId ?? null);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
     if (post.type !== "job") { res.status(400).json({ error: "This is not a job post" }); return; }
     if (post.userId === req.userId) { res.status(400).json({ error: "Cannot apply to your own job" }); return; }
@@ -404,7 +413,7 @@ router.patch("/tradehub/applications/:id", requireAuth, asyncHandler(async (req,
     const app = await getJobApplicationById(id);
     if (!app) { res.status(404).json({ error: "Application not found" }); return; }
 
-    const post = await getPostById(app.postId);
+    const post = await getPostById(app.postId, req.companyId ?? null);
     if (!post || post.userId !== req.userId) { res.status(403).json({ error: "Not your job post" }); return; }
 
     const updated = await updateJobApplicationStatus(id, app.postId, status);
@@ -599,7 +608,7 @@ const PostMediaBody = z.object({
 router.post("/tradehub/posts/:id/media", requireAuth, asyncHandler(async (req, res) => {
   try {
     const postId = parseInt(req.params.id as string);
-    const post = await getPostById(postId);
+    const post = await getPostById(postId, req.companyId ?? null);
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
     if (post.userId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
 

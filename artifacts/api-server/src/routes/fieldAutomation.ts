@@ -10,7 +10,7 @@ import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany, requireTenantCtx, requireOwner } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requirePermission } from "../lib/permissionGate";
-import { assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
+import { assertProjectInCompany as verifyProjectAccess, canAccessProject } from "../lib/projectAccess";
 import { z } from "zod";
 import { logger } from "../lib/logger";
 import { processSafetySignoff } from "../services/cor/evidenceAggregator";
@@ -59,6 +59,10 @@ router.post(
       res.status(404).json({ error: "Project not found" });
       return;
     }
+    if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+      res.status(403).json({ error: "You are not assigned to this project" });
+      return;
+    }
 
     const [log] = await db
       .insert(dailyLogsTable)
@@ -94,6 +98,10 @@ router.get(
     const project = await verifyProjectAccess(projectId, req.companyId!);
     if (!project) {
       res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+      res.status(403).json({ error: "You are not assigned to this project" });
       return;
     }
 
@@ -221,6 +229,10 @@ router.post(
       res.status(404).json({ error: "Project not found" });
       return;
     }
+    if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+      res.status(403).json({ error: "You are not assigned to this project" });
+      return;
+    }
 
     const [photo] = await db
       .insert(sitePhotosTable)
@@ -255,6 +267,10 @@ router.get(
     const project = await verifyProjectAccess(projectId, req.companyId!);
     if (!project) {
       res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+      res.status(403).json({ error: "You are not assigned to this project" });
       return;
     }
 
@@ -370,6 +386,10 @@ router.post(
       res.status(404).json({ error: "Project not found" });
       return;
     }
+    if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+      res.status(403).json({ error: "You are not assigned to this project" });
+      return;
+    }
 
     const [signoff] = await db
       .insert(safetySignoffsTable)
@@ -409,6 +429,10 @@ router.get(
     const project = await verifyProjectAccess(projectId, req.companyId!);
     if (!project) {
       res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+      res.status(403).json({ error: "You are not assigned to this project" });
       return;
     }
 

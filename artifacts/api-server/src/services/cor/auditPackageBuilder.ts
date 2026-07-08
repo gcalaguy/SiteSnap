@@ -57,7 +57,14 @@ export interface PackageMeta {
 // ── CSV helpers ───────────────────────────────────────────────────────────────
 
 function csvEscape(v: unknown): string {
-  const s = v == null ? "" : String(v);
+  let s = v == null ? "" : String(v);
+  // Neutralize CSV/formula injection (CWE-1236) — same fix as accounting.ts's
+  // escapeCsv: a value starting with one of these characters is interpreted
+  // as a formula by Excel/Sheets on open, and this export includes free-text
+  // fields (inspection notes, credential names) an attacker could seed.
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`;
+  }
   if (s.includes(",") || s.includes('"') || s.includes("\n")) {
     return `"${s.replace(/"/g, '""')}"`;
   }

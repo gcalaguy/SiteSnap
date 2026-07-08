@@ -572,34 +572,6 @@ export async function getActionRequiredCapas(companyId: number): Promise<ActionR
   }));
 }
 
-// ── Company member picker ─────────────────────────────────────────────────────
-// (used for CAPA assignment)
-
-export async function getCompanyMembersForPicker(companyId: number): Promise<Array<{
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: string;
-}>> {
-  return db
-    .select({
-      id: usersTable.id,
-      firstName: usersTable.firstName,
-      lastName: usersTable.lastName,
-      email: usersTable.email,
-      role: userMembershipsTable.role,
-    })
-    .from(usersTable)
-    .innerJoin(
-      userMembershipsTable,
-      and(
-        eq(userMembershipsTable.userId, usersTable.id),
-        eq(userMembershipsTable.companyId, companyId),
-      ),
-    )
-    .orderBy(asc(usersTable.lastName), asc(usersTable.firstName));
-}
 
 // ── Shadow Auditor data aggregation ──────────────────────────────────────────
 

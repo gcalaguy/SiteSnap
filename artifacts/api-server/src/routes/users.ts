@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable } from "@workspace/db";
 import { eq, and, gt, ilike } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 import { requireAuth, requireClerkSession, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { resolvePermission } from "../lib/permissionGate";
@@ -49,12 +49,32 @@ router.post("/users/sync", requireClerkSession, asyncHandler(async (req, res) =>
     res.status(400).json({ error: "Invalid body", details: parsed.error });
     return;
   }
-  const { clerkUserId, email, firstName, lastName } = parsed.data;
+  const { clerkUserId, firstName, lastName } = parsed.data;
 
   // Ensure the authenticated Clerk session matches the clerkUserId being synced
   const auth = getAuth(req);
   if (auth?.userId !== clerkUserId) {
     res.status(403).json({ error: "Cannot sync a different user's account" });
+    return;
+  }
+
+  // P0: the email must come from Clerk's verified profile, never the request
+  // body. autoAcceptPendingInvitation below grants company membership (up to
+  // "owner") based on this email matching a pending invitation — trusting a
+  // client-supplied email here would let anyone claim any invited address and
+  // join a company under someone else's identity, bypassing the same check
+  // /invitations/:token/accept already enforces.
+  let email: string;
+  try {
+    const clerkUser = await clerkClient.users.getUser(clerkUserId);
+    const verifiedEmail = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase().trim();
+    if (!verifiedEmail) {
+      res.status(401).json({ error: "Unable to verify email address from Clerk session." });
+      return;
+    }
+    email = verifiedEmail;
+  } catch {
+    res.status(401).json({ error: "Unable to sync user. Please try signing out and back in." });
     return;
   }
 

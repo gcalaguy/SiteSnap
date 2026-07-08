@@ -299,6 +299,12 @@ export const requireCompany = (
   next();
 };
 
+// Boolean check for the common "owner/foreman see everything, worker sees own"
+// data-filtering pattern inside a handler. Unlike requireOwnerOrForeman, this
+// does not reject the request — it's used to branch what data is returned.
+export const isPrivilegedRole = (req: Request): boolean =>
+  req.userRole === "owner" || req.userRole === "foreman";
+
 // Middleware: require owner or foreman role
 export const requireOwnerOrForeman = (
   req: Request,

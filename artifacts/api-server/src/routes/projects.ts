@@ -286,6 +286,26 @@ router.get(
 
     if (!project) throw new NotFoundError("Project not found");
 
+    // Workers may only access projects they are assigned to — same rule as
+    // GET /projects/:projectId, which this summary exposes the same data for.
+    if (req.userRole === "worker") {
+      const [membership] = await db
+        .select()
+        .from(projectMembersTable)
+        .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.userId, req.userId!)))
+        .limit(1);
+
+      if (!membership) {
+        const [schedule] = await db
+          .select()
+          .from(workerSchedulesTable)
+          .where(and(eq(workerSchedulesTable.projectId, projectId), eq(workerSchedulesTable.userId, req.userId!)))
+          .limit(1);
+
+        if (!schedule) throw new ForbiddenError("You are not assigned to this project");
+      }
+    }
+
     const [reports, rfis, analyses, tasks] = await Promise.all([
       db.select().from(dailyReportsTable).where(eq(dailyReportsTable.projectId, projectId)),
       db.select().from(rfisTable).where(eq(rfisTable.projectId, projectId)),

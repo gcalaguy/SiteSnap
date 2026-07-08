@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db, userMembershipsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireCompany, requireTenantCtx, requireOwner, requireOwnerOrForeman } from "../lib/auth";
+import { listCompanyMembers } from "../repositories/companies";
 import { asyncHandler } from "../lib/asyncHandler";
 import { canAccessProject, assertProjectInCompany as resolveProject } from "../lib/projectAccess";
 import { ForbiddenError, NotFoundError, BadRequestError } from "../lib/errors";
@@ -42,7 +43,6 @@ import {
   voidCapaTicket,
   getCapaSummary,
   getActionRequiredCapas,
-  getCompanyMembersForPicker,
   getCompanyExpiringSoonCredentials,
   createAuditorToken,
   listAuditorTokens,
@@ -991,7 +991,10 @@ router.get(
   requireTenantCtx,
   requireOwnerOrForeman,
   asyncHandler(async (req, res) => {
-    const members = await getCompanyMembersForPicker(req.companyId!);
+    const all = await listCompanyMembers(req.companyId!);
+    const members = all
+      .map((m) => ({ id: m.id, firstName: m.firstName, lastName: m.lastName, email: m.email, role: m.role }))
+      .sort((a, b) => (a.lastName ?? "").localeCompare(b.lastName ?? "") || (a.firstName ?? "").localeCompare(b.firstName ?? ""));
     res.json({ members });
   }),
 );

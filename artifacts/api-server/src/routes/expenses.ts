@@ -2,10 +2,10 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { db, expensesTable, usersTable, costAnalysesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { extractJson } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../lib/objectStorage.js";
 import { convertHeicToJpeg, isHeic } from "../lib/imageConvert.js";
-import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, isPrivilegedRole } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 import { canAccessProject, assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
@@ -72,7 +72,7 @@ router.get("/", requireAuth, requireCompany, requireTenantCtx, requirePermission
     return;
   }
 
-  const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+  const isPrivileged = isPrivilegedRole(req);
   const conditions = [eq(expensesTable.projectId, projectId)];
   if (!isPrivileged) conditions.push(eq(expensesTable.submittedByUserId, req.userId!));
 
@@ -207,21 +207,12 @@ Analyze this receipt image and return ONLY a JSON object with this exact shape:
 
 Respond with ONLY the JSON object. No markdown. No explanation.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.4",
-      max_completion_tokens: 1024,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "text", text: prompt },
-          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" } },
-        ],
-      }],
+    const parsedResult = await extractJson<Record<string, unknown>>({
+      prompt,
+      images: [{ mimeType, base64 }],
+      maxTokens: 1024,
+      fallback: {},
     });
-
-    const content = response.choices[0]?.message?.content ?? "{}";
-    let parsedResult: Record<string, unknown>;
-    try { parsedResult = JSON.parse(content); } catch { parsedResult = {}; }
 
     res.json({
       vendor: typeof parsedResult.vendor === "string" ? parsedResult.vendor : null,
@@ -248,7 +239,7 @@ router.delete("/:expenseId", requireAuth, requireCompany, requireTenantCtx, requ
     .limit(1);
   if (!existing) { res.status(404).json({ error: "Expense not found" }); return; }
 
-  const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+  const isPrivileged = isPrivilegedRole(req);
   if (!isPrivileged && existing.submittedByUserId !== req.userId) {
     res.status(403).json({ error: "Not authorized" });
     return;

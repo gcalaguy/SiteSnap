@@ -148,16 +148,16 @@ function QuickBooksCard() {
   );
 }
 
-// ── Audit Vault Card (Enterprise-only) ─────────────────────────────────────────
+// ── Audit Log Card (Enterprise-only) ─────────────────────────────────────────
 
-function AuditVaultCard() {
+function AuditLogCard() {
   const [, navigate] = useLocation();
   return (
     <div className="rounded-md border border-border bg-muted/20 p-4 space-y-3">
       <div className="flex items-start gap-2">
         <Archive className="h-5 w-5 mt-0.5 shrink-0 text-primary" />
         <div className="space-y-1">
-          <p className="text-sm font-semibold">Compliance & Audit Vault</p>
+          <p className="text-sm font-semibold">Compliance & Audit Log</p>
           <p className="text-xs text-muted-foreground">
             Central pane to view, save, and print verified snapshots of all active projects, financials, timesheets, and security logs for official audits.
           </p>
@@ -167,10 +167,10 @@ function AuditVaultCard() {
         variant="outline"
         size="sm"
         className="gap-2"
-        onClick={() => navigate("/audit-vault")}
+        onClick={() => navigate("/audit-log")}
       >
         <Archive className="h-4 w-4" />
-        Open Audit Vault
+        Open Audit Log
       </Button>
     </div>
   );
@@ -259,7 +259,7 @@ export function AccountingTab() {
           <Separator />
 
           {/* Compliance & Audit Vault (Enterprise-only) */}
-          {hasVaultAccess ? <AuditVaultCard /> : <UpgradeToEnterpriseBanner />}
+          {hasVaultAccess ? <AuditLogCard /> : <UpgradeToEnterpriseBanner />}
         </CardContent>
       )}
     </Card>

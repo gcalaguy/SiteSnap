@@ -8,7 +8,7 @@ import {
   companiesTable,
   usersTable,
   userMembershipsTable,
-  projectsTable,
+  tenantExportReceiptsTable,
   insertPlanSchema,
   insertFeatureSchema,
   insertCompanySchema,
@@ -18,8 +18,9 @@ import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireSuperAdmin } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { getStripeClient } from "../lib/stripeClient";
-import { sendEmail, ResendSandboxError, buildAppBase, escapeHtml } from "../lib/mailer";
+import { sendEmail, ResendSandboxError, buildAppBase } from "../lib/mailer";
 import { logger } from "../lib/logger";
+import { buildTenantExport, deleteTenantData, purgeObjectStoragePaths } from "../services/tenantExport";
 import crypto from "crypto";
 
 const router = Router();
@@ -435,20 +436,18 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function sendTenantInviteEmail(opts: {
   to: string;
   token: string;
-  companyName: string;
   appBase: string;
 }): void {
   const claimUrl = `${opts.appBase}/sign-up?token=${opts.token}`;
-  const safeCompanyName = escapeHtml(opts.companyName);
   sendEmail({
     to: [opts.to],
-    subject: `You're invited to set up ${opts.companyName} on Site Snap`,
+    subject: `You're invited to set up your company on Site Snap`,
     html: `
 <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
   <div style="text-align:center;margin-bottom:28px;">
     <span style="font-size:32px;">🏗️</span>
     <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">Welcome to Site Snap</h1>
-    <p style="color:#64748b;margin:0;">Set up <strong>${safeCompanyName}</strong> and become its owner</p>
+    <p style="color:#64748b;margin:0;">Set up your company and become its owner</p>
   </div>
   <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;margin-bottom:20px;">
     <p style="color:#334155;margin:0 0 16px;">Click the button below to create your account and claim ownership of your new company:</p>
@@ -466,17 +465,14 @@ function sendTenantInviteEmail(opts: {
   });
 }
 
-// POST /admin/tenants — super-admin creates a company (no owner yet) and emails
-// the prospective owner a one-time claim link.
+// POST /admin/tenants — super-admin invites a prospective owner by email only.
+// A placeholder company row is created to hold the claim token; the owner
+// supplies the real name, contact details, and plan when they claim it via
+// POST /companies/:id/claim (see routes/companies.ts).
 router.post("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
   const raw = req.body as Record<string, unknown>;
-  const name = typeof raw.name === "string" ? raw.name.trim() : "";
   const province = typeof raw.province === "string" ? raw.province.trim() : "";
   const city = typeof raw.city === "string" ? raw.city.trim() : "";
-  if (!name || !province || !city) {
-    res.status(400).json({ error: "name, province, and city are required" });
-    return;
-  }
   const ownerEmail = typeof raw.ownerEmail === "string" ? raw.ownerEmail.trim() : "";
   if (!ownerEmail || !EMAIL_RE.test(ownerEmail)) {
     res.status(400).json({ error: "ownerEmail is required and must be a valid email address" });
@@ -492,13 +488,10 @@ router.post("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
   // Required by POST /companies/:id/claim.
   const claimToken = crypto.randomBytes(24).toString("hex");
   const body = insertCompanySchema.parse({
-    name,
+    // Placeholder — the owner sets the real name at claim time (claimCompanyTransaction).
+    name: "Pending Setup",
     province,
     city,
-    phone: raw.phone ?? null,
-    address: raw.address ?? null,
-    website: raw.website ?? null,
-    hstNumber: raw.hstNumber ?? null,
     referralCode,
   });
   const [company] = await db
@@ -506,22 +499,7 @@ router.post("/admin/tenants", ...guard, asyncHandler(async (req, res) => {
     .values({ ...body, claimToken, claimOwnerEmail: ownerEmail })
     .returning();
 
-  const planTier = typeof raw.planTier === "string" ? raw.planTier.trim().toLowerCase() : "starter";
-  const [matchedPlan] = await db.select().from(plansTable).where(eq(plansTable.slug, planTier)).limit(1);
-  const fallbackPlan = matchedPlan
-    ? matchedPlan
-    : (await db.select().from(plansTable).where(eq(plansTable.slug, "starter")).limit(1))[0];
-
-  if (fallbackPlan) {
-    await db.insert(subscriptionsTable).values({
-      companyId: company.id,
-      planId: fallbackPlan.id,
-      status: "active",
-      billingCycle: "monthly",
-    });
-  }
-
-  sendTenantInviteEmail({ to: ownerEmail, token: claimToken, companyName: company.name, appBase });
+  sendTenantInviteEmail({ to: ownerEmail, token: claimToken, appBase });
 
   res.status(201).json(company);
 }));
@@ -645,11 +623,57 @@ router.patch("/admin/tenants/:id/subscription", ...guard, asyncHandler(async (re
   }
 }));
 
-// DELETE /admin/tenants/:id
-router.delete("/admin/tenants/:id", ...guard, asyncHandler(async (req, res) => {
+// POST /admin/tenants/:id/export
+// Generates a ZIP of every row belonging to this tenant (plus referenced
+// attachment files) and a receipt proving the export happened. DELETE
+// /admin/tenants/:id below requires this receipt's id before it will run.
+router.post("/admin/tenants/:id/export", ...guard, asyncHandler(async (req, res) => {
   const companyId = Number(req.params.id);
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  const { zipBuffer, sha256, rowCounts } = await buildTenantExport(db, companyId, Number(req.userId));
+
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+  const [receipt] = await db.insert(tenantExportReceiptsTable).values({
+    companyId,
+    sha256,
+    rowCounts,
+    createdByUserId: Number(req.userId),
+    expiresAt,
+  }).returning();
+
+  logger.info({ companyId, companyName: company.name, sha256, rowCounts, exportedByUserId: req.userId }, "Tenant data exported ahead of deletion");
+
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename="tenant_${companyId}_export_${new Date().toISOString().slice(0, 10)}.zip"`);
+  res.setHeader("Content-Length", String(zipBuffer.length));
+  res.setHeader("X-Export-Receipt-Id", String(receipt.id));
+  res.setHeader("X-Export-Sha256", sha256);
+  res.send(zipBuffer);
+}));
+
+// DELETE /admin/tenants/:id
+// Requires a fresh, unconsumed export receipt (see POST .../export above) for
+// this same tenant — the server-side proof the data was exported first.
+router.delete("/admin/tenants/:id", ...guard, asyncHandler(async (req, res) => {
+  const companyId = Number(req.params.id);
+  const receiptId = Number(req.query.receiptId ?? req.body?.receiptId);
+  if (!receiptId) {
+    res.status(400).json({ error: "Export receipt required — export tenant data before deleting." });
+    return;
+  }
+
+  const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
+  if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  const [receipt] = await db.select().from(tenantExportReceiptsTable)
+    .where(and(eq(tenantExportReceiptsTable.id, receiptId), eq(tenantExportReceiptsTable.companyId, companyId)))
+    .limit(1);
+  if (!receipt || receipt.consumedAt || receipt.expiresAt < new Date()) {
+    res.status(409).json({ error: "Export is missing or expired — re-export before deleting." });
+    return;
+  }
 
   // MED-007: cancel active Stripe subscription before deleting DB rows so the
   // customer is not billed for a tenant that no longer exists.
@@ -663,73 +687,28 @@ router.delete("/admin/tenants/:id", ...guard, asyncHandler(async (req, res) => {
     }
   }
 
+  let deletedObjectPaths: string[] = [];
+
   // Wrap everything in a transaction so partial failures are rolled back
   await db.transaction(async (tx) => {
-    // Gather all project IDs for this company up-front
-    const projectRows = await tx.select({ id: projectsTable.id }).from(projectsTable).where(eq(projectsTable.companyId, companyId));
-    const projectIds = projectRows.map((r) => r.id);
-
-    // Step 1: Null out nullable FKs that point at this company's projects
-    if (projectIds.length > 0) {
-      await tx.execute(sql`UPDATE leads SET converted_project_id = NULL WHERE converted_project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`UPDATE quotes SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`UPDATE invoices SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`UPDATE builder_estimates SET project_id = NULL WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-    }
-
-    // Step 2: Delete child rows that reference this company's projects.
-    // Use raw SQL so every subquery resolves the same set of project IDs,
-    // avoiding the subtle subquery-inlining bugs that can break Drizzle.
-    if (projectIds.length > 0) {
-      // Deep child tables (photos of reports, items/alerts of inspections)
-      await tx.execute(sql`DELETE FROM daily_report_photos WHERE report_id IN (SELECT id FROM daily_reports WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId}))`);
-      await tx.execute(sql`DELETE FROM inspection_items    WHERE inspection_id IN (SELECT id FROM inspections WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId}))`);
-      await tx.execute(sql`DELETE FROM inspection_alerts   WHERE inspection_id IN (SELECT id FROM inspections WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId}))`);
-
-      // Project-scoped tables — ordered so no FK is violated
-      await tx.execute(sql`DELETE FROM inspections        WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM notifications      WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM change_orders      WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM worker_schedules   WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM time_entries       WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM daily_reports      WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM cost_analyses      WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM rfis               WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM tasks              WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM project_documents  WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM timesheets         WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM quotes             WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-      await tx.execute(sql`DELETE FROM invoices           WHERE project_id IN (SELECT id FROM projects WHERE company_id = ${companyId})`);
-    }
-
-    // Step 3: Delete projects (project_members, project_notes cascade via FK)
-    await tx.execute(sql`DELETE FROM projects WHERE company_id = ${companyId}`);
-
-    // Step 4: Delete company-level rows without cascade
+    await tx.update(tenantExportReceiptsTable).set({ consumedAt: new Date() }).where(eq(tenantExportReceiptsTable.id, receiptId));
     await tx.execute(sql`UPDATE users SET active_company_id = NULL WHERE active_company_id = ${companyId}`);
 
-    await tx.execute(sql`DELETE FROM payments WHERE company_id = ${companyId}`);
-    await tx.execute(sql`DELETE FROM lead_activities WHERE lead_id IN (SELECT id FROM leads WHERE company_id = ${companyId})`);
-    await tx.execute(sql`DELETE FROM leads WHERE company_id = ${companyId}`);
-    await tx.execute(sql`DELETE FROM contacts WHERE company_id = ${companyId}`);
+    const result = await deleteTenantData(tx, companyId);
+    deletedObjectPaths = result.deletedObjectPaths;
 
-    // Financial records (project_id already nulled above)
-    await tx.execute(sql`DELETE FROM invoices WHERE company_id = ${companyId}`);
-    await tx.execute(sql`DELETE FROM quotes WHERE company_id = ${companyId}`);
-
-    // Estimates and templates
-    await tx.execute(sql`DELETE FROM builder_estimates WHERE company_id = ${companyId}`);
-    await tx.execute(sql`DELETE FROM estimate_templates WHERE company_id = ${companyId}`);
-
-    // Misc company-scoped tables
-    await tx.execute(sql`DELETE FROM file_attachments WHERE company_id = ${companyId}`);
-    await tx.execute(sql`DELETE FROM quickbooks_connections WHERE company_id = ${companyId}`);
-    await tx.execute(sql`DELETE FROM estimator_actuals WHERE company_id = ${companyId}`);
-
-    // Step 5: Delete subscriptions and invitations, then the company
-    await tx.execute(sql`DELETE FROM invitations WHERE company_id = ${companyId}`);
-    await tx.execute(sql`DELETE FROM subscriptions WHERE company_id = ${companyId}`);
+    // Deleting the company cascades every remaining tenant-scoped table
+    // (see DIRECT_TENANT_TABLES in services/tenantExport.ts) plus this receipt.
     await tx.execute(sql`DELETE FROM companies WHERE id = ${companyId}`);
+  });
+
+  // audit_logs.company_id cascades on company delete, so a normal audit-log
+  // row scoped to this tenant would vanish along with everything else — log
+  // durably via pino instead so the deletion is traceable after the fact.
+  logger.info({ companyId, companyName: company.name, deletedByUserId: req.userId, exportSha256: receipt.sha256, rowCounts: receipt.rowCounts }, "Tenant deleted by super admin");
+
+  purgeObjectStoragePaths(deletedObjectPaths).catch((err) => {
+    logger.warn({ err, companyId }, "Tenant deleted but some object storage cleanup failed");
   });
 
   res.json({ ok: true });

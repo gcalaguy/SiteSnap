@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, withTenantCtx, timeEntriesTable, projectsTable, usersTable, timesheetsTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, isNull } from "drizzle-orm";
-import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, isPrivilegedRole } from "../lib/auth";
 import { canAccessProject } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
 import { logger } from "../lib/logger";
@@ -94,7 +94,7 @@ router.get("/", requireAuth, requireCompany, requireTenantCtx, asyncHandler(asyn
   }
 
   // Workers only see their own entries; foreman/owner see all
-  const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+  const isPrivileged = isPrivilegedRole(req);
   const where = isPrivileged
     ? and(eq(timeEntriesTable.projectId, projectId), eq(timeEntriesTable.companyId, req.companyId!))
     : and(eq(timeEntriesTable.projectId, projectId), eq(timeEntriesTable.companyId, req.companyId!), eq(timeEntriesTable.userId, req.userId!));
@@ -224,7 +224,7 @@ router.patch("/:entryId", requireAuth, requireCompany, requireTenantCtx, asyncHa
   const entryId = parseInt(req.params.entryId as string);
   if (isNaN(projectId) || isNaN(entryId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+  const isPrivileged = isPrivilegedRole(req);
 
   const [existing] = await db
     .select()
@@ -289,7 +289,7 @@ router.delete("/:entryId", requireAuth, requireCompany, requireTenantCtx, asyncH
   const entryId = parseInt(req.params.entryId as string);
   if (isNaN(projectId) || isNaN(entryId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+  const isPrivileged = isPrivilegedRole(req);
   const where = isPrivileged
     ? and(eq(timeEntriesTable.id, entryId), eq(timeEntriesTable.companyId, req.companyId!))
     : and(eq(timeEntriesTable.id, entryId), eq(timeEntriesTable.userId, req.userId!), eq(timeEntriesTable.companyId, req.companyId!));

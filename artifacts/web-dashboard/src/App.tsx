@@ -50,7 +50,7 @@ import SafetyCompliancePage from "@/pages/safety-compliance";
 import SafetyPrintPage from "@/pages/safety-print";
 import WorkerDocumentsPage from "@/pages/vault";
 import MyVaultPage from "@/pages/my-vault";
-import AuditVaultPage from "@/pages/audit-vault";
+import AuditLogPage from "@/pages/audit-log";
 import WorkerPortalPage from "@/pages/worker-portal";
 import WorkerPortalSubmitPage from "@/pages/worker-portal-submit";
 import WorkerPortalDetailPage from "@/pages/worker-portal-detail";
@@ -348,7 +348,7 @@ function AuthApp() {
           <Route path="/rfi-submittal" component={RfiSubmittalPage} />
           <Route path="/worker-documents"><PermissionGuard permissionKey="viewVault"><WorkerDocumentsPage /></PermissionGuard></Route>
           <Route path="/my-vault"><PermissionGuard permissionKey="viewVault"><MyVaultPage /></PermissionGuard></Route>
-          <Route path="/audit-vault"><PermissionGuard permissionKey="viewVault"><AuditVaultPage /></PermissionGuard></Route>
+          <Route path="/audit-log"><PermissionGuard permissionKey="viewVault"><AuditLogPage /></PermissionGuard></Route>
           <Route path="/inspections">
             <Redirect to="/safety-compliance" />
           </Route>

@@ -511,9 +511,19 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
     return;
   }
 
-  // Extract onboarding fields from request body
+  // Extract onboarding fields from request body — the owner now supplies the
+  // company profile and plan at claim time instead of the super-admin at invite time.
   const companyName = typeof req.body.companyName === "string"
     ? req.body.companyName.trim()
+    : null;
+  const province = typeof req.body.province === "string"
+    ? req.body.province.trim()
+    : null;
+  const city = typeof req.body.city === "string"
+    ? req.body.city.trim()
+    : null;
+  const phone = typeof req.body.phone === "string"
+    ? req.body.phone.trim()
     : null;
   const planTier = typeof req.body.planTier === "string"
     ? req.body.planTier.trim().toLowerCase()
@@ -524,6 +534,9 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
     requestingUserId: req.userId!,
     suppliedToken,
     companyName,
+    province,
+    city,
+    phone,
     planTier,
   });
 

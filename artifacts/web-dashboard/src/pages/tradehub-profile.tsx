@@ -168,12 +168,6 @@ export default function TradehubProfilePage() {
   });
   const profileMedia: ProfileMediaItem[] = isMe ? myMedia : theirMedia;
 
-  const addMediaMutation = useMutation({
-    mutationFn: (payload: { url: string; objectPath?: string; mediaType: string; fileName?: string }) =>
-      customFetch("/api/tradehub/profile/me/media", { method: "POST", body: JSON.stringify(payload) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-profile-media-me"] }),
-    onError: () => toast({ title: "Error", description: "Failed to save media", variant: "destructive" }),
-  });
   const deleteMediaMutation = useMutation({
     mutationFn: (id: number) => customFetch(`/api/tradehub/profile/media/${id}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tradehub-profile-media-me"] }),
@@ -311,16 +305,11 @@ export default function TradehubProfilePage() {
                   <ImageIcon className="h-4 w-4 text-primary" />
                   Photos &amp; Documents
                 </CardTitle>
-                {isMe && (
-                  <ProfileMediaUploader
-                    onUploaded={(item) => addMediaMutation.mutate(item)}
-                  />
-                )}
               </CardHeader>
               <CardContent>
                 {profileMedia.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    {isMe ? "Upload photos or documents to showcase your work." : "No media uploaded yet."}
+                    No media uploaded yet.
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -495,67 +484,6 @@ export default function TradehubProfilePage() {
         />
       )}
     </div>
-  );
-}
-
-function ProfileMediaUploader({ onUploaded }: {
-  onUploaded: (item: { url: string; objectPath?: string; mediaType: string; fileName?: string }) => void
-}) {
-  const { toast } = useToast();
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  async function handleFile(file: File) {
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/tradehub/uploads/file", {
-        method: "POST",
-        body: form,
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const err: UploadErrorBody = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Upload failed");
-      }
-      const { objectPath, fileName } = await res.json() as { objectPath: string; fileName: string };
-      const isImage = file.type.startsWith("image/");
-      onUploaded({
-        url: objectPath,
-        objectPath,
-        mediaType: isImage ? "photo" : "document",
-        fileName: file.name ?? fileName,
-      });
-      toast({ title: isImage ? "Photo uploaded!" : "Document uploaded!" });
-    } catch (err) {
-      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Upload failed", variant: "destructive" });
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  }
-
-  return (
-    <>
-      <input
-        ref={fileRef}
-        type="file"
-        className="hidden"
-        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-      />
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-1.5 text-xs h-7"
-        disabled={uploading}
-        onClick={() => fileRef.current?.click()}
-      >
-        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-        {uploading ? "Uploading…" : "Add"}
-      </Button>
-    </>
   );
 }
 

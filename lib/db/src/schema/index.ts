@@ -1255,25 +1255,23 @@ export const tradehubPostsTable = pgTable("tradehub_posts", {
 ]);
 export type TradehubPost = typeof tradehubPostsTable.$inferSelect;
 
-export const tradehubPostMediaTable = pgTable("tradehub_post_media", {
+// ── Tradehub Media (unified post + profile media — replaces the former
+// tradehub_post_media/tradehub_profile_media tables; ownerType discriminates
+// which entity owns the row since it has no single FK target, see
+// repositories/tradehub.ts) ──
+export const tradehubMediaTable = pgTable("tradehub_media", {
   id: serial("id").primaryKey(),
-  postId: integer("post_id").notNull().references(() => tradehubPostsTable.id, { onDelete: "cascade" }),
+  ownerType: text("owner_type").notNull(), // 'post' | 'profile'
+  ownerId: integer("owner_id").notNull(), // tradehubPostsTable.id or usersTable.id, depending on ownerType
   url: text("url").notNull(),
   objectPath: text("object_path"),
   mediaType: text("media_type").notNull().default("image"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-export const tradehubProfileMediaTable = pgTable("tradehub_profile_media", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
-  url: text("url").notNull(),
-  objectPath: text("object_path"),
-  mediaType: text("media_type").notNull().default("document"),
   fileName: text("file_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-export type TradehubProfileMedia = typeof tradehubProfileMediaTable.$inferSelect;
+}, (t) => [
+  index("idx_tradehub_media_owner").on(t.ownerType, t.ownerId),
+]);
+export type TradehubMedia = typeof tradehubMediaTable.$inferSelect;
 
 export const tradehubCommentsTable = pgTable("tradehub_comments", {
   id: serial("id").primaryKey(),
@@ -1421,6 +1419,8 @@ export type Payment = typeof paymentsTable.$inferSelect;
 
 // ── Change Orders ─────────────────────────────────────────────────────────────
 
+export const changeOrderStatusEnum = pgEnum("change_order_status", ["pending", "approved", "rejected"]);
+
 export const changeOrdersTable = pgTable("change_orders", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id")
@@ -1432,7 +1432,7 @@ export const changeOrdersTable = pgTable("change_orders", {
   title: text("title").notNull(),
   description: text("description"),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
-  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  status: changeOrderStatusEnum("status").notNull().default("pending"),
   requestedByUserId: integer("requested_by_user_id")
     .notNull()
     .references(() => usersTable.id),
@@ -1780,6 +1780,30 @@ export const insertAuditLogSchema = createInsertSchema(auditLogsTable).omit({
 });
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogsTable.$inferSelect;
+
+// ── Tenant Export Receipts ─────────────────────────────────────────────────────
+// Proof that a super-admin exported a tenant's data before deleting it. The
+// delete route requires a matching, unconsumed, unexpired row here for the
+// same companyId — see services/tenantExport.ts.
+
+export const tenantExportReceiptsTable = pgTable("tenant_export_receipts", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
+  sha256: text("sha256").notNull(),
+  rowCounts: jsonb("row_counts").notNull(),
+  createdByUserId: integer("created_by_user_id")
+    .notNull()
+    .references(() => usersTable.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+}, (t) => [
+  index("idx_tenant_export_receipts_company_id").on(t.companyId),
+]);
+
+export type TenantExportReceipt = typeof tenantExportReceiptsTable.$inferSelect;
 
 // ── AI Compliance Directives ───────────────────────────────────────────────────
 

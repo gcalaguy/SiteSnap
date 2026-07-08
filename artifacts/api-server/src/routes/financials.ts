@@ -298,7 +298,7 @@ const CreateChangeOrderBody = z.object({
   notes: z.string().optional().nullable(),
 });
 
-router.post("/change-orders", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
+router.post("/change-orders", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const parsed = CreateChangeOrderBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
@@ -336,7 +336,7 @@ const UpdateChangeOrderBody = z.object({
   signedAt: z.string().datetime().optional().nullable(),
 });
 
-router.patch("/change-orders/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
+router.patch("/change-orders/:id", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -430,7 +430,7 @@ router.get("/projects/:projectId/approved-change-orders", requireAuth, requireCo
 }))
 
 // DELETE /change-orders/:id
-router.delete("/change-orders/:id", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
+router.delete("/change-orders/:id", requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 

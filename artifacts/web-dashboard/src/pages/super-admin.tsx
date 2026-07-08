@@ -35,7 +35,7 @@ import {
 
 type Plan = { id: number; name: string; slug: string; description: string | null; monthlyPrice: string; yearlyPrice: string; maxSeats: number; isActive: boolean; featureIds: number[] };
 type Feature = { id: number; name: string; key: string; description: string | null; isEnabled: boolean };
-type TenantRow = { id: number; name: string; subscription: { id: number; planId: number; status: string; billingCycle: string } | null; plan: { id: number; name: string; slug: string } | null; userCount: number };
+type TenantRow = { id: number; name: string; subscription: { id: number; planId: number; status: string; billingCycle: string } | null; plan: { id: number; name: string; slug: string } | null; userCount: number; claimToken?: string | null; claimOwnerEmail?: string | null };
 type TenantDetail = TenantRow & {
   users: Array<{ id: number; email: string; firstName: string; lastName: string; role: string; systemRole: string | null }>;
   claimToken?: string | null;
@@ -125,24 +125,49 @@ function statusBadgeClasses(status?: string | null) {
   return "bg-gray-100 text-gray-600";
 }
 
+// Triggers a browser download of the tenant export ZIP and returns the
+// receipt id the follow-up DELETE call must present. Uses raw fetch (not
+// customFetch) so the response headers are readable alongside the blob body,
+// matching the download pattern in hooks/cor-compliance/useAuditPackages.ts.
+async function exportTenantData(companyId: number, tenantName: string): Promise<{ receiptId: number }> {
+  const response = await fetch(`/api/admin/tenants/${companyId}/export`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!response.ok) {
+    const err: unknown = await response.json().catch(() => null);
+    const message = err && typeof err === "object" && "error" in err ? String((err as { error: unknown }).error) : `Export failed (${response.status})`;
+    throw new Error(message);
+  }
+  const receiptId = Number(response.headers.get("X-Export-Receipt-Id"));
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const dateStr = new Date().toISOString().slice(0, 10);
+  a.download = `${tenantName.replace(/[^a-zA-Z0-9._-]/g, "_")}_export_${dateStr}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  return { receiptId };
+}
+
 // ── Invite Generator ─────────────────────────────────────────────────────────
 
 function CreateCompanyCard() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [companyForm, setCompanyForm] = useState({ name: "", province: "", city: "", phone: "", ownerEmail: "" });
-  const [planTier, setPlanTier] = useState("starter");
+  const [showRegional, setShowRegional] = useState(false);
+  const [companyForm, setCompanyForm] = useState({ province: "", city: "", ownerEmail: "" });
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const createCompany = useMutation({
     mutationFn: () => customFetch<{ id: number; claimToken?: string | null }>("/api/admin/tenants", {
       method: "POST",
       body: JSON.stringify({
-        name: companyForm.name.trim(),
-        province: companyForm.province.trim(),
-        city: companyForm.city.trim(),
-        phone: companyForm.phone.trim() || undefined,
+        province: companyForm.province.trim() || undefined,
+        city: companyForm.city.trim() || undefined,
         ownerEmail: companyForm.ownerEmail.trim(),
-        planTier,
       }),
     }),
     onSuccess: (data) => {
@@ -150,9 +175,9 @@ function CreateCompanyCard() {
         ? `${window.location.origin}/sign-up?token=${data.claimToken}`
         : `${window.location.origin}/onboarding?companyId=${data.id}`;
       setCreatedLink(link);
-      toast({ title: "Company created", description: `Invite email sent to ${companyForm.ownerEmail.trim()}. You can also share the link below directly.` });
+      toast({ title: "Invite sent", description: `Invite email sent to ${companyForm.ownerEmail.trim()}. You can also share the link below directly.` });
     },
-    onError: (err: ApiError) => toast({ title: "Failed to create company", description: err?.message, variant: "destructive" }),
+    onError: (err: ApiError) => toast({ title: "Failed to create invite", description: err?.message, variant: "destructive" }),
   });
 
   return (
@@ -162,10 +187,10 @@ function CreateCompanyCard() {
           <div className="space-y-1">
             <div className="flex items-center gap-2"><Gift className="h-4 w-4 text-[#D4AF37]" /><span className="text-xs font-extrabold uppercase tracking-wider text-[#D4AF37]">Share Sign-up Link</span></div>
             <h3 className="text-lg font-semibold text-[#121212]">Invite a new subscriber</h3>
-            <p className="max-w-2xl text-sm font-semibold text-gray-500">Create a new company and send a shareable link so the owner can sign up and claim it.</p>
+            <p className="max-w-2xl text-sm font-semibold text-gray-500">Send a one-time claim link to the owner's email. They'll set up their company profile and plan when they claim it.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="border-white/20 bg-[#d4af37] font-bold text-[#121212] hover:bg-gray-50" onClick={() => { setOpen(true); setCreatedLink(null); setCompanyForm({ name: "", province: "", city: "", phone: "", ownerEmail: "" }); }}>Create New Company</Button>
+            <Button variant="outline" className="border-white/20 bg-[#d4af37] font-bold text-[#121212] hover:bg-gray-50" onClick={() => { setOpen(true); setCreatedLink(null); setShowRegional(false); setCompanyForm({ province: "", city: "", ownerEmail: "" }); }}>Create New Company</Button>
           </div>
         </div>
       </div>
@@ -173,7 +198,7 @@ function CreateCompanyCard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
             <h3 className="text-lg font-semibold text-[#121212]">Create New Company</h3>
-            <p className="text-sm font-semibold text-gray-500">Enter company details. A shareable link will be generated for the owner to claim it.</p>
+            <p className="text-sm font-semibold text-gray-500">Enter the owner's email. A shareable link will be generated for them to claim and set up their company.</p>
             {createdLink ? (
               <div className="mt-4 space-y-3">
                 <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
@@ -185,33 +210,24 @@ function CreateCompanyCard() {
                   <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setOpen(false)}>Close</Button>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => { const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Hi,\n\nYour company has been created on Site Snap. Click the link below to sign up and claim ownership:\n\n${createdLink}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Resend Manually</Button>
+                  <Button variant="outline" className="flex-1 border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10" onClick={() => { const subject = encodeURIComponent("Set up your new company on Site Snap"); const body = encodeURIComponent(`Hi,\n\nYou've been invited to set up your company on Site Snap. Click the link below to sign up and claim ownership:\n\n${createdLink}\n\nThanks.`); window.location.href = `mailto:?subject=${subject}&body=${body}`; }}>Resend Manually</Button>
                 </div>
               </div>
             ) : (
               <div className="mt-4 grid gap-3">
-                <div><Label className="text-[#D4AF37]">Company Name</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} placeholder="Acme Construction" /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label className="text-[#D4AF37]">City</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.city} onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} placeholder="Toronto" /></div>
-                  <div><Label className="text-[#D4AF37]">Province</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.province} onChange={(e) => setCompanyForm({ ...companyForm, province: e.target.value })} placeholder="Ontario" /></div>
-                </div>
-                <div><Label className="text-[#D4AF37]">Phone</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} placeholder="(416) 555-0123" /></div>
                 <div><Label className="text-[#D4AF37]">Owner Email</Label><Input type="email" className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.ownerEmail} onChange={(e) => setCompanyForm({ ...companyForm, ownerEmail: e.target.value })} placeholder="owner@example.com" /></div>
                 <div>
-                  <Label className="text-[#D4AF37]">Plan Tier</Label>
-                  <select
-                    value={planTier}
-                    onChange={(e) => setPlanTier(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-[#121212] focus:border-[#D4AF37] focus:outline-none"
-                  >
-                    <option value="starter">Starter</option>
-                    <option value="basic">Basic</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
+                  <button type="button" className="text-xs font-semibold text-[#D4AF37] hover:underline" onClick={() => setShowRegional((v) => !v)}>{showRegional ? "Hide" : "Add"} regional routing (optional)</button>
+                  {showRegional && (
+                    <div className="mt-2 grid grid-cols-2 gap-3">
+                      <div><Label className="text-[#D4AF37]">City</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.city} onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} placeholder="Toronto" /></div>
+                      <div><Label className="text-[#D4AF37]">Province</Label><Input className="border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-[#D4AF37]" value={companyForm.province} onChange={(e) => setCompanyForm({ ...companyForm, province: e.target.value })} placeholder="Ontario" /></div>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-2 flex justify-end gap-2">
                   <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !companyForm.name.trim() || !companyForm.city.trim() || !companyForm.province.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.ownerEmail.trim())}>{createCompany.isPending ? "Creating…" : "Create & Send Invite"}</Button>
+                  <Button className="bg-[#D4AF37] text-white hover:bg-[#b5922e]" onClick={() => createCompany.mutate()} disabled={createCompany.isPending || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyForm.ownerEmail.trim())}>{createCompany.isPending ? "Creating…" : "Create & Send Invite"}</Button>
                 </div>
               </div>
             )}
@@ -411,8 +427,12 @@ function TenantDirectoryTab({
                       className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${selected ? "border-[#D4AF37] bg-[#D4AF37]/10" : "border-transparent hover:bg-gray-50"}`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-semibold text-[#121212]">{t.name}</span>
-                        <Badge className={`shrink-0 px-1.5 py-0 text-[10px] ${tierBadgeClasses(t.plan?.slug)}`}>{t.plan?.name ?? "No Plan"}</Badge>
+                        <span className="truncate text-sm font-semibold text-[#121212]">{t.claimToken ? (t.claimOwnerEmail ?? "Invite Pending") : t.name}</span>
+                        {t.claimToken ? (
+                          <Badge className="shrink-0 bg-amber-100 px-1.5 py-0 text-[10px] text-amber-700">Invite Pending</Badge>
+                        ) : (
+                          <Badge className={`shrink-0 px-1.5 py-0 text-[10px] ${tierBadgeClasses(t.plan?.slug)}`}>{t.plan?.name ?? "No Plan"}</Badge>
+                        )}
                       </div>
                       <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
                         <span className={`inline-block h-1.5 w-1.5 rounded-full ${statusDotClasses(t.subscription?.status)}`} />
@@ -441,9 +461,15 @@ function TenantDirectoryTab({
           <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-bold text-[#121212]">{tenantDetail.name}</h2>
-                <Badge className={tierBadgeClasses(tenantDetail.plan?.slug)}>{tenantDetail.plan?.name ?? "No Plan"}</Badge>
-                <Badge className={statusBadgeClasses(tenantDetail.subscription?.status)}>{tenantDetail.subscription?.status ?? "No subscription"}</Badge>
+                <h2 className="text-xl font-bold text-[#121212]">{tenantDetail.claimToken ? (tenantDetail.claimOwnerEmail ?? "Invite Pending") : tenantDetail.name}</h2>
+                {tenantDetail.claimToken ? (
+                  <Badge className="bg-amber-100 text-amber-700">Invite Pending</Badge>
+                ) : (
+                  <>
+                    <Badge className={tierBadgeClasses(tenantDetail.plan?.slug)}>{tenantDetail.plan?.name ?? "No Plan"}</Badge>
+                    <Badge className={statusBadgeClasses(tenantDetail.subscription?.status)}>{tenantDetail.subscription?.status ?? "No subscription"}</Badge>
+                  </>
+                )}
               </div>
               <p className="mt-1 text-xs text-gray-500">{tenantDetail.userCount} user{tenantDetail.userCount === 1 ? "" : "s"} · billing {tenantDetail.subscription?.billingCycle ?? "—"}</p>
             </div>
@@ -845,6 +871,74 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
   );
 }
 
+type ExportDeleteTenantDialogProps = {
+  tenant: TenantDetail | null;
+  onOpenChange: (open: boolean) => void;
+  receiptId: number | null;
+  onExport: () => void;
+  isExporting: boolean;
+  onDelete: (receiptId: number) => void;
+  isDeleting: boolean;
+};
+
+function ExportDeleteTenantDialog({ tenant, onOpenChange, receiptId, onExport, isExporting, onDelete, isDeleting }: ExportDeleteTenantDialogProps) {
+  const [confirmName, setConfirmName] = useState("");
+  if (!tenant) return null;
+  const nameMatches = confirmName.trim() === tenant.name;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
+      <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
+        <h3 className="text-lg font-semibold text-[#121212]">Export &amp; Delete Tenant</h3>
+        <p className="mt-1 text-sm font-semibold text-gray-500">
+          Deleting "{tenant.name}" permanently removes all of its data. Export a copy first — deletion is blocked until you do.
+        </p>
+
+        <div className="mt-5 flex items-center gap-3 rounded-xl border border-gray-200 p-4">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/10 text-sm font-bold text-[#D4AF37]">1</div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-[#121212]">Export tenant data</p>
+            <p className="text-xs text-gray-500">Downloads a ZIP with this tenant's memberships, projects, TradeHub posts, documents, and financial records.</p>
+          </div>
+          <Button
+            variant="outline"
+            className="border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10"
+            onClick={onExport}
+            disabled={isExporting || receiptId !== null}
+          >
+            {receiptId !== null ? "Exported ✓" : isExporting ? "Exporting…" : "Export"}
+          </Button>
+        </div>
+
+        <div className={`mt-3 flex items-start gap-3 rounded-xl border p-4 ${receiptId === null ? "border-gray-100 opacity-50" : "border-red-200"}`}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-sm font-bold text-red-600">2</div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-[#121212]">Permanently delete</p>
+            <p className="mt-1 text-xs text-gray-500">Type <span className="font-mono font-semibold">{tenant.name}</span> to confirm.</p>
+            <Input
+              className="mt-2 border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-red-400"
+              value={confirmName}
+              onChange={(e) => setConfirmName(e.target.value)}
+              disabled={receiptId === null}
+              placeholder={tenant.name}
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            className="bg-red-600 text-white hover:bg-red-700"
+            onClick={() => receiptId !== null && onDelete(receiptId)}
+            disabled={receiptId === null || !nameMatches || isDeleting}
+          >
+            {isDeleting ? "Deleting…" : "Delete Tenant"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MemberDialog({ open, onOpenChange, form, onChange, onSave, isSaving }: MemberDialogProps) {
   if (!open) return null;
   return (
@@ -912,6 +1006,8 @@ export default function SuperAdminPage() {
   const [collapsed, setCollapsed] = useState({ plans: true, features: true });
   const [reissueOpen, setReissueOpen] = useState(false);
   const [reissuedLink, setReissuedLink] = useState<string | null>(null);
+  const [exportDeleteTenant, setExportDeleteTenant] = useState<TenantDetail | null>(null);
+  const [exportReceiptId, setExportReceiptId] = useState<number | null>(null);
 
   const { data: plans = [] } = useQuery<Plan[]>({ queryKey: ["admin-plans"], queryFn: () => customFetch<Plan[]>("/api/admin/plans") });
   const { data: features = [] } = useQuery<Feature[]>({ queryKey: ["admin-features"], queryFn: () => customFetch<Feature[]>("/api/admin/features") });
@@ -971,7 +1067,16 @@ export default function SuperAdminPage() {
     onSuccess: () => { refresh(); toast({ title: "User removed from tenant" }); },
     onError: (e: ApiError) => toast({ title: "Remove failed", description: e.message, variant: "destructive" }),
   });
-  const deleteTenant = useMutation({ mutationFn: (id: number) => customFetch(`/api/admin/tenants/${id}`, { method: "DELETE" }), onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); refresh(); toast({ title: "Tenant deleted" }); }, onError: (e: ApiError) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }) });
+  const deleteTenant = useMutation({
+    mutationFn: ({ id, receiptId }: { id: number; receiptId: number }) => customFetch(`/api/admin/tenants/${id}?receiptId=${receiptId}`, { method: "DELETE" }),
+    onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); setExportDeleteTenant(null); setExportReceiptId(null); refresh(); toast({ title: "Tenant deleted" }); },
+    onError: (e: ApiError) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }),
+  });
+  const exportTenant = useMutation({
+    mutationFn: (tenant: TenantDetail) => exportTenantData(tenant.id, tenant.name),
+    onSuccess: (result) => { setExportReceiptId(result.receiptId); toast({ title: "Export downloaded", description: "Verify the file, then confirm deletion." }); },
+    onError: (e: Error) => toast({ title: "Export failed", description: e.message, variant: "destructive" }),
+  });
   const reissueLink = useMutation({
     mutationFn: (id: number) => customFetch<{ link: string }>(`/api/admin/tenants/${id}/reissue-link`, { method: "POST" }),
     onSuccess: (data) => { setReissuedLink(data.link); setReissueOpen(true); refresh(); toast({ title: "Link reissued" }); },
@@ -1011,7 +1116,7 @@ export default function SuperAdminPage() {
               setTenantForm({ name: t.name, planId: t.plan?.id ? String(t.plan.id) : "", status: t.subscription?.status ?? "active", billingCycle: t.subscription?.billingCycle ?? "monthly", userCount: String(t.userCount ?? ""), website: "", phone: "", email: "" });
               setTenantOpen(true);
             }}
-            onDeleteTenant={(t) => { if (confirm(`Delete tenant "${t.name}"? This cannot be undone.`)) deleteTenant.mutate(t.id); }}
+            onDeleteTenant={(t) => { setExportReceiptId(null); setExportDeleteTenant(t); }}
             onReissueLink={(t) => reissueLink.mutate(t.id)}
             isReissuing={reissueLink.isPending}
             onEditTenantUser={(userId, role) => {
@@ -1096,6 +1201,15 @@ export default function SuperAdminPage() {
         }}
         isSaving={saveTenant.isPending || saveTenantUserRole.isPending}
         users={tenantDetail?.users}
+      />
+      <ExportDeleteTenantDialog
+        tenant={exportDeleteTenant}
+        onOpenChange={(open) => { if (!open) { setExportDeleteTenant(null); setExportReceiptId(null); } }}
+        receiptId={exportReceiptId}
+        onExport={() => exportDeleteTenant && exportTenant.mutate(exportDeleteTenant)}
+        isExporting={exportTenant.isPending}
+        onDelete={(receiptId) => exportDeleteTenant && deleteTenant.mutate({ id: exportDeleteTenant.id, receiptId })}
+        isDeleting={deleteTenant.isPending}
       />
       <MemberDialog
         open={memberOpen}

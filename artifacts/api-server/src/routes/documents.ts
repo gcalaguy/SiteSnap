@@ -140,6 +140,10 @@ router.post("/:docId/embed", requireAuth, requireCompany, requireTenantCtx, asyn
 
   const projectCompanyId = await getProjectCompanyId(projectId);
   if (projectCompanyId === null || projectCompanyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
   const count = await storeChunks(docId, projectId, projectCompanyId, doc.extractedText);
   res.json({ ok: true, chunks: count });
 }));
@@ -160,6 +164,10 @@ router.post("/:docId/extract", requireAuth, requireCompany, requireTenantCtx, re
   }
   const projectCompanyId = await getProjectCompanyId(projectId);
   if (projectCompanyId === null || projectCompanyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
   const result = await runImageAnalysis(doc, docId, projectId, projectCompanyId);
   if (!result.ok) { res.status(result.status).json({ error: result.error }); return; }
   res.json({ ...result.document, chunkCount: result.chunkCount });
@@ -176,6 +184,10 @@ router.post("/:docId/analyze", requireAuth, requireCompany, requireTenantCtx, re
 
   const projectCompanyId = await getProjectCompanyId(projectId);
   if (projectCompanyId === null || projectCompanyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
   await updateDocument(docId, projectId, { status: "processing" });
 
   let result;
@@ -261,6 +273,15 @@ router.post("/:docId/push-to-costs", requireAuth, requireCompany, requireTenantC
   if (isNaN(projectId) || isNaN(docId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
 
   const { category } = req.body as { category?: string };
+
+  // P0: this route had no company/project-membership check at all — every
+  // other handler in this file verifies the project before touching a doc.
+  const projectCompanyId = await getProjectCompanyId(projectId);
+  if (projectCompanyId === null || projectCompanyId !== req.companyId) { res.status(404).json({ error: "Project not found" }); return; }
+  if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
+    res.status(403).json({ error: "You are not assigned to this project" });
+    return;
+  }
 
   const doc = await getDocument(docId, projectId);
   if (!doc) { res.status(404).json({ error: "Document not found" }); return; }

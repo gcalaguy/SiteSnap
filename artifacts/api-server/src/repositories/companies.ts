@@ -132,12 +132,20 @@ export async function claimCompanyTransaction(opts: {
   companyId: number;
   userId: number;
   companyName: string | null;
+  province: string | null;
+  city: string | null;
+  phone: string | null;
   planId: number | null;
 }): Promise<{ updatedUser: User; updatedCompany: Company }> {
-  const { companyId, userId, companyName, planId } = opts;
+  const { companyId, userId, companyName, province, city, phone, planId } = opts;
   return db.transaction(async (tx) => {
-    if (companyName) {
-      await tx.update(companiesTable).set({ name: companyName }).where(eq(companiesTable.id, companyId));
+    const profileUpdates: Partial<typeof companiesTable.$inferInsert> = {};
+    if (companyName) profileUpdates.name = companyName;
+    if (province) profileUpdates.province = province;
+    if (city) profileUpdates.city = city;
+    if (phone) profileUpdates.phone = phone;
+    if (Object.keys(profileUpdates).length > 0) {
+      await tx.update(companiesTable).set(profileUpdates).where(eq(companiesTable.id, companyId));
     }
 
     if (planId) {

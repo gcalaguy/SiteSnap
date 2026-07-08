@@ -117,7 +117,11 @@
       "Bash(grep -rn \"limit\\(\\\\|offset\\(\\\\|page =\\\\|pageSize\\\\|LIMIT \\\\$\" .)",
       "Bash(git -C /home/runner/workspace status --short)",
       "Bash(grep -rnE \"\\\\\\\\\\\\$\\\\{[a-zA-Z_.?]+\\\\}\\\\\\\\\\\\$\\\\{[a-zA-Z_.?]+\\\\}\" artifacts/web-dashboard/src artifacts/mobile)",
-      "Bash(git status *)"
+      "Bash(git status *)",
+      "Bash(convert -list format)",
+      "Bash(convert -version)",
+      "Bash(sed -E \"s/^--$//\")",
+      "Bash(grep -n \"ALTER TABLE.*ENABLE ROW LEVEL SECURITY\\\\|CREATE POLICY\\\\|ON [a-z_]* *$\\\\|^-- ──\" /home/runner/workspace/lib/db/migrations/0050_rls_tenant_isolation_phase5.sql)"
     ]
   }
 }

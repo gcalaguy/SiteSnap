@@ -9,6 +9,20 @@ type Tx = Parameters<Parameters<typeof drizzleDb.transaction>[0]>[0];
 // the same async chain (including downstream route handlers) sees the same tx.
 const tenantLocal = new AsyncLocalStorage<Tx>();
 
+// SET LOCAL doesn't accept bind parameters, so app.company_id has to be
+// interpolated into the SQL text directly (see withTenantCtx/withTenantCtxRaw
+// below). This guard is what actually makes that safe: every caller must pass
+// a real integer, or the call throws before any SQL is built. Without this,
+// a future caller passing an unvalidated string could inject SQL or corrupt
+// the tenant GUC — the interpolation itself has already regressed back from
+// a parameterized form once (see git history), so don't rely on caller
+// discipline alone to keep this safe.
+function assertValidCompanyId(companyId: number): void {
+  if (!Number.isInteger(companyId)) {
+    throw new Error(`withTenantCtx: companyId must be an integer, got ${JSON.stringify(companyId)}`);
+  }
+}
+
 /**
  * Drizzle proxy: within a withTenantCtx call this dispatches to the active
  * transaction (which has `app.company_id` set via SET LOCAL, activating RLS);
@@ -36,6 +50,7 @@ export async function withTenantCtx<T>(
   companyId: number,
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
+  assertValidCompanyId(companyId);
   return drizzleDb.transaction(async (tx) => {
     await tx.execute(sql.raw(`SET LOCAL app.company_id = ${companyId}`));
     return tenantLocal.run(tx, () => fn(tx));
@@ -50,6 +65,7 @@ export async function withTenantCtxRaw<T>(
   companyId: number,
   fn: (client: typeof pool extends { connect(): Promise<infer C> } ? C : never) => Promise<T>,
 ): Promise<T> {
+  assertValidCompanyId(companyId);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

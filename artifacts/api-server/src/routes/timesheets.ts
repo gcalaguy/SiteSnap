@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, timesheetsTable, timeEntriesTable, usersTable, userMembershipsTable, projectsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, inArray } from "drizzle-orm";
-import { requireAuth, requireCompany, requireOwnerOrForeman, requireTenantCtx } from "../lib/auth";
+import { requireAuth, requireCompany, requireOwnerOrForeman, requireTenantCtx, isPrivilegedRole } from "../lib/auth";
 import { requirePermission } from "../lib/permissionGate";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendEmail, ResendSandboxError } from "../lib/mailer";
@@ -68,7 +68,7 @@ async function withSubmitter(timesheet: Record<string, unknown>, userId: number,
 
 // GET /timesheets — list (owner/foreman: all; worker: own)
 router.get("/timesheets", requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
-  const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+  const isPrivileged = isPrivilegedRole(req);
   const { status, userId, from, to } = req.query;
 
   const conditions: ReturnType<typeof eq>[] = [eq(timesheetsTable.companyId, req.companyId!)];
@@ -249,7 +249,7 @@ router.post("/timesheets", asyncHandler(async (req, res) => {
 router.get("/timesheets/:timesheetId", requirePermission("viewTimesheets"), asyncHandler(async (req, res) => {
   const id = parseIntId(req.params.timesheetId as string);
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
-  const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+  const isPrivileged = isPrivilegedRole(req);
 
   const [row] = await db
     .select({
@@ -385,7 +385,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const id = parseIntId(req.params.timesheetId as string);
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
-    const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+    const isPrivileged = isPrivilegedRole(req);
 
     const [ts] = await db
       .select()
@@ -394,6 +394,14 @@ router.patch(
       .limit(1);
     if (!ts) { res.status(404).json({ error: "Timesheet not found" }); return; }
     if (!isPrivileged && ts.userId !== req.userId) { res.status(403).json({ error: "Forbidden" }); return; }
+    // A worker can fix up their own denied/pending timesheet, but once it's
+    // approved it's a signed-off financial record — matches the "approved
+    // timesheets cannot be deleted" rule below. Owners/foremen may still
+    // correct an approved record if needed.
+    if (!isPrivileged && ts.status === "approved") {
+      res.status(409).json({ error: "Approved timesheets cannot be edited" });
+      return;
+    }
 
     const parsed = EditTimesheetBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid body", details: parsed.error }); return; }
@@ -427,7 +435,7 @@ router.delete(
   asyncHandler(async (req, res) => {
     const id = parseIntId(req.params.timesheetId as string);
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
-    const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+    const isPrivileged = isPrivilegedRole(req);
 
     const [ts] = await db
       .select()
@@ -456,7 +464,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const id = parseIntId(req.params.timesheetId as string);
   if (id === null) { res.status(400).json({ error: "Invalid timesheet ID" }); return; }
-    const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+    const isPrivileged = isPrivilegedRole(req);
 
     const [ts] = await db
       .select()

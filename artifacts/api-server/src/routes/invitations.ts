@@ -66,6 +66,14 @@ router.post(
       return;
     }
 
+    // P0: only an owner can invite a new owner — a foreman gating on
+    // requireOwnerOrForeman alone could otherwise mint a co-owner account
+    // for an accomplice with no owner ever approving it.
+    if (parsed.data.role === "owner" && req.userRole !== "owner" && req.systemRole !== "super_admin") {
+      res.status(403).json({ error: "Only an owner can invite a new owner" });
+      return;
+    }
+
     const email = parsed.data.email.toLowerCase().trim();
 
     // Check if this email already belongs to an active member of the company
@@ -181,6 +189,15 @@ router.patch(
 
     if (!existing) { res.status(404).json({ error: "Invitation not found" }); return; }
     if (existing.status !== "pending") { res.status(409).json({ error: "Only pending invitations can be edited" }); return; }
+
+    // P0: only an owner can create or touch an owner-role invitation — blocks
+    // both promoting an invite to "owner" and a foreman quietly redirecting
+    // the email on an invite that's already role "owner" to an accomplice.
+    const targetRole = role && ["owner", "foreman", "worker"].includes(role) ? role : existing.role;
+    if (targetRole === "owner" && req.userRole !== "owner" && req.systemRole !== "super_admin") {
+      res.status(403).json({ error: "Only an owner can create or modify an owner-role invitation" });
+      return;
+    }
 
     const updates: Record<string, unknown> = {};
     if (email) updates.email = email.toLowerCase().trim();

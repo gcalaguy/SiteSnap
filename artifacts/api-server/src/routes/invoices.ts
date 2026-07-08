@@ -260,7 +260,7 @@ router.patch("/invoices/:invoiceId/assign", asyncHandler(async (req, res) => {
 }))
 
 // POST /invoices/:invoiceId/mark-sent
-router.post("/invoices/:invoiceId/mark-sent", asyncHandler(async (req, res) => {
+router.post("/invoices/:invoiceId/mark-sent", requirePermission("manageFinancials"), asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
   const [existing] = await db
     .select()
@@ -392,7 +392,7 @@ router.post("/invoices/:invoiceId/send-email", requirePermission("manageFinancia
 }))
 
 // POST /invoices/:invoiceId/send-reminder
-router.post("/invoices/:invoiceId/send-reminder", asyncHandler(async (req, res) => {
+router.post("/invoices/:invoiceId/send-reminder", requirePermission("manageFinancials"), asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
 
   const [invoice] = await db
@@ -455,7 +455,7 @@ router.delete("/invoices/:invoiceId", asyncHandler(async (req, res) => {
 }))
 
 // POST /invoices/:invoiceId/mark-paid
-router.post("/invoices/:invoiceId/mark-paid", asyncHandler(async (req, res) => {
+router.post("/invoices/:invoiceId/mark-paid", requirePermission("manageFinancials"), asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);
   const [existing] = await db
     .select()

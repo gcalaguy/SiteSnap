@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, timeEntriesTable, projectsTable, usersTable, userMembershipsTable } from "@workspace/db";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
-import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
+import { requireAuth, requireCompany, requireTenantCtx, isPrivilegedRole } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 
 const router = Router();
@@ -10,7 +10,7 @@ const router = Router();
 // Query params: projectId, userId (ignored for workers), from (YYYY-MM-DD), to (YYYY-MM-DD)
 router.get("/time-entries", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const { projectId, userId, from, to } = req.query;
-  const isPrivileged = req.userRole === "owner" || req.userRole === "foreman";
+  const isPrivileged = isPrivilegedRole(req);
 
   const conditions: ReturnType<typeof eq>[] = [
     eq(timeEntriesTable.companyId, req.companyId!),

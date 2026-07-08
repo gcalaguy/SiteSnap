@@ -1,4 +1,5 @@
 export { openai } from "./client";
+export { extractJson, extractText, type VisionImage } from "./vision";
 export { generateImageBuffer, editImages } from "./image";
 export { batchProcess, batchProcessWithSSE, isRateLimitError, type BatchOptions } from "./batch";
 export {

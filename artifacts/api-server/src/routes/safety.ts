@@ -26,6 +26,17 @@ import { z } from "zod";
 const router = Router();
 const objectStorageService = new ObjectStorageService();
 
+// Safe projection for embedding a user in a response — the submission detail
+// UI shows the submitter's work email (same-company contact info, already
+// exposed by the list endpoint above), but excludes clerkUserId, systemRole,
+// and pushToken, none of which any caller here needs.
+const PUBLIC_USER_COLUMNS = {
+  id: usersTable.id,
+  firstName: usersTable.firstName,
+  lastName: usersTable.lastName,
+  email: usersTable.email,
+} as const;
+
 // ── Zod schemas ────────────────────────────────────────────────────────────────
 const CreateSubmissionBody = z.object({
   templateId: z.number().int().positive(),
@@ -158,7 +169,7 @@ router.get("/safety/submissions/:id", requireAuth, requireCompany, requireTenant
 
     const [[template], [worker], photos, rawComments] = await Promise.all([
       db.select().from(formTemplatesTable).where(eq(formTemplatesTable.id, row.templateId)),
-      db.select().from(usersTable).where(eq(usersTable.id, row.userId)),
+      db.select(PUBLIC_USER_COLUMNS).from(usersTable).where(eq(usersTable.id, row.userId)),
       db.select().from(submissionPhotosTable).where(eq(submissionPhotosTable.submissionId, id)),
       db.select().from(submissionCommentsTable)
         .where(eq(submissionCommentsTable.submissionId, id))
@@ -168,10 +179,10 @@ router.get("/safety/submissions/:id", requireAuth, requireCompany, requireTenant
     const commentUserIds = [...new Set(rawComments.map((c) => c.userId))];
     const [commentUsers, reviewer] = await Promise.all([
       commentUserIds.length
-        ? db.select().from(usersTable).where(inArray(usersTable.id, commentUserIds))
+        ? db.select(PUBLIC_USER_COLUMNS).from(usersTable).where(inArray(usersTable.id, commentUserIds))
         : Promise.resolve([]),
       row.reviewedByUserId
-        ? db.select().from(usersTable).where(eq(usersTable.id, row.reviewedByUserId)).then(([rev]) => rev ?? null)
+        ? db.select(PUBLIC_USER_COLUMNS).from(usersTable).where(eq(usersTable.id, row.reviewedByUserId)).then(([rev]) => rev ?? null)
         : Promise.resolve(null),
     ]);
     const userMap = Object.fromEntries(commentUsers.map((u) => [u.id, u]));
