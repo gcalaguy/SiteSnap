@@ -16,6 +16,22 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import i18n, { setAppLanguage } from "@/src/i18n";
 import { hydrateQueryCache, startCachePersistence } from "@/utils/queryPersister";
 import { setTokenGetter, setSignOut } from "@/utils/auth";
+import { reportClientError } from "@/utils/errorReporting";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+// Installed at module scope (not inside a component/effect) so it's active
+// before the very first render — mirrors how ErrorUtils must be configured
+// before any JS runs that could throw.
+const _previousErrorHandler = ErrorUtils.getGlobalHandler();
+ErrorUtils.setGlobalHandler((error, isFatal) => {
+  reportClientError({
+    logType: "CLIENT_EXCEPTION",
+    message: error.message,
+    stackTrace: error.stack,
+    metadata: { source: "ErrorUtils", isFatal },
+  });
+  _previousErrorHandler(error, isFatal);
+});
 
 const tokenCache = {
   async getToken(key: string) {
@@ -194,6 +210,7 @@ function RootLayoutNav() {
     <KeyboardProvider>
       <TermsModal visible={needsTerms} />
       <View style={{ flex: 1 }}>
+        <ErrorBoundary>
         <Stack screenOptions={{ headerBackTitle: "Back" }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
@@ -225,6 +242,7 @@ function RootLayoutNav() {
         <Stack.Screen name="tradehub-jobs" options={{ headerShown: false }} />
         <Stack.Screen name="tradehub-messages" options={{ headerShown: false }} />
       </Stack>
+        </ErrorBoundary>
       <GlobalVoiceCommandFAB />
     </View>
     </KeyboardProvider>
@@ -235,16 +253,26 @@ export default function RootLayout() {
   const [queryClient] = useState(() => {
     // N-S2 fix: auto sign-out on 401 so expired sessions never silently linger.
     // Both query and mutation errors are intercepted at the cache level so every
-    // customFetch call in the app benefits without per-call handling.
-    const handle401 = (error: unknown) => {
+    // customFetch call in the app benefits without per-call handling. Also the
+    // practical catch-all for reporting failed API calls to the native error
+    // tracker — true unhandled-rejection coverage beyond React Query is a
+    // smaller residual gap, not closed here.
+    const handleQueryError = (error: unknown) => {
       if (error instanceof ApiError && error.status === 401) {
         // signOut clears the query cache + Clerk session — imported from utils/auth
         import("@/utils/auth").then(({ signOut }) => signOut()).catch(() => {});
+        return;
       }
+      reportClientError({
+        logType: "CLIENT_EXCEPTION",
+        message: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+        metadata: { source: "react-query" },
+      });
     };
     return new QueryClient({
-      queryCache: new QueryCache({ onError: handle401 }),
-      mutationCache: new MutationCache({ onError: handle401 }),
+      queryCache: new QueryCache({ onError: handleQueryError }),
+      mutationCache: new MutationCache({ onError: handleQueryError }),
       defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
     });
   });

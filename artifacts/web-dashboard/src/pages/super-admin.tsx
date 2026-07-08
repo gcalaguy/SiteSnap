@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { customFetch, ApiError } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  AlertTriangle,
   BarChart3,
+  Bug,
   Building2,
   CheckCircle2,
   ChevronDown,
@@ -32,6 +34,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { format } from "date-fns";
 
 type Plan = { id: number; name: string; slug: string; description: string | null; monthlyPrice: string; yearlyPrice: string; maxSeats: number; isActive: boolean; featureIds: number[] };
 type Feature = { id: number; name: string; key: string; description: string | null; isEnabled: boolean };
@@ -546,6 +549,190 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: string |
         {label}
       </div>
       <div className="mt-2 text-2xl font-bold text-[#121212]">{value}</div>
+    </div>
+  );
+}
+
+// ── System Logs (native audit/error-tracking system) ──────────────────────────
+
+interface SystemLogEntry {
+  id: number;
+  logType: string;
+  platform: string;
+  userId: number | null;
+  tenantId: number | null;
+  message: string;
+  stackTrace: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+interface SystemLogSummaryRow {
+  logType: string;
+  platform: string;
+  count: number;
+  lastSeen: string;
+}
+
+function logTypeBadge(logType: string) {
+  if (logType === "ONBOARDING_FAIL" || logType === "CLIENT_EXCEPTION" || logType === "SERVER_EXCEPTION") {
+    return <Badge className="bg-red-600 text-white text-[10px] font-semibold">{logType}</Badge>;
+  }
+  if (logType === "ONBOARDING_SUCCESS" || logType === "FIRST_LOGIN") {
+    return <Badge className="bg-green-600 text-white text-[10px] font-semibold">{logType}</Badge>;
+  }
+  return <Badge className="bg-zinc-600 text-white text-[10px] font-semibold">{logType}</Badge>;
+}
+
+const renderSafeLogTimestamp = (dateString: string) => {
+  try {
+    const d = new Date(dateString);
+    return isNaN(d.getTime()) ? "N/A" : format(d, "MMM d, yyyy h:mm a");
+  } catch {
+    return "N/A";
+  }
+};
+
+function SystemLogsTab() {
+  const [search, setSearch] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const { data: summary = [], isLoading: summaryLoading } = useQuery<SystemLogSummaryRow[]>({
+    queryKey: ["system-logs-summary"],
+    queryFn: () => customFetch("/api/system-logs/summary"),
+  });
+
+  const { data: logs = [], isLoading: logsLoading, error } = useQuery<SystemLogEntry[], Error>({
+    queryKey: ["system-logs"],
+    queryFn: () => customFetch("/api/system-logs"),
+  });
+
+  const totalErrors7d = summary.reduce((sum, s) => sum + s.count, 0);
+  const onboardingFailures = summary.filter((s) => s.logType === "ONBOARDING_FAIL").reduce((sum, s) => sum + s.count, 0);
+  const clientExceptions = summary.filter((s) => s.logType === "CLIENT_EXCEPTION").reduce((sum, s) => sum + s.count, 0);
+
+  const filtered = search.trim()
+    ? logs.filter((l) => {
+        const q = search.toLowerCase();
+        return (
+          l.logType.toLowerCase().includes(q) ||
+          l.platform.toLowerCase().includes(q) ||
+          l.message.toLowerCase().includes(q)
+        );
+      })
+    : logs;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-[#121212]">System Logs</h2>
+        <p className="mt-1 text-sm text-gray-500">Onboarding events and client-side runtime errors, across web and mobile.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard label="Events (7d)" value={summaryLoading ? "…" : totalErrors7d} icon={BarChart3} />
+        <StatCard label="Onboarding Failures (7d)" value={summaryLoading ? "…" : onboardingFailures} icon={AlertTriangle} />
+        <StatCard label="Client Exceptions (7d)" value={summaryLoading ? "…" : clientExceptions} icon={Bug} />
+        <StatCard label="Total Logged" value={logsLoading ? "…" : logs.length} icon={DatabaseZap} />
+      </div>
+
+      <Card className="border-gray-200 bg-white text-[#121212]">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-bold text-[#121212]">By Type &amp; Platform (last 7 days)</CardTitle>
+          <CardDescription className="text-gray-500">Grouped counts, most recently seen first.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {summaryLoading ? (
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-4 py-8 text-center text-sm text-gray-500">Loading…</div>
+          ) : summary.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-4 py-8 text-center text-sm text-gray-500">No events in the last 7 days.</div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {summary.map((s) => (
+                <div key={`${s.logType}-${s.platform}`} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                  {logTypeBadge(s.logType)}
+                  <span className="text-gray-500">{s.platform}</span>
+                  <span className="font-bold text-[#121212]">×{s.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-gray-200 bg-white text-[#121212]">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="text-base font-bold text-[#121212]">Recent Events</CardTitle>
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by type, platform, or message..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {logsLoading && (
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-4 py-8 text-center text-sm text-gray-500">Loading…</div>
+          )}
+          {error && (
+            <div className="text-sm text-red-600">Failed to load system logs: {error.message}</div>
+          )}
+          {!logsLoading && !error && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left font-medium text-gray-500 py-2.5 pr-4 w-44">Timestamp</th>
+                    <th className="text-left font-medium text-gray-500 py-2.5 pr-4 w-40">Type</th>
+                    <th className="text-left font-medium text-gray-500 py-2.5 pr-4 w-24">Platform</th>
+                    <th className="text-left font-medium text-gray-500 py-2.5 pr-4">Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-gray-500 text-sm">No system logs found.</td>
+                    </tr>
+                  )}
+                  {filtered.map((log) => (
+                    <Fragment key={log.id}>
+                      <tr
+                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                      >
+                        <td className="py-3 pr-4 text-xs text-gray-500 whitespace-nowrap">{renderSafeLogTimestamp(log.createdAt)}</td>
+                        <td className="py-3 pr-4">{logTypeBadge(log.logType)}</td>
+                        <td className="py-3 pr-4 text-xs text-gray-500">{log.platform}</td>
+                        <td className="py-3 pr-4 text-sm text-[#121212] truncate max-w-md">{log.message}</td>
+                      </tr>
+                      {expandedId === log.id && (
+                        <tr className="bg-gray-50/60">
+                          <td colSpan={4} className="px-4 py-3">
+                            <div className="space-y-1.5 text-xs text-gray-600">
+                              <div><span className="font-semibold">User ID:</span> {log.userId ?? "—"} &nbsp; <span className="font-semibold">Tenant ID:</span> {log.tenantId ?? "—"}</div>
+                              {log.stackTrace && (
+                                <pre className="whitespace-pre-wrap rounded-md bg-white border border-gray-200 p-2 font-mono text-[11px] text-gray-700">{log.stackTrace}</pre>
+                              )}
+                              {log.metadata && (
+                                <pre className="whitespace-pre-wrap rounded-md bg-white border border-gray-200 p-2 font-mono text-[11px] text-gray-700">{JSON.stringify(log.metadata, null, 2)}</pre>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -1100,6 +1287,7 @@ export default function SuperAdminPage() {
           <TabsTrigger value="tenants" className="gap-1.5 font-semibold text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white"><Building2 className="h-3.5 w-3.5" />Tenant Directory</TabsTrigger>
           <TabsTrigger value="invite" className="gap-1.5 font-semibold text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white"><Gift className="h-3.5 w-3.5" />Invite Generator</TabsTrigger>
           <TabsTrigger value="analytics" className="gap-1.5 font-semibold text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white"><BarChart3 className="h-3.5 w-3.5" />System Analytics</TabsTrigger>
+          <TabsTrigger value="system-logs" className="gap-1.5 font-semibold text-gray-600 data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white"><Bug className="h-3.5 w-3.5" />System Logs</TabsTrigger>
         </TabsList>
         <TabsContent value="tenants">
           <TenantDirectoryTab
@@ -1156,6 +1344,7 @@ export default function SuperAdminPage() {
             setCollapsed={setCollapsed}
           />
         </TabsContent>
+        <TabsContent value="system-logs"><SystemLogsTab /></TabsContent>
       </Tabs>
 
       <PlanDialog

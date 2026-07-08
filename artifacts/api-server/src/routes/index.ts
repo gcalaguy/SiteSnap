@@ -52,6 +52,7 @@ import mediaHubRouter from "./mediaHub";
 import workerVaultRouter from "./workerVault";
 import tradeReviewsRouter from "./tradeReviews";
 import auditLogsRouter from "./auditLogs";
+import systemLogsRouter from "./systemLogs";
 import complianceRouter from "./compliance";
 import complianceDirectivesRouter from "./complianceDirectives";
 import auditExportRouter from "./auditExport";
@@ -63,6 +64,16 @@ const router: IRouter = Router();
 
 // Public (unauthenticated) routes — must be mounted BEFORE any auth middleware.
 router.use(publicRouter);
+
+// systemLogsRouter's POST /system-logs/report ingestion endpoint is also
+// deliberately unauthenticated (must accept a crash on the sign-in page
+// before any session exists), so it must be mounted here too — several
+// routers below (timesheets.ts, invoices.ts, projects.ts, quotes.ts) apply a
+// blanket router.use(requireAuth, ...) with no path scoping, which would
+// otherwise 401 this endpoint before it's ever reached. Its GET routes carry
+// their own explicit requireAuth+requireSuperAdmin guard regardless of mount
+// order, so moving the whole router earlier doesn't weaken them.
+router.use(systemLogsRouter);
 
 router.use(healthRouter);
 router.use(usersRouter);

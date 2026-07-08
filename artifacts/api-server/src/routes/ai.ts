@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
 import { openai, speechToText, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
-import * as Sentry from "@sentry/node";
 
 /** Returns an AbortSignal that fires after `ms` milliseconds. */
 function aiSignal(ms: number): AbortSignal {
@@ -10,17 +9,6 @@ function aiSignal(ms: number): AbortSignal {
   return ctrl.signal;
 }
 
-// Instrument every chat completion with a Sentry span so we can separate
-// LLM latency from upstream DB/validation time in Sentry performance traces.
-// Declared as a plain rest-parameter signature (rather than inheriting the SDK's
-// overloaded `create` type) so the spread below doesn't require `args` to be a tuple.
-const _origCreate: (...args: any[]) => any = openai.chat.completions.create.bind(openai.chat.completions);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(openai.chat.completions as any).create = (...args: any[]) =>
-  Sentry.startSpan(
-    { name: "openai.chat.completions", op: "ai.llm", attributes: { "llm.model": String(args[0]?.model ?? "unknown") } },
-    () => _origCreate(...args),
-  );
 import { db, companiesTable, estimatorCostModelsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
@@ -248,10 +236,7 @@ router.post("/ai/assistant", requireAuth, requireCompany, requireTenantCtx, requ
 
   // Fetch live tenant context from the database (ignores any stale client-supplied context)
   const tenantContext = companyId
-    ? await Sentry.startSpan(
-        { name: "buildTenantContext", op: "db.query" },
-        () => buildTenantContext(companyId, req.userId ?? null, req.userRole ?? null),
-      )
+    ? await buildTenantContext(companyId, req.userId ?? null, req.userRole ?? null)
     : "";
 
   if (companyId && webSearchEnabled() && canSearchWeb(companyId)) {

@@ -1781,6 +1781,34 @@ export const insertAuditLogSchema = createInsertSchema(auditLogsTable).omit({
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogsTable.$inferSelect;
 
+// ── System Logs (error tracking / onboarding telemetry — Super Admin only) ────
+// Distinct from auditLogsTable: represents machine/system/error events, not
+// human business actions. userId/tenantId are nullable because these events
+// can originate pre-auth (sign-in page crash) or before a company exists
+// (a failed company-creation attempt).
+export const systemLogsTable = pgTable("system_logs", {
+  id: serial("id").primaryKey(),
+  logType: text("log_type").notNull(), // 'ONBOARDING_SUCCESS' | 'ONBOARDING_FAIL' | 'FIRST_LOGIN' | 'CLIENT_EXCEPTION' | 'SERVER_EXCEPTION'
+  platform: text("platform").notNull(), // 'Backend' | 'Web' | 'iOS' | 'Android'
+  userId: integer("user_id").references(() => usersTable.id, { onDelete: "set null" }),
+  tenantId: integer("tenant_id").references(() => companiesTable.id, { onDelete: "set null" }),
+  message: text("message").notNull(),
+  stackTrace: text("stack_trace"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("idx_system_logs_created_at").on(t.createdAt),
+  index("idx_system_logs_log_type").on(t.logType),
+  index("idx_system_logs_tenant_id").on(t.tenantId),
+]);
+
+export const insertSystemLogSchema = createInsertSchema(systemLogsTable).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSystemLog = z.infer<typeof insertSystemLogSchema>;
+export type SystemLog = typeof systemLogsTable.$inferSelect;
+
 // ── Tenant Export Receipts ─────────────────────────────────────────────────────
 // Proof that a super-admin exported a tenant's data before deleting it. The
 // delete route requires a matching, unconsumed, unexpired row here for the

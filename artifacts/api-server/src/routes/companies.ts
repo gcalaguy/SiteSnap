@@ -12,6 +12,9 @@ import {
 import crypto from "crypto";
 import { z } from "zod";
 import { logAuditEventFromRequest } from "../utils/logger";
+import { sendEmail, ResendSandboxError, escapeHtml } from "../lib/mailer";
+import { logger } from "../lib/logger";
+import { logSystemEvent } from "../lib/systemLog";
 import {
   getCompanyById,
   getCompanySettings,
@@ -22,6 +25,7 @@ import {
   updateCompanyDocumentSettings,
   listCompanyMembers,
   getMembership,
+  getUserById,
 } from "../repositories/companies";
 import {
   createCompany,
@@ -36,6 +40,71 @@ import {
   updateMemberPermissions,
 } from "../services/companies/membershipService";
 import { getAvailableFeatures, toggleFeature } from "../services/companies/featuresService";
+
+// ── New-company-registered notification ──────────────────────────────────────
+// Fire-and-forget internal notice sent the moment a claimed company finishes
+// its first-time registration (name, owner, plan set). Not shown to the
+// customer — this is an internal heads-up, so a delivery failure only gets
+// logged, never surfaced in the claim response.
+function notifyNewCompanyRegistered(opts: { companyName: string; ownerEmail: string; planTier: string }): void {
+  const safeCompanyName = escapeHtml(opts.companyName);
+  const safeOwnerEmail = escapeHtml(opts.ownerEmail);
+  const safePlanTier = escapeHtml(opts.planTier);
+  sendEmail({
+    to: ["gcalagig@gmail.com"],
+    subject: `[Success] New Tenant Registered: ${opts.companyName}`,
+    html: `
+<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
+  <div style="text-align:center;margin-bottom:28px;">
+    <span style="font-size:32px;">🎉</span>
+    <h1 style="margin:12px 0 4px;font-size:22px;color:#172034;">New company registered</h1>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;">
+    <p style="color:#334155;margin:0 0 10px;"><strong>Company:</strong> ${safeCompanyName}</p>
+    <p style="color:#334155;margin:0 0 10px;"><strong>Owner:</strong> ${safeOwnerEmail}</p>
+    <p style="color:#334155;margin:0;"><strong>Plan:</strong> ${safePlanTier}</p>
+  </div>
+</div>`,
+  }).catch((err: unknown) => {
+    if (err instanceof ResendSandboxError) {
+      logger.warn({ allowedEmail: err.allowedEmail }, "New-company-registered notification skipped — Resend sandbox mode");
+    } else {
+      logger.error({ err }, "Failed to send new-company-registered notification");
+    }
+  });
+}
+
+// Fire-and-forget internal alert sent the moment a tenant-registration attempt
+// (self-serve company creation or claiming a pre-created company) throws.
+// Includes the exact error message and the step that failed so it's actionable
+// without needing to go dig through server logs first.
+function notifyTenantRegistrationFailed(opts: { targetEmail: string; failureStep: string; errorMessage: string }): void {
+  const safeTargetEmail = escapeHtml(opts.targetEmail);
+  const safeFailureStep = escapeHtml(opts.failureStep);
+  const safeErrorMessage = escapeHtml(opts.errorMessage);
+  sendEmail({
+    to: ["gcalagig@gmail.com"],
+    subject: `[CRITICAL FAILURE] Tenant Registration Failed: ${opts.targetEmail}`,
+    html: `
+<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#fef2f2;border-radius:12px;">
+  <div style="text-align:center;margin-bottom:28px;">
+    <span style="font-size:32px;">🚨</span>
+    <h1 style="margin:12px 0 4px;font-size:22px;color:#7f1d1d;">Tenant registration failed</h1>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:24px;border:1px solid #fecaca;">
+    <p style="color:#334155;margin:0 0 10px;"><strong>Target email:</strong> ${safeTargetEmail}</p>
+    <p style="color:#334155;margin:0 0 10px;"><strong>Failure step:</strong> ${safeFailureStep}</p>
+    <p style="color:#334155;margin:0;"><strong>Error:</strong> ${safeErrorMessage}</p>
+  </div>
+</div>`,
+  }).catch((err: unknown) => {
+    if (err instanceof ResendSandboxError) {
+      logger.warn({ allowedEmail: err.allowedEmail }, "Tenant-registration-failed notification skipped — Resend sandbox mode");
+    } else {
+      logger.error({ err }, "Failed to send tenant-registration-failed notification");
+    }
+  });
+}
 
 const UpdateCompanyProfileBody = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -68,9 +137,37 @@ router.post("/companies", requireAuth, asyncHandler(async (req, res) => {
   // Generate a unique 8-char referral code for this company
   const referralCode = crypto.randomBytes(4).toString("hex").toUpperCase();
 
-  const company = await createCompany(req.userId!, parsed.data, referralCode, referredByCode);
-
-  res.status(201).json(company);
+  try {
+    const company = await createCompany(req.userId!, parsed.data, referralCode, referredByCode);
+    logSystemEvent({
+      logType: "ONBOARDING_SUCCESS",
+      platform: "Backend",
+      userId: req.userId,
+      tenantId: company.id,
+      message: `Company created: ${company.name}`,
+      metadata: { referralCode },
+    }).catch(() => {});
+    res.status(201).json(company);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    const stackTrace = err instanceof Error ? err.stack ?? null : null;
+    logSystemEvent({
+      logType: "ONBOARDING_FAIL",
+      platform: "Backend",
+      userId: req.userId ?? null,
+      tenantId: null,
+      message: errorMessage,
+      stackTrace,
+      metadata: { step: "createCompany" },
+    }).catch(() => {});
+    const caller = req.userId ? await getUserById(req.userId) : undefined;
+    notifyTenantRegistrationFailed({
+      targetEmail: caller?.email ?? "unknown",
+      failureStep: "createCompany",
+      errorMessage,
+    });
+    res.status(500).json({ error: "Failed to create company. Please try again." });
+  }
 }));
 
 // GET /companies/:companyId
@@ -529,23 +626,74 @@ router.post("/companies/:companyId/claim", requireAuth, asyncHandler(async (req,
     ? req.body.planTier.trim().toLowerCase()
     : "starter";
 
-  const result = await claimCompany({
-    companyId,
-    requestingUserId: req.userId!,
-    suppliedToken,
-    companyName,
-    province,
-    city,
-    phone,
-    planTier,
-  });
+  try {
+    const result = await claimCompany({
+      companyId,
+      requestingUserId: req.userId!,
+      suppliedToken,
+      companyName,
+      province,
+      city,
+      phone,
+      planTier,
+    });
 
-  if (!result.ok) {
-    res.status(result.status).json({ error: result.error });
-    return;
+    if (!result.ok) {
+      logSystemEvent({
+        logType: "ONBOARDING_FAIL",
+        platform: "Backend",
+        userId: req.userId ?? null,
+        tenantId: companyId,
+        message: result.error,
+        metadata: { step: "claimCompany", planTier },
+      }).catch(() => {});
+      const caller = req.userId ? await getUserById(req.userId) : undefined;
+      notifyTenantRegistrationFailed({
+        targetEmail: caller?.email ?? "unknown",
+        failureStep: "claimCompany",
+        errorMessage: result.error,
+      });
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+
+    if (result.company && result.user) {
+      logSystemEvent({
+        logType: "ONBOARDING_SUCCESS",
+        platform: "Backend",
+        userId: req.userId ?? null,
+        tenantId: result.company.id,
+        message: `Company claimed: ${result.company.name}`,
+        metadata: { planTier },
+      }).catch(() => {});
+      notifyNewCompanyRegistered({
+        companyName: result.company.name,
+        ownerEmail: result.user.email,
+        planTier,
+      });
+    }
+
+    res.json({ company: result.company, user: result.user });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    const stackTrace = err instanceof Error ? err.stack ?? null : null;
+    logSystemEvent({
+      logType: "ONBOARDING_FAIL",
+      platform: "Backend",
+      userId: req.userId ?? null,
+      tenantId: companyId,
+      message: errorMessage,
+      stackTrace,
+      metadata: { step: "claimCompany:unhandled" },
+    }).catch(() => {});
+    const caller = req.userId ? await getUserById(req.userId) : undefined;
+    notifyTenantRegistrationFailed({
+      targetEmail: caller?.email ?? "unknown",
+      failureStep: "claimCompany:unhandled",
+      errorMessage,
+    });
+    res.status(500).json({ error: "Failed to claim company. Please try again." });
   }
-
-  res.json({ company: result.company, user: result.user });
 }));
 
 // ── Self-service feature management (company owner) ─────────────────────────

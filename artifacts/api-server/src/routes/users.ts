@@ -7,6 +7,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { resolvePermission } from "../lib/permissionGate";
 import { SyncUserBody } from "@workspace/api-zod";
 import { getCompanyFeatureKeys } from "../lib/featureGate";
+import { logSystemEvent } from "../lib/systemLog";
 
 async function autoAcceptPendingInvitation(userId: number, email: string) {
   if (!email) return null;
@@ -117,6 +118,13 @@ router.post("/users/sync", requireClerkSession, asyncHandler(async (req, res) =>
       .insert(usersTable)
       .values({ clerkUserId, email, firstName: firstName?.trim() || email.split("@")[0], lastName: lastName?.trim() || "" })
       .returning();
+    logSystemEvent({
+      logType: "FIRST_LOGIN",
+      platform: "Backend",
+      userId: created.id,
+      tenantId: null,
+      message: `First-time login: ${created.email}`,
+    }).catch(() => {});
     // Auto-accept any pending invitation matching this email
     await autoAcceptPendingInvitation(created.id, created.email);
     const [refreshed] = await db

@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { reportClientError } from "@/lib/errorReporting";
 
 interface Props {
   children: ReactNode;
@@ -33,6 +34,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
     console.error("[ErrorBoundary]", error, info.componentStack);
+    reportClientError({
+      logType: "CLIENT_EXCEPTION",
+      message: error.message,
+      stackTrace: `${error.stack ?? ""}\n${info.componentStack}`,
+      metadata: { source: "react-error-boundary" },
+    });
   }
 
   handleRetry = () => {
