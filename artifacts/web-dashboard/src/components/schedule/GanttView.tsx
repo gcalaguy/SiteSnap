@@ -154,7 +154,7 @@ export function GanttView({ data, isLoading, zoom, ganttNav, onOpenAssignDialog,
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden shadow-none border-border/70 h-full">
       {isLoading ? (
         <div className="flex items-center justify-center h-64 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading timeline…

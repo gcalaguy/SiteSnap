@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Edit2, Loader2, Trash2, Wrench } from "lucide-react";
 import { useEquipmentQuery, useEquipmentMutations } from "@/hooks/schedule/useEquipment";
@@ -62,33 +61,29 @@ export function EquipmentView({ isOwnerOrForeman, onEditEquipment }: EquipmentVi
   const { deleteEquipMut } = useEquipmentMutations();
 
   return (
-    <div>
+    <div className="h-full">
       {equipmentQuery.isLoading ? (
         <div className="flex items-center justify-center h-48 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading equipment…
         </div>
       ) : !equipmentQuery.data || equipmentQuery.data.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-            <Wrench className="h-10 w-10 mb-3 opacity-40" />
-            <p className="font-medium">No equipment added yet.</p>
-            <p className="text-sm mt-1">Add equipment to track availability and bookings.</p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-lg border border-dashed border-border">
+          <Wrench className="h-10 w-10 mb-3 opacity-40" />
+          <p className="font-medium">No equipment added yet.</p>
+          <p className="text-sm mt-1">Add equipment to track availability and bookings.</p>
+        </div>
       ) : (
-        <Card>
-          <div className="divide-y">
-            {equipmentQuery.data.map(eq => (
-              <EquipmentRow
-                key={eq.id}
-                eq={eq}
-                isOwnerOrForeman={isOwnerOrForeman}
-                onEdit={onEditEquipment}
-                onDelete={deleteEquipMut.mutate}
-              />
-            ))}
-          </div>
-        </Card>
+        <div className="rounded-lg border border-border/70 divide-y divide-border overflow-hidden">
+          {equipmentQuery.data.map(eq => (
+            <EquipmentRow
+              key={eq.id}
+              eq={eq}
+              isOwnerOrForeman={isOwnerOrForeman}
+              onEdit={onEditEquipment}
+              onDelete={deleteEquipMut.mutate}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

@@ -3,7 +3,6 @@ import { useGetMe } from "@workspace/api-client-react";
 import {
   format, addDays, startOfWeek, parseISO,
 } from "date-fns";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -20,9 +19,17 @@ import { EventDialog } from "@/components/schedule/EventDialog";
 import { EquipmentDialog } from "@/components/schedule/EquipmentDialog";
 import { useGanttQuery, useTeamWeekQuery, useAssignmentMutations } from "@/hooks/schedule/useScheduleAssignments";
 import {
-  GOLD, BLACK, type ViewMode, type ZoomLevel, type ScheduleEvent, type Equipment,
+  type ViewMode, type ZoomLevel, type ScheduleEvent, type Equipment,
   getGanttRange,
 } from "@/components/schedule/shared";
+import { cn } from "@/lib/utils";
+
+const TABS: Array<{ id: ViewMode; label: string; icon: typeof GanttChartSquare }> = [
+  { id: "gantt", label: "Gantt", icon: GanttChartSquare },
+  { id: "team", label: "Team Grid", icon: LayoutGrid },
+  { id: "events", label: "Events", icon: Clock },
+  { id: "equipment", label: "Equipment", icon: Wrench },
+];
 
 export default function Schedule() {
   const { data: me } = useGetMe();
@@ -94,6 +101,12 @@ export default function Schedule() {
     return { scheduledWorkers: wIds.size, activeProjects: pIds.size, unscheduled: allMembers.length - wIds.size };
   }, [view, ganttAssignments, ganttMembers, teamQuery.data]);
 
+  const summaryStats: Array<{ label: string; value: number; icon: typeof Users; targetView: ViewMode }> = [
+    { label: "Workers scheduled", value: scheduledWorkers, icon: Users, targetView: "team" },
+    { label: "Active projects", value: activeProjects, icon: Building2, targetView: "gantt" },
+    { label: "Unscheduled", value: Math.max(0, unscheduled), icon: CalendarDays, targetView: "team" },
+  ];
+
   // ── Access guard ──────────────────────────────────────────────────────────
   if (!isOwnerOrForeman) {
     return (
@@ -106,13 +119,13 @@ export default function Schedule() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="space-y-5">
+      <div className="flex flex-col gap-3 min-h-[calc(100vh-7rem)]">
 
         {/* ── Page header ── */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
-            <p className="text-muted-foreground mt-0.5">
+            <h1 className="text-2xl font-bold tracking-tight">Schedule</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               {view === "gantt" ? "Project timelines and worker assignments at a glance."
                 : view === "team" ? "Weekly worker availability across all projects."
                 : view === "events" ? "Meetings, site visits, and equipment bookings."
@@ -120,173 +133,162 @@ export default function Schedule() {
             </p>
           </div>
           {view === "events" && isOwnerOrForeman && (
-            <Button onClick={() => { setEditingEvent(null); setShowEventDialog(true); }} className="shrink-0">
-              <Plus className="mr-2 h-4 w-4" /> New Event
+            <Button size="sm" onClick={() => { setEditingEvent(null); setShowEventDialog(true); }} className="shrink-0">
+              <Plus className="h-3.5 w-3.5" /> New Event
             </Button>
           )}
           {view === "equipment" && isOwnerOrForeman && (
-            <Button onClick={() => { setEditingEquipment(null); setShowEquipmentDialog(true); }} className="shrink-0">
-              <Plus className="mr-2 h-4 w-4" /> Add Equipment
+            <Button size="sm" onClick={() => { setEditingEquipment(null); setShowEquipmentDialog(true); }} className="shrink-0">
+              <Plus className="h-3.5 w-3.5" /> Add Equipment
             </Button>
           )}
           {(view === "gantt" || view === "team") && (
-            <Button onClick={() => openAssignDialog()} className="shrink-0">
-              <Plus className="mr-2 h-4 w-4" /> Assign Worker
+            <Button size="sm" onClick={() => openAssignDialog()} className="shrink-0">
+              <Plus className="h-3.5 w-3.5" /> Assign Worker
             </Button>
           )}
         </div>
 
-        {/* ── Summary cards ── */}
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: "Workers Scheduled",   value: scheduledWorkers,         icon: Users,       targetView: "team"  as ViewMode },
-            { label: "Active Projects",     value: activeProjects,           icon: Building2,   targetView: "gantt" as ViewMode },
-            { label: "Unscheduled Members", value: Math.max(0, unscheduled), icon: CalendarDays, targetView: "team" as ViewMode },
-          ].map(({ label, value, icon: Icon, targetView }) => {
+        {/* ── Compact summary strip ── */}
+        <div className="flex items-center gap-5">
+          {summaryStats.map(({ label, value, icon: Icon, targetView }, i) => {
             const isActive = view === targetView;
             return (
               <button
                 key={label}
                 onClick={() => setView(targetView)}
-                className="rounded-xl p-4 text-left w-full transition-all hover:opacity-90 active:scale-[0.98]"
-                style={{
-                  background: BLACK,
-                  boxShadow: isActive ? `0 0 0 1px ${GOLD}66, 0 4px 16px rgba(0,0,0,0.28)` : "0 4px 16px rgba(0,0,0,0.18)",
-                  border: `1px solid ${isActive ? GOLD : "transparent"}`,
-                  cursor: "pointer",
-                }}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-1.5 py-1 -mx-1.5 text-sm transition-colors",
+                  isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{label}</span>
-                  <Icon size={15} style={{ color: GOLD }} />
-                </div>
-                <p className="text-2xl font-bold text-white">{value}</p>
+                <Icon className={cn("h-3.5 w-3.5", isActive && "text-primary")} />
+                <span className="font-semibold text-foreground">{value}</span>
+                <span>{label}</span>
+                {i < summaryStats.length - 1 && <span className="ml-3.5 h-3.5 w-px bg-border" aria-hidden />}
               </button>
             );
           })}
         </div>
 
-        {/* ── View toggle + nav controls ── */}
-        <Card>
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              {/* View toggle */}
-              <div className="flex items-center gap-1 rounded-lg p-1" style={{ background: "#111111" }}>
-                {([
-                  { id: "gantt",     label: "Gantt",     Icon: GanttChartSquare },
-                  { id: "team",      label: "Team Grid", Icon: LayoutGrid },
-                  { id: "events",    label: "Events",    Icon: Clock },
-                  { id: "equipment", label: "Equipment", Icon: Wrench },
-                ] as const).map(({ id, label, Icon }) => (
-                  <button
-                    key={id}
-                    onClick={() => setView(id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-all text-[#111111] font-semibold bg-[#f2f1ed]"
-                    style={view === id ? { background: "#C9A84C" } : {}}
-                  >
-                    <Icon className="h-4 w-4" /> {label}
-                  </button>
-                ))}
-              </div>
+        {/* ── View tabs + nav controls ── */}
+        <div className="flex items-center justify-between gap-4 flex-wrap border-b border-border">
+          {/* Lightweight view tabs */}
+          <div className="flex items-center gap-1">
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setView(id)}
+                className={cn(
+                  "relative flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors",
+                  view === id ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" /> {label}
+                {view === id && (
+                  <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" aria-hidden />
+                )}
+              </button>
+            ))}
+          </div>
 
-              {/* Navigation (only for time-based views) */}
-              {(view === "gantt" || view === "team" || view === "events") && (
-                <div className="flex items-center gap-2">
-                  {view === "gantt" && (
-                    <div className="flex items-center gap-1 rounded-lg p-1 mr-2" style={{ background: "#111111" }}>
-                      {(["2w", "1m", "3m"] as ZoomLevel[]).map(z => (
-                        <button
-                          key={z}
-                          onClick={() => { setZoom(z); ganttToday(); }}
-                          className="px-2.5 py-1 rounded-md text-xs transition-all text-[#111111] bg-[#f2efe6] font-bold"
-                          style={zoom === z ? { background: "#C9A84C" } : {}}
-                        >
-                          {z === "2w" ? "2 Wks" : z === "1m" ? "1 Mo" : "3 Mo"}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={
-                    view === "gantt" ? ganttPrev
-                    : view === "events" ? () => setEventsWeek(w => addDays(w, -7))
-                    : () => setTeamWeek(w => addDays(w, -7))
-                  }>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-
-                  <div className="text-sm font-semibold min-w-[180px] text-center">
-                    {view === "gantt"
-                      ? `${format(ganttRange.start, "MMM d")} – ${format(ganttRange.end, "MMM d, yyyy")}`
-                      : view === "events"
-                        ? `${format(eventsWeek, "MMM d")} – ${format(addDays(eventsWeek, 6), "MMM d, yyyy")}`
-                        : teamQuery.data
-                          ? `${format(parseISO(teamQuery.data.weekStart), "MMM d")} – ${format(parseISO(teamQuery.data.weekEnd), "MMM d, yyyy")}`
-                          : "Loading…"}
-                  </div>
-
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={
-                    view === "gantt" ? ganttNext
-                    : view === "events" ? () => setEventsWeek(w => addDays(w, 7))
-                    : () => setTeamWeek(w => addDays(w, 7))
-                  }>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-
-                  <Button variant="ghost" size="sm" className="text-xs h-8 px-3" onClick={
-                    view === "gantt" ? ganttToday
-                    : view === "events" ? () => setEventsWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))
-                    : () => setTeamWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))
-                  }>
-                    Today
-                  </Button>
+          {/* Navigation (only for time-based views) */}
+          {(view === "gantt" || view === "team" || view === "events") && (
+            <div className="flex items-center gap-2 pb-2">
+              {view === "gantt" && (
+                <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 mr-1">
+                  {(["2w", "1m", "3m"] as ZoomLevel[]).map(z => (
+                    <button
+                      key={z}
+                      onClick={() => { setZoom(z); ganttToday(); }}
+                      className={cn(
+                        "px-2 py-1 rounded text-xs font-semibold transition-colors",
+                        zoom === z ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {z === "2w" ? "2 Wks" : z === "1m" ? "1 Mo" : "3 Mo"}
+                    </button>
+                  ))}
                 </div>
               )}
+
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={
+                view === "gantt" ? ganttPrev
+                : view === "events" ? () => setEventsWeek(w => addDays(w, -7))
+                : () => setTeamWeek(w => addDays(w, -7))
+              }>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              <div className="text-xs font-medium min-w-[164px] text-center text-muted-foreground">
+                {view === "gantt"
+                  ? `${format(ganttRange.start, "MMM d")} – ${format(ganttRange.end, "MMM d, yyyy")}`
+                  : view === "events"
+                    ? `${format(eventsWeek, "MMM d")} – ${format(addDays(eventsWeek, 6), "MMM d, yyyy")}`
+                    : teamQuery.data
+                      ? `${format(parseISO(teamQuery.data.weekStart), "MMM d")} – ${format(parseISO(teamQuery.data.weekEnd), "MMM d, yyyy")}`
+                      : "Loading…"}
+              </div>
+
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={
+                view === "gantt" ? ganttNext
+                : view === "events" ? () => setEventsWeek(w => addDays(w, 7))
+                : () => setTeamWeek(w => addDays(w, 7))
+              }>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+
+              <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={
+                view === "gantt" ? ganttToday
+                : view === "events" ? () => setEventsWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))
+                : () => setTeamWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))
+              }>
+                Today
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
-        {/* ── GANTT VIEW ── */}
-        {view === "gantt" && (
-          <GanttView
-            data={ganttQuery.data}
-            isLoading={ganttQuery.isLoading}
-            zoom={zoom}
-            ganttNav={ganttNav}
-            onOpenAssignDialog={openAssignDialog}
-            onDeleteAssignment={(id) => deleteMut.mutate(id)}
-            onPatchAssignment={(payload) => patchMut.mutate(payload)}
-          />
-        )}
+        {/* ── Schedule grid — primary focus of the page ── */}
+        <div className="flex-1 min-h-[560px]">
+          {view === "gantt" && (
+            <GanttView
+              data={ganttQuery.data}
+              isLoading={ganttQuery.isLoading}
+              zoom={zoom}
+              ganttNav={ganttNav}
+              onOpenAssignDialog={openAssignDialog}
+              onDeleteAssignment={(id) => deleteMut.mutate(id)}
+              onPatchAssignment={(payload) => patchMut.mutate(payload)}
+            />
+          )}
 
-        {/* ── TEAM GRID VIEW ── */}
-        {view === "team" && (
-          <TeamView
-            data={teamQuery.data}
-            isLoading={teamQuery.isLoading}
-            teamWeek={teamWeek}
-            onOpenAssignDialog={() => openAssignDialog()}
-            onDeleteAssignment={(id) => deleteMut.mutate(id)}
-            onPatchAssignment={(payload) => patchMut.mutate(payload)}
-          />
-        )}
+          {view === "team" && (
+            <TeamView
+              data={teamQuery.data}
+              isLoading={teamQuery.isLoading}
+              teamWeek={teamWeek}
+              onOpenAssignDialog={() => openAssignDialog()}
+              onDeleteAssignment={(id) => deleteMut.mutate(id)}
+              onPatchAssignment={(payload) => patchMut.mutate(payload)}
+            />
+          )}
 
-        {/* ── EVENTS VIEW ── */}
-        {view === "events" && (
-          <EventsView
-            eventsWeek={eventsWeek}
-            isOwnerOrForeman={isOwnerOrForeman}
-            onEditEvent={(evt) => { setEditingEvent(evt); setShowEventDialog(true); }}
-          />
-        )}
+          {view === "events" && (
+            <EventsView
+              eventsWeek={eventsWeek}
+              isOwnerOrForeman={isOwnerOrForeman}
+              onEditEvent={(evt) => { setEditingEvent(evt); setShowEventDialog(true); }}
+            />
+          )}
 
-        {/* ── EQUIPMENT VIEW ── */}
-        {view === "equipment" && (
-          <EquipmentView
-            isOwnerOrForeman={isOwnerOrForeman}
-            onEditEquipment={(eq) => { setEditingEquipment(eq); setShowEquipmentDialog(true); }}
-          />
-        )}
+          {view === "equipment" && (
+            <EquipmentView
+              isOwnerOrForeman={isOwnerOrForeman}
+              onEditEquipment={(eq) => { setEditingEquipment(eq); setShowEquipmentDialog(true); }}
+            />
+          )}
+        </div>
 
         {/* ── Assign Worker Dialog ── */}
         <AssignWorkerDialog
