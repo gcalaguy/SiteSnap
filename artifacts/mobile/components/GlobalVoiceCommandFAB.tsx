@@ -42,6 +42,7 @@ import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { useVoiceIntentExecutor } from "@/hooks/useVoiceIntentExecutor";
 import { interpretVoiceCommand, type SingleAction, type VoiceIntent } from "@/src/utils/voiceRouter";
 import { setVoiceFabHandler } from "@/utils/voiceFabBus";
+import { safeNavigate } from "@/utils/safeNavigate";
 
 const FAB_SIZE = 56;
 const FAB_EDGE_MARGIN = 16;
@@ -663,7 +664,7 @@ export function GlobalVoiceCommandFAB() {
     onMaterialAlert: handleMaterialAlert,
     onTriggerCamera: () => {
       addResult("camera", "Photo", "Opening camera...", "ok");
-      router.push("/(tabs)/(home)/field-photo" as Parameters<typeof router.push>[0]);
+      safeNavigate(router, "/(tabs)/(home)/field-photo", "voice-fab:camera");
     },
     onSafetyLog: handleSafetyLog,
     onCreateQuote: handleCreateQuote,
@@ -720,7 +721,7 @@ export function GlobalVoiceCommandFAB() {
         addResult("navigation", "Navigate", `Go to ${target}`, "ok");
         setTimeout(() => {
           handleClose();
-          const push = () => router.push(pathMap[target] as Parameters<typeof router.push>[0]);
+          const push = () => safeNavigate(router, pathMap[target], `voice-fab:navigate:${target}`);
           if (navigationRef.isReady()) {
             push();
           } else {
@@ -779,9 +780,7 @@ export function GlobalVoiceCommandFAB() {
       setTimeout(() => {
         handleClose();
         const push = () =>
-          router.push(
-            `/(tabs)/(home)/ask?q=${encodeURIComponent(question)}` as Parameters<typeof router.push>[0],
-          );
+          safeNavigate(router, `/(tabs)/(home)/ask?q=${encodeURIComponent(question)}`, "voice-fab:ask-assistant");
         if (navigationRef.isReady()) {
           push();
         } else {

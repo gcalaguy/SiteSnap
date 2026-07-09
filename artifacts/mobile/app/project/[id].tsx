@@ -43,6 +43,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import { PhotoThumbnail, PhotoLightbox } from "@/components/PhotoThumbnail";
 import { ListRow } from "@/components/ui";
+import { safeNavigate } from "@/utils/safeNavigate";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "#22C55E",
@@ -1060,7 +1061,7 @@ export default function ProjectDetailScreen() {
                   title="Inspections"
                   subtitle="View or start an inspection for this project"
                   showChevron
-                  onPress={() => router.push(`/(tabs)/inspect?projectId=${project?.id}` as any)}
+                  onPress={() => safeNavigate(router, `/(tabs)/inspect?projectId=${project?.id}`, "project-detail:inspections")}
                 />
               </View>
               <View style={{ height: 20 }} />
@@ -1137,7 +1138,7 @@ export default function ProjectDetailScreen() {
                         styles.reportRow,
                         { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
                       ]}
-                      onPress={() => router.push(`/change-order/${co.id}`)}
+                      onPress={() => safeNavigate(router, `/change-order/${co.id}`, "project-detail:change-order")}
                     >
                       <View style={[styles.reportDateBadge, { backgroundColor: `${colors.primary}15` }]}>
                         <Feather name="file-text" size={16} color={colors.primary} />
@@ -1387,7 +1388,7 @@ export default function ProjectDetailScreen() {
                   key={r.id}
                   rfi={r}
                   onPress={() =>
-                    router.push(`/rfi/${r.id}?projectId=${projectId}`)
+                    safeNavigate(router, `/rfi/${r.id}?projectId=${projectId}`, "project-detail:rfi")
                   }
                 />
               ))

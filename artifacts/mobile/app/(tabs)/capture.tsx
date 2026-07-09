@@ -9,6 +9,7 @@ import { useColors } from "@/hooks/useColors";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useOfflineQueue } from "@/context/OfflineQueueContext";
 import { triggerVoiceFab } from "@/utils/voiceFabBus";
+import { safeNavigate } from "@/utils/safeNavigate";
 import { Card, ListRow } from "@/components/ui";
 import { radius, spacing, typography } from "@/constants/theme";
 
@@ -29,9 +30,9 @@ export default function CaptureScreen() {
   const perms = usePermissions();
   const { pendingCount } = useOfflineQueue();
 
-  function go(path: string) {
+  function go(path: string, context: string) {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push(path as Parameters<typeof router.push>[0]);
+    safeNavigate(router, path, context);
   }
 
   function openVoice() {
@@ -46,7 +47,7 @@ export default function CaptureScreen() {
       sublabel: "Site photo, tagged to a project",
       icon: "camera",
       color: colors.primary,
-      onPress: () => go("/(tabs)/(home)/field-photo"),
+      onPress: () => go("/(tabs)/(home)/field-photo", "capture:photo"),
     },
     {
       key: "video",
@@ -70,7 +71,7 @@ export default function CaptureScreen() {
       sublabel: "Start a new checklist",
       icon: "check-square",
       color: colors.success,
-      onPress: () => go("/(tabs)/inspect?action=new"),
+      onPress: () => go("/(tabs)/inspect?action=new", "capture:inspection"),
     },
     {
       key: "safety",
@@ -78,7 +79,7 @@ export default function CaptureScreen() {
       sublabel: "Hazard or incident report",
       icon: "shield",
       color: colors.warning,
-      onPress: () => go("/(tabs)/safety?initTab=new"),
+      onPress: () => go("/(tabs)/safety?initTab=new", "capture:safety"),
     },
     {
       key: "log",
@@ -86,7 +87,7 @@ export default function CaptureScreen() {
       sublabel: "Crew, weather, notes & photos",
       icon: "file-text",
       color: colors.primary,
-      onPress: () => go("/(tabs)/(home)/log"),
+      onPress: () => go("/(tabs)/(home)/log", "capture:log"),
     },
   ];
 
@@ -96,7 +97,7 @@ export default function CaptureScreen() {
       icon: "check-circle" as const,
       title: "Safety Signoff",
       subtitle: "Daily PPE / hazard gatekeeper checklist",
-      onPress: () => go("/(tabs)/(home)/field-safety"),
+      onPress: () => go("/(tabs)/(home)/field-safety", "capture:signoff"),
     },
     perms.viewRFIs
       ? {
@@ -104,7 +105,7 @@ export default function CaptureScreen() {
           icon: "alert-circle" as const,
           title: "New RFI",
           subtitle: "Ask a question, request info",
-          onPress: () => go("/rfis"),
+          onPress: () => go("/rfis", "capture:rfi"),
         }
       : null,
   ].filter((r): r is NonNullable<typeof r> => r != null);
@@ -124,7 +125,7 @@ export default function CaptureScreen() {
 
       {pendingCount > 0 ? (
         <Card
-          onPress={() => go("/sync-queue")}
+          onPress={() => go("/sync-queue", "capture:sync-queue")}
           style={{ marginHorizontal: spacing.xl, marginBottom: spacing.lg, borderColor: `${colors.warning}55` }}
         >
           <View style={styles.pendingRow}>
