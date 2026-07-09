@@ -26,6 +26,7 @@ import { Feather } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { Card, ListRow } from "@/components/ui";
+import { safeNavigate } from "@/utils/safeNavigate";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
@@ -251,15 +252,15 @@ export default function ProfileScreen() {
 
   type ToolItem = { key: string; icon: keyof typeof Feather.glyphMap; label: string; subtitle: string; onPress: () => void };
   const toolItems: ToolItem[] = [
-    { key: "calculators", icon: "percent", label: "Trade Calculators", subtitle: "Concrete · Electrical · Plumbing · Roofing", onPress: () => router.push("/calculators") },
-    perms.viewEstimator && { key: "estimator", icon: "bar-chart-2", label: "Estimator", subtitle: "Build a detailed estimate", onPress: () => router.push("/estimator") },
-    perms.viewEstimator && { key: "voice-estimate", icon: "mic", label: "Voice Estimator", subtitle: "Speak a description, get an instant estimate", onPress: () => router.push("/voice-estimate") },
-    perms.viewVault && { key: "vault", icon: "lock", label: "Vault", subtitle: "Secure document storage", onPress: () => router.push("/vault") },
-    perms.viewReports && { key: "reports", icon: "file-text", label: "Daily Reports", subtitle: "Browse past submissions", onPress: () => router.push("/(tabs)/(home)/reports" as any) },
-    perms.submitExpenses && { key: "expenses", icon: "credit-card", label: "Expenses", subtitle: "Submit & track job costs", onPress: () => router.push("/expenses") },
-    perms.viewAskAI && { key: "ask-ai", icon: "message-circle", label: "Ask AI", subtitle: "Chat with your project assistant", onPress: () => router.push("/(tabs)/(home)/ask" as any) },
-    perms.viewRiskTab && { key: "risk", icon: "alert-triangle", label: "Risk", subtitle: "Top risks & open alerts", onPress: () => router.push("/(tabs)/risk" as any) },
-    perms.viewTradeHub && { key: "tradehub", icon: "globe", label: "TradeHub", subtitle: "Community jobs & discussion", onPress: () => router.push("/(tabs)/tradehub" as any) },
+    { key: "calculators", icon: "percent", label: "Trade Calculators", subtitle: "Concrete · Electrical · Plumbing · Roofing", onPress: () => safeNavigate(router, "/calculators", "profile:calculators") },
+    perms.viewEstimator && { key: "estimator", icon: "bar-chart-2", label: "Estimator", subtitle: "Build a detailed estimate", onPress: () => safeNavigate(router, "/estimator", "profile:estimator") },
+    perms.viewEstimator && { key: "voice-estimate", icon: "mic", label: "Voice Estimator", subtitle: "Speak a description, get an instant estimate", onPress: () => safeNavigate(router, "/voice-estimate", "profile:voice-estimate") },
+    perms.viewVault && { key: "vault", icon: "lock", label: "Vault", subtitle: "Secure document storage", onPress: () => safeNavigate(router, "/vault", "profile:vault") },
+    perms.viewReports && { key: "reports", icon: "file-text", label: "Daily Reports", subtitle: "Browse past submissions", onPress: () => safeNavigate(router, "/(tabs)/(home)/reports", "profile:reports") },
+    perms.submitExpenses && { key: "expenses", icon: "credit-card", label: "Expenses", subtitle: "Submit & track job costs", onPress: () => safeNavigate(router, "/expenses", "profile:expenses") },
+    perms.viewAskAI && { key: "ask-ai", icon: "message-circle", label: "Ask AI", subtitle: "Chat with your project assistant", onPress: () => safeNavigate(router, "/(tabs)/(home)/ask", "profile:ask-ai") },
+    perms.viewRiskTab && { key: "risk", icon: "alert-triangle", label: "Risk", subtitle: "Top risks & open alerts", onPress: () => safeNavigate(router, "/(tabs)/risk", "profile:risk") },
+    perms.viewTradeHub && { key: "tradehub", icon: "globe", label: "TradeHub", subtitle: "Community jobs & discussion", onPress: () => safeNavigate(router, "/(tabs)/tradehub", "profile:tradehub") },
   ].filter((i): i is ToolItem => !!i);
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
@@ -322,7 +323,7 @@ export default function ProfileScreen() {
         {showSeatWarning && (
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => router.push("/settings" as any)}
+            onPress={() => safeNavigate(router, "/settings", "profile:seat-warning")}
             style={[styles.seatWarningBanner]}
           >
             <View style={styles.seatWarningIcon}>
@@ -374,9 +375,9 @@ export default function ProfileScreen() {
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Administration</Text>
             <Card padding="none">
               <View style={{ paddingHorizontal: 14 }}>
-                <ListRow icon="grid" title="Admin Hub" subtitle="Financials, operations & team tools" onPress={() => router.push("/(tabs)/admin-hub" as any)} showChevron />
+                <ListRow icon="grid" title="Admin Hub" subtitle="Financials, operations & team tools" onPress={() => safeNavigate(router, "/(tabs)/admin-hub", "profile:admin-hub")} showChevron />
                 <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-                  <ListRow icon="settings" title="Company Settings" subtitle="Billing seats · Email · QuickBooks" onPress={() => router.push("/settings" as any)} showChevron />
+                  <ListRow icon="settings" title="Company Settings" subtitle="Billing seats · Email · QuickBooks" onPress={() => safeNavigate(router, "/settings", "profile:company-settings")} showChevron />
                 </View>
               </View>
             </Card>

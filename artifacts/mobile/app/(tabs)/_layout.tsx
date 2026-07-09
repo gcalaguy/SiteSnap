@@ -34,6 +34,19 @@ function NativeTabLayout() {
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
         </NativeTabs.Trigger>
+
+        {/* Hidden-from-bar routes below (risk/inspect/safety/tradehub/admin-hub)
+            must still be registered as Triggers — unlike the classic <Tabs>
+            navigator, NativeTabs only knows about routes explicitly declared
+            here. Without a Trigger (even a hidden one), router.push to these
+            screens silently drops the NAVIGATE action instead of throwing,
+            which is why "Risk"/"TradeHub" buttons appeared unresponsive on
+            Liquid-Glass devices while working fine under ClassicTabLayout. */}
+        <NativeTabs.Trigger name="risk" hidden />
+        <NativeTabs.Trigger name="inspect" hidden />
+        <NativeTabs.Trigger name="safety" hidden />
+        <NativeTabs.Trigger name="tradehub" hidden />
+        <NativeTabs.Trigger name="admin-hub" hidden />
       </NativeTabs>
     </View>
   );

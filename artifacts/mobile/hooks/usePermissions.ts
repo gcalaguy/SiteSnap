@@ -56,7 +56,7 @@ export function usePermissions(): Record<PermissionKey, boolean> & { isLoading: 
     viewSafetyTab: true,
     viewPhotos: true,
     submitExpenses: true,
-    viewTradeHub: true,
+    viewTradeHub: false,
     viewAskAI: true,
     viewVault: true,
     viewClientMessages: true,
