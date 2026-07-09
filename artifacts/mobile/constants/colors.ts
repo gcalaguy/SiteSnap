@@ -1,3 +1,8 @@
+// Both palettes below share the same charcoal/black/gold identity used by the
+// web dashboard's dark theme — see hooks/useColors.ts for why this app does
+// not switch to a white background on light-mode devices. `success`/`warning`
+// were added for the mobile redesign's status system (construction-yellow
+// primary accent stays reserved for brand/CTA use, not status).
 const colors = {
   light: {
     text: "#FAFAFA",
@@ -16,6 +21,10 @@ const colors = {
     accentForeground: "#FAFAFA",
     destructive: "#DC2626",
     destructiveForeground: "#FFFFFF",
+    success: "#22C55E",
+    successForeground: "#0B1F12",
+    warning: "#F59E0B",
+    warningForeground: "#1F1400",
     border: "#2A2A2A",
     input: "#2A2A2A",
     sidebar: "#0A0A0A",
@@ -38,6 +47,10 @@ const colors = {
     accentForeground: "#FAFAFA",
     destructive: "#DC2626",
     destructiveForeground: "#FFFFFF",
+    success: "#22C55E",
+    successForeground: "#0B1F12",
+    warning: "#F59E0B",
+    warningForeground: "#1F1400",
     border: "#2A2A2A",
     input: "#2A2A2A",
     sidebar: "#0A0A0A",

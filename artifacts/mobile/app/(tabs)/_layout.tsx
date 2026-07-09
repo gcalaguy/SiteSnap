@@ -9,13 +9,8 @@ import { Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { useOfflineQueue } from "@/context/OfflineQueueContext";
-import { usePermissions } from "@/hooks/usePermissions";
-import { useGetMe } from "@workspace/api-client-react";
 
 function NativeTabLayout() {
-  const perms = usePermissions();
-  const { data: me } = useGetMe();
-  const isOwner = me?.role === "owner";
   return (
     <View style={{ flex: 1 }}>
       <NativeTabs>
@@ -23,34 +18,18 @@ function NativeTabLayout() {
           <Icon sf={{ default: "house", selected: "house.fill" }} />
           <Label>Home</Label>
         </NativeTabs.Trigger>
-        {perms.viewRiskTab && (
-          <NativeTabs.Trigger name="risk">
-            <Icon sf={{ default: "exclamationmark.triangle", selected: "exclamationmark.triangle.fill" }} />
-            <Label>Risk</Label>
-          </NativeTabs.Trigger>
-        )}
-        {perms.viewInspectTab && (
-          <NativeTabs.Trigger name="inspect">
-            <Icon sf={{ default: "checkmark.shield", selected: "checkmark.shield.fill" }} />
-            <Label>Inspections</Label>
-          </NativeTabs.Trigger>
-        )}
-        {perms.viewSafetyTab && (
-          <NativeTabs.Trigger name="safety">
-            <Icon sf={{ default: "cross.case", selected: "cross.case.fill" }} />
-            <Label>Safety</Label>
-          </NativeTabs.Trigger>
-        )}
-        <NativeTabs.Trigger name="tradehub">
-          <Icon sf={{ default: "globe", selected: "globe.fill" }} />
-          <Label>TradeHub</Label>
+        <NativeTabs.Trigger name="projects">
+          <Icon sf={{ default: "folder", selected: "folder.fill" }} />
+          <Label>Projects</Label>
         </NativeTabs.Trigger>
-        {isOwner && (
-          <NativeTabs.Trigger name="admin-hub">
-            <Icon sf={{ default: "gearshape.2", selected: "gearshape.2.fill" }} />
-            <Label>Admin Hub</Label>
-          </NativeTabs.Trigger>
-        )}
+        <NativeTabs.Trigger name="capture">
+          <Icon sf={{ default: "camera", selected: "camera.fill" }} />
+          <Label>Capture</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="tasks">
+          <Icon sf={{ default: "checkmark.circle", selected: "checkmark.circle.fill" }} />
+          <Label>Tasks</Label>
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf={{ default: "person", selected: "person.fill" }} />
           <Label>Profile</Label>
@@ -76,9 +55,11 @@ function ClassicTabLayout() {
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
   const { pendingCount } = useOfflineQueue();
-  const perms = usePermissions();
-  const { data: me } = useGetMe();
-  const isOwner = me?.role === "owner";
+  // Hidden-from-bar routes below (risk/inspect/safety/tradehub/admin-hub) stay
+  // registered so router.push still works from Profile's "More tools" menu
+  // and from GlobalVoiceCommandFAB's voice-nav pathMap — only their tab-bar
+  // button is removed by tabBarItemStyle, not the route itself.
+  const hiddenTab = { display: "none" as const };
 
   return (
     <View style={{ flex: 1 }}>
@@ -117,55 +98,31 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="risk"
+        name="projects"
         options={{
-          href: perms.viewRiskTab ? undefined : null,
-          tabBarItemStyle: perms.viewRiskTab ? {} : { display: "none" },
-          title: "Risk",
+          title: "Projects",
           tabBarIcon: ({ color }) =>
-            isIOS ? <SymbolView name="exclamationmark.triangle" tintColor={color} size={24} /> : <Feather name="alert-triangle" size={22} color={color} />,
+            isIOS ? <SymbolView name="folder" tintColor={color} size={24} /> : <Feather name="folder" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="inspect"
+        name="capture"
         options={{
-          href: perms.viewInspectTab ? undefined : null,
-          tabBarItemStyle: perms.viewInspectTab ? {} : { display: "none" },
-          title: "Inspections",
-          tabBarIcon: ({ color, focused }) => (
+          title: "Capture",
+          tabBarIcon: ({ color }) => (
             <View style={{ position: "relative" }}>
-              {isIOS ? <SymbolView name="checkmark.shield" tintColor={color} size={24} /> : <Feather name="shield" size={22} color={color} />}
+              {isIOS ? <SymbolView name="camera" tintColor={color} size={24} /> : <Feather name="camera" size={22} color={color} />}
               <PendingBadge count={pendingCount} />
             </View>
           ),
         }}
       />
       <Tabs.Screen
-        name="safety"
+        name="tasks"
         options={{
-          href: perms.viewSafetyTab ? undefined : null,
-          tabBarItemStyle: perms.viewSafetyTab ? {} : { display: "none" },
-          title: "Safety",
+          title: "Tasks",
           tabBarIcon: ({ color }) =>
-            isIOS ? <SymbolView name="cross.case" tintColor={color} size={24} /> : <Feather name="alert-circle" size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="tradehub"
-        options={{
-          title: "TradeHub",
-          tabBarIcon: ({ color }) =>
-            isIOS ? <SymbolView name="globe" tintColor={color} size={24} /> : <Feather name="globe" size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="admin-hub"
-        options={{
-          href: isOwner ? undefined : null,
-          tabBarItemStyle: isOwner ? {} : { display: "none" },
-          title: "Admin Hub",
-          tabBarIcon: ({ color }) =>
-            isIOS ? <SymbolView name="gearshape.2" tintColor={color} size={24} /> : <Feather name="grid" size={22} color={color} />,
+            isIOS ? <SymbolView name="checkmark.circle" tintColor={color} size={24} /> : <Feather name="check-square" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -177,6 +134,12 @@ function ClassicTabLayout() {
         }}
       />
 
+      {/* No longer primary tabs — reachable via Profile's "More tools" menu */}
+      <Tabs.Screen name="risk" options={{ title: "Risk", tabBarItemStyle: hiddenTab }} />
+      <Tabs.Screen name="inspect" options={{ title: "Inspections", tabBarItemStyle: hiddenTab }} />
+      <Tabs.Screen name="safety" options={{ title: "Safety", tabBarItemStyle: hiddenTab }} />
+      <Tabs.Screen name="tradehub" options={{ title: "TradeHub", tabBarItemStyle: hiddenTab }} />
+      <Tabs.Screen name="admin-hub" options={{ title: "Admin Hub", tabBarItemStyle: hiddenTab }} />
     </Tabs>
     </View>
   );

@@ -3,19 +3,19 @@ import {
   ScrollView,
   View,
   Text,
-  Pressable,
   StyleSheet,
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useGetMe } from "@workspace/api-client-react";
+import { Card, ListRow } from "@/components/ui";
 
 type HubTile = {
   label: string;
+  subtitle: string;
   icon: string;
   route: string;
   color: string;
@@ -25,57 +25,38 @@ const TILE_GROUPS: { title: string; tiles: HubTile[] }[] = [
   {
     title: "Financials",
     tiles: [
-      { label: "Project Financials", icon: "pie-chart", route: "/finance", color: "#8B5CF6" },
+      { label: "Project Financials", subtitle: "Budgets, costs & margins", icon: "pie-chart", route: "/finance", color: "#8B5CF6" },
     ],
   },
   {
     title: "Operations",
     tiles: [
-      { label: "Workforce", icon: "calendar", route: "/workforce", color: "#EC4899" },
-      { label: "Permits", icon: "award", route: "/permits", color: "#10B981" },
+      { label: "Workforce", subtitle: "Scheduling & assignments", icon: "calendar", route: "/workforce", color: "#EC4899" },
+      { label: "Permits", subtitle: "Track permit status", icon: "award", route: "/permits", color: "#10B981" },
     ],
   },
   {
     title: "Team",
     tiles: [
-      { label: "Contacts Directory", icon: "book", route: "/contacts", color: "#C9A84C" },
-      { label: "Team Management", icon: "users", route: "/settings", color: "#C9A84C" },
+      { label: "Contacts Directory", subtitle: "Clients, subs & vendors", icon: "book", route: "/contacts", color: "#C9A84C" },
+      { label: "Team Management", subtitle: "Seats, roles & invites", icon: "users", route: "/settings", color: "#C9A84C" },
     ],
   },
 ];
 
-function Tile({ tile }: { tile: HubTile }) {
-  const colors = useColors();
-  const router = useRouter();
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.tile,
-        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
-      ]}
-      onPress={() => {
-        if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.navigate(tile.route as any);
-      }}
-    >
-      <View style={[styles.tileIconBg, { backgroundColor: `${tile.color}18` }]}>
-        <Feather name={tile.icon as any} size={22} color={tile.color} />
-      </View>
-      <Text style={[styles.tileLabel, { color: colors.foreground }]} numberOfLines={2}>
-        {tile.label}
-      </Text>
-    </Pressable>
-  );
-}
-
 export default function AdminHubScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { data: me } = useGetMe();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
   const firstName = me?.firstName ?? "there";
+
+  function go(route: string) {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.navigate(route as any);
+  }
 
   return (
     <ScrollView
@@ -94,15 +75,27 @@ export default function AdminHubScreen() {
         </View>
       </View>
 
-      {/* Tile Groups */}
+      {/* Tile Groups — full-width action rows, not a narrow tile grid, so
+          longer labels (e.g. "Contacts Directory") never wrap. */}
       {TILE_GROUPS.map((group) => (
         <View key={group.title} style={styles.group}>
           <Text style={[styles.groupTitle, { color: colors.mutedForeground }]}>{group.title}</Text>
-          <View style={styles.grid}>
-            {group.tiles.map((tile) => (
-              <Tile key={tile.label} tile={tile} />
-            ))}
-          </View>
+          <Card padding="none">
+            <View style={{ paddingHorizontal: 14 }}>
+              {group.tiles.map((tile, i) => (
+                <View key={tile.label} style={i > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : undefined}>
+                  <ListRow
+                    icon={tile.icon as any}
+                    iconColor={tile.color}
+                    title={tile.label}
+                    subtitle={tile.subtitle}
+                    onPress={() => go(tile.route)}
+                    showChevron
+                  />
+                </View>
+              ))}
+            </View>
+          </Card>
         </View>
       ))}
     </ScrollView>
@@ -149,35 +142,5 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 10,
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  tile: {
-    width: "47.5%",
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    gap: 10,
-    alignItems: "flex-start",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  tileIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tileLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    lineHeight: 18,
   },
 });

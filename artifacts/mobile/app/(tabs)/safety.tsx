@@ -24,6 +24,7 @@ import * as Haptics from "expo-haptics";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useLocalSearchParams } from "expo-router";
 import { ComplianceAlertBanner } from "@/components/ComplianceAlertBanner";
+import { StatTile } from "@/components/ui";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -338,7 +339,6 @@ export default function SafetyTab() {
 
   const { data: me } = useGetMe();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
-  const isWorker = me?.role === "worker";
 
   const { initCategory, initTab } = useLocalSearchParams<{ initCategory?: string; initTab?: string }>();
 
@@ -421,17 +421,8 @@ export default function SafetyTab() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topInsets + 8, backgroundColor: colors.sidebar }]}>
-        <View>
-          <Text style={[styles.headerSub, { color: "rgba(255,255,255,0.55)" }]}>Site Snap</Text>
-          <Text style={[styles.headerTitle, { color: "#FFFFFF" }]}>Safety & Incidents</Text>
-        </View>
-        {/* Role badge */}
-        <View style={[styles.roleBadge, { backgroundColor: isWorker ? "#334155" : "#D4AF37" }]}>
-          <Text style={{ fontSize: 11, fontFamily: "Inter_700Bold", color: isWorker ? "#94a3b8" : "#111111" }}>
-            {isWorker ? "Worker" : isOwnerOrForeman ? (me?.role === "owner" ? "Owner" : "Foreman") : ""}
-          </Text>
-        </View>
+      <View style={[styles.header, { paddingTop: topInsets + 8 }]}>
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Safety & Incidents</Text>
       </View>
 
       {/* Tab bar */}
@@ -462,17 +453,10 @@ export default function SafetyTab() {
 
           {/* Stat row */}
           <View style={styles.statsRow}>
-            {[
-              { label: "Total", value: total, color: colors.foreground },
-              { label: "Drafts", value: drafts, color: "#6B7280" },
-              { label: "Pending", value: pending, color: "#F59E0B" },
-              { label: "Approved", value: approved, color: "#10B981" },
-            ].map((stat) => (
-              <View key={stat.label} style={[styles.miniStat, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.miniStatVal, { color: stat.color }]}>{stat.value}</Text>
-                <Text style={[styles.miniStatLabel, { color: colors.mutedForeground }]}>{stat.label}</Text>
-              </View>
-            ))}
+            <StatTile label="Total" value={total} />
+            <StatTile label="Drafts" value={drafts} />
+            <StatTile label="Pending" value={pending} status="warning" />
+            <StatTile label="Approved" value={approved} status="success" />
           </View>
 
           {/* Quick category shortcuts */}
@@ -482,7 +466,7 @@ export default function SafetyTab() {
               {QUICK_CATS.map((cat) => (
                 <TouchableOpacity
                   key={cat.key}
-                  style={[styles.quickBtn, { backgroundColor: cat.bg, borderColor: `${cat.text}30` }]}
+                  style={[styles.quickRow, { backgroundColor: cat.bg, borderColor: `${cat.text}30` }]}
                   onPress={() => {
                     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setCatFilter(cat.key);
@@ -490,8 +474,13 @@ export default function SafetyTab() {
                   }}
                   activeOpacity={0.8}
                 >
-                  <Feather name={cat.icon as any} size={20} color={cat.text} />
-                  <Text style={[styles.quickBtnText, { color: cat.text }]}>{cat.label}</Text>
+                  <View style={[styles.quickRowIcon, { backgroundColor: `${cat.text}22` }]}>
+                    <Feather name={cat.icon as any} size={19} color={cat.text} />
+                  </View>
+                  <Text style={[styles.quickRowText, { color: cat.text }]} numberOfLines={1}>
+                    {cat.label}
+                  </Text>
+                  <Feather name="chevron-right" size={18} color={cat.text} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -690,19 +679,8 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingBottom: 14,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
   },
-  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  headerTitle: { fontSize: 24, fontFamily: "Inter_700Bold", marginTop: 2 },
-  roleBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    alignSelf: "flex-end",
-    marginBottom: 4,
-  },
+  headerTitle: { fontSize: 24, fontFamily: "Inter_700Bold" },
 
   tabBar: {
     flexDirection: "row",
@@ -722,22 +700,22 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, gap: 0 },
 
   statsRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  miniStat: { flex: 1, borderRadius: 10, borderWidth: 1, paddingVertical: 10, alignItems: "center" },
-  miniStatVal: { fontSize: 20, fontFamily: "Inter_700Bold" },
-  miniStatLabel: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
 
   sectionLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
 
-  quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  quickBtn: {
-    width: "47%",
+  quickGrid: { gap: 8 },
+  quickRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     borderRadius: 12,
     borderWidth: 1,
-    padding: 14,
-    alignItems: "center",
-    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    minHeight: 56,
   },
-  quickBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" },
+  quickRowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  quickRowText: { flex: 1, fontSize: 15, fontFamily: "Inter_600SemiBold" },
 
   subCard: {
     borderRadius: 12,

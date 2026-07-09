@@ -160,8 +160,12 @@ function StatCard({ label, value, icon, color, colors }: {
       <View style={[styles.statIcon, { backgroundColor: `${color}18` }]}>
         <Feather name={icon as any} size={16} color={color} />
       </View>
-      <Text style={[styles.statValue, { color: colors.foreground }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{label}</Text>
+      <Text style={[styles.statValue, { color: colors.foreground }]} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      <Text style={[styles.statLabel, { color: colors.mutedForeground }]} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -176,7 +180,7 @@ function InspectionRow({ item, colors }: { item: RiskDashboard["topRisk"][number
   return (
     <View style={[styles.inspRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.inspType, { color: colors.foreground }]}>
+        <Text style={[styles.inspType, { color: colors.foreground }]} numberOfLines={1}>
           {(insp.inspectionType ?? "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
         </Text>
         {project?.name ? (
@@ -324,36 +328,41 @@ export default function RiskScreen() {
         <ActivityIndicator color={colors.primary} style={{ marginTop: 48 }} />
       ) : (
         <>
-          {/* ── Stat cards ── */}
+          {/* ── Stat cards — two full-width rows of two, not a four-up wrap,
+              so labels like "Avg Risk Score" always have room to sit on one line ── */}
           <View style={styles.statsGrid}>
-            <StatCard
-              label="Avg Risk Score"
-              value={health?.avgRiskScore != null ? `${Number(health.avgRiskScore).toFixed(1)}/100` : "—"}
-              icon="activity"
-              color="#dc2626"
-              colors={colors}
-            />
-            <StatCard
-              label="Critical"
-              value={health?.critical ?? 0}
-              icon="alert-triangle"
-              color="#dc2626"
-              colors={colors}
-            />
-            <StatCard
-              label="High Risk"
-              value={health?.high ?? 0}
-              icon="alert-circle"
-              color="#ea580c"
-              colors={colors}
-            />
-            <StatCard
-              label="Unread Alerts"
-              value={unreadAlerts.length}
-              icon="bell"
-              color="#ca8a04"
-              colors={colors}
-            />
+            <View style={styles.statsRow}>
+              <StatCard
+                label="Avg Risk Score"
+                value={health?.avgRiskScore != null ? `${Number(health.avgRiskScore).toFixed(1)}/100` : "—"}
+                icon="activity"
+                color="#dc2626"
+                colors={colors}
+              />
+              <StatCard
+                label="Critical"
+                value={health?.critical ?? 0}
+                icon="alert-triangle"
+                color="#dc2626"
+                colors={colors}
+              />
+            </View>
+            <View style={styles.statsRow}>
+              <StatCard
+                label="High Risk"
+                value={health?.high ?? 0}
+                icon="alert-circle"
+                color="#ea580c"
+                colors={colors}
+              />
+              <StatCard
+                label="Unread Alerts"
+                value={unreadAlerts.length}
+                icon="bell"
+                color="#ca8a04"
+                colors={colors}
+              />
+            </View>
           </View>
 
           {/* Alert severity summary strip */}
@@ -505,15 +514,17 @@ const styles = StyleSheet.create({
   alertBadgeText: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
 
   statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     paddingHorizontal: 12,
     gap: 8,
     marginTop: 16,
     marginBottom: 12,
   },
+  statsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
   statCard: {
-    width: "47%",
+    flex: 1,
     borderRadius: 14,
     borderWidth: 1,
     padding: 14,

@@ -42,6 +42,7 @@ import { useColors } from "@/hooks/useColors";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import { PhotoThumbnail, PhotoLightbox } from "@/components/PhotoThumbnail";
+import { ListRow } from "@/components/ui";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "#22C55E",
@@ -1025,23 +1026,23 @@ export default function ProjectDetailScreen() {
               <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Activity</Text>
               <View style={[styles.overviewGrid, { borderColor: colors.border }]}>
                 <View style={[styles.overviewCell, { borderRightColor: colors.border, borderBottomColor: isWorker ? undefined : colors.border }]}>
-                  <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.reportCount ?? 0}</Text>
-                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Reports</Text>
+                  <Text style={[styles.overviewValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{summary.reportCount ?? 0}</Text>
+                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]} numberOfLines={1}>Reports</Text>
                 </View>
                 <View style={[styles.overviewCell, { borderBottomColor: isWorker ? undefined : colors.border }]}>
-                  <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.openRFICount ?? 0}</Text>
-                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Open RFIs</Text>
+                  <Text style={[styles.overviewValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{summary.openRFICount ?? 0}</Text>
+                  <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]} numberOfLines={1}>Open RFIs</Text>
                 </View>
                 {perms.viewRFIs && (
                   <View style={[styles.overviewCell, { borderRightColor: colors.border }]}>
-                    <Text style={[styles.overviewValue, { color: colors.primary }]}>{summary.closedRFICount ?? 0}</Text>
-                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Closed RFIs</Text>
+                    <Text style={[styles.overviewValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{summary.closedRFICount ?? 0}</Text>
+                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]} numberOfLines={1}>Closed RFIs</Text>
                   </View>
                 )}
                 {perms.viewFinancials && (
                   <View style={styles.overviewCell}>
-                    <Text style={[styles.overviewValue, { color: colors.primary }]}>{formatCurrency(summary.totalSpent)}</Text>
-                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]}>Total Spent</Text>
+                    <Text style={[styles.overviewValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(summary.totalSpent)}</Text>
+                    <Text style={[styles.overviewLabel, { color: colors.mutedForeground }]} numberOfLines={1}>Total Spent</Text>
                   </View>
                 )}
               </View>
@@ -1049,8 +1050,24 @@ export default function ProjectDetailScreen() {
             </>
           )}
 
+          {/* Inspections quick link — inspections moved off the tab bar into
+              the Capture flow + this per-project entry point */}
+          {perms.viewInspectTab && (
+            <>
+              <View style={[styles.detailCard, { backgroundColor: colors.card, borderColor: colors.border, paddingHorizontal: 14 }]}>
+                <ListRow
+                  icon="check-square"
+                  title="Inspections"
+                  subtitle="View or start an inspection for this project"
+                  showChevron
+                  onPress={() => router.push(`/(tabs)/inspect?projectId=${project?.id}` as any)}
+                />
+              </View>
+              <View style={{ height: 20 }} />
+            </>
+          )}
+
           {/* Project details */}
-          <View style={{ height: 20 }} />
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Details</Text>
           <View style={[styles.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.detailRow}>

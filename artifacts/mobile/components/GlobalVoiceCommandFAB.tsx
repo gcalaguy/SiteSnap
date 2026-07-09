@@ -41,6 +41,7 @@ import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { useVoiceIntentExecutor } from "@/hooks/useVoiceIntentExecutor";
 import { interpretVoiceCommand, type SingleAction, type VoiceIntent } from "@/src/utils/voiceRouter";
+import { setVoiceFabHandler } from "@/utils/voiceFabBus";
 
 const FAB_SIZE = 56;
 const FAB_EDGE_MARGIN = 16;
@@ -674,10 +675,11 @@ export function GlobalVoiceCommandFAB() {
         Calculators: "/calculators",
         Schedule: "/workforce?tab=schedule",
         Workforce: "/workforce",
-        // Projects list is nested inside the (home) tab group
-        Projects: "/(tabs)/(home)/projects",
+        // Projects is a top-level tab (mobile nav redesign)
+        Projects: "/(tabs)/projects",
         Ask: "/(tabs)/(home)/ask",
-        Tasks: "/(tabs)/(home)/tasks",
+        // Tasks is a top-level tab (mobile nav redesign)
+        Tasks: "/(tabs)/tasks",
         Quotes: "/finance",
         Invoices: "/finance",
         Proposals: "/finance",
@@ -854,6 +856,15 @@ export function GlobalVoiceCommandFAB() {
     executor.reset();
     pulseAnim.setValue(1);
   }, [executor, pulseAnim]);
+
+  // Let other screens (Capture tab, Home's voice button) open this same
+  // sheet + start recording, instead of duplicating the voice pipeline.
+  useEffect(() => {
+    setVoiceFabHandler(() => {
+      if (!open) void handleToggle();
+    });
+    return () => setVoiceFabHandler(null);
+  }, [open, handleToggle]);
 
   // Snaps the FAB to whichever horizontal edge it's closest to, clamping
   // vertically so it can't be dropped under the notch or the tab bar.

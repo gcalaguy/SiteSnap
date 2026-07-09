@@ -25,6 +25,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { Card, ListRow } from "@/components/ui";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
@@ -248,6 +249,19 @@ export default function ProfileScreen() {
     ]);
   };
 
+  type ToolItem = { key: string; icon: keyof typeof Feather.glyphMap; label: string; subtitle: string; onPress: () => void };
+  const toolItems: ToolItem[] = [
+    { key: "calculators", icon: "percent", label: "Trade Calculators", subtitle: "Concrete · Electrical · Plumbing · Roofing", onPress: () => router.push("/calculators") },
+    perms.viewEstimator && { key: "estimator", icon: "bar-chart-2", label: "Estimator", subtitle: "Build a detailed estimate", onPress: () => router.push("/estimator") },
+    perms.viewEstimator && { key: "voice-estimate", icon: "mic", label: "Voice Estimator", subtitle: "Speak a description, get an instant estimate", onPress: () => router.push("/voice-estimate") },
+    perms.viewVault && { key: "vault", icon: "lock", label: "Vault", subtitle: "Secure document storage", onPress: () => router.push("/vault") },
+    perms.viewReports && { key: "reports", icon: "file-text", label: "Daily Reports", subtitle: "Browse past submissions", onPress: () => router.push("/(tabs)/(home)/reports" as any) },
+    perms.submitExpenses && { key: "expenses", icon: "credit-card", label: "Expenses", subtitle: "Submit & track job costs", onPress: () => router.push("/expenses") },
+    perms.viewAskAI && { key: "ask-ai", icon: "message-circle", label: "Ask AI", subtitle: "Chat with your project assistant", onPress: () => router.push("/(tabs)/(home)/ask" as any) },
+    perms.viewRiskTab && { key: "risk", icon: "alert-triangle", label: "Risk", subtitle: "Top risks & open alerts", onPress: () => router.push("/(tabs)/risk" as any) },
+    perms.viewTradeHub && { key: "tradehub", icon: "globe", label: "TradeHub", subtitle: "Community jobs & discussion", onPress: () => router.push("/(tabs)/tradehub" as any) },
+  ].filter((i): i is ToolItem => !!i);
+
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
   return (
@@ -324,72 +338,48 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Quick Create — shown if viewFinancials is enabled */}
+        {/* Quick Create — voice-driven invoice/quote, shown if viewFinancials is enabled */}
         {perms.viewFinancials && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Quick Create</Text>
-
-            {/* Finance hub banner */}
-            <TouchableOpacity
-              style={[styles.featureBanner, { backgroundColor: colors.sidebar }]}
-              onPress={() => router.push("/finance")}
-              activeOpacity={0.85}
-            >
-              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="trending-up" size={22} color="#D4AF37" />
+            <Card padding="none">
+              <View style={{ paddingHorizontal: 14 }}>
+                <ListRow icon="mic" title="Voice Invoice" subtitle="Describe the job, get an instant invoice" onPress={() => openVoiceModal("invoice")} showChevron />
+                <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
+                  <ListRow icon="mic" title="Voice Quote" subtitle="Describe the job, get an instant quote" onPress={() => openVoiceModal("quote")} showChevron />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.featureBannerTitle}>Invoices & Quotes</Text>
-                <Text style={styles.featureBannerSub}>View, manage & send all documents</Text>
-              </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
-                <Feather name="arrow-right" size={14} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
+            </Card>
           </View>
         )}
 
-        {/* Tools */}
+        {/* More Tools — everything the simplified home screen / 5-tab nav no
+            longer surfaces directly, gated by the same permissions as before */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Tools</Text>
-          <TouchableOpacity
-            style={[styles.featureBanner, { backgroundColor: colors.sidebar }]}
-            onPress={() => router.push("/calculators")}
-            activeOpacity={0.85}
-          >
-            <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-              <Feather name="percent" size={22} color="#D4AF37" />
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>More Tools</Text>
+          <Card padding="none">
+            <View style={{ paddingHorizontal: 14 }}>
+              {toolItems.map((item, i) => (
+                <View key={item.key} style={i > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : undefined}>
+                  <ListRow icon={item.icon} title={item.label} subtitle={item.subtitle} onPress={item.onPress} showChevron />
+                </View>
+              ))}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.featureBannerTitle}>Trade Calculators</Text>
-              <Text style={styles.featureBannerSub}>Concrete · Electrical · Plumbing · Roofing</Text>
-            </View>
-            <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
-              <Feather name="arrow-right" size={14} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
+          </Card>
         </View>
 
-        {/* Company Settings — owners only */}
+        {/* Administration — owners only */}
         {me?.role === "owner" && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Administration</Text>
-            <TouchableOpacity
-              style={[styles.featureBanner, { backgroundColor: colors.sidebar }]}
-              onPress={() => router.push("/settings" as any)}
-              activeOpacity={0.85}
-            >
-              <View style={[styles.featureBannerIcon, { backgroundColor: "rgba(255,102,0,0.2)" }]}>
-                <Feather name="settings" size={22} color="#D4AF37" />
+            <Card padding="none">
+              <View style={{ paddingHorizontal: 14 }}>
+                <ListRow icon="grid" title="Admin Hub" subtitle="Financials, operations & team tools" onPress={() => router.push("/(tabs)/admin-hub" as any)} showChevron />
+                <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
+                  <ListRow icon="settings" title="Company Settings" subtitle="Billing seats · Email · QuickBooks" onPress={() => router.push("/settings" as any)} showChevron />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.featureBannerTitle}>Company Settings</Text>
-                <Text style={styles.featureBannerSub}>Billing seats · Email · QuickBooks</Text>
-              </View>
-              <View style={[styles.featureBannerArrow, { backgroundColor: "#D4AF37" }]}>
-                <Feather name="arrow-right" size={14} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
+            </Card>
           </View>
         )}
 
@@ -752,13 +742,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   financeLinkText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
-
-  // Shared: Feature banner (dark sidebar + orange icon + orange arrow)
-  featureBanner: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14 },
-  featureBannerIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  featureBannerTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
-  featureBannerSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 2 },
-  featureBannerArrow: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
 
   // Worker: Incident reporting
   incidentReportBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14 },

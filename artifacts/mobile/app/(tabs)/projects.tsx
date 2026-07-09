@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
+import { Chip } from "@/components/ui";
 
 const STATUS_LABELS: Record<string, string> = {
   planning: "Active",
@@ -101,7 +102,6 @@ function ProjectCard({ project }: { project: any }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   headerArea: { paddingHorizontal: 20, paddingBottom: 16 },
-  backBtn: { marginBottom: 8, alignSelf: "flex-start" },
   screenTitle: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 14 },
   searchBox: {
     flexDirection: "row",
@@ -115,13 +115,6 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
   filterRow: { flexDirection: "row", gap: 8 },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  filterText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -159,18 +152,10 @@ type HeaderProps = {
 function ProjectsHeader({ search, onSearch, statusFilter, onStatus, isLoading, filteredCount }: HeaderProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
   return (
     <View style={[styles.headerArea, { paddingTop: topInsets + 16 }]}>
-      <Pressable
-        onPress={() => router.back()}
-        style={styles.backBtn}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Feather name="arrow-left" size={22} color={colors.foreground} />
-      </Pressable>
       <Text style={[styles.screenTitle, { color: colors.foreground }]}>Projects</Text>
       <View style={[styles.searchBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
         <Feather name="search" size={16} color={colors.mutedForeground} />
@@ -188,20 +173,14 @@ function ProjectsHeader({ search, onSearch, statusFilter, onStatus, isLoading, f
         )}
       </View>
       <View style={styles.filterRow}>
-        {ALL_STATUSES.map(s => {
-          const active = statusFilter === s;
-          return (
-            <Pressable
-              key={s}
-              style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border }]}
-              onPress={() => onStatus(s)}
-            >
-              <Text style={[styles.filterText, { color: active ? "#FFFFFF" : colors.mutedForeground }]}>
-                {s === "all" ? "All" : STATUS_LABELS[s]}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {ALL_STATUSES.map(s => (
+          <Chip
+            key={s}
+            label={s === "all" ? "All" : STATUS_LABELS[s]}
+            selected={statusFilter === s}
+            onPress={() => onStatus(s)}
+          />
+        ))}
       </View>
       {!isLoading && (
         <Text style={[styles.count, { color: colors.mutedForeground, paddingHorizontal: 0, paddingTop: 10 }]}>

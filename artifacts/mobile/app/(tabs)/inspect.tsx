@@ -1,6 +1,6 @@
 import { useGetMe, useListProjects, customFetch } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState, useCallback } from "react";
 import {
@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
+import { Chip } from "@/components/ui";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -513,12 +514,18 @@ export default function InspectScreen() {
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+  const params = useLocalSearchParams<{ action?: string; projectId?: string }>();
 
-  const [showNew, setShowNew] = useState(false);
+  // Capture tab deep-links here with ?action=new to jump straight into
+  // creating an inspection instead of landing on the list first.
+  const [showNew, setShowNew] = useState(params.action === "new");
   const [selected, setSelected] = useState<InspectionRow | null>(null);
   const [alertsExpanded, setAlertsExpanded] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [projectFilter, setProjectFilter] = useState<number | null>(null);
+  // A project's Overview tab deep-links here with ?projectId= to preset the filter.
+  const [projectFilter, setProjectFilter] = useState<number | null>(
+    params.projectId ? Number(params.projectId) : null,
+  );
 
   const { data: projects = [] } = useListProjects();
 
@@ -642,36 +649,9 @@ export default function InspectScreen() {
           <View style={{ marginBottom: 16 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: "row", gap: 8 }}>
-                <Pressable
-                  onPress={() => setProjectFilter(null)}
-                  style={[
-                    styles.typePill,
-                    {
-                      backgroundColor: projectFilter === null ? colors.primary : colors.card,
-                      borderColor: projectFilter === null ? colors.primary : colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={{ fontSize: 13, color: projectFilter === null ? "#fff" : colors.text, fontFamily: "Inter_600SemiBold" }}>
-                    All Projects
-                  </Text>
-                </Pressable>
+                <Chip label="All Projects" selected={projectFilter === null} onPress={() => setProjectFilter(null)} />
                 {(projects as any[]).map((p: any) => (
-                  <Pressable
-                    key={p.id}
-                    onPress={() => setProjectFilter(p.id)}
-                    style={[
-                      styles.typePill,
-                      {
-                        backgroundColor: projectFilter === p.id ? colors.primary : colors.card,
-                        borderColor: projectFilter === p.id ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 13, color: projectFilter === p.id ? "#fff" : colors.text, fontFamily: "Inter_600SemiBold" }}>
-                      {p.name}
-                    </Text>
-                  </Pressable>
+                  <Chip key={p.id} label={p.name} selected={projectFilter === p.id} onPress={() => setProjectFilter(p.id)} />
                 ))}
               </View>
             </ScrollView>

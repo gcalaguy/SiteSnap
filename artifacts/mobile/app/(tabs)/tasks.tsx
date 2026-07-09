@@ -1,6 +1,6 @@
 import { useListProjects, useListTasks, useUpdateTask, useGetMe, customFetch } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
@@ -20,6 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { Chip } from "@/components/ui";
 
 type Task = {
   id: number;
@@ -57,44 +58,15 @@ function FilterToggle({
   onChange: (m: FilterMode) => void;
   mineCount: number;
 }) {
-  const colors = useColors();
   return (
     <View style={styles.filterRow}>
-      {(["all", "mine"] as FilterMode[]).map((m) => {
-        const active = mode === m;
-        return (
-          <Pressable
-            key={m}
-            onPress={() => onChange(m)}
-            style={[
-              styles.filterPill,
-              {
-                backgroundColor: active ? colors.primary : colors.muted,
-                borderColor: active ? colors.primary : colors.border,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.filterPillText,
-                { color: active ? "#FFFFFF" : colors.mutedForeground },
-              ]}
-            >
-              {m === "all" ? "All Tasks" : "Assigned to Me"}
-            </Text>
-            {m === "mine" && mineCount > 0 && (
-              <View
-                style={[
-                  styles.filterBadge,
-                  { backgroundColor: active ? "rgba(255,255,255,0.3)" : colors.primary },
-                ]}
-              >
-                <Text style={styles.filterBadgeText}>{mineCount}</Text>
-              </View>
-            )}
-          </Pressable>
-        );
-      })}
+      <Chip label="All Tasks" selected={mode === "all"} onPress={() => onChange("all")} />
+      <Chip
+        label="Assigned to Me"
+        selected={mode === "mine"}
+        onPress={() => onChange("mine")}
+        count={mineCount > 0 ? mineCount : undefined}
+      />
     </View>
   );
 }
@@ -106,35 +78,12 @@ function StatusFilterPills({
   value: StatusFilter;
   onChange: (v: StatusFilter) => void;
 }) {
-  const colors = useColors();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
       <View style={[styles.filterRow, { marginBottom: 0 }]}>
-        {STATUS_FILTER_OPTIONS.map((opt) => {
-          const active = value === opt.value;
-          return (
-            <Pressable
-              key={opt.value}
-              onPress={() => onChange(opt.value)}
-              style={[
-                styles.filterPill,
-                {
-                  backgroundColor: active ? colors.primary : colors.muted,
-                  borderColor: active ? colors.primary : colors.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterPillText,
-                  { color: active ? "#FFFFFF" : colors.mutedForeground },
-                ]}
-              >
-                {opt.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {STATUS_FILTER_OPTIONS.map((opt) => (
+          <Chip key={opt.value} label={opt.label} selected={value === opt.value} onPress={() => onChange(opt.value)} />
+        ))}
       </View>
     </ScrollView>
   );
@@ -261,13 +210,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
   title: { fontSize: 28, fontFamily: "Inter_700Bold" },
   filterRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
-  filterPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  filterPillText: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  filterBadge: { minWidth: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
-  filterBadgeText: { color: "#FFFFFF", fontSize: 11, fontFamily: "Inter_700Bold" },
   projectSelector: { flexDirection: "row", gap: 8 },
-  projectTab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  projectTabText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   updatedRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 20, paddingVertical: 4 },
   updatedText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#9CA3AF" },
   sectionHeader: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: "row", alignItems: "center", gap: 6 },
@@ -303,7 +246,6 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 15, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 10 },
   emptySubText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6 },
   loader: { paddingVertical: 40 },
-  backBtn: { marginBottom: 8, alignSelf: "flex-start" },
   voiceMicBtn: {
     width: 34,
     height: 34,
@@ -345,7 +287,6 @@ function fuzzyTaskMatch(query: string, tasks: Task[]): Task | null {
 function WorkerTasksScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
@@ -423,9 +364,6 @@ function WorkerTasksScreen() {
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
     >
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Feather name="arrow-left" size={22} color={colors.foreground} />
-        </Pressable>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>My Tasks</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -506,7 +444,6 @@ function WorkerTasksScreen() {
 function OwnerTasksScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const { data: me } = useGetMe();
   const { data: projects, isLoading: projectsLoading } = useListProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
@@ -605,9 +542,6 @@ function OwnerTasksScreen() {
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90, flexGrow: 1 }}
     >
       <View style={[styles.header, { paddingTop: topInsets + 16 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Feather name="arrow-left" size={22} color={colors.foreground} />
-        </Pressable>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.foreground }]}>Tasks</Text>
           {/* Voice "mark done" mic button — same as worker view */}
@@ -647,50 +581,15 @@ function OwnerTasksScreen() {
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.projectSelector}>
-              <Pressable
-                style={[
-                  styles.projectTab,
-                  {
-                    backgroundColor: resolvedProjectId === null ? colors.card : colors.muted,
-                    borderColor: resolvedProjectId === null ? colors.foreground + "40" : colors.border,
-                  },
-                ]}
-                onPress={() => setSelectedProjectId(null)}
-              >
-                <Text
-                  style={[
-                    styles.projectTabText,
-                    { color: resolvedProjectId === null ? colors.foreground : colors.mutedForeground },
-                  ]}
-                >
-                  All Projects
-                </Text>
-              </Pressable>
-              {allProjects.map((p) => {
-                const active = resolvedProjectId === p.id;
-                return (
-                  <Pressable
-                    key={p.id}
-                    style={[
-                      styles.projectTab,
-                      {
-                        backgroundColor: active ? colors.card : colors.muted,
-                        borderColor: active ? colors.foreground + "40" : colors.border,
-                      },
-                    ]}
-                    onPress={() => setSelectedProjectId(p.id)}
-                  >
-                    <Text
-                      style={[
-                        styles.projectTabText,
-                        { color: active ? colors.foreground : colors.mutedForeground },
-                      ]}
-                    >
-                      {p.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              <Chip label="All Projects" selected={resolvedProjectId === null} onPress={() => setSelectedProjectId(null)} />
+              {allProjects.map((p) => (
+                <Chip
+                  key={p.id}
+                  label={p.name}
+                  selected={resolvedProjectId === p.id}
+                  onPress={() => setSelectedProjectId(p.id)}
+                />
+              ))}
             </View>
           </ScrollView>
         )}

@@ -1,16 +1,13 @@
 import {
   useGetDashboardSummary, useGetRecentActivity, useListProjects,
-  useGetMe, useListCompanyMembers, customFetch,
-  useListAllRFIs,
+  useGetMe, customFetch,
   getGetMeQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { RFIListItem } from "@workspace/api-client-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter, useFocusEffect } from "expo-router";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { WeatherWidget } from "@/components/WeatherWidget";
-import { ComplianceAlertBanner } from "@/components/ComplianceAlertBanner";
 import {
   ActivityIndicator,
   Platform,
@@ -19,7 +16,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,382 +23,29 @@ import { useColors } from "@/hooks/useColors";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { triggerVoiceFab } from "@/utils/voiceFabBus";
+import { Card, StatTile, SectionHeader, EmptyState } from "@/components/ui";
+import { radius, spacing, typography } from "@/constants/theme";
 
-// ── AI Briefing ──────────────────────────────────────────────────────────────
+// ── Data shapes reused from other screens (kept local — same convention as
+// tasks.tsx/inspect.tsx, which each declare their own minimal view of the
+// shared API response instead of importing a generated type) ──────────────
 
-type BriefingLine = { icon: string; color: string; text: string };
-
-function parseBriefing(raw: string): BriefingLine[] {
-  const lines = raw.split(/\n/).map((l) => l.trim()).filter(Boolean);
-  const out: BriefingLine[] = [];
-  for (const line of lines) {
-    if (line.startsWith("📋") || line.toLowerCase().includes("priorit")) {
-      out.push({ icon: "list", color: "#3b82f6", text: line.replace(/^📋\s*/, "") });
-    } else if (line.startsWith("⚠️") || line.toLowerCase().includes("alert") || line.toLowerCase().includes("risk")) {
-      out.push({ icon: "alert-triangle", color: "#f59e0b", text: line.replace(/^⚠️\s*/, "") });
-    } else if (line.startsWith("✅") || line.toLowerCase().includes("complet") || line.toLowerCase().includes("done")) {
-      out.push({ icon: "check-circle", color: "#10b981", text: line.replace(/^✅\s*/, "") });
-    } else if (line.startsWith("💰") || line.toLowerCase().includes("budget") || line.toLowerCase().includes("cost")) {
-      out.push({ icon: "dollar-sign", color: "#D4AF37", text: line.replace(/^💰\s*/, "") });
-    } else if (line.startsWith("🌤") || line.startsWith("☀") || line.startsWith("🌧")) {
-      out.push({ icon: "cloud", color: "#6366f1", text: line });
-    } else if (line.startsWith("-") || line.startsWith("•")) {
-      out.push({ icon: "chevron-right", color: "#6b7280", text: line.replace(/^[-•]\s*/, "") });
-    } else if (line.endsWith(":") || line.match(/^[A-Z\s]+:$/)) {
-      out.push({ icon: "bookmark", color: "#D4AF37", text: line });
-    } else {
-      out.push({ icon: "chevron-right", color: "#6b7280", text: line });
-    }
-  }
-  return out.slice(0, 12);
-}
-
-// Backend returns a single unstructured sentence (no bullets/newlines) for the
-// deterministic "nothing to report" cases — render those as a calm placeholder
-// instead of running them through the bullet parser as a one-item list.
-function isMotivationalPlaceholder(raw: string): boolean {
-  const trimmed = raw.trim();
-  return trimmed.length > 0 && !trimmed.includes("\n") && !/^[-•]/.test(trimmed) && trimmed.length < 160;
-}
-
-function AiBriefingCard({ colors }: { colors: any }) {
-  const [expanded, setExpanded] = useState(false);
-  const [lines, setLines] = useState<BriefingLine[]>([]);
-  const [placeholder, setPlaceholder] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: () =>
-      customFetch<{ briefing: string } | string>("/api/ai/foreman-briefing", {
-        method: "POST",
-        body: JSON.stringify({}),
-      }),
-    onSuccess: (data) => {
-      const raw = typeof data === "string"
-        ? data
-        : (data as any)?.briefing ?? (data as any)?.summary ?? JSON.stringify(data);
-      setLoadError(false);
-      setHasFetched(true);
-      if (isMotivationalPlaceholder(raw)) {
-        setPlaceholder(raw.trim());
-        setLines([]);
-      } else {
-        setPlaceholder(null);
-        setLines(parseBriefing(raw));
-        setExpanded(true);
-      }
-    },
-    onError: () => {
-      setLoadError(true);
-      setHasFetched(true);
-      setPlaceholder(null);
-      setLines([]);
-    },
-  });
-
-  useEffect(() => {
-    mutate();
-  }, []);
-
-  const displayLines = expanded ? lines : lines.slice(0, 3);
-
-  return (
-    <View style={[styles.briefingCard, { backgroundColor: colors.sidebar, borderColor: "#C9A84C30" }]}>
-      <View style={styles.briefingHeader}>
-        <View style={[styles.briefingIconWrap, { backgroundColor: "#C9A84C22" }]}>
-          <Feather name="cpu" size={16} color="#C9A84C" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.briefingTitle, { color: "#FFFFFF" }]}>AI Daily Briefing</Text>
-          <Text style={[styles.briefingMeta, { color: "rgba(255,255,255,0.45)" }]}>
-            {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })}
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => mutate()}
-          style={[styles.refreshBtn, { borderColor: "#C9A84C40" }]}
-          disabled={isPending}
-          hitSlop={8}
-        >
-          <Feather name="refresh-cw" size={13} color="#C9A84C" />
-        </TouchableOpacity>
-      </View>
-
-      {isPending ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 }}>
-          <ActivityIndicator size="small" color="#C9A84C" />
-          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontFamily: "Inter_400Regular" }}>
-            Generating briefing…
-          </Text>
-        </View>
-      ) : loadError ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 }}>
-          <Feather name="wifi-off" size={13} color="rgba(255,255,255,0.4)" />
-          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "Inter_400Regular" }}>
-            Couldn't load your briefing — tap refresh to try again.
-          </Text>
-        </View>
-      ) : placeholder ? (
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 12 }}>
-          <Feather name="check-circle" size={15} color="#10b981" style={{ marginTop: 1 }} />
-          <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", flex: 1, lineHeight: 18, fontFamily: "Inter_400Regular" }}>
-            {placeholder}
-          </Text>
-        </View>
-      ) : !hasFetched || lines.length === 0 ? (
-        <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 10, fontFamily: "Inter_400Regular" }}>
-          Tap refresh to generate your daily briefing.
-        </Text>
-      ) : (
-        <>
-          <View style={{ marginTop: 10, gap: 5 }}>
-            {displayLines.map((l, i) => (
-              <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 7 }}>
-                <Feather name={l.icon as any} size={12} color={l.color} style={{ marginTop: 2 }} />
-                <Text style={{ fontSize: 12.5, color: "rgba(255,255,255,0.8)", flex: 1, lineHeight: 17, fontFamily: "Inter_400Regular" }}>
-                  {l.text}
-                </Text>
-              </View>
-            ))}
-          </View>
-          {lines.length > 3 ? (
-            <TouchableOpacity
-              onPress={() => setExpanded((v) => !v)}
-              style={styles.expandBtn}
-              hitSlop={6}
-            >
-              <Text style={{ fontSize: 12, color: "#C9A84C", fontFamily: "Inter_600SemiBold" }}>
-                {expanded ? "Show less" : `Show ${lines.length - 3} more`}
-              </Text>
-              <Feather name={expanded ? "chevron-up" : "chevron-down"} size={12} color="#C9A84C" />
-            </TouchableOpacity>
-          ) : null}
-        </>
-      )}
-    </View>
-  );
-}
-
-// ── Quick Actions ────────────────────────────────────────────────────────────
-
-type QuickAction = {
-  label: string;
-  icon: string;
-  path: string;
-  color: string;
-  permKey?: import("@/hooks/usePermissions").PermissionKey;
-};
-
-const ALL_ACTIONS: QuickAction[] = [
-  { label: "My Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
-  { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9", permKey: "viewReports" },
-  { label: "Expenses", icon: "credit-card", path: "/expenses", color: "#f97316", permKey: "submitExpenses" },
-  { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b", permKey: "viewRFIs" },
-  { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4", permKey: "viewPhotos" },
-  { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
-  { label: "Vault", icon: "lock", path: "/vault", color: "#16a34a", permKey: "viewVault" },
-  { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C", permKey: "viewEstimator" },
-  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37" },
-  { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899", permKey: "viewAskAI" },
-];
-
-const OWNER_ACTIONS: QuickAction[] = [
-  { label: "Projects", icon: "folder", path: "/projects", color: "#8b5cf6" },
-  { label: "Finance", icon: "trending-up", path: "/finance", color: "#16a34a" },
-  { label: "Reports", icon: "clipboard", path: "/reports", color: "#0ea5e9", permKey: "viewReports" },
-  { label: "RFIs", icon: "alert-circle", path: "/rfis", color: "#f59e0b", permKey: "viewRFIs" },
-  { label: "Photo", icon: "camera", path: "/field-photo", color: "#06b6d4", permKey: "viewPhotos" },
-  { label: "Safety", icon: "shield", path: "/field-safety", color: "#22C55E" },
-  { label: "Estimator", icon: "bar-chart-2", path: "/estimator", color: "#C9A84C", permKey: "viewEstimator" },
-  { label: "TradeHub", icon: "globe", path: "/tradehub", color: "#D4AF37" },
-  { label: "Ask AI", icon: "message-circle", path: "/ask", color: "#ec4899", permKey: "viewAskAI" },
-];
-
-function QuickActionsGrid({ isWorker, colors, router }: { isWorker: boolean; colors: any; router: any }) {
-  const perms = usePermissions();
-  const raw = isWorker ? ALL_ACTIONS : OWNER_ACTIONS;
-  const actions = raw.filter(
-    (a) => !a.permKey || perms[a.permKey]
-  );
-  return (
-    <View style={styles.quickGrid}>
-      {actions.map((action) => (
-        <TouchableOpacity
-          key={action.label}
-          style={[styles.quickAction, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => {
-            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push(action.path as any);
-          }}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}18` }]}>
-            <Feather name={action.icon as any} size={20} color={action.color} />
-          </View>
-          <Text style={[styles.quickActionLabel, { color: colors.foreground }]} numberOfLines={1}>
-            {action.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
-
-// ── RFI Summary card ──────────────────────────────────────────────────────────
+type MyTask = { id: number; dueDate?: string | null; status: "todo" | "in_progress" | "done" };
+type InspectionRow = { inspection: { status: "draft" | "submitted" } };
+type Directive = { id: number; urgency: "HIGH" | "MEDIUM" | "LOW" };
 
 function isOverdue(dueDate?: string | null): boolean {
   if (!dueDate) return false;
   return new Date(dueDate) < new Date();
 }
 
-function RFISummaryCard({
-  openCount,
-  overdueCount,
-  loading,
-  onPress,
-}: {
-  openCount: number;
-  overdueCount: number;
-  loading: boolean;
-  onPress: () => void;
-}) {
-  const colors = useColors();
-
-  function handlePress() {
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress();
-  }
-
-  return (
-    <TouchableOpacity
-      style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: overdueCount > 0 ? "#fca5a540" : colors.border }]}
-      onPress={handlePress}
-      activeOpacity={0.75}
-      accessibilityRole="button"
-      accessibilityLabel={`Open RFIs: ${openCount}.${overdueCount > 0 ? ` ${overdueCount} overdue.` : ""} Tap to view.`}
-    >
-      <View style={styles.summaryCardTop}>
-        <Text style={[styles.summaryCardTitle, { color: colors.mutedForeground }]}>Open RFIs</Text>
-        <View style={[styles.summaryCardIconBg, { backgroundColor: "#f59e0b1A" }]}>
-          <Feather name="alert-circle" size={16} color="#f59e0b" />
-        </View>
-      </View>
-      <Text style={[styles.summaryCardValue, { color: colors.foreground }]}>
-        {loading ? "—" : String(openCount)}
-      </Text>
-      <View style={styles.summaryCardBottom}>
-        {!loading && overdueCount > 0 ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Feather name="alert-triangle" size={12} color="#ef4444" />
-            <Text style={[styles.summaryCardSubtitle, { color: "#ef4444", fontFamily: "Inter_600SemiBold" }]}>
-              {overdueCount} overdue
-            </Text>
-          </View>
-        ) : (
-          <Text style={[styles.summaryCardSubtitle, { color: colors.mutedForeground }]}>
-            {loading ? "" : "No overdue items"}
-          </Text>
-        )}
-        <Feather name="chevron-right" size={14} color={colors.primary} />
-      </View>
-    </TouchableOpacity>
-  );
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
 }
-
-// ── Summary card ─────────────────────────────────────────────────────────────
-
-function SummaryCard({
-  title, value, subtitle, icon, onPress,
-}: {
-  title: string;
-  value: string | number;
-  subtitle: string;
-  icon: string;
-  onPress: () => void;
-}) {
-  const colors = useColors();
-
-  function handlePress() {
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress();
-  }
-
-  return (
-    <TouchableOpacity
-      style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-      onPress={handlePress}
-      activeOpacity={0.75}
-      accessibilityRole="button"
-      accessibilityLabel={`${title}: ${value}. ${subtitle}`}
-    >
-      <View style={styles.summaryCardTop}>
-        <Text style={[styles.summaryCardTitle, { color: colors.mutedForeground }]}>{title}</Text>
-        <View style={[styles.summaryCardIconBg, { backgroundColor: `${colors.primary}1A` }]}>
-          <Feather name={icon as any} size={16} color={colors.primary} />
-        </View>
-      </View>
-      <Text style={[styles.summaryCardValue, { color: colors.foreground }]}>{value}</Text>
-      <View style={styles.summaryCardBottom}>
-        <Text style={[styles.summaryCardSubtitle, { color: colors.mutedForeground }]}>{subtitle}</Text>
-        <Feather name="chevron-right" size={14} color={colors.primary} />
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-// ── Project card ─────────────────────────────────────────────────────────────
-
-function ProjectCard({ project }: { project: any }) {
-  const colors = useColors();
-  const router = useRouter();
-  const statusColors: Record<string, string> = {
-    active: "#22C55E",
-    completed: colors.mutedForeground,
-    on_hold: "#F59E0B",
-  };
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.projectCard,
-        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-      ]}
-      onPress={() => router.push(`/project/${project.id}`)}
-    >
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.projectName, { color: colors.foreground }]} numberOfLines={1}>{project.name}</Text>
-        {!!project.location && (
-          <View style={styles.row}>
-            <Feather name="map-pin" size={12} color={colors.mutedForeground} />
-            <Text style={[styles.projectMeta, { color: colors.mutedForeground }]} numberOfLines={1}> {project.location}</Text>
-          </View>
-        )}
-      </View>
-      <View style={[styles.statusDot, { backgroundColor: statusColors[project.status] ?? colors.mutedForeground }]} />
-    </Pressable>
-  );
-}
-
-// ── Activity ─────────────────────────────────────────────────────────────────
-
-const ACTIVITY_ICONS: Record<string, string> = {
-  daily_report: "file-text",
-  rfi_created: "alert-circle",
-  project_created: "folder",
-  task_created: "check-square",
-  schedule_assigned: "calendar",
-  cost_added: "dollar-sign",
-};
-
-const ACTIVITY_COLORS: Record<string, string> = {
-  daily_report: "#3B82F6",
-  rfi_created: "#F59E0B",
-  project_created: "#8B5CF6",
-  task_created: "#22C55E",
-  schedule_assigned: "#D4AF37",
-  cost_added: "#6B7280",
-};
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -416,28 +59,190 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 }
 
-function ActivityRow({ item }: { item: any }) {
+// ── AI Insights — same /api/ai/foreman-briefing endpoint as before, parsed
+// down to a short bullet list instead of the old expandable card. ─────────
+
+type BriefingLine = { icon: string; text: string };
+
+function parseBriefing(raw: string): BriefingLine[] {
+  const lines = raw.split(/\n/).map((l) => l.trim()).filter(Boolean);
+  const out: BriefingLine[] = [];
+  for (const line of lines) {
+    if (line.startsWith("📋") || line.toLowerCase().includes("priorit")) {
+      out.push({ icon: "list", text: line.replace(/^📋\s*/, "") });
+    } else if (line.startsWith("⚠️") || line.toLowerCase().includes("alert") || line.toLowerCase().includes("risk")) {
+      out.push({ icon: "alert-triangle", text: line.replace(/^⚠️\s*/, "") });
+    } else if (line.startsWith("✅") || line.toLowerCase().includes("complet") || line.toLowerCase().includes("done")) {
+      out.push({ icon: "check-circle", text: line.replace(/^✅\s*/, "") });
+    } else if (line.startsWith("-") || line.startsWith("•")) {
+      out.push({ icon: "chevron-right", text: line.replace(/^[-•]\s*/, "") });
+    } else {
+      out.push({ icon: "chevron-right", text: line });
+    }
+  }
+  return out.slice(0, 3);
+}
+
+function isMotivationalPlaceholder(raw: string): boolean {
+  const trimmed = raw.trim();
+  return trimmed.length > 0 && !trimmed.includes("\n") && !/^[-•]/.test(trimmed) && trimmed.length < 160;
+}
+
+function AiInsights() {
   const colors = useColors();
-  const iconName = ACTIVITY_ICONS[item.type] ?? "activity";
-  const iconColor = ACTIVITY_COLORS[item.type] ?? colors.primary;
+  const [lines, setLines] = useState<BriefingLine[]>([]);
+  const [placeholder, setPlaceholder] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: () =>
+      customFetch<{ briefing: string } | string>("/api/ai/foreman-briefing", {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    onSuccess: (data) => {
+      const raw = typeof data === "string"
+        ? data
+        : (data as any)?.briefing ?? (data as any)?.summary ?? JSON.stringify(data);
+      setLoadError(false);
+      if (isMotivationalPlaceholder(raw)) {
+        setPlaceholder(raw.trim());
+        setLines([]);
+      } else {
+        setPlaceholder(null);
+        setLines(parseBriefing(raw));
+      }
+    },
+    onError: () => {
+      setLoadError(true);
+      setPlaceholder(null);
+      setLines([]);
+    },
+  });
+
+  useEffect(() => { mutate(); }, []);
 
   return (
-    <View style={[styles.activityRow, { borderBottomColor: colors.border }]}>
-      <View style={[styles.activityIcon, { backgroundColor: `${iconColor}18` }]}>
-        <Feather name={iconName as any} size={14} color={iconColor} />
+    <Card style={{ marginHorizontal: spacing.xl, marginBottom: spacing.lg }}>
+      <View style={styles.aiHeader}>
+        <Feather name="cpu" size={14} color={colors.primary} />
+        <Text style={[typography.label, { color: colors.primary }]}>AI INSIGHTS</Text>
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={() => mutate()} hitSlop={8} disabled={isPending}>
+          <Feather name="refresh-cw" size={13} color={colors.mutedForeground} />
+        </Pressable>
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.activityDesc, { color: colors.foreground }]} numberOfLines={2}>{item.description}</Text>
-        <View style={styles.activityFooter}>
-          {!!item.projectName && (
-            <Text style={[styles.activityMeta, { color: colors.mutedForeground }]} numberOfLines={1}>{item.projectName}</Text>
-          )}
-          {!!item.createdAt && (
-            <Text style={[styles.activityTime, { color: colors.mutedForeground }]}>
-              {item.projectName ? " · " : ""}{timeAgo(item.createdAt)}
+
+      {isPending ? (
+        <View style={styles.aiRow}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[typography.caption, { color: colors.mutedForeground }]}>Thinking…</Text>
+        </View>
+      ) : loadError ? (
+        <Text style={[typography.caption, { color: colors.mutedForeground, marginTop: 8 }]}>
+          Couldn't load insights — tap refresh to retry.
+        </Text>
+      ) : placeholder ? (
+        <View style={styles.aiRow}>
+          <Feather name="check-circle" size={14} color={colors.success} />
+          <Text style={[typography.caption, { color: colors.foreground, flex: 1 }]}>{placeholder}</Text>
+        </View>
+      ) : lines.length === 0 ? (
+        <Text style={[typography.caption, { color: colors.mutedForeground, marginTop: 8 }]}>
+          Tap refresh to generate today's insights.
+        </Text>
+      ) : (
+        <View style={{ marginTop: 8, gap: 6 }}>
+          {lines.map((l, i) => (
+            <View key={i} style={styles.aiRow}>
+              <Feather name={l.icon as any} size={13} color={colors.mutedForeground} />
+              <Text style={[typography.caption, { color: colors.foreground, flex: 1 }]} numberOfLines={2}>
+                {l.text}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </Card>
+  );
+}
+
+// ── Active project spotlight ────────────────────────────────────────────────
+
+function progressFraction(startDate?: string | null, endDate?: string | null): number | null {
+  if (!startDate || !endDate) return null;
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  if (!(end > start)) return null;
+  return Math.min(1, Math.max(0, (Date.now() - start) / (end - start)));
+}
+
+function ActiveProjectCard({ project, onPress }: { project: any; onPress: () => void }) {
+  const colors = useColors();
+  const progress = progressFraction(project.startDate, project.endDate);
+  const statusColors: Record<string, string> = {
+    active: colors.success,
+    planning: colors.warning,
+    completed: colors.mutedForeground,
+    on_hold: colors.warning,
+  };
+
+  return (
+    <Card onPress={onPress} padding="lg" style={{ marginHorizontal: spacing.xl }}>
+      <View style={styles.activeProjectTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.label, { color: colors.mutedForeground }]}>ACTIVE PROJECT</Text>
+          <Text style={[typography.heading, { color: colors.foreground, marginTop: 4 }]} numberOfLines={1}>
+            {project.name}
+          </Text>
+          {!!project.city && (
+            <Text style={[typography.caption, { color: colors.mutedForeground, marginTop: 2 }]} numberOfLines={1}>
+              {project.city}{project.province ? `, ${project.province}` : ""}
             </Text>
           )}
         </View>
+        <View style={[styles.statusDot, { backgroundColor: statusColors[project.status] ?? colors.mutedForeground }]} />
+      </View>
+
+      {progress != null ? (
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: colors.primary }]} />
+        </View>
+      ) : null}
+
+      <View style={styles.activeProjectFooter}>
+        <Text style={[typography.captionMedium, { color: colors.primary }]}>View project</Text>
+        <Feather name="arrow-right" size={14} color={colors.primary} />
+      </View>
+    </Card>
+  );
+}
+
+// ── Recent activity ──────────────────────────────────────────────────────────
+
+const ACTIVITY_ICONS: Record<string, string> = {
+  daily_report: "file-text",
+  rfi_created: "alert-circle",
+  project_created: "folder",
+  task_created: "check-square",
+  schedule_assigned: "calendar",
+  cost_added: "dollar-sign",
+};
+
+function ActivityRow({ item }: { item: any }) {
+  const colors = useColors();
+  const iconName = ACTIVITY_ICONS[item.type] ?? "activity";
+
+  return (
+    <View style={styles.activityRow}>
+      <View style={[styles.activityIcon, { backgroundColor: `${colors.primary}18` }]}>
+        <Feather name={iconName as any} size={14} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[typography.caption, { color: colors.foreground }]} numberOfLines={2}>{item.description}</Text>
+        <Text style={[typography.caption, { color: colors.mutedForeground, marginTop: 1 }]} numberOfLines={1}>
+          {item.projectName ? `${item.projectName} · ` : ""}{timeAgo(item.createdAt)}
+        </Text>
       </View>
     </View>
   );
@@ -448,25 +253,15 @@ function ActivityRow({ item }: { item: any }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
+    paddingHorizontal: spacing.xl, paddingBottom: spacing.lg,
     flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end",
   },
-  greeting: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  name: { fontSize: 26, fontFamily: "Inter_700Bold", marginTop: 2 },
+  greeting: { marginTop: 2 },
   companyBadge: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
-    marginTop: 6,
-    alignSelf: "flex-start" as const,
-    backgroundColor: "#D4AF3722",
-    borderWidth: 1,
-    borderColor: "#D4AF3744",
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    flexDirection: "row", alignItems: "center", gap: 4, marginTop: spacing.sm,
+    alignSelf: "flex-start", backgroundColor: "#C9A84C22", borderWidth: 1,
+    borderColor: "#C9A84C44", borderRadius: radius.sm, paddingHorizontal: 7, paddingVertical: 3,
   },
-  companyBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#D4AF37" },
   bellBtn: { position: "relative", padding: 4 },
   badge: {
     position: "absolute", top: -2, right: -4, minWidth: 18, height: 18,
@@ -474,112 +269,27 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: "#FFFFFF", fontSize: 11, fontFamily: "Inter_700Bold" },
 
-  // AI Briefing
-  briefingCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    shadowColor: "#C9A84C",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+  priorityRow: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.xl, marginBottom: spacing.lg },
+
+  aiHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  aiRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+
+  activeProjectTop: { flexDirection: "row", alignItems: "flex-start" },
+  statusDot: { width: 9, height: 9, borderRadius: 5, marginTop: 4 },
+  progressTrack: { height: 4, borderRadius: 2, backgroundColor: "#88888833", marginTop: spacing.lg, overflow: "hidden" },
+  progressFill: { height: 4, borderRadius: 2 },
+  activeProjectFooter: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: spacing.lg },
+
+  voiceCard: {
+    marginHorizontal: spacing.xl, marginTop: spacing.lg, marginBottom: spacing.xxl,
+    borderRadius: radius.lg, paddingVertical: spacing.xl, alignItems: "center", gap: spacing.sm,
   },
-  briefingHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-  briefingIconWrap: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  briefingTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
-  briefingMeta: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
-  refreshBtn: { width: 30, height: 30, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  expandBtn: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8, alignSelf: "flex-start" },
+  voiceIconWrap: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
 
-  // Quick actions
-  quickGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: 16,
-    gap: 10,
-    marginBottom: 20,
-  },
-  quickAction: {
-    width: "30%",
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
-    minWidth: "30%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  quickActionIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  quickActionLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textAlign: "center" },
+  section: { paddingHorizontal: spacing.xl, marginBottom: spacing.xxl },
 
-  // Summary cards
-  summaryGrid: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
-  summaryCard: {
-    borderRadius: 14, padding: 18, borderWidth: 1, gap: 4,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
-  },
-  summaryCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  summaryCardTitle: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  summaryCardIconBg: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  summaryCardValue: { fontSize: 34, fontFamily: "Inter_700Bold", lineHeight: 40 },
-  summaryCardBottom: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 },
-  summaryCardSubtitle: { fontSize: 12, fontFamily: "Inter_400Regular" },
-
-  // Finance card
-  financeCard: {
-    borderRadius: 14, padding: 18, elevation: 3,
-    shadowColor: "#D4AF37", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 6,
-  },
-  financeCardInner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  financeCardText: { gap: 2 },
-  financeCardTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
-  financeCardSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.8)" },
-
-  // Section
-  section: { paddingHorizontal: 20, marginBottom: 20 },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  seeAll: { fontSize: 13, fontFamily: "Inter_500Medium" },
-
-  // Project card
-  projectCard: {
-    flexDirection: "row", alignItems: "center", borderRadius: 10,
-    padding: 14, marginBottom: 8, borderWidth: 1,
-  },
-  projectName: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 4 },
-  projectMeta: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  statusDot: { width: 10, height: 10, borderRadius: 5 },
-  row: { flexDirection: "row", alignItems: "center" },
-
-  // Activity
-  activityRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 12, borderBottomWidth: 1 },
-  activityIcon: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  activityDesc: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
-  activityFooter: { flexDirection: "row", alignItems: "center", marginTop: 2, flexWrap: "wrap" },
-  activityMeta: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  activityTime: { fontSize: 12, fontFamily: "Inter_400Regular" },
-
-  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 20 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-
-  voiceEstimateCard: {
-    flexDirection: "row", alignItems: "center", gap: 14,
-    marginHorizontal: 16, marginBottom: 12, padding: 16,
-    borderRadius: 14, borderWidth: 1,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3,
-  },
-  voiceEstimateIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  voiceEstimateTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
-  voiceEstimateSub: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 16 },
+  activityRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, paddingVertical: spacing.sm },
+  activityIcon: { width: 30, height: 30, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
 });
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -590,13 +300,9 @@ export default function DashboardScreen() {
   const router = useRouter();
 
   const { data: me } = useGetMe();
-  const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useGetDashboardSummary();
+  const { isLoading: summaryLoading, refetch: refetchSummary } = useGetDashboardSummary();
   const { data: activity, isLoading: activityLoading, refetch: refetchActivity } = useGetRecentActivity();
   const { data: projects, isLoading: projectsLoading, refetch: refetchProjects } = useListProjects();
-  const { data: members } = useListCompanyMembers(me?.activeCompanyId ?? 0, {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    query: { enabled: !!me?.activeCompanyId } as any,
-  });
 
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["notifications", "unread"],
@@ -606,21 +312,34 @@ export default function DashboardScreen() {
   });
   const unreadCount = unreadData?.count ?? 0;
 
-  const { data: rfiData, isLoading: rfiLoading, refetch: refetchRfis } = useListAllRFIs();
-  const allRfis = (rfiData ?? []) as RFIListItem[];
-  const rfiOpenCount = allRfis.filter((r) => r.status === "open" || r.status === "in_review").length;
-  const rfiOverdueCount = allRfis.filter(
-    (r) => isOverdue(r.dueDate) && r.status !== "closed" && r.status !== "answered",
-  ).length;
+  const perms = usePermissions();
+
+  const { data: myTasks = [], refetch: refetchTasks } = useQuery<MyTask[]>({
+    queryKey: ["my-tasks"],
+    queryFn: () => customFetch<MyTask[]>("/api/dashboard/my-tasks"),
+  });
+  const overdueTaskCount = myTasks.filter((t) => t.status !== "done" && isOverdue(t.dueDate)).length;
+
+  const { data: inspectionRows = [] } = useQuery<InspectionRow[]>({
+    queryKey: ["inspections-mobile", null],
+    queryFn: () => customFetch<InspectionRow[]>("/api/inspections"),
+    enabled: perms.viewInspectTab,
+  });
+  const inspectionsDueCount = inspectionRows.filter((r) => r.inspection.status === "draft").length;
+
+  const { data: directives = [] } = useQuery<Directive[]>({
+    queryKey: ["compliance-directives", "all"],
+    queryFn: () => customFetch<Directive[]>("/api/compliance/directives?status=PENDING"),
+    staleTime: 60_000,
+  });
 
   const refreshing = summaryLoading || activityLoading || projectsLoading;
   const qc = useQueryClient();
   const handleRefresh = () => {
-    refetchSummary(); refetchActivity(); refetchProjects(); refetchRfis();
+    refetchSummary(); refetchActivity(); refetchProjects(); refetchTasks();
     qc.invalidateQueries({ queryKey: getGetMeQueryKey() });
   };
 
-  // Refetch permissions every time the home screen gains focus (e.g. after editing in web)
   useFocusEffect(
     useCallback(() => {
       qc.invalidateQueries({ queryKey: getGetMeQueryKey() });
@@ -628,26 +347,21 @@ export default function DashboardScreen() {
   );
 
   const firstName = me?.firstName ?? "there";
-  const perms = usePermissions();
   const isWorker = me?.role === "worker";
   const hasMultipleCompanies = (me?.memberships?.length ?? 0) > 1;
   const activeCompanyName =
     me?.company?.name ??
     me?.memberships?.find((m) => m.companyId === me?.activeCompanyId)?.companyName ??
     null;
-  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
   const allProjects = projects ?? [];
   const activeProjects = allProjects.filter((p) => p.status === "active" || p.status === "planning");
-  const completedProjects = allProjects.filter((p) => p.status === "completed");
-  const topProjects = isWorker ? allProjects.slice(0, 4) : activeProjects.slice(0, 4);
-  const memberCount = (members as any[])?.length ?? 0;
+  const spotlightProjects = isWorker ? allProjects : activeProjects;
+  const spotlight = spotlightProjects[0];
 
-  const formatCurrency = (v?: number | null) => {
-    if (v == null) return "—";
-    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
-    if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
-    return `$${v}`;
-  };
+  function go(path: string) {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(path as Parameters<typeof router.push>[0]);
+  }
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
@@ -658,158 +372,111 @@ export default function DashboardScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 90 }}
     >
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: topInsets + 8, backgroundColor: colors.sidebar }]}>
+      {/* Welcome */}
+      <View style={[styles.header, { paddingTop: topInsets + 8 }]}>
         <View>
-          <Text style={[styles.greeting, { color: "rgba(255,255,255,0.6)" }]}>Good day,</Text>
-          <Text style={[styles.name, { color: "#FFFFFF" }]}>{firstName}</Text>
+          <Text style={[typography.caption, { color: colors.mutedForeground }]}>
+            {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })}
+          </Text>
+          <Text style={[typography.display, styles.greeting, { color: colors.foreground }]}>
+            {greeting()}, {firstName}
+          </Text>
           {hasMultipleCompanies && activeCompanyName ? (
             <View style={styles.companyBadge}>
-              <Feather name="briefcase" size={10} color="#D4AF37" />
-              <Text style={styles.companyBadgeText} numberOfLines={1}>{activeCompanyName}</Text>
+              <Feather name="briefcase" size={10} color={colors.primary} />
+              <Text style={[typography.label, { color: colors.primary }]} numberOfLines={1}>{activeCompanyName}</Text>
             </View>
           ) : null}
         </View>
-        <Pressable onPress={() => router.push("/notifications")} style={styles.bellBtn} hitSlop={10}>
-          <Feather name="bell" size={22} color="#FFFFFF" />
+        <Pressable onPress={() => go("/notifications")} style={styles.bellBtn} hitSlop={10}>
+          <Feather name="bell" size={22} color={colors.foreground} />
           {unreadCount > 0 && (
-            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+            <View style={[styles.badge, { backgroundColor: colors.destructive }]}>
               <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : String(unreadCount)}</Text>
             </View>
           )}
         </Pressable>
       </View>
 
-      {/* Weather */}
-      <View style={{ paddingHorizontal: 20, marginTop: 16, marginBottom: 16 }}>
+      <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg }}>
         <WeatherWidget />
       </View>
 
-      {/* Compliance Alerts — compact single-card mode */}
-      <ComplianceAlertBanner compact />
-
-      {/* AI Daily Briefing — shown if viewAskAI is enabled */}
-      {perms.viewAskAI && <AiBriefingCard colors={colors} />}
-
-      {/* Quick Actions */}
-      <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 12 }]}>Quick Actions</Text>
+      {/* Today's Priorities */}
+      <View style={[styles.section, { marginBottom: spacing.sm, paddingHorizontal: spacing.xl }]}>
+        <Text style={[typography.label, { color: colors.mutedForeground }]}>TODAY'S PRIORITIES</Text>
       </View>
-      <QuickActionsGrid isWorker={isWorker} colors={colors} router={router} />
-
-      {/* Summary cards */}
-      <View style={styles.summaryGrid}>
-        <SummaryCard
-          title={isWorker ? "My Projects" : "Active Projects"}
-          value={summaryLoading ? "—" : isWorker ? String(allProjects.length) : String(summary?.activeProjects ?? 0)}
-          subtitle={isWorker
-            ? `${allProjects.length === 1 ? "1 project" : `${allProjects.length} projects`} assigned`
-            : `${activeProjects.length} total · ${completedProjects.length} completed`}
-          icon="folder"
-          onPress={() => router.push("/projects")}
+      <View style={styles.priorityRow}>
+        <StatTile
+          label="Overdue Tasks"
+          value={overdueTaskCount}
+          status={overdueTaskCount > 0 ? "critical" : "success"}
+          onPress={() => go("/(tabs)/tasks")}
         />
-        {perms.viewReports && (
-          <SummaryCard
-            title="Reports This Week"
-            value={summaryLoading ? "—" : String(summary?.reportsThisWeek ?? 0)}
-            subtitle="Daily reports submitted"
-            icon="file-text"
-            onPress={() => router.push("/log")}
+        {perms.viewInspectTab && (
+          <StatTile
+            label="Inspections Due"
+            value={inspectionsDueCount}
+            status={inspectionsDueCount > 0 ? "warning" : "success"}
+            onPress={() => go("/(tabs)/inspect")}
           />
         )}
-        {perms.viewRFIs && (
-          <RFISummaryCard
-            openCount={rfiOpenCount}
-            overdueCount={rfiOverdueCount}
-            loading={rfiLoading}
-            onPress={() => router.push({ pathname: "/rfis", params: { status: "open" } } as any)}
-          />
-        )}
-        {!isWorker && (
-          <SummaryCard
-            title="Team Members"
-            value={memberCount > 0 ? String(memberCount) : "—"}
-            subtitle="Active in workspace"
-            icon="users"
-            onPress={() => router.navigate("/(tabs)/profile")}
-          />
-        )}
+        <StatTile
+          label="Safety Alerts"
+          value={directives.length}
+          status={directives.length > 0 ? "warning" : "success"}
+          onPress={() => go("/(tabs)/safety")}
+        />
       </View>
 
-      {/* Finance Quick Access — shown if viewFinancials is enabled */}
-      {perms.viewFinancials && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.financeCard,
-            { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1, marginHorizontal: 16, marginBottom: 12 },
-          ]}
-          onPress={() => router.push("/finance")}
-        >
-          <View style={styles.financeCardInner}>
-            <View style={styles.financeCardText}>
-              <Text style={styles.financeCardTitle}>Finance</Text>
-              <Text style={styles.financeCardSub}>
-                Budget {formatCurrency(summary?.totalBudgetAllProjects)} · Spend {formatCurrency(summary?.totalSpentThisMonth)}
+      {/* Active project */}
+      {projectsLoading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginBottom: spacing.lg }} />
+      ) : spotlight ? (
+        <>
+          <ActiveProjectCard project={spotlight} onPress={() => go(`/project/${spotlight.id}`)} />
+          {spotlightProjects.length > 1 ? (
+            <Pressable onPress={() => go("/projects")} style={{ paddingHorizontal: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.lg }}>
+              <Text style={[typography.captionMedium, { color: colors.primary }]}>
+                View all {spotlightProjects.length} projects →
               </Text>
-            </View>
-            <Feather name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
-          </View>
-        </Pressable>
-      )}
-
-      {/* Voice Estimator — shown if viewEstimator is enabled */}
-      {perms.viewEstimator && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.voiceEstimateCard,
-            { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-          ]}
-          onPress={() => {
-            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/voice-estimate");
-          }}
-        >
-          <View style={[styles.voiceEstimateIcon, { backgroundColor: `${colors.primary}1A` }]}>
-            <Feather name="mic" size={20} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.voiceEstimateTitle, { color: colors.foreground }]}>Voice Estimator</Text>
-            <Text style={[styles.voiceEstimateSub, { color: colors.mutedForeground }]}>
-              Speak a project description — get an instant estimate & quote
-            </Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={colors.primary} />
-        </Pressable>
-      )}
-
-      {/* Active Projects list */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{isWorker ? "My Projects" : "Active Projects"}</Text>
-          <Pressable onPress={() => router.push("/projects")}>
-            <Text style={[styles.seeAll, { color: colors.primary }]}>See all</Text>
-          </Pressable>
+            </Pressable>
+          ) : (
+            <View style={{ marginBottom: spacing.lg }} />
+          )}
+        </>
+      ) : (
+        <View style={{ marginHorizontal: spacing.xl, marginBottom: spacing.lg }}>
+          <EmptyState icon="folder" title="No active projects" subtitle="Projects assigned to you will show up here." />
         </View>
-        {projectsLoading ? (
-          <ActivityIndicator color={colors.primary} />
-        ) : topProjects.length === 0 ? (
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            {isWorker ? "No projects assigned to you" : "No active projects"}
-          </Text>
-        ) : (
-          topProjects.map((p) => <ProjectCard key={p.id} project={p} />)
-        )}
-      </View>
+      )}
+
+      {/* AI Insights */}
+      {perms.viewAskAI && <AiInsights />}
+
+      {/* Voice Assistant */}
+      <Pressable
+        onPress={() => { if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); triggerVoiceFab(); }}
+        style={({ pressed }) => [styles.voiceCard, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+      >
+        <View style={[styles.voiceIconWrap, { backgroundColor: `${colors.primary}1F` }]}>
+          <Feather name="mic" size={24} color={colors.primary} />
+        </View>
+        <Text style={[typography.bodyMedium, { color: colors.foreground }]}>Tap to talk</Text>
+        <Text style={[typography.caption, { color: colors.mutedForeground }]}>
+          Log an update, ask a question, or start a report
+        </Text>
+      </Pressable>
 
       {/* Recent Activity */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 12 }]}>Recent Activity</Text>
+        <SectionHeader title="Recent Activity" />
         {activityLoading ? (
           <ActivityIndicator color={colors.primary} />
         ) : (activity ?? []).length === 0 ? (
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No recent activity</Text>
+          <EmptyState icon="activity" title="No recent activity" />
         ) : (
-          (activity ?? []).slice(0, 8).map((item) => <ActivityRow key={item.id} item={item} />)
+          (activity ?? []).slice(0, 6).map((item) => <ActivityRow key={item.id} item={item} />)
         )}
       </View>
     </ScrollView>
