@@ -1833,6 +1833,36 @@ export const tenantExportReceiptsTable = pgTable("tenant_export_receipts", {
 
 export type TenantExportReceipt = typeof tenantExportReceiptsTable.$inferSelect;
 
+// ── Rate Limit Hits ────────────────────────────────────────────────────────────
+// Backing table for pgRateLimitStore (express-rate-limit custom store). One row
+// per prefixed rate-limit key; reset_time marks when the current window ends.
+// Declared here (matching migration 0052_scalability_state_tables.sql) so that
+// `drizzle-kit push` — the provisioning path CI and environments actually use —
+// creates it instead of silently ignoring it.
+export const rateLimitHitsTable = pgTable("rate_limit_hits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  resetTime: timestamp("reset_time", { withTimezone: true }).notNull(),
+}, (t) => [
+  index("idx_rate_limit_hits_reset_time").on(t.resetTime),
+]);
+
+export type RateLimitHit = typeof rateLimitHitsTable.$inferSelect;
+
+// ── Pending Compliance Analyses ────────────────────────────────────────────────
+// Backing table for services/compliance/debouncer.ts's fire_at scheduling.
+// Same journal/schema gap as rate_limit_hits above — added from migration 0052.
+export const pendingComplianceAnalysesTable = pgTable("pending_compliance_analyses", {
+  projectId: integer("project_id")
+    .primaryKey()
+    .references(() => projectsTable.id, { onDelete: "cascade" }),
+  fireAt: timestamp("fire_at", { withTimezone: true }).notNull(),
+}, (t) => [
+  index("idx_pending_compliance_analyses_fire_at").on(t.fireAt),
+]);
+
+export type PendingComplianceAnalysis = typeof pendingComplianceAnalysesTable.$inferSelect;
+
 // ── AI Compliance Directives ───────────────────────────────────────────────────
 
 export const complianceTargetFormEnum = pgEnum("compliance_target_form", [
