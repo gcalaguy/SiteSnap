@@ -121,7 +121,9 @@
       "Bash(convert -list format)",
       "Bash(convert -version)",
       "Bash(sed -E \"s/^--$//\")",
-      "Bash(grep -n \"ALTER TABLE.*ENABLE ROW LEVEL SECURITY\\\\|CREATE POLICY\\\\|ON [a-z_]* *$\\\\|^-- ──\" /home/runner/workspace/lib/db/migrations/0050_rls_tenant_isolation_phase5.sql)"
+      "Bash(grep -n \"ALTER TABLE.*ENABLE ROW LEVEL SECURITY\\\\|CREATE POLICY\\\\|ON [a-z_]* *$\\\\|^-- ──\" /home/runner/workspace/lib/db/migrations/0050_rls_tenant_isolation_phase5.sql)",
+      "Bash(pnpm exec *)",
+      "Bash(git check-ignore *)"
     ]
   }
 }
