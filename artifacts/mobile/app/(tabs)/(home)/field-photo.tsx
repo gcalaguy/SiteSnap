@@ -42,16 +42,46 @@ export default function FieldPhotoScreen() {
 
   const [pickedAsset, setPickedAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
-  async function pickImage() {
+  function handlePickResult(result: ImagePicker.ImagePickerResult) {
+    if (result.canceled || result.assets.length === 0) return;
+    setPickedAsset(result.assets[0]);
+    setImageUri(result.assets[0].uri);
+  }
+
+  async function takePhoto() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Camera access is required to take a photo.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    handlePickResult(result);
+  }
+
+  async function chooseFromLibrary() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Photo library access is required.");
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets.length > 0) {
-      setPickedAsset(result.assets[0]);
-      setImageUri(result.assets[0].uri);
-    }
+    handlePickResult(result);
+  }
+
+  function pickImage() {
+    Alert.alert("Add Site Photo", "Choose a source", [
+      { text: "Take Photo", onPress: takePhoto },
+      { text: "Choose from Library", onPress: chooseFromLibrary },
+      { text: "Cancel", style: "cancel" },
+    ]);
   }
 
   async function uploadToStorage(uri: string): Promise<string | null> {
