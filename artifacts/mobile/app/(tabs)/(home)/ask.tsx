@@ -2,10 +2,11 @@ import { customFetch } from "@workspace/api-client-react";
 import { chatWithAssistantBodyMessagesItemContentMax as MESSAGE_MAX } from "@workspace/api-zod";
 import * as Haptics from "expo-haptics";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { withAiRetry } from "@/src/utils/aiRetry";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 import { RetrySnackbar } from "@/components/RetrySnackbar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +16,7 @@ import {
   Linking,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -32,6 +34,8 @@ import {
 } from "expo-audio";
 import * as FileSystem from "expo-file-system/legacy";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { usePermissions, type PermissionKey } from "@/hooks/usePermissions";
+import { safeNavigate } from "@/utils/safeNavigate";
 
 type Message = {
   id: string;
@@ -46,6 +50,26 @@ const QUICK_CHIPS = [
   "What does NBC say about fall protection?",
   "Winter construction best practices?",
 ];
+
+type QuickAction = {
+  key: string;
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+  path: string;
+  perm?: PermissionKey;
+};
+
+const QUICK_ACTIONS: QuickAction[] = [
+  { key: "projects", label: "Projects", icon: "folder", path: "/(tabs)/projects" },
+  { key: "safety", label: "Safety", icon: "shield", path: "/(tabs)/safety", perm: "viewSafetyTab" },
+  { key: "schedule", label: "Schedule", icon: "calendar", path: "/workforce?tab=schedule", perm: "viewSchedules" },
+  { key: "reports", label: "Reports", icon: "file-text", path: "/(tabs)/(home)/reports", perm: "viewReports" },
+  { key: "inspections", label: "Inspections", icon: "clipboard", path: "/(tabs)/inspect", perm: "viewInspectTab" },
+  { key: "tasks", label: "Tasks", icon: "check-square", path: "/(tabs)/tasks" },
+];
+
+const RECENT_QUESTIONS_KEY = "askAI:recentQuestions";
+const MAX_RECENT_QUESTIONS = 5;
 
 function MessageBubble({ msg }: { msg: Message }) {
   const colors = useColors();
@@ -98,7 +122,7 @@ function TypingIndicator() {
   );
 }
 
-function RecordingPulse({ color }: { color: string }) {
+function RecordingPulse({ color, size = 8 }: { color: string; size?: number }) {
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -114,8 +138,63 @@ function RecordingPulse({ color }: { color: string }) {
 
   return (
     <Animated.View
-      style={[styles.recordingDot, { backgroundColor: "#EF4444", transform: [{ scale }] }]}
+      style={[
+        styles.recordingDot,
+        { width: size, height: size, borderRadius: size / 2, backgroundColor: color, transform: [{ scale }] },
+      ]}
     />
+  );
+}
+
+function VoiceCTA({
+  isRecording,
+  isTranscribing,
+  onPress,
+}: {
+  isRecording: boolean;
+  isTranscribing: boolean;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  const label = isTranscribing ? "Transcribing…" : isRecording ? "Listening…" : "Tap to speak";
+  const sublabel = isTranscribing
+    ? "Turning your voice into text"
+    : isRecording
+      ? "Tap again to stop"
+      : "Ask a question hands-free on site";
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={isTranscribing}
+      style={({ pressed }) => [
+        styles.voiceCard,
+        {
+          backgroundColor: colors.card,
+          borderColor: isRecording ? colors.primary : colors.border,
+          opacity: pressed ? 0.9 : 1,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.voiceIconWrap,
+          { backgroundColor: isRecording ? "rgba(239,68,68,0.15)" : `${colors.primary}1F` },
+        ]}
+      >
+        {isTranscribing ? (
+          <ActivityIndicator color={colors.primary} size="small" />
+        ) : (
+          <Feather name={isRecording ? "mic-off" : "mic"} size={26} color={isRecording ? "#EF4444" : colors.primary} />
+        )}
+        {isRecording && <RecordingPulse color="#EF4444" size={12} />}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.voiceTitle, { color: colors.foreground }]}>{label}</Text>
+        <Text style={[styles.voiceSubtitle, { color: colors.mutedForeground }]}>{sublabel}</Text>
+      </View>
+      <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+    </Pressable>
   );
 }
 
@@ -123,6 +202,7 @@ export default function AskScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const perms = usePermissions();
   const { q: voiceQuestion } = useLocalSearchParams<{ q?: string }>();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -135,8 +215,37 @@ export default function AskScreen() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [recentQuestions, setRecentQuestions] = useState<string[]>([]);
   const flatListRef = useRef<FlatList>(null);
   const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const quickActions = useMemo(
+    () => QUICK_ACTIONS.filter((a) => !a.perm || perms[a.perm]),
+    [perms],
+  );
+
+  useEffect(() => {
+    AsyncStorage.getItem(RECENT_QUESTIONS_KEY)
+      .then((raw) => {
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setRecentQuestions(parsed.slice(0, MAX_RECENT_QUESTIONS));
+      })
+      .catch(() => {});
+  }, []);
+
+  const recordRecentQuestion = useCallback((question: string) => {
+    setRecentQuestions((prev) => {
+      const next = [question, ...prev.filter((p) => p !== question)].slice(0, MAX_RECENT_QUESTIONS);
+      AsyncStorage.setItem(RECENT_QUESTIONS_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const clearRecentQuestions = useCallback(() => {
+    setRecentQuestions([]);
+    AsyncStorage.removeItem(RECENT_QUESTIONS_KEY).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -166,6 +275,7 @@ export default function AskScreen() {
       const newHistory = [...messages, userMsg];
       setMessages(newHistory);
       setInput("");
+      recordRecentQuestion(trimmed);
       setLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -205,7 +315,7 @@ export default function AskScreen() {
         setLoading(false);
       }
     },
-    [messages, loading],
+    [messages, loading, recordRecentQuestion],
   );
 
   // Auto-send a question routed here from the voice command FAB (?q=...)
@@ -338,42 +448,40 @@ export default function AskScreen() {
       behavior="padding"
       keyboardVerticalOffset={0}
     >
-      {/* Header */}
+      {/* Compact header */}
       <View
-        style={[styles.header, { paddingTop: topInsets + 16, backgroundColor: colors.sidebar }]}
+        style={[styles.header, { paddingTop: topInsets + 10, backgroundColor: colors.sidebar }]}
       >
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Feather name="arrow-left" size={22} color="rgba(255,255,255,0.85)" />
+          <Feather name="arrow-left" size={20} color="rgba(255,255,255,0.85)" />
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
           <Text style={[styles.title, { color: "#FFFFFF" }]}>Site Snap AI</Text>
-          <Text style={[styles.subtitle, { color: "rgba(255,255,255,0.55)" }]}>
-            Your construction assistant
-          </Text>
+          <View style={styles.statusRow}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>Online · Construction assistant</Text>
+          </View>
         </View>
 
-        <View style={styles.headerRight}>
-          <View style={styles.statusDot} />
-          {hasMessages && (
-            <Pressable
-              style={styles.clearButton}
-              onPress={() => {
-                setMessages([]);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              }}
-            >
-              <Feather name="trash-2" size={18} color="rgba(255,255,255,0.5)" />
-            </Pressable>
-          )}
-        </View>
+        {hasMessages && (
+          <Pressable
+            style={styles.clearButton}
+            onPress={() => {
+              setMessages([]);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }}
+          >
+            <Feather name="trash-2" size={18} color="rgba(255,255,255,0.5)" />
+          </Pressable>
+        )}
       </View>
 
-      {/* Messages */}
+      {/* Messages / action-oriented empty state */}
       {hasMessages ? (
         <FlatList
           ref={flatListRef}
@@ -389,40 +497,86 @@ export default function AskScreen() {
           ListFooterComponent={loading ? <TypingIndicator /> : null}
         />
       ) : (
-        <View style={styles.emptyContainer}>
-          <View
-            style={[
-              styles.avatar,
-              { backgroundColor: colors.primary, width: 64, height: 64, borderRadius: 20 },
-            ]}
-          >
-            <Feather name="cpu" size={30} color="#FFFFFF" />
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.emptyScrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
+          <View style={styles.greetingRow}>
+            <Feather name="cpu" size={16} color={colors.primary} />
+            <Text style={[styles.greetingTitle, { color: colors.foreground }]}>Ask me anything</Text>
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Ask me anything</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+          <Text style={[styles.greetingSubtitle, { color: colors.mutedForeground }]}>
             Projects, daily reports, Canadian building codes, safety, and more.
           </Text>
-        </View>
-      )}
 
-      {/* Quick chips */}
-      {!hasMessages && (
-        <FlatList
-          data={QUICK_CHIPS}
-          keyExtractor={(item) => item}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsScrollContent}
-          renderItem={({ item }) => (
-            <Pressable
-              style={[styles.chip, { backgroundColor: colors.muted, borderColor: colors.border }]}
-              onPress={() => sendMessage(item)}
-            >
-              <Text style={[styles.chipText, { color: colors.foreground }]}>{item}</Text>
-            </Pressable>
+          <VoiceCTA isRecording={isRecording} isTranscribing={isTranscribing} onPress={toggleRecording} />
+
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>QUICK ACTIONS</Text>
+          <View style={styles.quickActionsGrid}>
+            {quickActions.map((action) => (
+              <Pressable
+                key={action.key}
+                onPress={() => safeNavigate(router, action.path, `ask:quick-action:${action.key}`)}
+                style={({ pressed }) => [
+                  styles.quickActionChip,
+                  { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+                ]}
+              >
+                <Feather name={action.icon} size={15} color={colors.primary} />
+                <Text style={[styles.quickActionLabel, { color: colors.foreground }]}>{action.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {recentQuestions.length > 0 && (
+            <>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginTop: 0 }]}>RECENT</Text>
+                <Pressable onPress={clearRecentQuestions} hitSlop={8}>
+                  <Text style={[styles.clearRecentText, { color: colors.mutedForeground }]}>Clear</Text>
+                </Pressable>
+              </View>
+              <View style={{ gap: 6 }}>
+                {recentQuestions.map((q, i) => (
+                  <Pressable
+                    key={`${i}-${q}`}
+                    onPress={() => sendMessage(q)}
+                    style={({ pressed }) => [
+                      styles.recentRow,
+                      { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+                    ]}
+                  >
+                    <Feather name="clock" size={13} color={colors.mutedForeground} />
+                    <Text style={[styles.recentText, { color: colors.foreground }]} numberOfLines={1}>
+                      {q}
+                    </Text>
+                    <Feather name="arrow-up-right" size={13} color={colors.mutedForeground} />
+                  </Pressable>
+                ))}
+              </View>
+            </>
           )}
-          style={{ flexShrink: 0, marginBottom: 8 }}
-        />
+
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>TRY ASKING</Text>
+          <FlatList
+            data={QUICK_CHIPS}
+            keyExtractor={(item) => item}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsScrollContent}
+            renderItem={({ item }) => (
+              <Pressable
+                style={[styles.chip, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                onPress={() => sendMessage(item)}
+              >
+                <Text style={[styles.chipText, { color: colors.foreground }]} numberOfLines={1}>{item}</Text>
+              </Pressable>
+            )}
+          />
+        </ScrollView>
       )}
 
       {/* Transcription error banner */}
@@ -450,7 +604,7 @@ export default function AskScreen() {
         </View>
       )}
 
-      {/* Input bar */}
+      {/* Persistent input bar */}
       <View
         style={[
           styles.inputRow,
@@ -544,7 +698,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 10,
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 8,
@@ -559,18 +713,13 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   headerCenter: { flex: 1 },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 2,
-  },
-  title: { fontSize: 24, fontFamily: "Inter_700Bold" },
-  subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
+  title: { fontSize: 19, fontFamily: "Inter_700Bold" },
+  statusRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3 },
+  statusText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.55)" },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: "#22C55E",
   },
   list: { flex: 1 },
@@ -592,28 +741,80 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22 },
   typingDots: { flexDirection: "row", gap: 5, alignItems: "center" },
   dot: { width: 7, height: 7, borderRadius: 3.5, opacity: 0.6 },
-  emptyContainer: {
-    flex: 1,
+
+  // Action-oriented empty state
+  emptyScrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
+  greetingRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  greetingTitle: { fontSize: 19, fontFamily: "Inter_700Bold" },
+  greetingSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 4, lineHeight: 18 },
+
+  sectionLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  clearRecentText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+
+  // Voice CTA
+  voiceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 14,
+  },
+  voiceIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 32,
+    flexShrink: 0,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-    marginTop: 16,
-    textAlign: "center",
+  voiceTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  voiceSubtitle: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+
+  // Quick actions
+  quickActionsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  quickActionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  emptySubtitle: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    marginTop: 8,
-    lineHeight: 22,
+  quickActionLabel: { fontSize: 13, fontFamily: "Inter_500Medium" },
+
+  // Recent questions
+  recentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  chipsScrollContent: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
+  recentText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
+
+  chipsScrollContent: { gap: 8, paddingBottom: 4 },
   chip: {
-    paddingHorizontal: 14,
+    maxWidth: 200,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
@@ -656,7 +857,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  clearButton: { padding: 6 },
+  clearButton: { padding: 6, marginBottom: 2 },
   charCounter: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
