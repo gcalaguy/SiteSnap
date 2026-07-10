@@ -14,6 +14,9 @@ import { assertProjectInCompany as verifyProjectAccess, canAccessProject } from 
 import { z } from "zod";
 import { logger } from "../lib/logger";
 import { processSafetySignoff } from "../services/cor/evidenceAggregator";
+import { ObjectStorageService } from "../lib/objectStorage";
+
+const objectStorageService = new ObjectStorageService();
 
 const CreateDailyLogBody = z.object({
   projectId: z.number(),
@@ -234,6 +237,18 @@ router.post(
       return;
     }
 
+    try {
+      await objectStorageService.trySetCompanyReadAcl(
+        imageUrl,
+        String(req.userId!),
+        String(req.companyId!),
+      );
+    } catch (err) {
+      req.log.warn({ err }, "Rejected site photo with invalid or already-owned object path");
+      res.status(400).json({ error: "Invalid photo reference" });
+      return;
+    }
+
     const [photo] = await db
       .insert(sitePhotosTable)
       .values({
@@ -389,6 +404,20 @@ router.post(
     if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", projectId))) {
       res.status(403).json({ error: "You are not assigned to this project" });
       return;
+    }
+
+    if (signatureUrl) {
+      try {
+        await objectStorageService.trySetCompanyReadAcl(
+          signatureUrl,
+          String(req.userId!),
+          String(req.companyId!),
+        );
+      } catch (err) {
+        req.log.warn({ err }, "Rejected safety signature with invalid or already-owned object path");
+        res.status(400).json({ error: "Invalid signature reference" });
+        return;
+      }
     }
 
     const [signoff] = await db

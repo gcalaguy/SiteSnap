@@ -1,29 +1,42 @@
 import { logger } from "../../lib/logger";
 import {
-  insertCompany,
-  insertOwnerMembership,
-  setUserActiveCompany,
   getCompanyById,
   getCompanyIdByClaimToken,
   hasAnyMembership,
   getPlanBySlug,
   claimCompanyTransaction,
   getUserById,
+  findOwnedCompanyByUser,
+  createCompanyTransaction,
 } from "../../repositories/companies";
 
+const PG_UNIQUE_VIOLATION = "23505";
+
+// Idempotent self-serve company provisioning. A user owns at most one company,
+// so repeated calls (double-submit, transport-level POST retry after a slow
+// first request, two tabs) must not create duplicate tenants:
+//   1. If the caller already owns a company, return it — no insert.
+//   2. Otherwise create it transactionally. If a concurrent request wins the
+//      race, the owner-membership unique index throws 23505, the stray company
+//      insert rolls back, and we return the company that actually won.
 export async function createCompany(
   userId: number,
   data: Record<string, unknown>,
   referralCode: string,
   referredByCode: string | null,
 ) {
-  const company = await insertCompany({ ...data, referralCode, referredByCode } as any);
+  const existing = await findOwnedCompanyByUser(userId);
+  if (existing) return existing;
 
-  // Assign requester as owner: write to memberships only (Phase 4)
-  await insertOwnerMembership(userId, company.id);
-  await setUserActiveCompany(userId, company.id);
-
-  return company;
+  try {
+    return await createCompanyTransaction(userId, { ...data, referralCode, referredByCode } as any);
+  } catch (err) {
+    if ((err as { code?: string })?.code === PG_UNIQUE_VIOLATION) {
+      const winner = await findOwnedCompanyByUser(userId);
+      if (winner) return winner;
+    }
+    throw err;
+  }
 }
 
 export async function resolveClaimInviteToken(token: string): Promise<number | null> {

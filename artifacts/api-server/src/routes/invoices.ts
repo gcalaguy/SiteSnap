@@ -282,6 +282,31 @@ router.post("/invoices/:invoiceId/mark-sent", requirePermission("manageFinancial
   res.json(updated);
 }))
 
+// POST /invoices/:invoiceId/revert-to-draft
+router.post("/invoices/:invoiceId/revert-to-draft", requirePermission("manageFinancials"), asyncHandler(async (req, res) => {
+  const invoiceId = parseInt(req.params.invoiceId as string);
+  const [existing] = await db
+    .select()
+    .from(invoicesTable)
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!existing) { res.status(404).json({ error: "Invoice not found" }); return; }
+  if (existing.signedAt) {
+    res.status(409).json({ error: "Cannot revert a signed invoice to draft" }); return;
+  }
+  if (existing.status !== "sent" && existing.status !== "overdue") {
+    res.status(409).json({ error: "Only sent or overdue invoices can be reverted to draft" }); return;
+  }
+  const [updated] = await db.update(invoicesTable)
+    .set({ status: "draft", sentAt: null, updatedAt: new Date() })
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.companyId, req.companyId!))).returning();
+
+  logAuditEventFromRequest(req, "Invoice Reverted to Draft", `Reverted invoice "${updated.title}" (${updated.invoiceNumber}) to draft`).catch(() => {});
+
+  invalidateDashboardMetricsCache(String(req.companyId!));
+  res.json(updated);
+}))
+
 // POST /invoices/:invoiceId/send-email
 router.post("/invoices/:invoiceId/send-email", requirePermission("manageFinancials"), asyncHandler(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId as string);

@@ -13,8 +13,10 @@ import {
   unique,
   primaryKey,
   index,
+  uniqueIndex,
   vector,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export * from "./conversations";
 export * from "./messages";
@@ -168,7 +170,19 @@ export const userMembershipsTable = pgTable(
     permissions: jsonb("permissions").$type<MemberPermissions>(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.companyId] })],
+  (t) => [
+    primaryKey({ columns: [t.userId, t.companyId] }),
+    // A user may belong to many companies, but may OWN at most one. This is the
+    // DB backstop against duplicate-tenant creation at enrollment: a retried or
+    // concurrent POST /companies inserts a second "owner" membership for the same
+    // user, which this partial unique index rejects. Combined with the wrapping
+    // transaction in createCompany, the stray company insert rolls back too, so
+    // no orphan tenant is left behind. NOTE: enforces one-company-ownership; if
+    // multi-company ownership is ever a product requirement, revisit this.
+    uniqueIndex("uniq_owner_membership_per_user")
+      .on(t.userId)
+      .where(sql`${t.role} = 'owner'`),
+  ],
 );
 
 export const insertUserMembershipSchema = createInsertSchema(

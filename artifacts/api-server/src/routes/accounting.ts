@@ -6,6 +6,11 @@ import {
   timesheetsTable,
   usersTable,
   projectDocumentsTable,
+  expensesTable,
+  invoicesTable,
+  paymentsTable,
+  changeOrdersTable,
+  costAnalysesTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -215,6 +220,293 @@ router.get(
     }
 
     zip.file("approved_timesheets.csv", timesheetCsv);
+
+    // ── CSV 3: Expense Ledger (canonical) ────────────────────────────────────
+    // Sourced from expensesTable — the money ledger the Financials > Expenses
+    // page reads. This includes manually-entered expenses, auto-synced Documents
+    // receipts, and any historical receipts pulled in by the backfill script
+    // (backfillReceiptExpenses). Complements expenses_and_ocr.csv above, which
+    // lists the raw uploaded/OCR'd documents rather than booked expense amounts.
+    const expenseLedgerHeaders = [
+      "Date",
+      "Vendor",
+      "Description",
+      "Amount",
+      "Tax (HST)",
+      "Status",
+      "Project Name",
+      "Submitted By",
+      "Receipt Reference",
+      "Expense ID",
+    ];
+    let expenseLedgerCsv = toCsvRow(expenseLedgerHeaders);
+
+    const expenseRows = await db
+      .select({
+        id: expensesTable.id,
+        expenseDate: expensesTable.expenseDate,
+        createdAt: expensesTable.createdAt,
+        vendorName: expensesTable.vendorName,
+        description: expensesTable.description,
+        amount: expensesTable.amount,
+        taxAmount: expensesTable.taxAmount,
+        status: expensesTable.status,
+        receiptObjectPath: expensesTable.receiptObjectPath,
+        projectName: projectsTable.name,
+        submitterFirstName: usersTable.firstName,
+        submitterLastName: usersTable.lastName,
+      })
+      .from(expensesTable)
+      .leftJoin(projectsTable, eq(projectsTable.id, expensesTable.projectId))
+      .leftJoin(usersTable, eq(usersTable.id, expensesTable.submittedByUserId))
+      .where(eq(expensesTable.companyId, companyId))
+      .orderBy(desc(expensesTable.createdAt));
+
+    for (const exp of expenseRows) {
+      const submitter = `${exp.submitterFirstName ?? ""} ${exp.submitterLastName ?? ""}`.trim();
+      expenseLedgerCsv += toCsvRow([
+        exp.expenseDate ?? formatDate(exp.createdAt),
+        exp.vendorName ?? "",
+        exp.description ?? "",
+        exp.amount ?? "",
+        exp.taxAmount ?? "",
+        exp.status ?? "",
+        exp.projectName ?? "",
+        submitter,
+        exp.receiptObjectPath ?? "",
+        String(exp.id),
+      ]);
+    }
+
+    zip.file("expenses_ledger.csv", expenseLedgerCsv);
+
+    // ── CSV 4: Invoices ──────────────────────────────────────────────────────
+    const invoiceHeaders = [
+      "Invoice Number",
+      "Date Created",
+      "Status",
+      "Client",
+      "Client Email",
+      "Project Name",
+      "Subtotal",
+      "Tax Rate",
+      "Tax Amount",
+      "Total",
+      "Due Date",
+      "Sent At",
+      "Paid At",
+      "Notes",
+      "Invoice ID",
+    ];
+    let invoiceCsv = toCsvRow(invoiceHeaders);
+
+    const invoiceRows = await db
+      .select({
+        id: invoicesTable.id,
+        invoiceNumber: invoicesTable.invoiceNumber,
+        createdAt: invoicesTable.createdAt,
+        status: invoicesTable.status,
+        clientName: invoicesTable.clientName,
+        clientEmail: invoicesTable.clientEmail,
+        subtotal: invoicesTable.subtotal,
+        taxRate: invoicesTable.taxRate,
+        taxAmount: invoicesTable.taxAmount,
+        total: invoicesTable.total,
+        dueDate: invoicesTable.dueDate,
+        sentAt: invoicesTable.sentAt,
+        paidAt: invoicesTable.paidAt,
+        notes: invoicesTable.notes,
+        projectName: projectsTable.name,
+      })
+      .from(invoicesTable)
+      .leftJoin(projectsTable, eq(projectsTable.id, invoicesTable.projectId))
+      .where(eq(invoicesTable.companyId, companyId))
+      .orderBy(desc(invoicesTable.createdAt));
+
+    for (const inv of invoiceRows) {
+      invoiceCsv += toCsvRow([
+        inv.invoiceNumber,
+        formatDate(inv.createdAt),
+        inv.status,
+        inv.clientName ?? "",
+        inv.clientEmail ?? "",
+        inv.projectName ?? "",
+        inv.subtotal ?? "",
+        inv.taxRate ?? "",
+        inv.taxAmount ?? "",
+        inv.total ?? "",
+        inv.dueDate ?? "",
+        formatDate(inv.sentAt),
+        formatDate(inv.paidAt),
+        inv.notes ?? "",
+        String(inv.id),
+      ]);
+    }
+
+    zip.file("invoices.csv", invoiceCsv);
+
+    // ── CSV 5: Paid-Invoice Transaction Journal ──────────────────────────────
+    // One row per recorded payment against an invoice — the flat cash-receipts
+    // journal accountants reconcile against bank deposits.
+    const journalHeaders = [
+      "Payment Date",
+      "Invoice Number",
+      "Client",
+      "Project Name",
+      "Payment Amount",
+      "Method",
+      "Invoice Total",
+      "Invoice Status",
+      "Notes",
+      "Payment ID",
+      "Invoice ID",
+    ];
+    let journalCsv = toCsvRow(journalHeaders);
+
+    const paymentRows = await db
+      .select({
+        paymentId: paymentsTable.id,
+        paidAt: paymentsTable.paidAt,
+        amount: paymentsTable.amount,
+        method: paymentsTable.method,
+        notes: paymentsTable.notes,
+        invoiceId: invoicesTable.id,
+        invoiceNumber: invoicesTable.invoiceNumber,
+        invoiceTotal: invoicesTable.total,
+        invoiceStatus: invoicesTable.status,
+        clientName: invoicesTable.clientName,
+        projectName: projectsTable.name,
+      })
+      .from(paymentsTable)
+      .innerJoin(invoicesTable, eq(invoicesTable.id, paymentsTable.invoiceId))
+      .leftJoin(projectsTable, eq(projectsTable.id, invoicesTable.projectId))
+      .where(eq(paymentsTable.companyId, companyId))
+      .orderBy(desc(paymentsTable.paidAt));
+
+    for (const pay of paymentRows) {
+      journalCsv += toCsvRow([
+        formatDate(pay.paidAt),
+        pay.invoiceNumber,
+        pay.clientName ?? "",
+        pay.projectName ?? "",
+        pay.amount ?? "",
+        pay.method ?? "",
+        pay.invoiceTotal ?? "",
+        pay.invoiceStatus,
+        pay.notes ?? "",
+        String(pay.paymentId),
+        String(pay.invoiceId),
+      ]);
+    }
+
+    zip.file("paid_invoices_journal.csv", journalCsv);
+
+    // ── CSV 6: Approved Change Orders ────────────────────────────────────────
+    const changeOrderHeaders = [
+      "Approved Date",
+      "Title",
+      "Description",
+      "Amount",
+      "Project Name",
+      "Approved By",
+      "Signed At",
+      "Notes",
+      "Change Order ID",
+    ];
+    let changeOrderCsv = toCsvRow(changeOrderHeaders);
+
+    const changeOrderRows = await db
+      .select({
+        id: changeOrdersTable.id,
+        title: changeOrdersTable.title,
+        description: changeOrdersTable.description,
+        amount: changeOrdersTable.amount,
+        approvedAt: changeOrdersTable.approvedAt,
+        signedAt: changeOrdersTable.signedAt,
+        notes: changeOrdersTable.notes,
+        projectName: projectsTable.name,
+        approverFirstName: usersTable.firstName,
+        approverLastName: usersTable.lastName,
+      })
+      .from(changeOrdersTable)
+      .leftJoin(projectsTable, eq(projectsTable.id, changeOrdersTable.projectId))
+      .leftJoin(usersTable, eq(usersTable.id, changeOrdersTable.approvedByUserId))
+      .where(
+        and(
+          eq(changeOrdersTable.companyId, companyId),
+          eq(changeOrdersTable.status, "approved"),
+        ),
+      )
+      .orderBy(desc(changeOrdersTable.approvedAt));
+
+    for (const co of changeOrderRows) {
+      const approver = `${co.approverFirstName ?? ""} ${co.approverLastName ?? ""}`.trim();
+      changeOrderCsv += toCsvRow([
+        formatDate(co.approvedAt),
+        co.title ?? "",
+        co.description ?? "",
+        co.amount ?? "",
+        co.projectName ?? "",
+        approver,
+        formatDate(co.signedAt),
+        co.notes ?? "",
+        String(co.id),
+      ]);
+    }
+
+    zip.file("approved_change_orders.csv", changeOrderCsv);
+
+    // ── CSV 7: Project Costs ─────────────────────────────────────────────────
+    // Period cost breakdowns (labour / materials / equipment / other) per
+    // project from costAnalysesTable — scoped to the company via its projects.
+    const projectCostHeaders = [
+      "Period",
+      "Project Name",
+      "Labour",
+      "Materials",
+      "Equipment",
+      "Other",
+      "Total",
+      "Notes",
+      "Recorded At",
+      "Cost Entry ID",
+    ];
+    let projectCostCsv = toCsvRow(projectCostHeaders);
+
+    const projectCostRows = await db
+      .select({
+        id: costAnalysesTable.id,
+        periodLabel: costAnalysesTable.periodLabel,
+        labourCost: costAnalysesTable.labourCost,
+        materialsCost: costAnalysesTable.materialsCost,
+        equipmentCost: costAnalysesTable.equipmentCost,
+        otherCost: costAnalysesTable.otherCost,
+        totalCost: costAnalysesTable.totalCost,
+        notes: costAnalysesTable.notes,
+        createdAt: costAnalysesTable.createdAt,
+        projectName: projectsTable.name,
+      })
+      .from(costAnalysesTable)
+      .innerJoin(projectsTable, eq(projectsTable.id, costAnalysesTable.projectId))
+      .where(eq(projectsTable.companyId, companyId))
+      .orderBy(desc(costAnalysesTable.createdAt));
+
+    for (const cost of projectCostRows) {
+      projectCostCsv += toCsvRow([
+        cost.periodLabel ?? "",
+        cost.projectName ?? "",
+        cost.labourCost ?? "",
+        cost.materialsCost ?? "",
+        cost.equipmentCost ?? "",
+        cost.otherCost ?? "",
+        cost.totalCost ?? "",
+        cost.notes ?? "",
+        formatDate(cost.createdAt),
+        String(cost.id),
+      ]);
+    }
+
+    zip.file("project_costs.csv", projectCostCsv);
 
     // ── Attachments subfolder ────────────────────────────────────────────────
     for (const entry of attachmentEntries) {

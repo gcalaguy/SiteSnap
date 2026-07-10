@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +7,19 @@ import { format } from "date-fns";
 import { formatCurrency } from "@/lib/format";
 import { useSignedDownload } from "@/hooks/useSignedUrl";
 import { useToast } from "@/hooks/use-toast";
+import { SortMenu, compareBy, type SortState } from "@/components/SortMenu";
+
+type SortKey = "date" | "vendor" | "project" | "submittedBy" | "amount" | "tax" | "status";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "date", label: "Date" },
+  { key: "vendor", label: "Vendor" },
+  { key: "project", label: "Project" },
+  { key: "submittedBy", label: "Submitted By" },
+  { key: "amount", label: "Amount" },
+  { key: "tax", label: "Tax" },
+  { key: "status", label: "Status" },
+];
 
 interface CompanyExpense {
   id: number;
@@ -27,8 +41,23 @@ export default function CompanyExpensesPage() {
     queryKey: ["financials", "expenses"],
     queryFn: () => customFetch("/api/financials/expenses"),
   });
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: "date", dir: "desc" });
 
   const total = expenses.reduce((s, e) => s + parseFloat(e.amount), 0);
+
+  const sortedExpenses = useMemo(() => {
+    return [...expenses].sort((a, b) => compareBy(a, b, sort.key, sort.dir, (e, key) => {
+      switch (key) {
+        case "date": return new Date(e.expenseDate ?? e.createdAt).getTime();
+        case "vendor": return e.vendorName;
+        case "project": return e.projectName;
+        case "submittedBy": return e.submittedByName;
+        case "amount": return parseFloat(e.amount);
+        case "tax": return e.taxAmount != null ? parseFloat(e.taxAmount) : null;
+        case "status": return e.status;
+      }
+    }));
+  }, [expenses, sort]);
 
   return (
     <div className="p-6 space-y-4">
@@ -42,9 +71,14 @@ export default function CompanyExpensesPage() {
             Every submitted receipt across all projects, for tax, audit, and bookkeeping.
           </p>
         </div>
-        {!isLoading && expenses.length > 0 && (
-          <p className="text-sm font-bold text-[#121212]">Total: {formatCurrency(total)}</p>
-        )}
+        <div className="flex items-center gap-3">
+          {!isLoading && expenses.length > 0 && (
+            <SortMenu options={SORT_OPTIONS} value={sort} onChange={setSort} />
+          )}
+          {!isLoading && expenses.length > 0 && (
+            <p className="text-sm font-bold text-[#121212] whitespace-nowrap">Total: {formatCurrency(total)}</p>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -72,7 +106,7 @@ export default function CompanyExpensesPage() {
               </tr>
             </thead>
             <tbody>
-              {expenses.map((e) => (
+              {sortedExpenses.map((e) => (
                 <tr key={e.id} className="border-b border-[#D4AF37]/10 last:border-0">
                   <td className="px-4 py-3 text-[#121212]/80 whitespace-nowrap">
                     {format(new Date(e.expenseDate ?? e.createdAt), "MMM d, yyyy")}

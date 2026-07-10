@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearch } from "wouter";
-import { Calculator, FileText, Receipt, Wallet } from "lucide-react";
+import { Calculator, FileText, Receipt, Wallet, DollarSign } from "lucide-react";
 import { useGetMe } from "@workspace/api-client-react";
 import { FeatureGuard } from "@/components/FeatureGuard";
 import EstimatesPage from "@/pages/estimates";
@@ -11,11 +11,10 @@ import PaymentsChangeOrdersPage from "@/pages/payments-change-orders";
 import CompanyExpensesPage from "@/pages/company-expenses";
 
 // Consolidated pre-construction & billing lifecycle hub:
-//   Estimates & Proposals  ->  Quotes  ->  Invoices (progress billing, payments, change orders)  ->  Expenses
-// Deep-linkable via /financials?tab=estimating|quotes|invoices|expenses&sub=estimates|proposals|invoices|payments
-type MainTab = "estimating" | "quotes" | "invoices" | "expenses";
+//   Estimates & Proposals  ->  Quotes  ->  Invoices  ->  Expenses  ->  Payments & Change Orders
+// Deep-linkable via /financials?tab=estimating|quotes|invoices|expenses|payments&sub=estimates|proposals
+type MainTab = "estimating" | "quotes" | "invoices" | "expenses" | "payments";
 type EstimatingSubTab = "estimates" | "proposals";
-type InvoicesSubTab = "invoices" | "payments";
 
 export default function FinancialsHubPage() {
   const { data: me } = useGetMe();
@@ -34,7 +33,6 @@ export default function FinancialsHubPage() {
   const canViewExpenses = hasPerm("viewFinancials");
 
   const canViewEstimating = canViewEstimates || canViewProposals;
-  const canViewInvoicesTab = canViewInvoices || canViewPayments;
 
   const params = new URLSearchParams(search);
   const requestedTab = params.get("tab");
@@ -42,20 +40,16 @@ export default function FinancialsHubPage() {
 
   const [tab, setTab] = useState<MainTab>(() => {
     if (requestedTab === "quotes" && canViewQuotes) return "quotes";
-    if (requestedTab === "invoices" && canViewInvoicesTab) return "invoices";
+    if ((requestedTab === "invoices" || requestedSub === "invoices") && canViewInvoices) return "invoices";
     if (requestedTab === "expenses" && canViewExpenses) return "expenses";
+    if ((requestedTab === "payments" || requestedSub === "payments") && canViewPayments) return "payments";
     if (requestedTab === "estimating" && canViewEstimating) return "estimating";
-    return canViewEstimating ? "estimating" : canViewQuotes ? "quotes" : canViewInvoicesTab ? "invoices" : "expenses";
+    return canViewEstimating ? "estimating" : canViewQuotes ? "quotes" : canViewInvoices ? "invoices" : canViewExpenses ? "expenses" : "payments";
   });
   const [estimatingSubTab, setEstimatingSubTab] = useState<EstimatingSubTab>(() => {
     if (requestedSub === "proposals" && canViewProposals) return "proposals";
     if (requestedSub === "estimates" && canViewEstimates) return "estimates";
     return canViewEstimates ? "estimates" : "proposals";
-  });
-  const [invoicesSubTab, setInvoicesSubTab] = useState<InvoicesSubTab>(() => {
-    if (requestedSub === "payments" && canViewPayments) return "payments";
-    if (requestedSub === "invoices" && canViewInvoices) return "invoices";
-    return canViewInvoices ? "invoices" : "payments";
   });
 
   const tabBtnClass = (active: boolean) =>
@@ -89,7 +83,7 @@ export default function FinancialsHubPage() {
               Quotes
             </button>
           )}
-          {canViewInvoicesTab && (
+          {canViewInvoices && (
             <button className={tabBtnClass(tab === "invoices")} onClick={() => setTab("invoices")}>
               <Receipt className="h-4 w-4" />
               Invoices
@@ -99,6 +93,12 @@ export default function FinancialsHubPage() {
             <button className={tabBtnClass(tab === "expenses")} onClick={() => setTab("expenses")}>
               <Wallet className="h-4 w-4" />
               Expenses
+            </button>
+          )}
+          {canViewPayments && (
+            <button className={tabBtnClass(tab === "payments")} onClick={() => setTab("payments")}>
+              <DollarSign className="h-4 w-4" />
+              Payments & Change Orders
             </button>
           )}
         </div>
@@ -112,16 +112,6 @@ export default function FinancialsHubPage() {
           </button>
           <button className={subTabBtnClass(estimatingSubTab === "proposals")} onClick={() => setEstimatingSubTab("proposals")}>
             Proposals
-          </button>
-        </div>
-      )}
-      {tab === "invoices" && canViewInvoices && canViewPayments && (
-        <div className="flex items-center gap-2 px-6 py-2.5 border-b border-[#D4AF37]/10 bg-[#FAFAFA] shrink-0">
-          <button className={subTabBtnClass(invoicesSubTab === "invoices")} onClick={() => setInvoicesSubTab("invoices")}>
-            Invoices
-          </button>
-          <button className={subTabBtnClass(invoicesSubTab === "payments")} onClick={() => setInvoicesSubTab("payments")}>
-            Payments & Change Orders
           </button>
         </div>
       )}
@@ -139,13 +129,9 @@ export default function FinancialsHubPage() {
           </>
         )}
         {tab === "quotes" && canViewQuotes && <QuotesPage />}
-        {tab === "invoices" && (
-          <>
-            {invoicesSubTab === "invoices" && canViewInvoices && <InvoicesPage />}
-            {invoicesSubTab === "payments" && canViewPayments && <PaymentsChangeOrdersPage />}
-          </>
-        )}
+        {tab === "invoices" && canViewInvoices && <InvoicesPage />}
         {tab === "expenses" && canViewExpenses && <CompanyExpensesPage />}
+        {tab === "payments" && canViewPayments && <PaymentsChangeOrdersPage />}
       </div>
     </div>
   );

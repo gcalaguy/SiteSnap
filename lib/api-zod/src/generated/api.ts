@@ -494,6 +494,31 @@ export const RejectChangeOrderResponse = zod.object({
 });
 
 /**
+ * @summary Revert an approved or rejected change order back to draft (pending)
+ */
+export const RevertChangeOrderToDraftParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RevertChangeOrderToDraftResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  amount: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  requestedByUserId: zod.number(),
+  approvedByUserId: zod.number().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  clientSignatureData: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary List all manual estimates
  */
 export const ListBuilderEstimatesResponseItem = zod.object({
@@ -4262,7 +4287,7 @@ export const SubmitQuoteForApprovalResponse = zod.object({
 });
 
 /**
- * @summary Revert a submitted quote back to draft
+ * @summary Revert a submitted, approved, or rejected quote back to draft
  */
 export const UnsubmitQuoteParams = zod.object({
   projectId: zod.coerce.number(),
@@ -5222,6 +5247,57 @@ export const MarkInvoicePaidResponse = zod.object({
         .max(markInvoicePaidResponseLineItemsItemDescriptionMax),
       quantity: zod.number(),
       unit: zod.string().max(markInvoicePaidResponseLineItemsItemUnitMax),
+      unitPrice: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+  subtotal: zod.string(),
+  taxRate: zod.string(),
+  taxAmount: zod.string(),
+  total: zod.string(),
+  notes: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  paidAt: zod.coerce.date().nullish(),
+  createdByUserId: zod.number(),
+  signatureData: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signerIp: zod.string().nullish(),
+  signerUserAgent: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  publicToken: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Revert a sent or overdue invoice back to draft
+ */
+export const RevertInvoiceToDraftParams = zod.object({
+  invoiceId: zod.coerce.number(),
+});
+
+export const revertInvoiceToDraftResponseLineItemsItemDescriptionMax = 500;
+
+export const revertInvoiceToDraftResponseLineItemsItemUnitMax = 20;
+
+export const RevertInvoiceToDraftResponse = zod.object({
+  id: zod.number(),
+  companyId: zod.number(),
+  projectId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  invoiceNumber: zod.string(),
+  title: zod.string(),
+  clientName: zod.string(),
+  clientEmail: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
+  lineItems: zod.array(
+    zod.object({
+      description: zod
+        .string()
+        .max(revertInvoiceToDraftResponseLineItemsItemDescriptionMax),
+      quantity: zod.number(),
+      unit: zod.string().max(revertInvoiceToDraftResponseLineItemsItemUnitMax),
       unitPrice: zod.number(),
       total: zod.number(),
     }),

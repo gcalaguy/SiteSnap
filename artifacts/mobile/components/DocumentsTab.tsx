@@ -37,7 +37,7 @@ type ProjectDoc = {
 type ExtractedFields = {
   documentType?: string; confidence?: string; ocrText?: string;
   extractedData?: {
-    vendor?: string | null; amount?: number | null; currency?: string | null;
+    vendor?: string | null; amount?: number | null; tax?: number | null; currency?: string | null;
     date?: string | null; invoiceNumber?: string | null;
     projectReference?: string | null; notes?: string | null; version?: string | null;
     items?: { description: string; quantity: string; unitPrice: string; total: string }[];
@@ -108,9 +108,11 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 function ExtractedPanel({ doc, projectId }: { doc: ProjectDoc; projectId: number }) {
   const colors = useColors();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [pushed, setPushed] = useState(false);
   const [pushing, setPushing] = useState(false);
+  const [reanalyzing, setReanalyzing] = useState(false);
 
   if (doc.status !== "ready" || !doc.extractedData) return null;
 
@@ -119,6 +121,14 @@ function ExtractedPanel({ doc, projectId }: { doc: ProjectDoc; projectId: number
   const hasFields = !!(fields.vendor || fields.amount != null || fields.date || fields.invoiceNumber);
   const hasAmount = fields.amount != null && fields.amount > 0;
   const currency = fields.currency ?? "CAD";
+  const isReceipt = /receipt/i.test(data.documentType ?? "");
+  const isTaxDocument = isReceipt || /invoice/i.test(data.documentType ?? "");
+  const isMissingTax = isTaxDocument && hasAmount && fields.tax == null;
+  // Total (in Expenses / cost tracking) includes HST — the OCR "amount" field is the pre-tax subtotal.
+  const grandTotal = (fields.amount ?? 0) + (fields.tax ?? 0);
+  // Receipts auto-sync to Financials > Expenses (and the cost ledger) once HST is captured —
+  // no manual "Push to Costs" step, and none is needed for them.
+  const isSyncedToExpenses = isReceipt && hasAmount && !isMissingTax;
 
   async function pushToCosts(category: string) {
     setPushing(true);
@@ -131,20 +141,44 @@ function ExtractedPanel({ doc, projectId }: { doc: ProjectDoc; projectId: number
       setPushed(true);
       Alert.alert(
         "Added to Cost Tracking",
-        `${currency}$${fields.amount!.toLocaleString()} added as ${CATEGORY_LABELS[category]} cost.`,
+        `${currency}$${grandTotal.toLocaleString()} (incl. HST) added as ${CATEGORY_LABELS[category]} cost.`,
         [{ text: "OK" }]
       );
-    } catch {
-      Alert.alert("Failed", "Could not push to cost tracking. Please try again.");
+    } catch (err) {
+      Alert.alert("Failed", getAiErrorMessage(err, "Could not push to cost tracking. Please try again."));
     } finally {
       setPushing(false);
     }
   }
 
+  async function reanalyze() {
+    setReanalyzing(true);
+    try {
+      const updated = await customFetch(`/api/projects/${projectId}/documents/${doc.id}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }) as ProjectDoc;
+      queryClient.setQueryData<ProjectDoc[]>(getListDocumentsQueryKey(projectId), (old = []) =>
+        old.map(d => d.id === updated.id ? updated : d)
+      );
+    } catch (err) {
+      Alert.alert("Re-analyze failed", getAiErrorMessage(err, "Could not re-analyze this document. Please try again."));
+    } finally {
+      setReanalyzing(false);
+    }
+  }
+
   function promptCategory() {
     if (pushed) return;
+    if (isMissingTax) {
+      Alert.alert(
+        "HST Required",
+        "No HST amount was detected on this document. Tap \"Re-analyze\" first — HST must always be included before pushing to costs.",
+      );
+      return;
+    }
     Alert.alert(
-      `Push ${currency}$${fields.amount!.toLocaleString()} to Costs`,
+      `Push ${currency}$${grandTotal.toLocaleString()} to Costs`,
       "Select a cost category:",
       [
         { text: "Materials", onPress: () => pushToCosts("materials") },
@@ -170,7 +204,7 @@ function ExtractedPanel({ doc, projectId }: { doc: ProjectDoc; projectId: number
         {hasAmount && (
           <View style={[docStyles.amountPill, { backgroundColor: "#C9A84C20", borderColor: "#C9A84C50" }]}>
             <Text style={[docStyles.amountPillText, { color: "#C9A84C" }]}>
-              {currency}${fields.amount!.toLocaleString()}
+              {currency}${grandTotal.toLocaleString()}
             </Text>
           </View>
         )}
@@ -198,6 +232,14 @@ function ExtractedPanel({ doc, projectId }: { doc: ProjectDoc; projectId: number
                   </Text>
                 </View>
               )}
+              {fields.tax != null && (
+                <View style={docStyles.fieldItem}>
+                  <Text style={[docStyles.fieldLabel, { color: colors.mutedForeground }]}>HST</Text>
+                  <Text style={[docStyles.fieldValue, { color: colors.foreground }]}>
+                    {currency}${fields.tax.toLocaleString()}
+                  </Text>
+                </View>
+              )}
               {fields.date && (
                 <View style={docStyles.fieldItem}>
                   <Text style={[docStyles.fieldLabel, { color: colors.mutedForeground }]}>Date</Text>
@@ -210,6 +252,34 @@ function ExtractedPanel({ doc, projectId }: { doc: ProjectDoc; projectId: number
                   <Text style={[docStyles.fieldValue, { color: colors.foreground }]}>{fields.invoiceNumber}</Text>
                 </View>
               )}
+            </View>
+          )}
+          {isMissingTax && (
+            <View style={[docStyles.taxWarning, { backgroundColor: "#F59E0B15", borderColor: "#F59E0B40" }]}>
+              <Feather name="alert-triangle" size={12} color="#B45309" />
+              <Text style={[docStyles.taxWarningText, { color: "#B45309" }]}>
+                {isReceipt
+                  ? "No HST amount detected. HST must always be included before this receipt can sync to Expenses."
+                  : "No HST amount detected. HST must always be included before pushing to costs."}
+              </Text>
+              <Pressable
+                onPress={reanalyze}
+                disabled={reanalyzing}
+                style={[docStyles.reanalyzeBtn, { opacity: reanalyzing ? 0.6 : 1 }]}
+              >
+                {reanalyzing
+                  ? <ActivityIndicator size={11} color="#B45309" />
+                  : <Feather name="refresh-cw" size={11} color="#B45309" />}
+                <Text style={docStyles.reanalyzeBtnText}>Re-analyze</Text>
+              </Pressable>
+            </View>
+          )}
+          {isSyncedToExpenses && (
+            <View style={[docStyles.pushedBadge, { backgroundColor: "#22C55E15", borderColor: "#22C55E40", marginTop: 8 }]}>
+              <Feather name="check-circle" size={13} color="#22C55E" />
+              <Text style={[docStyles.pushedText, { color: "#22C55E" }]}>
+                Added to Expenses & Cost Tracking · {currency}${grandTotal.toLocaleString()}
+              </Text>
             </View>
           )}
           {fields.items && fields.items.length > 0 && (
@@ -232,8 +302,8 @@ function ExtractedPanel({ doc, projectId }: { doc: ProjectDoc; projectId: number
             </View>
           ) : null}
 
-          {/* Push to Costs */}
-          {hasAmount && (
+          {/* Push to Costs — not shown for receipts, which auto-sync to Expenses instead */}
+          {!isReceipt && hasAmount && (
             <View style={{ marginTop: 10 }}>
               {pushed ? (
                 <View style={[docStyles.pushedBadge, { backgroundColor: "#22C55E15", borderColor: "#22C55E40" }]}>
@@ -246,14 +316,14 @@ function ExtractedPanel({ doc, projectId }: { doc: ProjectDoc; projectId: number
                   disabled={pushing}
                   style={({ pressed }) => [
                     docStyles.pushBtn,
-                    { backgroundColor: "#C9A84C", opacity: pressed || pushing ? 0.75 : 1 },
+                    { backgroundColor: "#C9A84C", opacity: pressed || pushing || isMissingTax ? 0.5 : 1 },
                   ]}
                 >
                   {pushing
                     ? <ActivityIndicator size={13} color="#fff" />
-                    : <Feather name="dollar-sign" size={13} color="#fff" />}
+                    : <Feather name={isMissingTax ? "lock" : "dollar-sign"} size={13} color="#fff" />}
                   <Text style={docStyles.pushBtnText}>
-                    {pushing ? "Adding…" : `Push to Costs · ${currency}$${fields.amount!.toLocaleString()}`}
+                    {pushing ? "Adding…" : isMissingTax ? "HST required to push" : `Push to Costs · ${currency}$${grandTotal.toLocaleString()}`}
                   </Text>
                 </Pressable>
               )}
@@ -1068,6 +1138,10 @@ const docStyles = StyleSheet.create({
   ocrText: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 16, borderRadius: 6, padding: 8 },
   amountPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, borderWidth: 1, marginLeft: "auto" as any },
   amountPillText: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  taxWarning: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 8 },
+  taxWarningText: { fontSize: 11, fontFamily: "Inter_500Medium", flex: 1, lineHeight: 15 },
+  reanalyzeBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6, backgroundColor: "#F59E0B25" },
+  reanalyzeBtnText: { fontSize: 10, fontFamily: "Inter_700Bold", color: "#B45309" },
   pushBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9, borderRadius: 9 },
   pushBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
   pushedBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1 },

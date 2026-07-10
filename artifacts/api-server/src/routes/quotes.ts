@@ -383,11 +383,14 @@ router.post("/:quoteId/unsubmit", requirePermission("manageQuotes"), asyncHandle
   const where = isWorker ? and(baseCondition, workerVisibility(req.userId!))! : baseCondition;
   const [existing] = await db.select().from(quotesTable).where(where).limit(1);
   if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
-  if (existing.status !== "pending_approval" && existing.status !== "rejected") {
-    res.status(409).json({ error: "Only submitted or rejected quotes can be unsubmitted" }); return;
+  if (existing.signedAt) {
+    res.status(409).json({ error: "Cannot revert a signed quote to draft" }); return;
+  }
+  if (existing.status !== "pending_approval" && existing.status !== "rejected" && existing.status !== "approved") {
+    res.status(409).json({ error: "Only submitted, approved, or rejected quotes can be reverted to draft" }); return;
   }
   const [updated] = await db.update(quotesTable)
-    .set({ status: "draft", updatedAt: new Date() })
+    .set({ status: "draft", approvedByUserId: null, approvedAt: null, updatedAt: new Date() })
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))).returning();
   invalidateDashboardMetricsCache(String(req.companyId!));
   res.json(updated);

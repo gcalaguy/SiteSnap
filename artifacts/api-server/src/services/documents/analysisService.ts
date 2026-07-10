@@ -11,6 +11,7 @@ import {
 } from "../../repositories/documents";
 import { storeChunks } from "./chunkingService";
 import { extractPDFText, extractWordText } from "./extractionService";
+import { syncReceiptToExpense, findExpenseByReceiptPath } from "../expenseLedger";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -30,6 +31,42 @@ export type AnalysisResult =
   | { ok: true; document: ProjectDocument; chunkCount: number }
   | { ok: false; status: number; error: string };
 
+// Every document classified as a "Receipt" auto-syncs to Financials > Expenses
+// (and the cost ledger) as soon as OCR captures an HST amount — HST must always
+// be included, so documents still missing it are left for the next analysis pass
+// (the mobile "Re-analyze" action) rather than synced with tax silently omitted.
+async function maybeSyncReceiptToExpense(
+  doc: ProjectDocument,
+  projectId: number,
+  companyId: number,
+  parsed: Record<string, unknown>,
+): Promise<void> {
+  const docType = typeof parsed.documentType === "string" ? parsed.documentType : "";
+  if (!/receipt/i.test(docType)) return;
+
+  const fields = (parsed.extractedData ?? {}) as Record<string, unknown>;
+  const rawAmount = typeof fields.amount === "number" ? fields.amount : 0;
+  const tax = typeof fields.tax === "number" ? fields.tax : null;
+  if (tax == null) return;
+
+  const grandTotal = rawAmount + tax;
+  if (grandTotal <= 0) return;
+
+  const vendor = typeof fields.vendor === "string" ? fields.vendor : null;
+  const rawDate = typeof fields.date === "string" ? fields.date : null;
+  const date = rawDate ? rawDate.slice(0, 10) : null;
+
+  try {
+    await syncReceiptToExpense({
+      companyId, projectId, submittedByUserId: doc.uploadedByUserId,
+      amount: grandTotal, tax, vendor, date,
+      receiptObjectPath: doc.objectPath, filename: doc.filename,
+    });
+  } catch (err) {
+    logger.error({ err, docId: doc.id }, "Failed to sync receipt to expenses");
+  }
+}
+
 export async function runImageAnalysis(
   doc: ProjectDocument,
   docId: number, projectId: number, companyId: number,
@@ -48,11 +85,12 @@ export async function runImageAnalysis(
 
 Analyze this image (receipt, invoice, site photo, delivery slip, safety inspection, contract, blueprint, etc.) and return ONLY a JSON object:
 - documentType: string (e.g. "Receipt","Invoice","Blueprint","Site Photo","Safety Inspection","Contract","Delivery Slip","Other")
-- summary: string (2-3 sentence professional summary — include amounts, dates, vendors if visible)
+- summary: string (2-3 sentence professional summary — include amounts, dates, vendors, and tax if visible)
 - ocrText: string (ALL text visible in the image, transcribed verbatim; empty string if photo with no text)
 - extractedData: object:
   - vendor: string | null
-  - amount: number | null
+  - amount: number | null (subtotal — the amount BEFORE tax; do not include HST in this figure)
+  - tax: number | null (the HST amount — Harmonized Sales Tax — shown on the receipt/invoice. MANDATORY for any "Receipt" or "Invoice": scan every line carefully for a line labeled "HST", "HST 13%", "Tax", or similar before concluding there is none. Only return null if the document is not a receipt/invoice, or truly shows no tax line at all.)
   - currency: "CAD"|"USD"|null
   - date: string | null (ISO)
   - items: {description,quantity,unitPrice,total}[] or []
@@ -77,6 +115,8 @@ Respond with ONLY the JSON object. No markdown. No explanation.`;
     await updateDocument(docId, projectId, {
       status: "ready", aiSummary: summary, extractedData: parsed, extractedText,
     });
+
+    await maybeSyncReceiptToExpense(doc, projectId, companyId, parsed);
 
     // Store chunks for full-text search (synchronous so chunkCount is accurate)
     let chunkCount = 0;
@@ -115,12 +155,13 @@ export async function runPDFAnalysis(
 You are looking at scanned pages from a PDF named "${doc.filename}".
 Extract ALL visible text, numbers, labels, dimensions, annotations, and project specifications from these images.
 Then analyze and return ONLY a JSON object:
-- documentType: string (e.g. "Contract","Blueprint","Specification","Schedule","Invoice","Safety Plan","Permit","Change Order","RFI","Report","Correspondence","Other")
+- documentType: string (e.g. "Contract","Blueprint","Specification","Schedule","Invoice","Receipt","Safety Plan","Permit","Change Order","RFI","Report","Correspondence","Other")
 - summary: string (2-4 sentence professional summary covering key details: parties, amounts, dates, scope)
 - ocrText: string (ALL text visible in the images, transcribed verbatim)
 - extractedData: object:
   - vendor: string | null
-  - amount: number | null
+  - amount: number | null (subtotal — the amount BEFORE tax; do not include HST in this figure)
+  - tax: number | null (the HST amount — Harmonized Sales Tax — shown on the receipt/invoice. MANDATORY for any "Receipt" or "Invoice": scan every line carefully for a line labeled "HST", "HST 13%", "Tax", or similar before concluding there is none. Only return null if the document is not a receipt/invoice, or truly shows no tax line at all.)
   - currency: "CAD"|"USD"|null
   - date: string | null (ISO)
   - projectReference: string | null
@@ -148,11 +189,12 @@ Respond with ONLY the JSON object. No markdown. No explanation.`;
 The following text was extracted from a PDF named "${doc.filename}" via OCR.
 
 Analyze it and return ONLY a JSON object:
-- documentType: string (e.g. "Contract","Blueprint","Specification","Schedule","Invoice","Safety Plan","Permit","Change Order","RFI","Report","Correspondence","Other")
+- documentType: string (e.g. "Contract","Blueprint","Specification","Schedule","Invoice","Receipt","Safety Plan","Permit","Change Order","RFI","Report","Correspondence","Other")
 - summary: string (2-4 sentence professional summary covering key details: parties, amounts, dates, scope)
 - extractedData: object:
   - vendor: string | null
-  - amount: number | null
+  - amount: number | null (subtotal — the amount BEFORE tax; do not include HST in this figure)
+  - tax: number | null (the HST amount — Harmonized Sales Tax — shown on the receipt/invoice. MANDATORY for any "Receipt" or "Invoice": scan every line carefully for a line labeled "HST", "HST 13%", "Tax", or similar before concluding there is none. Only return null if the document is not a receipt/invoice, or truly shows no tax line at all.)
   - currency: "CAD"|"USD"|null
   - date: string | null (ISO)
   - projectReference: string | null
@@ -177,6 +219,8 @@ Respond with ONLY the JSON object. No markdown.`;
             status: "ready", aiSummary: summary, extractedData: classifyParsed, extractedText: rawText,
           });
 
+          await maybeSyncReceiptToExpense(doc, projectId, companyId, classifyParsed);
+
           let chunkCount = 0;
           if (rawText.length > 50) {
             chunkCount = await storeChunks(docId, projectId, companyId, rawText);
@@ -197,11 +241,12 @@ Respond with ONLY the JSON object. No markdown.`;
 The following text was extracted from a PDF named "${doc.filename}".
 
 Analyze it and return ONLY a JSON object:
-- documentType: string (e.g. "Contract","Blueprint","Specification","Schedule","Invoice","Safety Plan","Permit","Change Order","RFI","Report","Correspondence","Other")
+- documentType: string (e.g. "Contract","Blueprint","Specification","Schedule","Invoice","Receipt","Safety Plan","Permit","Change Order","RFI","Report","Correspondence","Other")
 - summary: string (2-4 sentence professional summary covering key details: parties, amounts, dates, scope)
 - extractedData: object:
   - vendor: string | null
-  - amount: number | null
+  - amount: number | null (subtotal — the amount BEFORE tax; do not include HST in this figure)
+  - tax: number | null (the HST amount — Harmonized Sales Tax — shown on the receipt/invoice. MANDATORY for any "Receipt" or "Invoice": scan every line carefully for a line labeled "HST", "HST 13%", "Tax", or similar before concluding there is none. Only return null if the document is not a receipt/invoice, or truly shows no tax line at all.)
   - currency: "CAD"|"USD"|null
   - date: string | null (ISO)
   - projectReference: string | null
@@ -227,6 +272,8 @@ Respond with ONLY the JSON object. No markdown.`;
     await updateDocument(docId, projectId, {
       status: "ready", aiSummary: summary, extractedData: parsed, extractedText,
     });
+
+    await maybeSyncReceiptToExpense(doc, projectId, companyId, parsed);
 
     let chunkCount = 0;
     if (extractedText.length > 50) {
@@ -396,14 +443,38 @@ export async function pushDocumentToCosts(
 
   const data = doc.extractedData as Record<string, unknown>;
   const fields = (data.extractedData ?? {}) as Record<string, unknown>;
+  const docType = typeof data.documentType === "string" ? data.documentType : "Document";
   const rawAmount = typeof fields.amount === "number" ? fields.amount : 0;
-  if (rawAmount <= 0) {
+  const tax = typeof fields.tax === "number" ? fields.tax : null;
+
+  // Receipts auto-sync to Expenses (and the cost ledger) once HST is captured —
+  // block a manual push on top of that so the same amount can't be booked twice.
+  const alreadySynced = await findExpenseByReceiptPath(projectId, doc.objectPath);
+  if (alreadySynced) {
+    return {
+      ok: false, status: 400,
+      error: "This receipt was already added to Expenses and Cost Analysis automatically — no need to push manually.",
+    };
+  }
+
+  // HST must always be included in the pushed cost for receipts/invoices — refuse
+  // to push amount-only if the last analysis pass didn't capture a tax figure,
+  // rather than silently treating missing tax as $0.
+  if (/receipt|invoice/i.test(docType) && tax == null) {
+    return {
+      ok: false, status: 400,
+      error: "No HST amount was detected on this document. Re-analyze it to extract tax before pushing to costs.",
+    };
+  }
+
+  // "amount" is the pre-tax subtotal from OCR — fold HST in so cost tracking reflects what was actually paid.
+  const grandTotal = rawAmount + (tax ?? 0);
+  if (grandTotal <= 0) {
     return { ok: false, status: 400, error: "No financial amount found in this document." };
   }
 
   const vendor = typeof fields.vendor === "string" ? fields.vendor : null;
   const docDate = typeof fields.date === "string" ? fields.date : null;
-  const docType = typeof data.documentType === "string" ? data.documentType : "Document";
   const summary = typeof data.summary === "string" ? data.summary : doc.aiSummary ?? "";
 
   const labelParts: string[] = [];
@@ -412,17 +483,18 @@ export async function pushDocumentToCosts(
   else labelParts.push(new Date().toISOString().slice(0, 10));
   const periodLabel = labelParts.join(" — ") || `${docType} — ${new Date().toISOString().slice(0, 10)}`;
 
-  const amount = rawAmount.toFixed(2);
+  const amount = grandTotal.toFixed(2);
   const costs: Record<CostCategory, string> = {
     materials: "0.00", labour: "0.00", equipment: "0.00", other: "0.00",
   };
   costs[cat] = amount;
-  const total = rawAmount.toFixed(2);
+  const total = grandTotal.toFixed(2);
 
   const invoiceNum = typeof fields.invoiceNumber === "string" ? fields.invoiceNumber : null;
   const noteParts: string[] = [];
   if (doc.filename) noteParts.push(`Source: ${doc.filename}`);
   if (invoiceNum) noteParts.push(`Invoice #${invoiceNum}`);
+  if (tax != null) noteParts.push(`HST: $${tax.toFixed(2)}`);
   if (fields.notes && typeof fields.notes === "string") noteParts.push(fields.notes);
   const notes = noteParts.join(" · ") || null;
 

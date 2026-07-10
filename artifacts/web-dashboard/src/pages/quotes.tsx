@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { useListAllQuotes } from "@workspace/api-client-react";
+import { useListAllQuotes, useListProjects, useListCompanyMembers, useGetMe, getListCompanyMembersQueryKey } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,19 @@ import { Plus, FileText, ChevronRight } from "lucide-react";
 import SearchBar from "@/components/SearchBar";
 import { formatDistanceToNow } from "date-fns";
 import { formatCurrency as fmtCAD } from "@/lib/format";
+import { SortMenu, compareBy, type SortState } from "@/components/SortMenu";
+
+type SortKey = "date" | "vendor" | "project" | "submittedBy" | "amount" | "tax" | "status";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "date", label: "Date" },
+  { key: "vendor", label: "Vendor" },
+  { key: "project", label: "Project" },
+  { key: "submittedBy", label: "Submitted By" },
+  { key: "amount", label: "Amount" },
+  { key: "tax", label: "Tax" },
+  { key: "status", label: "Status" },
+];
 
 
 const STATUS_LABELS: Record<string, string> = {
@@ -42,6 +55,7 @@ const TABS: { label: string; value: QuoteStatus | "all"; pill?: string }[] = [
 export default function Quotes() {
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: "date", dir: "desc" });
 
   // Fetch filtered list for display
   const { data: quotes, isLoading } = useListAllQuotes(
@@ -55,6 +69,39 @@ export default function Quotes() {
     return acc;
   }, {});
   const totalCount = allQuotes?.length ?? 0;
+
+  const { data: me } = useGetMe();
+  const { data: projects } = useListProjects();
+  const { data: members } = useListCompanyMembers(me?.activeCompanyId ?? 0, {
+    query: { queryKey: getListCompanyMembersQueryKey(me?.activeCompanyId ?? 0), enabled: !!me?.activeCompanyId },
+  });
+  const projectNameById = new Map((projects ?? []).map((p) => [p.id, p.name]));
+  const memberNameById = new Map((members ?? []).map((m) => [m.id, `${m.firstName} ${m.lastName}`.trim()]));
+
+  const visibleQuotes = useMemo(() => {
+    const filtered = searchQuery
+      ? (quotes ?? []).filter((q) => {
+          const s = searchQuery.toLowerCase();
+          return (
+            (q.clientName ?? "").toLowerCase().includes(s) ||
+            (q.quoteNumber ?? "").toLowerCase().includes(s) ||
+            (q.title ?? "").toLowerCase().includes(s) ||
+            fmtCAD(q.total).toLowerCase().includes(s)
+          );
+        })
+      : (quotes ?? []);
+    return [...filtered].sort((a, b) => compareBy(a, b, sort.key, sort.dir, (q, key) => {
+      switch (key) {
+        case "date": return new Date(q.createdAt).getTime();
+        case "vendor": return q.clientName;
+        case "project": return q.projectId != null ? (projectNameById.get(q.projectId) ?? `Project #${q.projectId}`) : null;
+        case "submittedBy": return memberNameById.get(q.createdByUserId) ?? q.createdByUserId;
+        case "amount": return parseFloat(q.total);
+        case "tax": return parseFloat(q.taxAmount);
+        case "status": return q.status;
+      }
+    }));
+  }, [quotes, searchQuery, sort, projectNameById, memberNameById]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -74,12 +121,15 @@ export default function Quotes() {
         </Button>
       </div>
 
-      <SearchBar
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search by client, quote number, or cost …"
-        className="w-full sm:w-80"
-      />
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <SearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by client, quote number, or cost …"
+          className="w-full sm:w-80"
+        />
+        <SortMenu options={SORT_OPTIONS} value={sort} onChange={setSort} />
+      </div>
 
       <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as QuoteStatus | "all")}>
         <TabsList
@@ -130,18 +180,7 @@ export default function Quotes() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {(searchQuery
-            ? quotes.filter((q) => {
-                const s = searchQuery.toLowerCase();
-                return (
-                  (q.clientName ?? "").toLowerCase().includes(s) ||
-                  (q.quoteNumber ?? "").toLowerCase().includes(s) ||
-                  (q.title ?? "").toLowerCase().includes(s) ||
-                  fmtCAD(q.total).toLowerCase().includes(s)
-                );
-              })
-            : quotes
-          ).map((q) => (
+          {visibleQuotes.map((q) => (
             <Link key={q.id} href={`/quotes/${q.id}`}>
               <Card className="hover:border-[#D4AF37]/40 hover:shadow-sm transition-all cursor-pointer border-[#D4AF37]/20 bg-white">
                 <CardContent className="flex items-center justify-between p-4">

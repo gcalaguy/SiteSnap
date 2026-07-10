@@ -7,6 +7,7 @@ import {
   useSubmitQuoteForApproval,
   useApproveQuote,
   useRejectQuote,
+  useUnsubmitQuote,
   useConvertQuoteToInvoice,
   useGenerateQuoteAI,
   useGetMe,
@@ -49,6 +50,7 @@ import {
   FileSpreadsheet,
   CheckCircle,
   Database,
+  Undo2,
 } from "lucide-react";
 import * as XLSX from "@e965/xlsx";
 import { useQueryClient } from "@tanstack/react-query";
@@ -416,6 +418,7 @@ export default function QuoteDetail() {
   const submitQuote = useSubmitQuoteForApproval();
   const approveQuote = useApproveQuote();
   const rejectQuote = useRejectQuote();
+  const unsubmitQuote = useUnsubmitQuote();
   const convertQuote = useConvertQuoteToInvoice();
   const generateAI = useGenerateQuoteAI();
 
@@ -491,6 +494,17 @@ export default function QuoteDetail() {
       toast({ title: "Quote sent back for revision" });
     } catch {
       toast({ title: "Failed to reject quote", variant: "destructive" });
+    }
+  }
+
+  async function handleRevertToDraft() {
+    try {
+      await unsubmitQuote.mutateAsync({ projectId: realProjectId, quoteId });
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/0/quotes/${quoteId}`] });
+      queryClient.invalidateQueries({ queryKey: getListAllQuotesQueryKey({}) });
+      toast({ title: "Quote reverted to draft" });
+    } catch {
+      toast({ title: "Failed to revert quote", variant: "destructive" });
     }
   }
 
@@ -805,6 +819,30 @@ export default function QuoteDetail() {
               <Send className="h-4 w-4" />
               Awaiting review
             </div>
+          )}
+
+          {/* Revert to Draft */}
+          {(quote.status === "pending_approval" || quote.status === "approved" || quote.status === "rejected") && me?.role !== "worker" && !quote.signedAt && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="gap-2" disabled={unsubmitQuote.isPending}>
+                  {unsubmitQuote.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
+                  Revert to Draft
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Revert quote to draft?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    The quote will be moved back to draft status so it can be edited and resubmitted.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleRevertToDraft}>Revert to Draft</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
 
           {/* Share signing link (clients can view + sign) — only when actually signable */}

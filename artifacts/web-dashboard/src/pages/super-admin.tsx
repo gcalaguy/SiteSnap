@@ -1064,7 +1064,7 @@ type ExportDeleteTenantDialogProps = {
   receiptId: number | null;
   onExport: () => void;
   isExporting: boolean;
-  onDelete: (receiptId: number) => void;
+  onDelete: (receiptId: number | null) => void;
   isDeleting: boolean;
 };
 
@@ -1075,15 +1075,14 @@ function ExportDeleteTenantDialog({ tenant, onOpenChange, receiptId, onExport, i
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
       <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
-        <h3 className="text-lg font-semibold text-[#121212]">Export &amp; Delete Tenant</h3>
+        <h3 className="text-lg font-semibold text-[#121212]">Delete Tenant</h3>
         <p className="mt-1 text-sm font-semibold text-gray-500">
-          Deleting "{tenant.name}" permanently removes all of its data. Export a copy first — deletion is blocked until you do.
+          Deleting "{tenant.name}" permanently removes all of its data. You can optionally export a copy first.
         </p>
 
         <div className="mt-5 flex items-center gap-3 rounded-xl border border-gray-200 p-4">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/10 text-sm font-bold text-[#D4AF37]">1</div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-[#121212]">Export tenant data</p>
+            <p className="text-sm font-semibold text-[#121212]">Export tenant data <span className="font-normal text-gray-400">(optional)</span></p>
             <p className="text-xs text-gray-500">Downloads a ZIP with this tenant's memberships, projects, TradeHub posts, documents, and financial records.</p>
           </div>
           <Button
@@ -1096,8 +1095,7 @@ function ExportDeleteTenantDialog({ tenant, onOpenChange, receiptId, onExport, i
           </Button>
         </div>
 
-        <div className={`mt-3 flex items-start gap-3 rounded-xl border p-4 ${receiptId === null ? "border-gray-100 opacity-50" : "border-red-200"}`}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-sm font-bold text-red-600">2</div>
+        <div className="mt-3 flex items-start gap-3 rounded-xl border border-red-200 p-4">
           <div className="flex-1">
             <p className="text-sm font-semibold text-[#121212]">Permanently delete</p>
             <p className="mt-1 text-xs text-gray-500">Type <span className="font-mono font-semibold">{tenant.name}</span> to confirm.</p>
@@ -1105,7 +1103,6 @@ function ExportDeleteTenantDialog({ tenant, onOpenChange, receiptId, onExport, i
               className="mt-2 border-gray-300 bg-white text-[#121212] placeholder:text-gray-400 focus:border-red-400"
               value={confirmName}
               onChange={(e) => setConfirmName(e.target.value)}
-              disabled={receiptId === null}
               placeholder={tenant.name}
             />
           </div>
@@ -1115,8 +1112,8 @@ function ExportDeleteTenantDialog({ tenant, onOpenChange, receiptId, onExport, i
           <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             className="bg-red-600 text-white hover:bg-red-700"
-            onClick={() => receiptId !== null && onDelete(receiptId)}
-            disabled={receiptId === null || !nameMatches || isDeleting}
+            onClick={() => onDelete(receiptId)}
+            disabled={!nameMatches || isDeleting}
           >
             {isDeleting ? "Deleting…" : "Delete Tenant"}
           </Button>
@@ -1255,7 +1252,8 @@ export default function SuperAdminPage() {
     onError: (e: ApiError) => toast({ title: "Remove failed", description: e.message, variant: "destructive" }),
   });
   const deleteTenant = useMutation({
-    mutationFn: ({ id, receiptId }: { id: number; receiptId: number }) => customFetch(`/api/admin/tenants/${id}?receiptId=${receiptId}`, { method: "DELETE" }),
+    mutationFn: ({ id, receiptId }: { id: number; receiptId: number | null }) =>
+      customFetch(`/api/admin/tenants/${id}${receiptId ? `?receiptId=${receiptId}` : ""}`, { method: "DELETE" }),
     onSuccess: () => { setTenantOpen(false); setEditingTenantId(null); setTenantDetailId(null); setExportDeleteTenant(null); setExportReceiptId(null); refresh(); toast({ title: "Tenant deleted" }); },
     onError: (e: ApiError) => toast({ title: "Tenant delete failed", description: e.message, variant: "destructive" }),
   });

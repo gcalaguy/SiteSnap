@@ -2385,6 +2385,90 @@ export const useRejectChangeOrder = <
 };
 
 /**
+ * @summary Revert an approved or rejected change order back to draft (pending)
+ */
+export const getRevertChangeOrderToDraftUrl = (id: number) => {
+  return `/api/change-orders/${id}/revert-to-draft`;
+};
+
+export const revertChangeOrderToDraft = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ChangeOrderRecord> => {
+  return customFetch<ChangeOrderRecord>(getRevertChangeOrderToDraftUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRevertChangeOrderToDraftMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revertChangeOrderToDraft>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revertChangeOrderToDraft>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["revertChangeOrderToDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revertChangeOrderToDraft>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return revertChangeOrderToDraft(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevertChangeOrderToDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revertChangeOrderToDraft>>
+>;
+
+export type RevertChangeOrderToDraftMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Revert an approved or rejected change order back to draft (pending)
+ */
+export const useRevertChangeOrderToDraft = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revertChangeOrderToDraft>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revertChangeOrderToDraft>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRevertChangeOrderToDraftMutationOptions(options));
+};
+
+/**
  * @summary List all manual estimates
  */
 export const getListBuilderEstimatesUrl = () => {
@@ -13039,7 +13123,7 @@ export const useSubmitQuoteForApproval = <
 };
 
 /**
- * @summary Revert a submitted quote back to draft
+ * @summary Revert a submitted, approved, or rejected quote back to draft
  */
 export const getUnsubmitQuoteUrl = (projectId: number, quoteId: number) => {
   return `/api/projects/${projectId}/quotes/${quoteId}/unsubmit`;
@@ -13101,7 +13185,7 @@ export type UnsubmitQuoteMutationResult = NonNullable<
 export type UnsubmitQuoteMutationError = ErrorType<unknown>;
 
 /**
- * @summary Revert a submitted quote back to draft
+ * @summary Revert a submitted, approved, or rejected quote back to draft
  */
 export const useUnsubmitQuote = <
   TError = ErrorType<unknown>,
@@ -14721,6 +14805,90 @@ export const useMarkInvoicePaid = <
   TContext
 > => {
   return useMutation(getMarkInvoicePaidMutationOptions(options));
+};
+
+/**
+ * @summary Revert a sent or overdue invoice back to draft
+ */
+export const getRevertInvoiceToDraftUrl = (invoiceId: number) => {
+  return `/api/invoices/${invoiceId}/revert-to-draft`;
+};
+
+export const revertInvoiceToDraft = async (
+  invoiceId: number,
+  options?: RequestInit,
+): Promise<Invoice> => {
+  return customFetch<Invoice>(getRevertInvoiceToDraftUrl(invoiceId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRevertInvoiceToDraftMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revertInvoiceToDraft>>,
+    TError,
+    { invoiceId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revertInvoiceToDraft>>,
+  TError,
+  { invoiceId: number },
+  TContext
+> => {
+  const mutationKey = ["revertInvoiceToDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revertInvoiceToDraft>>,
+    { invoiceId: number }
+  > = (props) => {
+    const { invoiceId } = props ?? {};
+
+    return revertInvoiceToDraft(invoiceId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevertInvoiceToDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revertInvoiceToDraft>>
+>;
+
+export type RevertInvoiceToDraftMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Revert a sent or overdue invoice back to draft
+ */
+export const useRevertInvoiceToDraft = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revertInvoiceToDraft>>,
+    TError,
+    { invoiceId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revertInvoiceToDraft>>,
+  TError,
+  { invoiceId: number },
+  TContext
+> => {
+  return useMutation(getRevertInvoiceToDraftMutationOptions(options));
 };
 
 /**

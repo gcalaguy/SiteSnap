@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { useListAllInvoices } from "@workspace/api-client-react";
+import {
+  useListAllInvoices, useListProjects, useListCompanyMembers, useGetMe,
+  getListCompanyMembersQueryKey,
+} from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +13,19 @@ import { Receipt, ChevronRight, TrendingDown, TrendingUp, Plus } from "lucide-re
 import SearchBar from "@/components/SearchBar";
 import { formatDistanceToNow, format } from "date-fns";
 import { formatCurrency as fmtCAD } from "@/lib/format";
+import { SortMenu, compareBy, type SortState } from "@/components/SortMenu";
+
+type SortKey = "date" | "vendor" | "project" | "submittedBy" | "amount" | "tax" | "status";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "date", label: "Date" },
+  { key: "vendor", label: "Vendor" },
+  { key: "project", label: "Project" },
+  { key: "submittedBy", label: "Submitted By" },
+  { key: "amount", label: "Amount" },
+  { key: "tax", label: "Tax" },
+  { key: "status", label: "Status" },
+];
 
 
 const STATUS_LABELS: Record<string, string> = {
@@ -42,6 +58,7 @@ const TABS: { label: string; value: InvoiceStatus | "all"; pill?: string }[] = [
 export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: "date", dir: "desc" });
 
   // Filtered list for display
   const { data: invoices, isLoading } = useListAllInvoices(
@@ -63,6 +80,40 @@ export default function Invoices() {
   const totalPaid = (allInvoices ?? [])
     .filter((i) => i.status === "paid")
     .reduce((s, i) => s + Number(i.total), 0);
+
+  const { data: me } = useGetMe();
+  const { data: projects } = useListProjects();
+  const { data: members } = useListCompanyMembers(me?.activeCompanyId ?? 0, {
+    query: { queryKey: getListCompanyMembersQueryKey(me?.activeCompanyId ?? 0), enabled: !!me?.activeCompanyId },
+  });
+  const projectNameById = new Map((projects ?? []).map((p) => [p.id, p.name]));
+  const memberNameById = new Map((members ?? []).map((m) => [m.id, `${m.firstName} ${m.lastName}`.trim()]));
+
+  const visibleInvoices = useMemo(() => {
+    const filtered = searchQuery
+      ? (invoices ?? []).filter((inv) => {
+          const s = searchQuery.toLowerCase();
+          return (
+            (inv.clientName ?? "").toLowerCase().includes(s) ||
+            (inv.invoiceNumber ?? "").toLowerCase().includes(s) ||
+            (inv.title ?? "").toLowerCase().includes(s) ||
+            (STATUS_LABELS[inv.status] ?? "").toLowerCase().includes(s) ||
+            fmtCAD(inv.total).toLowerCase().includes(s)
+          );
+        })
+      : (invoices ?? []);
+    return [...filtered].sort((a, b) => compareBy(a, b, sort.key, sort.dir, (inv, key) => {
+      switch (key) {
+        case "date": return new Date(inv.createdAt).getTime();
+        case "vendor": return inv.clientName;
+        case "project": return inv.projectId != null ? (projectNameById.get(inv.projectId) ?? `Project #${inv.projectId}`) : null;
+        case "submittedBy": return memberNameById.get(inv.createdByUserId) ?? inv.createdByUserId;
+        case "amount": return parseFloat(inv.total);
+        case "tax": return parseFloat(inv.taxAmount);
+        case "status": return inv.status;
+      }
+    }));
+  }, [invoices, searchQuery, sort, projectNameById, memberNameById]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -98,12 +149,15 @@ export default function Invoices() {
         ))}
       </div>
 
-      <SearchBar
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search by client, invoice number, status, or amount …"
-        className="w-full sm:w-80"
-      />
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <SearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by client, invoice number, status, or amount …"
+          className="w-full sm:w-80"
+        />
+        <SortMenu options={SORT_OPTIONS} value={sort} onChange={setSort} />
+      </div>
 
       <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as InvoiceStatus | "all")}>
         <TabsList
@@ -154,19 +208,7 @@ export default function Invoices() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {(searchQuery
-            ? invoices.filter((inv) => {
-                const s = searchQuery.toLowerCase();
-                return (
-                  (inv.clientName ?? "").toLowerCase().includes(s) ||
-                  (inv.invoiceNumber ?? "").toLowerCase().includes(s) ||
-                  (inv.title ?? "").toLowerCase().includes(s) ||
-                  (STATUS_LABELS[inv.status] ?? "").toLowerCase().includes(s) ||
-                  fmtCAD(inv.total).toLowerCase().includes(s)
-                );
-              })
-            : invoices
-          ).map((inv) => (
+          {visibleInvoices.map((inv) => (
             <Link key={inv.id} href={`/invoices/${inv.id}`}>
               <Card className="hover:border-[#D4AF37]/40 hover:shadow-sm transition-all cursor-pointer border-[#D4AF37]/20 bg-white">
                 <CardContent className="flex items-center justify-between p-4">

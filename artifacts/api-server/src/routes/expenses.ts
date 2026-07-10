@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { db, expensesTable, usersTable, costAnalysesTable } from "@workspace/db";
+import { db, expensesTable, usersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { extractJson } from "@workspace/integrations-openai-ai-server";
 import { ObjectStorageService } from "../lib/objectStorage.js";
@@ -10,6 +10,7 @@ import { requirePermission } from "../lib/permissionGate";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 import { canAccessProject, assertProjectInCompany as verifyProjectAccess } from "../lib/projectAccess";
 import { asyncHandler } from "../lib/asyncHandler";
+import { syncExpenseToCostLedger } from "../services/expenseLedger";
 
 const objectStorageService = new ObjectStorageService();
 
@@ -28,39 +29,6 @@ const OcrExpenseBody = z.object({
 });
 
 const router = Router({ mergeParams: true });
-
-// Rolls a submitted expense's amount into the project's current-month cost
-// breakdown (costAnalysesTable) under "materials" so project-level financials
-// reflect it immediately, without requiring a separate manual cost-analysis entry.
-async function syncExpenseToCostLedger(projectId: number, amount: number) {
-  const periodLabel = new Date().toISOString().slice(0, 7); // "YYYY-MM"
-
-  const [existing] = await db
-    .select()
-    .from(costAnalysesTable)
-    .where(and(eq(costAnalysesTable.projectId, projectId), eq(costAnalysesTable.periodLabel, periodLabel)))
-    .limit(1);
-
-  if (existing) {
-    const materialsCost = parseFloat(existing.materialsCost) + amount;
-    const totalCost = materialsCost + parseFloat(existing.labourCost) + parseFloat(existing.equipmentCost) + parseFloat(existing.otherCost);
-    await db
-      .update(costAnalysesTable)
-      .set({ materialsCost: materialsCost.toFixed(2), totalCost: totalCost.toFixed(2) })
-      .where(eq(costAnalysesTable.id, existing.id));
-  } else {
-    await db.insert(costAnalysesTable).values({
-      projectId,
-      periodLabel,
-      labourCost: "0.00",
-      materialsCost: amount.toFixed(2),
-      equipmentCost: "0.00",
-      otherCost: "0.00",
-      totalCost: amount.toFixed(2),
-      notes: "Auto-generated from submitted expenses",
-    });
-  }
-}
 
 // GET /projects/:projectId/expenses — workers see only their own; owner/foreman see all
 router.get("/", requireAuth, requireCompany, requireTenantCtx, requirePermission("submitExpenses"), asyncHandler(async (req, res) => {

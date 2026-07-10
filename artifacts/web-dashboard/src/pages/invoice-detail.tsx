@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { useGetInvoice, useMarkInvoiceSent, useMarkInvoicePaid, useGetMe, useSendInvoiceEmail, useSendInvoiceReminder, useUpdateInvoice, customFetch } from "@workspace/api-client-react";
+import { useGetInvoice, useMarkInvoiceSent, useMarkInvoicePaid, useRevertInvoiceToDraft, useGetMe, useSendInvoiceEmail, useSendInvoiceReminder, useUpdateInvoice, customFetch } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2, Bell, FileSpreadsheet, Plus, Trash2, Save, Database } from "lucide-react";
+import { ArrowLeft, SendHorizonal, CheckCircle2, Receipt, Download, Mail, Loader2, Bell, FileSpreadsheet, Plus, Trash2, Save, Database, Undo2 } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetInvoiceQueryKey, getListAllInvoicesQueryKey } from "@workspace/api-client-react";
@@ -383,6 +383,7 @@ export default function InvoiceDetail() {
   const { data: me } = useGetMe();
   const markSent = useMarkInvoiceSent();
   const markPaid = useMarkInvoicePaid();
+  const revertToDraft = useRevertInvoiceToDraft();
   const sendEmail = useSendInvoiceEmail();
   const sendReminder = useSendInvoiceReminder();
   const updateInvoice = useUpdateInvoice();
@@ -493,6 +494,13 @@ export default function InvoiceDetail() {
     markPaid.mutate({ invoiceId }, {
       onSuccess: () => { toast({ title: "Invoice marked as paid!" }); invalidate(); },
       onError: () => toast({ title: "Failed to update invoice", variant: "destructive" }),
+    });
+  }
+
+  function handleRevertToDraft() {
+    revertToDraft.mutate({ invoiceId }, {
+      onSuccess: () => { toast({ title: "Invoice reverted to draft" }); invalidate(); },
+      onError: () => toast({ title: "Failed to revert invoice", variant: "destructive" }),
     });
   }
 
@@ -745,8 +753,32 @@ export default function InvoiceDetail() {
             </AlertDialog>
           )}
 
+          {/* Revert to Draft */}
+          {(invoice.status === "sent" || invoice.status === "overdue") && !invoice.signedAt && !isWorker && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={revertToDraft.isPending}>
+                  <Undo2 className="h-4 w-4 mr-2" />
+                  Revert to Draft
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Revert invoice to draft?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will move {invoice.invoiceNumber} back to draft status so it can be edited. Any previously sent copy will no longer be shown as current.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleRevertToDraft}>Revert to Draft</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
           {/* Share signing link — only when actually signable */}
-          {invoice.publicToken && (invoice.status === "draft" || invoice.status === "sent" || invoice.status === "overdue") && (
+          {invoice.publicToken && (invoice.status === "sent" || invoice.status === "overdue") && (
             <Button
               variant="outline"
               className="gap-2"

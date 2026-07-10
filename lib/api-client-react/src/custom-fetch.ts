@@ -15,6 +15,13 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 const DEFAULT_TIMEOUT_MS = 15000;
 
+// Only auto-retry read-only methods. Retrying a write is unsafe: a POST/PATCH/
+// PUT/DELETE can commit on the server yet have its response lost to a timeout or
+// network blip, so a blind retry double-applies it — this is precisely how
+// duplicate tenants were being created when a slow POST /companies got retried.
+// Callers that truly need a retryable write must make it idempotent server-side.
+const RETRYABLE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
 // ---------------------------------------------------------------------------
 // Module-level configuration
 // ---------------------------------------------------------------------------
@@ -424,7 +431,7 @@ export async function customFetch<T = unknown>(
       return (await parseSuccessBody(response, responseType, requestInfo)) as T;
     } catch (err) {
       lastError = err;
-      if (attempt === MAX_RETRIES || !isRetryableError(err)) {
+      if (attempt === MAX_RETRIES || !RETRYABLE_METHODS.has(method) || !isRetryableError(err)) {
         throw err;
       }
     }

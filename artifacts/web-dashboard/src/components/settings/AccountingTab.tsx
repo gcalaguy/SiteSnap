@@ -223,7 +223,7 @@ export function AccountingTab() {
               <div className="space-y-1">
                 <p className="text-sm font-semibold">Accountant-Ready CSV Export</p>
                 <p className="text-xs text-muted-foreground">
-                  Download a flat transaction journal of all paid invoices, approved change orders, and project costs in CSV format for your bookkeeping software.
+                  Download a ZIP of CSVs for your bookkeeping software — uploaded &amp; OCR'd receipts, the full expense ledger, invoices, a transaction journal of all paid invoices, approved change orders, project costs, and approved timesheets, with copies of the original attachments.
                 </p>
               </div>
             </div>

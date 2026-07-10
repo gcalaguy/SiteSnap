@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ShieldCheck, Loader2, FileText, CheckCircle2, Ban, CreditCard } from "lucide-react";
+import { ShieldCheck, Loader2, FileText, CheckCircle2, Ban, CreditCard, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { SignaturePad } from "@/components/SignaturePad";
 import { SignatureBadge } from "@/components/SignatureBadge";
@@ -235,6 +235,19 @@ export default function PublicInvoicePage() {
             <CardContent>
               <p className="text-sm text-muted-foreground">
                 This invoice has been cancelled and is no longer available for signing.
+              </p>
+            </CardContent>
+          </Card>
+        ) : invoice.status === "draft" ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-5 w-5" /> Not Yet Available
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                This invoice hasn't been sent yet and isn't ready for signing. Please check back later.
               </p>
             </CardContent>
           </Card>

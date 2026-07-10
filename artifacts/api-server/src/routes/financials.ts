@@ -402,6 +402,38 @@ router.post("/change-orders/:id/reject", requireAuth, requireCompany, requireTen
   res.json(updated);
 }))
 
+// POST /change-orders/:id/revert-to-draft
+router.post("/change-orders/:id/revert-to-draft", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
+  if (req.userRole !== "owner" && req.userRole !== "foreman") {
+    res.status(403).json({ error: "Owner or foreman required to revert" }); return;
+  }
+
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [existing] = await db
+    .select()
+    .from(changeOrdersTable)
+    .where(and(eq(changeOrdersTable.id, id), eq(changeOrdersTable.companyId, req.companyId!)))
+    .limit(1);
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  if (existing.signedAt) {
+    res.status(409).json({ error: "Cannot revert a signed change order to draft" }); return;
+  }
+  if (existing.status !== "approved" && existing.status !== "rejected") {
+    res.status(409).json({ error: "Only approved or rejected change orders can be reverted to draft" }); return;
+  }
+
+  const [updated] = await db
+    .update(changeOrdersTable)
+    .set({ status: "pending", approvedByUserId: null, approvedAt: null, updatedAt: new Date() })
+    .where(and(eq(changeOrdersTable.id, id), eq(changeOrdersTable.companyId, req.companyId!)))
+    .returning();
+
+  invalidateDashboardMetricsCache(String(req.companyId!));
+  res.json(updated);
+}))
+
 // GET /projects/:projectId/approved-change-orders — for invoice line-item integration
 router.get("/projects/:projectId/approved-change-orders", requireAuth, requireCompany, requireTenantCtx, asyncHandler(async (req, res) => {
   const projectId = parseInt(req.params.projectId as string);

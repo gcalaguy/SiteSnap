@@ -9,7 +9,9 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run tests/",
-    "backfill-object-acls": "tsx src/scripts/backfillObjectAcls.ts"
+    "backfill-object-acls": "tsx src/scripts/backfillObjectAcls.ts",
+    "backfill-receipt-expenses": "tsx src/scripts/backfillReceiptExpenses.ts",
+    "identify-duplicate-tenants": "tsx src/scripts/identifyDuplicateTenants.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.9",

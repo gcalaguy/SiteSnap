@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetFinancialSummary,
@@ -12,6 +12,10 @@ import {
   useDeleteChangeOrder,
   useApproveChangeOrder,
   useRejectChangeOrder,
+  useRevertChangeOrderToDraft,
+  useGetMe,
+  useListCompanyMembers,
+  getListCompanyMembersQueryKey,
   ApiError,
 } from "@workspace/api-client-react";
 import type {
@@ -78,12 +82,29 @@ import {
   RefreshCw,
   ClipboardList,
   ArrowRight,
+  Undo2,
   CreditCard,
 } from "lucide-react";
 import SearchBar from "@/components/SearchBar";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { FeatureGuard } from "@/components/FeatureGuard";
+import { SortMenu, compareBy, type SortState } from "@/components/SortMenu";
+
+type PaymentSortKey = "date" | "amount";
+const PAYMENT_SORT_OPTIONS: { key: PaymentSortKey; label: string }[] = [
+  { key: "date", label: "Date" },
+  { key: "amount", label: "Amount" },
+];
+
+type ChangeOrderSortKey = "date" | "project" | "submittedBy" | "amount" | "status";
+const CHANGE_ORDER_SORT_OPTIONS: { key: ChangeOrderSortKey; label: string }[] = [
+  { key: "date", label: "Date" },
+  { key: "project", label: "Project" },
+  { key: "submittedBy", label: "Submitted By" },
+  { key: "amount", label: "Amount" },
+  { key: "status", label: "Status" },
+];
 
 // ── Brand ──────────────────────────────────────────────────────────────────────
 const GOLD = "#C9A84C";
@@ -135,6 +156,60 @@ function PaymentsChangeOrdersInner() {
     (inv) => inv.status !== "paid" && inv.status !== "cancelled"
   );
   const projects: Project[] = projectsQuery.data ?? [];
+  const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
+
+  const { data: me } = useGetMe();
+  const { data: members } = useListCompanyMembers(me?.activeCompanyId ?? 0, {
+    query: { queryKey: getListCompanyMembersQueryKey(me?.activeCompanyId ?? 0), enabled: !!me?.activeCompanyId },
+  });
+  const memberNameById = new Map((members ?? []).map((m) => [m.id, `${m.firstName} ${m.lastName}`.trim()]));
+
+  const [paymentsSort, setPaymentsSort] = useState<SortState<PaymentSortKey>>({ key: "date", dir: "desc" });
+  const [changeOrdersSort, setChangeOrdersSort] = useState<SortState<ChangeOrderSortKey>>({ key: "date", dir: "desc" });
+
+  const visiblePayments = useMemo(() => {
+    const filtered = searchQuery
+      ? payments.filter((p) => {
+          const s = searchQuery.toLowerCase();
+          return (
+            (p.notes ?? "").toLowerCase().includes(s) ||
+            String(p.invoiceId).includes(s) ||
+            (METHOD_LABELS[p.method] ?? p.method).toLowerCase().includes(s) ||
+            cad(p.amount).toLowerCase().includes(s)
+          );
+        })
+      : payments;
+    return [...filtered].sort((a, b) => compareBy(a, b, paymentsSort.key, paymentsSort.dir, (p, key) => {
+      switch (key) {
+        case "date": return new Date(p.paidAt).getTime();
+        case "amount": return parseFloat(p.amount);
+      }
+    }));
+  }, [payments, searchQuery, paymentsSort]);
+
+  const visibleChangeOrders = useMemo(() => {
+    const filtered = searchQuery
+      ? changeOrders.filter((co) => {
+          const s = searchQuery.toLowerCase();
+          return (
+            (co.title ?? "").toLowerCase().includes(s) ||
+            (co.description ?? "").toLowerCase().includes(s) ||
+            String(co.projectId).includes(s) ||
+            (projectNameById.get(co.projectId) ?? "").toLowerCase().includes(s) ||
+            cad(co.amount).toLowerCase().includes(s)
+          );
+        })
+      : changeOrders;
+    return [...filtered].sort((a, b) => compareBy(a, b, changeOrdersSort.key, changeOrdersSort.dir, (co, key) => {
+      switch (key) {
+        case "date": return new Date(co.createdAt).getTime();
+        case "project": return projectNameById.get(co.projectId) ?? `Project #${co.projectId}`;
+        case "submittedBy": return memberNameById.get(co.requestedByUserId) ?? co.requestedByUserId;
+        case "amount": return parseFloat(co.amount);
+        case "status": return co.status;
+      }
+    }));
+  }, [changeOrders, searchQuery, changeOrdersSort, projectNameById, memberNameById]);
 
   // ── Last-updated timestamp ────────────────────────────────────────────────
   const lastUpdatedAt = Math.max(
@@ -252,6 +327,19 @@ function PaymentsChangeOrdersInner() {
     },
   });
 
+  const revertCOMutation = useRevertChangeOrderToDraft({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/financials/summary"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/change-orders"] });
+        toast({ title: "Change order reopened for review" });
+      },
+      onError: () => {
+        toast({ title: "Failed to revert change order", variant: "destructive" });
+      },
+    },
+  });
+
   const deleteCOMutation = useDeleteChangeOrder({
     mutation: {
       onSuccess: () => {
@@ -309,6 +397,10 @@ function PaymentsChangeOrdersInner() {
     } else {
       rejectCOMutation.mutate({ id });
     }
+  }
+
+  function handleRevertCO(id: number) {
+    revertCOMutation.mutate({ id });
   }
 
   function handleDeleteCO() {
@@ -504,45 +596,39 @@ function PaymentsChangeOrdersInner() {
               </Button>
             </div>
           ) : (
-            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #E5E5E5" }}>
-              <div className="grid text-xs font-bold uppercase tracking-wide px-4 py-2.5" style={{ gridTemplateColumns: "1fr 120px 140px 120px 32px", background: BLACK, color: "#aaa" }}>
-                <span>Invoice</span>
-                <span>Method</span>
-                <span>Date</span>
-                <span className="text-right">Amount</span>
-                <span />
+            <div className="space-y-2">
+              <div className="flex justify-end">
+                <SortMenu options={PAYMENT_SORT_OPTIONS} value={paymentsSort} onChange={setPaymentsSort} />
               </div>
-              {(searchQuery
-                ? payments.filter((p) => {
-                    const s = searchQuery.toLowerCase();
-                    return (
-                      (p.notes ?? "").toLowerCase().includes(s) ||
-                      String(p.invoiceId).includes(s) ||
-                      (METHOD_LABELS[p.method] ?? p.method).toLowerCase().includes(s) ||
-                      cad(p.amount).toLowerCase().includes(s)
-                    );
-                  })
-                : payments
-              ).map((payment, i) => (
-                <div
-                  key={payment.id}
-                  className="grid items-center px-4 py-3"
-                  style={{ gridTemplateColumns: "1fr 120px 140px 120px 32px", background: i % 2 === 0 ? "#fff" : "#FAFAFA", borderBottom: i < payments.length - 1 ? "1px solid #F0F0F0" : "none" }}
-                >
-                  <div>
-                    <Link href={`/invoices/${payment.invoiceId}`} className="text-sm font-medium text-blue-600 hover:underline">
-                      Invoice #{payment.invoiceId}
-                    </Link>
-                    {payment.notes && <p className="text-xs text-muted-foreground truncate">{payment.notes}</p>}
-                  </div>
-                  <span className="text-sm">{METHOD_LABELS[payment.method] ?? payment.method}</span>
-                  <span className="text-sm text-muted-foreground">{format(new Date(payment.paidAt), "MMM d, yyyy")}</span>
-                  <span className="text-sm font-bold text-right" style={{ color: "#16A34A" }}>+{cad(payment.amount)}</span>
-                  <button onClick={() => setDeletePaymentId(payment.id)} className="text-muted-foreground hover:text-destructive flex justify-end">
-                    <Trash2 size={13} />
-                  </button>
+              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #E5E5E5" }}>
+                <div className="grid text-xs font-bold uppercase tracking-wide px-4 py-2.5" style={{ gridTemplateColumns: "1fr 120px 140px 120px 32px", background: BLACK, color: "#aaa" }}>
+                  <span>Invoice</span>
+                  <span>Method</span>
+                  <span>Date</span>
+                  <span className="text-right">Amount</span>
+                  <span />
                 </div>
-              ))}
+                {visiblePayments.map((payment, i) => (
+                  <div
+                    key={payment.id}
+                    className="grid items-center px-4 py-3"
+                    style={{ gridTemplateColumns: "1fr 120px 140px 120px 32px", background: i % 2 === 0 ? "#fff" : "#FAFAFA", borderBottom: i < visiblePayments.length - 1 ? "1px solid #F0F0F0" : "none" }}
+                  >
+                    <div>
+                      <Link href={`/invoices/${payment.invoiceId}`} className="text-sm font-medium text-blue-600 hover:underline">
+                        Invoice #{payment.invoiceId}
+                      </Link>
+                      {payment.notes && <p className="text-xs text-muted-foreground truncate">{payment.notes}</p>}
+                    </div>
+                    <span className="text-sm">{METHOD_LABELS[payment.method] ?? payment.method}</span>
+                    <span className="text-sm text-muted-foreground">{format(new Date(payment.paidAt), "MMM d, yyyy")}</span>
+                    <span className="text-sm font-bold text-right" style={{ color: "#16A34A" }}>+{cad(payment.amount)}</span>
+                    <button onClick={() => setDeletePaymentId(payment.id)} className="text-muted-foreground hover:text-destructive flex justify-end">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </TabsContent>
@@ -564,18 +650,10 @@ function PaymentsChangeOrdersInner() {
             </div>
           ) : (
             <div className="space-y-3">
-              {(searchQuery
-                ? changeOrders.filter((co) => {
-                    const s = searchQuery.toLowerCase();
-                    return (
-                      (co.title ?? "").toLowerCase().includes(s) ||
-                      (co.description ?? "").toLowerCase().includes(s) ||
-                      String(co.projectId).includes(s) ||
-                      cad(co.amount).toLowerCase().includes(s)
-                    );
-                  })
-                : changeOrders
-              ).map((co) => {
+              <div className="flex justify-end">
+                <SortMenu options={CHANGE_ORDER_SORT_OPTIONS} value={changeOrdersSort} onChange={setChangeOrdersSort} />
+              </div>
+              {visibleChangeOrders.map((co) => {
                 const s = CO_STATUS_CONFIG[co.status] ?? CO_STATUS_CONFIG.pending;
                 return (
                   <div key={co.id} className="rounded-xl p-4" style={{ background: "#fff", border: "1px solid #E5E5E5" }}>
@@ -588,7 +666,9 @@ function PaymentsChangeOrdersInner() {
                           </span>
                         </div>
                         {co.description && <p className="text-xs text-muted-foreground mt-0.5">{co.description}</p>}
-                        <p className="text-xs text-muted-foreground mt-1">Project #{co.projectId} ... {format(new Date(co.createdAt), "MMM d, yyyy")}</p>
+                        <p className="text-xs text-muted-foreground mt-1 whitespace-normal break-words">
+                          {projectNameById.get(co.projectId) ?? `Project #${co.projectId}`} · {format(new Date(co.createdAt), "MMM d, yyyy")}
+                        </p>
                         {co.approvedAt && <p className="text-xs text-green-700 mt-0.5">Approved {format(new Date(co.approvedAt), "MMM d, yyyy")}</p>}
                       </div>
                       <div className="text-right flex-shrink-0">
@@ -600,6 +680,13 @@ function PaymentsChangeOrdersInner() {
                             </Button>
                             <Button size="sm" variant="outline" className="h-7 text-xs text-destructive hover:text-destructive border-red-200" onClick={() => handleCOAction(co.id, "reject")}>
                               <XCircle size={11} className="mr-1" /> Reject
+                            </Button>
+                          </div>
+                        )}
+                        {(co.status === "approved" || co.status === "rejected") && !co.signedAt && (
+                          <div className="flex gap-1 mt-2 justify-end">
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleRevertCO(co.id)}>
+                              <Undo2 size={11} className="mr-1" /> Reopen for Review
                             </Button>
                           </div>
                         )}

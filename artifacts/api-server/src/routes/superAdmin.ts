@@ -654,25 +654,27 @@ router.post("/admin/tenants/:id/export", ...guard, asyncHandler(async (req, res)
 }));
 
 // DELETE /admin/tenants/:id
-// Requires a fresh, unconsumed export receipt (see POST .../export above) for
-// this same tenant — the server-side proof the data was exported first.
+// Export is optional, not required: pass receiptId (see POST .../export above)
+// to prove the data was exported first, or omit it to delete without exporting.
+// When a receiptId is given it must be a fresh, unconsumed receipt for this
+// same tenant.
 router.delete("/admin/tenants/:id", ...guard, asyncHandler(async (req, res) => {
   const companyId = Number(req.params.id);
-  const receiptId = Number(req.query.receiptId ?? req.body?.receiptId);
-  if (!receiptId) {
-    res.status(400).json({ error: "Export receipt required — export tenant data before deleting." });
-    return;
-  }
+  const rawReceiptId = req.query.receiptId ?? req.body?.receiptId;
+  const receiptId = rawReceiptId ? Number(rawReceiptId) : null;
 
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) { res.status(404).json({ error: "Tenant not found" }); return; }
 
-  const [receipt] = await db.select().from(tenantExportReceiptsTable)
-    .where(and(eq(tenantExportReceiptsTable.id, receiptId), eq(tenantExportReceiptsTable.companyId, companyId)))
-    .limit(1);
-  if (!receipt || receipt.consumedAt || receipt.expiresAt < new Date()) {
-    res.status(409).json({ error: "Export is missing or expired — re-export before deleting." });
-    return;
+  let receipt: typeof tenantExportReceiptsTable.$inferSelect | null = null;
+  if (receiptId) {
+    [receipt] = await db.select().from(tenantExportReceiptsTable)
+      .where(and(eq(tenantExportReceiptsTable.id, receiptId), eq(tenantExportReceiptsTable.companyId, companyId)))
+      .limit(1);
+    if (!receipt || receipt.consumedAt || receipt.expiresAt < new Date()) {
+      res.status(409).json({ error: "Export is missing or expired — re-export, or delete without exporting." });
+      return;
+    }
   }
 
   // MED-007: cancel active Stripe subscription before deleting DB rows so the
@@ -691,7 +693,9 @@ router.delete("/admin/tenants/:id", ...guard, asyncHandler(async (req, res) => {
 
   // Wrap everything in a transaction so partial failures are rolled back
   await db.transaction(async (tx) => {
-    await tx.update(tenantExportReceiptsTable).set({ consumedAt: new Date() }).where(eq(tenantExportReceiptsTable.id, receiptId));
+    if (receiptId) {
+      await tx.update(tenantExportReceiptsTable).set({ consumedAt: new Date() }).where(eq(tenantExportReceiptsTable.id, receiptId));
+    }
     await tx.execute(sql`UPDATE users SET active_company_id = NULL WHERE active_company_id = ${companyId}`);
 
     const result = await deleteTenantData(tx, companyId);
@@ -705,7 +709,7 @@ router.delete("/admin/tenants/:id", ...guard, asyncHandler(async (req, res) => {
   // audit_logs.company_id cascades on company delete, so a normal audit-log
   // row scoped to this tenant would vanish along with everything else — log
   // durably via pino instead so the deletion is traceable after the fact.
-  logger.info({ companyId, companyName: company.name, deletedByUserId: req.userId, exportSha256: receipt.sha256, rowCounts: receipt.rowCounts }, "Tenant deleted by super admin");
+  logger.info({ companyId, companyName: company.name, deletedByUserId: req.userId, exported: receipt !== null, exportSha256: receipt?.sha256 ?? null, rowCounts: receipt?.rowCounts ?? null }, "Tenant deleted by super admin");
 
   purgeObjectStoragePaths(deletedObjectPaths).catch((err) => {
     logger.warn({ err, companyId }, "Tenant deleted but some object storage cleanup failed");

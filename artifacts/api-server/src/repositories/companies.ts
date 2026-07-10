@@ -119,6 +119,40 @@ export async function hasAnyMembership(companyId: number): Promise<boolean> {
   return rows.length > 0;
 }
 
+// Returns the company this user already OWNS, if any. Used as the idempotency
+// guard for self-serve company creation: a user owns at most one company, so if
+// one exists we return it rather than provisioning a duplicate tenant.
+export async function findOwnedCompanyByUser(userId: number): Promise<Company | undefined> {
+  const [row] = await db
+    .select({ company: companiesTable })
+    .from(userMembershipsTable)
+    .innerJoin(companiesTable, eq(companiesTable.id, userMembershipsTable.companyId))
+    .where(and(eq(userMembershipsTable.userId, userId), eq(userMembershipsTable.role, "owner")))
+    .orderBy(companiesTable.id)
+    .limit(1);
+  return row?.company;
+}
+
+// Provisions a brand-new company for a self-serve owner in ONE transaction:
+// company row → owner membership → active-company pointer. All-or-nothing so a
+// failure (notably the owner-membership unique-index violation from a concurrent
+// duplicate request) rolls back the company insert too, leaving no orphan tenant.
+// Deliberately does NOT use onConflictDoNothing on the membership — the conflict
+// must throw so the transaction aborts.
+export async function createCompanyTransaction(
+  userId: number,
+  data: typeof companiesTable.$inferInsert,
+): Promise<Company> {
+  return db.transaction(async (tx) => {
+    const [company] = await tx.insert(companiesTable).values(data).returning();
+    await tx
+      .insert(userMembershipsTable)
+      .values({ userId, companyId: company.id, role: "owner", isActive: true });
+    await tx.update(usersTable).set({ activeCompanyId: company.id }).where(eq(usersTable.id, userId));
+    return company;
+  });
+}
+
 export async function getPlanBySlug(slug: string): Promise<Plan | undefined> {
   const [plan] = await db.select().from(plansTable).where(eq(plansTable.slug, slug)).limit(1);
   return plan;

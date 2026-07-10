@@ -554,6 +554,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ChangeOrderRecord"
 
+  /change-orders/{id}/revert-to-draft:
+    post:
+      operationId: revertChangeOrderToDraft
+      tags: [financials]
+      summary: Revert an approved or rejected change order back to draft (pending)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Change order reverted to draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeOrderRecord"
+
   # ── Builder Estimates ────────────────────────────────────────────────────────
   /builder-estimates:
     get:
@@ -1620,12 +1639,12 @@ paths:
     get:
       operationId: getAccountingExportData
       tags: [companies]
-      summary: Download accountant export ZIP containing expense OCR CSV, approved timesheets CSV, and attachment copies
+      summary: Download accountant export ZIP with CSVs for uploaded/OCR receipts, the expense ledger, invoices, paid-invoice transaction journal, approved change orders, project costs, and approved timesheets, plus attachment copies
       parameters:
         - $ref: "#/components/parameters/companyId"
       responses:
         "200":
-          description: ZIP archive with two CSVs and an attachments folder
+          description: ZIP archive with bookkeeping CSVs (receipts/OCR, expense ledger, invoices, paid-invoice journal, approved change orders, project costs, approved timesheets) and an attachments folder
           content:
             application/zip:
               schema:
@@ -3003,7 +3022,7 @@ paths:
     post:
       operationId: unsubmitQuote
       tags: [quotes]
-      summary: Revert a submitted quote back to draft
+      summary: Revert a submitted, approved, or rejected quote back to draft
       parameters:
         - name: projectId
           in: path
@@ -3440,6 +3459,25 @@ paths:
       responses:
         "200":
           description: Invoice marked paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /invoices/{invoiceId}/revert-to-draft:
+    post:
+      operationId: revertInvoiceToDraft
+      tags: [invoices]
+      summary: Revert a sent or overdue invoice back to draft
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice reverted to draft
           content:
             application/json:
               schema:
