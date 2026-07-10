@@ -106,6 +106,14 @@ export async function claimCompany(opts: {
     return { ok: false, status: 409, error: "Company already claimed" };
   }
 
+  // A user may own at most one company (see uniq_owner_membership_per_user).
+  // Without this check, someone who already owns a company but still holds an
+  // unused claim link (e.g. a stray invite) could claim a second one.
+  const alreadyOwned = await findOwnedCompanyByUser(requestingUserId);
+  if (alreadyOwned) {
+    return { ok: false, status: 409, error: `You already own a company ("${alreadyOwned.name}"). Each account can own only one company.` };
+  }
+
   // Resolve plan outside the transaction (read-only; no risk of partial state)
   const matchedPlan = await getPlanBySlug(planTier);
   const fallbackPlan = matchedPlan ?? (await getPlanBySlug("starter"));
@@ -122,6 +130,12 @@ export async function claimCompany(opts: {
     });
     return { ok: true, company: updatedCompany, user: updatedUser };
   } catch (err) {
+    // Concurrent claim by the same user on two tabs races past the check
+    // above — the DB constraint is the final backstop, so surface it clearly
+    // instead of a generic 500.
+    if ((err as { code?: string })?.code === PG_UNIQUE_VIOLATION) {
+      return { ok: false, status: 409, error: "You already own a company. Each account can own only one company." };
+    }
     logger.error({ err, companyId }, "Failed to claim company");
     return { ok: false, status: 500, error: "Failed to claim company. Please try again." };
   }
