@@ -27,20 +27,25 @@ function pass(msg) {
 }
 
 // ── 1. Read migration files ───────────────────────────────────────────────
-const allFiles = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql"));
+// .sql.draft files (e.g. a migration explicitly gated behind manual sign-off,
+// named so no migration runner ever picks it up) reserve their sequence
+// number but are excluded from the DDL-content check below — they're not
+// live migrations yet.
+const allEntries = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql") || f.endsWith(".sql.draft"));
+const allFiles = allEntries.filter((f) => f.endsWith(".sql") && !f.endsWith(".sql.draft"));
 
-if (allFiles.length === 0) {
+if (allEntries.length === 0) {
   fail("No .sql files found in migrations directory");
   process.exit(1);
 }
 
-allFiles.sort();
-console.log(`\nChecking ${allFiles.length} migration file(s) in ${MIGRATIONS_DIR}\n`);
+allEntries.sort();
+console.log(`\nChecking ${allEntries.length} migration file(s) in ${MIGRATIONS_DIR}\n`);
 
 // ── 2. Sequential numbering ───────────────────────────────────────────────
 const seenNumbers = new Set();
 
-for (const file of allFiles) {
+for (const file of allEntries) {
   const match = file.match(/^(\d{4})_/);
   if (!match) {
     fail(`${file} — filename does not start with a 4-digit sequence number`);

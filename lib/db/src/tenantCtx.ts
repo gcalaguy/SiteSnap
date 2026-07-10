@@ -51,6 +51,16 @@ export async function withTenantCtx<T>(
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
   assertValidCompanyId(companyId);
+  // Reuse an already-active tenant transaction (e.g. requireTenantCtx already
+  // wraps the whole request) instead of opening a new one. A nested call to
+  // db.transaction() checks out a SEPARATE pooled connection, which can't see
+  // this transaction's not-yet-committed writes — callers that insert then
+  // immediately re-read (like the time-entries → timesheet resync) would
+  // silently miss their own uncommitted rows.
+  const existing = tenantLocal.getStore();
+  if (existing) {
+    return fn(existing);
+  }
   return drizzleDb.transaction(async (tx) => {
     await tx.execute(sql.raw(`SET LOCAL app.company_id = ${companyId}`));
     return tenantLocal.run(tx, () => fn(tx));

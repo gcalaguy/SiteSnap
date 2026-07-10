@@ -30,6 +30,8 @@ vi.mock("../src/lib/auth", () => ({
     next: NextFunction,
   ) => next(),
   requireOwner: (_req: Request, _res: Response, next: NextFunction) => next(),
+  requireTenantCtx: (_req: Request, _res: Response, next: NextFunction) =>
+    next(),
 }));
 
 vi.mock("../src/lib/permissionGate", () => ({
