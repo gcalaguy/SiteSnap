@@ -8005,6 +8005,9 @@ components:
         roomLocation:
           type: string
           nullable: true
+        uploadedByUserId:
+          type: integer
+          nullable: true
         createdAt:
           type: string
           format: date-time

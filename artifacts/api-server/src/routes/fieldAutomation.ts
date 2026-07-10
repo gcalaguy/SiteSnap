@@ -256,6 +256,7 @@ router.post(
         imageUrl,
         markupData: markupData ?? null,
         roomLocation: roomLocation ?? null,
+        uploadedByUserId: req.userId!,
       })
       .returning();
 
@@ -343,13 +344,13 @@ router.put(
   }),
 );
 
-// DELETE /api/field/photo-upload/:id (owner only)
+// DELETE /api/field/photo-upload/:id (owner, the uploader, or anyone on the
+// project when the photo predates uploader tracking and has no owner of record)
 router.delete(
   "/field/photo-upload/:id",
   requireAuth,
   requireCompany,
   requireTenantCtx,
-  requireOwner,
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
@@ -371,6 +372,17 @@ router.delete(
     const project = await verifyProjectAccess(existing.projectId, req.companyId!);
     if (!project) {
       res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const isUploader = existing.uploadedByUserId != null && existing.uploadedByUserId === req.userId;
+    const isUnattributed = existing.uploadedByUserId == null;
+    if (req.userRole !== "owner" && !isUploader && !isUnattributed) {
+      res.status(403).json({ error: "You can only delete photos you uploaded" });
+      return;
+    }
+    if (!(await canAccessProject(req.companyId!, req.userId!, req.userRole ?? "worker", existing.projectId))) {
+      res.status(403).json({ error: "You are not assigned to this project" });
       return;
     }
 

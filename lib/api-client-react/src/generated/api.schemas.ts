@@ -1992,6 +1992,7 @@ export interface SitePhotoRecord {
   imageUrl: string;
   markupData?: SitePhotoRecordMarkupData;
   roomLocation?: string | null;
+  uploadedByUserId?: number | null;
   createdAt: string;
 }
 

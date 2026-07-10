@@ -7209,7 +7209,7 @@ export const useUpdateCompanyInvoiceTemplate = <
 };
 
 /**
- * @summary Download accountant export ZIP containing expense OCR CSV, approved timesheets CSV, and attachment copies
+ * @summary Download accountant export ZIP with CSVs for uploaded/OCR receipts, the expense ledger, invoices, paid-invoice transaction journal, approved change orders, project costs, and approved timesheets, plus attachment copies
  */
 export const getGetAccountingExportDataUrl = (companyId: number) => {
   return `/api/companies/${companyId}/accounting/export-data`;
@@ -7271,7 +7271,7 @@ export type GetAccountingExportDataQueryResult = NonNullable<
 export type GetAccountingExportDataQueryError = ErrorType<void>;
 
 /**
- * @summary Download accountant export ZIP containing expense OCR CSV, approved timesheets CSV, and attachment copies
+ * @summary Download accountant export ZIP with CSVs for uploaded/OCR receipts, the expense ledger, invoices, paid-invoice transaction journal, approved change orders, project costs, and approved timesheets, plus attachment copies
  */
 
 export function useGetAccountingExportData<

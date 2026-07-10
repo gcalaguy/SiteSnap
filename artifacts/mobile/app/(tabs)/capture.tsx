@@ -92,6 +92,15 @@ export default function CaptureScreen() {
   ];
 
   const moreRows = [
+    perms.viewPhotos
+      ? {
+          key: "photo-history",
+          icon: "image" as const,
+          title: "Photo History",
+          subtitle: "View & manage uploaded site photos",
+          onPress: () => go("/(tabs)/(home)/photo-history", "capture:photo-history"),
+        }
+      : null,
     {
       key: "signoff",
       icon: "check-circle" as const,

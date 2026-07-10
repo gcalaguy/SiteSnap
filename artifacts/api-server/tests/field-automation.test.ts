@@ -44,6 +44,8 @@ let companyId: number;
 let userId: number;
 let projectId: number;
 let testApp: express.Express;
+let memberUserId: number;
+let memberApp: express.Express;
 
 /* ── Test harness ─────────────────────────────────────────────────────── */
 
@@ -113,6 +115,40 @@ beforeAll(async () => {
   });
 
   testApp.use("/api", fieldRouter);
+
+  // 6. Seed a second, non-owner user + a second app instance impersonating
+  // them, so uploader-scoped delete authorization can be exercised.
+  const [member] = await db
+    .insert(usersTable)
+    .values({
+      clerkUserId: `test_clerk_field_auto_member_${Date.now()}`,
+      email: `field-auto-test-member-${Date.now()}@example.com`,
+      firstName: "Field",
+      lastName: "Member",
+      activeCompanyId: companyId,
+    })
+    .returning();
+  memberUserId = member.id;
+
+  await db.insert(userMembershipsTable).values({
+    userId: memberUserId,
+    companyId,
+    role: "foreman",
+    isActive: true,
+  });
+
+  memberApp = express();
+  memberApp.use(express.json());
+  memberApp.use((req: Request, _res: Response, next: NextFunction) => {
+    (req as any).userId = memberUserId;
+    (req as any).companyId = companyId;
+    (req as any).userRole = "foreman";
+    (req as any).systemRole = null;
+    (req as any).userPermissions = null;
+    (req as any).memberships = [{ companyId, role: "foreman" }];
+    next();
+  });
+  memberApp.use("/api", fieldRouter);
 });
 
 afterAll(async () => {
@@ -127,6 +163,10 @@ afterAll(async () => {
     .delete(userMembershipsTable)
     .where(eq(userMembershipsTable.userId, userId));
   await db.delete(usersTable).where(eq(usersTable.id, userId));
+  await db
+    .delete(userMembershipsTable)
+    .where(eq(userMembershipsTable.userId, memberUserId));
+  await db.delete(usersTable).where(eq(usersTable.id, memberUserId));
   await db.delete(companiesTable).where(eq(companiesTable.id, companyId));
 });
 
@@ -308,14 +348,62 @@ describe("PUT /api/field/photo-upload/:id (owner only)", () => {
   });
 });
 
-describe("DELETE /api/field/photo-upload/:id (owner only)", () => {
-  it("deletes a site photo", async () => {
+describe("DELETE /api/field/photo-upload/:id (owner, or the uploader)", () => {
+  it("deletes a site photo as the owner", async () => {
     const create = await request(testApp)
       .post("/api/field/photo-upload")
       .send({ projectId, imageUrl: "https://example.com/delete.jpg" });
     const id = create.body.id;
 
     const del = await request(testApp).delete(`/api/field/photo-upload/${id}`);
+    expect(del.status).toBe(204);
+  });
+
+  it("lets a non-owner delete a photo they uploaded", async () => {
+    const create = await request(memberApp)
+      .post("/api/field/photo-upload")
+      .send({ projectId, imageUrl: "https://example.com/own-upload.jpg" });
+    expect(create.body.uploadedByUserId).toBe(memberUserId);
+    const id = create.body.id;
+
+    const del = await request(memberApp).delete(`/api/field/photo-upload/${id}`);
+    expect(del.status).toBe(204);
+  });
+
+  it("blocks a non-owner from deleting a photo someone else uploaded", async () => {
+    const create = await request(testApp)
+      .post("/api/field/photo-upload")
+      .send({ projectId, imageUrl: "https://example.com/owner-upload.jpg" });
+    const id = create.body.id;
+
+    const del = await request(memberApp).delete(`/api/field/photo-upload/${id}`);
+    expect(del.status).toBe(403);
+
+    // still there — the rejected delete must not have removed it
+    const list = await request(testApp)
+      .get("/api/field/photo-upload")
+      .query({ projectId: String(projectId) });
+    expect(list.body.some((p: any) => p.id === id)).toBe(true);
+  });
+
+  it("lets the owner delete a photo uploaded by someone else", async () => {
+    const create = await request(memberApp)
+      .post("/api/field/photo-upload")
+      .send({ projectId, imageUrl: "https://example.com/owner-override.jpg" });
+    const id = create.body.id;
+
+    const del = await request(testApp).delete(`/api/field/photo-upload/${id}`);
+    expect(del.status).toBe(204);
+  });
+
+  it("lets a non-owner delete a legacy photo with no recorded uploader", async () => {
+    const [legacy] = await db
+      .insert(sitePhotosTable)
+      .values({ projectId, imageUrl: "https://example.com/legacy.jpg" })
+      .returning();
+    expect(legacy.uploadedByUserId).toBeNull();
+
+    const del = await request(memberApp).delete(`/api/field/photo-upload/${legacy.id}`);
     expect(del.status).toBe(204);
   });
 });

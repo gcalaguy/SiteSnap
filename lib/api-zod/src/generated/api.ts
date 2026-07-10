@@ -2322,7 +2322,7 @@ export const UpdateCompanyInvoiceTemplateResponse = zod.object({
 });
 
 /**
- * @summary Download accountant export ZIP containing expense OCR CSV, approved timesheets CSV, and attachment copies
+ * @summary Download accountant export ZIP with CSVs for uploaded/OCR receipts, the expense ledger, invoices, paid-invoice transaction journal, approved change orders, project costs, and approved timesheets, plus attachment copies
  */
 export const GetAccountingExportDataParams = zod.object({
   companyId: zod.coerce.number(),
@@ -5779,6 +5779,7 @@ export const ListSitePhotosResponseItem = zod.object({
   imageUrl: zod.string(),
   markupData: zod.object({}).passthrough().nullish(),
   roomLocation: zod.string().nullish(),
+  uploadedByUserId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListSitePhotosResponse = zod.array(ListSitePhotosResponseItem);
@@ -5802,6 +5803,7 @@ export const UpdateSitePhotoResponse = zod.object({
   imageUrl: zod.string(),
   markupData: zod.object({}).passthrough().nullish(),
   roomLocation: zod.string().nullish(),
+  uploadedByUserId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
 });
 

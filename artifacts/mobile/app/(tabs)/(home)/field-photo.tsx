@@ -150,15 +150,31 @@ export default function FieldPhotoScreen() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
-        >
-          <Feather name="arrow-left" size={20} color={colors.foreground} />
-          <Text style={[styles.backText, { color: colors.foreground }]}>
-            Back
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.topRow}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+          >
+            <Feather name="arrow-left" size={20} color={colors.foreground} />
+            <Text style={[styles.backText, { color: colors.foreground }]}>
+              Back
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: "/(tabs)/(home)/photo-history",
+                params: projectId ? { projectId: String(projectId) } : undefined,
+              })
+            }
+            style={styles.historyBtn}
+          >
+            <Feather name="clock" size={16} color={colors.primary} />
+            <Text style={[styles.historyText, { color: colors.primary }]}>
+              History
+            </Text>
+          </TouchableOpacity>
+        </View>
         <Text style={[styles.title, { color: colors.foreground }]}>
           Site Photo
         </Text>
@@ -284,13 +300,26 @@ export default function FieldPhotoScreen() {
 }
 
 const styles = StyleSheet.create({
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
   backBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 8,
   },
   backText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  historyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  historyText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   title: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 4 },
   subtitle: {
     fontSize: 14,

@@ -1677,6 +1677,8 @@ export const sitePhotosTable = pgTable("site_photos", {
   imageUrl: text("image_url").notNull(),
   markupData: jsonb("markup_data"),
   roomLocation: text("room_location"),
+  uploadedByUserId: integer("uploaded_by_user_id")
+    .references(() => usersTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_site_photos_project_id").on(t.projectId),
