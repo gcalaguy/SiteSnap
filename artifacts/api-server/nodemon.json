@@ -1,0 +1,16 @@
+{
+  "watch": [
+    "src",
+    "../../lib/db/src",
+    "../../lib/api-zod/src"
+  ],
+  "ext": "ts,js,mjs,cjs,json",
+  "ignore": [
+    "dist/**",
+    "tests/**",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
+  "exec": "tsx src/index.ts",
+  "delay": "300"
+}

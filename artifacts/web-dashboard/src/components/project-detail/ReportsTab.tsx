@@ -53,9 +53,10 @@ export function ReportsTab({
 
   const selectedMember = selectedWorkerId ? members.find((m) => m.id === selectedWorkerId) : null;
 
-  const filteredReports = selectedWorkerId
+  const filteredReports = (selectedWorkerId
     ? (reports ?? []).filter((r) => r.submittedByUserId === selectedWorkerId)
-    : (reports ?? []);
+    : (reports ?? [])
+  ).slice().sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
 
   useEffect(() => {
     if (!editingReportId) return;

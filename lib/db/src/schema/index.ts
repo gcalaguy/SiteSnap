@@ -15,6 +15,7 @@ import {
   index,
   uniqueIndex,
   vector,
+  pgPolicy,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -420,7 +421,11 @@ export const contactsTable = pgTable("contacts", {
 }, (t) => [
   index("idx_contacts_company_id").on(t.companyId),
   index("idx_contacts_type").on(t.type),
-]);
+  pgPolicy("tenant_isolation", {
+    as: "permissive",
+    using: sql`current_tenant_id() IS NULL OR ${t.companyId} = current_tenant_id()`,
+  }),
+]).enableRLS();
 
 export const insertContactSchema = createInsertSchema(contactsTable).omit({
   id: true,
