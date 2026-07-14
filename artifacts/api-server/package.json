@@ -11,7 +11,9 @@
     "test": "vitest run tests/",
     "backfill-object-acls": "tsx src/scripts/backfillObjectAcls.ts",
     "backfill-receipt-expenses": "tsx src/scripts/backfillReceiptExpenses.ts",
-    "identify-duplicate-tenants": "tsx src/scripts/identifyDuplicateTenants.ts"
+    "identify-duplicate-tenants": "tsx src/scripts/identifyDuplicateTenants.ts",
+    "clear-missing-receipts": "tsx src/scripts/clearMissingReceipts.ts",
+    "delete-orphaned-receipt-expenses": "tsx src/scripts/deleteOrphanedReceiptExpenses.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.9",

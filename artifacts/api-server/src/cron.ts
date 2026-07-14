@@ -14,6 +14,7 @@ import {
   tradehubMediaTable,
   tradehubProfilesTable,
   fileAttachmentsTable,
+  expensesTable,
 } from "@workspace/db";
 import { buildDigest } from "./lib/digest.js";
 import { buildDigestHtml } from "./lib/digestTemplate.js";
@@ -214,22 +215,44 @@ async function sendIdleLeadNotifications(): Promise<{ notified: number; skipped:
 async function collectReferencedObjectPaths(): Promise<Set<string>> {
   const paths = new Set<string>();
 
-  const [photos, docs, portalUploads, subPhotos, scanRows, postMedia, profiles, attachments] =
-    await Promise.all([
-      db.select({ p: dailyReportPhotosTable.objectPath }).from(dailyReportPhotosTable),
-      db.select({ p: projectDocumentsTable.objectPath }).from(projectDocumentsTable),
-      db.select({ p: clientPortalUploadsTable.objectPath }).from(clientPortalUploadsTable),
-      db.select({ p: submissionPhotosTable.objectPath }).from(submissionPhotosTable),
-      db.select({ p: scansTable.objectPath }).from(scansTable),
-      // Covers both post and profile media — tradehub_media replaced the separate
-      // tradehub_post_media/tradehub_profile_media tables (the latter's objectPaths
-      // were previously not protected here at all).
-      db.select({ p: tradehubMediaTable.objectPath }).from(tradehubMediaTable),
-      db.select({ p: tradehubProfilesTable.voiceIntroObjectPath }).from(tradehubProfilesTable),
-      db.select({ p: fileAttachmentsTable.objectPath }).from(fileAttachmentsTable),
-    ]);
+  const [
+    photos,
+    docs,
+    portalUploads,
+    subPhotos,
+    scanRows,
+    postMedia,
+    profiles,
+    attachments,
+    receipts,
+    logos,
+  ] = await Promise.all([
+    db.select({ p: dailyReportPhotosTable.objectPath }).from(dailyReportPhotosTable),
+    db.select({ p: projectDocumentsTable.objectPath }).from(projectDocumentsTable),
+    db.select({ p: clientPortalUploadsTable.objectPath }).from(clientPortalUploadsTable),
+    db.select({ p: submissionPhotosTable.objectPath }).from(submissionPhotosTable),
+    db.select({ p: scansTable.objectPath }).from(scansTable),
+    // Covers both post and profile media — tradehub_media replaced the separate
+    // tradehub_post_media/tradehub_profile_media tables (the latter's objectPaths
+    // were previously not protected here at all).
+    db.select({ p: tradehubMediaTable.objectPath }).from(tradehubMediaTable),
+    db.select({ p: tradehubProfilesTable.voiceIntroObjectPath }).from(tradehubProfilesTable),
+    db.select({ p: fileAttachmentsTable.objectPath }).from(fileAttachmentsTable),
+    db.select({ p: expensesTable.receiptObjectPath }).from(expensesTable),
+    db.select({ p: companiesTable.logoPath }).from(companiesTable),
+  ]);
 
-  for (const rows of [photos, docs, portalUploads, subPhotos, scanRows, postMedia, attachments]) {
+  for (const rows of [
+    photos,
+    docs,
+    portalUploads,
+    subPhotos,
+    scanRows,
+    postMedia,
+    attachments,
+    receipts,
+    logos,
+  ]) {
     for (const row of rows) {
       if (row.p) paths.add(row.p);
     }
