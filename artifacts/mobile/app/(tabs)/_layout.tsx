@@ -35,18 +35,14 @@ function NativeTabLayout() {
           <Label>Profile</Label>
         </NativeTabs.Trigger>
 
-        {/* Hidden-from-bar routes below (risk/inspect/safety/tradehub/admin-hub)
-            must still be registered as Triggers — unlike the classic <Tabs>
-            navigator, NativeTabs only knows about routes explicitly declared
-            here. Without a Trigger (even a hidden one), router.push to these
-            screens silently drops the NAVIGATE action instead of throwing,
-            which is why "Risk"/"TradeHub" buttons appeared unresponsive on
-            Liquid-Glass devices while working fine under ClassicTabLayout. */}
-        <NativeTabs.Trigger name="risk" hidden />
-        <NativeTabs.Trigger name="inspect" hidden />
-        <NativeTabs.Trigger name="safety" hidden />
-        <NativeTabs.Trigger name="tradehub" hidden />
-        <NativeTabs.Trigger name="admin-hub" hidden />
+        {/* risk/inspect/safety/tradehub/admin-hub are NOT registered here.
+            NativeTabs excludes any Trigger marked `hidden` from its rendered
+            screen set entirely (see native-tabs/NativeBottomTabs/utils.js
+            shouldTabBeVisible), not just from the tab bar strip — so a
+            "hidden" Trigger can never be navigated to on Liquid-Glass
+            devices, it just silently no-ops. Those screens now live as
+            plain Stack.Screen routes at the app root (app/_layout.tsx)
+            instead, which has no such limitation. */}
       </NativeTabs>
     </View>
   );
@@ -68,11 +64,6 @@ function ClassicTabLayout() {
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
   const { pendingCount } = useOfflineQueue();
-  // Hidden-from-bar routes below (risk/inspect/safety/tradehub/admin-hub) stay
-  // registered so router.push still works from Profile's "More tools" menu
-  // and from GlobalVoiceCommandFAB's voice-nav pathMap — only their tab-bar
-  // button is removed by tabBarItemStyle, not the route itself.
-  const hiddenTab = { display: "none" as const };
 
   return (
     <View style={{ flex: 1 }}>
@@ -146,13 +137,6 @@ function ClassicTabLayout() {
             isIOS ? <SymbolView name="person" tintColor={color} size={24} /> : <Feather name="user" size={22} color={color} />,
         }}
       />
-
-      {/* No longer primary tabs — reachable via Profile's "More tools" menu */}
-      <Tabs.Screen name="risk" options={{ title: "Risk", tabBarItemStyle: hiddenTab }} />
-      <Tabs.Screen name="inspect" options={{ title: "Inspections", tabBarItemStyle: hiddenTab }} />
-      <Tabs.Screen name="safety" options={{ title: "Safety", tabBarItemStyle: hiddenTab }} />
-      <Tabs.Screen name="tradehub" options={{ title: "TradeHub", tabBarItemStyle: hiddenTab }} />
-      <Tabs.Screen name="admin-hub" options={{ title: "Admin Hub", tabBarItemStyle: hiddenTab }} />
     </Tabs>
     </View>
   );

@@ -61,10 +61,10 @@ type QuickAction = {
 
 const QUICK_ACTIONS: QuickAction[] = [
   { key: "projects", label: "Projects", icon: "folder", path: "/(tabs)/projects" },
-  { key: "safety", label: "Safety", icon: "shield", path: "/(tabs)/safety", perm: "viewSafetyTab" },
+  { key: "safety", label: "Safety", icon: "shield", path: "/safety", perm: "viewSafetyTab" },
   { key: "schedule", label: "Schedule", icon: "calendar", path: "/workforce?tab=schedule", perm: "viewSchedules" },
   { key: "reports", label: "Reports", icon: "file-text", path: "/(tabs)/(home)/reports", perm: "viewReports" },
-  { key: "inspections", label: "Inspections", icon: "clipboard", path: "/(tabs)/inspect", perm: "viewInspectTab" },
+  { key: "inspections", label: "Inspections", icon: "clipboard", path: "/inspect", perm: "viewInspectTab" },
   { key: "tasks", label: "Tasks", icon: "check-square", path: "/(tabs)/tasks" },
 ];
 

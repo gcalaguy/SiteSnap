@@ -12,7 +12,6 @@ import {
   View,
   Modal,
   Alert,
-  Image,
 } from "react-native";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,11 +19,37 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { customFetch, useGetMe, useListAllInvoices, useListAllQuotes, useListChangeOrders, useCreateChangeOrder, getListChangeOrdersQueryKey } from "@workspace/api-client-react";
+import {
+  customFetch,
+  useGetMe,
+  useListAllInvoices,
+  useListAllQuotes,
+  useListChangeOrders,
+  useCreateChangeOrder,
+  useApproveChangeOrder,
+  useRejectChangeOrder,
+  useListProjects,
+  getListChangeOrdersQueryKey,
+} from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 import EstimatorScreen from "@/app/estimator";
+import { SwipeableRow } from "@/components/ui";
+import { ChangeOrderCard } from "@/components/cards/ChangeOrderCard";
+import { ChangeOrderFormSheet, type ChangeOrderFormValues } from "@/components/sheets/ChangeOrderFormSheet";
+import type { StatusTone } from "@/components/ui/StatusPill";
+
+const CO_STATUS_TONE: Record<string, StatusTone> = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "void",
+};
+const CO_STATUS_LABEL: Record<string, string> = {
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+};
 
 // [Estimates] | [Quotes] | [Invoices] — the consolidated pre-construction & billing lifecycle hub.
 // Change Orders live as a dense secondary segment inside Invoices (progress billing/collections).
@@ -146,28 +171,51 @@ export default function FinanceScreen() {
 
   const [sigCOId, setSigCOId] = useState<number | null>(null);
 
-  // Create Change Order form state
-  const [showCOForm, setShowCOForm] = useState(false);
-  const [coProjectId, setCoProjectId] = useState("");
-  const [coTitle, setCoTitle] = useState("");
-  const [coDescription, setCoDescription] = useState("");
-  const [coAmount, setCoAmount] = useState("");
-  const [coNotes, setCoNotes] = useState("");
+  // Create Change Order bottom sheet
+  const [showCOSheet, setShowCOSheet] = useState(false);
   const [coSaving, setCoSaving] = useState(false);
+
+  const { data: allProjects = [] } = useListProjects();
+  const projectNameById = React.useMemo(
+    () => new Map(allProjects.map((p) => [p.id, p.name])),
+    [allProjects],
+  );
 
   const createChangeOrder = useCreateChangeOrder({
     mutation: {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getListChangeOrdersQueryKey() });
         refetchCO();
-        setShowCOForm(false);
-        setCoProjectId(""); setCoTitle(""); setCoDescription(""); setCoAmount(""); setCoNotes("");
-        Alert.alert("Created", "Change order created successfully.");
+        setShowCOSheet(false);
       },
       onError: () => Alert.alert("Failed to create change order"),
       onSettled: () => setCoSaving(false),
     },
   });
+
+  const approveChangeOrder = useApproveChangeOrder({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListChangeOrdersQueryKey() });
+        refetchCO();
+      },
+      onError: () => Alert.alert("Failed to approve change order"),
+    },
+  });
+  const rejectChangeOrder = useRejectChangeOrder({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListChangeOrdersQueryKey() });
+        refetchCO();
+      },
+      onError: () => Alert.alert("Failed to reject change order"),
+    },
+  });
+
+  function handleCreateChangeOrder(values: ChangeOrderFormValues) {
+    setCoSaving(true);
+    createChangeOrder.mutate({ data: values });
+  }
 
   const createInvoice = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
@@ -439,46 +487,45 @@ export default function FinanceScreen() {
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No change orders yet</Text>
             }
             refreshControl={<RefreshControl refreshing={coRefreshing} onRefresh={() => refetchCO()} tintColor={colors.primary} />}
-            renderItem={({ item }: { item: any }) => {
-              const statusColor = item.status === "approved" ? "#22C55E" : item.status === "rejected" ? "#EF4444" : "#F59E0B";
-              const statusLabel = item.status === "approved" ? "Approved" : item.status === "rejected" ? "Rejected" : "Pending";
-              return (
-                <Pressable
-                  style={({ pressed }) => [styles.coCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
-                  onPress={() => router.push(`/change-order/${item.id}`)}
+            renderItem={({ item }: { item: any }) => (
+              <View style={{ marginBottom: 10 }}>
+                <SwipeableRow
+                  disabled={!isOwnerOrForeman || item.status !== "pending"}
+                  rightAction={{
+                    icon: "check",
+                    label: "Approve",
+                    color: colors.success,
+                    onTrigger: () => approveChangeOrder.mutate({ id: item.id }),
+                  }}
+                  leftAction={{
+                    icon: "x",
+                    label: "Reject",
+                    color: colors.destructive,
+                    onTrigger: () => rejectChangeOrder.mutate({ id: item.id }),
+                  }}
                 >
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{item.title}</Text>
-                      <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>Project #{item.projectId}</Text>
-                      <View style={[styles.badge, { backgroundColor: `${statusColor}18` }]}>
-                        <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
-                      </View>
-                    </View>
-                    <View style={{ alignItems: "flex-end", gap: 4 }}>
-                      <Text style={[styles.rowAmount, { color: colors.primary }]}>{fmtCAD(item.amount)}</Text>
-                      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
-                    </View>
-                  </View>
-                  {item.clientSignatureData && (
-                    <View style={{ marginTop: 8 }}>
-                      <Text style={{ fontSize: 11, color: colors.mutedForeground, marginBottom: 4 }}>Client Signature</Text>
-                      <Image source={{ uri: item.clientSignatureData }} style={{ width: 160, height: 60, resizeMode: "contain", backgroundColor: "#fff", borderRadius: 6, borderWidth: 1, borderColor: colors.border }} />
-                      {item.signedAt && <Text style={{ fontSize: 10, color: colors.mutedForeground, marginTop: 2 }}>Signed {new Date(item.signedAt).toLocaleDateString("en-CA")}</Text>}
-                    </View>
-                  )}
-                  {item.status === "approved" && !item.clientSignatureData && (
-                    <Pressable
-                      onPress={(e) => { e.stopPropagation?.(); setSigCOId(item.id); }}
-                      style={[styles.signBtn, { borderColor: colors.primary }]}
-                    >
-                      <Feather name="edit-3" size={14} color={colors.primary} />
-                      <Text style={{ fontSize: 12, color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Collect Signature</Text>
-                    </Pressable>
-                  )}
-                </Pressable>
-              );
-            }}
+                  <ChangeOrderCard
+                    title={item.title}
+                    projectName={projectNameById.get(item.projectId) ?? `Project #${item.projectId}`}
+                    amount={Number(item.amount)}
+                    tone={CO_STATUS_TONE[item.status] ?? "draft"}
+                    statusLabel={CO_STATUS_LABEL[item.status] ?? item.status}
+                    date={item.createdAt ?? null}
+                    signed={!!item.clientSignatureData}
+                    onPress={() => router.push(`/change-order/${item.id}`)}
+                  />
+                </SwipeableRow>
+                {item.status === "approved" && !item.clientSignatureData && (
+                  <Pressable
+                    onPress={() => setSigCOId(item.id)}
+                    style={[styles.signBtn, { borderColor: colors.primary, marginTop: 8 }]}
+                  >
+                    <Feather name="edit-3" size={14} color={colors.primary} />
+                    <Text style={{ fontSize: 12, color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Collect Signature</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
           />
         )
       )}
@@ -498,7 +545,7 @@ export default function FinanceScreen() {
           {tab === "invoices" && invoicesView === "change-orders" ? (
             <Pressable
               style={[styles.fabSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => setShowCOForm(true)}
+              onPress={() => setShowCOSheet(true)}
             >
               <Feather name="plus" size={18} color={colors.primary} />
               <Text style={[styles.fabSecondaryText, { color: colors.primary }]}>Change Order</Text>
@@ -636,81 +683,13 @@ export default function FinanceScreen() {
         </View>
       </Modal>
 
-      {/* Create Change Order Modal */}
-      <Modal visible={showCOForm} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCOForm(false)}>
-        <View style={[styles.modal, { backgroundColor: colors.background }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.foreground }]}>New Change Order</Text>
-            <Pressable onPress={() => setShowCOForm(false)} hitSlop={10}>
-              <Feather name="x" size={22} color={colors.mutedForeground} />
-            </Pressable>
-          </View>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>Project ID</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="e.g. 1"
-              placeholderTextColor={colors.mutedForeground}
-              value={coProjectId}
-              onChangeText={setCoProjectId}
-              keyboardType="number-pad"
-            />
-            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Title</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="e.g. Additional drywall scope"
-              placeholderTextColor={colors.mutedForeground}
-              value={coTitle}
-              onChangeText={setCoTitle}
-            />
-            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Description</Text>
-            <TextInput
-              style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="Describe the scope change..."
-              placeholderTextColor={colors.mutedForeground}
-              value={coDescription}
-              onChangeText={setCoDescription}
-              multiline
-              numberOfLines={3}
-            />
-            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Amount (CAD)</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="e.g. 2500.00"
-              placeholderTextColor={colors.mutedForeground}
-              value={coAmount}
-              onChangeText={setCoAmount}
-              keyboardType="decimal-pad"
-            />
-            <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Notes</Text>
-            <TextInput
-              style={[styles.transcriptBox, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="Internal notes (optional)..."
-              placeholderTextColor={colors.mutedForeground}
-              value={coNotes}
-              onChangeText={setCoNotes}
-              multiline
-              numberOfLines={2}
-            />
-            <Pressable
-              style={[styles.createBtn, { backgroundColor: colors.primary, opacity: coSaving ? 0.7 : 1 }]}
-              onPress={() => {
-                const pid = parseInt(coProjectId);
-                const amt = parseFloat(coAmount);
-                if (!pid || isNaN(pid)) { Alert.alert("Enter a valid Project ID"); return; }
-                if (!coTitle.trim()) { Alert.alert("Enter a title"); return; }
-                if (!coAmount || isNaN(amt) || amt <= 0) { Alert.alert("Enter a valid amount"); return; }
-                setCoSaving(true);
-                createChangeOrder.mutate({ data: { projectId: pid, title: coTitle.trim(), description: coDescription.trim() || null, amount: amt, notes: coNotes.trim() || null } });
-              }}
-              disabled={coSaving}
-            >
-              {coSaving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Feather name="plus" size={18} color="#FFFFFF" />}
-              <Text style={styles.createBtnText}>{coSaving ? "Creating…" : "Create Change Order"}</Text>
-            </Pressable>
-          </ScrollView>
-        </View>
-      </Modal>
+      {/* New Change Order — bottom sheet, replacing the old full-page Modal */}
+      <ChangeOrderFormSheet
+        visible={showCOSheet}
+        onClose={() => setShowCOSheet(false)}
+        onSubmit={handleCreateChangeOrder}
+        submitting={coSaving}
+      />
     </View>
   );
 }
@@ -765,7 +744,6 @@ const styles = StyleSheet.create({
   notes: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 8, lineHeight: 18 },
   createBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, marginTop: 14 },
   createBtnText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  coCard: { borderRadius: 10, padding: 14, borderWidth: 1, gap: 8 },
   signBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, alignSelf: "flex-start", marginTop: 8 },
   updatedRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 16, paddingVertical: 6 },
   updatedText: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#9CA3AF" },

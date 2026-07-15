@@ -671,7 +671,7 @@ export function GlobalVoiceCommandFAB() {
     onNavigate: (target) => {
       const pathMap: Record<string, string> = {
         Dashboard: "/(tabs)/(home)",
-        Risk: "/(tabs)/risk",
+        Risk: "/risk",
         Calculator: "/calculators",
         Calculators: "/calculators",
         Schedule: "/workforce?tab=schedule",
@@ -689,9 +689,9 @@ export function GlobalVoiceCommandFAB() {
         Hours: "/workforce?tab=hours",
         // log.tsx and reports.tsx are nested inside the (home) tab group
         FieldLogs: "/(tabs)/(home)/log",
-        Safety: "/(tabs)/safety",
-        "Safety & Compliance": "/(tabs)/safety",
-        TradeHub: "/(tabs)/tradehub",
+        Safety: "/safety",
+        "Safety & Compliance": "/safety",
+        TradeHub: "/tradehub",
         Vault: "/vault",
         "Audit Vault": "/vault",
         Gatekeeper: "/(tabs)/(home)/field-safety",
@@ -704,8 +704,8 @@ export function GlobalVoiceCommandFAB() {
         Contacts: "/contacts",
         Notifications: "/notifications",
         Timesheets: "/workforce?tab=hours",
-        Inspect: "/(tabs)/inspect",
-        Admin: "/(tabs)/admin-hub",
+        Inspect: "/inspect",
+        Admin: "/admin-hub",
       };
 
       if (target === "Logout") {

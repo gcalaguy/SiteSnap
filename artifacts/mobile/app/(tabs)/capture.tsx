@@ -71,7 +71,7 @@ export default function CaptureScreen() {
       sublabel: "Start a new checklist",
       icon: "check-square",
       color: colors.success,
-      onPress: () => go("/(tabs)/inspect?action=new", "capture:inspection"),
+      onPress: () => go("/inspect?action=new", "capture:inspection"),
     },
     {
       key: "safety",
@@ -79,7 +79,7 @@ export default function CaptureScreen() {
       sublabel: "Hazard or incident report",
       icon: "shield",
       color: colors.warning,
-      onPress: () => go("/(tabs)/safety?initTab=new", "capture:safety"),
+      onPress: () => go("/safety?initTab=new", "capture:safety"),
     },
     {
       key: "log",

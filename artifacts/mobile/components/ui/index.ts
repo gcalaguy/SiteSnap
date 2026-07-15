@@ -7,3 +7,8 @@ export { ListRow } from "./ListRow";
 export { SectionHeader } from "./SectionHeader";
 export { EmptyState } from "./EmptyState";
 export { StatTile } from "./StatTile";
+export { StatusPill, statusTone } from "./StatusPill";
+export type { StatusTone } from "./StatusPill";
+export { BottomSheet } from "./BottomSheet";
+export { SwipeableRow } from "./SwipeableRow";
+export type { SwipeAction } from "./SwipeableRow";

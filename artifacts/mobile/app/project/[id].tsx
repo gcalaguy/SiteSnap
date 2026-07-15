@@ -262,6 +262,57 @@ function ReportRow({ report }: { report: any }) {
   );
 }
 
+function SafetySubmissionRow({ submission, isOwnerOrForeman, colors }: { submission: any; isOwnerOrForeman: boolean; colors: any }) {
+  const [expanded, setExpanded] = useState(false);
+  const statusColor = submission.status === "approved" ? "#22C55E" : submission.status === "reviewed" ? "#F59E0B" : submission.status === "submitted" ? "#3B82F6" : "#6B7280";
+  const statusLabel = submission.status === "approved" ? "Approved" : submission.status === "reviewed" ? "Reviewed" : submission.status === "submitted" ? "Submitted" : "Draft";
+  const canExpand = isOwnerOrForeman && !!submission.aiSummary;
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.reportRow,
+        { backgroundColor: colors.card, borderColor: expanded ? colors.primary : colors.border, opacity: pressed ? 0.92 : 1 },
+      ]}
+      onPress={() => canExpand && setExpanded((v) => !v)}
+    >
+      <View style={[styles.reportDateBadge, { backgroundColor: `${statusColor}15` }]}>
+        <Feather name="shield" size={16} color={statusColor} />
+        <Text style={[styles.reportDateText, { color: statusColor, fontSize: 10 }]}>
+          {statusLabel.toUpperCase().slice(0, 3)}
+        </Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.reportMeta, { color: colors.foreground }]} numberOfLines={1}>
+          {submission.templateName ?? "Untitled Form"}
+        </Text>
+        <Text style={[styles.reportSub, { color: colors.mutedForeground }]}>
+          {submission.workerName ?? "Unknown"}
+        </Text>
+        {!!submission.createdAt && (
+          <Text style={[styles.reportSub, { color: colors.mutedForeground }]}>
+            {new Date(submission.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
+          </Text>
+        )}
+        {expanded && !!submission.aiSummary && (
+          <View style={[styles.reportAiBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}30`, marginTop: 8 }]}>
+            <View style={styles.reportDetailRow}>
+              <Feather name="zap" size={13} color={colors.primary} />
+              <Text style={[styles.reportDetailLabel, { color: colors.primary }]}>AI Summary</Text>
+            </View>
+            <Text style={[styles.reportDetailText, { color: colors.foreground, marginTop: 4 }]}>{submission.aiSummary}</Text>
+          </View>
+        )}
+      </View>
+      {canExpand ? (
+        <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={expanded ? colors.primary : colors.border} />
+      ) : (
+        <Feather name="chevron-right" size={16} color={colors.border} />
+      )}
+    </Pressable>
+  );
+}
+
 function TaskItem({ task, projectId, onUpdate }: { task: any; projectId: number; onUpdate: () => void }) {
   const colors = useColors();
   const updateTask = useUpdateTask();
@@ -1061,7 +1112,7 @@ export default function ProjectDetailScreen() {
                   title="Inspections"
                   subtitle="View or start an inspection for this project"
                   showChevron
-                  onPress={() => safeNavigate(router, `/(tabs)/inspect?projectId=${project?.id}`, "project-detail:inspections")}
+                  onPress={() => safeNavigate(router, `/inspect?projectId=${project?.id}`, "project-detail:inspections")}
                 />
               </View>
               <View style={{ height: 20 }} />
@@ -1441,41 +1492,9 @@ export default function ProjectDetailScreen() {
               </Text>
             </View>
           ) : (
-            (safetySubmissions ?? []).map((s: any) => {
-              const statusColor = s.status === "approved" ? "#22C55E" : s.status === "reviewed" ? "#F59E0B" : s.status === "submitted" ? "#3B82F6" : "#6B7280";
-              const statusLabel = s.status === "approved" ? "Approved" : s.status === "reviewed" ? "Reviewed" : s.status === "submitted" ? "Submitted" : "Draft";
-              return (
-                <Pressable
-                  key={s.id}
-                  style={({ pressed }) => [
-                    styles.reportRow,
-                    { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-                  ]}
-                  onPress={() => {}}
-                >
-                  <View style={[styles.reportDateBadge, { backgroundColor: `${statusColor}15` }]}>
-                    <Feather name="shield" size={16} color={statusColor} />
-                    <Text style={[styles.reportDateText, { color: statusColor, fontSize: 10 }]}>
-                      {statusLabel.toUpperCase().slice(0, 3)}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.reportMeta, { color: colors.foreground }]} numberOfLines={1}>
-                      {s.templateName ?? "Untitled Form"}
-                    </Text>
-                    <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 2 }]}>
-                      {s.workerName ?? "Unknown"}
-                    </Text>
-                    {s.createdAt && (
-                      <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 2 }]}>
-                        {new Date(s.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
-                      </Text>
-                    )}
-                  </View>
-                  <Feather name="chevron-right" size={16} color={colors.border} />
-                </Pressable>
-              );
-            })
+            (safetySubmissions ?? []).map((s: any) => (
+              <SafetySubmissionRow key={s.id} submission={s} isOwnerOrForeman={isOwnerOrForeman} colors={colors} />
+            ))
           )}
         </View>
       )}

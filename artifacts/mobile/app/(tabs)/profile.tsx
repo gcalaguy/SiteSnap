@@ -259,8 +259,8 @@ export default function ProfileScreen() {
     perms.viewReports && { key: "reports", icon: "file-text", label: "Daily Reports", subtitle: "Browse past submissions", onPress: () => safeNavigate(router, "/(tabs)/(home)/reports", "profile:reports") },
     perms.submitExpenses && { key: "expenses", icon: "credit-card", label: "Expenses", subtitle: "Submit & track job costs", onPress: () => safeNavigate(router, "/expenses", "profile:expenses") },
     perms.viewAskAI && { key: "ask-ai", icon: "message-circle", label: "Ask AI", subtitle: "Chat with your project assistant", onPress: () => safeNavigate(router, "/(tabs)/(home)/ask", "profile:ask-ai") },
-    perms.viewRiskTab && { key: "risk", icon: "alert-triangle", label: "Risk", subtitle: "Top risks & open alerts", onPress: () => safeNavigate(router, "/(tabs)/risk", "profile:risk") },
-    perms.viewTradeHub && { key: "tradehub", icon: "globe", label: "TradeHub", subtitle: "Community jobs & discussion", onPress: () => safeNavigate(router, "/(tabs)/tradehub", "profile:tradehub") },
+    perms.viewRiskTab && { key: "risk", icon: "alert-triangle", label: "Risk", subtitle: "Top risks & open alerts", onPress: () => safeNavigate(router, "/risk", "profile:risk") },
+    perms.viewTradeHub && { key: "tradehub", icon: "globe", label: "TradeHub", subtitle: "Community jobs & discussion", onPress: () => safeNavigate(router, "/tradehub", "profile:tradehub") },
   ].filter((i): i is ToolItem => !!i);
 
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
@@ -375,7 +375,7 @@ export default function ProfileScreen() {
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Administration</Text>
             <Card padding="none">
               <View style={{ paddingHorizontal: 14 }}>
-                <ListRow icon="grid" title="Admin Hub" subtitle="Financials, operations & team tools" onPress={() => safeNavigate(router, "/(tabs)/admin-hub", "profile:admin-hub")} showChevron />
+                <ListRow icon="grid" title="Admin Hub" subtitle="Financials, operations & team tools" onPress={() => safeNavigate(router, "/admin-hub", "profile:admin-hub")} showChevron />
                 <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
                   <ListRow icon="settings" title="Company Settings" subtitle="Billing seats · Email · QuickBooks" onPress={() => safeNavigate(router, "/settings", "profile:company-settings")} showChevron />
                 </View>

@@ -23,6 +23,18 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import { useColors } from "@/hooks/useColors";
 import { customFetch, useListProjects } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { SwipeableRow } from "@/components/ui";
+import { CostRecordCard } from "@/components/cards/CostRecordCard";
+import type { StatusTone } from "@/components/ui/StatusPill";
+
+const EXPENSE_STATUS_TONE: Record<string, StatusTone> = {
+  processed: "approved",
+  pending: "pending",
+};
+const EXPENSE_STATUS_LABEL: Record<string, string> = {
+  processed: "Processed",
+  pending: "Pending Review",
+};
 
 interface Expense {
   id: number;
@@ -300,41 +312,37 @@ export default function ExpensesScreen() {
     }
   }, [reviewProjectId, reviewAmount, reviewTax, reviewVendor, reviewObjectPath, reviewDate, qc]);
 
+  const activeProjectName = projects.find((p) => p.id === activeProjectId)?.name ?? "Project";
+
+  function confirmDeleteExpense(id: number) {
+    Alert.alert("Delete Expense", "Remove this expense?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => deleteExpense.mutate(id) },
+    ]);
+  }
+
   const renderExpense = useCallback(({ item }: { item: Expense }) => (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.cardRow}>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <Text style={[styles.amount, { color: colors.foreground }]}>{formatCurrency(parseFloat(item.amount))}</Text>
-            <View style={[styles.statusPill, { backgroundColor: item.status === "processed" ? "#10b98122" : "#f59e0b22" }]}>
-              <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: item.status === "processed" ? "#10b981" : "#f59e0b" }}>
-                {item.status === "processed" ? "Processed" : "Pending Review"}
-              </Text>
-            </View>
-          </View>
-          {item.vendorName ? (
-            <Text style={[styles.desc, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>{item.vendorName}</Text>
-          ) : null}
-          <Text style={[styles.desc, { color: colors.mutedForeground }]}>{item.description}</Text>
-          <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-            {item.submittedByName} · {new Date(item.expenseDate ?? item.createdAt).toLocaleDateString("en-CA")}
-            {item.receiptObjectPath ? " · Receipt attached" : ""}
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={() =>
-            Alert.alert("Delete Expense", "Remove this expense?", [
-              { text: "Cancel", style: "cancel" },
-              { text: "Delete", style: "destructive", onPress: () => deleteExpense.mutate(item.id) },
-            ])
-          }
-          hitSlop={10}
-        >
-          <Feather name="trash-2" size={16} color={colors.mutedForeground} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  ), [colors, deleteExpense]);
+    <SwipeableRow
+      leftAction={{
+        icon: "trash-2",
+        label: "Delete",
+        color: colors.destructive,
+        onTrigger: () => confirmDeleteExpense(item.id),
+      }}
+    >
+      <CostRecordCard
+        vendorName={item.vendorName}
+        description={item.description}
+        amount={parseFloat(item.amount)}
+        tone={EXPENSE_STATUS_TONE[item.status] ?? "draft"}
+        statusLabel={EXPENSE_STATUS_LABEL[item.status] ?? item.status}
+        projectName={activeProjectName}
+        date={item.expenseDate ?? item.createdAt}
+        hasReceipt={!!item.receiptObjectPath}
+      />
+    </SwipeableRow>
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [colors, deleteExpense, activeProjectName]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -591,11 +599,6 @@ const styles = StyleSheet.create({
   typePill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { padding: 12, gap: 10 },
-  card: { borderRadius: 14, borderWidth: 1, padding: 14 },
-  cardRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  amount: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  desc: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
-  meta: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 4 },
   empty: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
   emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   fab: {
@@ -609,7 +612,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 12, marginTop: 12, marginBottom: 4, paddingVertical: 13, borderRadius: 14,
   },
   scanBtnText: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 14.5 },
-  statusPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   dateField: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11 },
   sheetOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 40 },

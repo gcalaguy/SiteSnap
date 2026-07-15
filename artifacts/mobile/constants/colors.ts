@@ -2,7 +2,12 @@
 // web dashboard's dark theme — see hooks/useColors.ts for why this app does
 // not switch to a white background on light-mode devices. `success`/`warning`
 // were added for the mobile redesign's status system (construction-yellow
-// primary accent stays reserved for brand/CTA use, not status).
+// primary accent stays reserved for brand/CTA use, not status). `draft` rounds
+// that out into the 4-state Approved/Pending/Draft/Void system used by
+// StatusPill — a slate tone so an un-submitted record doesn't read as
+// "trouble" the way amber/red would. `overlay`/`sheetHandle` back the
+// BottomSheet primitive: `overlay` is the backdrop scrim, `sheetHandle` the
+// drag-grip color (needs contrast against `card`, not `background`).
 const colors = {
   light: {
     text: "#FAFAFA",
@@ -25,10 +30,14 @@ const colors = {
     successForeground: "#0B1F12",
     warning: "#F59E0B",
     warningForeground: "#1F1400",
+    draft: "#64748B",
+    draftForeground: "#F1F5F9",
     border: "#2A2A2A",
     input: "#2A2A2A",
     sidebar: "#0A0A0A",
     sidebarForeground: "#FAFAFA",
+    overlay: "rgba(0,0,0,0.6)",
+    sheetHandle: "#3A3A3A",
   },
   dark: {
     text: "#FAFAFA",
@@ -51,10 +60,14 @@ const colors = {
     successForeground: "#0B1F12",
     warning: "#F59E0B",
     warningForeground: "#1F1400",
+    draft: "#64748B",
+    draftForeground: "#F1F5F9",
     border: "#2A2A2A",
     input: "#2A2A2A",
     sidebar: "#0A0A0A",
     sidebarForeground: "#FAFAFA",
+    overlay: "rgba(0,0,0,0.6)",
+    sheetHandle: "#3A3A3A",
   },
   radius: 6,
 };

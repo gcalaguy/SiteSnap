@@ -110,7 +110,7 @@ export function ComplianceAlertBanner({ projectId, compact = false }: Props) {
     }
     const category = FORM_CATEGORY_MAP[directive.targetFormId] ?? "safety";
     router.push({
-      pathname: "/(tabs)/safety",
+      pathname: "/safety",
       params: { initCategory: category, initTab: "new" },
     } as any);
   }
@@ -204,7 +204,7 @@ export function ComplianceAlertBanner({ projectId, compact = false }: Props) {
       {compact && directives.length > 1 && (
         <TouchableOpacity
           style={styles.viewAllBtn}
-          onPress={() => router.push("/(tabs)/safety" as any)}
+          onPress={() => router.push("/safety" as any)}
         >
           <Text style={styles.viewAllText}>
             +{directives.length - 1} more alert

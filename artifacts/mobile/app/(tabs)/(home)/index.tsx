@@ -418,14 +418,14 @@ export default function DashboardScreen() {
             label="Inspections Due"
             value={inspectionsDueCount}
             status={inspectionsDueCount > 0 ? "warning" : "success"}
-            onPress={() => go("/(tabs)/inspect")}
+            onPress={() => go("/inspect")}
           />
         )}
         <StatTile
           label="Safety Alerts"
           value={directives.length}
           status={directives.length > 0 ? "warning" : "success"}
-          onPress={() => go("/(tabs)/safety")}
+          onPress={() => go("/safety")}
         />
       </View>
 

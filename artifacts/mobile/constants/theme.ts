@@ -46,3 +46,26 @@ export const typography = {
   captionMedium: type(13, 18, "medium"),
   label: type(12, 16, "semibold"),
 };
+
+// Micro-interaction timing — shared so every swipe reveal / sheet transition
+// in the app decelerates the same way instead of each screen picking its own
+// number. `snappy` is for anything the user's finger is actively driving
+// (swipe actions, sheet drag-release); `standard` is for anything
+// programmatic (sheet open/close, filter chip toggles).
+export const motion = {
+  duration: { snappy: 180, standard: 240 },
+} as const;
+
+// Cards stay flat everywhere per Card's "no shadows" rule — elevation is
+// reserved for surfaces that visually leave the page flow: bottom sheets and
+// their scrim. Kept here rather than inline so the one legitimate shadow in
+// the app has a single definition.
+export const elevation = {
+  sheet: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+} as const;

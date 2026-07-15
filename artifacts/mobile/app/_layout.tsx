@@ -2,6 +2,7 @@ import "@/src/i18n";
 import React, { useEffect, useRef, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth, useUser } from "@clerk/clerk-expo";
 import { useGetMe, useSyncUser, getGetMeQueryKey, setAuthTokenGetter, setBaseUrl, setTenantIdGetter } from "@workspace/api-client-react";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
@@ -225,6 +226,16 @@ function RootLayoutNav() {
         <Stack.Screen name="hours" options={{ headerShown: false }} />
         <Stack.Screen name="contacts" options={{ headerShown: false }} />
         <Stack.Screen name="tradehub-post/[id]" options={{ headerShown: false }} />
+        {/* Reachable from tiles/menus but not persistent bottom-tab items — must live
+            here, not inside (tabs), because NativeTabs (Liquid Glass devices) excludes
+            any Trigger marked `hidden` from its rendered screen set entirely, not just
+            from the tab bar strip, so router.push to a hidden NativeTabs child silently
+            no-ops. A plain Stack screen has no such limitation. */}
+        <Stack.Screen name="risk" options={{ headerShown: false }} />
+        <Stack.Screen name="inspect" options={{ headerShown: false }} />
+        <Stack.Screen name="safety" options={{ headerShown: false }} />
+        <Stack.Screen name="tradehub" options={{ headerShown: false }} />
+        <Stack.Screen name="admin-hub" options={{ headerShown: false }} />
         <Stack.Screen name="estimator" options={{ headerShown: true, title: "Estimator", headerStyle: { backgroundColor: "#0A0A0A" }, headerTintColor: "#FFFFFF" }} />
         <Stack.Screen name="finance" options={{ headerShown: false }} />
         <Stack.Screen name="invoice/[id]" options={{ headerShown: false }} />
@@ -234,7 +245,6 @@ function RootLayoutNav() {
         <Stack.Screen name="voice-estimate" options={{ headerShown: false }} />
         <Stack.Screen name="calculators" options={{ headerShown: false }} />
         <Stack.Screen name="site-vision" options={{ headerShown: false }} />
-        <Stack.Screen name="safety" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="permits" options={{ headerShown: false }} />
         <Stack.Screen name="expenses" options={{ headerShown: false }} />
@@ -286,15 +296,17 @@ export default function RootLayout() {
   }, [queryClient]);
 
   return (
-    <ClerkProvider
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
-      tokenCache={tokenCache as any}
-    >
-      <QueryClientProvider client={queryClient}>
-        <I18nextProvider i18n={i18n}>
-          <RootLayoutNav />
-        </I18nextProvider>
-      </QueryClientProvider>
-    </ClerkProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ClerkProvider
+        publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+        tokenCache={tokenCache as any}
+      >
+        <QueryClientProvider client={queryClient}>
+          <I18nextProvider i18n={i18n}>
+            <RootLayoutNav />
+          </I18nextProvider>
+        </QueryClientProvider>
+      </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }
