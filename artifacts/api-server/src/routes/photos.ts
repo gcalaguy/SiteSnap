@@ -24,6 +24,7 @@ async function verifyReportAccess(reportId: number, projectId: number, companyId
 const AddPhotoBody = z.object({
   objectPath: z.string().min(1),
   caption: z.string().optional(),
+  category: z.enum(["progress", "issue", "site_condition"]).optional(),
 });
 
 // GET /projects/:projectId/daily-reports/:reportId/photos
@@ -83,6 +84,7 @@ router.post("/", requireAuth, requireCompany, requireTenantCtx, requirePermissio
       reportId,
       objectPath: parsed.data.objectPath,
       caption: parsed.data.caption ?? null,
+      category: parsed.data.category ?? "progress",
     })
     .returning();
 

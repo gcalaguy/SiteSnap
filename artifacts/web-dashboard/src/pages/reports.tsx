@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { FileText, Search, ExternalLink, User, Cloud, X, Pencil } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Search, ExternalLink, User, Cloud, X, Pencil, TriangleAlert, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -206,6 +207,15 @@ export default function ReportsPage() {
                         <User className="h-3.5 w-3.5" style={{ color: "#D4AF37" }} />
                         {report.submittedByName}
                       </span>
+                      {report.issues ? (
+                        <Badge variant="outline" className="gap-1 text-amber-700 border-amber-600/30 bg-amber-600/10 h-5">
+                          <TriangleAlert className="h-3 w-3" /> Issues
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="gap-1 text-emerald-700 border-emerald-600/30 bg-emerald-600/10 h-5">
+                          <CheckCircle2 className="h-3 w-3" /> On Track
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-[#121212]/80 line-clamp-2">{report.workPerformed}</p>
                     {report.notes && (

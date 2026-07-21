@@ -30,11 +30,14 @@ const LOCAL_DIR = `${FileSystem.documentDirectory}offline_photos/`;
 
 // ── Photo attachment (only used by daily-report operations) ──────────────────
 
+export type PhotoCategory = "progress" | "issue" | "site_condition";
+
 export interface QueuePhoto {
   uri: string;
   mimeType: string;
   fileName: string;
   fileSize: number;
+  category?: PhotoCategory;
 }
 
 // ── Discriminated union of offline-able operations ───────────────────────────
@@ -196,7 +199,7 @@ async function executeOp(item: QueuedItem): Promise<void> {
     );
     for (const photo of op.photos) {
       const objectPath = await uploadPhoto(photo); // throws → sync loop retries this item
-      await addReportPhoto(op.projectId, report.id, { objectPath }).catch(() => {});
+      await addReportPhoto(op.projectId, report.id, { objectPath, category: photo.category }).catch(() => {});
     }
     return;
   }

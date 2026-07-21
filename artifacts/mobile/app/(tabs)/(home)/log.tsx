@@ -41,6 +41,12 @@ interface PhotoItem extends QueuePhoto {
   uploading?: boolean;
 }
 
+const PHOTO_CATEGORIES: { value: NonNullable<QueuePhoto["category"]>; label: string }[] = [
+  { value: "progress", label: "Progress" },
+  { value: "issue", label: "Issue" },
+  { value: "site_condition", label: "Site" },
+];
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 20 },
@@ -330,6 +336,7 @@ export default function LogScreen() {
             mimeType: "image/jpeg",
             fileName: a.fileName ?? `photo_${Date.now()}.jpg`,
             fileSize: info.exists && "size" in info ? (info.size ?? 0) : 0,
+            category: "progress" as const,
           };
         } catch {
           // Fallback to original if manipulation fails
@@ -338,6 +345,7 @@ export default function LogScreen() {
             mimeType: a.mimeType ?? "image/jpeg",
             fileName: a.fileName ?? `photo_${Date.now()}.jpg`,
             fileSize: a.fileSize ?? 0,
+            category: "progress" as const,
           };
         }
       }),
@@ -349,6 +357,10 @@ export default function LogScreen() {
   function removePhoto(index: number) {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+
+  function setPhotoCategory(index: number, category: NonNullable<QueuePhoto["category"]>) {
+    setPhotos((prev) => prev.map((p, i) => (i === index ? { ...p, category } : p)));
   }
 
   async function uploadSinglePhoto(photo: PhotoItem): Promise<string | null> {
@@ -464,7 +476,7 @@ export default function LogScreen() {
                       .mutateAsync({
                         projectId: selectedProjectId!,
                         reportId: report.id,
-                        data: { objectPath },
+                        data: { objectPath, category: photo.category },
                       })
                       .catch(() => {});
                   }
@@ -761,16 +773,39 @@ export default function LogScreen() {
             contentContainerStyle={{ gap: 8 }}
           >
             {photos.map((photo, i) => (
-              <View key={i} style={styles.photoThumb}>
-                <Image source={{ uri: photo.uri }} style={styles.photoThumbImg} resizeMode="cover" />
-                {photo.uploading && (
-                  <View style={styles.photoOverlay}>
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  </View>
-                )}
-                <TouchableOpacity style={styles.photoRemoveBtn} onPress={() => removePhoto(i)}>
-                  <Feather name="x" size={12} color="#FFFFFF" />
-                </TouchableOpacity>
+              <View key={i} style={{ gap: 4 }}>
+                <View style={styles.photoThumb}>
+                  <Image source={{ uri: photo.uri }} style={styles.photoThumbImg} resizeMode="cover" />
+                  {photo.uploading && (
+                    <View style={styles.photoOverlay}>
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    </View>
+                  )}
+                  <TouchableOpacity style={styles.photoRemoveBtn} onPress={() => removePhoto(i)}>
+                    <Feather name="x" size={12} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flexDirection: "row", gap: 3 }}>
+                  {PHOTO_CATEGORIES.map((c) => {
+                    const active = (photo.category ?? "progress") === c.value;
+                    return (
+                      <TouchableOpacity
+                        key={c.value}
+                        onPress={() => setPhotoCategory(i, c.value)}
+                        style={{
+                          paddingHorizontal: 5,
+                          paddingVertical: 2,
+                          borderRadius: 5,
+                          backgroundColor: active ? colors.primary : colors.muted,
+                        }}
+                      >
+                        <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: active ? "#FFFFFF" : colors.mutedForeground }}>
+                          {c.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
             ))}
             {photos.length < MAX_PHOTOS && (

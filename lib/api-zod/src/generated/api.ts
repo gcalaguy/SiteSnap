@@ -3755,6 +3755,7 @@ export const ListReportPhotosResponseItem = zod.object({
   reportId: zod.number(),
   objectPath: zod.string(),
   caption: zod.string().nullish(),
+  category: zod.enum(["progress", "issue", "site_condition"]),
   uploadedAt: zod.coerce.date(),
 });
 export const ListReportPhotosResponse = zod.array(ListReportPhotosResponseItem);
@@ -3774,6 +3775,7 @@ export const addReportPhotoBodyCaptionMax = 500;
 export const AddReportPhotoBody = zod.object({
   objectPath: zod.string().max(addReportPhotoBodyObjectPathMax),
   caption: zod.string().max(addReportPhotoBodyCaptionMax).optional(),
+  category: zod.enum(["progress", "issue", "site_condition"]).optional(),
 });
 
 /**

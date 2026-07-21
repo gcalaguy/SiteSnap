@@ -726,11 +726,21 @@ export interface ErrorEnvelope {
   error: string;
 }
 
+export type DailyReportPhotoCategory =
+  (typeof DailyReportPhotoCategory)[keyof typeof DailyReportPhotoCategory];
+
+export const DailyReportPhotoCategory = {
+  progress: "progress",
+  issue: "issue",
+  site_condition: "site_condition",
+} as const;
+
 export interface DailyReportPhoto {
   id: number;
   reportId: number;
   objectPath: string;
   caption?: string | null;
+  category: DailyReportPhotoCategory;
   uploadedAt: string;
 }
 
@@ -739,6 +749,7 @@ export interface AddPhotoBody {
   objectPath: string;
   /** @maxLength 500 */
   caption?: string;
+  category?: DailyReportPhotoCategory;
 }
 
 export type ChatMessageRole =

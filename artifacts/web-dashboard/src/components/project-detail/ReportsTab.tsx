@@ -18,16 +18,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { CharCountedTextarea } from "@/components/ui/char-counted-textarea";
-import { Plus, ChevronDown, ChevronUp, FileText, Pencil, Trash2, Loader2, User, Cloud, Thermometer, Package, Wrench, TriangleAlert } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, FileText, Pencil, Trash2, Loader2, User, Cloud, Thermometer, Package, Wrench, TriangleAlert, CheckCircle2, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { createDailyReportBodyWorkPerformedMax as REPORT_FIELD_MAX } from "@workspace/api-zod";
-import { PhotoThumbnail } from "./PhotoThumbnail";
+import { PhotoThumbnail, CategoryBadge } from "./PhotoThumbnail";
+import { BulletList } from "./BulletList";
+import { bulletizeText } from "@/lib/bulletize";
 import type { Member } from "./TasksTab";
 import { getMemberName } from "./TasksTab";
 
 // The daily-reports list endpoint enriches each report with its uploaded photos,
 // but that isn't reflected in the generated `DailyReport` contract type.
 type DailyReportWithPhotos = DailyReport & { photos?: DailyReportPhoto[] };
+
+const PHOTO_CATEGORY_GROUPS: { key: "progress" | "issue" | "site_condition"; label: string }[] = [
+  { key: "progress", label: "Progress Photos" },
+  { key: "issue", label: "Issues / Defects" },
+  { key: "site_condition", label: "Site Conditions" },
+];
 
 export function ReportsTab({
   projectId,
@@ -135,17 +143,6 @@ export function ReportsTab({
                   <div className="flex justify-between items-start mb-2">
                     <span className="font-bold text-lg">{format(new Date(report.reportDate), "MMM d, yyyy")}</span>
                     <div className="flex items-center gap-2">
-                      {report.submittedBy && (
-                        <Badge variant="outline" className="gap-1">
-                          <User className="h-3 w-3" />
-                          {report.submittedBy.firstName} {report.submittedBy.lastName}
-                        </Badge>
-                      )}
-                      {photos.length > 0 && (
-                        <Badge variant="secondary" className="gap-1">
-                          <span>📷</span> {photos.length}
-                        </Badge>
-                      )}
                       {isExpanded
                         ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
                         : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -175,17 +172,48 @@ export function ReportsTab({
                     </div>
                   </div>
 
-                  {!selectedMember && report.submittedBy && (
-                    <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {report.submittedBy.firstName} {report.submittedBy.lastName}
+                  {/* Summary strip — author, weather/status pills, photo count */}
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                    {report.submittedBy && (!selectedMember || isExpanded) && (
+                      <Badge variant="outline" className="gap-1">
+                        <User className="h-3 w-3" />
+                        {report.submittedBy.firstName} {report.submittedBy.lastName}
+                      </Badge>
+                    )}
+                    {report.weather && (
+                      <Badge variant="outline" className="gap-1 text-sky-700 dark:text-sky-400 border-sky-600/30 bg-sky-600/10">
+                        <Cloud className="h-3 w-3" /> {report.weather}
+                      </Badge>
+                    )}
+                    {report.issues ? (
+                      <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-600/30 bg-amber-600/10">
+                        <TriangleAlert className="h-3 w-3" /> Issues
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="gap-1 text-emerald-700 dark:text-emerald-400 border-emerald-600/30 bg-emerald-600/10">
+                        <CheckCircle2 className="h-3 w-3" /> On Track
+                      </Badge>
+                    )}
+                    {photos.length > 0 && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Camera className="h-3 w-3" /> {photos.length}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Work performed — first bullet only when collapsed */}
+                  {isExpanded ? (
+                    <div>
+                      <p className="text-xs font-semibold text-foreground flex items-center gap-1 mb-0.5">
+                        <FileText className="h-3.5 w-3.5" /> Work Performed
+                      </p>
+                      <BulletList text={report.workPerformed} className="text-sm text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {bulletizeText(report.workPerformed)[0] ?? report.workPerformed}
                     </p>
                   )}
-
-                  {/* Work performed — truncated when collapsed */}
-                  <p className={`text-sm text-muted-foreground mt-1 ${isExpanded ? "" : "line-clamp-2"}`}>
-                    {report.workPerformed}
-                  </p>
 
                   {/* Expanded detail */}
                   {isExpanded && (
@@ -212,7 +240,7 @@ export function ReportsTab({
                           <p className="text-xs font-semibold text-foreground flex items-center gap-1 mb-0.5">
                             <Package className="h-3.5 w-3.5" /> Materials Used
                           </p>
-                          <p className="text-sm text-muted-foreground">{report.materialsUsed}</p>
+                          <BulletList text={report.materialsUsed} className="text-sm text-muted-foreground" />
                         </div>
                       )}
 
@@ -222,17 +250,17 @@ export function ReportsTab({
                           <p className="text-xs font-semibold text-foreground flex items-center gap-1 mb-0.5">
                             <Wrench className="h-3.5 w-3.5" /> Equipment
                           </p>
-                          <p className="text-sm text-muted-foreground">{report.equipment}</p>
+                          <BulletList text={report.equipment} className="text-sm text-muted-foreground" />
                         </div>
                       )}
 
-                      {/* Notes */}
+                      {/* Notes / Next Steps */}
                       {report.notes && (
                         <div className="bg-blue-950/20 border border-blue-900/40 rounded-md p-3">
                           <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1 mb-0.5">
-                            <FileText className="h-3.5 w-3.5" /> Notes
+                            <FileText className="h-3.5 w-3.5" /> Notes / Next Steps
                           </p>
-                          <p className="text-sm text-blue-800 dark:text-blue-300">{report.notes}</p>
+                          <BulletList text={report.notes} className="text-sm text-blue-800 dark:text-blue-300" />
                         </div>
                       )}
 
@@ -242,23 +270,36 @@ export function ReportsTab({
                           <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1 mb-0.5">
                             <TriangleAlert className="h-3.5 w-3.5" /> Issues / Delays
                           </p>
-                          <p className="text-sm text-amber-800 dark:text-amber-300">{report.issues}</p>
+                          <BulletList text={report.issues} className="text-sm text-amber-800 dark:text-amber-300" />
                         </div>
                       )}
 
-                      {/* Photos */}
+                      {/* Photos — grouped by category */}
                       {photos.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-foreground mb-2">Site Photos</p>
-                          <div className="flex flex-wrap gap-2">
-                            {photos.map((photo) => (
-                              <PhotoThumbnail
-                                key={photo.id}
-                                photo={photo}
-                                onDelete={isOwnerOrForeman ? () => deleteReportPhoto.mutate({ projectId, reportId: report.id, photoId: photo.id }) : undefined}
-                              />
-                            ))}
-                          </div>
+                        <div className="space-y-3">
+                          {PHOTO_CATEGORY_GROUPS.map(({ key, label }) => {
+                            const group = photos.filter((p) => (p.category ?? "progress") === key);
+                            if (group.length === 0) return null;
+                            return (
+                              <div key={key}>
+                                <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                                  <Camera className="h-3.5 w-3.5" /> {label}
+                                  <CategoryBadge category={key} className="ml-1" />
+                                  <span className="text-muted-foreground font-normal">({group.length})</span>
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {group.map((photo) => (
+                                    <PhotoThumbnail
+                                      key={photo.id}
+                                      photo={photo}
+                                      uploaderName={report.submittedBy ? `${report.submittedBy.firstName ?? ""} ${report.submittedBy.lastName ?? ""}`.trim() : null}
+                                      onDelete={isOwnerOrForeman ? () => deleteReportPhoto.mutate({ projectId, reportId: report.id, photoId: photo.id }) : undefined}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 

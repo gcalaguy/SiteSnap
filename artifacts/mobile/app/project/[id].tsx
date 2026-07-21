@@ -7,6 +7,8 @@ import {
   useUpdateTask,
   useGetMe,
   useCreateDailyReport,
+  useDeleteReportPhoto,
+  getListDailyReportsQueryKey,
   useListChangeOrders,
   useListFormSubmissions,
   customFetch,
@@ -41,9 +43,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Feather } from "@expo/vector-icons";
-import { PhotoThumbnail, PhotoLightbox } from "@/components/PhotoThumbnail";
+import { PhotoThumbnail, PhotoLightbox, CategoryPill, type PhotoCategory } from "@/components/PhotoThumbnail";
 import { ListRow } from "@/components/ui";
 import { safeNavigate } from "@/utils/safeNavigate";
+import { BulletList } from "@/components/BulletList";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "#22C55E",
@@ -84,11 +87,14 @@ const stat = StyleSheet.create({
   label: { fontSize: 11, fontFamily: "Inter_400Regular" },
 });
 
-function ReportRow({ report }: { report: any }) {
+function ReportRow({ report, projectId, isOwnerOrForeman, onPhotoDeleted }: { report: any; projectId: number; isOwnerOrForeman: boolean; onPhotoDeleted: () => void }) {
   const colors = useColors();
   const [expanded, setExpanded] = useState(false);
-  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<any | null>(null);
   const photos: any[] = report.photos ?? [];
+  const deletePhoto = useDeleteReportPhoto({
+    mutation: { onSuccess: onPhotoDeleted },
+  });
 
   const dateLabel = new Date(report.reportDate).toLocaleDateString("en-CA", {
     weekday: "short",
@@ -154,7 +160,24 @@ function ReportRow({ report }: { report: any }) {
               </Text>
             </View>
           )}
+          {report.issues ? (
+            <View style={[styles.reportMetaChip, { backgroundColor: "#F59E0B18" }]}>
+              <Feather name="alert-triangle" size={11} color="#D97706" />
+              <Text style={[styles.reportSub, { color: "#D97706" }]}>Issues</Text>
+            </View>
+          ) : (
+            <View style={[styles.reportMetaChip, { backgroundColor: "#22C55E18" }]}>
+              <Feather name="check-circle" size={11} color="#16A34A" />
+              <Text style={[styles.reportSub, { color: "#16A34A" }]}>On Track</Text>
+            </View>
+          )}
         </View>
+
+        {!expanded && !!report.aiSummary && (
+          <Text style={[styles.reportSub, { color: colors.mutedForeground, marginTop: 4 }]} numberOfLines={2}>
+            {report.aiSummary}
+          </Text>
+        )}
 
         {/* Expanded details */}
         {expanded && (
@@ -164,7 +187,7 @@ function ReportRow({ report }: { report: any }) {
                 <Feather name="package" size={13} color={colors.primary} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Materials Used</Text>
-                  <Text style={[styles.reportDetailText, { color: colors.foreground }]}>{report.materialsUsed}</Text>
+                  <BulletList text={report.materialsUsed} textStyle={[styles.reportDetailText, { color: colors.foreground }]} />
                 </View>
               </View>
             )}
@@ -173,7 +196,7 @@ function ReportRow({ report }: { report: any }) {
                 <Feather name="tool" size={13} color={colors.primary} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Equipment</Text>
-                  <Text style={[styles.reportDetailText, { color: colors.foreground }]}>{report.equipment}</Text>
+                  <BulletList text={report.equipment} textStyle={[styles.reportDetailText, { color: colors.foreground }]} />
                 </View>
               </View>
             )}
@@ -182,7 +205,7 @@ function ReportRow({ report }: { report: any }) {
                 <Feather name="alert-triangle" size={13} color="#F59E0B" />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Issues / Delays</Text>
-                  <Text style={[styles.reportDetailText, { color: colors.foreground }]}>{report.issues}</Text>
+                  <BulletList text={report.issues} textStyle={[styles.reportDetailText, { color: colors.foreground }]} />
                 </View>
               </View>
             )}
@@ -199,31 +222,44 @@ function ReportRow({ report }: { report: any }) {
               <View style={styles.reportDetailRow}>
                 <Feather name="mic" size={13} color={colors.primary} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Voice Notes</Text>
-                  <Text style={[styles.reportDetailText, { color: colors.foreground }]}>{report.notes}</Text>
+                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Notes / Next Steps</Text>
+                  <BulletList text={report.notes} textStyle={[styles.reportDetailText, { color: colors.foreground }]} />
                 </View>
               </View>
             )}
 
-            {/* Photo thumbnails */}
+            {/* Photo thumbnails — grouped by category */}
             {photos.length > 0 && (
-              <View style={{ marginTop: 10 }}>
-                <View style={styles.reportDetailRow}>
-                  <Feather name="camera" size={13} color={colors.primary} />
-                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>
-                    Site Photos ({photos.length})
-                  </Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
-                  {photos.map((photo: any) => (
-                    <PhotoThumbnail
-                      key={photo.id}
-                      objectPath={photo.objectPath}
-                      size={80}
-                      onPress={() => setLightboxPhoto(photo.objectPath)}
-                    />
-                  ))}
-                </ScrollView>
+              <View style={{ marginTop: 10, gap: 10 }}>
+                {[
+                  { key: "progress", label: "Progress Photos" },
+                  { key: "issue", label: "Issues / Defects" },
+                  { key: "site_condition", label: "Site Conditions" },
+                ].map(({ key, label }) => {
+                  const group = photos.filter((p: any) => (p.category ?? "progress") === key);
+                  if (group.length === 0) return null;
+                  return (
+                    <View key={key}>
+                      <View style={styles.reportDetailRow}>
+                        <Feather name="camera" size={13} color={colors.primary} />
+                        <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>
+                          {label} ({group.length})
+                        </Text>
+                      </View>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                        {group.map((photo: any) => (
+                          <PhotoThumbnail
+                            key={photo.id}
+                            objectPath={photo.objectPath}
+                            category={photo.category as PhotoCategory}
+                            size={80}
+                            onPress={() => setLightboxPhoto(photo)}
+                          />
+                        ))}
+                      </ScrollView>
+                    </View>
+                  );
+                })}
               </View>
             )}
 
@@ -246,9 +282,13 @@ function ReportRow({ report }: { report: any }) {
 
       {/* Fullscreen photo lightbox */}
       <PhotoLightbox
-        objectPath={lightboxPhoto}
+        objectPath={lightboxPhoto?.objectPath ?? null}
         visible={lightboxPhoto !== null}
         onClose={() => setLightboxPhoto(null)}
+        category={lightboxPhoto?.category as PhotoCategory}
+        uploaderName={submittedBy}
+        uploadedAt={lightboxPhoto?.uploadedAt}
+        onDelete={isOwnerOrForeman && lightboxPhoto ? () => deletePhoto.mutate({ projectId, reportId: report.id, photoId: lightboxPhoto.id }) : undefined}
       />
 
       {/* Expand chevron */}
@@ -262,11 +302,10 @@ function ReportRow({ report }: { report: any }) {
   );
 }
 
-function SafetySubmissionRow({ submission, isOwnerOrForeman, colors }: { submission: any; isOwnerOrForeman: boolean; colors: any }) {
+function SafetySubmissionRow({ submission, colors }: { submission: any; colors: any }) {
   const [expanded, setExpanded] = useState(false);
   const statusColor = submission.status === "approved" ? "#22C55E" : submission.status === "reviewed" ? "#F59E0B" : submission.status === "submitted" ? "#3B82F6" : "#6B7280";
   const statusLabel = submission.status === "approved" ? "Approved" : submission.status === "reviewed" ? "Reviewed" : submission.status === "submitted" ? "Submitted" : "Draft";
-  const canExpand = isOwnerOrForeman && !!submission.aiSummary;
 
   return (
     <Pressable
@@ -274,7 +313,7 @@ function SafetySubmissionRow({ submission, isOwnerOrForeman, colors }: { submiss
         styles.reportRow,
         { backgroundColor: colors.card, borderColor: expanded ? colors.primary : colors.border, opacity: pressed ? 0.92 : 1 },
       ]}
-      onPress={() => canExpand && setExpanded((v) => !v)}
+      onPress={() => setExpanded((v) => !v)}
     >
       <View style={[styles.reportDateBadge, { backgroundColor: `${statusColor}15` }]}>
         <Feather name="shield" size={16} color={statusColor} />
@@ -294,21 +333,57 @@ function SafetySubmissionRow({ submission, isOwnerOrForeman, colors }: { submiss
             {new Date(submission.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
           </Text>
         )}
-        {expanded && !!submission.aiSummary && (
-          <View style={[styles.reportAiBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}30`, marginTop: 8 }]}>
-            <View style={styles.reportDetailRow}>
-              <Feather name="zap" size={13} color={colors.primary} />
-              <Text style={[styles.reportDetailLabel, { color: colors.primary }]}>AI Summary</Text>
+        {expanded && (
+          <View style={{ marginTop: 8, gap: 8 }}>
+            <View>
+              <View style={styles.reportDetailRow}>
+                <Feather name="calendar" size={13} color={colors.mutedForeground} />
+                <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Status</Text>
+              </View>
+              <Text style={[styles.reportDetailText, { color: colors.foreground, marginTop: 4 }]}>{statusLabel}</Text>
             </View>
-            <Text style={[styles.reportDetailText, { color: colors.foreground, marginTop: 4 }]}>{submission.aiSummary}</Text>
+            {!!submission.workerEmail && (
+              <View>
+                <View style={styles.reportDetailRow}>
+                  <Feather name="mail" size={13} color={colors.mutedForeground} />
+                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Worker Email</Text>
+                </View>
+                <Text style={[styles.reportDetailText, { color: colors.foreground, marginTop: 4 }]}>{submission.workerEmail}</Text>
+              </View>
+            )}
+            {!!submission.reviewedAt && (
+              <View>
+                <View style={styles.reportDetailRow}>
+                  <Feather name="check-circle" size={13} color={colors.mutedForeground} />
+                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Reviewed</Text>
+                </View>
+                <Text style={[styles.reportDetailText, { color: colors.foreground, marginTop: 4 }]}>
+                  {new Date(submission.reviewedAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
+                </Text>
+              </View>
+            )}
+            {!!submission.reviewNotes && (
+              <View>
+                <View style={styles.reportDetailRow}>
+                  <Feather name="message-square" size={13} color={colors.mutedForeground} />
+                  <Text style={[styles.reportDetailLabel, { color: colors.mutedForeground }]}>Review Notes</Text>
+                </View>
+                <Text style={[styles.reportDetailText, { color: colors.foreground, marginTop: 4 }]}>{submission.reviewNotes}</Text>
+              </View>
+            )}
+            {!!submission.aiSummary && (
+              <View style={[styles.reportAiBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}30` }]}>
+                <View style={styles.reportDetailRow}>
+                  <Feather name="zap" size={13} color={colors.primary} />
+                  <Text style={[styles.reportDetailLabel, { color: colors.primary }]}>AI Summary</Text>
+                </View>
+                <Text style={[styles.reportDetailText, { color: colors.foreground, marginTop: 4 }]}>{submission.aiSummary}</Text>
+              </View>
+            )}
           </View>
         )}
       </View>
-      {canExpand ? (
-        <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={expanded ? colors.primary : colors.border} />
-      ) : (
-        <Feather name="chevron-right" size={16} color={colors.border} />
-      )}
+      <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={expanded ? colors.primary : colors.border} />
     </Pressable>
   );
 }
@@ -735,15 +810,20 @@ function ReportsTabSection({
   projectName,
   reports,
   onReportAdded,
+  isOwnerOrForeman,
 }: {
   projectId: number;
   projectName: string | null;
   reports: any[];
   onReportAdded: () => void;
+  isOwnerOrForeman: boolean;
 }) {
   const colors = useColors();
   const [expanded, setExpanded] = useState(false);
   const [notes, setNotes] = useState("");
+  const [weather, setWeather] = useState("");
+  const [crewCount, setCrewCount] = useState("1");
+  const [issues, setIssues] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const createReport = useCreateDailyReport();
   const qc = useQueryClient();
@@ -756,18 +836,31 @@ function ReportsTabSection({
 
   function reset() {
     setNotes("");
+    setWeather("");
+    setCrewCount("1");
+    setIssues("");
     setExpanded(false);
     setSubmitted(false);
   }
 
   async function handleSubmit() {
     if (!notes.trim()) {
-      Alert.alert("Empty note", "Please record or type your site note first.");
+      Alert.alert("Empty note", "Please record or type your work summary first.");
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     createReport.mutate(
-      { projectId, data: { reportDate: today, workPerformed: notes, notes: notes || undefined, crewCount: 1 } },
+      {
+        projectId,
+        data: {
+          reportDate: today,
+          workPerformed: notes,
+          notes: notes || undefined,
+          weather: weather || undefined,
+          issues: issues || undefined,
+          crewCount: parseInt(crewCount, 10) || 1,
+        },
+      },
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -821,10 +914,49 @@ function ReportsTabSection({
             </Text>
           </View>
 
+          {/* Weather + Crew Count */}
+          <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
+            <View style={{ flex: 2 }}>
+              <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 4 }}>
+                WEATHER IMPACT
+              </Text>
+              <TextInput
+                style={{
+                  borderRadius: 8, borderWidth: 1, borderColor: colors.border,
+                  backgroundColor: colors.background, color: colors.foreground,
+                  paddingHorizontal: 10, paddingVertical: 8, fontSize: 13,
+                  fontFamily: "Inter_400Regular",
+                }}
+                value={weather}
+                onChangeText={setWeather}
+                placeholder="Sunny, light rain..."
+                placeholderTextColor={colors.mutedForeground}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginBottom: 4 }}>
+                CREW COUNT
+              </Text>
+              <TextInput
+                style={{
+                  borderRadius: 8, borderWidth: 1, borderColor: colors.border,
+                  backgroundColor: colors.background, color: colors.foreground,
+                  paddingHorizontal: 10, paddingVertical: 8, fontSize: 13,
+                  fontFamily: "Inter_400Regular",
+                }}
+                value={crewCount}
+                onChangeText={setCrewCount}
+                keyboardType="number-pad"
+                placeholder="1"
+                placeholderTextColor={colors.mutedForeground}
+              />
+            </View>
+          </View>
+
           {/* Mic + label row */}
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0, fontSize: 11 }]}>
-              WHAT HAPPENED TODAY?
+              WORK SUMMARY
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Feather name="mic" size={12} color={colors.mutedForeground} />
@@ -844,10 +976,28 @@ function ReportsTabSection({
             }}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Speak or type your site notes…"
+            placeholder="Speak or type what happened today…"
             placeholderTextColor={colors.mutedForeground}
             multiline
             editable={true}
+          />
+
+          {/* Issues / Delays */}
+          <Text style={{ fontSize: 11, fontFamily: "Inter_600SemiBold", color: colors.mutedForeground, marginTop: 10, marginBottom: 4 }}>
+            ISSUES / DELAYS (OPTIONAL)
+          </Text>
+          <TextInput
+            style={{
+              borderRadius: 10, borderWidth: 1, borderColor: colors.border,
+              backgroundColor: colors.background, color: colors.foreground,
+              paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
+              fontFamily: "Inter_400Regular", minHeight: 60, textAlignVertical: "top",
+            }}
+            value={issues}
+            onChangeText={setIssues}
+            placeholder="Anything blocking progress?"
+            placeholderTextColor={colors.mutedForeground}
+            multiline
           />
 
           {/* Submit / success */}
@@ -881,7 +1031,18 @@ function ReportsTabSection({
       ) : (
         [...reports]
           .sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime())
-          .map((r) => <ReportRow key={r.id} report={r} />)
+          .map((r) => (
+            <ReportRow
+              key={r.id}
+              report={r}
+              projectId={projectId}
+              isOwnerOrForeman={isOwnerOrForeman}
+              onPhotoDeleted={() => {
+                qc.invalidateQueries({ queryKey: getListDailyReportsQueryKey(projectId) });
+                onReportAdded();
+              }}
+            />
+          ))
       )}
     </View>
   );
@@ -1229,7 +1390,7 @@ export default function ProjectDetailScreen() {
 
       {/* Reports tab */}
       {activeTab === "Reports" && (
-        <ReportsTabSection projectId={projectId} projectName={project?.name ?? null} reports={reports ?? []} onReportAdded={refetchReports} />
+        <ReportsTabSection projectId={projectId} projectName={project?.name ?? null} reports={reports ?? []} onReportAdded={refetchReports} isOwnerOrForeman={isOwnerOrForeman} />
       )}
 
       {/* Tasks tab */}
@@ -1493,7 +1654,7 @@ export default function ProjectDetailScreen() {
             </View>
           ) : (
             (safetySubmissions ?? []).map((s: any) => (
-              <SafetySubmissionRow key={s.id} submission={s} isOwnerOrForeman={isOwnerOrForeman} colors={colors} />
+              <SafetySubmissionRow key={s.id} submission={s} colors={colors} />
             ))
           )}
         </View>

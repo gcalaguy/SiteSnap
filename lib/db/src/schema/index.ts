@@ -557,6 +557,12 @@ export type Task = typeof tasksTable.$inferSelect;
 
 // ── Daily Report Photos ───────────────────────────────────────────────────────
 
+export const dailyReportPhotoCategoryEnum = pgEnum("daily_report_photo_category", [
+  "progress",
+  "issue",
+  "site_condition",
+]);
+
 export const dailyReportPhotosTable = pgTable("daily_report_photos", {
   id: serial("id").primaryKey(),
   reportId: integer("report_id")
@@ -564,6 +570,7 @@ export const dailyReportPhotosTable = pgTable("daily_report_photos", {
     .references(() => dailyReportsTable.id),
   objectPath: text("object_path").notNull(),
   caption: text("caption"),
+  category: dailyReportPhotoCategoryEnum("category").notNull().default("progress"),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pressable, View, ActivityIndicator, StyleSheet, Modal, Alert } from "react-native";
+import { Pressable, View, Text, ActivityIndicator, StyleSheet, Modal, Alert } from "react-native";
 import { Image } from "expo-image";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -7,14 +7,38 @@ import { useSignedPhotoUrl } from "@/hooks/useSignedPhotoUrl";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 
+export type PhotoCategory = "progress" | "issue" | "site_condition";
+
+const CATEGORY_LABELS: Record<PhotoCategory, string> = {
+  progress: "Progress",
+  issue: "Issue",
+  site_condition: "Site",
+};
+
+const CATEGORY_COLORS: Record<PhotoCategory, string> = {
+  progress: "#2563EB",
+  issue: "#D97706",
+  site_condition: "#475569",
+};
+
+export function CategoryPill({ category }: { category?: PhotoCategory | null }) {
+  const key = category ?? "progress";
+  return (
+    <View style={{ backgroundColor: CATEGORY_COLORS[key], paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 4 }}>
+      <Text style={{ fontSize: 9, fontFamily: "Inter_600SemiBold", color: "#FFFFFF" }}>{CATEGORY_LABELS[key]}</Text>
+    </View>
+  );
+}
+
 interface PhotoThumbnailProps {
   objectPath: string | null | undefined;
+  category?: PhotoCategory | null;
   size?: number;
   onPress?: () => void;
   style?: object;
 }
 
-export function PhotoThumbnail({ objectPath, size = 80, onPress, style }: PhotoThumbnailProps) {
+export function PhotoThumbnail({ objectPath, category, size = 80, onPress, style }: PhotoThumbnailProps) {
   const colors = useColors();
   const { signedUrl, isLoading } = useSignedPhotoUrl(objectPath);
 
@@ -46,6 +70,11 @@ export function PhotoThumbnail({ objectPath, size = 80, onPress, style }: PhotoT
           <Feather name="image" size={18} color={colors.mutedForeground} />
         </View>
       )}
+      {category && (
+        <View style={{ position: "absolute", bottom: 3, left: 3 }}>
+          <CategoryPill category={category} />
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -54,9 +83,13 @@ interface PhotoLightboxProps {
   objectPath: string | null;
   visible: boolean;
   onClose: () => void;
+  category?: PhotoCategory | null;
+  uploaderName?: string | null;
+  uploadedAt?: string | null;
+  onDelete?: () => void;
 }
 
-export function PhotoLightbox({ objectPath, visible, onClose }: PhotoLightboxProps) {
+export function PhotoLightbox({ objectPath, visible, onClose, category, uploaderName, uploadedAt, onDelete }: PhotoLightboxProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { signedUrl, isLoading } = useSignedPhotoUrl(objectPath);
@@ -123,9 +156,38 @@ export function PhotoLightbox({ objectPath, visible, onClose }: PhotoLightboxPro
             )}
           </Pressable>
         ) : null}
+        {onDelete ? (
+          <Pressable
+            onPress={() => { onDelete(); onClose(); }}
+            hitSlop={12}
+            style={{ position: "absolute", top: 52, left: 60 }}
+          >
+            <Feather name="trash-2" size={22} color="#fff" />
+          </Pressable>
+        ) : null}
         <View style={{ position: "absolute", top: 52, right: 20 }}>
           <Feather name="x" size={28} color="#fff" />
         </View>
+        {signedUrl && (category || uploaderName || uploadedAt) ? (
+          <View style={{
+            position: "absolute", bottom: 40, left: 20, right: 20,
+            flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+          }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {category && <CategoryPill category={category} />}
+              {uploaderName && (
+                <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontFamily: "Inter_500Medium" }}>
+                  {uploaderName}
+                </Text>
+              )}
+            </View>
+            {uploadedAt && (
+              <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "Inter_400Regular" }}>
+                {new Date(uploadedAt).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true })}
+              </Text>
+            )}
+          </View>
+        ) : null}
       </Pressable>
     </Modal>
   );

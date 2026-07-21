@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, Loader2, Sparkles, Camera, X, Upload } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChevronLeft, Loader2, Sparkles, Camera, X, Upload, Cloud, HardHat, Package, TriangleAlert } from "lucide-react";
 
 import {
   createDailyReportBodyWorkPerformedMax as WORK_MAX,
@@ -39,6 +40,8 @@ const reportSchema = z.object({
   aiSummary: z.string().optional(),
 });
 
+type PhotoCategory = "progress" | "issue" | "site_condition";
+
 type PhotoUpload = {
   file: File;
   previewUrl: string;
@@ -46,7 +49,14 @@ type PhotoUpload = {
   uploaded: boolean;
   uploading: boolean;
   error?: string;
+  category: PhotoCategory;
 };
+
+const PHOTO_CATEGORY_OPTIONS: { value: PhotoCategory; label: string }[] = [
+  { value: "progress", label: "Progress Photo" },
+  { value: "issue", label: "Issue / Defect" },
+  { value: "site_condition", label: "Site Condition" },
+];
 
 export default function NewReport() {
   const params = useParams();
@@ -128,6 +138,7 @@ export default function NewReport() {
       previewUrl: URL.createObjectURL(file),
       uploaded: false,
       uploading: false,
+      category: "progress",
     }));
     setPhotos(prev => [...prev, ...newPhotos]);
     e.target.value = "";
@@ -138,6 +149,10 @@ export default function NewReport() {
       URL.revokeObjectURL(prev[index].previewUrl);
       return prev.filter((_, i) => i !== index);
     });
+  }
+
+  function setPhotoCategory(index: number, category: PhotoCategory) {
+    setPhotos(prev => prev.map((p, i) => (i === index ? { ...p, category } : p)));
   }
 
   async function fetchWithTimeout(url: string, init: RequestInit & { timeout?: number } = {}): Promise<Response> {
@@ -205,12 +220,13 @@ export default function NewReport() {
             );
             const paths = await Promise.all(uploadPromises);
 
-            for (const objectPath of paths) {
+            for (let i = 0; i < paths.length; i++) {
+              const objectPath = paths[i];
               if (objectPath) {
                 await addPhoto.mutateAsync({
                   projectId,
                   reportId: report.id,
-                  data: { objectPath },
+                  data: { objectPath, category: photos[i].category },
                 });
               }
             }
@@ -287,30 +303,44 @@ export default function NewReport() {
               {photos.length > 0 && (
                 <div className="grid grid-cols-2 gap-2">
                   {photos.map((photo, i) => (
-                    <div key={i} className="relative group rounded-md overflow-hidden border bg-muted aspect-square">
-                      <img src={photo.previewUrl} alt="preview" className="w-full h-full object-cover" />
-                      {photo.uploading && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <Loader2 className="h-5 w-5 text-white animate-spin" />
-                        </div>
-                      )}
-                      {photo.uploaded && (
-                        <div className="absolute bottom-1 right-1 bg-green-500 rounded-full p-0.5">
-                          <Upload className="h-3 w-3 text-white" />
-                        </div>
-                      )}
-                      {photo.error && (
-                        <div className="absolute inset-0 bg-red-500/80 flex items-center justify-center p-1">
-                          <p className="text-white text-xs text-center">{photo.error}</p>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removePhoto(i)}
-                        className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-3 w-3 text-white" />
-                      </button>
+                    <div key={i} className="space-y-1">
+                      <div className="relative group rounded-md overflow-hidden border bg-muted aspect-square">
+                        <img src={photo.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                        {photo.uploading && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <Loader2 className="h-5 w-5 text-white animate-spin" />
+                          </div>
+                        )}
+                        {photo.uploaded && (
+                          <div className="absolute bottom-1 right-1 bg-green-500 rounded-full p-0.5">
+                            <Upload className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                        {photo.error && (
+                          <div className="absolute inset-0 bg-red-500/80 flex items-center justify-center p-1">
+                            <p className="text-white text-xs text-center">{photo.error}</p>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(i)}
+                          className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3 text-white" />
+                        </button>
+                      </div>
+                      <Select value={photo.category} onValueChange={(v) => setPhotoCategory(i, v as PhotoCategory)}>
+                        <SelectTrigger className="h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PHOTO_CATEGORY_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   ))}
                 </div>
@@ -335,19 +365,30 @@ export default function NewReport() {
             <CardContent className="pt-6">
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField control={form.control} name="reportDate" render={({ field }) => (
-                      <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="crewCount" render={({ field }) => (
-                      <FormItem><FormLabel>Crew Count</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="weather" render={({ field }) => (
-                      <FormItem><FormLabel>Weather</FormLabel><FormControl><Input placeholder="Sunny, light rain..." {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="temperature" render={({ field }) => (
-                      <FormItem><FormLabel>Temp</FormLabel><FormControl><Input placeholder="20C" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 mb-2">
+                      <Cloud className="h-3.5 w-3.5" /> Site Conditions
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField control={form.control} name="reportDate" render={({ field }) => (
+                        <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="crewCount" render={({ field }) => (
+                        <FormItem><FormLabel>Crew Count</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="weather" render={({ field }) => (
+                        <FormItem><FormLabel>Weather</FormLabel><FormControl><Input placeholder="Sunny, light rain..." {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="temperature" render={({ field }) => (
+                        <FormItem><FormLabel>Temp</FormLabel><FormControl><Input placeholder="20C" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border pt-6">
+                    <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 mb-2">
+                      <HardHat className="h-3.5 w-3.5" /> Work Summary
+                    </p>
                   </div>
 
                   <FormField control={form.control} name="workPerformed" render={({ field }) => (
@@ -369,6 +410,12 @@ export default function NewReport() {
                       <FormMessage />
                     </FormItem>
                   )} />
+
+                  <div className="border-t border-border pt-6">
+                    <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 mb-2">
+                      <Package className="h-3.5 w-3.5" /> Materials & Equipment
+                    </p>
+                  </div>
 
                   <FormField control={form.control} name="materialsUsed" render={({ field }) => (
                     <FormItem>
@@ -410,9 +457,15 @@ export default function NewReport() {
                     </FormItem>
                   )} />
 
-                  <FormField control={form.control} name="notes" render={({ field }) => (
+                  <div className="border-t border-border pt-6">
+                    <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 mb-2">
+                      <TriangleAlert className="h-3.5 w-3.5" /> Issues & Next Steps
+                    </p>
+                  </div>
+
+                  <FormField control={form.control} name="issues" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Notes</FormLabel>
+                      <FormLabel>Issues / Delays</FormLabel>
                       <FormControl>
                         <Textarea
                           className="min-h-[60px]"
@@ -430,12 +483,13 @@ export default function NewReport() {
                     </FormItem>
                   )} />
 
-                  <FormField control={form.control} name="issues" render={({ field }) => (
+                  <FormField control={form.control} name="notes" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Issues / Delays</FormLabel>
+                      <FormLabel>Notes / Next Steps</FormLabel>
                       <FormControl>
                         <Textarea
                           className="min-h-[60px]"
+                          placeholder="What's planned next..."
                           maxLength={ISSUES_MAX}
                           {...field}
                           onChange={(e) => field.onChange(e.target.value.slice(0, ISSUES_MAX))}

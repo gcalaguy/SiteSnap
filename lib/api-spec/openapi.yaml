@@ -6214,6 +6214,10 @@ components:
           type: string
 
     # ── Photos ────────────────────────────────────────────────────────────────
+    DailyReportPhotoCategory:
+      type: string
+      enum: [progress, issue, site_condition]
+
     DailyReportPhoto:
       type: object
       properties:
@@ -6226,10 +6230,12 @@ components:
         caption:
           type: string
           nullable: true
+        category:
+          $ref: "#/components/schemas/DailyReportPhotoCategory"
         uploadedAt:
           type: string
           format: date-time
-      required: [id, reportId, objectPath, uploadedAt]
+      required: [id, reportId, objectPath, category, uploadedAt]
 
     AddPhotoBody:
       type: object
@@ -6241,6 +6247,8 @@ components:
         caption:
           type: string
           maxLength: 500
+        category:
+          $ref: "#/components/schemas/DailyReportPhotoCategory"
 
     # ── AI Assistant ───────────────────────────────────────────────────────────
     ChatMessage:
