@@ -7,19 +7,39 @@ import {
   isFileSystemAccessSupported,
   type DriveSyncState,
 } from "@/lib/driveSyncManager";
+import {
+  getDriveSyncStatus,
+  subscribeDriveSyncStatus,
+  type DriveSyncStatus,
+} from "@/lib/driveSyncStatus";
 
 export function useDriveSync() {
   const { toast } = useToast();
   const [state, setState] = useState<DriveSyncState>({ enabled: false, handle: null, pathName: null });
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(false);
+  const [reauthorizing, setReauthorizing] = useState(false);
+  const [needsReauth, setNeedsReauth] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<DriveSyncStatus>(getDriveSyncStatus());
 
   useEffect(() => {
-    loadDriveSyncState().then((s) => {
+    loadDriveSyncState().then(async (s) => {
       setState(s);
       setLoading(false);
+      if (s.enabled && s.handle) {
+        // queryPermission (unlike requestPermission) doesn't require a user gesture, so it's
+        // safe to check on mount. Browsers commonly revoke readwrite grants on reload.
+        try {
+          const status = await s.handle.queryPermission({ mode: "readwrite" });
+          setNeedsReauth(status !== "granted");
+        } catch {
+          setNeedsReauth(true);
+        }
+      }
     });
   }, []);
+
+  useEffect(() => subscribeDriveSyncStatus(setSyncStatus), []);
 
   async function handleToggle(checked: boolean) {
     const next = { ...state, enabled: checked };
@@ -42,6 +62,7 @@ export function useDriveSync() {
       const handle = await window.showDirectoryPicker();
       const next: DriveSyncState = { enabled: true, handle, pathName: handle.name };
       setState(next);
+      setNeedsReauth(false);
       await saveDriveSyncState(next);
       toast({ title: "Destination folder selected", description: handle.name });
     } catch (err) {
@@ -64,13 +85,52 @@ export function useDriveSync() {
     }
   }
 
+  async function handleReauthorize() {
+    if (!state.handle) return;
+    setReauthorizing(true);
+    try {
+      const result = await state.handle.requestPermission({ mode: "readwrite" });
+      if (result === "granted") {
+        setNeedsReauth(false);
+        toast({ title: "Access re-authorized", description: "Drive sync will resume." });
+      } else {
+        toast({
+          title: "Permission denied",
+          description: "Select the destination folder again to keep syncing.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Re-authorization failed",
+        description: (err instanceof Error && err.message) || "Could not re-authorize folder access.",
+        variant: "destructive",
+      });
+    } finally {
+      setReauthorizing(false);
+    }
+  }
+
   async function handleClear() {
     setState({ enabled: false, handle: null, pathName: null });
+    setNeedsReauth(false);
     await clearDriveSyncState();
     toast({ title: "Drive sync reset" });
   }
 
   const supported = isFileSystemAccessSupported();
 
-  return { state, loading, selecting, supported, handleToggle, handleSelectFolder, handleClear };
+  return {
+    state,
+    loading,
+    selecting,
+    reauthorizing,
+    needsReauth,
+    syncStatus,
+    supported,
+    handleToggle,
+    handleSelectFolder,
+    handleReauthorize,
+    handleClear,
+  };
 }

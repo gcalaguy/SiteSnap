@@ -128,7 +128,11 @@
       "Bash(npx --yes playwright --version)",
       "Bash(timeout 90 npx --yes playwright install chromium --with-deps)",
       "Bash(mkdir -p /tmp/claude-1000/-home-runner-workspace/63160bef-3db6-4139-840a-2e1994d6b44e/scratchpad)",
-      "Bash(xargs -I{} echo {})"
+      "Bash(xargs -I{} echo {})",
+      "Bash(awk -F/ '{print $1}')",
+      "Skill(artifact-design)",
+      "Bash(fc-list)",
+      "Bash(awk '/@font-face/{block=\"\"} {block=block\"\\\\n\"$0} /}/{if\\(block ~ /font-face/\\) print block\"\\\\n---\"}' fonts.css)"
     ]
   }
 }

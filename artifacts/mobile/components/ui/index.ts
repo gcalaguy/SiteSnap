@@ -7,6 +7,7 @@ export { ListRow } from "./ListRow";
 export { SectionHeader } from "./SectionHeader";
 export { EmptyState } from "./EmptyState";
 export { StatTile } from "./StatTile";
+export { StatPill } from "./StatPill";
 export { StatusPill, statusTone } from "./StatusPill";
 export type { StatusTone } from "./StatusPill";
 export { BottomSheet } from "./BottomSheet";

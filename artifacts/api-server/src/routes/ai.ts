@@ -544,8 +544,8 @@ Site Snap is a construction management platform for small Canadian construction 
 - **Finance**: Quick access to budget vs. spend for all projects.
 
 **Mobile App (BuildCore Mobile) features:**
-- **Home**: Summary cards, weather widget, Finance quick access, Voice Estimator card.
-- **Voice Estimator** (owners/foremen only): Tap mic, describe project by voice, AI transcribes and parses parameters, calculate estimate, save as quote — all from your phone.
+- **Home**: Summary cards, weather widget, Finance quick access.
+- **Estimator** (owners/foremen only): Tap the mic to describe your project by voice, or type it — AI transcribes and parses parameters into the form below, which you review/adjust, then calculate estimate, save, or save as quote — all from your phone.
 - **Ask AI**: General construction AI chat with voice input support.
 - **Projects**: Browse and manage projects, view project details, tabs for Quotes, Invoices, and other project data.
 - **Log**: Create daily reports with voice input from the field.
@@ -555,13 +555,13 @@ Site Snap is a construction management platform for small Canadian construction 
 **Common how-to answers:**
 - How to create a quote: Go to Quotes → New Quote, fill in client name and line items.
 - How to use Smart Estimator: Go to Smart Estimator → describe project → review AI-parsed params → calculate → Save or Send to Quotes.
-- How to send an estimate to quotes: In Smart Estimator Step 3, click "Send to Quotes", enter client name, click Create Quote.
+- How to send an estimate to quotes: In Smart Estimator results, click "Send to Quotes", enter client name, click Create Quote.
 - How to approve a quote: Open the quote → Submit → Owner approves.
 - How to create an invoice from a quote: Open an approved quote → Convert to Invoice.
 - How to add a daily report: Go to Projects → select project → Daily Reports tab → New Report.
 - How to create an RFI: Go to Projects → select project → RFIs tab → New RFI.
 - How to invite a team member: Go to Team → Invite Member, enter their email and role.
-- How to use Voice Estimator on mobile: Tap Voice Estimator on home screen → tap mic → describe project → tap to stop → review → Calculate → Save as Quote.
+- How to use voice input in the Estimator on mobile: Tap Estimator → tap the mic → describe project → tap to stop → review the auto-filled details below → Generate Estimate → Save as Quote.
 - How to record actual project costs: In Smart Estimator after saving an estimate, click "Record Actual Cost" to track how accurate the estimate was.
 
 If you cannot answer a question about Site Snap features, or if the user reports a bug or billing issue, always direct them to: **support@sitesnap.io**

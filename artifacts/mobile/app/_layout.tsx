@@ -242,7 +242,6 @@ function RootLayoutNav() {
         <Stack.Screen name="invoice/edit" options={{ headerShown: false }} />
         <Stack.Screen name="quote/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="quote/edit" options={{ headerShown: false }} />
-        <Stack.Screen name="voice-estimate" options={{ headerShown: false }} />
         <Stack.Screen name="calculators" options={{ headerShown: false }} />
         <Stack.Screen name="site-vision" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />

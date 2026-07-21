@@ -5,13 +5,16 @@ import {
   Text,
   StyleSheet,
   Platform,
+  Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { useGetMe } from "@workspace/api-client-react";
-import { Card, ListRow } from "@/components/ui";
+import { useGetMe, useListProjects, useListCompanyMembers } from "@workspace/api-client-react";
+import { Card, ListRow, StatPill } from "@/components/ui";
+import { radius, spacing, typography } from "@/constants/theme";
 
 type HubTile = {
   label: string;
@@ -49,9 +52,13 @@ export default function AdminHubScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { data: me } = useGetMe();
+  const { data: projects } = useListProjects();
+  const { data: members } = useListCompanyMembers(me?.activeCompanyId ?? 0);
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
-  const firstName = me?.firstName ?? "there";
+  const roleLabel = me?.role ? me.role.replace(/_/g, " ").toUpperCase() : "TEAM";
+  const staffCount = members?.length ?? 0;
+  const activeProjectCount = projects?.filter((p) => p.status === "active").length ?? 0;
 
   function go(route: string) {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -65,14 +72,34 @@ export default function AdminHubScreen() {
       contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 24 }}
     >
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topInset + 20, backgroundColor: colors.sidebar }]}>
-        <View>
-          <Text style={styles.headerGreeting}>Welcome back,</Text>
-          <Text style={styles.headerName}>{firstName}</Text>
+      <View style={[styles.header, { paddingTop: topInset + 20 }]}>
+        <Pressable
+          onPress={() => {
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.back();
+          }}
+          hitSlop={10}
+          style={[styles.iconBtn, { backgroundColor: colors.muted }]}
+        >
+          <Feather name="arrow-left" size={18} color={colors.foreground} />
+        </Pressable>
+        <View style={styles.headerTitleBlock}>
+          <Text style={[typography.label, { color: colors.primary }]}>{roleLabel}</Text>
+          <Text style={[typography.display, { color: colors.foreground }]}>Management</Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-          <Text style={styles.badgeText}>Owner</Text>
-        </View>
+        <Pressable
+          onPress={() => go("/settings")}
+          hitSlop={10}
+          style={[styles.iconBtn, { backgroundColor: colors.muted }]}
+        >
+          <Feather name="settings" size={18} color={colors.foreground} />
+        </Pressable>
+      </View>
+
+      {/* Stats */}
+      <View style={styles.statRow}>
+        <StatPill label="Active Staff" value={staffCount} tone={colors.success} />
+        <StatPill label="Active Projects" value={activeProjectCount} tone={colors.primary} />
       </View>
 
       {/* Tile Groups — full-width action rows, not a narrow tile grid, so
@@ -107,30 +134,23 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.lg,
   },
-  headerGreeting: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.6)",
+  headerTitleBlock: { flex: 1 },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  headerName: {
-    fontSize: 26,
-    fontFamily: "Inter_700Bold",
-    color: "#FFFFFF",
-    marginTop: 2,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    color: "#111111",
+  statRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.lg,
   },
   group: {
     paddingHorizontal: 16,

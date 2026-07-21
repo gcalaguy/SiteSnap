@@ -4,6 +4,7 @@
  */
 
 import { loadDriveSyncState } from "./driveSyncManager";
+import { reportSyncError, reportSyncSuccess } from "./driveSyncStatus";
 
 /**
  * Internal helper: ensures the directory handle still has permission.
@@ -50,14 +51,23 @@ export async function mirrorToLocalDrive(filename: string, blob: Blob): Promise<
 
   const hasPermission = await verifyPermission(state.handle);
   if (!hasPermission) {
-    // If permission lost, silently skip. We don't want to break the normal flow.
+    // requestPermission() needs an active user gesture, which isn't available this deep in an
+    // async export flow, so it can't be silently re-granted here. Surface it instead of dropping
+    // it — the settings page reads this status and prompts the user to re-authorize.
+    reportSyncError(
+      `Folder access to "${state.pathName ?? "the destination folder"}" needs to be re-authorized. ` +
+        "Open Settings → Integrations and click Re-authorize.",
+    );
     return;
   }
 
   try {
     await writeBlobToDir(state.handle, filename, blob);
-  } catch {
-    // Best-effort: do not throw so upstream flows keep working.
+    reportSyncSuccess();
+  } catch (err) {
+    // Best-effort: do not throw so upstream flows keep working, but record the failure so it's
+    // no longer invisible to the user.
+    reportSyncError(err instanceof Error ? err.message : "Failed to write file to destination folder.");
   }
 }
 

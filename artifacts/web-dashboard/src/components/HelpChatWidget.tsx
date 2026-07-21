@@ -23,7 +23,7 @@ const QUICK_CHIPS = [
   "How does the Estimator work?",
   "How do I add a daily report?",
   "How do I invite a team member?",
-  "How do I use Voice Estimator on mobile?",
+  "How do I use voice input in the Estimator on mobile?",
 ];
 
 function TypingDots() {

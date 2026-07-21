@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Polyline, Line, Circle as SvgCircle } from "react-native-svg";
@@ -258,6 +259,7 @@ function AlertRow({ item, canAct, onMarkRead, colors }: {
 export default function RiskScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
@@ -311,9 +313,14 @@ export default function RiskScreen() {
     >
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInsets + 8, backgroundColor: colors.sidebar }]}>
-        <View>
-          <Text style={[styles.headerSub, { color: "rgba(255,255,255,0.55)" }]}>Site Snap</Text>
-          <Text style={[styles.headerTitle, { color: "#FFFFFF" }]}>Risk Dashboard</Text>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
+            <Feather name="arrow-left" size={22} color="#FFFFFF" />
+          </Pressable>
+          <View>
+            <Text style={[styles.headerSub, { color: "rgba(255,255,255,0.55)" }]}>Site Snap</Text>
+            <Text style={[styles.headerTitle, { color: "#FFFFFF" }]}>Risk Dashboard</Text>
+          </View>
         </View>
         {alertCounts.total > 0 ? (
           <View style={[styles.alertBadge, { backgroundColor: alertCounts.critical > 0 ? "#DC2626" : "#EA580C" }]}>
@@ -502,6 +509,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-end",
   },
+  headerLeft: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
+  backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   headerSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
   headerTitle: { fontSize: 24, fontFamily: "Inter_700Bold", marginTop: 2 },
   alertBadge: {

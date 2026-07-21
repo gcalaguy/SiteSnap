@@ -133,7 +133,12 @@ export default function NotificationsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 8, backgroundColor: colors.sidebar }]}>
-        <Text style={[styles.headerTitle, { color: "#FFFFFF" }]}>Notifications</Text>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
+            <Feather name="arrow-left" size={22} color="#FFFFFF" />
+          </Pressable>
+          <Text style={[styles.headerTitle, { color: "#FFFFFF" }]}>Notifications</Text>
+        </View>
         {unreadCount > 0 && (
           <Pressable
             onPress={() => markAllRead.mutate()}
@@ -191,6 +196,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     justifyContent: "space-between",
   },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 26, fontFamily: "Inter_700Bold" },
   markAllBtn: { paddingBottom: 3 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },

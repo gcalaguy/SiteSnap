@@ -126,18 +126,17 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
   const { toast } = useToast();
   const handleError = useApiError();
 
-  // Step: 1=input, 2=params, 3=results
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [inputMode, setInputMode] = useState<"text" | "file" | "form">("text");
+  // Step: 1=setup (AI input + editable params), 2=results
+  const [step, setStep] = useState<1 | 2>(1);
+  const [inputMode, setInputMode] = useState<"text" | "file">("text");
 
-  // Step 1 — Input
+  // Step 1 — AI input + structured params, in one window
   const [freeText, setFreeText] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadHint, setUploadHint] = useState("");
   const [uploadDragActive, setUploadDragActive] = useState(false);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Step 2 — Parsed / Editable Params
   const [params, setParams] = useState<ParsedParams>({
     project_type: "renovation_residential",
     square_feet: 1000,
@@ -146,11 +145,11 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
     confidence: 100,
     notes: "",
   });
+  const [marginPct, setMarginPct] = useState(15);
 
-  // Step 3 — Results
+  // Step 2 — Results
   const [estimateResult, setEstimateResult] = useState<EstimateResult | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
-  const [marginPct, setMarginPct] = useState(15);
 
   // Dialogs
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -278,7 +277,6 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
       }),
     onSuccess: (data) => {
       setParams(data);
-      setStep(2);
     },
     onError: (err) => handleError(err, "Failed to parse project description"),
   });
@@ -296,7 +294,6 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
     },
     onSuccess: (data) => {
       setParams(data);
-      setStep(2);
     },
     onError: (err) => handleError(err, "Failed to extract parameters from file"),
   });
@@ -317,7 +314,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
       setEstimateResult(data);
       setLineItems(data.lineItems);
       setMarginPct(data.summary.suggestedMarginPct);
-      setStep(3);
+      setStep(2);
     },
     onError: (err) => handleError(err, "Failed to calculate estimate"),
   });
@@ -375,7 +372,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
     onError: (err) => handleError(err, "Failed to record actual cost"),
   });
 
-  const handleParseAndNext = () => {
+  const handleExtractParams = () => {
     if (inputMode === "text") {
       if (freeText.trim().length < 10) {
         toast({ title: "Please describe your project", description: "Enter at least 10 characters.", variant: "destructive" });
@@ -386,7 +383,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
         return;
       }
       parseMutation.mutate(freeText.trim());
-    } else if (inputMode === "file") {
+    } else {
       if (!uploadFile) {
         toast({ title: "Please select a file", description: "Upload a PDF, image, or document.", variant: "destructive" });
         return;
@@ -396,8 +393,6 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
         return;
       }
       parseFromFileMutation.mutate({ file: uploadFile, hint: uploadHint });
-    } else {
-      setStep(2);
     }
   };
 
@@ -453,7 +448,6 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
   };
 
   const addons = modelsData?.addons ?? [];
-  const isLoading = parseMutation.isPending || calculateMutation.isPending || parseFromFileMutation.isPending;
 
   // Average variance from learning data
   const avgVariance = actuals.length > 0
@@ -821,9 +815,8 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
       {/* Step Progress */}
       <div className="flex items-center gap-2">
         {[
-          { n: 1, label: "Describe Project" },
-          { n: 2, label: "Review Inputs" },
-          { n: 3, label: "Estimate" },
+          { n: 1, label: "Project Setup" },
+          { n: 2, label: "Estimate" },
         ].map(({ n, label }, idx, arr) => (
           <div key={n} className="flex items-center gap-2">
             <div className="flex items-center gap-2">
@@ -840,19 +833,22 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
         )}
       </div>
 
-      {/* Step 1 — Input */}
+      {/* Step 1 — Project Setup: AI input + editable form, in one window */}
       {step === 1 && (
+        <div className="space-y-4">
         <Card>
           <CardHeader className="flex flex-col space-y-1.5 p-6 text-[#d0a539] bg-[#000000d9]">
             <CardTitle className="text-base">Describe your project</CardTitle>
           </CardHeader>
           <CardContent className="p-6 pt-0 space-y-5 border-t-[3px] border-r-[3px] border-b-[3px] border-l-[3px]">
+            <p className="text-xs text-muted-foreground -mt-2">
+              Describe the project with AI, or upload plans — then adjust the details below, which you can edit any time.
+            </p>
             {/* Mode toggle */}
             <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border w-fit flex-wrap">
               {([
                 { key: "text", label: "Free Text" },
                 { key: "file", label: "Upload Plans" },
-                { key: "form", label: "Structured Form" },
               ] as const).map(({ key, label }) => (
                 <button
                   key={key}
@@ -887,7 +883,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                   </p>
                 </div>
               </div>
-            ) : inputMode === "file" ? (
+            ) : (
               <div className="space-y-3">
                 <div
                   className={cn(
@@ -954,62 +950,11 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                   AI reads the file and extracts the project scope — pricing always comes from our database.
                 </p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Project type</Label>
-                  <Select
-                    value={params.project_type}
-                    onValueChange={(v) => setParams((p) => ({ ...p, project_type: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(PROJECT_TYPE_LABELS).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Square footage</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={params.square_feet}
-                    onChange={(e) => setParams((p) => ({ ...p, square_feet: parseFloat(e.target.value) || 0 }))}
-                    placeholder="e.g. 1500"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 space-y-2">
-                  <Label>Finish level</Label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {Object.entries(FINISH_LEVEL_LABELS).map(([k, v]) => (
-                      <button
-                        key={k}
-                        onClick={() => setParams((p) => ({ ...p, finish_level: k }))}
-                        className={cn(
-                          "rounded-lg border px-3 py-2.5 text-left transition-all",
-                          params.finish_level === k
-                            ? "ring-2 ring-primary border-primary"
-                            : "border-border hover:border-muted-foreground/30",
-                        )}
-                      >
-                        <div className="text-sm font-semibold">{v.label}</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5">{v.desc}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
             )}
 
             <Button
-              onClick={handleParseAndNext}
-              disabled={isLoading}
+              onClick={handleExtractParams}
+              disabled={parseMutation.isPending || parseFromFileMutation.isPending}
               className="w-full gap-2 bg-[#d0a539]"
               size="lg"
             >
@@ -1019,17 +964,13 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                 </>
               ) : (
                 <><Sparkles className="h-4 w-4" />
-                  {inputMode === "text" ? "Extract Parameters with AI" : inputMode === "file" ? "Extract Parameters from File" : "Continue to Review"}
-                  <ChevronRight className="h-4 w-4" /></>
+                  {inputMode === "text" ? "Extract Parameters with AI" : "Extract Parameters from File"}
+                </>
               )}
             </Button>
           </CardContent>
         </Card>
-      )}
 
-      {/* Step 2 — Review Params */}
-      {step === 2 && (
-        <div className="space-y-4">
           {params.confidence < 70 && (
             <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
               <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
@@ -1051,7 +992,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Edit3 className="h-4 w-4 text-primary" />
-                Review & Adjust Parameters
+                Project Details
                 {params.confidence > 0 && (
                   <Badge variant="outline" className="ml-auto text-xs">
                     AI confidence: {params.confidence}%
@@ -1161,8 +1102,8 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
         </div>
       )}
 
-      {/* Step 3 — Results */}
-      {step === 3 && estimateResult && (
+      {/* Step 2 — Results */}
+      {step === 2 && estimateResult && (
         <div className="space-y-5">
           {/* Model info banner */}
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-3">
@@ -1243,7 +1184,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
               </Button>
             )}
 
-            <Button variant="outline" onClick={() => setStep(2)} className="gap-2">
+            <Button variant="outline" onClick={() => setStep(1)} className="gap-2">
               <Edit3 className="h-4 w-4" />
               Adjust Inputs
             </Button>

@@ -22,7 +22,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import * as Haptics from "expo-haptics";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ComplianceAlertBanner } from "@/components/ComplianceAlertBanner";
 import { StatTile } from "@/components/ui";
 
@@ -334,6 +334,7 @@ type TabKey = "log" | "new";
 export default function SafetyTab() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const topInsets = Platform.OS === "web" ? 67 : insets.top;
 
@@ -421,7 +422,10 @@ export default function SafetyTab() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topInsets + 8 }]}>
+      <View style={[styles.header, styles.headerRow, { paddingTop: topInsets + 8 }]}>
+        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Safety & Incidents</Text>
       </View>
 
@@ -680,6 +684,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 14,
   },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center", marginLeft: -8 },
   headerTitle: { fontSize: 24, fontFamily: "Inter_700Bold" },
 
   tabBar: {

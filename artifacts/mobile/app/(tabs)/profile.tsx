@@ -253,8 +253,7 @@ export default function ProfileScreen() {
   type ToolItem = { key: string; icon: keyof typeof Feather.glyphMap; label: string; subtitle: string; onPress: () => void };
   const toolItems: ToolItem[] = [
     { key: "calculators", icon: "percent", label: "Trade Calculators", subtitle: "Concrete · Electrical · Plumbing · Roofing", onPress: () => safeNavigate(router, "/calculators", "profile:calculators") },
-    perms.viewEstimator && { key: "estimator", icon: "bar-chart-2", label: "Estimator", subtitle: "Build a detailed estimate", onPress: () => safeNavigate(router, "/estimator", "profile:estimator") },
-    perms.viewEstimator && { key: "voice-estimate", icon: "mic", label: "Voice Estimator", subtitle: "Speak a description, get an instant estimate", onPress: () => safeNavigate(router, "/voice-estimate", "profile:voice-estimate") },
+    perms.viewEstimator && { key: "estimator", icon: "bar-chart-2", label: "Estimator", subtitle: "Speak or type to build a detailed estimate", onPress: () => safeNavigate(router, "/estimator", "profile:estimator") },
     perms.viewVault && { key: "vault", icon: "lock", label: "Vault", subtitle: "Secure document storage", onPress: () => safeNavigate(router, "/vault", "profile:vault") },
     perms.viewReports && { key: "reports", icon: "file-text", label: "Daily Reports", subtitle: "Browse past submissions", onPress: () => safeNavigate(router, "/(tabs)/(home)/reports", "profile:reports") },
     perms.submitExpenses && { key: "expenses", icon: "credit-card", label: "Expenses", subtitle: "Submit & track job costs", onPress: () => safeNavigate(router, "/expenses", "profile:expenses") },

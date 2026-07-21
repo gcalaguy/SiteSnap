@@ -511,6 +511,7 @@ function DetailModal({ row, onClose, isOwnerOrForeman }: { row: InspectionRow; o
 export default function InspectScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
@@ -567,11 +568,16 @@ export default function InspectScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <View>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Inspections</Text>
-          <Text style={{ fontSize: 12, color: colors.mutedForeground, marginTop: 2 }}>
-            AI-powered site inspections
-          </Text>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
+            <Feather name="arrow-left" size={22} color={colors.text} />
+          </Pressable>
+          <View>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Inspections</Text>
+            <Text style={{ fontSize: 12, color: colors.mutedForeground, marginTop: 2 }}>
+              AI-powered site inspections
+            </Text>
+          </View>
         </View>
         <Pressable
           onPress={() => {
@@ -741,6 +747,8 @@ export default function InspectScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 22, fontFamily: "Inter_700Bold" },
   newBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
   card: { borderRadius: 12, borderWidth: 1, padding: 14, gap: 4 },

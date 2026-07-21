@@ -225,9 +225,14 @@ export default function TradeHubScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInset + 12, backgroundColor: colors.sidebar }]}>
-        <View>
-          <Text style={styles.headerTitle}>TradeHub</Text>
-          <Text style={styles.headerSub}>Canadian Trades Community</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
+            <Feather name="arrow-left" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>TradeHub</Text>
+            <Text style={styles.headerSub}>Canadian Trades Community</Text>
+          </View>
         </View>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <TouchableOpacity
@@ -401,6 +406,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
   backBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },

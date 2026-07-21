@@ -17,6 +17,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch, useGetMe } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { getAiErrorMessage } from "@/src/utils/aiError";
+import { withAiRetry } from "@/src/utils/aiRetry";
+import { RetrySnackbar } from "@/components/RetrySnackbar";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { format } from "date-fns";
@@ -152,13 +155,10 @@ export default function EstimatorScreen() {
   const { data: me } = useGetMe();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [inputMode, setInputMode] = useState<"text" | "form" | "voice">("text");
+  const [step, setStep] = useState<1 | 2>(1);
 
-  // Step 1
+  // Step 1 — unified voice/text description + structured form
   const [freeText, setFreeText] = useState("");
-
-  // Step 2
   const [params, setParams] = useState<ParsedParams>({
     project_type: "renovation_residential",
     square_feet: 1000,
@@ -169,7 +169,15 @@ export default function EstimatorScreen() {
   });
   const [marginPct, setMarginPct] = useState(15);
 
-  // Step 3
+  const [parseRetrying, setParseRetrying] = useState(false);
+  const [parseWaiting, setParseWaiting] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  const [calcRetrying, setCalcRetrying] = useState(false);
+  const [calcWaiting, setCalcWaiting] = useState(false);
+  const [calcError, setCalcError] = useState<string | null>(null);
+
+  // Step 2
   const [estimateResult, setEstimateResult] = useState<EstimateResult | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
 
@@ -232,42 +240,53 @@ export default function EstimatorScreen() {
 
   const parseMutation = useMutation({
     mutationFn: (prompt: string) =>
-      customFetch<ParsedParams>("/api/estimator/parse", {
-        method: "POST",
-        body: JSON.stringify({ prompt }),
-      }),
+      withAiRetry(
+        () =>
+          customFetch<ParsedParams>("/api/estimator/parse", {
+            method: "POST",
+            body: JSON.stringify({ prompt }),
+          }),
+        () => { setParseRetrying(true); setParseWaiting(false); },
+        () => { setParseWaiting(true); setParseRetrying(false); },
+      ),
+    onMutate: () => { setParseError(null); },
     onSuccess: (data) => {
       setParams(data);
-      setStep(2);
     },
     onError: (err: any) => {
-      const data = err?.data as { error?: string; details?: unknown } | null | undefined;
-      const topMsg = data?.error ?? err?.message ?? "Failed to parse description";
-      const details = Array.isArray(data?.details) && data.details.length > 0 ? data.details[0] : null;
-      const detailMsg = typeof details === "string" ? details : (typeof details === "object" && details !== null ? (details as any).message ?? null : null);
-      Alert.alert("Parse Error", detailMsg ? `${topMsg}: ${detailMsg}` : topMsg);
+      setParseError(getAiErrorMessage(err, "Failed to parse description. Please try again."));
     },
+    onSettled: () => { setParseRetrying(false); setParseWaiting(false); },
   });
 
   const calculateMutation = useMutation({
     mutationFn: (p: ParsedParams & { margin_pct: number }) =>
-      customFetch<EstimateResult>("/api/estimator/calculate", {
-        method: "POST",
-        body: JSON.stringify({
-          project_type: p.project_type,
-          square_feet: p.square_feet,
-          finish_level: p.finish_level,
-          addons: p.addons,
-          margin_pct: p.margin_pct,
-        }),
-      }),
+      withAiRetry(
+        () =>
+          customFetch<EstimateResult>("/api/estimator/calculate", {
+            method: "POST",
+            body: JSON.stringify({
+              project_type: p.project_type,
+              square_feet: p.square_feet,
+              finish_level: p.finish_level,
+              addons: p.addons,
+              margin_pct: p.margin_pct,
+            }),
+          }),
+        () => { setCalcRetrying(true); setCalcWaiting(false); },
+        () => { setCalcWaiting(true); setCalcRetrying(false); },
+      ),
+    onMutate: () => { setCalcError(null); },
     onSuccess: (data) => {
       setEstimateResult(data);
       setLineItems(data.lineItems);
       setMarginPct(data.summary.suggestedMarginPct);
-      setStep(3);
+      setStep(2);
     },
-    onError: (err: any) => Alert.alert("Calculation Error", err?.message ?? "Failed to calculate estimate"),
+    onError: (err: any) => {
+      setCalcError(getAiErrorMessage(err, "Failed to calculate estimate. Please try again."));
+    },
+    onSettled: () => { setCalcRetrying(false); setCalcWaiting(false); },
   });
 
   const saveMutation = useMutation({
@@ -335,20 +354,16 @@ export default function EstimatorScreen() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
-  const handleParseAndNext = () => {
-    if (inputMode === "text") {
-      if (freeText.trim().length < 10) {
-        Alert.alert("Too short", "Please describe your project in at least 10 characters.");
-        return;
-      }
-      if (freeText.length > PROMPT_MAX) {
-        Alert.alert("Description too long", `Please shorten your description to ${PROMPT_MAX.toLocaleString()} characters or fewer.`);
-        return;
-      }
-      parseMutation.mutate(freeText.trim());
-    } else {
-      setStep(2);
+  const handleExtractParams = () => {
+    if (freeText.trim().length < 10) {
+      Alert.alert("Too short", "Please describe your project in at least 10 characters.");
+      return;
     }
+    if (freeText.length > PROMPT_MAX) {
+      Alert.alert("Description too long", `Please shorten your description to ${PROMPT_MAX.toLocaleString()} characters or fewer.`);
+      return;
+    }
+    parseMutation.mutate(freeText.trim());
   };
 
   const handleCalculate = () => {
@@ -409,6 +424,8 @@ export default function EstimatorScreen() {
     setCreatedQuoteNum(null);
     setParams({ project_type: "renovation_residential", square_feet: 1000, finish_level: "standard", addons: [], confidence: 100, notes: "" });
     setMarginPct(15);
+    setParseError(null);
+    setCalcError(null);
     stopPulse();
   };
 
@@ -428,15 +445,23 @@ export default function EstimatorScreen() {
   const liveMargin = Math.round((liveSubtotal + liveContingency) * (marginPct / 100));
   const livePriceToClient = liveSubtotal + liveContingency + liveMargin;
 
-  const isLoading = parseMutation.isPending || calculateMutation.isPending;
+  const isSnackbarVisible =
+    parseRetrying || parseWaiting || calcRetrying || calcWaiting ||
+    voiceRecorder.state === "retrying" || voiceRecorder.state === "waiting";
+  const snackbarMessage =
+    parseWaiting || calcWaiting || voiceRecorder.state === "waiting"
+      ? "Waiting for connection…"
+      : "Poor connection detected, retrying…";
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
   const c = colors;
 
   return (
+    <View style={[s.container, { backgroundColor: c.background }]}>
+    <RetrySnackbar visible={isSnackbarVisible} message={snackbarMessage} />
     <ScrollView
-      style={[s.container, { backgroundColor: c.background }]}
+      style={{ flex: 1 }}
       contentContainerStyle={s.content}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
@@ -444,9 +469,8 @@ export default function EstimatorScreen() {
       {/* ── Step Indicator ── */}
       <View style={s.stepRow}>
         {([
-          { n: 1, label: "Describe" },
-          { n: 2, label: "Review" },
-          { n: 3, label: "Estimate" },
+          { n: 1, label: "Setup" },
+          { n: 2, label: "Estimate" },
         ] as const).map(({ n, label }, idx, arr) => (
           <React.Fragment key={n}>
             <View style={s.stepItem}>
@@ -513,187 +537,94 @@ export default function EstimatorScreen() {
         </View>
       )}
 
-      {/* ═══════════════════════════════ STEP 1 ═══════════════════════════════ */}
+      {/* ═══════════════════════════════ STEP 1 — Unified Voice + Form ═══════════════════════════════ */}
       {step === 1 && (
-        <View style={[s.card, { backgroundColor: c.card, borderColor: c.border }]}>
-          <Text style={[s.cardTitle, { color: c.foreground }]}>Describe Your Project</Text>
+        <View style={{ gap: 12 }}>
+          <View style={[s.card, { backgroundColor: c.card, borderColor: c.border }]}>
+            <Text style={[s.cardTitle, { color: c.foreground }]}>Describe Your Project</Text>
+            <Text style={[s.hint, { color: c.mutedForeground, marginTop: -6 }]}>
+              Tap the mic to speak, or type a description — the AI fills in the details below, which you can adjust any time.
+            </Text>
 
-          {/* Mode toggle */}
-          <View style={[s.modeTabs, { backgroundColor: c.muted, borderColor: c.border }]}>
-            {(["text", "form", "voice"] as const).map((m) => (
-              <TouchableOpacity
-                key={m}
-                onPress={() => setInputMode(m)}
-                style={[s.modeTab, inputMode === m && { backgroundColor: c.card }]}
-                activeOpacity={0.7}
-              >
-                <Text style={[s.modeTabText, { color: inputMode === m ? c.foreground : c.mutedForeground }]}>
-                  {m === "text" ? "Free Text" : m === "form" ? "Manual Form" : "🎙 Voice"}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Free Text mode */}
-          {inputMode === "text" && (
-            <>
-              <View style={[s.textareaWrap, { borderColor: freeText.length > PROMPT_MAX ? colors.destructive : c.border, backgroundColor: c.input }]}>
-                <TextInput
-                  style={[s.textarea, { color: c.foreground }]}
-                  placeholder="e.g. Finish a 1,200 sqft basement in Toronto with a bedroom, bathroom, and bar area. Mid-range finishes, LVP flooring."
-                  placeholderTextColor={c.mutedForeground}
-                  value={freeText}
-                  onChangeText={setFreeText}
-                  multiline
-                  numberOfLines={5}
-                  textAlignVertical="top"
-                  maxLength={PROMPT_MAX}
-                />
-                <TouchableOpacity
+            {/* Voice bar — always visible */}
+            <View style={s.voiceBar}>
+              <View style={s.micWrapSmall}>
+                <Animated.View style={[s.micPulseSmall, { transform: [{ scale: pulseAnim }], backgroundColor: voiceRecorder.state === "recording" ? "#EF444420" : `${GOLD}18` }]} />
+                <Pressable
                   onPress={handleMicPress}
-                  style={[s.inlineMic, { backgroundColor: voiceRecorder.state !== "idle" ? "#EF4444" : c.secondary }]}
-                  activeOpacity={0.8}
+                  style={({ pressed }) => [
+                    s.micBtnSmall,
+                    { backgroundColor: voiceRecorder.state === "recording" ? "#EF4444" : GOLD, opacity: pressed ? 0.85 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={voiceRecorder.state === "recording" ? "Stop recording" : "Tap & Speak"}
                 >
-                  <Feather
-                    name={voiceRecorder.state === "recording" ? "square" : "mic"}
-                    size={16}
-                    color={voiceRecorder.state !== "idle" ? "#fff" : c.mutedForeground}
-                  />
+                  {voiceRecorder.state === "transcribing"
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Feather name={voiceRecorder.state === "recording" ? "square" : "mic"} size={20} color="#fff" />
+                  }
+                </Pressable>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.voiceBarTitle, { color: c.foreground }]}>
+                  {voiceRecorder.state === "recording" ? "Listening… tap to stop" : voiceRecorder.state === "transcribing" ? "Transcribing…" : "Tap & Speak"}
+                </Text>
+                <Text style={[s.voiceBarSub, { color: c.mutedForeground }]}>Describe scope, size, finish, and location</Text>
+              </View>
+            </View>
+            {voiceRecorder.error && (
+              <Text style={{ color: colors.destructive, fontSize: 12 }}>{voiceRecorder.error}</Text>
+            )}
+
+            {/* Free-text description — shared by voice transcript and typing */}
+            <View style={[s.textareaWrap, { borderColor: freeText.length > PROMPT_MAX ? colors.destructive : c.border, backgroundColor: c.input }]}>
+              <TextInput
+                style={[s.textarea, { color: c.foreground, paddingRight: 0 }]}
+                placeholder="e.g. Finish a 1,200 sqft basement in Toronto with a bedroom, bathroom, and bar area. Mid-range finishes, LVP flooring."
+                placeholderTextColor={c.mutedForeground}
+                value={freeText}
+                onChangeText={setFreeText}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                maxLength={PROMPT_MAX}
+              />
+            </View>
+            <Text style={[{ fontSize: 11, textAlign: "right", marginTop: -8 }, freeText.length >= PROMPT_MAX ? { color: colors.destructive, fontWeight: "600" } : freeText.length >= PROMPT_MAX * 0.8 ? { color: "#F59E0B" } : { color: c.mutedForeground }]}>
+              {freeText.length.toLocaleString()}/{PROMPT_MAX.toLocaleString()}
+            </Text>
+
+            {parseError && (
+              <View style={[s.warnBox, { backgroundColor: "#45151550", borderColor: "#ef444450", flexDirection: "column", alignItems: "stretch", gap: 8 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Feather name="alert-circle" size={14} color="#ef4444" />
+                  <Text style={{ color: "#ef4444", fontSize: 12, flex: 1 }}>{parseError}</Text>
+                </View>
+                <TouchableOpacity onPress={handleExtractParams} style={s.retryInlineBtn}>
+                  <Feather name="refresh-cw" size={13} color="#fff" />
+                  <Text style={s.retryInlineBtnText}>Tap to retry</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={[{ fontSize: 11, textAlign: "right", marginTop: 2 }, freeText.length >= PROMPT_MAX ? { color: colors.destructive, fontWeight: "600" } : freeText.length >= PROMPT_MAX * 0.8 ? { color: "#F59E0B" } : { color: c.mutedForeground }]}>
-                {freeText.length.toLocaleString()}/{PROMPT_MAX.toLocaleString()}
-              </Text>
-              {voiceRecorder.state === "recording" && (
-                <View style={s.voiceIndicator}>
-                  <View style={s.voiceDot} />
-                  <Text style={[s.voiceText, { color: "#EF4444" }]}>Recording… tap mic to stop</Text>
-                </View>
-              )}
-              {voiceRecorder.state === "transcribing" && (
-                <View style={s.voiceIndicator}>
-                  <ActivityIndicator size="small" color={GOLD} />
-                  <Text style={[s.voiceText, { color: c.mutedForeground }]}>Transcribing…</Text>
-                </View>
-              )}
-              {voiceRecorder.error && (
-                <Text style={{ color: colors.destructive, fontSize: 12 }}>{voiceRecorder.error}</Text>
-              )}
-              <Text style={[s.hint, { color: c.mutedForeground }]}>
-                Include scope, size, finish quality, and location for the best result. AI parses your description — pricing comes from our database.
-              </Text>
-            </>
-          )}
+            )}
 
-          {/* Voice-only mode */}
-          {inputMode === "voice" && (
-            <View style={s.voiceCenter}>
-              <Text style={[s.hint, { color: c.mutedForeground, textAlign: "center", marginBottom: 24 }]}>
-                {voiceRecorder.state === "recording"
-                  ? "Listening… tap the mic to stop"
-                  : voiceRecorder.state === "transcribing"
-                  ? "Transcribing your description…"
-                  : "Tap the mic and describe your project out loud"}
-              </Text>
-              <Animated.View style={[s.micPulse, { transform: [{ scale: pulseAnim }], backgroundColor: voiceRecorder.state === "recording" ? "#EF444420" : `${GOLD}18` }]} />
-              <Pressable
-                onPress={handleMicPress}
-                style={({ pressed }) => [
-                  s.micBtn,
-                  {
-                    backgroundColor: voiceRecorder.state === "recording" ? "#EF4444" : GOLD,
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}
-              >
-                {voiceRecorder.state === "transcribing"
-                  ? <ActivityIndicator color="#fff" />
-                  : <Feather name={voiceRecorder.state === "recording" ? "square" : "mic"} size={32} color="#fff" />
-                }
-              </Pressable>
-              {freeText.length > 0 && (
-                <View style={[s.transcriptBox, { backgroundColor: c.muted, borderColor: c.border }]}>
-                  <Text style={[{ color: c.mutedForeground, fontSize: 12 }]} numberOfLines={4}>"{freeText}"</Text>
-                </View>
-              )}
-              {voiceRecorder.error && (
-                <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 8 }}>{voiceRecorder.error}</Text>
-              )}
-            </View>
-          )}
-
-          {/* Manual Form mode */}
-          {inputMode === "form" && (
-            <View style={{ gap: 14 }}>
-              <Text style={[s.fieldLabel, { color: c.mutedForeground }]}>Project Type</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll}>
-                {Object.entries(PROJECT_TYPE_LABELS).map(([k, v]) => (
-                  <TouchableOpacity
-                    key={k}
-                    onPress={() => setParams((p) => ({ ...p, project_type: k }))}
-                    style={[
-                      s.chip,
-                      { borderColor: params.project_type === k ? GOLD : c.border, backgroundColor: params.project_type === k ? `${GOLD}18` : "transparent" },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 12, color: params.project_type === k ? GOLD : c.foreground }}>{v}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <Text style={[s.fieldLabel, { color: c.mutedForeground }]}>Square Footage</Text>
-              <TextInput
-                style={[s.input, { color: c.foreground, borderColor: c.border, backgroundColor: c.input }]}
-                value={String(params.square_feet)}
-                onChangeText={(v) => setParams((p) => ({ ...p, square_feet: parseFloat(v) || 0 }))}
-                keyboardType="numeric"
-                placeholderTextColor={c.mutedForeground}
-              />
-
-              <Text style={[s.fieldLabel, { color: c.mutedForeground }]}>Finish Level</Text>
-              <View style={s.finishGrid}>
-                {Object.entries(FINISH_LEVEL_LABELS).map(([k, v]) => (
-                  <TouchableOpacity
-                    key={k}
-                    onPress={() => setParams((p) => ({ ...p, finish_level: k }))}
-                    style={[
-                      s.finishCard,
-                      { borderColor: params.finish_level === k ? GOLD : c.border, backgroundColor: params.finish_level === k ? `${GOLD}14` : c.muted },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: params.finish_level === k ? GOLD : c.foreground }}>{v.label}</Text>
-                    <Text style={{ fontSize: 10, color: c.mutedForeground, marginTop: 2 }}>{v.desc}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* CTA — only show for text/form modes; voice auto-advances */}
-          {inputMode !== "voice" && (
             <TouchableOpacity
-              style={[s.primaryBtn, { opacity: isLoading ? 0.6 : 1 }]}
-              onPress={handleParseAndNext}
-              disabled={isLoading}
+              style={[s.outlineBtn, { opacity: parseMutation.isPending ? 0.6 : 1 }]}
+              onPress={handleExtractParams}
+              disabled={parseMutation.isPending}
               activeOpacity={0.8}
             >
               {parseMutation.isPending ? (
-                <ActivityIndicator color="#111" size="small" />
+                <ActivityIndicator color={GOLD} size="small" />
               ) : (
                 <>
-                  <Feather name={inputMode === "text" ? "zap" : "arrow-right"} size={16} color="#111" />
-                  <Text style={s.primaryBtnText}>{inputMode === "text" ? "Extract Parameters with AI" : "Continue to Review"}</Text>
+                  <Feather name="zap" size={14} color={GOLD} />
+                  <Text style={{ color: GOLD, fontWeight: "700", fontSize: 13 }}>Extract Parameters with AI</Text>
                 </>
               )}
             </TouchableOpacity>
-          )}
-        </View>
-      )}
+          </View>
 
-      {/* ═══════════════════════════════ STEP 2 ═══════════════════════════════ */}
-      {step === 2 && (
-        <View style={{ gap: 12 }}>
-          {/* Confidence warning */}
+          {/* Confidence / notes banners */}
           {params.confidence < 70 && (
             <View style={[s.warnBox, { backgroundColor: "#451a0350", borderColor: "#f59e0b50" }]}>
               <Feather name="alert-circle" size={14} color="#f59e0b" />
@@ -709,9 +640,10 @@ export default function EstimatorScreen() {
             </View>
           )}
 
+          {/* Structured form — always visible, auto-filled by AI, editable */}
           <View style={[s.card, { backgroundColor: c.card, borderColor: c.border }]}>
             <View style={s.row}>
-              <Text style={[s.cardTitle, { color: c.foreground }]}>Review & Adjust</Text>
+              <Text style={[s.cardTitle, { color: c.foreground }]}>Project Details</Text>
               {params.confidence > 0 && (
                 <View style={[s.badge, { borderColor: c.border }]}>
                   <Text style={{ fontSize: 10, color: c.mutedForeground }}>AI: {params.confidence}%</Text>
@@ -837,33 +769,40 @@ export default function EstimatorScreen() {
               </Text>
             </View>
 
-            {/* Buttons */}
-            <View style={s.btnRow}>
-              <TouchableOpacity style={[s.outlineBtn, { borderColor: c.border, paddingHorizontal: 16 }]} onPress={() => setStep(1)}>
-                <Feather name="arrow-left" size={14} color={c.foreground} />
-                <Text style={{ color: c.foreground, fontSize: 14 }}>Back</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.primaryBtn, { flex: 1, marginLeft: 8, flexDirection: "row", gap: 8, opacity: calculateMutation.isPending ? 0.7 : 1 }]}
-                onPress={handleCalculate}
-                disabled={calculateMutation.isPending}
-                activeOpacity={0.8}
-              >
-                {calculateMutation.isPending
-                  ? <ActivityIndicator color="#111" size="small" />
-                  : <>
-                      <Feather name="zap" size={16} color="#111" />
-                      <Text style={s.primaryBtnText}>Generate Estimate</Text>
-                    </>
-                }
-              </TouchableOpacity>
-            </View>
+            {calcError && (
+              <View style={[s.warnBox, { backgroundColor: "#45151550", borderColor: "#ef444450", flexDirection: "column", alignItems: "stretch", gap: 8 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Feather name="alert-circle" size={14} color="#ef4444" />
+                  <Text style={{ color: "#ef4444", fontSize: 12, flex: 1 }}>{calcError}</Text>
+                </View>
+                <TouchableOpacity onPress={handleCalculate} style={s.retryInlineBtn}>
+                  <Feather name="refresh-cw" size={13} color="#fff" />
+                  <Text style={s.retryInlineBtnText}>Tap to retry</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* CTA */}
+            <TouchableOpacity
+              style={[s.primaryBtn, { opacity: calculateMutation.isPending ? 0.7 : 1 }]}
+              onPress={handleCalculate}
+              disabled={calculateMutation.isPending}
+              activeOpacity={0.8}
+            >
+              {calculateMutation.isPending
+                ? <ActivityIndicator color="#111" size="small" />
+                : <>
+                    <Feather name="zap" size={16} color="#111" />
+                    <Text style={s.primaryBtnText}>Generate Estimate</Text>
+                  </>
+              }
+            </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {/* ═══════════════════════════════ STEP 3 ═══════════════════════════════ */}
-      {step === 3 && estimateResult && (
+      {/* ═══════════════════════════════ STEP 2 — Results ═══════════════════════════════ */}
+      {step === 2 && estimateResult && (
         <View style={{ gap: 12 }}>
           {/* Model banner */}
           <View style={[s.modelBanner, { backgroundColor: `${GOLD}14`, borderColor: `${GOLD}40` }]}>
@@ -1031,7 +970,7 @@ export default function EstimatorScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.actionBtn, { backgroundColor: c.card, borderWidth: 1, borderColor: c.border }]}
-              onPress={() => setStep(2)}
+              onPress={() => setStep(1)}
               activeOpacity={0.8}
             >
               <Feather name="edit-2" size={14} color={c.foreground} />
@@ -1141,6 +1080,7 @@ export default function EstimatorScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </View>
   );
 }
 
@@ -1182,24 +1122,19 @@ const s = StyleSheet.create({
   muted: { fontSize: 12 },
   hint: { fontSize: 12, lineHeight: 18 },
 
-  // Input mode tabs
-  modeTabs: { flexDirection: "row", borderRadius: 8, padding: 3, borderWidth: 1, gap: 2 },
-  modeTab: { flex: 1, paddingVertical: 7, borderRadius: 6, alignItems: "center" },
-  modeTabText: { fontSize: 12, fontWeight: "600" },
-
   // Text area
-  textareaWrap: { borderWidth: 1, borderRadius: 8, padding: 12, minHeight: 120, position: "relative" },
-  textarea: { fontSize: 14, minHeight: 100, textAlignVertical: "top", paddingRight: 40 },
-  inlineMic: { position: "absolute", right: 8, bottom: 8, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  textareaWrap: { borderWidth: 1, borderRadius: 8, padding: 12, minHeight: 100, position: "relative" },
+  textarea: { fontSize: 14, minHeight: 80, textAlignVertical: "top" },
 
-  // Voice
-  voiceIndicator: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: -4 },
-  voiceDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#EF4444" },
-  voiceText: { fontSize: 12 },
-  voiceCenter: { alignItems: "center", paddingVertical: 20, gap: 16 },
-  micPulse: { position: "absolute", width: 100, height: 100, borderRadius: 50 },
-  micBtn: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center" },
-  transcriptBox: { borderWidth: 1, borderRadius: 8, padding: 10, maxWidth: "100%", marginTop: 8 },
+  // Voice bar (always-visible, unified with form below)
+  voiceBar: { flexDirection: "row", alignItems: "center", gap: 12 },
+  micWrapSmall: { width: 56, height: 56, alignItems: "center", justifyContent: "center" },
+  micPulseSmall: { position: "absolute", width: 56, height: 56, borderRadius: 28 },
+  micBtnSmall: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  voiceBarTitle: { fontSize: 14, fontWeight: "700" },
+  voiceBarSub: { fontSize: 11, marginTop: 2 },
+  retryInlineBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 14, backgroundColor: "#2563EB" },
+  retryInlineBtnText: { fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
 
   // Inputs
   input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 14 },

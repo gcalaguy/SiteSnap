@@ -360,9 +360,14 @@ export default function ContactsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInset + 12, backgroundColor: colors.sidebar }]}>
-        <View>
-          <Text style={styles.headerTitle}>Contacts</Text>
-          <Text style={styles.headerSub}>Clients, workers, subcontractors & suppliers</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
+            <Feather name="arrow-left" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>Contacts</Text>
+            <Text style={styles.headerSub}>Clients, workers, subcontractors & suppliers</Text>
+          </View>
         </View>
         <TouchableOpacity
           style={[styles.newBtn, { backgroundColor: colors.primary }]}
@@ -472,6 +477,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 14,
   },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
+  backBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   headerSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.6)", marginTop: 1 },
   newBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },

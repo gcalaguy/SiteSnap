@@ -7,7 +7,19 @@ import { useDriveSync } from "@/hooks/settings/useDriveSync";
 
 export function IntegrationsTab() {
   const [collapsed, setCollapsed] = useState(true);
-  const { state, loading, selecting, supported, handleToggle, handleSelectFolder, handleClear } = useDriveSync();
+  const {
+    state,
+    loading,
+    selecting,
+    reauthorizing,
+    needsReauth,
+    syncStatus,
+    supported,
+    handleToggle,
+    handleSelectFolder,
+    handleReauthorize,
+    handleClear,
+  } = useDriveSync();
 
   return (
     <Card>
@@ -37,6 +49,24 @@ export function IntegrationsTab() {
               This feature requires a browser that supports the File System Access API
               (e.g. Chrome or Edge). It will not work in Safari or Firefox.
             </span>
+          </div>
+        )}
+
+        {needsReauth && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+            <div className="flex-1 space-y-2">
+              <span>
+                Sync is paused. Access to {state.pathName ? `"${state.pathName}"` : "the destination folder"} needs
+                to be re-authorized — browsers revoke folder access after a reload.
+              </span>
+              <div>
+                <Button size="sm" variant="outline" className="gap-2" disabled={reauthorizing} onClick={handleReauthorize}>
+                  {reauthorizing && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Re-authorize
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -91,6 +121,16 @@ export function IntegrationsTab() {
             </div>
           )}
         </div>
+
+        {state.enabled && state.pathName && !needsReauth && (
+          <p className={cn("text-xs", syncStatus.lastError ? "text-destructive" : "text-muted-foreground")}>
+            {syncStatus.lastError
+              ? `Last sync failed: ${syncStatus.lastError}`
+              : syncStatus.lastSuccessAt
+                ? `Last synced ${new Date(syncStatus.lastSuccessAt).toLocaleString()}`
+                : "No files synced yet."}
+          </p>
+        )}
       </CardContent>
     )}
     </Card>
