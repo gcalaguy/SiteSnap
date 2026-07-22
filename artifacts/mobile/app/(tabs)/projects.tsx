@@ -1,9 +1,16 @@
-import { useListProjects, useGetMe } from "@workspace/api-client-react";
+import {
+  useListProjects,
+  useGetMe,
+  useCreateProject,
+  getListProjectsQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -17,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import { Chip } from "@/components/ui";
+import { ProjectFormSheet, type ProjectFormValues } from "@/components/sheets/ProjectFormSheet";
 
 const STATUS_LABELS: Record<string, string> = {
   planning: "Active",
@@ -136,6 +144,23 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 12 },
   emptySubtext: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6 },
   count: { fontSize: 13, fontFamily: "Inter_400Regular", paddingHorizontal: 20, marginBottom: 8 },
+  fab: {
+    position: "absolute",
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  fabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });
 
 const ALL_STATUSES = ["all", "active", "on_hold", "completed"];
@@ -193,13 +218,47 @@ function ProjectsHeader({ search, onSearch, statusFilter, onStatus, isLoading, f
 
 export default function ProjectsScreen() {
   const colors = useColors();
-  const { bottom: bottomInset } = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
+  const bottomInset = insets.bottom;
+  const qc = useQueryClient();
   const { data: projects, isLoading, refetch } = useListProjects();
   const { data: me } = useGetMe();
   const isWorker = me?.role === "worker";
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const createProject = useCreateProject({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        refetch();
+        setShowCreateSheet(false);
+      },
+      onError: () => Alert.alert("Failed to create project"),
+      onSettled: () => setCreating(false),
+    },
+  });
+
+  function handleCreateProject(values: ProjectFormValues) {
+    setCreating(true);
+    createProject.mutate({
+      data: {
+        name: values.name,
+        address: values.address,
+        city: values.city,
+        province: values.province,
+        status: values.status,
+        startDate: values.startDate ?? undefined,
+        endDate: values.endDate ?? undefined,
+        budget: values.budget ?? undefined,
+        description: values.description ?? undefined,
+      },
+    });
+  }
 
   const filtered = (projects ?? []).filter(p => {
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || ((p as any).location ?? "").toLowerCase().includes(search.toLowerCase());
@@ -210,6 +269,7 @@ export default function ProjectsScreen() {
   });
 
   return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
     <FlatList
       style={[styles.container, { backgroundColor: colors.background }]}
       data={filtered}
@@ -247,6 +307,8 @@ export default function ProjectsScreen() {
                   ? "Try a different search term or clear your filters."
                   : isWorker
                   ? "You haven't been assigned to any projects yet. Ask your manager to add you to a project."
+                  : isOwnerOrForeman
+                  ? "Tap + New Project to create your first one."
                   : "Projects are created and managed on the web dashboard."}
               </Text>
             </>
@@ -254,5 +316,26 @@ export default function ProjectsScreen() {
         </View>
       }
     />
+
+      {isOwnerOrForeman && (
+        <Pressable
+          style={[styles.fab, { backgroundColor: colors.card, borderColor: colors.border, bottom: bottomInset + 20 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowCreateSheet(true);
+          }}
+        >
+          <Feather name="plus" size={18} color={colors.primary} />
+          <Text style={[styles.fabText, { color: colors.primary }]}>New Project</Text>
+        </Pressable>
+      )}
+
+      <ProjectFormSheet
+        visible={showCreateSheet}
+        onClose={() => setShowCreateSheet(false)}
+        onSubmit={handleCreateProject}
+        submitting={creating}
+      />
+    </View>
   );
 }

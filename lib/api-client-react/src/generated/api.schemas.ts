@@ -549,6 +549,9 @@ export interface DashboardSummary {
   revenuePipeline?: number;
   activeLeads?: number;
   pendingForms?: number;
+  quotesCreatedThisMonth?: number;
+  quotesApprovalRatePct?: number;
+  avgQuoteValue?: number;
 }
 
 export interface SmartSummary {
@@ -673,6 +676,33 @@ export interface UpdateTaskBody {
   status?: UpdateTaskBodyStatus;
   priority?: UpdateTaskBodyPriority;
   dueDate?: string | null;
+}
+
+export interface ScheduleAssignment {
+  id: number;
+  projectId: number;
+  userId?: number | null;
+  contactId?: number | null;
+  startDate: string;
+  endDate: string;
+  notes?: string | null;
+  createdAt: string;
+  projectName?: string | null;
+  userFirstName?: string | null;
+  userLastName?: string | null;
+  userRole?: string | null;
+  contactName?: string | null;
+  contactType?: string | null;
+  contactCompliance?: string | null;
+}
+
+export interface CreateScheduleBody {
+  projectId: number;
+  userId?: number;
+  contactId?: number;
+  startDate: string;
+  endDate: string;
+  notes?: string;
 }
 
 export interface UploadUrlRequest {
@@ -900,6 +930,20 @@ export const QuoteStatus = {
   converted: "converted",
 } as const;
 
+export interface ScopeItem {
+  /** @maxLength 100 */
+  trade: string;
+  /** @maxLength 100 */
+  room?: string | null;
+  /** @maxLength 200 */
+  taskCategory: string;
+  /** @maxLength 500 */
+  description: string;
+  quantity: number;
+  /** @maxLength 20 */
+  unit: string;
+}
+
 export interface Quote {
   id: number;
   companyId: number;
@@ -930,6 +974,9 @@ export interface Quote {
   signerUserAgent?: string | null;
   signedAt?: string | null;
   publicToken?: string | null;
+  sentAt?: string | null;
+  sentVia?: string | null;
+  structuredScope?: ScopeItem[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -998,13 +1045,34 @@ export interface UpdateQuoteBody {
   validUntil?: string | null;
 }
 
+/**
+ * Either voiceInput (fast path — extraction and pricing in one call) or scopeItems (pricing a scope already reviewed via /ai/scope/extract) is required.
+ */
 export interface QuoteAIGenerateBody {
+  /** @maxLength 3000 */
+  voiceInput?: string;
+  /**
+   * @minItems 1
+   * @maxItems 100
+   */
+  scopeItems?: ScopeItem[];
+  /** @maxLength 200 */
+  projectName?: string | null;
+  /** @maxLength 200 */
+  clientName?: string | null;
+}
+
+export interface ScopeExtractBody {
   /** @maxLength 3000 */
   voiceInput: string;
   /** @maxLength 200 */
   projectName?: string | null;
   /** @maxLength 200 */
   clientName?: string | null;
+}
+
+export interface ScopeExtractResponse {
+  scopeItems: ScopeItem[];
 }
 
 export interface QuoteAIGenerateResponse {
@@ -3068,6 +3136,12 @@ export type RejectQuoteBody = {
 
 export type ConvertQuoteToInvoiceBody = {
   dueDate?: string | null;
+};
+
+export type SendQuoteEmail200 = {
+  ok?: boolean;
+  sandboxWarning?: string;
+  quote?: Quote;
 };
 
 export type ListTimesheetsParams = {

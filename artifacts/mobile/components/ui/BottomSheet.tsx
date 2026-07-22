@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -9,6 +9,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
@@ -81,8 +82,6 @@ export function BottomSheet({ visible, onClose, title, children, scrollable = tr
 
   if (!mounted) return null;
 
-  const Content = scrollable ? ScrollView : View;
-
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={requestClose}>
       <View style={StyleSheet.absoluteFill}>
@@ -114,13 +113,22 @@ export function BottomSheet({ visible, onClose, title, children, scrollable = tr
             </View>
           </GestureDetector>
 
-          <Content
-            style={scrollable ? styles.scrollBody : undefined}
-            contentContainerStyle={scrollable ? styles.scrollContent : undefined}
-            keyboardShouldPersistTaps={scrollable ? "handled" : undefined}
-          >
-            {children}
-          </Content>
+          {scrollable ? (
+            // KeyboardAwareScrollView (not a plain ScrollView) so a focused field
+            // low in the sheet — e.g. Description — auto-scrolls clear of the
+            // keyboard instead of being hidden behind it.
+            <KeyboardAwareScrollView
+              style={styles.scrollBody}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              bottomOffset={insets.bottom + spacing.lg}
+            >
+              {children}
+            </KeyboardAwareScrollView>
+          ) : (
+            children
+          )}
         </Animated.View>
       </View>
     </Modal>

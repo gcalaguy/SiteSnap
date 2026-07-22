@@ -1,4 +1,5 @@
-import { useListProjects, useListTasks, useUpdateTask, useGetMe, customFetch } from "@workspace/api-client-react";
+import { useListProjects, useListTasks, useUpdateTask, useCreateTask, useGetMe, customFetch } from "@workspace/api-client-react";
+import { TaskFormSheet, type TaskFormValues } from "@/components/sheets/TaskFormSheet";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -272,6 +273,23 @@ const styles = StyleSheet.create({
   noProjectBanner: { marginHorizontal: 20, marginTop: 40, alignItems: "center" },
   noProjectText: { fontSize: 15, fontFamily: "Inter_500Medium", textAlign: "center", marginTop: 12 },
   noProjectSub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 6 },
+  fab: {
+    position: "absolute",
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  fabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });
 
 // ── Simple fuzzy match for voice task lookup ───────────────────────────────
@@ -481,6 +499,9 @@ function OwnerTasksScreen() {
   const { data: projects, isLoading: projectsLoading } = useListProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
   // The Home dashboard's "Overdue Tasks" tile deep-links here with ?filter=overdue
   // so the list it navigates to matches the count it showed.
   const params = useLocalSearchParams<{ filter?: string }>();
@@ -539,6 +560,31 @@ function OwnerTasksScreen() {
     );
   };
 
+  const createTask = useCreateTask({
+    mutation: {
+      onSuccess: () => {
+        refetch();
+        setShowCreateSheet(false);
+      },
+      onError: () => Alert.alert("Failed to create task"),
+      onSettled: () => setCreatingTask(false),
+    },
+  });
+
+  function handleCreateTask(values: TaskFormValues) {
+    setCreatingTask(true);
+    createTask.mutate({
+      projectId: values.projectId,
+      data: {
+        title: values.title,
+        description: values.description ?? undefined,
+        assignedToUserId: values.assignedToUserId ?? undefined,
+        priority: values.priority,
+        dueDate: values.dueDate ?? undefined,
+      },
+    });
+  }
+
   const fetchedTasks = (tasks ?? []) as Task[];
   const allTasks = statusFilter === "overdue" ? fetchedTasks.filter(isOverdueTask) : fetchedTasks;
   const myUserId = me?.id;
@@ -583,6 +629,7 @@ function OwnerTasksScreen() {
   });
 
   return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       showsVerticalScrollIndicator={false}
@@ -655,7 +702,7 @@ function OwnerTasksScreen() {
           <Feather name="layers" size={44} color={colors.border} />
           <Text style={[styles.noProjectText, { color: colors.foreground }]}>No projects yet</Text>
           <Text style={[styles.noProjectSub, { color: colors.mutedForeground }]}>
-            Create a project on the web dashboard to manage tasks.
+            {isOwnerOrForeman ? "Create a project from the Projects tab to start adding tasks." : "Create a project on the web dashboard to manage tasks."}
           </Text>
         </View>
       ) : tasksLoading ? (
@@ -681,6 +728,27 @@ function OwnerTasksScreen() {
         </>
       )}
     </ScrollView>
+
+      {isOwnerOrForeman && allProjects.length > 0 && (
+        <Pressable
+          style={[styles.fab, { backgroundColor: colors.card, borderColor: colors.border, bottom: insets.bottom + 20 }]}
+          onPress={() => {
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowCreateSheet(true);
+          }}
+        >
+          <Feather name="plus" size={18} color={colors.primary} />
+          <Text style={[styles.fabText, { color: colors.primary }]}>Task</Text>
+        </Pressable>
+      )}
+
+      <TaskFormSheet
+        visible={showCreateSheet}
+        onClose={() => setShowCreateSheet(false)}
+        onSubmit={handleCreateTask}
+        submitting={creatingTask}
+      />
+    </View>
   );
 }
 

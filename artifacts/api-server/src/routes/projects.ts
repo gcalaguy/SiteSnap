@@ -41,6 +41,14 @@ import { notify } from "../lib/notify";
 const router = Router();
 router.use(requireAuth, requireCompany, requireTenantCtx);
 
+// CreateProjectBody/UpdateProjectBody coerce startDate/endDate to a Date object
+// (zod.coerce.date()). Postgres's `date` column rejects Date#toString()'s
+// output ("Wed Jul 22 2026 00:00:00 GMT+0000 (Coordinated Universal Time)"),
+// so this must be reduced to a plain YYYY-MM-DD string before insert/update.
+function toDateOnlyString(value: Date | string): string {
+  return value instanceof Date ? value.toISOString().split("T")[0] : value;
+}
+
 // GET /projects
 router.get(
   "/projects",
@@ -137,8 +145,8 @@ router.post(
       .values({
         ...rest,
         companyId: req.companyId!,
-        startDate: startDate ? String(startDate) : null,
-        endDate: endDate ? String(endDate) : null,
+        startDate: startDate ? toDateOnlyString(startDate) : null,
+        endDate: endDate ? toDateOnlyString(endDate) : null,
         budget: budget != null ? String(budget) : null,
       })
       .returning();
@@ -238,8 +246,8 @@ router.put(
       .update(projectsTable)
       .set({
         ...updateRest,
-        startDate: ud !== undefined ? (ud ? String(ud) : null) : undefined,
-        endDate: ue !== undefined ? (ue ? String(ue) : null) : undefined,
+        startDate: ud !== undefined ? (ud ? toDateOnlyString(ud) : null) : undefined,
+        endDate: ue !== undefined ? (ue ? toDateOnlyString(ue) : null) : undefined,
         budget: ub !== undefined ? (ub != null ? String(ub) : null) : undefined,
       })
       .where(and(eq(projectsTable.id, projectId), eq(projectsTable.companyId, req.companyId!)))

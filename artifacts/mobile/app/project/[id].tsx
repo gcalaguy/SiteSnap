@@ -5,6 +5,8 @@ import {
   useListRFIs,
   useListTasks,
   useUpdateTask,
+  useCreateTask,
+  useCreateScheduleAssignment,
   useGetMe,
   useCreateDailyReport,
   useDeleteReportPhoto,
@@ -13,6 +15,8 @@ import {
   useListFormSubmissions,
   customFetch,
 } from "@workspace/api-client-react";
+import { TaskFormSheet, type TaskFormValues } from "@/components/sheets/TaskFormSheet";
+import { ScheduleFormSheet, type ScheduleFormValues } from "@/components/sheets/ScheduleFormSheet";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -540,6 +544,16 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   section: { paddingHorizontal: 20, marginBottom: 16 },
   sectionTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  addBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   reportRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -1107,6 +1121,57 @@ export default function ProjectDetailScreen() {
     { query: { enabled: perms.viewSafetyTab } as any },
   );
 
+  const [showTaskSheet, setShowTaskSheet] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const createTask = useCreateTask({
+    mutation: {
+      onSuccess: () => {
+        refetchTasks();
+        setShowTaskSheet(false);
+      },
+      onError: () => Alert.alert("Failed to create task"),
+      onSettled: () => setCreatingTask(false),
+    },
+  });
+  function handleCreateTask(values: TaskFormValues) {
+    setCreatingTask(true);
+    createTask.mutate({
+      projectId: values.projectId,
+      data: {
+        title: values.title,
+        description: values.description ?? undefined,
+        assignedToUserId: values.assignedToUserId ?? undefined,
+        priority: values.priority,
+        dueDate: values.dueDate ?? undefined,
+      },
+    });
+  }
+
+  const [showScheduleSheet, setShowScheduleSheet] = useState(false);
+  const [creatingSchedule, setCreatingSchedule] = useState(false);
+  const createSchedule = useCreateScheduleAssignment({
+    mutation: {
+      onSuccess: () => {
+        refetchSchedule();
+        setShowScheduleSheet(false);
+      },
+      onError: () => Alert.alert("Failed to assign worker"),
+      onSettled: () => setCreatingSchedule(false),
+    },
+  });
+  function handleCreateSchedule(values: ScheduleFormValues) {
+    setCreatingSchedule(true);
+    createSchedule.mutate({
+      data: {
+        projectId: values.projectId,
+        userId: values.userId,
+        startDate: values.startDate,
+        endDate: values.endDate,
+        notes: values.notes ?? undefined,
+      },
+    });
+  }
+
   useFocusEffect(
     useCallback(() => {
       refetchProject();
@@ -1128,22 +1193,24 @@ export default function ProjectDetailScreen() {
   const [scheduleAssignments, setScheduleAssignments] = useState<any[]>([]);
   const [scheduleEvents, setScheduleEvents] = useState<any[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
-  useEffect(() => {
-    if (activeTab !== "Schedules") return;
+  const refetchSchedule = useCallback(() => {
     setScheduleLoading(true);
-    Promise.all([
+    return Promise.all([
       customFetch(`/api/projects/${projectId}/schedule`).catch(() => []),
       customFetch(`/api/schedule/events?projectId=${projectId}`).catch(() => []),
     ]).then(([assignments, events]) => {
       const myUserId = me?.id;
+      // Owners/foremen manage the whole project's roster; workers only see their own schedule.
       setScheduleAssignments(
         Array.isArray(assignments)
-          ? (myUserId ? assignments.filter((a: any) => a.userId === myUserId) : [])
+          ? (isOwnerOrForeman ? assignments : myUserId ? assignments.filter((a: any) => a.userId === myUserId) : [])
           : [],
       );
       setScheduleEvents(
         Array.isArray(events)
-          ? (myUserId
+          ? (isOwnerOrForeman
+              ? events
+              : myUserId
               ? events.filter((ev: any) =>
                   Array.isArray(ev.assignees) &&
                   ev.assignees.some((a: any) => a.resourceType === "user" && a.resourceId === myUserId),
@@ -1152,7 +1219,12 @@ export default function ProjectDetailScreen() {
           : [],
       );
     }).finally(() => setScheduleLoading(false));
-  }, [projectId, activeTab, me?.id]);
+  }, [projectId, me?.id, isOwnerOrForeman]);
+
+  useEffect(() => {
+    if (activeTab !== "Schedules") return;
+    refetchSchedule();
+  }, [activeTab, refetchSchedule]);
 
   const formatCurrency = (v?: number | null) => {
     if (v == null) return "—";
@@ -1171,6 +1243,7 @@ export default function ProjectDetailScreen() {
   }
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       showsVerticalScrollIndicator={false}
@@ -1396,7 +1469,21 @@ export default function ProjectDetailScreen() {
       {/* Tasks tab */}
       {activeTab === "Tasks" && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Tasks</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>Tasks</Text>
+            {isOwnerOrForeman && (
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowTaskSheet(true);
+                }}
+                style={[styles.addBtn, { borderColor: colors.primary }]}
+              >
+                <Feather name="plus" size={14} color={colors.primary} />
+                <Text style={[styles.addBtnText, { color: colors.primary }]}>Add Task</Text>
+              </Pressable>
+            )}
+          </View>
           {(tasks ?? []).length === 0 ? (
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No tasks yet</Text>
           ) : (
@@ -1429,7 +1516,21 @@ export default function ProjectDetailScreen() {
               </View>
 
               {/* Workers Scheduled */}
-              <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 10 }]}>Workers Scheduled</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>Workers Scheduled</Text>
+                {isOwnerOrForeman && (
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setShowScheduleSheet(true);
+                    }}
+                    style={[styles.addBtn, { borderColor: colors.primary }]}
+                  >
+                    <Feather name="plus" size={14} color={colors.primary} />
+                    <Text style={[styles.addBtnText, { color: colors.primary }]}>Assign Worker</Text>
+                  </Pressable>
+                )}
+              </View>
               {scheduleAssignments.length === 0 ? (
                 <View style={[schedSt.emptyBox, { borderColor: colors.border }]}>
                   <Feather name="user-x" size={28} color={colors.border} />
@@ -1661,5 +1762,24 @@ export default function ProjectDetailScreen() {
       )}
 
     </ScrollView>
+
+      <TaskFormSheet
+        visible={showTaskSheet}
+        onClose={() => setShowTaskSheet(false)}
+        onSubmit={handleCreateTask}
+        submitting={creatingTask}
+        projectId={projectId}
+        projectName={project?.name}
+      />
+
+      <ScheduleFormSheet
+        visible={showScheduleSheet}
+        onClose={() => setShowScheduleSheet(false)}
+        onSubmit={handleCreateSchedule}
+        submitting={creatingSchedule}
+        projectId={projectId}
+        projectName={project?.name}
+      />
+    </>
   );
 }

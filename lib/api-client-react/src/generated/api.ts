@@ -81,6 +81,7 @@ import type {
   CreateQuoteBody,
   CreateRFIBody,
   CreateSafetySignoffBody,
+  CreateScheduleBody,
   CreateSitePhotoBody,
   CreateTaskBody,
   CreateTradehubConversation201,
@@ -182,10 +183,14 @@ import type {
   RejectQuoteBody,
   Rfi,
   SafetySignoffRecord,
+  ScheduleAssignment,
+  ScopeExtractBody,
+  ScopeExtractResponse,
   SearchTradehubUsersParams,
   SendInvoiceEmail200,
   SendInvoiceEmailBody,
   SendInvoiceReminder200,
+  SendQuoteEmail200,
   SendTradehubMessageBody,
   SetActiveCompanyBody,
   SitePhotoRecord,
@@ -11615,6 +11620,92 @@ export const useDeleteTask = <
 };
 
 /**
+ * @summary Assign a worker or subcontractor to a project for a date range
+ */
+export const getCreateScheduleAssignmentUrl = () => {
+  return `/api/schedule`;
+};
+
+export const createScheduleAssignment = async (
+  createScheduleBody: CreateScheduleBody,
+  options?: RequestInit,
+): Promise<ScheduleAssignment> => {
+  return customFetch<ScheduleAssignment>(getCreateScheduleAssignmentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createScheduleBody),
+  });
+};
+
+export const getCreateScheduleAssignmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createScheduleAssignment>>,
+    TError,
+    { data: BodyType<CreateScheduleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createScheduleAssignment>>,
+  TError,
+  { data: BodyType<CreateScheduleBody> },
+  TContext
+> => {
+  const mutationKey = ["createScheduleAssignment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createScheduleAssignment>>,
+    { data: BodyType<CreateScheduleBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createScheduleAssignment(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateScheduleAssignmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createScheduleAssignment>>
+>;
+export type CreateScheduleAssignmentMutationBody = BodyType<CreateScheduleBody>;
+export type CreateScheduleAssignmentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Assign a worker or subcontractor to a project for a date range
+ */
+export const useCreateScheduleAssignment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createScheduleAssignment>>,
+    TError,
+    { data: BodyType<CreateScheduleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createScheduleAssignment>>,
+  TError,
+  { data: BodyType<CreateScheduleBody> },
+  TContext
+> => {
+  return useMutation(getCreateScheduleAssignmentMutationOptions(options));
+};
+
+/**
  * @summary List photos for a daily report
  */
 export const getListReportPhotosUrl = (projectId: number, reportId: number) => {
@@ -13493,7 +13584,186 @@ export const useConvertQuoteToInvoice = <
 };
 
 /**
- * @summary AI-generate quote line items from voice/text description
+ * @summary Download a branded PDF of the quote (server-rendered)
+ */
+export const getGetQuotePdfUrl = (projectId: number, quoteId: number) => {
+  return `/api/projects/${projectId}/quotes/${quoteId}/pdf`;
+};
+
+export const getQuotePdf = async (
+  projectId: number,
+  quoteId: number,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getGetQuotePdfUrl(projectId, quoteId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetQuotePdfQueryKey = (projectId: number, quoteId: number) => {
+  return [`/api/projects/${projectId}/quotes/${quoteId}/pdf`] as const;
+};
+
+export const getGetQuotePdfQueryOptions = <
+  TData = Awaited<ReturnType<typeof getQuotePdf>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  quoteId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getQuotePdf>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetQuotePdfQueryKey(projectId, quoteId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getQuotePdf>>> = ({
+    signal,
+  }) => getQuotePdf(projectId, quoteId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(projectId && quoteId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getQuotePdf>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetQuotePdfQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getQuotePdf>>
+>;
+export type GetQuotePdfQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Download a branded PDF of the quote (server-rendered)
+ */
+
+export function useGetQuotePdf<
+  TData = Awaited<ReturnType<typeof getQuotePdf>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  quoteId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getQuotePdf>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetQuotePdfQueryOptions(projectId, quoteId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Email the quote PDF and public sign link to the client
+ */
+export const getSendQuoteEmailUrl = (projectId: number, quoteId: number) => {
+  return `/api/projects/${projectId}/quotes/${quoteId}/send-email`;
+};
+
+export const sendQuoteEmail = async (
+  projectId: number,
+  quoteId: number,
+  options?: RequestInit,
+): Promise<SendQuoteEmail200> => {
+  return customFetch<SendQuoteEmail200>(
+    getSendQuoteEmailUrl(projectId, quoteId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getSendQuoteEmailMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendQuoteEmail>>,
+    TError,
+    { projectId: number; quoteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendQuoteEmail>>,
+  TError,
+  { projectId: number; quoteId: number },
+  TContext
+> => {
+  const mutationKey = ["sendQuoteEmail"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendQuoteEmail>>,
+    { projectId: number; quoteId: number }
+  > = (props) => {
+    const { projectId, quoteId } = props ?? {};
+
+    return sendQuoteEmail(projectId, quoteId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendQuoteEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendQuoteEmail>>
+>;
+
+export type SendQuoteEmailMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Email the quote PDF and public sign link to the client
+ */
+export const useSendQuoteEmail = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendQuoteEmail>>,
+    TError,
+    { projectId: number; quoteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendQuoteEmail>>,
+  TError,
+  { projectId: number; quoteId: number },
+  TContext
+> => {
+  return useMutation(getSendQuoteEmailMutationOptions(options));
+};
+
+/**
+ * @summary AI-generate quote line items from voice/text description, or price a reviewed scope
  */
 export const getGenerateQuoteAIUrl = () => {
   return `/api/ai/quote/generate`;
@@ -13556,7 +13826,7 @@ export type GenerateQuoteAIMutationBody = BodyType<QuoteAIGenerateBody>;
 export type GenerateQuoteAIMutationError = ErrorType<unknown>;
 
 /**
- * @summary AI-generate quote line items from voice/text description
+ * @summary AI-generate quote line items from voice/text description, or price a reviewed scope
  */
 export const useGenerateQuoteAI = <
   TError = ErrorType<unknown>,
@@ -13576,6 +13846,92 @@ export const useGenerateQuoteAI = <
   TContext
 > => {
   return useMutation(getGenerateQuoteAIMutationOptions(options));
+};
+
+/**
+ * @summary Extract a structured, unpriced trade/room/task breakdown from a voice/text description
+ */
+export const getExtractQuoteScopeUrl = () => {
+  return `/api/ai/scope/extract`;
+};
+
+export const extractQuoteScope = async (
+  scopeExtractBody: ScopeExtractBody,
+  options?: RequestInit,
+): Promise<ScopeExtractResponse> => {
+  return customFetch<ScopeExtractResponse>(getExtractQuoteScopeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(scopeExtractBody),
+  });
+};
+
+export const getExtractQuoteScopeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof extractQuoteScope>>,
+    TError,
+    { data: BodyType<ScopeExtractBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof extractQuoteScope>>,
+  TError,
+  { data: BodyType<ScopeExtractBody> },
+  TContext
+> => {
+  const mutationKey = ["extractQuoteScope"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof extractQuoteScope>>,
+    { data: BodyType<ScopeExtractBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return extractQuoteScope(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExtractQuoteScopeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof extractQuoteScope>>
+>;
+export type ExtractQuoteScopeMutationBody = BodyType<ScopeExtractBody>;
+export type ExtractQuoteScopeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Extract a structured, unpriced trade/room/task breakdown from a voice/text description
+ */
+export const useExtractQuoteScope = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof extractQuoteScope>>,
+    TError,
+    { data: BodyType<ScopeExtractBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof extractQuoteScope>>,
+  TError,
+  { data: BodyType<ScopeExtractBody> },
+  TContext
+> => {
+  return useMutation(getExtractQuoteScopeMutationOptions(options));
 };
 
 /**

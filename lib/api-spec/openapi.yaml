@@ -2608,6 +2608,26 @@ paths:
         "204":
           description: Deleted
 
+  # ── Schedule ──────────────────────────────────────────────────────────────────
+  /schedule:
+    post:
+      operationId: createScheduleAssignment
+      tags: [projects]
+      summary: Assign a worker or subcontractor to a project for a date range
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleBody"
+      responses:
+        "201":
+          description: Assignment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleAssignment"
+
   # ── Photos ────────────────────────────────────────────────────────────────────
   /projects/{projectId}/daily-reports/{reportId}/photos:
     get:
@@ -3132,11 +3152,67 @@ paths:
               schema:
                 $ref: "#/components/schemas/Invoice"
 
+  /projects/{projectId}/quotes/{quoteId}/pdf:
+    get:
+      operationId: getQuotePdf
+      tags: [quotes]
+      summary: Download a branded PDF of the quote (server-rendered)
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /projects/{projectId}/quotes/{quoteId}/send-email:
+    post:
+      operationId: sendQuoteEmail
+      tags: [quotes]
+      summary: Email the quote PDF and public sign link to the client
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Email sent (or sandbox warning)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  sandboxWarning:
+                    type: string
+                  quote:
+                    $ref: "#/components/schemas/Quote"
+
   /ai/quote/generate:
     post:
       operationId: generateQuoteAI
       tags: [quotes, ai]
-      summary: AI-generate quote line items from voice/text description
+      summary: AI-generate quote line items from voice/text description, or price a reviewed scope
       requestBody:
         required: true
         content:
@@ -3150,6 +3226,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QuoteAIGenerateResponse"
+
+  /ai/scope/extract:
+    post:
+      operationId: extractQuoteScope
+      tags: [quotes, ai]
+      summary: Extract a structured, unpriced trade/room/task breakdown from a voice/text description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScopeExtractBody"
+      responses:
+        "200":
+          description: Extracted scope items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScopeExtractResponse"
 
   /timesheets:
     get:
@@ -5981,6 +6076,12 @@ components:
           type: integer
         pendingForms:
           type: integer
+        quotesCreatedThisMonth:
+          type: integer
+        quotesApprovalRatePct:
+          type: number
+        avgQuoteValue:
+          type: number
       required: [totalProjects, activeProjects, completedProjects, reportsThisWeek, openRFIs, totalSpentThisMonth, totalBudgetAllProjects, teamMemberCount]
 
     SmartSummary:
@@ -6116,6 +6217,69 @@ components:
         dueDate:
           type: string
           nullable: true
+
+    ScheduleAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        userId:
+          type: integer
+          nullable: true
+        contactId:
+          type: integer
+          nullable: true
+        startDate:
+          type: string
+        endDate:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        projectName:
+          type: string
+          nullable: true
+        userFirstName:
+          type: string
+          nullable: true
+        userLastName:
+          type: string
+          nullable: true
+        userRole:
+          type: string
+          nullable: true
+        contactName:
+          type: string
+          nullable: true
+        contactType:
+          type: string
+          nullable: true
+        contactCompliance:
+          type: string
+          nullable: true
+      required: [id, projectId, startDate, endDate, createdAt]
+
+    CreateScheduleBody:
+      type: object
+      properties:
+        projectId:
+          type: integer
+        userId:
+          type: integer
+        contactId:
+          type: integer
+        startDate:
+          type: string
+        endDate:
+          type: string
+        notes:
+          type: string
+      required: [projectId, startDate, endDate]
 
     # ── Storage ───────────────────────────────────────────────────────────────
     UploadUrlRequest:
@@ -6500,6 +6664,18 @@ components:
         publicToken:
           type: string
           nullable: true
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+        sentVia:
+          type: string
+          nullable: true
+        structuredScope:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ScopeItem"
         createdAt:
           type: string
           format: date-time
@@ -6614,7 +6790,52 @@ components:
           format: date
           nullable: true
 
+    ScopeItem:
+      type: object
+      required: [trade, taskCategory, description, quantity, unit]
+      properties:
+        trade:
+          type: string
+          maxLength: 100
+        room:
+          type: string
+          maxLength: 100
+          nullable: true
+        taskCategory:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 500
+        quantity:
+          type: number
+        unit:
+          type: string
+          maxLength: 20
+
     QuoteAIGenerateBody:
+      type: object
+      description: Either voiceInput (fast path — extraction and pricing in one call) or scopeItems (pricing a scope already reviewed via /ai/scope/extract) is required.
+      properties:
+        voiceInput:
+          type: string
+          maxLength: 3000
+        scopeItems:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ScopeItem"
+        projectName:
+          type: string
+          maxLength: 200
+          nullable: true
+        clientName:
+          type: string
+          maxLength: 200
+          nullable: true
+
+    ScopeExtractBody:
       type: object
       required: [voiceInput]
       properties:
@@ -6629,6 +6850,15 @@ components:
           type: string
           maxLength: 200
           nullable: true
+
+    ScopeExtractResponse:
+      type: object
+      required: [scopeItems]
+      properties:
+        scopeItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScopeItem"
 
     QuoteAIGenerateResponse:
       type: object

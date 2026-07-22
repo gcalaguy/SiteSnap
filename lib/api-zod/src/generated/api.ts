@@ -3580,6 +3580,9 @@ export const GetDashboardSummaryResponse = zod.object({
   revenuePipeline: zod.number().optional(),
   activeLeads: zod.number().optional(),
   pendingForms: zod.number().optional(),
+  quotesCreatedThisMonth: zod.number().optional(),
+  quotesApprovalRatePct: zod.number().optional(),
+  avgQuoteValue: zod.number().optional(),
 });
 
 /**
@@ -3740,6 +3743,18 @@ export const UpdateTaskResponse = zod.object({
 export const DeleteTaskParams = zod.object({
   projectId: zod.coerce.number(),
   taskId: zod.coerce.number(),
+});
+
+/**
+ * @summary Assign a worker or subcontractor to a project for a date range
+ */
+export const CreateScheduleAssignmentBody = zod.object({
+  projectId: zod.number(),
+  userId: zod.number().optional(),
+  contactId: zod.number().optional(),
+  startDate: zod.string(),
+  endDate: zod.string(),
+  notes: zod.string().optional(),
 });
 
 /**
@@ -3924,6 +3939,16 @@ export const listQuotesResponseLineItemsItemDescriptionMax = 500;
 
 export const listQuotesResponseLineItemsItemUnitMax = 20;
 
+export const listQuotesResponseStructuredScopeItemTradeMax = 100;
+
+export const listQuotesResponseStructuredScopeItemRoomMax = 100;
+
+export const listQuotesResponseStructuredScopeItemTaskCategoryMax = 200;
+
+export const listQuotesResponseStructuredScopeItemDescriptionMax = 500;
+
+export const listQuotesResponseStructuredScopeItemUnitMax = 20;
+
 export const ListQuotesResponseItem = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -3970,6 +3995,27 @@ export const ListQuotesResponseItem = zod.object({
   signerUserAgent: zod.string().nullish(),
   signedAt: zod.coerce.date().nullish(),
   publicToken: zod.string().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentVia: zod.string().nullish(),
+  structuredScope: zod
+    .array(
+      zod.object({
+        trade: zod.string().max(listQuotesResponseStructuredScopeItemTradeMax),
+        room: zod
+          .string()
+          .max(listQuotesResponseStructuredScopeItemRoomMax)
+          .nullish(),
+        taskCategory: zod
+          .string()
+          .max(listQuotesResponseStructuredScopeItemTaskCategoryMax),
+        description: zod
+          .string()
+          .max(listQuotesResponseStructuredScopeItemDescriptionMax),
+        quantity: zod.number(),
+        unit: zod.string().max(listQuotesResponseStructuredScopeItemUnitMax),
+      }),
+    )
+    .nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4049,6 +4095,16 @@ export const getQuoteResponseLineItemsItemDescriptionMax = 500;
 
 export const getQuoteResponseLineItemsItemUnitMax = 20;
 
+export const getQuoteResponseStructuredScopeItemTradeMax = 100;
+
+export const getQuoteResponseStructuredScopeItemRoomMax = 100;
+
+export const getQuoteResponseStructuredScopeItemTaskCategoryMax = 200;
+
+export const getQuoteResponseStructuredScopeItemDescriptionMax = 500;
+
+export const getQuoteResponseStructuredScopeItemUnitMax = 20;
+
 export const GetQuoteResponse = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -4095,6 +4151,27 @@ export const GetQuoteResponse = zod.object({
   signerUserAgent: zod.string().nullish(),
   signedAt: zod.coerce.date().nullish(),
   publicToken: zod.string().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentVia: zod.string().nullish(),
+  structuredScope: zod
+    .array(
+      zod.object({
+        trade: zod.string().max(getQuoteResponseStructuredScopeItemTradeMax),
+        room: zod
+          .string()
+          .max(getQuoteResponseStructuredScopeItemRoomMax)
+          .nullish(),
+        taskCategory: zod
+          .string()
+          .max(getQuoteResponseStructuredScopeItemTaskCategoryMax),
+        description: zod
+          .string()
+          .max(getQuoteResponseStructuredScopeItemDescriptionMax),
+        quantity: zod.number(),
+        unit: zod.string().max(getQuoteResponseStructuredScopeItemUnitMax),
+      }),
+    )
+    .nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4166,6 +4243,16 @@ export const updateQuoteResponseLineItemsItemDescriptionMax = 500;
 
 export const updateQuoteResponseLineItemsItemUnitMax = 20;
 
+export const updateQuoteResponseStructuredScopeItemTradeMax = 100;
+
+export const updateQuoteResponseStructuredScopeItemRoomMax = 100;
+
+export const updateQuoteResponseStructuredScopeItemTaskCategoryMax = 200;
+
+export const updateQuoteResponseStructuredScopeItemDescriptionMax = 500;
+
+export const updateQuoteResponseStructuredScopeItemUnitMax = 20;
+
 export const UpdateQuoteResponse = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -4212,6 +4299,27 @@ export const UpdateQuoteResponse = zod.object({
   signerUserAgent: zod.string().nullish(),
   signedAt: zod.coerce.date().nullish(),
   publicToken: zod.string().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentVia: zod.string().nullish(),
+  structuredScope: zod
+    .array(
+      zod.object({
+        trade: zod.string().max(updateQuoteResponseStructuredScopeItemTradeMax),
+        room: zod
+          .string()
+          .max(updateQuoteResponseStructuredScopeItemRoomMax)
+          .nullish(),
+        taskCategory: zod
+          .string()
+          .max(updateQuoteResponseStructuredScopeItemTaskCategoryMax),
+        description: zod
+          .string()
+          .max(updateQuoteResponseStructuredScopeItemDescriptionMax),
+        quantity: zod.number(),
+        unit: zod.string().max(updateQuoteResponseStructuredScopeItemUnitMax),
+      }),
+    )
+    .nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4235,6 +4343,16 @@ export const SubmitQuoteForApprovalParams = zod.object({
 export const submitQuoteForApprovalResponseLineItemsItemDescriptionMax = 500;
 
 export const submitQuoteForApprovalResponseLineItemsItemUnitMax = 20;
+
+export const submitQuoteForApprovalResponseStructuredScopeItemTradeMax = 100;
+
+export const submitQuoteForApprovalResponseStructuredScopeItemRoomMax = 100;
+
+export const submitQuoteForApprovalResponseStructuredScopeItemTaskCategoryMax = 200;
+
+export const submitQuoteForApprovalResponseStructuredScopeItemDescriptionMax = 500;
+
+export const submitQuoteForApprovalResponseStructuredScopeItemUnitMax = 20;
 
 export const SubmitQuoteForApprovalResponse = zod.object({
   id: zod.number(),
@@ -4284,6 +4402,33 @@ export const SubmitQuoteForApprovalResponse = zod.object({
   signerUserAgent: zod.string().nullish(),
   signedAt: zod.coerce.date().nullish(),
   publicToken: zod.string().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentVia: zod.string().nullish(),
+  structuredScope: zod
+    .array(
+      zod.object({
+        trade: zod
+          .string()
+          .max(submitQuoteForApprovalResponseStructuredScopeItemTradeMax),
+        room: zod
+          .string()
+          .max(submitQuoteForApprovalResponseStructuredScopeItemRoomMax)
+          .nullish(),
+        taskCategory: zod
+          .string()
+          .max(
+            submitQuoteForApprovalResponseStructuredScopeItemTaskCategoryMax,
+          ),
+        description: zod
+          .string()
+          .max(submitQuoteForApprovalResponseStructuredScopeItemDescriptionMax),
+        quantity: zod.number(),
+        unit: zod
+          .string()
+          .max(submitQuoteForApprovalResponseStructuredScopeItemUnitMax),
+      }),
+    )
+    .nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4299,6 +4444,16 @@ export const UnsubmitQuoteParams = zod.object({
 export const unsubmitQuoteResponseLineItemsItemDescriptionMax = 500;
 
 export const unsubmitQuoteResponseLineItemsItemUnitMax = 20;
+
+export const unsubmitQuoteResponseStructuredScopeItemTradeMax = 100;
+
+export const unsubmitQuoteResponseStructuredScopeItemRoomMax = 100;
+
+export const unsubmitQuoteResponseStructuredScopeItemTaskCategoryMax = 200;
+
+export const unsubmitQuoteResponseStructuredScopeItemDescriptionMax = 500;
+
+export const unsubmitQuoteResponseStructuredScopeItemUnitMax = 20;
 
 export const UnsubmitQuoteResponse = zod.object({
   id: zod.number(),
@@ -4346,6 +4501,29 @@ export const UnsubmitQuoteResponse = zod.object({
   signerUserAgent: zod.string().nullish(),
   signedAt: zod.coerce.date().nullish(),
   publicToken: zod.string().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentVia: zod.string().nullish(),
+  structuredScope: zod
+    .array(
+      zod.object({
+        trade: zod
+          .string()
+          .max(unsubmitQuoteResponseStructuredScopeItemTradeMax),
+        room: zod
+          .string()
+          .max(unsubmitQuoteResponseStructuredScopeItemRoomMax)
+          .nullish(),
+        taskCategory: zod
+          .string()
+          .max(unsubmitQuoteResponseStructuredScopeItemTaskCategoryMax),
+        description: zod
+          .string()
+          .max(unsubmitQuoteResponseStructuredScopeItemDescriptionMax),
+        quantity: zod.number(),
+        unit: zod.string().max(unsubmitQuoteResponseStructuredScopeItemUnitMax),
+      }),
+    )
+    .nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4361,6 +4539,16 @@ export const ApproveQuoteParams = zod.object({
 export const approveQuoteResponseLineItemsItemDescriptionMax = 500;
 
 export const approveQuoteResponseLineItemsItemUnitMax = 20;
+
+export const approveQuoteResponseStructuredScopeItemTradeMax = 100;
+
+export const approveQuoteResponseStructuredScopeItemRoomMax = 100;
+
+export const approveQuoteResponseStructuredScopeItemTaskCategoryMax = 200;
+
+export const approveQuoteResponseStructuredScopeItemDescriptionMax = 500;
+
+export const approveQuoteResponseStructuredScopeItemUnitMax = 20;
 
 export const ApproveQuoteResponse = zod.object({
   id: zod.number(),
@@ -4408,6 +4596,29 @@ export const ApproveQuoteResponse = zod.object({
   signerUserAgent: zod.string().nullish(),
   signedAt: zod.coerce.date().nullish(),
   publicToken: zod.string().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentVia: zod.string().nullish(),
+  structuredScope: zod
+    .array(
+      zod.object({
+        trade: zod
+          .string()
+          .max(approveQuoteResponseStructuredScopeItemTradeMax),
+        room: zod
+          .string()
+          .max(approveQuoteResponseStructuredScopeItemRoomMax)
+          .nullish(),
+        taskCategory: zod
+          .string()
+          .max(approveQuoteResponseStructuredScopeItemTaskCategoryMax),
+        description: zod
+          .string()
+          .max(approveQuoteResponseStructuredScopeItemDescriptionMax),
+        quantity: zod.number(),
+        unit: zod.string().max(approveQuoteResponseStructuredScopeItemUnitMax),
+      }),
+    )
+    .nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4427,6 +4638,16 @@ export const RejectQuoteBody = zod.object({
 export const rejectQuoteResponseLineItemsItemDescriptionMax = 500;
 
 export const rejectQuoteResponseLineItemsItemUnitMax = 20;
+
+export const rejectQuoteResponseStructuredScopeItemTradeMax = 100;
+
+export const rejectQuoteResponseStructuredScopeItemRoomMax = 100;
+
+export const rejectQuoteResponseStructuredScopeItemTaskCategoryMax = 200;
+
+export const rejectQuoteResponseStructuredScopeItemDescriptionMax = 500;
+
+export const rejectQuoteResponseStructuredScopeItemUnitMax = 20;
 
 export const RejectQuoteResponse = zod.object({
   id: zod.number(),
@@ -4474,6 +4695,27 @@ export const RejectQuoteResponse = zod.object({
   signerUserAgent: zod.string().nullish(),
   signedAt: zod.coerce.date().nullish(),
   publicToken: zod.string().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentVia: zod.string().nullish(),
+  structuredScope: zod
+    .array(
+      zod.object({
+        trade: zod.string().max(rejectQuoteResponseStructuredScopeItemTradeMax),
+        room: zod
+          .string()
+          .max(rejectQuoteResponseStructuredScopeItemRoomMax)
+          .nullish(),
+        taskCategory: zod
+          .string()
+          .max(rejectQuoteResponseStructuredScopeItemTaskCategoryMax),
+        description: zod
+          .string()
+          .max(rejectQuoteResponseStructuredScopeItemDescriptionMax),
+        quantity: zod.number(),
+        unit: zod.string().max(rejectQuoteResponseStructuredScopeItemUnitMax),
+      }),
+    )
+    .nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4491,19 +4733,173 @@ export const ConvertQuoteToInvoiceBody = zod.object({
 });
 
 /**
- * @summary AI-generate quote line items from voice/text description
+ * @summary Download a branded PDF of the quote (server-rendered)
+ */
+export const GetQuotePdfParams = zod.object({
+  projectId: zod.coerce.number(),
+  quoteId: zod.coerce.number(),
+});
+
+/**
+ * @summary Email the quote PDF and public sign link to the client
+ */
+export const SendQuoteEmailParams = zod.object({
+  projectId: zod.coerce.number(),
+  quoteId: zod.coerce.number(),
+});
+
+export const sendQuoteEmailResponseQuoteLineItemsItemDescriptionMax = 500;
+
+export const sendQuoteEmailResponseQuoteLineItemsItemUnitMax = 20;
+
+export const sendQuoteEmailResponseQuoteStructuredScopeItemTradeMax = 100;
+
+export const sendQuoteEmailResponseQuoteStructuredScopeItemRoomMax = 100;
+
+export const sendQuoteEmailResponseQuoteStructuredScopeItemTaskCategoryMax = 200;
+
+export const sendQuoteEmailResponseQuoteStructuredScopeItemDescriptionMax = 500;
+
+export const sendQuoteEmailResponseQuoteStructuredScopeItemUnitMax = 20;
+
+export const SendQuoteEmailResponse = zod.object({
+  ok: zod.boolean().optional(),
+  sandboxWarning: zod.string().optional(),
+  quote: zod
+    .object({
+      id: zod.number(),
+      companyId: zod.number(),
+      projectId: zod.number().nullish(),
+      quoteNumber: zod.string(),
+      title: zod.string(),
+      clientName: zod.string(),
+      clientEmail: zod.string().nullish(),
+      clientCompanyName: zod.string().nullish(),
+      clientAddress: zod.string().nullish(),
+      clientPhone: zod.string().nullish(),
+      status: zod.enum([
+        "draft",
+        "pending_approval",
+        "approved",
+        "rejected",
+        "converted",
+      ]),
+      voiceInput: zod.string().nullish(),
+      lineItems: zod.array(
+        zod.object({
+          description: zod
+            .string()
+            .max(sendQuoteEmailResponseQuoteLineItemsItemDescriptionMax),
+          quantity: zod.number(),
+          unit: zod
+            .string()
+            .max(sendQuoteEmailResponseQuoteLineItemsItemUnitMax),
+          unitPrice: zod.number(),
+          total: zod.number(),
+        }),
+      ),
+      subtotal: zod.string(),
+      taxRate: zod.string(),
+      taxAmount: zod.string(),
+      total: zod.string(),
+      notes: zod.string().nullish(),
+      validUntil: zod.coerce.date().nullish(),
+      createdByUserId: zod.number(),
+      approvedByUserId: zod.number().nullish(),
+      approvedAt: zod.coerce.date().nullish(),
+      convertedAt: zod.coerce.date().nullish(),
+      signatureData: zod.string().nullish(),
+      signerName: zod.string().nullish(),
+      signerIp: zod.string().nullish(),
+      signerUserAgent: zod.string().nullish(),
+      signedAt: zod.coerce.date().nullish(),
+      publicToken: zod.string().nullish(),
+      sentAt: zod.coerce.date().nullish(),
+      sentVia: zod.string().nullish(),
+      structuredScope: zod
+        .array(
+          zod.object({
+            trade: zod
+              .string()
+              .max(sendQuoteEmailResponseQuoteStructuredScopeItemTradeMax),
+            room: zod
+              .string()
+              .max(sendQuoteEmailResponseQuoteStructuredScopeItemRoomMax)
+              .nullish(),
+            taskCategory: zod
+              .string()
+              .max(
+                sendQuoteEmailResponseQuoteStructuredScopeItemTaskCategoryMax,
+              ),
+            description: zod
+              .string()
+              .max(
+                sendQuoteEmailResponseQuoteStructuredScopeItemDescriptionMax,
+              ),
+            quantity: zod.number(),
+            unit: zod
+              .string()
+              .max(sendQuoteEmailResponseQuoteStructuredScopeItemUnitMax),
+          }),
+        )
+        .nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary AI-generate quote line items from voice/text description, or price a reviewed scope
  */
 export const generateQuoteAIBodyVoiceInputMax = 3000;
+
+export const generateQuoteAIBodyScopeItemsItemTradeMax = 100;
+
+export const generateQuoteAIBodyScopeItemsItemRoomMax = 100;
+
+export const generateQuoteAIBodyScopeItemsItemTaskCategoryMax = 200;
+
+export const generateQuoteAIBodyScopeItemsItemDescriptionMax = 500;
+
+export const generateQuoteAIBodyScopeItemsItemUnitMax = 20;
+
+export const generateQuoteAIBodyScopeItemsMax = 100;
 
 export const generateQuoteAIBodyProjectNameMax = 200;
 
 export const generateQuoteAIBodyClientNameMax = 200;
 
-export const GenerateQuoteAIBody = zod.object({
-  voiceInput: zod.string().max(generateQuoteAIBodyVoiceInputMax),
-  projectName: zod.string().max(generateQuoteAIBodyProjectNameMax).nullish(),
-  clientName: zod.string().max(generateQuoteAIBodyClientNameMax).nullish(),
-});
+export const GenerateQuoteAIBody = zod
+  .object({
+    voiceInput: zod.string().max(generateQuoteAIBodyVoiceInputMax).optional(),
+    scopeItems: zod
+      .array(
+        zod.object({
+          trade: zod.string().max(generateQuoteAIBodyScopeItemsItemTradeMax),
+          room: zod
+            .string()
+            .max(generateQuoteAIBodyScopeItemsItemRoomMax)
+            .nullish(),
+          taskCategory: zod
+            .string()
+            .max(generateQuoteAIBodyScopeItemsItemTaskCategoryMax),
+          description: zod
+            .string()
+            .max(generateQuoteAIBodyScopeItemsItemDescriptionMax),
+          quantity: zod.number(),
+          unit: zod.string().max(generateQuoteAIBodyScopeItemsItemUnitMax),
+        }),
+      )
+      .min(1)
+      .max(generateQuoteAIBodyScopeItemsMax)
+      .optional(),
+    projectName: zod.string().max(generateQuoteAIBodyProjectNameMax).nullish(),
+    clientName: zod.string().max(generateQuoteAIBodyClientNameMax).nullish(),
+  })
+  .describe(
+    "Either voiceInput (fast path — extraction and pricing in one call) or scopeItems (pricing a scope already reviewed via \/ai\/scope\/extract) is required.",
+  );
 
 export const generateQuoteAIResponseLineItemsItemDescriptionMax = 500;
 
@@ -4526,6 +4922,51 @@ export const GenerateQuoteAIResponse = zod.object({
   taxAmount: zod.number(),
   total: zod.number(),
   notes: zod.string(),
+});
+
+/**
+ * @summary Extract a structured, unpriced trade/room/task breakdown from a voice/text description
+ */
+export const extractQuoteScopeBodyVoiceInputMax = 3000;
+
+export const extractQuoteScopeBodyProjectNameMax = 200;
+
+export const extractQuoteScopeBodyClientNameMax = 200;
+
+export const ExtractQuoteScopeBody = zod.object({
+  voiceInput: zod.string().max(extractQuoteScopeBodyVoiceInputMax),
+  projectName: zod.string().max(extractQuoteScopeBodyProjectNameMax).nullish(),
+  clientName: zod.string().max(extractQuoteScopeBodyClientNameMax).nullish(),
+});
+
+export const extractQuoteScopeResponseScopeItemsItemTradeMax = 100;
+
+export const extractQuoteScopeResponseScopeItemsItemRoomMax = 100;
+
+export const extractQuoteScopeResponseScopeItemsItemTaskCategoryMax = 200;
+
+export const extractQuoteScopeResponseScopeItemsItemDescriptionMax = 500;
+
+export const extractQuoteScopeResponseScopeItemsItemUnitMax = 20;
+
+export const ExtractQuoteScopeResponse = zod.object({
+  scopeItems: zod.array(
+    zod.object({
+      trade: zod.string().max(extractQuoteScopeResponseScopeItemsItemTradeMax),
+      room: zod
+        .string()
+        .max(extractQuoteScopeResponseScopeItemsItemRoomMax)
+        .nullish(),
+      taskCategory: zod
+        .string()
+        .max(extractQuoteScopeResponseScopeItemsItemTaskCategoryMax),
+      description: zod
+        .string()
+        .max(extractQuoteScopeResponseScopeItemsItemDescriptionMax),
+      quantity: zod.number(),
+      unit: zod.string().max(extractQuoteScopeResponseScopeItemsItemUnitMax),
+    }),
+  ),
 });
 
 /**
@@ -4820,6 +5261,16 @@ export const listAllQuotesResponseLineItemsItemDescriptionMax = 500;
 
 export const listAllQuotesResponseLineItemsItemUnitMax = 20;
 
+export const listAllQuotesResponseStructuredScopeItemTradeMax = 100;
+
+export const listAllQuotesResponseStructuredScopeItemRoomMax = 100;
+
+export const listAllQuotesResponseStructuredScopeItemTaskCategoryMax = 200;
+
+export const listAllQuotesResponseStructuredScopeItemDescriptionMax = 500;
+
+export const listAllQuotesResponseStructuredScopeItemUnitMax = 20;
+
 export const ListAllQuotesResponseItem = zod.object({
   id: zod.number(),
   companyId: zod.number(),
@@ -4866,6 +5317,29 @@ export const ListAllQuotesResponseItem = zod.object({
   signerUserAgent: zod.string().nullish(),
   signedAt: zod.coerce.date().nullish(),
   publicToken: zod.string().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentVia: zod.string().nullish(),
+  structuredScope: zod
+    .array(
+      zod.object({
+        trade: zod
+          .string()
+          .max(listAllQuotesResponseStructuredScopeItemTradeMax),
+        room: zod
+          .string()
+          .max(listAllQuotesResponseStructuredScopeItemRoomMax)
+          .nullish(),
+        taskCategory: zod
+          .string()
+          .max(listAllQuotesResponseStructuredScopeItemTaskCategoryMax),
+        description: zod
+          .string()
+          .max(listAllQuotesResponseStructuredScopeItemDescriptionMax),
+        quantity: zod.number(),
+        unit: zod.string().max(listAllQuotesResponseStructuredScopeItemUnitMax),
+      }),
+    )
+    .nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
