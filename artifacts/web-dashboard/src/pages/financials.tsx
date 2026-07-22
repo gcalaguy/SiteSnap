@@ -37,6 +37,7 @@ export default function FinancialsHubPage() {
   const params = new URLSearchParams(search);
   const requestedTab = params.get("tab");
   const requestedSub = params.get("sub");
+  const requestedPeriod = params.get("period");
 
   const [tab, setTab] = useState<MainTab>(() => {
     if (requestedTab === "quotes" && canViewQuotes) return "quotes";
@@ -130,7 +131,9 @@ export default function FinancialsHubPage() {
         )}
         {tab === "quotes" && canViewQuotes && <QuotesPage />}
         {tab === "invoices" && canViewInvoices && <InvoicesPage />}
-        {tab === "expenses" && canViewExpenses && <CompanyExpensesPage />}
+        {tab === "expenses" && canViewExpenses && (
+          <CompanyExpensesPage initialPeriod={requestedPeriod === "month" ? "month" : "all"} />
+        )}
         {tab === "payments" && canViewPayments && <PaymentsChangeOrdersPage />}
       </div>
     </div>

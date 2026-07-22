@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
@@ -31,14 +31,16 @@ import {
   useListProjects,
   getListChangeOrdersQueryKey,
 } from "@workspace/api-client-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { getAiErrorMessage } from "@/src/utils/aiError";
 import EstimatorScreen from "@/app/estimator";
 import { SwipeableRow } from "@/components/ui";
 import { ChangeOrderCard } from "@/components/cards/ChangeOrderCard";
+import { CostRecordCard } from "@/components/cards/CostRecordCard";
 import { ChangeOrderFormSheet, type ChangeOrderFormValues } from "@/components/sheets/ChangeOrderFormSheet";
 import type { StatusTone } from "@/components/ui/StatusPill";
+import { getExpenseStatusTone, getExpenseStatusLabel } from "@/src/utils/expenseStatus";
 
 const CO_STATUS_TONE: Record<string, StatusTone> = {
   pending: "pending",
@@ -51,10 +53,41 @@ const CO_STATUS_LABEL: Record<string, string> = {
   rejected: "Rejected",
 };
 
-// [Estimates] | [Quotes] | [Invoices] — the consolidated pre-construction & billing lifecycle hub.
+// [Estimates] | [Quotes] | [Invoices] | [Expenses] — the consolidated pre-construction & billing lifecycle hub.
 // Change Orders live as a dense secondary segment inside Invoices (progress billing/collections).
-type TabKey = "estimates" | "quotes" | "invoices";
+type TabKey = "estimates" | "quotes" | "invoices" | "expenses";
 type InvoicesView = "invoices" | "change-orders";
+type ExpensePeriod = "month" | "all";
+
+interface CompanyExpense {
+  id: number;
+  projectId: number;
+  projectName: string;
+  amount: string;
+  description: string;
+  vendorName: string | null;
+  taxAmount: string | null;
+  expenseDate: string | null;
+  receiptObjectPath: string | null;
+  status: string;
+  createdAt: string;
+  submittedByName: string;
+}
+
+// Same "this month" boundary the Home dashboard's "This Month's Spend" tile
+// and the web dashboard's equivalent tile use, so all three numbers match.
+function isExpenseThisMonth(e: CompanyExpense): boolean {
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  if (e.expenseDate) {
+    // expenseDate is a date-only "YYYY-MM-DD" string — compare the calendar
+    // month directly. Parsing it with `new Date(...)` would read it as UTC
+    // midnight and can shift a day when read back via local getMonth().
+    return e.expenseDate.slice(0, 7) === currentMonthKey;
+  }
+  const d = new Date(e.createdAt);
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
 
 const INVOICE_STATUS_COLORS: Record<string, string> = {
   draft: "#6B7280",
@@ -156,7 +189,11 @@ export default function FinanceScreen() {
     }
   }, [me, isOwnerOrForeman]);
 
-  const [tab, setTab] = useState<TabKey>("invoices");
+  // The Home dashboard's "This Month's Spend" tile deep-links here with
+  // ?tab=expenses&period=month so this screen lands on the same data it promised.
+  const params = useLocalSearchParams<{ tab?: string; period?: string }>();
+  const [tab, setTab] = useState<TabKey>(params.tab === "expenses" ? "expenses" : "invoices");
+  const [expensePeriod, setExpensePeriod] = useState<ExpensePeriod>(params.period === "month" ? "month" : "all");
   const [invoicesView, setInvoicesView] = useState<InvoicesView>("invoices");
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [voiceFor, setVoiceFor] = useState<"invoice" | "quote">("invoice");
@@ -229,10 +266,27 @@ export default function FinanceScreen() {
   const { data: invoices, isLoading: invLoading, isError: invError, error: invErrorObj, refetch: refetchInv, dataUpdatedAt: invUpdatedAt } = useListAllInvoices({});
   const { data: quotes, isLoading: qLoading, isError: qError, error: qErrorObj, refetch: refetchQ, dataUpdatedAt: qUpdatedAt } = useListAllQuotes({});
   const { data: changeOrders, isLoading: coLoading, isRefetching: coRefreshing, refetch: refetchCO, dataUpdatedAt: coDataUpdatedAt } = useListChangeOrders();
+  const {
+    data: companyExpenses = [],
+    isLoading: expLoading,
+    isRefetching: expRefreshing,
+    refetch: refetchExp,
+    dataUpdatedAt: expUpdatedAt,
+  } = useQuery<CompanyExpense[]>({
+    queryKey: ["financials", "expenses"],
+    queryFn: () => customFetch("/api/financials/expenses"),
+  });
+
+  const periodExpenses = React.useMemo(
+    () => (expensePeriod === "month" ? companyExpenses.filter(isExpenseThisMonth) : companyExpenses),
+    [companyExpenses, expensePeriod],
+  );
+  const expenseTotal = periodExpenses.reduce((s, e) => s + parseFloat(e.amount), 0);
 
   const invRelativeTime = useRelativeTime(invUpdatedAt || null);
   const qRelativeTime = useRelativeTime(qUpdatedAt || null);
   const coRelativeTime = useRelativeTime(coDataUpdatedAt || null);
+  const expRelativeTime = useRelativeTime(expUpdatedAt || null);
 
   // Debug: log quote fetch errors to help diagnose empty-list issues
   React.useEffect(() => {
@@ -273,7 +327,8 @@ export default function FinanceScreen() {
       refetchInv();
       refetchQ();
       refetchCO();
-    }, [refetchInv, refetchQ, refetchCO]),
+      refetchExp();
+    }, [refetchInv, refetchQ, refetchCO, refetchExp]),
   );
 
   async function saveSignature(coId: number, base64: string) {
@@ -373,17 +428,40 @@ export default function FinanceScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      {/* Dense tap-friendly top switch: Estimates | Quotes | Invoices */}
+      {/* Dense tap-friendly top switch: Estimates | Quotes | Invoices | Expenses */}
       <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        {(["estimates", "quotes", "invoices"] as TabKey[]).map((t) => (
+        {(["estimates", "quotes", "invoices", "expenses"] as TabKey[]).map((t) => (
           <Pressable key={t} style={styles.tabBtn} onPress={() => setTab(t)}>
             <Text style={[styles.tabText, { color: tab === t ? colors.primary : colors.mutedForeground }]}>
-              {t === "estimates" ? "Estimates" : t === "quotes" ? "Quotes" : "Invoices"}
+              {t === "estimates" ? "Estimates" : t === "quotes" ? "Quotes" : t === "invoices" ? "Invoices" : "Expenses"}
             </Text>
             {tab === t && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
           </Pressable>
         ))}
       </View>
+
+      {/* This Month / All Time toggle — Expenses tab only */}
+      {tab === "expenses" && (
+        <View style={styles.subTabRow}>
+          {(["month", "all"] as ExpensePeriod[]).map((p) => (
+            <Pressable
+              key={p}
+              onPress={() => setExpensePeriod(p)}
+              style={[
+                styles.subTabPill,
+                {
+                  backgroundColor: expensePeriod === p ? colors.primary : colors.card,
+                  borderColor: expensePeriod === p ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.subTabPillText, { color: expensePeriod === p ? "#FFFFFF" : colors.mutedForeground }]}>
+                {p === "month" ? "This Month" : "All Time"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       {/* Secondary dense segment: progress billing vs. payment/change-order tracking */}
       {tab === "invoices" && (
@@ -410,8 +488,14 @@ export default function FinanceScreen() {
 
       {/* Last updated label */}
       {tab !== "estimates" && (() => {
-        const isRefreshing = tab === "quotes" ? qRefreshing : invoicesView === "invoices" ? invRefreshing : coRefreshing;
-        const relTime = tab === "quotes" ? qRelativeTime : invoicesView === "invoices" ? invRelativeTime : coRelativeTime;
+        const isRefreshing =
+          tab === "quotes" ? qRefreshing
+          : tab === "expenses" ? expRefreshing
+          : invoicesView === "invoices" ? invRefreshing : coRefreshing;
+        const relTime =
+          tab === "quotes" ? qRelativeTime
+          : tab === "expenses" ? expRelativeTime
+          : invoicesView === "invoices" ? invRelativeTime : coRelativeTime;
         const label = isRefreshing ? "Refreshing…" : relTime;
         if (!label) return null;
         return (
@@ -473,6 +557,45 @@ export default function FinanceScreen() {
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No quotes yet</Text>
             }
             refreshControl={<RefreshControl refreshing={qRefreshing} onRefresh={handleRefreshQ} tintColor={colors.primary} />}
+          />
+        )
+      ) : tab === "expenses" ? (
+        expLoading ? (
+          <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+        ) : (
+          <FlatList
+            data={periodExpenses}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <CostRecordCard
+                vendorName={item.vendorName}
+                description={item.description}
+                amount={parseFloat(item.amount)}
+                tone={getExpenseStatusTone(item.status)}
+                statusLabel={getExpenseStatusLabel(item.status)}
+                projectName={item.projectName}
+                date={item.expenseDate ?? item.createdAt}
+                hasReceipt={!!item.receiptObjectPath}
+              />
+            )}
+            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            ListHeaderComponent={
+              periodExpenses.length > 0 ? (
+                <View style={styles.expenseTotalRow}>
+                  <Text style={[styles.expenseTotalLabel, { color: colors.mutedForeground }]}>
+                    {expensePeriod === "month" ? "This month" : "All time"}
+                  </Text>
+                  <Text style={[styles.expenseTotalValue, { color: colors.foreground }]}>{fmtCAD(expenseTotal)}</Text>
+                </View>
+              ) : null
+            }
+            ListEmptyComponent={
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                {expensePeriod === "month" ? "No expenses submitted this month" : "No expenses submitted yet"}
+              </Text>
+            }
+            refreshControl={<RefreshControl refreshing={expRefreshing} onRefresh={() => refetchExp()} tintColor={colors.primary} />}
           />
         )
       ) : (
@@ -539,8 +662,8 @@ export default function FinanceScreen() {
         }}
       />
 
-      {/* FABs — hidden on the Estimates tab, which has its own creation flow */}
-      {tab !== "estimates" && (
+      {/* FABs — hidden on Estimates (own creation flow) and Expenses (read-only company rollup) */}
+      {tab !== "estimates" && tab !== "expenses" && (
         <View style={[styles.fabRow, { bottom: insets.bottom + 20 }]}>
           {tab === "invoices" && invoicesView === "change-orders" ? (
             <Pressable
@@ -707,6 +830,9 @@ const styles = StyleSheet.create({
   subTabPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1 },
   subTabPillText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   list: { padding: 16, gap: 8 },
+  expenseTotalRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", paddingHorizontal: 4, paddingBottom: 12 },
+  expenseTotalLabel: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  expenseTotalValue: { fontSize: 20, fontFamily: "Inter_700Bold" },
   row: { flexDirection: "row", alignItems: "center", borderRadius: 10, padding: 14, borderWidth: 1, gap: 12 },
   rowTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
   rowSub: { fontSize: 12, fontFamily: "Inter_400Regular" },

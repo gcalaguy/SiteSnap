@@ -1,7 +1,7 @@
 import { useListProjects, useListTasks, useUpdateTask, useGetMe, customFetch } from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
-import { useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import {
   ActivityIndicator,
@@ -34,7 +34,13 @@ type Task = {
 };
 
 type FilterMode = "all" | "mine";
-type StatusFilter = "all" | "todo" | "in_progress" | "done";
+type StatusFilter = "all" | "todo" | "in_progress" | "done" | "overdue";
+
+// Same "overdue" definition the Home dashboard's "Overdue Tasks" tile uses, so
+// the count it shows matches what this filtered list shows.
+function isOverdueTask(t: Task): boolean {
+  return t.status !== "done" && !!t.dueDate && new Date(t.dueDate) < new Date();
+}
 
 const PRIORITY_CONFIG = {
   high: { color: "#EF4444", label: "High" },
@@ -44,10 +50,19 @@ const PRIORITY_CONFIG = {
 
 const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
+  { value: "overdue", label: "Overdue" },
   { value: "todo", label: "To Do" },
   { value: "in_progress", label: "In Progress" },
   { value: "done", label: "Done" },
 ];
+
+const STATUS_FILTER_EMPTY_LABEL: Record<StatusFilter, string> = {
+  all: "",
+  overdue: "overdue",
+  todo: "to do",
+  in_progress: "in-progress",
+  done: "done",
+};
 
 function FilterToggle({
   mode,
@@ -288,7 +303,18 @@ function WorkerTasksScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  // The Home dashboard's "Overdue Tasks" tile deep-links here with ?filter=overdue
+  // so the list it navigates to matches the count it showed.
+  const params = useLocalSearchParams<{ filter?: string }>();
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    params.filter === "overdue" ? "overdue" : "all",
+  );
+  // tasks.tsx is a persistent Tabs.Screen, not pushed fresh each time — the
+  // useState initializer above only runs on first mount, so re-sync whenever
+  // the Home tile deep-links here again with a new ?filter value.
+  useEffect(() => {
+    if (params.filter === "overdue") setStatusFilter("overdue");
+  }, [params.filter]);
 
   const { data: projects } = useListProjects();
   const projectMap: Record<number, string> = {};
@@ -296,7 +322,9 @@ function WorkerTasksScreen() {
 
   const { data: tasks, isLoading, refetch, dataUpdatedAt } = useQuery<Task[]>({
     queryKey: ["my-tasks"],
-    queryFn: () => customFetch<Task[]>("/api/dashboard/my-tasks"),
+    // limit=200 is the endpoint's max — without it the default cap (100) can
+    // silently undercount tasks/hide overdue ones for large task lists.
+    queryFn: () => customFetch<Task[]>("/api/dashboard/my-tasks?limit=200"),
   });
 
   const [refreshing, setRefreshing] = useState(false);
@@ -350,7 +378,12 @@ function WorkerTasksScreen() {
   });
 
   const allTasks = tasks ?? [];
-  const visible = statusFilter === "all" ? allTasks : allTasks.filter((t) => t.status === statusFilter);
+  const visible =
+    statusFilter === "all"
+      ? allTasks
+      : statusFilter === "overdue"
+      ? allTasks.filter(isOverdueTask)
+      : allTasks.filter((t) => t.status === statusFilter);
   const inProgress = visible.filter((t) => t.status === "in_progress");
   const todo = visible.filter((t) => t.status === "todo");
   const done = visible.filter((t) => t.status === "done");
@@ -421,7 +454,7 @@ function WorkerTasksScreen() {
         <View style={styles.emptyContainer}>
           <Feather name="check-square" size={40} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.foreground }]}>
-            {statusFilter !== "all" ? `No ${statusFilter === "todo" ? "to do" : statusFilter === "in_progress" ? "in-progress" : "done"} tasks` : "No tasks assigned to you"}
+            {statusFilter !== "all" ? `No ${STATUS_FILTER_EMPTY_LABEL[statusFilter]} tasks` : "No tasks assigned to you"}
           </Text>
           <Text style={[styles.emptySubText, { color: colors.mutedForeground }]}>
             {statusFilter !== "all"
@@ -448,20 +481,34 @@ function OwnerTasksScreen() {
   const { data: projects, isLoading: projectsLoading } = useListProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  // The Home dashboard's "Overdue Tasks" tile deep-links here with ?filter=overdue
+  // so the list it navigates to matches the count it showed.
+  const params = useLocalSearchParams<{ filter?: string }>();
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    params.filter === "overdue" ? "overdue" : "all",
+  );
+  // tasks.tsx is a persistent Tabs.Screen, not pushed fresh each time — the
+  // useState initializer above only runs on first mount, so re-sync whenever
+  // the Home tile deep-links here again with a new ?filter value.
+  useEffect(() => {
+    if (params.filter === "overdue") setStatusFilter("overdue");
+  }, [params.filter]);
 
   const allProjects = projects ?? [];
   const resolvedProjectId = selectedProjectId;
   const projectIds = allProjects.map((p) => p.id);
+  // "overdue" isn't a status the backend understands — fetch unfiltered and
+  // apply the same overdue definition the Home tile uses, client-side below.
+  const backendStatusFilter = statusFilter === "overdue" ? "all" : statusFilter;
 
   const { data: tasks, isLoading: tasksLoading, refetch, dataUpdatedAt: tasksUpdatedAt } = useQuery<Task[]>({
-    queryKey: ["tasks", "accessible", statusFilter],
+    queryKey: ["tasks", "accessible", backendStatusFilter],
     queryFn: async () => {
       const results = await Promise.all(
         projectIds.map((projectId) => {
           const url =
-            statusFilter !== "all"
-              ? `/api/projects/${projectId}/tasks?status=${statusFilter}`
+            backendStatusFilter !== "all"
+              ? `/api/projects/${projectId}/tasks?status=${backendStatusFilter}`
               : `/api/projects/${projectId}/tasks`;
           return customFetch<Task[]>(url);
         }),
@@ -492,7 +539,8 @@ function OwnerTasksScreen() {
     );
   };
 
-  const allTasks = (tasks ?? []) as Task[];
+  const fetchedTasks = (tasks ?? []) as Task[];
+  const allTasks = statusFilter === "overdue" ? fetchedTasks.filter(isOverdueTask) : fetchedTasks;
   const myUserId = me?.id;
   const myTasksAll = myUserId ? allTasks.filter((t) => t.assignedToUserId === myUserId) : [];
   const visibleTasks = (filterMode === "mine" ? myTasksAll : allTasks).filter(
@@ -617,11 +665,11 @@ function OwnerTasksScreen() {
           <Feather name={filterMode === "mine" ? "user-check" : "check-square"} size={40} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.foreground }]}>
             {filterMode === "mine" && statusFilter !== "all"
-              ? `No ${statusFilter === "todo" ? "to do" : statusFilter === "in_progress" ? "in-progress" : "done"} tasks assigned to you`
+              ? `No ${STATUS_FILTER_EMPTY_LABEL[statusFilter]} tasks assigned to you`
               : filterMode === "mine"
               ? "Nothing assigned to you"
               : statusFilter !== "all"
-              ? `No ${statusFilter === "todo" ? "to do" : statusFilter === "in_progress" ? "in-progress" : "done"} tasks`
+              ? `No ${STATUS_FILTER_EMPTY_LABEL[statusFilter]} tasks`
               : "No tasks for this project"}
           </Text>
         </View>

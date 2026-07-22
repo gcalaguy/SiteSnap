@@ -35,6 +35,10 @@ type MyTask = { id: number; dueDate?: string | null; status: "todo" | "in_progre
 type InspectionRow = { inspection: { status: "draft" | "submitted" } };
 type Directive = { id: number; urgency: "HIGH" | "MEDIUM" | "LOW" };
 
+function fmtCAD(v: number): string {
+  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(v);
+}
+
 function isOverdue(dueDate?: string | null): boolean {
   if (!dueDate) return false;
   return new Date(dueDate) < new Date();
@@ -300,7 +304,7 @@ export default function DashboardScreen() {
   const router = useRouter();
 
   const { data: me } = useGetMe();
-  const { isLoading: summaryLoading, refetch: refetchSummary } = useGetDashboardSummary();
+  const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useGetDashboardSummary();
   const { data: activity, isLoading: activityLoading, refetch: refetchActivity } = useGetRecentActivity();
   const { data: projects, isLoading: projectsLoading, refetch: refetchProjects } = useListProjects();
 
@@ -316,7 +320,9 @@ export default function DashboardScreen() {
 
   const { data: myTasks = [], refetch: refetchTasks } = useQuery<MyTask[]>({
     queryKey: ["my-tasks"],
-    queryFn: () => customFetch<MyTask[]>("/api/dashboard/my-tasks"),
+    // limit=200 is the endpoint's max — without it the default cap (100) can
+    // silently undercount this tile for companies with many open tasks.
+    queryFn: () => customFetch<MyTask[]>("/api/dashboard/my-tasks?limit=200"),
   });
   const overdueTaskCount = myTasks.filter((t) => t.status !== "done" && isOverdue(t.dueDate)).length;
 
@@ -411,14 +417,14 @@ export default function DashboardScreen() {
           label="Overdue Tasks"
           value={overdueTaskCount}
           status={overdueTaskCount > 0 ? "critical" : "success"}
-          onPress={() => go("/(tabs)/tasks")}
+          onPress={() => go("/(tabs)/tasks?filter=overdue")}
         />
         {perms.viewInspectTab && (
           <StatTile
             label="Inspections Due"
             value={inspectionsDueCount}
             status={inspectionsDueCount > 0 ? "warning" : "success"}
-            onPress={() => go("/inspect")}
+            onPress={() => go("/inspect?status=draft")}
           />
         )}
         <StatTile
@@ -428,6 +434,23 @@ export default function DashboardScreen() {
           onPress={() => go("/safety")}
         />
       </View>
+
+      {/* This Month — financial rollup, owners/foremen only */}
+      {perms.viewFinancials && (
+        <>
+          <View style={[styles.section, { marginBottom: spacing.sm, paddingHorizontal: spacing.xl }]}>
+            <Text style={[typography.label, { color: colors.mutedForeground }]}>THIS MONTH</Text>
+          </View>
+          <View style={[styles.priorityRow, { marginBottom: spacing.lg }]}>
+            <StatTile
+              label="Spend"
+              value={fmtCAD(summary?.totalSpentThisMonth ?? 0)}
+              status="neutral"
+              onPress={() => go("/finance?tab=expenses&period=month")}
+            />
+          </View>
+        </>
+      )}
 
       {/* Active project */}
       {projectsLoading ? (

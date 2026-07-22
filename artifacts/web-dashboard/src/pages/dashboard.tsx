@@ -584,7 +584,7 @@ export default function Dashboard() {
       icon: overdueInvoices > 0 ? AlertTriangle : DollarSign,
       alert: overdueInvoices > 0,
     },
-    { href: "/financials", label: "This Month's Spend", value: fmt(summary?.totalSpentThisMonth ?? 0), sub: `Budget: ${fmt(summary?.totalBudgetAllProjects ?? 0)}`, icon: DollarSign },
+    { href: "/financials?tab=expenses&period=month", label: "This Month's Spend", value: fmt(summary?.totalSpentThisMonth ?? 0), sub: `Budget: ${fmt(summary?.totalBudgetAllProjects ?? 0)}`, icon: DollarSign },
   ];
 
   return (

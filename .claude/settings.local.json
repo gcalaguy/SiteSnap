@@ -132,7 +132,9 @@
       "Bash(awk -F/ '{print $1}')",
       "Skill(artifact-design)",
       "Bash(fc-list)",
-      "Bash(awk '/@font-face/{block=\"\"} {block=block\"\\\\n\"$0} /}/{if\\(block ~ /font-face/\\) print block\"\\\\n---\"}' fonts.css)"
+      "Bash(awk '/@font-face/{block=\"\"} {block=block\"\\\\n\"$0} /}/{if\\(block ~ /font-face/\\) print block\"\\\\n---\"}' fonts.css)",
+      "Bash(grep -rn '\"/risk\"\\\\|/risk`\\\\|risk.tsx' /home/runner/workspace/artifacts/mobile/app /home/runner/workspace/artifacts/mobile/components)",
+      "Workflow(code-review)"
     ]
   }
 }

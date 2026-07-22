@@ -25,16 +25,7 @@ import { customFetch, useListProjects } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SwipeableRow } from "@/components/ui";
 import { CostRecordCard } from "@/components/cards/CostRecordCard";
-import type { StatusTone } from "@/components/ui/StatusPill";
-
-const EXPENSE_STATUS_TONE: Record<string, StatusTone> = {
-  processed: "approved",
-  pending: "pending",
-};
-const EXPENSE_STATUS_LABEL: Record<string, string> = {
-  processed: "Processed",
-  pending: "Pending Review",
-};
+import { getExpenseStatusTone, getExpenseStatusLabel } from "@/src/utils/expenseStatus";
 
 interface Expense {
   id: number;
@@ -334,8 +325,8 @@ export default function ExpensesScreen() {
         vendorName={item.vendorName}
         description={item.description}
         amount={parseFloat(item.amount)}
-        tone={EXPENSE_STATUS_TONE[item.status] ?? "draft"}
-        statusLabel={EXPENSE_STATUS_LABEL[item.status] ?? item.status}
+        tone={getExpenseStatusTone(item.status)}
+        statusLabel={getExpenseStatusLabel(item.status)}
         projectName={activeProjectName}
         date={item.expenseDate ?? item.createdAt}
         hasReceipt={!!item.receiptObjectPath}

@@ -515,7 +515,7 @@ export default function InspectScreen() {
   const qc = useQueryClient();
   const { data: me } = useGetMe();
   const isOwnerOrForeman = me?.role === "owner" || me?.role === "foreman";
-  const params = useLocalSearchParams<{ action?: string; projectId?: string }>();
+  const params = useLocalSearchParams<{ action?: string; projectId?: string; status?: string }>();
 
   // Capture tab deep-links here with ?action=new to jump straight into
   // creating an inspection instead of landing on the list first.
@@ -526,6 +526,11 @@ export default function InspectScreen() {
   // A project's Overview tab deep-links here with ?projectId= to preset the filter.
   const [projectFilter, setProjectFilter] = useState<number | null>(
     params.projectId ? Number(params.projectId) : null,
+  );
+  // The Home dashboard's "Inspections Due" tile deep-links here with ?status=draft
+  // so the list it navigates to matches the count it showed.
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft">(
+    params.status === "draft" ? "draft" : "all",
   );
 
   const { data: projects = [] } = useListProjects();
@@ -549,6 +554,8 @@ export default function InspectScreen() {
   });
 
   const unreadAlerts = alertRows.filter((r) => !r.alert?.isRead);
+  const draftCount = rows.filter((r) => r.inspection.status === "draft").length;
+  const visibleRows = statusFilter === "draft" ? rows.filter((r) => r.inspection.status === "draft") : rows;
 
   const markAllRead = useMutation({
     mutationFn: () => customFetch("/api/inspection-alerts/read-all", { method: "PATCH" }),
@@ -650,6 +657,23 @@ export default function InspectScreen() {
           </View>
         )}
 
+        {/* Status Filter */}
+        {rows.length > 0 && (
+          <View style={{ marginBottom: 16 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Chip label="All" selected={statusFilter === "all"} onPress={() => setStatusFilter("all")} />
+                <Chip
+                  label="Drafts"
+                  selected={statusFilter === "draft"}
+                  onPress={() => setStatusFilter("draft")}
+                  count={draftCount > 0 ? draftCount : undefined}
+                />
+              </View>
+            </ScrollView>
+          </View>
+        )}
+
         {/* Project Filter */}
         {(projects as any[]).length > 1 && (
           <View style={{ marginBottom: 16 }}>
@@ -681,9 +705,17 @@ export default function InspectScreen() {
               <Text style={{ color: "#fff", fontFamily: "Inter_700Bold" }}>Create Inspection</Text>
             </Pressable>
           </View>
+        ) : visibleRows.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Feather name="clipboard" size={36} color={colors.mutedForeground} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No Draft Inspections</Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 14, textAlign: "center" }}>
+              All inspections have been submitted.
+            </Text>
+          </View>
         ) : (
           <View style={{ gap: 12 }}>
-            {rows.map((row) => {
+            {visibleRows.map((row) => {
               const insp = row.inspection;
               const riskColor = RISK_COLORS[insp.riskLevel ?? ""] ?? null;
               return (

@@ -36,17 +36,40 @@ interface CompanyExpense {
   submittedByName: string;
 }
 
-export default function CompanyExpensesPage() {
+type Period = "month" | "all";
+
+// Same "this month" boundary the dashboard's "This Month's Spend" tile uses
+// (COALESCE(expense_date, created_at) >= first of current month) so the totals match.
+function isThisMonth(e: CompanyExpense): boolean {
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  if (e.expenseDate) {
+    // expenseDate is a date-only "YYYY-MM-DD" string — compare the calendar
+    // month directly. Parsing it with `new Date(...)` would read it as UTC
+    // midnight and can shift a day when read back via local getMonth().
+    return e.expenseDate.slice(0, 7) === currentMonthKey;
+  }
+  const d = new Date(e.createdAt);
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
+
+export default function CompanyExpensesPage({ initialPeriod = "all" }: { initialPeriod?: Period }) {
   const { data: expenses = [], isLoading } = useQuery<CompanyExpense[]>({
     queryKey: ["financials", "expenses"],
     queryFn: () => customFetch("/api/financials/expenses"),
   });
   const [sort, setSort] = useState<SortState<SortKey>>({ key: "date", dir: "desc" });
+  const [period, setPeriod] = useState<Period>(initialPeriod);
 
-  const total = expenses.reduce((s, e) => s + parseFloat(e.amount), 0);
+  const periodExpenses = useMemo(
+    () => (period === "month" ? expenses.filter(isThisMonth) : expenses),
+    [expenses, period],
+  );
+
+  const total = periodExpenses.reduce((s, e) => s + parseFloat(e.amount), 0);
 
   const sortedExpenses = useMemo(() => {
-    return [...expenses].sort((a, b) => compareBy(a, b, sort.key, sort.dir, (e, key) => {
+    return [...periodExpenses].sort((a, b) => compareBy(a, b, sort.key, sort.dir, (e, key) => {
       switch (key) {
         case "date": return new Date(e.expenseDate ?? e.createdAt).getTime();
         case "vendor": return e.vendorName;
@@ -57,7 +80,7 @@ export default function CompanyExpensesPage() {
         case "status": return e.status;
       }
     }));
-  }, [expenses, sort]);
+  }, [periodExpenses, sort]);
 
   return (
     <div className="p-6 space-y-4">
@@ -72,6 +95,22 @@ export default function CompanyExpensesPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {!isLoading && expenses.length > 0 && (
+            <div className="flex items-center rounded-full border border-[#D4AF37]/20 p-0.5">
+              {(["month", "all"] as Period[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+                    period === p ? "bg-[#D4AF37] text-white" : "text-[#121212]/60 hover:text-[#121212]"
+                  }`}
+                >
+                  {p === "month" ? "This Month" : "All Time"}
+                </button>
+              ))}
+            </div>
+          )}
           {!isLoading && expenses.length > 0 && (
             <SortMenu options={SORT_OPTIONS} value={sort} onChange={setSort} />
           )}
@@ -88,6 +127,13 @@ export default function CompanyExpensesPage() {
           <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
             <Wallet className="h-10 w-10 text-[#D4AF37]/40" />
             <p className="text-[#121212]/60 font-medium">No expenses submitted yet.</p>
+          </CardContent>
+        </Card>
+      ) : sortedExpenses.length === 0 ? (
+        <Card className="border-[#D4AF37]/20">
+          <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
+            <Wallet className="h-10 w-10 text-[#D4AF37]/40" />
+            <p className="text-[#121212]/60 font-medium">No expenses submitted this month.</p>
           </CardContent>
         </Card>
       ) : (

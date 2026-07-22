@@ -6,6 +6,7 @@ import {
   dailyReportsTable,
   rfisTable,
   costAnalysesTable,
+  expensesTable,
   usersTable,
   userMembershipsTable,
   tasksTable,
@@ -84,8 +85,17 @@ router.get("/dashboard/summary", requireAuth, requireCompany, requireTenantCtx, 
 
     const thisMonthStart = new Date();
     thisMonthStart.setDate(1);
+    // Build the boundary from local date parts rather than toISOString(), which
+    // converts to UTC first and can roll the 1st back to the prior month whenever
+    // this process runs in a timezone ahead of UTC.
+    const thisMonthStartStr = `${thisMonthStart.getFullYear()}-${String(thisMonthStart.getMonth() + 1).padStart(2, "0")}-01`;
 
-    const [allReports, allRFIs, allAnalyses] = await Promise.all([
+    // Total spend combines both places a project's cost is recorded: manually
+    // entered Cost Analysis totals (labour/materials/equipment/other) and
+    // itemized Expenses (receipts). The Expenses portion alone is also what the
+    // Company Expenses screen (`GET /financials/expenses`) shows, so that part
+    // of the number still matches what a user sees after clicking through to it.
+    const [allReports, allRFIs, monthlyCostAnalyses, monthlyExpenses] = await Promise.all([
       db
         .select({ projectId: dailyReportsTable.projectId })
         .from(dailyReportsTable)
@@ -113,11 +123,22 @@ router.get("/dashboard/summary", requireAuth, requireCompany, requireTenantCtx, 
             gte(costAnalysesTable.createdAt, thisMonthStart),
           ),
         ),
+      db
+        .select({ amount: expensesTable.amount })
+        .from(expensesTable)
+        .where(
+          and(
+            inArray(expensesTable.projectId, projectIds),
+            sql`COALESCE(${expensesTable.expenseDate}, ${expensesTable.createdAt}::date) >= ${thisMonthStartStr}`,
+          ),
+        ),
     ]);
 
     reportsThisWeek = allReports.length;
     openRFIs = allRFIs.length;
-    totalSpend = allAnalyses.reduce((s, a) => s + parseFloat(a.totalCost), 0);
+    totalSpend =
+      monthlyCostAnalyses.reduce((s, a) => s + parseFloat(a.totalCost), 0) +
+      monthlyExpenses.reduce((s, e) => s + parseFloat(e.amount), 0);
   }
 
   const contactRows = await db
