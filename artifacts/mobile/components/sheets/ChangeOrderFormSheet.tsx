@@ -19,6 +19,9 @@ interface ChangeOrderFormSheetProps {
   onClose: () => void;
   onSubmit: (values: ChangeOrderFormValues) => void;
   submitting?: boolean;
+  mode?: "create" | "edit";
+  initialValues?: ChangeOrderFormValues;
+  projectName?: string;
 }
 
 // Replaces the old presentationStyle="pageSheet" full-page Modal — same
@@ -26,9 +29,18 @@ interface ChangeOrderFormSheetProps {
 // transition, and the project is a tappable chip (matches how Expenses
 // already lets a field worker pick a project) instead of typing a raw
 // project ID by hand.
-export function ChangeOrderFormSheet({ visible, onClose, onSubmit, submitting = false }: ChangeOrderFormSheetProps) {
+export function ChangeOrderFormSheet({
+  visible,
+  onClose,
+  onSubmit,
+  submitting = false,
+  mode = "create",
+  initialValues,
+  projectName,
+}: ChangeOrderFormSheetProps) {
   const colors = useColors();
   const { data: projects = [] } = useListProjects();
+  const isEdit = mode === "edit";
 
   const [projectId, setProjectId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
@@ -38,11 +50,19 @@ export function ChangeOrderFormSheet({ visible, onClose, onSubmit, submitting = 
 
   useEffect(() => {
     if (visible) {
-      setProjectId(projects[0]?.id ?? null);
-      setTitle("");
-      setDescription("");
-      setAmount("");
-      setNotes("");
+      if (isEdit && initialValues) {
+        setProjectId(initialValues.projectId);
+        setTitle(initialValues.title);
+        setDescription(initialValues.description ?? "");
+        setAmount(initialValues.amount.toFixed(2));
+        setNotes(initialValues.notes ?? "");
+      } else {
+        setProjectId(projects[0]?.id ?? null);
+        setTitle("");
+        setDescription("");
+        setAmount("");
+        setNotes("");
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -71,13 +91,17 @@ export function ChangeOrderFormSheet({ visible, onClose, onSubmit, submitting = 
   }
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="New Change Order">
+    <BottomSheet visible={visible} onClose={onClose} title={isEdit ? "Edit Change Order" : "New Change Order"}>
       <Text style={[styles.label, { color: colors.mutedForeground }]}>Project</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        {projects.map((p) => (
-          <Chip key={p.id} label={p.name} selected={projectId === p.id} onPress={() => setProjectId(p.id)} />
-        ))}
-      </ScrollView>
+      {isEdit ? (
+        <Text style={[styles.readOnlyValue, { color: colors.foreground }]}>{projectName ?? `Project #${projectId}`}</Text>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {projects.map((p) => (
+            <Chip key={p.id} label={p.name} selected={projectId === p.id} onPress={() => setProjectId(p.id)} />
+          ))}
+        </ScrollView>
+      )}
 
       <Text style={[styles.label, { color: colors.mutedForeground, marginTop: spacing.lg }]}>Title</Text>
       <TextInput
@@ -122,7 +146,7 @@ export function ChangeOrderFormSheet({ visible, onClose, onSubmit, submitting = 
 
       <View style={{ marginTop: spacing.xl }}>
         <Button
-          label={submitting ? "Creating…" : "Create Change Order"}
+          label={isEdit ? (submitting ? "Saving…" : "Save Changes") : (submitting ? "Creating…" : "Create Change Order")}
           onPress={handleSubmit}
           loading={submitting}
           fullWidth
@@ -142,6 +166,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
+  readOnlyValue: { fontSize: 15, fontFamily: "Inter_500Medium" },
   input: { borderWidth: 1, borderRadius: radius.md, padding: spacing.md, fontSize: 15, fontFamily: "Inter_400Regular" },
   textarea: {
     borderWidth: 1,

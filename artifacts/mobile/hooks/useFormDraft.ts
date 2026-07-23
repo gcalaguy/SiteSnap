@@ -26,6 +26,13 @@ export function useFormDraft<T extends Record<string, unknown>>(
   const [hasDraft, setHasDraft] = useState(false);
   const savedRef = useRef<string | null>(null);
 
+  // payload is typically a fresh object literal every render (built from several
+  // useState values at the call site) — reading it through a ref instead of a
+  // dependency means the interval below survives re-renders instead of being
+  // torn down and recreated on every keystroke.
+  const payloadRef = useRef(payload);
+  payloadRef.current = payload;
+
   // ── Check for existing draft on mount ───────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -41,14 +48,14 @@ export function useFormDraft<T extends Record<string, unknown>>(
   // ── Auto-save every 5 seconds ─────────────────────────────────────────────
   useEffect(() => {
     const timer = setInterval(() => {
-      const json = JSON.stringify(payload);
+      const json = JSON.stringify(payloadRef.current);
       if (json === savedRef.current) return;
       SecureStore.setItemAsync(key, json)
         .then(() => { savedRef.current = json; })
         .catch(() => {});
     }, 5000);
     return () => clearInterval(timer);
-  }, [key, payload]);
+  }, [key]);
 
   // ── Restore from storage ──────────────────────────────────────────────────
   const restore = useCallback(() => {

@@ -193,6 +193,24 @@ router.get("/dashboard/summary", requireAuth, requireCompany, requireTenantCtx, 
     );
   const pendingForms = pendingFormsResult?.count ?? 0;
 
+  // Quotes analytics: created / approval rate / average value, for the current month
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  const [quoteAgg] = await db
+    .select({
+      createdCount: sql<number>`COUNT(*)::int`,
+      decidedCount: sql<number>`COUNT(*) FILTER (WHERE status IN ('approved','rejected','converted','accepted'))::int`,
+      wonCount: sql<number>`COUNT(*) FILTER (WHERE status IN ('approved','converted','accepted'))::int`,
+      avgWonValue: sql<number>`COALESCE(AVG(total::numeric) FILTER (WHERE status IN ('approved','converted','accepted')), 0)`,
+    })
+    .from(quotesTable)
+    .where(and(eq(quotesTable.companyId, companyId), gte(quotesTable.createdAt, monthStart)));
+  const quotesCreatedThisMonth = quoteAgg?.createdCount ?? 0;
+  const quotesApprovalRatePct = quoteAgg && quoteAgg.decidedCount > 0
+    ? Math.round((quoteAgg.wonCount / quoteAgg.decidedCount) * 1000) / 10
+    : 0;
+  const avgQuoteValue = quoteAgg ? Number(quoteAgg.avgWonValue) : 0;
+
   res.json({
     totalProjects,
     activeProjects,
@@ -211,6 +229,9 @@ router.get("/dashboard/summary", requireAuth, requireCompany, requireTenantCtx, 
     revenuePipeline,
     activeLeads,
     pendingForms,
+    quotesCreatedThisMonth,
+    quotesApprovalRatePct,
+    avgQuoteValue,
   });
 }))
 
