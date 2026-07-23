@@ -723,6 +723,7 @@ export const quotesTable = pgTable("quotes", {
   // E-signature audit trail
   signatureData: text("signature_data"),
   signerName: text("signer_name"),
+  signerAddress: text("signer_address"),
   signerIp: text("signer_ip"),
   signerUserAgent: text("signer_user_agent"),
   signedAt: timestamp("signed_at", { withTimezone: true }),

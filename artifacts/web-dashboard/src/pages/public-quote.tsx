@@ -30,6 +30,7 @@ interface PublicQuote {
   createdAt: string;
   signedAt?: string | null;
   signerName?: string | null;
+  signerAddress?: string | null;
   signerIp?: string | null;
   signerUserAgent?: string | null;
   signatureData?: string | null;
@@ -57,6 +58,7 @@ export default function PublicQuotePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [signerName, setSignerName] = useState("");
+  const [signerAddress, setSignerAddress] = useState("");
   const [signature, setSignature] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -106,12 +108,20 @@ export default function PublicQuotePage() {
       toast({ title: "Please enter your full legal name", variant: "destructive" });
       return;
     }
+    if (!signerAddress.trim()) {
+      toast({ title: "Please enter your address", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch(`/api/public/quotes/${token}/sign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signatureData: signature, signerName: signerName.trim() }),
+        body: JSON.stringify({
+          signatureData: signature,
+          signerName: signerName.trim(),
+          signerAddress: signerAddress.trim(),
+        }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Failed to submit signature");
@@ -238,6 +248,7 @@ export default function PublicQuotePage() {
               </div>
               <div className="text-xs text-muted-foreground space-y-0.5">
                 {quote.signerName && <div>Signed by <strong>{quote.signerName}</strong></div>}
+                {quote.signerAddress && <div>Address: {quote.signerAddress}</div>}
                 <div>UTC: <span className="font-mono">{new Date(quote.signedAt!).toUTCString()}</span></div>
                 {quote.signerIp && <div>IP: <span className="font-mono">{quote.signerIp}</span></div>}
               </div>
@@ -258,6 +269,16 @@ export default function PublicQuotePage() {
                   value={signerName}
                   onChange={(e) => setSignerName(e.target.value)}
                   placeholder="Your full name"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="signerAddress" className="text-xs">Address</Label>
+                <Input
+                  id="signerAddress"
+                  value={signerAddress}
+                  onChange={(e) => setSignerAddress(e.target.value)}
+                  placeholder="Street address, city, province, postal code"
                   className="mt-1"
                 />
               </div>

@@ -29,6 +29,11 @@ const SignBody = z.object({
   signerName: z.string().min(1).max(120),
 });
 
+// Quotes additionally collect the signer's mailing address at sign time.
+const QuoteSignBody = SignBody.extend({
+  signerAddress: z.string().min(1).max(300),
+});
+
 async function publicQuotePayload(q: Record<string, unknown>, companyName?: string | null) {
   // Pull company terms if available
   let terms: string | null = null;
@@ -60,6 +65,7 @@ async function publicQuotePayload(q: Record<string, unknown>, companyName?: stri
     createdAt: q.createdAt,
     signedAt: q.signedAt ?? null,
     signerName: q.signerName ?? null,
+    signerAddress: q.signerAddress ?? null,
     signatureData: q.signatureData ?? null,
     companyName: companyName ?? null,
     terms,
@@ -399,7 +405,7 @@ router.post(
   signRateLimiter,
   asyncHandler(async (req, res) => {
     const token = req.params.token;
-    const parsed = SignBody.safeParse(req.body);
+    const parsed = QuoteSignBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
       return;
@@ -412,6 +418,7 @@ router.post(
         status: "approved",
         signatureData: parsed.data.signatureData,
         signerName: parsed.data.signerName,
+        signerAddress: parsed.data.signerAddress,
         signerIp: info.ip,
         signerUserAgent: info.userAgent,
         signedAt: info.signedAt,
@@ -481,7 +488,7 @@ router.patch(
   signRateLimiter,
   asyncHandler(async (req, res) => {
     const token = req.params.token;
-    const parsed = SignBody.safeParse(req.body);
+    const parsed = QuoteSignBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
       return;
@@ -522,6 +529,7 @@ router.patch(
             status: "accepted",
             signatureData: parsed.data.signatureData,
             signerName: parsed.data.signerName,
+            signerAddress: parsed.data.signerAddress,
             signerIp: info.ip,
             signerUserAgent: info.userAgent,
             signedAt: info.signedAt,
