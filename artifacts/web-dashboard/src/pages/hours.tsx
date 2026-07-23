@@ -24,6 +24,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import TimesheetSection, { type Timesheet as WorkerTimesheet } from "@/components/TimesheetSection";
+import { WhosClockedInWidget } from "@/components/WhosClockedInWidget";
 
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -328,6 +329,8 @@ export default function HoursPage() {
           Log Hours
         </Button>
       </div>
+
+      {isPrivileged && <WhosClockedInWidget />}
 
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
         <DialogContent>

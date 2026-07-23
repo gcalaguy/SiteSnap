@@ -9,7 +9,7 @@ import { z } from "zod";
 
 const router = Router({ mergeParams: true });
 
-function getMonday(isoDate: string): string {
+export function getMonday(isoDate: string): string {
   const d = new Date(isoDate + "T00:00:00");
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
@@ -24,7 +24,7 @@ function getMonday(isoDate: string): string {
  * whether the partial unique indexes from migration 0018 are present. Runs
  * inside withTenantCtx to satisfy the timesheets RLS policy.
  */
-async function syncTimesheetFromEntries(companyId: number, userId: number, weekStart: string, projectId?: number | null) {
+export async function syncTimesheetFromEntries(companyId: number, userId: number, weekStart: string, projectId?: number | null) {
   await withTenantCtx(companyId, async () => {
     const projectFilter = projectId != null
       ? eq(timeEntriesTable.projectId, projectId)

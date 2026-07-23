@@ -8,6 +8,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { WeatherWidget } from "@/components/WeatherWidget";
+import { ClockWidget } from "@/components/ClockWidget";
 import {
   ActivityIndicator,
   Platform,
@@ -403,6 +404,8 @@ export default function DashboardScreen() {
           )}
         </Pressable>
       </View>
+
+      <ClockWidget />
 
       <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.lg }}>
         <WeatherWidget />

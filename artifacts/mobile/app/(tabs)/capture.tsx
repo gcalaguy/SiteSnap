@@ -92,6 +92,13 @@ export default function CaptureScreen() {
   ];
 
   const moreRows = [
+    {
+      key: "time-clock",
+      icon: "clock" as const,
+      title: "Clock In / Out",
+      subtitle: "Track your shift hours in real time",
+      onPress: () => go("/time-clock", "capture:time-clock"),
+    },
     perms.viewPhotos
       ? {
           key: "photo-history",

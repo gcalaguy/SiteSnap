@@ -955,6 +955,37 @@ export const timesheetsTable = pgTable("timesheets", {
 
 export type Timesheet = typeof timesheetsTable.$inferSelect;
 
+// ── Time Clock Sessions ────────────────────────────────────────────────────────
+
+export const timeClockSessionStatusEnum = pgEnum("time_clock_session_status", ["active", "completed"]);
+
+export const timeClockSessionsTable = pgTable("time_clock_sessions", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().references(() => companiesTable.id, { onDelete: "cascade" }),
+  projectId: integer("project_id").notNull().references(() => projectsTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id), // whose shift this is
+  clockedInByUserId: integer("clocked_in_by_user_id").notNull().references(() => usersTable.id), // actor: self, or a foreman in Team Punch Mode
+  clockedOutByUserId: integer("clocked_out_by_user_id").references(() => usersTable.id),
+  date: date("date").notNull(), // client-local calendar date at clock-in; copied into time_entries.date on clock-out
+  clockInTime: timestamp("clock_in_time", { withTimezone: true }).notNull().defaultNow(),
+  clockOutTime: timestamp("clock_out_time", { withTimezone: true }),
+  clockInNotes: text("clock_in_notes"),
+  clockOutNotes: text("clock_out_notes"),
+  status: timeClockSessionStatusEnum("status").notNull().default("active"),
+  timeEntryId: integer("time_entry_id").references(() => timeEntriesTable.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("idx_time_clock_sessions_company_id").on(t.companyId),
+  index("idx_time_clock_sessions_user_id").on(t.userId),
+  index("idx_time_clock_sessions_project_id").on(t.projectId),
+  index("idx_time_clock_sessions_status").on(t.status),
+]);
+
+export const insertTimeClockSessionSchema = createInsertSchema(timeClockSessionsTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTimeClockSession = z.infer<typeof insertTimeClockSessionSchema>;
+export type TimeClockSession = typeof timeClockSessionsTable.$inferSelect;
+
 // ── Client Portal ──────────────────────────────────────────────────────────────
 
 export const clientPortalTokensTable = pgTable("client_portal_tokens", {
