@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { openai, speechToText, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
+import { generateDocumentDraft } from "../services/ai/documentGenerator.js";
 
 /** Returns an AbortSignal that fires after `ms` milliseconds. */
 function aiSignal(ms: number): AbortSignal {
@@ -9,21 +10,14 @@ function aiSignal(ms: number): AbortSignal {
   return ctrl.signal;
 }
 
-import { db, companiesTable, estimatorCostModelsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, taskCategoriesTable } from "@workspace/db";
+import { eq, or, isNull } from "drizzle-orm";
 import { requireAuth, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
 import { searchWeb, formatSearchContext, webSearchEnabled } from "../lib/webSearch.js";
 import { canSearchWeb, recordWebSearch } from "../lib/webSearchRateLimiter.js";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 import { buildTenantContext } from "../lib/buildTenantContext";
-
-// Canadian provincial/territorial tax rates (GST/HST/PST combined)
-const PROVINCE_TAX: Record<string, number> = {
-  ON: 0.13, BC: 0.12, AB: 0.05, SK: 0.11, MB: 0.12,
-  QC: 0.14975, NB: 0.15, NS: 0.15, PE: 0.15, NL: 0.15,
-  NT: 0.05, NU: 0.05, YT: 0.05,
-};
 
 const router = Router();
 
@@ -287,10 +281,22 @@ Today's date: ${new Date().toLocaleDateString("en-CA")}`;
 }));
 
 // ── Quote AI Agent ────────────────────────────────────────────────────────────
+const ScopeItemInput = z.object({
+  trade: z.string().min(1).max(100),
+  room: z.string().max(100).optional().nullable(),
+  taskCategory: z.string().min(1).max(200),
+  description: z.string().min(1).max(500),
+  quantity: z.number().positive(),
+  unit: z.string().min(1).max(20),
+});
+
 const QuoteAIInput = z.strictObject({
-  voiceInput: z.string().min(1).max(3000),
+  voiceInput: z.string().min(1).max(3000).optional(),
+  scopeItems: z.array(ScopeItemInput).min(1).max(100).optional(),
   projectName: z.string().max(200).optional().nullable(),
   clientName: z.string().max(200).optional().nullable(),
+}).refine((data) => !!data.voiceInput || !!data.scopeItems?.length, {
+  message: "Either voiceInput or scopeItems is required",
 });
 
 router.post("/ai/quote/generate", requireAuth, requireCompany, requireTenantCtx, requireAiQuota, asyncHandler(async (req, res) => {
@@ -300,79 +306,17 @@ router.post("/ai/quote/generate", requireAuth, requireCompany, requireTenantCtx,
     return;
   }
 
-  const { voiceInput, projectName, clientName } = parsed.data;
-
-  const [companyRow, costModels] = await Promise.all([
-    db.select({ province: companiesTable.province })
-      .from(companiesTable)
-      .where(eq(companiesTable.id, req.companyId!))
-      .limit(1)
-      .then((rows) => rows[0]),
-    db.select()
-      .from(estimatorCostModelsTable)
-      .where(eq(estimatorCostModelsTable.companyId, req.companyId!))
-      .orderBy(estimatorCostModelsTable.projectType, estimatorCostModelsTable.finishLevel)
-      .limit(20),
-  ]);
-
-  const TAX_RATE = PROVINCE_TAX[companyRow?.province?.toUpperCase() ?? "ON"] ?? 0.13;
-
-  const pricingBlock = costModels.length > 0
-    ? `COMPANY PRICING REFERENCE — anchor unit prices to these rates and multiply quantities accordingly:
-${costModels.map((m) =>
-  `• ${m.name} (${m.projectType}/${m.finishLevel}): labour $${m.laborCostPerSqft}/m², materials $${m.materialCostPerSqft}/m², overhead ${m.overheadPct}%, contingency ${m.contingencyPct}%`
-).join("\n")}
-For hourly labour line items, derive a per-hour rate from the labour $/m² using typical productivity (0.5–2 m²/hr depending on task complexity).
-Multiply each extracted quantity by the appropriate reference rate to populate unitPrice, then set total = quantity × unitPrice (rounded to 2 decimals).`
-    : `Use realistic Canadian construction pricing for materials and labour.`;
-
-  const prompt = `You are a professional construction estimator AI for Canadian construction companies.
-
-A contractor has described a job verbally. Extract and generate a detailed quote from this description.
-Return ONLY a JSON object with these exact fields:
-- title: string (short quote title, e.g. "Foundation Concrete Work — Phase 1")
-- lineItems: array of objects, each with:
-  - description: string (material or labour item name)
-  - quantity: number
-  - unit: string (e.g. "hr", "m²", "m³", "ea", "lm", "bag", "sheet", "load")
-  - unitPrice: number (CAD, must be a number)
-  - total: number (quantity × unitPrice, rounded to 2 decimals)
-- subtotal: number (sum of all line item totals)
-- taxAmount: number (subtotal × ${TAX_RATE} rounded to 2 decimals)
-- total: number (subtotal + taxAmount)
-- notes: string (any scope clarifications, assumptions, or exclusions)
-
-${pricingBlock}
-Include both materials AND labour as separate line items when applicable.
-${projectName ? `Project: ${projectName}` : ""}
-${clientName ? `Client: ${clientName}` : ""}
-
-Contractor voice description:
-"${voiceInput}"
-
-Respond with ONLY the JSON object, no markdown, no explanation.`;
+  const { voiceInput, scopeItems, projectName, clientName } = parsed.data;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      max_completion_tokens: 8192,
-      messages: [{ role: "user", content: prompt }],
-    }, { signal: aiSignal(45_000) });
-
-    const content = response.choices[0]?.message?.content ?? "{}";
-    let result: Record<string, unknown>;
-    try {
-      result = JSON.parse(content);
-    } catch {
-      result = {
-        title: "Site Quote",
-        lineItems: [],
-        subtotal: 0,
-        taxAmount: 0,
-        total: 0,
-        notes: voiceInput,
-      };
-    }
+    const result = await generateDocumentDraft({
+      companyId: req.companyId!,
+      documentType: "quote",
+      voiceInput,
+      scopeItems,
+      projectName,
+      clientName,
+    });
     const items = result.lineItems as { unit?: unknown }[] | undefined;
     req.log?.info({ firstItemUnit: items?.[0]?.unit, itemCount: items?.length }, "AI quote response sample");
     res.json(result);
@@ -398,53 +342,66 @@ router.post("/ai/invoice/generate", requireAuth, requireCompany, requireTenantCt
 
   const { voiceInput, projectName, clientName } = parsed.data;
 
-  const [companyRow, costModels] = await Promise.all([
-    db.select({ province: companiesTable.province })
-      .from(companiesTable)
-      .where(eq(companiesTable.id, req.companyId!))
-      .limit(1)
-      .then((rows) => rows[0]),
-    db.select()
-      .from(estimatorCostModelsTable)
-      .where(eq(estimatorCostModelsTable.companyId, req.companyId!))
-      .orderBy(estimatorCostModelsTable.projectType, estimatorCostModelsTable.finishLevel)
-      .limit(20),
-  ]);
+  try {
+    const result = await generateDocumentDraft({
+      companyId: req.companyId!,
+      documentType: "invoice",
+      voiceInput,
+      projectName,
+      clientName,
+    });
+    res.json(result);
+  } catch (err: unknown) {
+    req.log?.error({ err }, "AI invoice generation failed");
+    res.status(500).json({ error: "AI generation failed" });
+  }
+}));
 
-  const TAX_RATE = PROVINCE_TAX[companyRow?.province?.toUpperCase() ?? "ON"] ?? 0.13;
+// ── Scope Extraction (Phase 2: structured, unpriced trade/room/task breakdown) ─
+const ScopeExtractInput = z.strictObject({
+  voiceInput: z.string().min(1).max(3000),
+  projectName: z.string().max(200).optional().nullable(),
+  clientName: z.string().max(200).optional().nullable(),
+});
 
-  const pricingBlock = costModels.length > 0
-    ? `COMPANY PRICING REFERENCE — anchor unit prices to these rates and multiply quantities accordingly:
-${costModels.map((m) =>
-  `• ${m.name} (${m.projectType}/${m.finishLevel}): labour $${m.laborCostPerSqft}/m², materials $${m.materialCostPerSqft}/m², overhead ${m.overheadPct}%, contingency ${m.contingencyPct}%`
-).join("\n")}
-For hourly labour line items, derive a per-hour rate from the labour $/m² using typical productivity (0.5–2 m²/hr depending on task complexity).
-Multiply each extracted quantity by the appropriate reference rate to populate unitPrice, then set total = quantity × unitPrice (rounded to 2 decimals).`
-    : `Use realistic Canadian construction pricing for materials and labour.`;
+router.post("/ai/scope/extract", requireAuth, requireCompany, requireTenantCtx, requireAiQuota, asyncHandler(async (req, res) => {
+  const parsed = ScopeExtractInput.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Malformed request payload", details: parsed.error.issues });
+    return;
+  }
+  const { voiceInput, projectName, clientName } = parsed.data;
 
-  const prompt = `You are a professional construction billing AI for Canadian construction companies.
+  const taxonomy = await db.select({
+    trade: taskCategoriesTable.trade,
+    canonicalName: taskCategoriesTable.canonicalName,
+    synonyms: taskCategoriesTable.synonyms,
+  })
+    .from(taskCategoriesTable)
+    .where(or(isNull(taskCategoriesTable.companyId), eq(taskCategoriesTable.companyId, req.companyId!)));
 
-A contractor has described work that has been completed and needs to be invoiced. Extract and generate a detailed invoice from this description.
-Return ONLY a JSON object with these exact fields:
-- title: string (short invoice title, e.g. "Foundation Concrete Work — Phase 1")
-- clientName: string (client/company name if mentioned, otherwise "Client")
-- lineItems: array of objects, each with:
-  - description: string (material or labour item name)
-  - quantity: number
-  - unit: string (e.g. "hr", "m²", "m³", "ea", "lm", "bag", "sheet", "load")
-  - unitPrice: number (CAD, must be a number)
-  - total: number (quantity × unitPrice, rounded to 2 decimals)
-- subtotal: number (sum of all line item totals)
-- taxAmount: number (subtotal × ${TAX_RATE} rounded to 2 decimals)
-- total: number (subtotal + taxAmount)
-- notes: string (any scope notes, payment terms, or work summary)
+  const taxonomyBlock = taxonomy.length > 0
+    ? `KNOWN TASK CATEGORIES — map each extracted task to the closest one of these when it clearly matches (use the canonical name as taskCategory); otherwise write a short, specific taskCategory of your own:
+${taxonomy.map((t) => `• [${t.trade}] ${t.canonicalName}${t.synonyms.length ? ` (aka: ${t.synonyms.join(", ")})` : ""}`).join("\n")}`
+    : "";
 
-${pricingBlock}
-Include both materials AND labour as separate line items when applicable.
+  const prompt = `You are a construction scope-of-work parser for Canadian construction companies.
+
+A contractor has described a job in plain, non-technical language — they may not use correct trade terminology. Break the description into distinct tasks. Do NOT price anything — extraction only.
+
+Return ONLY a JSON object: { "scopeItems": [ ... ] } where each item has:
+- trade: string (e.g. "Electrical", "Carpentry", "Drywall", "Painting", "Plumbing", "General")
+- room: string or null (e.g. "Master Bedroom", "Bathroom" — null if not mentioned)
+- taskCategory: string (a short canonical task name — see reference list below)
+- description: string (the specific work as described, kept close to the contractor's own words)
+- quantity: number (default 1 if not specified)
+- unit: string (e.g. "ea", "lf", "sqft", "job")
+
+${taxonomyBlock}
 ${projectName ? `Project: ${projectName}` : ""}
 ${clientName ? `Client: ${clientName}` : ""}
 
-Contractor voice description:
+Contractor description:
 "${voiceInput}"
 
 Respond with ONLY the JSON object, no markdown, no explanation.`;
@@ -452,28 +409,21 @@ Respond with ONLY the JSON object, no markdown, no explanation.`;
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
-      max_completion_tokens: 8192,
+      max_completion_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
-    }, { signal: aiSignal(45_000) });
+      response_format: { type: "json_object" },
+    }, { signal: aiSignal(30_000) });
 
     const content = response.choices[0]?.message?.content ?? "{}";
-    let result: Record<string, unknown>;
+    let result: { scopeItems?: unknown };
     try {
       result = JSON.parse(content);
     } catch {
-      result = {
-        title: "Site Invoice",
-        clientName: clientName ?? "Client",
-        lineItems: [],
-        subtotal: 0,
-        taxAmount: 0,
-        total: 0,
-        notes: voiceInput,
-      };
+      result = { scopeItems: [{ trade: "General", taskCategory: "General Work", description: voiceInput, quantity: 1, unit: "job" }] };
     }
     res.json(result);
   } catch (err: unknown) {
-    req.log?.error({ err }, "AI invoice generation failed");
+    req.log?.error({ err }, "AI scope extraction failed");
     res.status(500).json({ error: "AI generation failed" });
   }
 }));

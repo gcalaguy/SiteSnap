@@ -19,6 +19,8 @@ import { Resend } from "resend";
 import { z } from "zod";
 import { logAuditEventFromRequest } from "../utils/logger";
 import { sendPushNotification } from "../lib/push.js";
+import { buildQuotePdfBuffer } from "../lib/quotePdf.js";
+import { sendEmail, ResendSandboxError, buildAppBase, escapeHtml } from "../lib/mailer.js";
 
 const LineItemSchema = z.object({
   description: z.string().max(500),
@@ -467,6 +469,160 @@ router.patch("/:quoteId/assign", requirePermission("manageQuotes"), asyncHandler
     .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!)))
     .returning();
   res.json(updated);
+}))
+
+// GET /:quoteId/pdf — server-side branded PDF (also used by mobile, which has no DOM/jsPDF)
+router.get("/:quoteId/pdf", requirePermission("viewQuotes"), asyncHandler(async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
+  const quoteId = parseInt(req.params.quoteId as string);
+  const isWorker = req.userRole === "worker";
+
+  const baseCondition = and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))!;
+  const where = isWorker ? and(baseCondition, workerVisibility(req.userId!))! : baseCondition;
+
+  const [quote] = await db.select().from(quotesTable).where(where).limit(1);
+  if (!quote) { res.status(404).json({ error: "Quote not found" }); return; }
+  if (projectId > 0 && quote.projectId !== null && quote.projectId !== projectId) {
+    res.status(404).json({ error: "Quote not found" }); return;
+  }
+
+  const [company] = await db
+    .select({ name: companiesTable.name, address: companiesTable.address, phone: companiesTable.phone })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, req.companyId!))
+    .limit(1);
+
+  const pdfBuffer = await buildQuotePdfBuffer({
+    quoteNumber: quote.quoteNumber,
+    title: quote.title,
+    clientName: quote.clientName,
+    clientEmail: quote.clientEmail,
+    status: quote.status,
+    lineItems: (quote.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]) ?? [],
+    subtotal: quote.subtotal,
+    taxRate: quote.taxRate,
+    taxAmount: quote.taxAmount,
+    total: quote.total,
+    notes: quote.notes,
+    validUntil: quote.validUntil,
+    createdAt: quote.createdAt.toISOString(),
+    companyName: company?.name ?? "Site Snap",
+    companyAddress: company?.address ?? null,
+    companyPhone: company?.phone ?? null,
+    signerName: quote.signerName,
+    signedAt: quote.signedAt,
+  });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${quote.quoteNumber}.pdf"`);
+  res.send(pdfBuffer);
+}))
+
+// POST /:quoteId/send-email — email a branded PDF + public sign link to the client
+router.post("/:quoteId/send-email", requirePermission("manageQuotes"), asyncHandler(async (req, res) => {
+  const projectId = parseInt(req.params.projectId as string);
+  const quoteId = parseInt(req.params.quoteId as string);
+  const isWorker = req.userRole === "worker";
+
+  const baseCondition = and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!))!;
+  const where = isWorker ? and(baseCondition, workerVisibility(req.userId!))! : baseCondition;
+
+  const [quote] = await db.select().from(quotesTable).where(where).limit(1);
+  if (!quote) { res.status(404).json({ error: "Quote not found" }); return; }
+  if (projectId > 0 && quote.projectId !== null && quote.projectId !== projectId) {
+    res.status(404).json({ error: "Quote not found" }); return;
+  }
+
+  if (!quote.clientEmail) {
+    res.status(400).json({ error: "Quote has no client email address" }); return;
+  }
+
+  const [company] = await db
+    .select({ name: companiesTable.name, address: companiesTable.address, phone: companiesTable.phone })
+    .from(companiesTable)
+    .where(eq(companiesTable.id, req.companyId!))
+    .limit(1);
+  const companyName = company?.name ?? "Site Snap";
+
+  const pdfBuffer = await buildQuotePdfBuffer({
+    quoteNumber: quote.quoteNumber,
+    title: quote.title,
+    clientName: quote.clientName,
+    clientEmail: quote.clientEmail,
+    status: quote.status,
+    lineItems: (quote.lineItems as { description: string; quantity: number; unit: string; unitPrice: number; total: number }[]) ?? [],
+    subtotal: quote.subtotal,
+    taxRate: quote.taxRate,
+    taxAmount: quote.taxAmount,
+    total: quote.total,
+    notes: quote.notes,
+    validUntil: quote.validUntil,
+    createdAt: quote.createdAt.toISOString(),
+    companyName,
+    companyAddress: company?.address ?? null,
+    companyPhone: company?.phone ?? null,
+    signerName: quote.signerName,
+    signedAt: quote.signedAt,
+  });
+
+  const fmtCAD = (v: string | number) =>
+    new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(v));
+  const appBase = buildAppBase(req);
+  const signLink = appBase ? `${appBase}/q/${quote.publicToken}` : null;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#172034;">
+      <div style="background:#FF6600;padding:24px 32px;border-radius:8px 8px 0 0;">
+        <h1 style="color:#fff;margin:0;font-size:22px;">${escapeHtml(companyName)}</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:14px;">Quote ${escapeHtml(quote.quoteNumber)}</p>
+      </div>
+      <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        <p style="margin:0 0 16px;">Hi ${escapeHtml(quote.clientName)},</p>
+        <p style="margin:0 0 16px;">Please find your quote <strong>${escapeHtml(quote.quoteNumber)}</strong> attached to this email.</p>
+        <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:4px 0 0 4px;color:#6b7280;font-size:13px;">Quote Number</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-left:none;font-size:13px;font-weight:600;">${escapeHtml(quote.quoteNumber)}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 0 4px;color:#6b7280;font-size:13px;">Total</td>
+            <td style="padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-left:none;border-radius:0 0 4px 0;font-size:13px;font-weight:600;color:#FF6600;">${fmtCAD(quote.total)} CAD</td>
+          </tr>
+        </table>
+        ${signLink ? `<p style="margin:0 0 16px;"><a href="${signLink}" style="display:inline-block;background:#D4AF37;color:#121212;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:6px;">Review &amp; Sign Online</a></p>` : ""}
+        <p style="margin:0;font-size:13px;color:#6b7280;">If you have any questions about this quote, please don't hesitate to reach out.</p>
+        <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">Thank you for considering us.</p>
+        <p style="margin:8px 0 0;font-size:13px;font-weight:600;">${escapeHtml(companyName)}</p>
+      </div>
+      <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0;">Powered by Site Snap</p>
+    </div>
+  `;
+
+  try {
+    await sendEmail({
+      to: [quote.clientEmail],
+      subject: `Quote ${quote.quoteNumber} from ${companyName} — ${fmtCAD(quote.total)} CAD`,
+      html,
+      attachments: [{ filename: `${quote.quoteNumber}.pdf`, content: pdfBuffer.toString("base64") }],
+    });
+  } catch (err) {
+    if (err instanceof ResendSandboxError) {
+      res.json({ ok: false, sandboxWarning: err.message });
+      return;
+    }
+    req.log?.error({ err }, "Failed to send quote email");
+    res.status(500).json({ error: "Failed to send email" });
+    return;
+  }
+
+  const [updated] = await db.update(quotesTable)
+    .set({ sentAt: new Date(), sentVia: "email", updatedAt: new Date() })
+    .where(and(eq(quotesTable.id, quoteId), eq(quotesTable.companyId, req.companyId!)))
+    .returning();
+
+  logAuditEventFromRequest(req, "Quote Sent", `Quote ${quote.quoteNumber} emailed to ${quote.clientEmail}`).catch(() => {});
+  invalidateDashboardMetricsCache(String(req.companyId!));
+  res.json({ ok: true, quote: updated });
 }))
 
 // POST /:quoteId/convert-to-invoice

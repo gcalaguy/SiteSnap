@@ -56,7 +56,7 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>New Message</DialogTitle>
         </DialogHeader>
@@ -195,10 +195,10 @@ export default function TradehubMessagesPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-full mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/tradehub">
-          <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" aria-label="Back to messages"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div className="flex items-center gap-3 flex-1">
           <div className="p-2 bg-[#0A0A0A] rounded-xl">
@@ -362,6 +362,7 @@ export default function TradehubMessagesPage() {
                   onClick={() => conversationId && sendMutation.mutate({ id: conversationId, data: { content: newMessage } })}
                   disabled={!newMessage.trim() || sendMutation.isPending}
                   className="flex-shrink-0"
+                  aria-label="Send message"
                 >
                   {sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>

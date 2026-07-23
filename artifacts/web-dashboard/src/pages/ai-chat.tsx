@@ -340,6 +340,7 @@ function AIChatInner() {
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || isLoading}
               className="h-11 w-11 flex-shrink-0"
+              aria-label="Send message"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

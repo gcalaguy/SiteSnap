@@ -129,9 +129,9 @@ export default function CalculatorsPage() {
     const isFav = favorites.includes(activeCalc.id);
 
     return (
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-full mx-auto space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setActiveCalc(null)}><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => setActiveCalc(null)} aria-label="Back"><ArrowLeft className="h-4 w-4" /></Button>
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold">{activeCalc.name}</h1>
@@ -181,7 +181,7 @@ export default function CalculatorsPage() {
               <Button onClick={runCalc} className="flex-1 h-11 text-base gap-2">
                 <Calculator className="h-4 w-4" />Calculate
               </Button>
-              <Button variant="outline" size="icon" className="h-11 w-11" onClick={resetCalc}>
+              <Button variant="outline" size="icon" className="h-11 w-11" onClick={resetCalc} aria-label="Reset calculator">
                 <RotateCcw className="h-4 w-4" />
               </Button>
             </div>

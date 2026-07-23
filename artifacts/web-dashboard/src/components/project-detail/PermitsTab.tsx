@@ -169,6 +169,7 @@ export default function PermitsTab({ projectId }: { projectId: number }) {
                                 setEditing(p);
                                 setFormOpen(true);
                               }}
+                              aria-label="Edit permit"
                             >
                               <Pencil className="w-4 h-4" />
                             </Button>
@@ -177,6 +178,7 @@ export default function PermitsTab({ projectId }: { projectId: number }) {
                               variant="ghost"
                               className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
                               onClick={() => setDeleting(p)}
+                              aria-label="Delete permit"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>

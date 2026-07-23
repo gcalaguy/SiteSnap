@@ -263,10 +263,10 @@ export default function SafetySubmitPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-6 max-w-full mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/safety")}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/safety")} aria-label="Back to safety">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>

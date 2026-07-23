@@ -212,7 +212,7 @@ export default function Schedule() {
                 </div>
               )}
 
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Previous" onClick={
                 view === "gantt" ? ganttPrev
                 : view === "events" ? () => setEventsWeek(w => addDays(w, -7))
                 : () => setTeamWeek(w => addDays(w, -7))
@@ -230,7 +230,7 @@ export default function Schedule() {
                       : "Loading…"}
               </div>
 
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Next" onClick={
                 view === "gantt" ? ganttNext
                 : view === "events" ? () => setEventsWeek(w => addDays(w, 7))
                 : () => setTeamWeek(w => addDays(w, 7))

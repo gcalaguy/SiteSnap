@@ -91,7 +91,7 @@ export default function MediaHubTestPage() {
   const busy = status === "uploading" || status === "saving";
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6">
+    <div className="mx-auto max-w-full space-y-6 p-6">
       <div className="flex items-center gap-3">
         <Camera className="h-6 w-6 text-[#D4AF37]" />
         <h1 className="text-2xl font-bold text-[#121212]">Media Hub Test</h1>

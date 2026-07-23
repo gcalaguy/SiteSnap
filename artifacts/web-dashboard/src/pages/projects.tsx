@@ -254,7 +254,7 @@ function ProjectDrawer({ project, onClose }: { project: Project | null; onClose:
 
   return (
     <Sheet open={!!project} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col gap-0">
+      <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col gap-0">
         <SheetHeader className="p-6 pb-4 text-left space-y-2" style={{ borderBottom: `1px solid ${BORDER}` }}>
           <p className="text-[11px] font-medium" style={{ color: MUTED }}>#{project.id}</p>
           <SheetTitle className="text-xl font-extrabold pr-6">{project.name}</SheetTitle>

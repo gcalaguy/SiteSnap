@@ -211,7 +211,7 @@ export function AddAssetModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add {CATEGORY_LABELS[category]} Asset</DialogTitle>
         </DialogHeader>

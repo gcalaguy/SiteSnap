@@ -133,14 +133,16 @@ export function ProjectTypesSection({
                     <Badge variant="outline" className="text-[10px]">{isDefault(key) ? "Default" : "Custom"}</Badge>
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <Button size="icon" variant="ghost" className="h-6 w-6" disabled={isDefault(key)}
                         title={isDefault(key) ? "Defaults cannot be edited" : "Edit"}
+                        aria-label={isDefault(key) ? "Defaults cannot be edited" : "Edit"}
                         onClick={() => { setForm({ key, label }); setEditKey(key); setAddOpen(true); }}>
                         <Edit3 className="h-3 w-3" />
                       </Button>
                       <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500 hover:text-red-600 hover:bg-red-50"
                         disabled={isDefault(key)} title={isDefault(key) ? "Defaults cannot be deleted" : "Delete"}
+                        aria-label={isDefault(key) ? "Defaults cannot be deleted" : "Delete"}
                         onClick={() => setDeleteKey(key)}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -156,7 +158,7 @@ export function ProjectTypesSection({
 
       {addOpen && (
         <Dialog open onOpenChange={o => !o && setAddOpen(false)}>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="max-w-xl">
             <DialogHeader>
               <DialogTitle className="text-base flex items-center gap-2">
                 <Plus className="h-4 w-4 text-primary" />

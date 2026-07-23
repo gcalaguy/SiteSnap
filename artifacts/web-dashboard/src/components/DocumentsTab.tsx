@@ -442,7 +442,7 @@ function QAPanel({ projectId, indexedCount, totalCount }: { projectId: number; i
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }}
             rows={1}
           />
-          <Button size="icon" onClick={ask} disabled={loading || !input.trim()} className="shrink-0">
+          <Button size="icon" onClick={ask} disabled={loading || !input.trim()} className="shrink-0" aria-label="Send message">
             <Send className="h-4 w-4" />
           </Button>
         </div>
@@ -753,7 +753,7 @@ export default function DocumentsTab({ projectId }: { projectId: number }) {
                       {isOwnerOrForeman && (
                         <Button
                           variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
-                          title="Delete" onClick={() => deleteMutation.mutate(doc.id)}
+                          title="Delete" aria-label="Delete document" onClick={() => deleteMutation.mutate(doc.id)}
                           disabled={deleteMutation.isPending}
                         >
                           <Trash2 className="h-4 w-4" />

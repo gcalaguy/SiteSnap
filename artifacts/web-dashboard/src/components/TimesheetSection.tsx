@@ -610,7 +610,7 @@ function TimesheetRow({
 
       {/* ── Approve-with-signature dialog ──────────────────────────────────── */}
       <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-green-600" /> Approve & Sign Timesheet

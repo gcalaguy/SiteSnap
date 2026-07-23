@@ -1071,7 +1071,7 @@ export default function EstimatesPage() {
           )}
 
           <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-primary" /> Email Estimate

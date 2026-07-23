@@ -138,7 +138,7 @@ export default function PublicQuotePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-muted/20 p-6">
-        <div className="max-w-3xl mx-auto space-y-4">
+        <div className="max-w-full mx-auto space-y-4">
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
@@ -149,7 +149,7 @@ export default function PublicQuotePage() {
   if (error || !quote) {
     return (
       <div className="min-h-screen bg-muted/20 p-6 flex items-center justify-center">
-        <Card className="max-w-md w-full">
+        <Card className="max-w-2xl w-full">
           <CardContent className="p-8 text-center">
             <FileText className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
             <h2 className="text-lg font-semibold mb-1">Quote not found</h2>
@@ -165,7 +165,7 @@ export default function PublicQuotePage() {
   return (
     <div className="min-h-screen bg-muted/20">
       <header className="bg-white border-b">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-full mx-auto px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold">{quote.companyName ?? "Site Snap"}</h1>
             <p className="text-xs text-muted-foreground">Quote {quote.quoteNumber}</p>
@@ -174,7 +174,7 @@ export default function PublicQuotePage() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+      <main className="max-w-full mx-auto px-6 py-6 space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-2">

@@ -9,6 +9,8 @@ import { z } from "zod";
 import { requireAiQuota } from "../middlewares/requireAiQuota.js";
 import { diskUpload, cleanupUpload } from "../lib/upload.js";
 import { readFile } from "fs/promises";
+import { listCostCatalogForCompany } from "../repositories/costCatalog.js";
+import { seedCostCatalog, getEstimatorSettings, buildCostCatalogPromptBlock } from "../services/estimator/costCatalogService.js";
 
 const router = Router();
 
@@ -23,8 +25,8 @@ const esc = (s: unknown): string =>
 
 // ── AI Prompt ─────────────────────────────────────────────────────────────────
 
-function buildEstimatePrompt(scope: string): string {
-  return `You are a senior Canadian construction estimator with 20+ years of experience. 
+function buildEstimatePrompt(scope: string, catalogBlock: string): string {
+  return `You are a senior Canadian construction estimator with 20+ years of experience.
 Generate a detailed, realistic cost estimate for the following project scope.
 Use Canadian pricing (CAD). Include HST/GST considerations in your notes.
 
@@ -53,14 +55,25 @@ Return ONLY a valid JSON object with EXACTLY this structure — no markdown, no 
   "notes": "any important caveats, exclusions, or clarifications"
 }
 
+${catalogBlock || `No company rate database is available for this job — use realistic Canadian pricing:
+- hourlyRate for trades: carpenter/framer $55-75, electrician $85-110, plumber $90-120, general labour $35-50, project manager $95-130 (CAD, Ontario/BC rates)`}
+
 Rules:
 - All dollar amounts in CAD, as plain numbers (no $ symbol)
 - materials must have at least 3 line items if scope mentions construction materials
 - labor must have at least 2 trades
 - totalLow = subtotal (tight budget), totalHigh = subtotal + contingency + 15% buffer
 - contingency is typically 10-15% of subtotal
-- hourlyRate for trades: carpenter/framer $55-75, electrician $85-110, plumber $90-120, general labour $35-50, project manager $95-130 (CAD, Ontario/BC rates)
 - Be realistic and specific — this is used for real project budgeting`;
+}
+
+async function getCatalogBlockForCompany(companyId: number): Promise<string> {
+  await seedCostCatalog(companyId);
+  const [items, settings] = await Promise.all([
+    listCostCatalogForCompany(companyId),
+    getEstimatorSettings(companyId),
+  ]);
+  return buildCostCatalogPromptBlock(items, settings);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -119,8 +132,9 @@ async function extractTextFromFile(buffer: Buffer, mimetype: string, filename: s
   return null; // image — handled via vision
 }
 
-async function generateEstimateFromScope(scope: string): Promise<Record<string, unknown>> {
-  const prompt = buildEstimatePrompt(scope);
+async function generateEstimateFromScope(scope: string, companyId: number): Promise<Record<string, unknown>> {
+  const catalogBlock = await getCatalogBlockForCompany(companyId);
+  const prompt = buildEstimatePrompt(scope, catalogBlock);
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     max_tokens: 4096,
@@ -136,9 +150,10 @@ async function generateEstimateFromScope(scope: string): Promise<Record<string, 
   }
 }
 
-async function generateEstimateFromImage(buffer: Buffer, mimetype: string, userHint: string): Promise<Record<string, unknown>> {
+async function generateEstimateFromImage(buffer: Buffer, mimetype: string, userHint: string, companyId: number): Promise<Record<string, unknown>> {
   const base64 = buffer.toString("base64");
   const dataUrl = `data:${mimetype};base64,${base64}`;
+  const catalogBlock = await getCatalogBlockForCompany(companyId);
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -152,7 +167,7 @@ async function generateEstimateFromImage(buffer: Buffer, mimetype: string, userH
             text: `You are a senior Canadian construction estimator. Analyze this construction plan/drawing/document and generate a detailed cost estimate.
 ${userHint ? `Additional context from the user: ${userHint}` : ""}
 
-${buildEstimatePrompt("Based on the attached plan/image")}`,
+${buildEstimatePrompt("Based on the attached plan/image", catalogBlock)}`,
           },
           {
             type: "image_url",
@@ -224,7 +239,7 @@ router.post("/estimates/generate", requireAuth, requireCompany, requireTenantCtx
 
   // Generate in background, stream result
   try {
-    const result = await generateEstimateFromScope(scope);
+    const result = await generateEstimateFromScope(scope, req.companyId!);
     const title = typeof result.title === "string" ? result.title : scope.slice(0, 60);
 
     const [updated] = await db.update(estimatesTable)
@@ -296,14 +311,14 @@ router.post(
       const fileBuffer = await readFile(file.path);
 
       if (isImage) {
-        result = await generateEstimateFromImage(fileBuffer, mime, hint);
+        result = await generateEstimateFromImage(fileBuffer, mime, hint, req.companyId!);
       } else {
         const text = await extractTextFromFile(fileBuffer, mime, file.originalname);
         const scope = [hint, text].filter(Boolean).join("\n\n");
         if (!scope.trim()) {
           throw new Error("Could not extract text from the uploaded file. For scanned PDFs, the OCR service may have failed.");
         }
-        result = await generateEstimateFromScope(scope);
+        result = await generateEstimateFromScope(scope, req.companyId!);
       }
 
       const title = typeof result.title === "string" ? result.title : file.originalname;

@@ -222,7 +222,7 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>New TradeHub Post</DialogTitle>
         </DialogHeader>
@@ -369,7 +369,7 @@ export default function TradehubFeedPage() {
   const hasFilters = tradeFilter !== "all" || provinceFilter !== "all";
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-full mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -383,7 +383,7 @@ export default function TradehubFeedPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link href="/tradehub/notifications">
-            <Button variant="outline" size="icon" className="relative h-9 w-9">
+            <Button variant="outline" size="icon" className="relative h-9 w-9" aria-label="Notifications">
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-bold"
@@ -392,7 +392,7 @@ export default function TradehubFeedPage() {
             </Button>
           </Link>
           <Link href="/tradehub/profile/me">
-            <Button variant="outline" size="icon" className="h-9 w-9"><User className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="My profile"><User className="h-4 w-4" /></Button>
           </Link>
           <Button className="gap-2 h-9 font-semibold" style={{ background: BLACK, color: GOLD }}
             onClick={() => setShowCreate(true)}>

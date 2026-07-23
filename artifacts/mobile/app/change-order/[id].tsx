@@ -20,12 +20,14 @@ import {
   useGetChangeOrder,
   useApproveChangeOrder,
   useRejectChangeOrder,
+  useUpdateChangeOrder,
   useGetMe,
   getGetChangeOrderQueryKey,
   getListChangeOrdersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import SignatureCanvas from "@/components/SignatureCanvas";
+import { ChangeOrderFormSheet, type ChangeOrderFormValues } from "@/components/sheets/ChangeOrderFormSheet";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
@@ -80,10 +82,33 @@ export default function ChangeOrderDetailScreen() {
 
   const [showSig, setShowSig] = useState(false);
   const [savingSig, setSavingSig] = useState(false);
+  const [showEditSheet, setShowEditSheet] = useState(false);
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: getGetChangeOrderQueryKey(changeOrderId) });
     qc.invalidateQueries({ queryKey: getListChangeOrdersQueryKey() });
+  }
+
+  const updateChangeOrder = useUpdateChangeOrder({
+    mutation: {
+      onSuccess: () => {
+        invalidate();
+        setShowEditSheet(false);
+      },
+      onError: () => Alert.alert("Failed to save changes"),
+    },
+  });
+
+  function handleEditSubmit(values: ChangeOrderFormValues) {
+    updateChangeOrder.mutate({
+      id: changeOrderId,
+      data: {
+        title: values.title,
+        description: values.description,
+        amount: values.amount,
+        notes: values.notes,
+      },
+    });
   }
 
   async function handleSaveSignature(base64: string) {
@@ -278,7 +303,7 @@ export default function ChangeOrderDetailScreen() {
             <Text style={[styles.actionGroupTitle, { color: colors.mutedForeground }]}>MANAGE</Text>
             <Pressable
               style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => Alert.alert("Modify Change Order", "Direct editing is coming soon. Please contact support for now.")}
+              onPress={() => setShowEditSheet(true)}
             >
               <Feather name="edit-2" size={18} color={colors.primary} />
               <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Modify Change Order</Text>
@@ -329,6 +354,22 @@ export default function ChangeOrderDetailScreen() {
         visible={showSig}
         onClose={() => setShowSig(false)}
         onSave={handleSaveSignature}
+      />
+
+      <ChangeOrderFormSheet
+        visible={showEditSheet}
+        onClose={() => setShowEditSheet(false)}
+        onSubmit={handleEditSubmit}
+        submitting={updateChangeOrder.isPending}
+        mode="edit"
+        projectName={`Project #${changeOrder.projectId}`}
+        initialValues={{
+          projectId: changeOrder.projectId,
+          title: changeOrder.title,
+          description: (changeOrder as any).description ?? null,
+          amount: Number(changeOrder.amount),
+          notes: (changeOrder as any).notes ?? null,
+        }}
       />
     </View>
   );

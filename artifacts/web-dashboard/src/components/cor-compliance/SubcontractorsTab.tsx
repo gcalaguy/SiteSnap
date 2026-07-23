@@ -179,11 +179,11 @@ export function SubcontractorsTab({ isAdmin }: { isAdmin: boolean }) {
                         }
                       </Button>
                     )}
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(sub)}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(sub)} aria-label="Edit subcontractor">
                       <Pencil className="h-3.5 w-3.5 text-zinc-400" />
                     </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7"
-                      onClick={() => { if (confirm(`Remove ${sub.companyName}?`)) deleteMut.mutate(sub.id); }}>
+                      onClick={() => { if (confirm(`Remove ${sub.companyName}?`)) deleteMut.mutate(sub.id); }} aria-label="Remove subcontractor">
                       <Trash2 className="h-3.5 w-3.5 text-red-400" />
                     </Button>
                   </div>
@@ -248,7 +248,7 @@ export function SubcontractorsTab({ isAdmin }: { isAdmin: boolean }) {
                             </Button>
                             {doc && (
                               <Button size="icon" variant="ghost" className="h-6 w-6"
-                                onClick={() => deleteDocMut.mutate({ subId: sub.id, docId: doc.id })}>
+                                onClick={() => deleteDocMut.mutate({ subId: sub.id, docId: doc.id })} aria-label="Delete document">
                                 <Trash2 className="h-3 w-3 text-red-400" />
                               </Button>
                             )}

@@ -28,7 +28,7 @@ export function WorkerLayout({ children, breadcrumbs }: WorkerLayoutProps) {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Nav */}
       <header className="bg-[#0A0A0A] text-white sticky top-0 z-20 shadow-md">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+        <div className="max-w-full mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <Link href="/worker-portal">
             <div className="flex items-center gap-2 cursor-pointer">
               <div className="w-7 h-7 bg-primary rounded flex items-center justify-center flex-shrink-0">
@@ -65,6 +65,7 @@ export function WorkerLayout({ children, breadcrumbs }: WorkerLayoutProps) {
               size="icon"
               className="text-white/70 hover:text-white hover:bg-white/10"
               onClick={() => signOut({ redirectUrl: `${basePath}/sign-in` })}
+              aria-label="Sign out"
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -74,7 +75,7 @@ export function WorkerLayout({ children, breadcrumbs }: WorkerLayoutProps) {
         {/* Breadcrumbs */}
         {breadcrumbs && breadcrumbs.length > 0 && (
           <div className="border-t border-white/10 bg-[#0A0A0A]/80">
-            <div className="max-w-2xl mx-auto px-4 py-1.5 flex items-center gap-1 text-xs text-white/60">
+            <div className="max-w-full mx-auto px-4 py-1.5 flex items-center gap-1 text-xs text-white/60">
               <Link href="/worker-portal">
                 <span className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer">
                   <Home className="h-3 w-3" />
@@ -99,12 +100,12 @@ export function WorkerLayout({ children, breadcrumbs }: WorkerLayoutProps) {
       </header>
 
       {/* Content */}
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-5">
+      <main className="flex-1 max-w-full mx-auto w-full px-4 py-5">
         {children}
       </main>
 
       {/* Bottom note */}
-      <footer className="text-center text-xs text-gray-400 py-4 max-w-2xl mx-auto">
+      <footer className="text-center text-xs text-gray-400 py-4 max-w-full mx-auto">
         Site Snap — Powered by AI for Canadian construction
       </footer>
     </div>

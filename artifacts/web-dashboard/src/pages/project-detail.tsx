@@ -233,7 +233,7 @@ export default function ProjectDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-4">
-        <Button variant="outline" size="icon" onClick={() => setLocation("/projects")} className="mt-1 shrink-0">
+        <Button variant="outline" size="icon" onClick={() => setLocation("/projects")} className="mt-1 shrink-0" aria-label="Back to projects">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
@@ -321,6 +321,7 @@ export default function ProjectDetail() {
                     size="icon"
                     className="h-9 w-9 text-muted-foreground hover:text-foreground"
                     onClick={() => setSelectedWorkerId(null)}
+                    aria-label="Clear selected worker"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -552,6 +553,7 @@ export default function ProjectDetail() {
                             className="h-7 w-7 text-muted-foreground hover:text-destructive"
                             onClick={() => removeProjectMember.mutate({ projectId, memberId: m.id })}
                             disabled={removeProjectMember.isPending}
+                            aria-label="Remove team member"
                           >
                             <X className="h-3.5 w-3.5" />
                           </Button>
@@ -749,7 +751,7 @@ export default function ProjectDetail() {
 
       {/* Add Worker to Project Dialog */}
       <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Assign Worker to Project</DialogTitle>
           </DialogHeader>
@@ -802,7 +804,7 @@ export default function ProjectDetail() {
 
       {/* Assign Worker to Project Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Schedule Worker on Project</DialogTitle>
           </DialogHeader>
@@ -876,7 +878,7 @@ export default function ProjectDetail() {
 
       {/* Client Portal Share Dialog */}
       <Dialog open={showPortalDialog} onOpenChange={setShowPortalDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Share2 className="h-4 w-4 text-primary" />
@@ -899,7 +901,7 @@ export default function ProjectDetail() {
                     value={`${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/portal/${portalToken}`}
                     className="text-xs font-mono bg-muted"
                   />
-                  <Button size="icon" variant="outline" onClick={copyPortalLink} className="shrink-0">
+                  <Button size="icon" variant="outline" onClick={copyPortalLink} className="shrink-0" aria-label="Copy portal link">
                     {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
@@ -923,7 +925,7 @@ export default function ProjectDetail() {
 
       {/* Export PDF Sheet */}
       <Sheet open={showPrintSheet} onOpenChange={setShowPrintSheet}>
-        <SheetContent side="right" className="sm:max-w-md">
+        <SheetContent side="right" className="sm:max-w-2xl">
           <SheetHeader>
             <SheetTitle>Export Project PDF</SheetTitle>
             <SheetDescription>

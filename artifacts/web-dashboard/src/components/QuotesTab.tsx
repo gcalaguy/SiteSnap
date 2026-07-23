@@ -403,7 +403,7 @@ export default function QuotesTab({ projectId }: { projectId: number }) {
 
       {/* AI Quote Creation Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />

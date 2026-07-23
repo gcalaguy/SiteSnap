@@ -319,7 +319,7 @@ function TenderCard({
       </div>
 
       <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Apply for Subcontract</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Applying to: <strong>{tender.projectTitle}</strong></p>
@@ -393,7 +393,7 @@ function CreatePostModal({ open, onClose }: { open: boolean; onClose: () => void
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-3xl">
         <DialogHeader><DialogTitle>New TradeHub Post</DialogTitle></DialogHeader>
         <DraftBanner show={draft.showBanner} onRestore={draft.restoreDraft} onDiscard={draft.discardDraft} />
         <div className="space-y-4">
@@ -509,7 +509,7 @@ function CreateTenderModal({ open, onClose }: { open: boolean; onClose: () => vo
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-3xl">
         <DialogHeader><DialogTitle>Post an Open Tender</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div><Label>Project Title *</Label><Input value={projectTitle} onChange={(e) => setProjectTitle(e.target.value)} placeholder="e.g. Commercial Renovation — Calgary Downtown" className="mt-1" /></div>
@@ -674,7 +674,7 @@ export default function TradehubPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link href="/tradehub/notifications">
-            <Button variant="outline" size="icon" className="relative h-9 w-9">
+            <Button variant="outline" size="icon" className="relative h-9 w-9" aria-label="Notifications">
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-bold" style={{ background: GOLD, color: BLACK }}>{unreadCount}</span>
@@ -682,7 +682,7 @@ export default function TradehubPage() {
             </Button>
           </Link>
           <Link href="/tradehub/profile/me">
-            <Button variant="outline" size="icon" className="h-9 w-9"><User className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="My profile"><User className="h-4 w-4" /></Button>
           </Link>
           <Button className="gap-2 h-9 font-semibold" style={{ background: BLACK, color: GOLD }} onClick={() => activeTab === "tenders" ? setShowTenderCreate(true) : setShowCreate(true)}>
             <Plus className="h-4 w-4" />{activeTab === "tenders" ? "Post Tender" : "Post"}

@@ -25,6 +25,8 @@ import crypto from "crypto";
 const CLERK_ID = `test_clerk_quote_wf_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 const EMAIL = `quote-wf-${Date.now()}@example.com`;
 
+const { mockSendEmail } = vi.hoisted(() => ({ mockSendEmail: vi.fn().mockResolvedValue(undefined) }));
+
 vi.mock("@clerk/express", () => ({
   clerkMiddleware: () => (_req: Request, _res: Response, next: NextFunction) => next(),
   getAuth: vi.fn().mockReturnValue({ userId: CLERK_ID }),
@@ -32,8 +34,10 @@ vi.mock("@clerk/express", () => ({
 }));
 
 vi.mock("../src/lib/mailer", () => ({
-  sendEmail: vi.fn().mockResolvedValue(undefined),
+  sendEmail: mockSendEmail,
   ResendSandboxError: class ResendSandboxError extends Error {},
+  buildAppBase: () => "https://app.sitesnap.test",
+  escapeHtml: (s: string) => s,
 }));
 
 vi.mock("../src/lib/push", () => ({
@@ -188,6 +192,63 @@ describe("Quote state machine", () => {
   it("cannot convert an already-converted quote", async () => {
     const res = await request(testApp).post(`/quotes/${quoteId}/convert-to-invoice`).send({});
     expect(res.status).toBe(409);
+  });
+});
+
+describe("Quote PDF and send-email", () => {
+  let quoteId: number;
+
+  beforeAll(async () => {
+    const res = await request(testApp)
+      .post("/quotes")
+      .send({
+        title: "Sendable Quote",
+        clientName: "Jane Client",
+        clientEmail: "jane@example.com",
+        lineItems: [{ description: "Baseboard install", quantity: 40, unit: "lf", unitPrice: 8, total: 320 }],
+        subtotal: 320,
+        taxRate: 13,
+        taxAmount: 41.6,
+        total: 361.6,
+      });
+    quoteId = res.body.id;
+  });
+
+  it("returns a PDF buffer with the correct content type", async () => {
+    const res = await request(testApp).get(`/quotes/${quoteId}/pdf`);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toBe("application/pdf");
+    expect(res.body.length).toBeGreaterThan(0);
+    // PDF magic bytes
+    expect(Buffer.from(res.body).subarray(0, 4).toString()).toBe("%PDF");
+  });
+
+  it("404s for a quote that doesn't exist", async () => {
+    const res = await request(testApp).get("/quotes/999999/pdf");
+    expect(res.status).toBe(404);
+  });
+
+  it("emails the PDF and public sign link to the client, and stamps sentAt/sentVia", async () => {
+    const res = await request(testApp).post(`/quotes/${quoteId}/send-email`);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.quote.sentVia).toBe("email");
+    expect(res.body.quote.sentAt).toBeTruthy();
+
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const payload = mockSendEmail.mock.calls[0][0];
+    expect(payload.to).toEqual(["jane@example.com"]);
+    expect(payload.attachments).toHaveLength(1);
+    expect(payload.attachments[0].filename).toMatch(/\.pdf$/);
+  });
+
+  it("refuses to send when the quote has no client email", async () => {
+    const created = await request(testApp)
+      .post("/quotes")
+      .send({ title: "No Email Quote", clientName: "No Email Client" });
+
+    const res = await request(testApp).post(`/quotes/${created.body.id}/send-email`);
+    expect(res.status).toBe(400);
   });
 });
 

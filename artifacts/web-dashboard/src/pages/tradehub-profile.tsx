@@ -183,9 +183,9 @@ export default function TradehubProfilePage() {
 
   if (!profile && isMe) {
     return (
-      <div className="p-6 max-w-lg mx-auto">
+      <div className="p-6 max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/tradehub"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
+          <Link href="/tradehub"><Button variant="ghost" size="icon" aria-label="Back to TradeHub"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <h1 className="text-xl font-bold">Set Up Your TradeHub Profile</h1>
         </div>
         <Card>
@@ -211,9 +211,9 @@ export default function TradehubProfilePage() {
   const unreadNotifs = notifications.filter((n) => !n.isRead);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-full mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/tradehub"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
+        <Link href="/tradehub"><Button variant="ghost" size="icon" aria-label="Back to TradeHub"><ArrowLeft className="h-4 w-4" /></Button></Link>
         <nav className="text-sm text-muted-foreground flex items-center gap-1.5">
           <Link href="/tradehub"><span className="hover:text-foreground cursor-pointer">TradeHub</span></Link>
           <span>/</span>

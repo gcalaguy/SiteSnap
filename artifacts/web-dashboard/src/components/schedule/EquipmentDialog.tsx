@@ -45,7 +45,7 @@ export function EquipmentDialog({ open, onOpenChange, editingEquipment }: Equipm
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{editEquipId ? "Edit Equipment" : "Add Equipment"}</DialogTitle>
         </DialogHeader>

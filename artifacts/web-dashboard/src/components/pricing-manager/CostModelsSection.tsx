@@ -143,7 +143,7 @@ function CostModelModal({ model, onClose }: { model: CostModelRecord; onClose: (
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Edit3 className="h-4 w-4 text-primary" />
@@ -268,7 +268,7 @@ function CreateCostModelModal({
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             <Plus className="h-4 w-4 text-primary" /> Add Cost Model

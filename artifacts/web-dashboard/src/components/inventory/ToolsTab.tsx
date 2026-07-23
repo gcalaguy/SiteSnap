@@ -250,7 +250,7 @@ function CheckoutToolModal({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Check Out Tool</DialogTitle>
         </DialogHeader>

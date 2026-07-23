@@ -6145,6 +6145,206 @@ export const DeleteAddonResponse = zod.object({
 });
 
 /**
+ * @summary List the company's cost catalog (multi-trade rate book) and global multiplier settings
+ */
+export const ListCostCatalogResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        category: zod.string(),
+        itemName: zod.string(),
+        description: zod.string().nullish(),
+        unitType: zod.enum(["sqft", "linft", "hour", "flat", "unit"]),
+        costPrice: zod.string(),
+        unitPrice: zod.string(),
+        defaultMarkupPercent: zod.string(),
+        projectTypeMultiplier: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+    )
+    .optional(),
+  settings: zod
+    .object({
+      overheadPercent: zod.number().optional(),
+      contingencyPercent: zod.number().optional(),
+      tierMultipliers: zod
+        .object({
+          basic: zod.number().optional(),
+          standard: zod.number().optional(),
+          premium: zod.number().optional(),
+          luxury: zod.number().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Create a new cost catalog item
+ */
+export const createCostCatalogItemBodyCategoryMax = 100;
+
+export const createCostCatalogItemBodyItemNameMax = 200;
+
+export const createCostCatalogItemBodyDescriptionMax = 1000;
+
+export const createCostCatalogItemBodyCostPriceMax = 20;
+
+export const createCostCatalogItemBodyUnitPriceMax = 20;
+
+export const createCostCatalogItemBodyDefaultMarkupPercentMax = 10;
+
+export const createCostCatalogItemBodyProjectTypeMultiplierMax = 10;
+
+export const CreateCostCatalogItemBody = zod.object({
+  category: zod.string().max(createCostCatalogItemBodyCategoryMax).optional(),
+  itemName: zod.string().max(createCostCatalogItemBodyItemNameMax).optional(),
+  description: zod
+    .string()
+    .max(createCostCatalogItemBodyDescriptionMax)
+    .nullish(),
+  unitType: zod.enum(["sqft", "linft", "hour", "flat", "unit"]).optional(),
+  costPrice: zod.string().max(createCostCatalogItemBodyCostPriceMax).optional(),
+  unitPrice: zod.string().max(createCostCatalogItemBodyUnitPriceMax).optional(),
+  defaultMarkupPercent: zod
+    .string()
+    .max(createCostCatalogItemBodyDefaultMarkupPercentMax)
+    .optional(),
+  projectTypeMultiplier: zod
+    .string()
+    .max(createCostCatalogItemBodyProjectTypeMultiplierMax)
+    .nullish(),
+});
+
+/**
+ * @summary Bulk-create cost catalog items (e.g. from a CSV import)
+ */
+export const bulkImportCostCatalogBodyItemsItemCategoryMax = 100;
+
+export const bulkImportCostCatalogBodyItemsItemItemNameMax = 200;
+
+export const bulkImportCostCatalogBodyItemsItemDescriptionMax = 1000;
+
+export const bulkImportCostCatalogBodyItemsItemCostPriceMax = 20;
+
+export const bulkImportCostCatalogBodyItemsItemUnitPriceMax = 20;
+
+export const bulkImportCostCatalogBodyItemsItemDefaultMarkupPercentMax = 10;
+
+export const bulkImportCostCatalogBodyItemsItemProjectTypeMultiplierMax = 10;
+
+export const bulkImportCostCatalogBodyItemsMax = 500;
+
+export const BulkImportCostCatalogBody = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        category: zod
+          .string()
+          .max(bulkImportCostCatalogBodyItemsItemCategoryMax)
+          .optional(),
+        itemName: zod
+          .string()
+          .max(bulkImportCostCatalogBodyItemsItemItemNameMax)
+          .optional(),
+        description: zod
+          .string()
+          .max(bulkImportCostCatalogBodyItemsItemDescriptionMax)
+          .nullish(),
+        unitType: zod
+          .enum(["sqft", "linft", "hour", "flat", "unit"])
+          .optional(),
+        costPrice: zod
+          .string()
+          .max(bulkImportCostCatalogBodyItemsItemCostPriceMax)
+          .optional(),
+        unitPrice: zod
+          .string()
+          .max(bulkImportCostCatalogBodyItemsItemUnitPriceMax)
+          .optional(),
+        defaultMarkupPercent: zod
+          .string()
+          .max(bulkImportCostCatalogBodyItemsItemDefaultMarkupPercentMax)
+          .optional(),
+        projectTypeMultiplier: zod
+          .string()
+          .max(bulkImportCostCatalogBodyItemsItemProjectTypeMultiplierMax)
+          .nullish(),
+      }),
+    )
+    .min(1)
+    .max(bulkImportCostCatalogBodyItemsMax),
+});
+
+/**
+ * @summary Update a cost catalog item
+ */
+export const UpdateCostCatalogItemParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateCostCatalogItemBodyCategoryMax = 100;
+
+export const updateCostCatalogItemBodyItemNameMax = 200;
+
+export const updateCostCatalogItemBodyDescriptionMax = 1000;
+
+export const updateCostCatalogItemBodyCostPriceMax = 20;
+
+export const updateCostCatalogItemBodyUnitPriceMax = 20;
+
+export const updateCostCatalogItemBodyDefaultMarkupPercentMax = 10;
+
+export const updateCostCatalogItemBodyProjectTypeMultiplierMax = 10;
+
+export const UpdateCostCatalogItemBody = zod.object({
+  category: zod.string().max(updateCostCatalogItemBodyCategoryMax).optional(),
+  itemName: zod.string().max(updateCostCatalogItemBodyItemNameMax).optional(),
+  description: zod
+    .string()
+    .max(updateCostCatalogItemBodyDescriptionMax)
+    .nullish(),
+  unitType: zod.enum(["sqft", "linft", "hour", "flat", "unit"]).optional(),
+  costPrice: zod.string().max(updateCostCatalogItemBodyCostPriceMax).optional(),
+  unitPrice: zod.string().max(updateCostCatalogItemBodyUnitPriceMax).optional(),
+  defaultMarkupPercent: zod
+    .string()
+    .max(updateCostCatalogItemBodyDefaultMarkupPercentMax)
+    .optional(),
+  projectTypeMultiplier: zod
+    .string()
+    .max(updateCostCatalogItemBodyProjectTypeMultiplierMax)
+    .nullish(),
+});
+
+export const UpdateCostCatalogItemResponse = zod.object({
+  id: zod.number(),
+  category: zod.string(),
+  itemName: zod.string(),
+  description: zod.string().nullish(),
+  unitType: zod.enum(["sqft", "linft", "hour", "flat", "unit"]),
+  costPrice: zod.string(),
+  unitPrice: zod.string(),
+  defaultMarkupPercent: zod.string(),
+  projectTypeMultiplier: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a cost catalog item
+ */
+export const DeleteCostCatalogItemParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCostCatalogItemResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
  * @summary Create a daily field log
  */
 export const createDailyLogBodyNotesMax = 5000;

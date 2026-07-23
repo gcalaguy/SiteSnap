@@ -551,11 +551,11 @@ export default function SafetyDetailPage() {
   const canReview = isOwnerOrForeman && submission.status === "submitted";
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-full mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/safety")}>
+          <Button variant="ghost" size="icon" onClick={() => setLocation("/safety")} aria-label="Back to safety">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -686,6 +686,7 @@ export default function SafetyDetailPage() {
                   size="icon"
                   onClick={() => commentMutation.mutate()}
                   disabled={!comment.trim() || commentMutation.isPending}
+                  aria-label="Post comment"
                 >
                   {commentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>

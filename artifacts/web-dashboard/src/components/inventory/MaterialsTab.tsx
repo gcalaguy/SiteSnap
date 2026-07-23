@@ -278,7 +278,7 @@ function MaterialModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{existing ? "Edit Material" : "Add Material"}</DialogTitle>
         </DialogHeader>
@@ -351,7 +351,7 @@ function PurchaseOrderModal({ material, onClose }: { material: MaterialRow; onCl
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Purchase Order Draft</DialogTitle>
         </DialogHeader>

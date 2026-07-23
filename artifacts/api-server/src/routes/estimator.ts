@@ -30,7 +30,15 @@ import {
   listActualsForCompany,
   insertQuote,
 } from "../repositories/estimator";
+import {
+  listCostCatalogForCompany,
+  insertCostCatalogItem,
+  insertCostCatalogItems,
+  updateCostCatalogItem,
+  deleteCostCatalogItem,
+} from "../repositories/costCatalog";
 import { seedPricingData, getProjectTypeLabels } from "../services/estimator/pricingService";
+import { seedCostCatalog, getEstimatorSettings } from "../services/estimator/costCatalogService";
 import { runPricingEngine } from "../services/estimator/pricingEngine";
 import { parsePromptToParams, extractTextFromUploadedFile } from "../services/estimator/aiParserService";
 import { getNextQuoteNumber, calcQuoteTotals } from "../services/estimator/quoteService";
@@ -248,6 +256,123 @@ router.delete(
 
     const deleted = await deleteAddon(id, req.companyId!);
     if (!deleted) throw new NotFoundError("Add-on not found");
+    res.json({ success: true });
+  }),
+);
+
+// ── Cost Catalog (multi-trade rate book) ─────────────────────────────────────
+
+const COST_CATALOG_UNIT_TYPES = ["sqft", "linft", "hour", "flat", "unit"] as const;
+
+const CostCatalogItemBody = z.object({
+  category:              z.string().min(1, "category is required").max(100, "category must be at most 100 characters"),
+  itemName:              z.string().min(1, "itemName is required").max(200, "itemName must be at most 200 characters"),
+  description:           z.string().max(1000, "description must be at most 1 000 characters").optional(),
+  unitType:              z.enum(COST_CATALOG_UNIT_TYPES),
+  costPrice:             z.string().max(20, "costPrice must be at most 20 characters"),
+  unitPrice:             z.string().max(20, "unitPrice must be at most 20 characters"),
+  defaultMarkupPercent:  z.string().max(10, "defaultMarkupPercent must be at most 10 characters").default("15"),
+  projectTypeMultiplier: z.string().max(10, "projectTypeMultiplier must be at most 10 characters").optional(),
+});
+
+// GET /api/estimator/cost-catalog — readable by any authenticated company member
+router.get(
+  "/estimator/cost-catalog",
+  requireAuth,
+  requireCompany,
+  requireTenantCtx,
+  asyncHandler(async (req, res) => {
+    await seedCostCatalog(req.companyId!);
+    const [items, settings] = await Promise.all([
+      listCostCatalogForCompany(req.companyId!),
+      getEstimatorSettings(req.companyId!),
+    ]);
+    res.json({ items, settings });
+  }),
+);
+
+// POST /api/estimator/cost-catalog — create a new catalog item
+router.post(
+  "/estimator/cost-catalog",
+  requireAuth,
+  requireCompany,
+  requireTenantCtx,
+  requireOwner,
+  asyncHandler(async (req, res) => {
+    await seedCostCatalog(req.companyId!);
+    const parsed = CostCatalogItemBody.safeParse(req.body);
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
+    const { description, projectTypeMultiplier, ...rest } = parsed.data;
+    const item = await insertCostCatalogItem(req.companyId!, {
+      ...rest,
+      description: description ?? null,
+      projectTypeMultiplier: projectTypeMultiplier ?? null,
+    });
+    res.status(201).json(item);
+  }),
+);
+
+// POST /api/estimator/cost-catalog/bulk-import — CSV/bulk create catalog items
+const BulkImportCostCatalogBody = z.object({
+  items: z.array(CostCatalogItemBody).min(1, "At least one item is required").max(500, "At most 500 items per import"),
+});
+
+router.post(
+  "/estimator/cost-catalog/bulk-import",
+  requireAuth,
+  requireCompany,
+  requireTenantCtx,
+  requireOwner,
+  asyncHandler(async (req, res) => {
+    await seedCostCatalog(req.companyId!);
+    const parsed = BulkImportCostCatalogBody.safeParse(req.body);
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
+    const items = await insertCostCatalogItems(
+      req.companyId!,
+      parsed.data.items.map(({ description, projectTypeMultiplier, ...rest }) => ({
+        ...rest,
+        description: description ?? null,
+        projectTypeMultiplier: projectTypeMultiplier ?? null,
+      })),
+    );
+    res.status(201).json({ items });
+  }),
+);
+
+// PUT /api/estimator/cost-catalog/:id — update a catalog item
+router.put(
+  "/estimator/cost-catalog/:id",
+  requireAuth,
+  requireCompany,
+  requireTenantCtx,
+  requireOwner,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(String(req.params.id));
+    if (isNaN(id)) throw new BadRequestError("Invalid ID");
+    const parsed = CostCatalogItemBody.partial().safeParse(req.body);
+    if (!parsed.success) throw new BadRequestError("Malformed request payload", parsed.error.issues);
+    const { description, projectTypeMultiplier, ...rest } = parsed.data;
+    const updateData: Record<string, unknown> = { ...rest };
+    if ("description" in parsed.data) updateData.description = description ?? null;
+    if ("projectTypeMultiplier" in parsed.data) updateData.projectTypeMultiplier = projectTypeMultiplier ?? null;
+    const item = await updateCostCatalogItem(id, req.companyId!, updateData);
+    if (!item) throw new NotFoundError("Cost catalog item not found");
+    res.json(item);
+  }),
+);
+
+// DELETE /api/estimator/cost-catalog/:id — delete a catalog item
+router.delete(
+  "/estimator/cost-catalog/:id",
+  requireAuth,
+  requireCompany,
+  requireTenantCtx,
+  requireOwner,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(String(req.params.id));
+    if (isNaN(id)) throw new BadRequestError("Invalid ID");
+    const deletedId = await deleteCostCatalogItem(id, req.companyId!);
+    if (!deletedId) throw new NotFoundError("Cost catalog item not found");
     res.json({ success: true });
   }),
 );

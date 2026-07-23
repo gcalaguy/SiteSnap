@@ -131,7 +131,7 @@ export function TermsModal({ open }: { open: boolean }) {
   return (
     <Dialog open={open}>
       <DialogContent
-        className="max-w-2xl flex flex-col gap-4"
+        className="max-w-full flex flex-col gap-4"
         style={{ maxHeight: "90vh" }}
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}

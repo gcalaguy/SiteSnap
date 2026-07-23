@@ -188,7 +188,7 @@ function ChangeStatusDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm" style={{ background: SURFACE, border: `1px solid ${GOLD}33` }}>
+      <DialogContent className="max-w-xl" style={{ background: SURFACE, border: `1px solid ${GOLD}33` }}>
         <DialogHeader>
           <DialogTitle className="text-white">Change RFI Status</DialogTitle>
         </DialogHeader>

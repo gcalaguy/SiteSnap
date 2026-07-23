@@ -59,6 +59,7 @@ import { cn } from "@/lib/utils";
 import { StepBadge } from "@/components/smart-estimator/StepBadge";
 import { AddonSelector } from "@/components/smart-estimator/AddonSelector";
 import { LineItemsTable } from "@/components/smart-estimator/LineItemsTable";
+import { AddFromCatalogButton } from "@/components/smart-estimator/AddFromCatalogButton";
 import { BreakdownPanel } from "@/components/smart-estimator/BreakdownPanel";
 import { ActualCard } from "@/components/smart-estimator/ActualCard";
 import { type LineItem, type EstimateSummary, fmtCurrency as fmt } from "@/lib/estimator";
@@ -455,7 +456,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
     : null;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12">
+    <div className="max-w-full mx-auto space-y-6 pb-12">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -548,6 +549,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                               className="h-6 w-6"
                               onClick={() => openEditDialog(m)}
                               title="Edit"
+                              aria-label="Edit cost model"
                             >
                               <Edit3 className="h-3.5 w-3.5" />
                             </Button>
@@ -557,6 +559,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
                               className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => setDeleteConfirmId(m.id)}
                               title="Delete"
+                              aria-label="Delete cost model"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -574,7 +577,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
 
       {/* Delete Confirm Dialog */}
       <Dialog open={deleteConfirmId !== null} onOpenChange={(o) => { if (!o) setDeleteConfirmId(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Delete cost model?</DialogTitle>
             <DialogDescription>This will permanently remove this pricing model. Existing estimates are not affected.</DialogDescription>
@@ -594,7 +597,7 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
 
       {/* Cost Model Add / Edit Dialog */}
       <Dialog open={showModelDialog} onOpenChange={(o) => { if (!o) setShowModelDialog(false); }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-full">
           <DialogHeader>
             <DialogTitle>{editingModelId !== null ? "Edit Cost Model" : "Add Cost Model"}</DialogTitle>
             <DialogDescription>
@@ -1124,12 +1127,13 @@ export default function SmartEstimatorPage({ isOwnerOrForeman = false }: { isOwn
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
             {/* Left — Line Items */}
             <div className="lg:col-span-3 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   <FileText className="h-4 w-4 text-primary" />
                   Line Items
                   <Badge variant="outline" className="text-[10px]">click cells to edit</Badge>
                 </h3>
+                <AddFromCatalogButton onAdd={(item) => setLineItems(prev => [...prev, item])} />
               </div>
               <LineItemsTable items={lineItems} onChange={setLineItems} />
             </div>

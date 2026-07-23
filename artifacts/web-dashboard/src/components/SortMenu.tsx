@@ -75,6 +75,7 @@ export function SortMenu<T extends string>({
         className="h-9 w-9 border-[#D4AF37]/20 shrink-0"
         onClick={() => onChange({ ...value, dir: value.dir === "asc" ? "desc" : "asc" })}
         title={value.dir === "asc" ? "Ascending" : "Descending"}
+        aria-label={value.dir === "asc" ? "Ascending" : "Descending"}
       >
         {value.dir === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
       </Button>

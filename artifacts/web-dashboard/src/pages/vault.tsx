@@ -218,7 +218,7 @@ export default function WorkerDocumentsPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "#F8F8F8" }}>
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-full mx-auto px-6 py-8">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-lg bg-[#C9A84C]/10 flex items-center justify-center">
             <ShieldCheck className="w-5 h-5 text-[#C9A84C]" />
@@ -346,6 +346,7 @@ export default function WorkerDocumentsPage() {
                                         e.stopPropagation();
                                         handleDelete(d.id);
                                       }}
+                                      aria-label="Delete document"
                                     >
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
@@ -368,7 +369,7 @@ export default function WorkerDocumentsPage() {
       {/* Document Detail Dialog */}
       {selectedDoc && (
         <Dialog open onOpenChange={() => { setSelectedDoc(null); setSignedUrl(null); }}>
-          <DialogContent className="max-w-lg bg-white border-[#E5E5E5]">
+          <DialogContent className="max-w-3xl bg-white border-[#E5E5E5]">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold" style={{ color: "#0A0A0A" }}>
                 {selectedDoc.documentType}

@@ -618,7 +618,7 @@ export default function QuoteDetail() {
 
   if (isLoading) {
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-4">
+      <div className="p-6 max-w-full mx-auto space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-96 w-full rounded-xl" />
       </div>
@@ -627,7 +627,7 @@ export default function QuoteDetail() {
 
   if (!quote) {
     return (
-      <div className="p-6 max-w-4xl mx-auto text-center py-20">
+      <div className="p-6 max-w-full mx-auto text-center py-20">
         <p className="text-lg font-medium">Quote not found</p>
         <Button variant="ghost" className="mt-4" onClick={() => setLocation("/financials?tab=quotes")}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Quotes
@@ -639,7 +639,7 @@ export default function QuoteDetail() {
   const hasUnsavedChanges = lineItems !== null || title !== null || notes !== null;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-full mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
@@ -1148,6 +1148,7 @@ export default function QuoteDetail() {
                           size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-destructive"
                           onClick={() => removeItem(idx)}
+                          aria-label="Remove line item"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -1158,6 +1159,7 @@ export default function QuoteDetail() {
                           size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-primary"
                           title="Save to Pricing Database"
+                          aria-label="Save to Pricing Database"
                           onClick={() => setImportItem(item)}
                         >
                           <Database className="h-3.5 w-3.5" />

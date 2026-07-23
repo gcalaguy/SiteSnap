@@ -135,9 +135,9 @@ export default function TradehubPostPage() {
   const myApplication = postData.applications?.find((a) => a.applicantId === me?.id);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-6 max-w-full mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/tradehub")}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/tradehub")} aria-label="Back to TradeHub">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <nav className="text-sm text-muted-foreground flex items-center gap-1.5">
@@ -178,12 +178,12 @@ export default function TradehubPostPage() {
             </div>
             <div className="flex items-center gap-1">
               {isOwner && (
-                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate({ id: postId })}>
+                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate({ id: postId })} aria-label="Delete post">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
               {!isOwner && (
-                <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => setShowReport(true)}>
+                <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => setShowReport(true)} aria-label="Report post">
                   <Flag className="h-4 w-4" />
                 </Button>
               )}
@@ -327,6 +327,7 @@ export default function TradehubPostPage() {
                 onClick={() => commentMutation.mutate({ id: postId, data: { content: comment } })}
                 disabled={!comment.trim() || commentMutation.isPending}
                 className="self-end"
+                aria-label="Post comment"
               >
                 {commentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>

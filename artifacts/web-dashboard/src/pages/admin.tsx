@@ -203,7 +203,7 @@ function AdminPage() {
   const isSuperAdmin = me?.systemRole === "super_admin";
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-full">
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-primary" />

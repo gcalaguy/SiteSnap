@@ -202,7 +202,7 @@ function TopRiskSection({ rows }: { rows: InspectionRow[] }) {
       <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-3">
         Highest Risk Right Now
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {rows.slice(0, 6).map((row) => {
           const insp = row.inspection;
           const cfg = riskCfg(insp.riskLevel);

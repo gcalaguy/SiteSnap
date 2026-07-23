@@ -199,7 +199,7 @@ function CreateCompanyCard() {
       </div>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
+          <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
             <h3 className="text-lg font-semibold text-[#121212]">Create New Company</h3>
             <p className="text-sm font-semibold text-gray-500">Enter the owner's email. A shareable link will be generated for them to claim and set up their company.</p>
             {createdLink ? (
@@ -926,7 +926,7 @@ function PlanDialog({ open, form, onChange, onSave, onCancel, onDelete, isSaving
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
+      <div className="w-full max-w-full rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-[#121212]">Plan Administration</h3>
@@ -954,7 +954,7 @@ function FeatureDialog({ open, form, onChange, onSave, onCancel, onDelete, isSav
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
+      <div className="w-full max-w-4xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
         <h3 className="text-lg font-semibold text-[#121212]">Feature Administration</h3>
         <p className="text-sm font-semibold text-gray-500">Create enabled/disabled features and assign them to plans.</p>
         <div className="mt-4 grid gap-4">
@@ -976,7 +976,7 @@ function TenantDialog({ open, onOpenChange, tenantId, tenantForm, setTenantForm,
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
-      <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
+      <div className="w-full max-w-full rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
         <h3 className="text-lg font-semibold text-[#121212]">Tenant Administration</h3>
         <p className="text-sm font-semibold text-gray-500">Update tenant profile, subscription, billing cycle, and plan.</p>
         {tenantId !== null && <p className="mt-1 text-xs uppercase tracking-wider text-[#D4AF37]">Editing tenant #{tenantId}</p>}
@@ -1074,7 +1074,7 @@ function ExportDeleteTenantDialog({ tenant, onOpenChange, receiptId, onExport, i
   const nameMatches = confirmName.trim() === tenant.name;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
-      <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
+      <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
         <h3 className="text-lg font-semibold text-[#121212]">Delete Tenant</h3>
         <p className="mt-1 text-sm font-semibold text-gray-500">
           Deleting "{tenant.name}" permanently removes all of its data. You can optionally export a copy first.
@@ -1127,7 +1127,7 @@ function MemberDialog({ open, onOpenChange, form, onChange, onSave, isSaving }: 
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 pointer-events-auto">
-      <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
+      <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl pointer-events-auto">
         <h3 className="text-lg font-semibold text-[#121212]">Edit Member</h3>
         <p className="text-sm font-semibold text-gray-500">Update first name, last name, email, and company role.</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -1415,7 +1415,7 @@ export default function SuperAdminPage() {
       />
       {reissueOpen && reissuedLink && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
+          <div className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 text-[#121212] shadow-2xl">
             <h3 className="text-lg font-semibold text-[#121212]">Reissued Sign-up Link</h3>
             <p className="text-sm font-semibold text-gray-500">Copy the link below and share it with the company owner.</p>
             <div className="mt-4 space-y-3">

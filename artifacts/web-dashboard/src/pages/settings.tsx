@@ -16,7 +16,7 @@ export default function Settings() {
   const isOwner = user?.role === "owner";
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-full mx-auto">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight text-[#121212] flex items-center gap-2">
           <Globe className="h-6 w-6" style={{ color: "#D4AF37" }} />

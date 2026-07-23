@@ -142,6 +142,14 @@ if (process.env.NODE_ENV !== "production") {
     ? process.env.CORS_DEV_ORIGINS.split(",").map((o) => o.trim())
     : ["http://localhost:5173", "http://localhost:3000"];
   ALLOWED_ORIGINS.push(...devOrigins);
+  // Allow Expo preview subdomains during development
+  ALLOWED_ORIGINS.push("https://localhost:18115");
+  if (process.env.REPLIT_EXPO_DEV_DOMAIN) {
+    ALLOWED_ORIGINS.push(`https://${process.env.REPLIT_EXPO_DEV_DOMAIN}`);
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    ALLOWED_ORIGINS.push(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+  }
 }
 
 app.use(

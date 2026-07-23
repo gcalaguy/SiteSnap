@@ -77,7 +77,7 @@ export default function AuditLogPage() {
   }, [logs, search]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-full mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <ShieldCheck size={22} style={{ color: GOLD }} />
         <h1 className="text-xl font-bold tracking-tight" style={{ color: BLACK }}>

@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "patch-stripe-metadata": "tsx ./src/patch-stripe-plan-metadata.ts",
+    "seed-task-categories": "tsx ./src/seed-task-categories.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
@@ -13,6 +14,8 @@
     "tsx": "catalog:"
   },
   "dependencies": {
-    "stripe": "^22.1.0"
+    "stripe": "^22.1.0",
+    "@workspace/db": "workspace:*",
+    "drizzle-orm": "catalog:"
   }
 }

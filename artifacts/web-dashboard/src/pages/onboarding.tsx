@@ -449,7 +449,7 @@ export default function OnboardingPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/10 p-4">
-      <div className="w-full max-w-md space-y-8">
+      <div className="w-full max-w-2xl space-y-8">
         <div className="text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
             <Building2 className="h-8 w-8 text-primary" />

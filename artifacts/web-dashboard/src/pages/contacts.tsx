@@ -473,7 +473,7 @@ export default function Contacts() {
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setEditId(null); setForm(EMPTY_FORM); } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editId ? "Edit Contact" : "New Contact"}</DialogTitle>
           </DialogHeader>
@@ -601,7 +601,7 @@ export default function Contacts() {
 
       {/* Files Dialog */}
       <Dialog open={filesContact !== null} onOpenChange={(o) => { if (!o) setFilesContact(null); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Paperclip className="h-4 w-4" />

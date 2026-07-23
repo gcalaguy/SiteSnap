@@ -161,6 +161,7 @@ export function RFIsTab({
                               size="icon"
                               className="h-7 w-7 hover:bg-muted"
                               title="Edit RFI"
+                              aria-label="Edit RFI"
                               onClick={(e) => { e.stopPropagation(); setEditingRfiId(rfi.id); }}
                             >
                               <Pencil className="h-3.5 w-3.5" />
@@ -170,6 +171,7 @@ export function RFIsTab({
                               size="icon"
                               className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                               title="Delete RFI"
+                              aria-label="Delete RFI"
                               onClick={(e) => { e.stopPropagation(); deleteRFI.mutate({ projectId, rfiId: rfi.id }); }}
                               disabled={deleteRFI.isPending}
                             >
@@ -220,7 +222,7 @@ export function RFIsTab({
         if (!rfi) return null;
         return (
           <Dialog open={!!editingRfiId} onOpenChange={() => setEditingRfiId(null)}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-3xl">
               <DialogHeader><DialogTitle>Edit RFI</DialogTitle></DialogHeader>
               <div className="space-y-3 py-2">
                 <Label>Subject</Label>

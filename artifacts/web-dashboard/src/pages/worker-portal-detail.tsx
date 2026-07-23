@@ -346,6 +346,7 @@ export default function WorkerPortalDetailPage() {
               onClick={() => commentMutation.mutate()}
               disabled={!comment.trim() || commentMutation.isPending}
               className="self-end"
+              aria-label="Post comment"
             >
               {commentMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

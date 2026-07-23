@@ -483,7 +483,7 @@ export default function Leads() {
 
       {/* Create lead dialog */}
       <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>New Lead</DialogTitle>
           </DialogHeader>
@@ -574,7 +574,7 @@ export default function Leads() {
 
       {/* Lead detail sheet */}
       <Sheet open={!!selectedLead} onOpenChange={(o) => { if (!o) setSelectedLead(null); }}>
-        <SheetContent className="w-full max-w-lg overflow-y-auto" style={{ padding: 0 }}>
+        <SheetContent className="w-full max-w-3xl overflow-y-auto" style={{ padding: 0 }}>
           {selectedLead && (
             <LeadDetail
               lead={selectedLead}
@@ -590,7 +590,7 @@ export default function Leads() {
 
       {/* Convert to project dialog */}
       <Dialog open={convertOpen} onOpenChange={setConvertOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Convert to Project</DialogTitle>
           </DialogHeader>

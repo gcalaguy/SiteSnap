@@ -682,6 +682,15 @@ export type QuoteLineItem = {
   accountCode?: string;
 };
 
+export type ScopeItem = {
+  trade: string;
+  room?: string | null;
+  taskCategory: string;
+  description: string;
+  quantity: number;
+  unit: string;
+};
+
 export const CONSTRUCTION_COA_CODES = [
   { code: "4101", label: "Progress Revenue" },
   { code: "5101", label: "Direct Labour" },
@@ -728,6 +737,11 @@ export const quotesTable = pgTable("quotes", {
   signerUserAgent: text("signer_user_agent"),
   signedAt: timestamp("signed_at", { withTimezone: true }),
   publicToken: text("public_token").notNull().unique(),
+  // Customer-send tracking
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  sentVia: text("sent_via"),
+  // AI-extracted trade/room/task breakdown reviewed before pricing, if any
+  structuredScope: json("structured_scope").$type<ScopeItem[]>(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
@@ -743,6 +757,22 @@ export const insertQuoteSchema = createInsertSchema(quotesTable).omit({
 });
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
 export type Quote = typeof quotesTable.$inferSelect;
+
+// ── Task categories (canonical trade/task taxonomy for scope extraction) ───────
+
+export const taskCategoriesTable = pgTable("task_categories", {
+  id: serial("id").primaryKey(),
+  // Nullable = system default, available to all companies. Non-null = company-specific override/addition.
+  companyId: integer("company_id").references(() => companiesTable.id, { onDelete: "cascade" }),
+  trade: text("trade").notNull(),
+  canonicalName: text("canonical_name").notNull(),
+  synonyms: text("synonyms").array().notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("idx_task_categories_company_id").on(t.companyId),
+]);
+
+export type TaskCategory = typeof taskCategoriesTable.$inferSelect;
 
 // ── Invoices ──────────────────────────────────────────────────────────────────
 
@@ -1538,6 +1568,50 @@ export const estimatorActualsTable = pgTable("estimator_actuals", {
   recordedAt: timestamp("recorded_at", { withTimezone: true }).defaultNow().notNull(),
 });
 export type EstimatorActual = typeof estimatorActualsTable.$inferSelect;
+
+// ── Cost Catalog (multi-trade rate book) ────────────────────────────────────────
+
+export const costCatalogUnitTypeEnum = pgEnum("cost_catalog_unit_type", [
+  "sqft",
+  "linft",
+  "hour",
+  "flat",
+  "unit",
+]);
+
+export const costCatalogTable = pgTable("cost_catalog", {
+  id: serial("id").primaryKey(),
+  // Nullable = global seed template row, cloned into a company's own rows on first
+  // access (same clone-on-first-use convention as estimator_cost_models/estimator_addons).
+  companyId: integer("company_id").references(() => companiesTable.id, { onDelete: "cascade" }),
+  category: text("category").notNull(), // e.g. "Framing", "Plumbing", "Electrical" — free text so contractors can add custom trades
+  itemName: text("item_name").notNull(),
+  description: text("description"),
+  unitType: costCatalogUnitTypeEnum("unit_type").notNull().default("unit"),
+  costPrice: numeric("cost_price", { precision: 10, scale: 2 }).notNull().default("0"),
+  unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull().default("0"),
+  defaultMarkupPercent: numeric("default_markup_percent", { precision: 5, scale: 2 }).notNull().default("15"),
+  // Optional per-item override of the company's global tier multiplier (companies.estimator_config.tierMultipliers).
+  // Null = use the company-wide default for the selected project tier.
+  projectTypeMultiplier: numeric("project_type_multiplier", { precision: 4, scale: 2 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("idx_cost_catalog_company_id").on(t.companyId),
+  index("idx_cost_catalog_company_category").on(t.companyId, t.category),
+  pgPolicy("tenant_isolation", {
+    as: "permissive",
+    using: sql`current_tenant_id() IS NULL OR ${t.companyId} IS NULL OR ${t.companyId} = current_tenant_id()`,
+  }),
+]).enableRLS();
+
+export const insertCostCatalogItemSchema = createInsertSchema(costCatalogTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCostCatalogItem = z.infer<typeof insertCostCatalogItemSchema>;
+export type CostCatalogItem = typeof costCatalogTable.$inferSelect;
 
 // ── Equipment ─────────────────────────────────────────────────────────────────
 

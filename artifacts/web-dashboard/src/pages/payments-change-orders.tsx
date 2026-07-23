@@ -715,7 +715,7 @@ function PaymentsChangeOrdersInner() {
 
       {/* Record Payment Dialog */}
       <Dialog open={recordPaymentOpen} onOpenChange={setRecordPaymentOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -769,7 +769,7 @@ function PaymentsChangeOrdersInner() {
 
       {/* Create Change Order Dialog */}
       <Dialog open={createCOOpen} onOpenChange={setCreateCOOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Create Change Order</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Add extra scope or costs to a project. Requires approval before proceeding.</p>
           <div className="space-y-3">

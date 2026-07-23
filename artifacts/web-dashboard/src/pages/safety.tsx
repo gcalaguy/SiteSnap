@@ -131,7 +131,7 @@ export default function SafetyPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 max-w-full mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -397,7 +397,7 @@ export default function SafetyPage() {
 
       {/* Export PDF Sheet */}
       <Sheet open={showPrintSheet} onOpenChange={setShowPrintSheet}>
-        <SheetContent side="right" className="sm:max-w-md">
+        <SheetContent side="right" className="sm:max-w-2xl">
           <SheetHeader>
             <SheetTitle>Export Safety PDF</SheetTitle>
             <SheetDescription>

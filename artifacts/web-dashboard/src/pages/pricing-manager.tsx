@@ -1,6 +1,8 @@
 import { Input } from "@/components/ui/input";
 import { AlertCircle, Search, X } from "lucide-react";
 import { PricingSkeletons } from "@/components/pricing-manager/shared";
+import { CostCatalogSection } from "@/components/pricing-manager/CostCatalogSection";
+import { GlobalMultipliersPanel } from "@/components/pricing-manager/GlobalMultipliersPanel";
 import { CostModelsSection } from "@/components/pricing-manager/CostModelsSection";
 import { AddonsSection } from "@/components/pricing-manager/AddonsSection";
 import { ProjectTypesSection } from "@/components/pricing-manager/ProjectTypesSection";
@@ -11,7 +13,11 @@ import { usePricingPreviewState } from "@/hooks/pricing-manager/usePricingPrevie
 // ── Main Export ───────────────────────────────────────────────────────────────
 
 export function PricingSettingsBody() {
-  const { data, models, addons, projectTypes, companyId, isLoading, isError } = usePricingManagerData();
+  const {
+    data, models, addons, projectTypes,
+    catalogItems, estimatorSettings,
+    companyId, isLoading, isError,
+  } = usePricingManagerData();
 
   const {
     selectedType, setSelectedType,
@@ -49,7 +55,7 @@ export function PricingSettingsBody() {
         <Input
           value={searchInput}
           onChange={e => setSearchInput(e.target.value)}
-          placeholder="Search cost models, add-ons, project types…"
+          placeholder="Search catalog items, cost models, add-ons, project types…"
           className="pl-9 pr-9 text-sm h-9"
           aria-label="Search Pricing Manager"
         />
@@ -68,6 +74,22 @@ export function PricingSettingsBody() {
       <div className="grid gap-6 xl:grid-cols-[1fr_340px] items-start">
         {/* ── Left: scrollable configuration panel ── */}
         <div className="space-y-3 min-w-0">
+          <CostCatalogSection
+            items={catalogItems}
+            search={search}
+          />
+
+          <GlobalMultipliersPanel
+            settings={estimatorSettings}
+            companyId={companyId}
+          />
+
+          <div className="pt-1 px-1 flex items-center gap-2">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Blended Rate Models (Smart Estimator)</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
           <CostModelsSection
             models={models}
             projectTypes={projectTypes}

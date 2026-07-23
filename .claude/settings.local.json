@@ -134,7 +134,16 @@
       "Bash(fc-list)",
       "Bash(awk '/@font-face/{block=\"\"} {block=block\"\\\\n\"$0} /}/{if\\(block ~ /font-face/\\) print block\"\\\\n---\"}' fonts.css)",
       "Bash(grep -rn '\"/risk\"\\\\|/risk`\\\\|risk.tsx' /home/runner/workspace/artifacts/mobile/app /home/runner/workspace/artifacts/mobile/components)",
-      "Workflow(code-review)"
+      "Workflow(code-review)",
+      "Bash(grep -n \"router\\\\.\\\\|quotesTable\\\\|groupBy\\\\|sql\\\\`\" artifacts/api-server/src/routes/dashboard.ts)",
+      "Bash(sed -n '150,270,300,350' /home/runner/workspace/artifacts/mobile/app/finance.tsx)",
+      "Bash(sed -n '1,60' /home/runner/workspace/artifacts/mobile/app/finance.tsx)",
+      "Bash(grep *)",
+      "Bash(npx vitest *)",
+      "Bash(python3 *)",
+      "Bash(pnpm push *)",
+      "Bash(jobs -l)",
+      "Bash(pkill -f \"drizzle-kit push\")"
     ]
   }
 }

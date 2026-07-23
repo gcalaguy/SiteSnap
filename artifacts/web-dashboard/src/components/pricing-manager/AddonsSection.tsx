@@ -112,7 +112,7 @@ function AddonModal({ addon, onClose }: { addon: AddonRecord | "new"; onClose: (
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             <Tag className="h-4 w-4 text-primary" />
@@ -301,12 +301,12 @@ export function AddonsSection({
                       : fmtCAD.format(parseFloat(a.amount))}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditAddon(a)}>
+                <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditAddon(a)} aria-label="Edit addon">
                     <Edit3 className="h-3.5 w-3.5" />
                   </Button>
                   <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => setDeleteConfirm(a)}>
+                    onClick={() => setDeleteConfirm(a)} aria-label="Delete addon">
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>

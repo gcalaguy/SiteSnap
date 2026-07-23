@@ -379,6 +379,7 @@ export default function HoursPage() {
                       size="icon"
                       className="shrink-0 h-9 w-9 text-muted-foreground hover:text-destructive"
                       onClick={() => removeLogRow(index)}
+                      aria-label="Remove entry"
                     >
                       <X className="h-4 w-4" />
                     </Button>

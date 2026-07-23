@@ -131,6 +131,7 @@ export default function ClientMessagesTab({ projectId }: Props) {
               className="h-7 w-7"
               onClick={() => qc.invalidateQueries({ queryKey: ["portal-messages", projectId] })}
               title="Refresh"
+              aria-label="Refresh messages"
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>

@@ -146,9 +146,9 @@ export default function NewInvoice() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-full mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/financials?tab=invoices&sub=invoices")}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/financials?tab=invoices&sub=invoices")} aria-label="Back">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -275,6 +275,7 @@ export default function NewInvoice() {
                     className="h-9 w-9 text-destructive hover:text-destructive"
                     onClick={() => removeItem(idx)}
                     disabled={lineItems.length === 1}
+                    aria-label="Remove line item"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

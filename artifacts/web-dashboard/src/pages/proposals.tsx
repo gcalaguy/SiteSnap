@@ -577,7 +577,7 @@ export default function Proposals() {
 
       {/* Create estimate dialog */}
       <Dialog open={createEstimateOpen} onOpenChange={setCreateEstimateOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>New Estimate</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
@@ -600,7 +600,7 @@ export default function Proposals() {
 
       {/* Convert to proposal dialog */}
       <Dialog open={convertOpen} onOpenChange={setConvertOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Create Proposal from Estimate</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Optionally add client details. You can update these later.</p>
           <div className="space-y-3">
@@ -629,7 +629,7 @@ export default function Proposals() {
 
       {/* Save template dialog */}
       <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-xl">
           <DialogHeader><DialogTitle>Save as Template</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Save the current line items as a reusable template.</p>
           <div className="space-y-1.5">
@@ -648,7 +648,7 @@ export default function Proposals() {
 
       {/* Load template dialog */}
       <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Load Template</DialogTitle></DialogHeader>
           {templates.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">No templates saved yet. Build an estimate and save it as a template.</p>
@@ -680,7 +680,7 @@ export default function Proposals() {
 
       {/* Approve dialog */}
       <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-xl">
           <DialogHeader><DialogTitle>Approve Proposal</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Type your full name to confirm approval. This acts as your electronic signature.</p>
           <div className="space-y-1.5">
@@ -1025,7 +1025,7 @@ function ProposalView({
   }
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4 max-w-full">
       {/* Proposal header card */}
       <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #E5E5E5" }}>
         {/* Dark header */}
@@ -1146,7 +1146,7 @@ function ProposalView({
 
       {/* Edit client dialog */}
       <Dialog open={editClientOpen} onOpenChange={setEditClientOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-xl">
           <DialogHeader><DialogTitle>Edit Client Info</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">

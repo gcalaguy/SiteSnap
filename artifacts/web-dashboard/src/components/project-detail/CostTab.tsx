@@ -123,6 +123,7 @@ export function CostTab({
                             size="icon"
                             className="h-7 w-7 hover:bg-muted"
                             title="Edit cost record"
+                            aria-label="Edit cost record"
                             onClick={(e) => { e.stopPropagation(); setEditingCostId(cost.id); }}
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -132,6 +133,7 @@ export function CostTab({
                             size="icon"
                             className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                             title="Delete cost record"
+                            aria-label="Delete cost record"
                             onClick={(e) => { e.stopPropagation(); deleteCostAnalysis.mutate({ projectId, analysisId: cost.id }); }}
                             disabled={deleteCostAnalysis.isPending}
                           >
@@ -180,7 +182,7 @@ export function CostTab({
         if (!cost) return null;
         return (
           <Dialog open={!!editingCostId} onOpenChange={() => setEditingCostId(null)}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-3xl">
               <DialogHeader><DialogTitle>Edit Cost Record</DialogTitle></DialogHeader>
               <div className="space-y-3 py-2">
                 <Label>Period Label</Label>

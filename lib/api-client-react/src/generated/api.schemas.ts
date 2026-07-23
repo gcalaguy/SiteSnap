@@ -1935,6 +1935,86 @@ export interface ImportItemBody {
   sourceId?: string | null;
 }
 
+export type CostCatalogItemUnitType =
+  (typeof CostCatalogItemUnitType)[keyof typeof CostCatalogItemUnitType];
+
+export const CostCatalogItemUnitType = {
+  sqft: "sqft",
+  linft: "linft",
+  hour: "hour",
+  flat: "flat",
+  unit: "unit",
+} as const;
+
+export interface CostCatalogItem {
+  id: number;
+  category: string;
+  itemName: string;
+  description?: string | null;
+  unitType: CostCatalogItemUnitType;
+  costPrice: string;
+  unitPrice: string;
+  defaultMarkupPercent: string;
+  projectTypeMultiplier?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CostCatalogItemBodyUnitType =
+  (typeof CostCatalogItemBodyUnitType)[keyof typeof CostCatalogItemBodyUnitType];
+
+export const CostCatalogItemBodyUnitType = {
+  sqft: "sqft",
+  linft: "linft",
+  hour: "hour",
+  flat: "flat",
+  unit: "unit",
+} as const;
+
+export interface CostCatalogItemBody {
+  /** @maxLength 100 */
+  category?: string;
+  /** @maxLength 200 */
+  itemName?: string;
+  /** @maxLength 1000 */
+  description?: string | null;
+  unitType?: CostCatalogItemBodyUnitType;
+  /** @maxLength 20 */
+  costPrice?: string;
+  /** @maxLength 20 */
+  unitPrice?: string;
+  /** @maxLength 10 */
+  defaultMarkupPercent?: string;
+  /** @maxLength 10 */
+  projectTypeMultiplier?: string | null;
+}
+
+export interface EstimatorTierMultipliers {
+  basic?: number;
+  standard?: number;
+  premium?: number;
+  luxury?: number;
+}
+
+export interface EstimatorSettings {
+  overheadPercent?: number;
+  contingencyPercent?: number;
+  tierMultipliers?: EstimatorTierMultipliers;
+}
+
+export interface CostCatalogResponse {
+  items?: CostCatalogItem[];
+  settings?: EstimatorSettings;
+}
+
+export interface BulkImportCostCatalogBody {
+  /**
+   * @minItems 1
+   * @maxItems 500
+   */
+  items: CostCatalogItemBody[];
+}
+
 export type AddonRecordCostType =
   (typeof AddonRecordCostType)[keyof typeof AddonRecordCostType];
 
@@ -3206,6 +3286,14 @@ export type DeleteCostModel200 = {
 };
 
 export type DeleteAddon200 = {
+  success?: boolean;
+};
+
+export type BulkImportCostCatalog201 = {
+  items?: CostCatalogItem[];
+};
+
+export type DeleteCostCatalogItem200 = {
   success?: boolean;
 };
 

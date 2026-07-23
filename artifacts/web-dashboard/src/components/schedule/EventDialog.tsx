@@ -97,7 +97,7 @@ export function EventDialog({ open, onOpenChange, editingEvent }: EventDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editEvtId ? "Edit Event" : "New Event"}</DialogTitle>
         </DialogHeader>

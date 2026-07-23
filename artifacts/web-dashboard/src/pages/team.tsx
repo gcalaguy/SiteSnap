@@ -535,7 +535,7 @@ export default function Team() {
                       {isOwner && member.id !== user?.id && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" style={{ color: GOLD }}><MoreHorizontal className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" style={{ color: GOLD }} aria-label="Member actions"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
@@ -610,7 +610,7 @@ export default function Team() {
                       <CopyButton text={makeInviteLink(invite.token)} />
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Invitation actions">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

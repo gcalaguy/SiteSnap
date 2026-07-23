@@ -86,7 +86,7 @@ export function PhotoThumbnail({
       </div>
 
       <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
-        <DialogContent className="sm:max-w-3xl p-2 bg-black/95 border-none" onClick={(e) => e.stopPropagation()}>
+        <DialogContent className="sm:max-w-full p-2 bg-black/95 border-none" onClick={(e) => e.stopPropagation()}>
           <img src={signedUrl} alt={photo.caption ?? "Site photo"} className="w-full max-h-[75vh] object-contain rounded" />
           <div className="flex items-center justify-between gap-3 px-2 pb-1 text-sm text-white/80">
             <div className="flex items-center gap-2">

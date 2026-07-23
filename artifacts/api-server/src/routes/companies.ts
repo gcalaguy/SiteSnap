@@ -231,7 +231,15 @@ router.patch("/companies/:companyId", requireAuth, requireCompany, requireTenant
   if (body.province !== undefined) update.province = body.province.trim();
   if (body.website !== undefined) update.website = body.website.trim();
   if (body.hstNumber !== undefined) update.hstNumber = body.hstNumber.trim();
-  if (body.estimatorConfig !== undefined) update.estimatorConfig = body.estimatorConfig;
+  if (body.estimatorConfig !== undefined) {
+    // Shallow-merge with the existing config so unrelated top-level keys (e.g. a
+    // projectTypeLabels update alongside stored tierMultipliers) aren't clobbered.
+    const existing = await getCompanyById(companyId);
+    update.estimatorConfig = {
+      ...((existing?.estimatorConfig ?? {}) as Record<string, unknown>),
+      ...body.estimatorConfig,
+    };
+  }
 
   if (Object.keys(update).length === 0) {
     res.status(400).json({ error: "No updatable fields provided" });

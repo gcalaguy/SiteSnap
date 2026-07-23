@@ -95,9 +95,9 @@ export default function NewCost() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <div className="space-y-6 max-w-full mx-auto">
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => setLocation(`/projects/${projectId}`)}>
+        <Button variant="outline" size="icon" onClick={() => setLocation(`/projects/${projectId}`)} aria-label="Back">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div>

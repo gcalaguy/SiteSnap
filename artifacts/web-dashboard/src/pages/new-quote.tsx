@@ -93,7 +93,7 @@ export default function NewQuote() {
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
+    <div className="p-6 max-w-full mx-auto space-y-6">
       <div>
         <button
           onClick={() => setLocation("/financials?tab=quotes")}

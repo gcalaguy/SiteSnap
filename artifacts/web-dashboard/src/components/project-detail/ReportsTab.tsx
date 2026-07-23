@@ -153,6 +153,7 @@ export function ReportsTab({
                             size="icon"
                             className="h-7 w-7 hover:bg-muted"
                             title="Edit report"
+                            aria-label="Edit report"
                             onClick={(e) => { e.stopPropagation(); setEditingReportId(report.id); }}
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -162,6 +163,7 @@ export function ReportsTab({
                             size="icon"
                             className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                             title="Delete report"
+                            aria-label="Delete report"
                             onClick={(e) => { e.stopPropagation(); deleteDailyReport.mutate({ projectId, reportId: report.id }); }}
                             disabled={deleteDailyReport.isPending}
                           >
@@ -349,7 +351,7 @@ export function ReportsTab({
         if (!report) return null;
         return (
           <Dialog open={!!editingReportId} onOpenChange={() => setEditingReportId(null)}>
-            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Edit Daily Report</DialogTitle></DialogHeader>
               <div className="space-y-3 py-2">
                 <Label>Date</Label>

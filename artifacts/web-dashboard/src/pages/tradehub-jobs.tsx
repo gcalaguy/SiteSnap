@@ -45,10 +45,10 @@ export default function TradehubJobsPage() {
   const [, navigate] = useLocation();
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-full mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/tradehub">
-          <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" aria-label="Back to TradeHub"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div className="flex items-center gap-3 flex-1">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: BLACK }}>

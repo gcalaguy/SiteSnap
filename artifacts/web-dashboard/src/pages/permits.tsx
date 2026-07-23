@@ -233,7 +233,7 @@ export function PermitFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md bg-white border-[#E5E5E5]">
+      <DialogContent className="max-w-2xl bg-white border-[#E5E5E5]">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold" style={{ color: "#0A0A0A" }}>
             {editing ? "Edit Permit" : "New Permit"}
@@ -443,7 +443,7 @@ function PermitsPageContent() {
 
   return (
     <div className="min-h-screen" style={{ background: "#F8F8F8" }}>
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-full mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-lg bg-[#C9A84C]/10 flex items-center justify-center">
@@ -604,6 +604,7 @@ function PermitsPageContent() {
                                   setEditing(p);
                                   setFormOpen(true);
                                 }}
+                                aria-label="Edit permit"
                               >
                                 <Pencil className="w-4 h-4" />
                               </Button>
@@ -612,6 +613,7 @@ function PermitsPageContent() {
                                 variant="ghost"
                                 className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
                                 onClick={() => setDeleting(p)}
+                                aria-label="Delete permit"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>

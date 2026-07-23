@@ -735,7 +735,7 @@ export default function FieldLogsPage() {
       </Tabs>
 
       <Dialog open={!!lightboxUrl} onOpenChange={() => setLightboxUrl(null)}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-none">
+        <DialogContent className="max-w-full p-0 overflow-hidden bg-black border-none">
           <DialogTitle className="sr-only">Photo preview</DialogTitle>
           <div className="relative">
             <button

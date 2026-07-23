@@ -101,7 +101,7 @@ function CreateInspectionDialog({ open, onClose }: { open: boolean; onClose: () 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardCheck className="h-5 w-5 text-primary" />
@@ -170,7 +170,7 @@ function CreateInspectionDialog({ open, onClose }: { open: boolean; onClose: () 
                     </SelectContent>
                   </Select>
                   {items.length > 1 && (
-                    <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 text-muted-foreground" onClick={() => removeItem(i)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 text-muted-foreground" onClick={() => removeItem(i)} aria-label="Remove item">
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   )}
@@ -238,7 +238,7 @@ function InspectionDetailDialog({ id, onClose }: { id: number; onClose: () => vo
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardCheck className="h-5 w-5 text-primary" />
@@ -359,7 +359,7 @@ export default function InspectionsPage() {
   const draftCount = allRows.filter((row) => row.inspection.status === "draft").length;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-full mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-xl">

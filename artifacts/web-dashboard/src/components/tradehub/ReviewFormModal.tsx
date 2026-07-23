@@ -30,7 +30,7 @@ export function ReviewFormModal({ open, onClose, onSubmit, isSubmitting, targetN
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md bg-white border-[#E5E5E5]">
+      <DialogContent className="max-w-2xl bg-white border-[#E5E5E5]">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-[#0A0A0A]">
             Write a Review

@@ -3791,6 +3791,105 @@ paths:
                   success:
                     type: boolean
 
+  /estimator/cost-catalog:
+    get:
+      operationId: listCostCatalog
+      tags: [estimator]
+      summary: List the company's cost catalog (multi-trade rate book) and global multiplier settings
+      responses:
+        "200":
+          description: Cost catalog items and estimator settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostCatalogResponse"
+    post:
+      operationId: createCostCatalogItem
+      tags: [estimator]
+      summary: Create a new cost catalog item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CostCatalogItemBody"
+      responses:
+        "201":
+          description: Created cost catalog item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostCatalogItem"
+
+  /estimator/cost-catalog/bulk-import:
+    post:
+      operationId: bulkImportCostCatalog
+      tags: [estimator]
+      summary: Bulk-create cost catalog items (e.g. from a CSV import)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkImportCostCatalogBody"
+      responses:
+        "201":
+          description: Imported cost catalog items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CostCatalogItem"
+
+  /estimator/cost-catalog/{id}:
+    put:
+      operationId: updateCostCatalogItem
+      tags: [estimator]
+      summary: Update a cost catalog item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CostCatalogItemBody"
+      responses:
+        "200":
+          description: Updated cost catalog item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostCatalogItem"
+    delete:
+      operationId: deleteCostCatalogItem
+      tags: [estimator]
+      summary: Delete a cost catalog item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
   # ── Field Automation ────────────────────────────────────────────────────────────
   /field/daily-log:
     post:
@@ -8030,6 +8129,111 @@ components:
           type: string
           maxLength: 100
           nullable: true
+
+    CostCatalogItem:
+      type: object
+      required: [id, category, itemName, unitType, costPrice, unitPrice, defaultMarkupPercent, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+        itemName:
+          type: string
+        description:
+          type: string
+          nullable: true
+        unitType:
+          type: string
+          enum: [sqft, linft, hour, flat, unit]
+        costPrice:
+          type: string
+        unitPrice:
+          type: string
+        defaultMarkupPercent:
+          type: string
+        projectTypeMultiplier:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CostCatalogItemBody:
+      type: object
+      properties:
+        category:
+          type: string
+          maxLength: 100
+        itemName:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        unitType:
+          type: string
+          enum: [sqft, linft, hour, flat, unit]
+        costPrice:
+          type: string
+          maxLength: 20
+        unitPrice:
+          type: string
+          maxLength: 20
+        defaultMarkupPercent:
+          type: string
+          maxLength: 10
+        projectTypeMultiplier:
+          type: string
+          maxLength: 10
+          nullable: true
+
+    EstimatorTierMultipliers:
+      type: object
+      properties:
+        basic:
+          type: number
+        standard:
+          type: number
+        premium:
+          type: number
+        luxury:
+          type: number
+
+    EstimatorSettings:
+      type: object
+      properties:
+        overheadPercent:
+          type: number
+        contingencyPercent:
+          type: number
+        tierMultipliers:
+          $ref: "#/components/schemas/EstimatorTierMultipliers"
+
+    CostCatalogResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CostCatalogItem"
+        settings:
+          $ref: "#/components/schemas/EstimatorSettings"
+
+    BulkImportCostCatalogBody:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/CostCatalogItemBody"
 
     AddonRecord:
       type: object

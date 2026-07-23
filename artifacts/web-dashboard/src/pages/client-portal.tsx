@@ -183,7 +183,7 @@ function PhotoLightbox({ photos, index, onClose, onNav }: {
         </button>
       )}
       <div
-        className="max-w-4xl max-h-[85vh] flex flex-col items-center gap-3"
+        className="max-w-full max-h-[85vh] flex flex-col items-center gap-3"
         onClick={(e) => e.stopPropagation()}
       >
         <SignedImage
@@ -337,7 +337,7 @@ export default function ClientPortal() {
 
       {/* Header */}
       <header className="bg-[#0A0A0A] text-white sticky top-0 z-10 shadow-md">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
+        <div className="max-w-full mx-auto px-4 py-4 flex items-center gap-3">
           <Building2 className="h-7 w-7 text-[#D4AF37]" />
           <div>
             <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Client Portal</p>
@@ -346,7 +346,7 @@ export default function ClientPortal() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+      <main className="max-w-full mx-auto px-4 py-8 space-y-6">
         {/* Project hero */}
         <Card className="border-0 shadow-sm overflow-hidden">
           <div className="h-2 bg-[#D4AF37]" />
@@ -720,7 +720,7 @@ export default function ClientPortal() {
       </main>
 
       <footer className="border-t border-slate-200 mt-8">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-center gap-2 text-xs text-slate-400">
+        <div className="max-w-full mx-auto px-4 py-4 flex items-center justify-center gap-2 text-xs text-slate-400">
           <Building2 className="h-3.5 w-3.5" />
           <span>Powered by <strong className="text-slate-600">Site Snap</strong> — Construction AI Platform</span>
         </div>

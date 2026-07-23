@@ -304,6 +304,7 @@ export function HelpChatWidget() {
                     onClick={() => send(input)}
                     disabled={!input.trim() || loading}
                     className="h-9 w-9 flex-shrink-0"
+                    aria-label="Send message"
                     style={
                       input.trim() && !loading
                         ? { background: BLACK }

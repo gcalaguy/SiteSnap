@@ -67,6 +67,116 @@ export const fmtCAD = new Intl.NumberFormat("en-CA", {
   maximumFractionDigits: 0,
 });
 
+// ── Cost Catalog helpers ─────────────────────────────────────────────────────
+
+export const COST_CATALOG_UNIT_TYPES = ["sqft", "linft", "hour", "flat", "unit"] as const;
+export type CostCatalogUnitType = (typeof COST_CATALOG_UNIT_TYPES)[number];
+
+export const UNIT_TYPE_LABELS: Record<CostCatalogUnitType, string> = {
+  sqft: "sq ft",
+  linft: "lin ft",
+  hour: "hour",
+  flat: "flat",
+  unit: "unit",
+};
+
+const CSV_HEADERS = ["category", "itemName", "description", "unitType", "costPrice", "unitPrice", "defaultMarkupPercent"] as const;
+
+/** Minimal RFC4180-ish CSV parser — handles quoted fields with embedded commas/quotes.
+ *  Does not support embedded newlines inside quoted fields. */
+export function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  for (const rawLine of text.split(/\r\n|\n/)) {
+    if (rawLine.trim() === "") continue;
+    const cells: string[] = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < rawLine.length; i++) {
+      const ch = rawLine[i];
+      if (inQuotes) {
+        if (ch === '"' && rawLine[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') { inQuotes = false; }
+        else { cur += ch; }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        cells.push(cur); cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    cells.push(cur);
+    rows.push(cells.map(c => c.trim()));
+  }
+  return rows;
+}
+
+function escapeCsvCell(v: string): string {
+  return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+}
+
+export function downloadCostCatalogTemplate() {
+  const sample = ["Framing", "Wall Framing (2x4/2x6)", "Stud wall framing, materials + layout", "linft", "8.00", "10.00", "20"];
+  const csv = [CSV_HEADERS.join(","), sample.map(escapeCsvCell).join(",")].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "cost-catalog-template.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export interface ParsedCatalogRow {
+  category: string;
+  itemName: string;
+  description?: string;
+  unitType: CostCatalogUnitType;
+  costPrice: string;
+  unitPrice: string;
+  defaultMarkupPercent: string;
+  error?: string;
+}
+
+/** Parses CSV text into catalog rows, matching columns by header name (order-independent). */
+export function parseCostCatalogCsv(text: string): ParsedCatalogRow[] {
+  const rows = parseCsv(text);
+  if (rows.length === 0) return [];
+  const header = rows[0]!.map(h => h.trim());
+  const idx = (name: string) => header.findIndex(h => h.toLowerCase() === name.toLowerCase());
+  const iCategory = idx("category");
+  const iItemName = idx("itemName");
+  const iDescription = idx("description");
+  const iUnitType = idx("unitType");
+  const iCostPrice = idx("costPrice");
+  const iUnitPrice = idx("unitPrice");
+  const iMarkup = idx("defaultMarkupPercent");
+
+  return rows.slice(1).map((cells) => {
+    const category = (iCategory >= 0 ? cells[iCategory] : "") || "";
+    const itemName = (iItemName >= 0 ? cells[iItemName] : "") || "";
+    const description = iDescription >= 0 ? cells[iDescription] : undefined;
+    const unitTypeRaw = ((iUnitType >= 0 ? cells[iUnitType] : "") || "unit").toLowerCase();
+    const costPrice = (iCostPrice >= 0 ? cells[iCostPrice] : "") || "0";
+    const unitPrice = (iUnitPrice >= 0 ? cells[iUnitPrice] : "") || "0";
+    const defaultMarkupPercent = (iMarkup >= 0 ? cells[iMarkup] : "") || "15";
+
+    let error: string | undefined;
+    if (!category) error = "Missing category";
+    else if (!itemName) error = "Missing itemName";
+    else if (!COST_CATALOG_UNIT_TYPES.includes(unitTypeRaw as CostCatalogUnitType)) error = `Invalid unitType "${unitTypeRaw}"`;
+    else if (!numericField(costPrice)) error = "Invalid costPrice";
+    else if (!numericField(unitPrice)) error = "Invalid unitPrice";
+
+    return {
+      category, itemName, description, unitType: unitTypeRaw as CostCatalogUnitType,
+      costPrice, unitPrice, defaultMarkupPercent, error,
+    };
+  });
+}
+
 // ── Accordion Section Wrapper ─────────────────────────────────────────────────
 
 export function AccordionSection({
