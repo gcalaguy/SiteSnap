@@ -19,6 +19,7 @@ import {
   User,
   Download,
   Image,
+  AlertTriangle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -177,6 +178,7 @@ export default function WorkerDocumentsPage() {
   const openDoc = useCallback(async (doc: WorkerDocumentEnriched) => {
     setSelectedDoc(doc);
     setSignedUrl(null);
+    if (doc.status === "file_missing") return;
     const signedPath = getSignedUrlPath(doc);
     if (signedPath) {
       setLoadingSignedUrl(true);
@@ -320,7 +322,7 @@ export default function WorkerDocumentsPage() {
                                 >
                                   <td className="px-5 py-3">
                                     <div className="flex items-center gap-3">
-                                      {imageDoc ? (
+                                      {imageDoc && d.status !== "file_missing" ? (
                                         <SignedPhotoThumbnail path={d.filePath ?? d.fileUrl} alt={d.documentType} />
                                       ) : (
                                         <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center flex-shrink-0">
@@ -331,6 +333,12 @@ export default function WorkerDocumentsPage() {
                                         <Badge variant="outline" className="bg-[#C9A84C]/10 text-[#C9A84C] border-[#C9A84C]/20 font-medium">
                                           {d.documentType}
                                         </Badge>
+                                        {d.status === "file_missing" && (
+                                          <p className="text-[10px] text-red-500 font-medium flex items-center gap-1 mt-1">
+                                            <AlertTriangle className="w-2.5 h-2.5" />
+                                            File missing
+                                          </p>
+                                        )}
                                       </div>
                                     </div>
                                   </td>
@@ -407,8 +415,16 @@ export default function WorkerDocumentsPage() {
                 </div>
                 <div>
                   <p className="text-xs text-[#0A0A0A]/40">Status</p>
-                  <Badge className={selectedDoc.status === "active" ? "bg-emerald-50 text-emerald-600 border-emerald-100 mt-1" : "bg-gray-100 text-gray-500 border-gray-200 mt-1"}>
-                    {selectedDoc.status}
+                  <Badge
+                    className={
+                      selectedDoc.status === "active"
+                        ? "bg-emerald-50 text-emerald-600 border-emerald-100 mt-1"
+                        : selectedDoc.status === "file_missing"
+                          ? "bg-red-50 text-red-600 border-red-100 mt-1"
+                          : "bg-gray-100 text-gray-500 border-gray-200 mt-1"
+                    }
+                  >
+                    {selectedDoc.status === "file_missing" ? "File missing" : selectedDoc.status}
                   </Badge>
                 </div>
                 <div>
@@ -418,7 +434,12 @@ export default function WorkerDocumentsPage() {
                 <div>
                   <p className="text-xs text-[#0A0A0A]/40">File</p>
                   <div className="flex items-center gap-2 mt-1">
-                    {loadingSignedUrl ? (
+                    {selectedDoc.status === "file_missing" ? (
+                      <span className="text-sm text-red-500 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        File missing — ask the worker to re-upload
+                      </span>
+                    ) : loadingSignedUrl ? (
                       <span className="text-sm text-[#0A0A0A]/40 flex items-center gap-1.5">
                         <RefreshCw className="w-3 h-3 animate-spin" />
                         Loading link...

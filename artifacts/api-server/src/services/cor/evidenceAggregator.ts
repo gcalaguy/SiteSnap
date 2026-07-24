@@ -1,5 +1,6 @@
 import { logger } from "../../lib/logger";
 import { upsertCorAuditEntry, maybeAutoCreateCapa } from "../../repositories/cor";
+import { PSI_HAZARD_CATEGORIES, type PsiHazardCategoryKey } from "@workspace/db";
 
 // ── IHSA element keyword map ──────────────────────────────────────────────────
 // Each entry: keywords (lowercased) → element value + display name
@@ -103,13 +104,31 @@ function classifyText(text: string): ElementMapping | null {
   return null;
 }
 
+function getElementMapping(elementId: string): ElementMapping {
+  return ELEMENT_MAPPINGS.find((m) => m.element === elementId) ?? ELEMENT_MAPPINGS[1]!; // default element_2
+}
+
+// PSI hazard categories are fixed and well-understood, so they're mapped to an
+// IHSA element explicitly rather than run through keyword classification.
+const PSI_CATEGORY_TO_ELEMENT: Record<PsiHazardCategoryKey, string> = {
+  environmental: "element_11",
+  ergonomic: "element_2",
+  ppe: "element_2",
+  workingAtHeight: "element_3",
+  activity: "element_3",
+  equipment: "element_4",
+  trafficControl: "element_3",
+  personalLimitation: "element_5",
+  additionalEquipment: "element_4",
+};
+
 // ── Shared insert helper ──────────────────────────────────────────────────────
 
 interface AuditEntry {
   companyId: number;
   projectId: number;
   submittedByUserId: number | null;
-  sourceType: "form_submission" | "inspection" | "safety_signoff" | "daily_log";
+  sourceType: "form_submission" | "inspection" | "safety_signoff" | "daily_log" | "psi_checklist";
   sourceRecordId: number;
   element: ElementMapping;
   findingType: "pass" | "fail";
@@ -344,5 +363,75 @@ export async function processInspection(
       { err, inspectionId: inspection.id },
       "COR evidence aggregation failed (inspection)",
     );
+  }
+}
+
+interface PsiChecklistHazardValue {
+  checked?: string[];
+  otherText?: string;
+  other2Text?: string;
+  other3Text?: string;
+}
+
+interface PsiChecklistForEvidence {
+  id: number;
+  projectId: number;
+  createdByUserId: number;
+  hazards: Partial<Record<PsiHazardCategoryKey, PsiChecklistHazardValue>> | null;
+}
+
+// A submitted PSI checklist is itself positive hazard-identification evidence —
+// unlike forms/signoffs/inspections it has no pass/fail semantics, so it never
+// drives CAPA auto-creation (writeAuditEntries only does that for "fail" rows).
+export async function processPsiChecklist(
+  psi: PsiChecklistForEvidence,
+  companyId: number,
+): Promise<void> {
+  try {
+    const hazards = psi.hazards ?? {};
+    const byElement = new Map<string, { mapping: ElementMapping; categories: string[]; itemCount: number }>();
+
+    for (const key of Object.keys(hazards) as PsiHazardCategoryKey[]) {
+      const value = hazards[key];
+      const checkedCount = value?.checked?.length ?? 0;
+      const hasOtherText = Boolean(value?.otherText || value?.other2Text || value?.other3Text);
+      if (checkedCount === 0 && !hasOtherText) continue;
+
+      const elementId = PSI_CATEGORY_TO_ELEMENT[key] ?? "element_2";
+      const mapping = getElementMapping(elementId);
+      const categoryTitle = PSI_HAZARD_CATEGORIES[key]?.title ?? key;
+
+      if (!byElement.has(elementId)) {
+        byElement.set(elementId, { mapping, categories: [], itemCount: 0 });
+      }
+      const entry = byElement.get(elementId)!;
+      entry.categories.push(categoryTitle);
+      entry.itemCount += checkedCount + (hasOtherText ? 1 : 0);
+    }
+
+    if (byElement.size === 0) return;
+
+    const entries: AuditEntry[] = [];
+    for (const [, group] of byElement) {
+      entries.push({
+        companyId,
+        projectId: psi.projectId,
+        submittedByUserId: psi.createdByUserId,
+        sourceType: "psi_checklist",
+        sourceRecordId: psi.id,
+        element: group.mapping,
+        findingType: "pass",
+        description: `Pre-site inspection checklist identified ${group.itemCount} hazard(s) across: ${group.categories.join(", ")}`,
+        score: 100,
+        snapshot: {
+          categories: group.categories,
+          itemCount: group.itemCount,
+        },
+      });
+    }
+
+    await writeAuditEntries(entries);
+  } catch (err) {
+    logger.error({ err, psiId: psi.id }, "COR evidence aggregation failed (psi checklist)");
   }
 }

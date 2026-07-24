@@ -81,9 +81,9 @@ export function GenerateAuditPackageDialog({
 
         <div className="space-y-4 py-2">
           <div className="text-sm text-zinc-400 leading-relaxed" style={{ borderLeft: `3px solid ${GOLD}`, paddingLeft: 12 }}>
-            Compiles all audit trail evidence, inspections, voice observations, CAPA tickets,
-            policy sign-offs, subcontractor compliance, and training matrices into a structured ZIP
-            binder organized by all 19 Ontario IHSA elements — ready for external auditor review.
+            Compiles all audit trail evidence, inspections, pre-inspection checklists, voice observations,
+            CAPA tickets, policy sign-offs, subcontractor compliance, and training matrices into a structured
+            ZIP binder organized by all 19 Ontario IHSA elements — ready for external auditor review.
           </div>
 
           <div>
@@ -121,6 +121,7 @@ export function GenerateAuditPackageDialog({
             <p className="font-semibold text-zinc-400">What's included:</p>
             <p>• All 19 IHSA element folders with audit entries, CSV + JSON</p>
             <p>• Full inspection history with per-item breakdown</p>
+            <p>• Pre-Inspection Checklists with hazard assessments, signatures & approvals</p>
             <p>• Voice observation log mapped to elements</p>
             <p>• CAPA tickets grouped by element with closure evidence</p>
             <p>• Policy sign-offs with worker acknowledgement records</p>

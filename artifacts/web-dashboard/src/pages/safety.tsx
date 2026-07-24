@@ -33,6 +33,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { PsiChecklistList } from "@/components/cor-compliance/PsiTab";
+import { usePsiList } from "@/hooks/cor-compliance/usePsi";
 
 const GOLD = "#C9A84C";
 const BLACK = "#111111";
@@ -47,6 +49,7 @@ interface Submission {
   aiSummary: string | null;
   createdAt: string;
   updatedAt: string;
+  corElements?: Array<{ element: string; elementName: string; findingType: string }>;
 }
 
 interface FormTemplate {
@@ -85,6 +88,26 @@ function CategoryBadge({ category }: { category: string }) {
   );
 }
 
+function CorMappingBadges({ corElements }: { corElements?: Submission["corElements"] }) {
+  if (!corElements || corElements.length === 0) return null;
+  const unique = Array.from(new Map(corElements.map((e) => [e.element, e])).values());
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {unique.map((e) => (
+        <span
+          key={e.element}
+          title={e.elementName}
+          className="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
+          style={{ background: "#DCFCE7", color: "#16A34A" }}
+        >
+          <CheckCircle2 className="h-2.5 w-2.5" />
+          Mapped to COR Element {e.element.replace("element_", "")}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function SafetyPage() {
   const { data: me } = useGetMe();
   const [search, setSearch] = useState("");
@@ -112,6 +135,9 @@ export default function SafetyPage() {
     queryKey: ["safety-templates"],
     queryFn: () => customFetch("/api/safety/templates"),
   });
+
+  const psiListQuery = usePsiList();
+  const psiRows = psiListQuery.data ?? [];
 
   const filtered = submissions.filter((s) => {
     const q = search.toLowerCase();
@@ -219,6 +245,7 @@ export default function SafetyPage() {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="psi">Pre-Inspections</TabsTrigger>
         </TabsList>
 
         {/* ── Forms Tab ── */}
@@ -374,6 +401,7 @@ export default function SafetyPage() {
                             <p className="text-xs text-muted-foreground mt-1">
                               {format(new Date(s.createdAt), "MMM d, yyyy 'at' h:mm a")}
                             </p>
+                            <CorMappingBadges corElements={s.corElements} />
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span
@@ -392,6 +420,22 @@ export default function SafetyPage() {
               })}
             </div>
           )}
+        </TabsContent>
+
+        {/* ── Pre-Inspections (PSI) Tab ── */}
+        <TabsContent value="psi" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              Pre-site/task hazard assessment checklists for your projects.
+            </p>
+            <Link href="/psi/submit">
+              <Button style={{ background: GOLD, color: BLACK }} className="gap-2 font-semibold shrink-0">
+                <Plus className="h-4 w-4" />
+                New PSI Checklist
+              </Button>
+            </Link>
+          </div>
+          <PsiChecklistList rows={psiRows} isLoading={psiListQuery.isLoading} isError={psiListQuery.isError} />
         </TabsContent>
       </Tabs>
 

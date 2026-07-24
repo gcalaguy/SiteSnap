@@ -579,6 +579,33 @@ export default function CorDashboardScreen() {
         </TouchableOpacity>
       )}
 
+      {/* Pre-inspection checklists (PSI) — governance view for owner/foreman;
+          workers manage their own PSI checklists via the project Safety tab. */}
+      {!isWorker && (
+        <TouchableOpacity
+          onPress={() => router.push("/(tabs)/(home)/psi-list")}
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 12,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            borderRadius: 12,
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.border,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <Feather name="clipboard" size={18} color={colors.primary} />
+          <Text style={{ color: colors.text, fontWeight: "600", fontSize: 15, flex: 1 }}>
+            Pre-Inspection Checklists
+          </Text>
+          <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+        </TouchableOpacity>
+      )}
+
       {/* Flagged subcontractors banner (admin only) */}
       {!isWorker && flaggedSubs.length > 0 && (
         <View style={{

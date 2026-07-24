@@ -46,6 +46,8 @@ import RiskDashboardPage from "@/pages/risk-dashboard";
 
 import SafetySubmitPage from "@/pages/safety-submit";
 import SafetyDetailPage from "@/pages/safety-detail";
+import PsiSubmitPage from "@/pages/psi-submit";
+import PsiDetailPage from "@/pages/psi-detail";
 import SafetyCompliancePage from "@/pages/safety-compliance";
 import SafetyPrintPage from "@/pages/safety-print";
 import WorkerDocumentsPage from "@/pages/vault";
@@ -354,6 +356,8 @@ function AuthApp() {
           </Route>
           <Route path="/safety/submit" component={SafetySubmitPage} />
           <Route path="/safety/submissions/:id" component={SafetyDetailPage} />
+          <Route path="/psi/submit"><PermissionGuard permissionKey="viewSafetyTab"><PsiSubmitPage /></PermissionGuard></Route>
+          <Route path="/psi/:id"><PermissionGuard permissionKey="viewSafetyTab"><PsiDetailPage /></PermissionGuard></Route>
           <Route path="/safety">
             <Redirect to="/safety-compliance" />
           </Route>

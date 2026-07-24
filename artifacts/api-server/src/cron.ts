@@ -15,6 +15,9 @@ import {
   tradehubProfilesTable,
   fileAttachmentsTable,
   expensesTable,
+  workerDocumentsTable,
+  mediaHubPhotosTable,
+  permitsTable,
 } from "@workspace/db";
 import { buildDigest } from "./lib/digest.js";
 import { buildDigestHtml } from "./lib/digestTemplate.js";
@@ -22,6 +25,7 @@ import { sendEmail } from "./lib/mailer.js";
 import { buildCredentialExpiryHtml } from "./lib/corAlerts.js";
 import { sendOverdueReminders } from "./lib/invoiceReminders.js";
 import { checkEvidenceGaps } from "./services/evidenceGapMonitor.js";
+import { runDueBackupsAndPurge } from "./services/backupEngine.js";
 import { logger } from "./lib/logger.js";
 import { eq, and, sql, lt, inArray } from "drizzle-orm";
 import { ObjectStorageService } from "./lib/objectStorage.js";
@@ -34,7 +38,7 @@ import {
 
 // Distributed cron lock keys — unique per job, stored in PostgreSQL advisory locks.
 // These integers are arbitrary but must never collide with other advisory lock users.
-const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004, CREDENTIAL_ALERTS: 7005, EVIDENCE_GAP_MONITOR: 7006, EXPORT_RECEIPT_CLEANUP: 7007 } as const;
+const LOCK = { DIGEST: 7001, INVOICE_REMINDERS: 7002, IDLE_LEADS: 7003, ORPHAN_CLEANUP: 7004, CREDENTIAL_ALERTS: 7005, EVIDENCE_GAP_MONITOR: 7006, EXPORT_RECEIPT_CLEANUP: 7007, BACKUPS: 7008 } as const;
 
 /**
  * Attempt to acquire a PostgreSQL session-level advisory lock.
@@ -226,6 +230,9 @@ async function collectReferencedObjectPaths(): Promise<Set<string>> {
     attachments,
     receipts,
     logos,
+    workerDocs,
+    mediaHubPhotos,
+    permits,
   ] = await Promise.all([
     db.select({ p: dailyReportPhotosTable.objectPath }).from(dailyReportPhotosTable),
     db.select({ p: projectDocumentsTable.objectPath }).from(projectDocumentsTable),
@@ -240,6 +247,9 @@ async function collectReferencedObjectPaths(): Promise<Set<string>> {
     db.select({ p: fileAttachmentsTable.objectPath }).from(fileAttachmentsTable),
     db.select({ p: expensesTable.receiptObjectPath }).from(expensesTable),
     db.select({ p: companiesTable.logoPath }).from(companiesTable),
+    db.select({ p: workerDocumentsTable.filePath }).from(workerDocumentsTable),
+    db.select({ p: mediaHubPhotosTable.imageUrl }).from(mediaHubPhotosTable),
+    db.select({ p: permitsTable.fileUrl }).from(permitsTable),
   ]);
 
   for (const rows of [
@@ -252,6 +262,9 @@ async function collectReferencedObjectPaths(): Promise<Set<string>> {
     attachments,
     receipts,
     logos,
+    workerDocs,
+    mediaHubPhotos,
+    permits,
   ]) {
     for (const row of rows) {
       if (row.p) paths.add(row.p);
@@ -644,4 +657,36 @@ export function startDailyCron(): void {
     { timezone: "America/Toronto" },
   );
   logger.info("Tenant export receipt cleanup cron scheduled: 3:00 AM ET Sundays");
+
+  // Midnight UTC every day — run due tenant backups, then purge expired ones.
+  // Unlike every other job in this file, this runs on UTC rather than
+  // America/Toronto, per the backup schedule's explicit "midnight UTC" spec.
+  let backupsRunning = false;
+  cron.schedule(
+    "0 0 * * *",
+    async () => {
+      if (backupsRunning) {
+        logger.warn("Backup cron skipped — previous run still in progress (in-process)");
+        return;
+      }
+      const locked = await tryAdvisoryLock(LOCK.BACKUPS);
+      if (!locked) {
+        logger.warn("Backup cron skipped — advisory lock held by another instance");
+        return;
+      }
+      backupsRunning = true;
+      try {
+        logger.info("Backup cron triggered");
+        const result = await runDueBackupsAndPurge();
+        logger.info(result, "Backup cron complete");
+      } catch (err) {
+        logger.error({ err }, "Unhandled error in backup cron");
+      } finally {
+        backupsRunning = false;
+        await releaseAdvisoryLock(LOCK.BACKUPS);
+      }
+    },
+    { timezone: "UTC" },
+  );
+  logger.info("Backup cron scheduled: midnight UTC");
 }

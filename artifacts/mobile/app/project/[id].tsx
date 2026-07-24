@@ -17,7 +17,7 @@ import {
 } from "@workspace/api-client-react";
 import { TaskFormSheet, type TaskFormValues } from "@/components/sheets/TaskFormSheet";
 import { ScheduleFormSheet, type ScheduleFormValues } from "@/components/sheets/ScheduleFormSheet";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -51,6 +51,7 @@ import { PhotoThumbnail, PhotoLightbox, CategoryPill, type PhotoCategory } from 
 import { ListRow } from "@/components/ui";
 import { safeNavigate } from "@/utils/safeNavigate";
 import { BulletList } from "@/components/BulletList";
+import type { PsiListRow } from "@/constants/psi";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "#22C55E",
@@ -1120,6 +1121,11 @@ export default function ProjectDetailScreen() {
     { projectId },
     { query: { enabled: perms.viewSafetyTab } as any },
   );
+  const { data: psiChecklists, refetch: refetchPsi } = useQuery<PsiListRow[]>({
+    queryKey: ["psi-checklists", projectId],
+    queryFn: () => customFetch(`/api/psi?projectId=${projectId}`),
+    enabled: perms.viewSafetyTab,
+  });
 
   const [showTaskSheet, setShowTaskSheet] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
@@ -1179,8 +1185,8 @@ export default function ProjectDetailScreen() {
       refetchReports();
       refetchTasks();
       refetchRfis();
-      if (perms.viewSafetyTab) refetchSafety();
-    }, [refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchSafety, perms.viewSafetyTab]),
+      if (perms.viewSafetyTab) { refetchSafety(); refetchPsi(); }
+    }, [refetchProject, refetchSummary, refetchReports, refetchTasks, refetchRfis, refetchSafety, refetchPsi, perms.viewSafetyTab]),
   );
 
   const [clientUploads, setClientUploads] = useState<any[]>([]);
@@ -1743,6 +1749,66 @@ export default function ProjectDetailScreen() {
       {/* Safety & Compliance tab */}
       {activeTab === "Safety" && (
         <View style={styles.section}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground, marginBottom: 0 }]}>
+              Pre-Inspection Checklists
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push(`/(tabs)/(home)/psi-checklist?projectId=${projectId}`)}
+              style={[styles.addBtn, { borderColor: colors.primary }]}
+            >
+              <Feather name="plus" size={14} color={colors.primary} />
+              <Text style={[styles.addBtnText, { color: colors.primary }]}>New</Text>
+            </TouchableOpacity>
+          </View>
+          {(psiChecklists ?? []).length === 0 ? (
+            <View style={[styles.emptySection, { borderColor: colors.border, marginBottom: 16 }]}>
+              <Feather name="clipboard" size={28} color={colors.border} />
+              <Text style={[styles.emptyText, { color: colors.mutedForeground, textAlign: "center", marginTop: 8 }]}>
+                No pre-inspection checklists for this project
+              </Text>
+            </View>
+          ) : (
+            <View style={{ marginBottom: 16 }}>
+              {(psiChecklists ?? []).map((row) => {
+                const isDraft = row.psi.status === "draft";
+                const statusColor = isDraft ? "#6B7280" : "#22C55E";
+                return (
+                  <Pressable
+                    key={row.psi.id}
+                    onPress={() =>
+                      router.push(
+                        isDraft
+                          ? `/(tabs)/(home)/psi-checklist?id=${row.psi.id}`
+                          : `/(tabs)/(home)/psi-detail?id=${row.psi.id}`,
+                      )
+                    }
+                    style={({ pressed }) => [
+                      styles.reportRow,
+                      { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.92 : 1 },
+                    ]}
+                  >
+                    <View style={[styles.reportDateBadge, { backgroundColor: `${statusColor}15` }]}>
+                      <Feather name="clipboard" size={16} color={statusColor} />
+                      <Text style={[styles.reportDateText, { color: statusColor, fontSize: 10 }]}>
+                        {isDraft ? "DFT" : "SUB"}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.reportMeta, { color: colors.foreground }]} numberOfLines={1}>
+                        {row.psi.tradeDescription || "Pre-Inspection Checklist"}
+                      </Text>
+                      <Text style={[styles.reportSub, { color: colors.mutedForeground }]}>{row.psi.date}</Text>
+                      <Text style={[styles.reportSub, { color: colors.mutedForeground }]}>
+                        {row.signatureCount} signature{row.signatureCount === 1 ? "" : "s"} · {row.approvalCount} approval{row.approvalCount === 1 ? "" : "s"}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
             Safety & Compliance
           </Text>

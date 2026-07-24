@@ -28,7 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ShieldCheck, Plus, Trash2, FileText, Upload, ExternalLink } from "lucide-react";
+import { ShieldCheck, Plus, Trash2, FileText, Upload, ExternalLink, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -144,25 +144,33 @@ export default function MyVaultPage() {
                     <p className="text-xs text-[#121212]/60 font-medium">
                       Uploaded {format(new Date(doc.createdAt), "MMM d, yyyy")}
                     </p>
+                    {doc.status === "file_missing" && (
+                      <p className="text-xs text-red-600 font-medium flex items-center gap-1 mt-0.5">
+                        <AlertTriangle className="h-3 w-3" />
+                        File missing — please delete and re-upload
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-[#D4AF37] hover:text-[#b5922e] hover:bg-[#D4AF37]/10"
-                    onClick={async () => {
-                      try {
-                        const objectId = doc.fileUrl.replace(/^\/api\/storage\/objects\//, "");
-                        const { url } = await customFetch(`/api/storage/objects/${objectId}/signed-url`) as { url: string };
-                        window.open(url, "_blank", "noopener,noreferrer");
-                      } catch {
-                        toast({ title: "Could not open document", variant: "destructive" });
-                      }
-                    }}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
+                  {doc.status !== "file_missing" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-[#D4AF37] hover:text-[#b5922e] hover:bg-[#D4AF37]/10"
+                      onClick={async () => {
+                        try {
+                          const objectId = doc.fileUrl.replace(/^\/api\/storage\/objects\//, "");
+                          const { url } = await customFetch(`/api/storage/objects/${objectId}/signed-url`) as { url: string };
+                          window.open(url, "_blank", "noopener,noreferrer");
+                        } catch {
+                          toast({ title: "Could not open document", variant: "destructive" });
+                        }
+                      }}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"

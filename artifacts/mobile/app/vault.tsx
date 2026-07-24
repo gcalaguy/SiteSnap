@@ -171,6 +171,10 @@ export default function VaultScreen() {
 
   // M-P6 fix: useCallback prevents all FlatList rows re-rendering on every state change
   const openDoc = useCallback(async (item: WorkerDoc) => {
+    if (item.status === "file_missing") {
+      Alert.alert("File missing", "This file was lost from storage. Please delete this entry and re-upload the document.");
+      return;
+    }
     try {
       const objectId = item.fileUrl.replace(/^\/api\/storage\/objects\//, "");
       const { url } = await customFetch<{ url: string }>(`/api/storage/objects/${objectId}/signed-url`);
@@ -195,6 +199,12 @@ export default function VaultScreen() {
           <Text style={[styles.docMeta, { color: colors.mutedForeground }]}>
             Uploaded {formatDate(item.createdAt)}
           </Text>
+          {item.status === "file_missing" && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+              <Feather name="alert-triangle" size={11} color="#DC2626" />
+              <Text style={[styles.docMeta, { color: "#DC2626" }]}>File missing — re-upload</Text>
+            </View>
+          )}
         </View>
         <Feather name="external-link" size={14} color={colors.primary} style={{ marginRight: 8 }} />
         <TouchableOpacity

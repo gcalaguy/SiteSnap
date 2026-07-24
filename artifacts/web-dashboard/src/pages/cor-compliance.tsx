@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetMe } from "@workspace/api-client-react";
 import { BadgeCheck, Download, Loader2 } from "lucide-react";
@@ -9,15 +10,24 @@ import { OverviewTab, GenerateAuditPackageDialog } from "@/components/cor-compli
 import { AuditTrailTab } from "@/components/cor-compliance/AuditTrailTab";
 import { CredentialsTab } from "@/components/cor-compliance/CredentialsTab";
 import { SignoffsTab } from "@/components/cor-compliance/SignoffsTab";
+import { PsiTab } from "@/components/cor-compliance/PsiTab";
 import { SubcontractorsTab } from "@/components/cor-compliance/SubcontractorsTab";
 import { CapaTab } from "@/components/cor-compliance/CapaTab";
 import { ShadowAuditorTab } from "@/components/cor-compliance/ShadowAuditorTab";
 import { AuditorAccessTab } from "@/components/cor-compliance/AuditorAccessTab";
 
+// Deep-linkable via /safety-compliance?tab=cor&sub=overview|shadow-auditor|audit-trail|credentials|sign-offs|psi|subcontractors|capa|auditor-access
+const VALID_TABS = new Set([
+  "overview", "shadow-auditor", "audit-trail", "credentials", "sign-offs", "psi", "subcontractors", "capa", "auditor-access",
+]);
+const ADMIN_ONLY_TABS = new Set(["shadow-auditor", "audit-trail", "psi", "subcontractors", "capa"]);
+const OWNER_ONLY_TABS = new Set(["auditor-access"]);
+
 export default function CorCompliancePage() {
   const queryClient = useQueryClient();
   const { data: me, isLoading: meLoading } = useGetMe();
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const search = useSearch();
 
   // Wait for role to be known before rendering role-dependent UI
   if (meLoading || !me) {
@@ -30,6 +40,14 @@ export default function CorCompliancePage() {
 
   const isAdmin = me.role === "owner" || me.role === "foreman";
   const isOwner = me.role === "owner";
+
+  const requestedTab = new URLSearchParams(search).get("sub");
+  const initialTab =
+    requestedTab && VALID_TABS.has(requestedTab)
+      && !(ADMIN_ONLY_TABS.has(requestedTab) && !isAdmin)
+      && !(OWNER_ONLY_TABS.has(requestedTab) && !isOwner)
+      ? requestedTab
+      : "overview";
 
   function handlePackageSuccess() {
     queryClient.invalidateQueries({ queryKey: ["cor-audit-packages"] });
@@ -71,13 +89,14 @@ export default function CorCompliancePage() {
       )}
 
       <div className="p-6">
-        <Tabs defaultValue="overview" className="space-y-5">
+        <Tabs defaultValue={initialTab} className="space-y-5">
           <TabsList style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             {isAdmin && <TabsTrigger value="shadow-auditor">Shadow Auditor</TabsTrigger>}
             {isAdmin && <TabsTrigger value="audit-trail">Audit Trail</TabsTrigger>}
             <TabsTrigger value="credentials">{isAdmin ? "Training Matrix" : "My Credentials"}</TabsTrigger>
             <TabsTrigger value="sign-offs">{isAdmin ? "Sign-offs" : "Documents"}</TabsTrigger>
+            {isAdmin && <TabsTrigger value="psi">Pre-Inspections</TabsTrigger>}
             {isAdmin && <TabsTrigger value="subcontractors">Subcontractors</TabsTrigger>}
             {isAdmin && <TabsTrigger value="capa">CAPA</TabsTrigger>}
             {isOwner && <TabsTrigger value="auditor-access">Auditor Access</TabsTrigger>}
@@ -106,6 +125,12 @@ export default function CorCompliancePage() {
           <TabsContent value="sign-offs">
             <SignoffsTab isAdmin={isAdmin} userId={me.id} />
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="psi">
+              <PsiTab />
+            </TabsContent>
+          )}
 
           {isAdmin && (
             <TabsContent value="subcontractors">

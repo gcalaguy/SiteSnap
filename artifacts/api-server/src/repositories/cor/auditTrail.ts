@@ -5,6 +5,7 @@ import {
   capaTicketsTable,
   inspectionsTable,
   projectsTable,
+  projectMembersTable,
   usersTable,
   userMembershipsTable,
   workerCredentialsTable,
@@ -367,6 +368,50 @@ export async function voidCapaTicket(companyId: number, id: number): Promise<boo
   return (result.rowCount ?? 0) > 0;
 }
 
+// Due date for an auto-generated CAPA: 24h out for critical/high priority, 48h for medium/low.
+// dueDate is stored as a plain "YYYY-MM-DD" string (see capaTicketsTable), matching the
+// day-granularity used everywhere else CAPA due dates are compared (e.g. getCapaSummary).
+function computeCapaDueDate(priority: InsertCapaTicket["priority"]): string {
+  const hours = priority === "critical" || priority === "high" ? 24 : 48;
+  return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString().split("T")[0]!;
+}
+
+// Best-effort assignee for an auto-generated CAPA: prefer a foreman assigned to the
+// same project, then any foreman on the project, then fall back to any company-wide
+// foreman/owner (mirrors the notifyForemen fallback used for submission emails).
+async function resolveCapaAssignee(companyId: number, projectId: number | null): Promise<number | null> {
+  if (projectId) {
+    const [projectLead] = await db
+      .select({ userId: userMembershipsTable.userId, role: userMembershipsTable.role })
+      .from(projectMembersTable)
+      .innerJoin(
+        userMembershipsTable,
+        and(
+          eq(userMembershipsTable.userId, projectMembersTable.userId),
+          eq(userMembershipsTable.companyId, companyId),
+          inArray(userMembershipsTable.role, ["foreman", "owner"]),
+        ),
+      )
+      .where(and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.companyId, companyId)))
+      .orderBy(sql`CASE WHEN ${userMembershipsTable.role} = 'foreman' THEN 0 ELSE 1 END`)
+      .limit(1);
+    if (projectLead) return projectLead.userId;
+  }
+
+  const [companyLead] = await db
+    .select({ userId: userMembershipsTable.userId })
+    .from(userMembershipsTable)
+    .where(
+      and(
+        eq(userMembershipsTable.companyId, companyId),
+        inArray(userMembershipsTable.role, ["foreman", "owner"]),
+      ),
+    )
+    .orderBy(sql`CASE WHEN ${userMembershipsTable.role} = 'foreman' THEN 0 ELSE 1 END`)
+    .limit(1);
+  return companyLead?.userId ?? null;
+}
+
 export async function maybeAutoCreateCapa(auditEntry: CorAuditTrail): Promise<CapaTicket | null> {
   if (auditEntry.findingType !== "fail") return null;
   // Inspections get per-item CAPAs created directly in the inspections route — skip here
@@ -394,6 +439,8 @@ export async function maybeAutoCreateCapa(auditEntry: CorAuditTrail): Promise<Ca
 
   const title = `[FAIL] ${auditEntry.ihsaElementName} — ${auditEntry.findingDescription.slice(0, 80)}${auditEntry.findingDescription.length > 80 ? "…" : ""}`;
 
+  const assignedToUserId = await resolveCapaAssignee(auditEntry.companyId, auditEntry.projectId);
+
   return createCapaTicket({
     companyId: auditEntry.companyId,
     projectId: auditEntry.projectId,
@@ -404,6 +451,8 @@ export async function maybeAutoCreateCapa(auditEntry: CorAuditTrail): Promise<Ca
     ihsaElement: auditEntry.ihsaElement,
     priority,
     status: "open",
+    dueDate: computeCapaDueDate(priority),
+    assignedToUserId: assignedToUserId ?? undefined,
     createdByUserId: auditEntry.submittedByUserId ?? undefined,
   });
 }
@@ -498,20 +547,26 @@ export async function createCapasFromInspectionItems(
 
   const defaultElement = INSPECTION_TYPE_IHSA[inspection.inspectionType] ?? "element_4";
   const inspTypeLabel = inspection.inspectionType.replace(/_/g, " ");
+  const assignedToUserId = await resolveCapaAssignee(inspection.companyId, inspection.projectId);
 
-  const values: InsertCapaTicket[] = toCreate.map((item) => ({
-    companyId: inspection.companyId,
-    projectId: inspection.projectId ?? undefined,
-    title: `[INSPECTION FAIL] ${item.itemName}`,
-    description: `${inspTypeLabel.charAt(0).toUpperCase() + inspTypeLabel.slice(1)} inspection on ${inspection.date}: "${item.itemName}" failed.${item.comment ? ` Notes: ${item.comment}` : ""}`,
-    sourceType: "inspection" as const,
-    sourceRecordId: inspection.id,
-    sourceItemRef: item.itemName,
-    ihsaElement: defaultElement as InsertCapaTicket["ihsaElement"],
-    priority: SEVERITY_TO_PRIORITY[item.severity] ?? "medium",
-    status: "open" as const,
-    createdByUserId: inspection.inspectorId,
-  }));
+  const values: InsertCapaTicket[] = toCreate.map((item) => {
+    const priority = SEVERITY_TO_PRIORITY[item.severity] ?? "medium";
+    return {
+      companyId: inspection.companyId,
+      projectId: inspection.projectId ?? undefined,
+      title: `[INSPECTION FAIL] ${item.itemName}`,
+      description: `${inspTypeLabel.charAt(0).toUpperCase() + inspTypeLabel.slice(1)} inspection on ${inspection.date}: "${item.itemName}" failed.${item.comment ? ` Notes: ${item.comment}` : ""}`,
+      sourceType: "inspection" as const,
+      sourceRecordId: inspection.id,
+      sourceItemRef: item.itemName,
+      ihsaElement: defaultElement as InsertCapaTicket["ihsaElement"],
+      priority,
+      status: "open" as const,
+      dueDate: computeCapaDueDate(priority),
+      assignedToUserId: assignedToUserId ?? undefined,
+      createdByUserId: inspection.inspectorId,
+    };
+  });
 
   const rows = await db.insert(capaTicketsTable).values(values).returning();
   return rows;

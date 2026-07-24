@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { formatDate as fmtDate } from "@/lib/format";
+import { PSI_HAZARD_CATEGORIES, PSI_HAZARD_CATEGORY_KEYS, type PsiHazardCategoryKey } from "@/components/cor-compliance/psiConstants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,54 @@ interface Inspection {
   status: string;
 }
 
+interface PsiHazardCategoryValue {
+  checked: string[];
+  otherText?: string;
+  other2Text?: string;
+  other3Text?: string;
+}
+
+interface PsiTaskRow {
+  id: string;
+  task: string;
+  hazard: string;
+  control: string;
+}
+
+interface PsiVoiceNote {
+  id: string;
+  transcript: string;
+  recordedAt: string;
+}
+
+interface PsiSignatureRow {
+  name: string;
+  signedAt: string;
+}
+
+interface PsiApprovalRow {
+  name: string;
+  approvedAt: string;
+}
+
+interface PsiChecklistRow {
+  id: number;
+  projectName: string | null;
+  tradeDescription: string | null;
+  location: string | null;
+  weatherTemp: string | null;
+  date: string;
+  status: string;
+  createdBy: string | null;
+  hazards: Record<string, PsiHazardCategoryValue>;
+  taskRows: PsiTaskRow[];
+  voiceNotes: PsiVoiceNote[];
+  signatures: PsiSignatureRow[];
+  approvals: PsiApprovalRow[];
+  signatureCount: number;
+  approvalCount: number;
+}
+
 interface ElementData {
   key: string;
   entryCount: number;
@@ -56,6 +105,7 @@ interface PortalData {
   companyName: string;
   elements: ElementData[];
   recentInspections: Inspection[];
+  recentPsiChecklists: PsiChecklistRow[];
   expiringCredentialCount: number;
   flaggedSubcontractorCount: number;
   totalWorkerCount: number;
@@ -353,12 +403,138 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// ── Pre-Inspection Checklist card (expandable to full detail) ─────────────────
+
+function PsiChecklistCard({ psi }: { psi: PsiChecklistRow }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const flaggedCategories = (PSI_HAZARD_CATEGORY_KEYS as PsiHazardCategoryKey[]).filter((key) => {
+    const v = psi.hazards?.[key];
+    return !!v && (v.checked?.length > 0 || v.otherText || v.other2Text || v.other3Text);
+  });
+
+  return (
+    <div style={{ background: "#1a1a1a", border: `1px solid ${expanded ? "#C9A84C44" : "#2a2a2a"}`, borderRadius: 8, marginBottom: 8, overflow: "hidden", transition: "border-color 0.2s" }}>
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
+      >
+        <span style={{ fontSize: 12, color: "#9ca3af", whiteSpace: "nowrap" }}>{fmtDate(psi.date)}</span>
+        <span style={{ flex: 1, fontSize: 13, color: "#e5e7eb", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {psi.projectName ?? "Unknown project"}{psi.tradeDescription ? ` — ${psi.tradeDescription}` : ""}
+        </span>
+        <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>{psi.signatureCount} sig{psi.signatureCount === 1 ? "" : "s"} · {psi.approvalCount} appr{psi.approvalCount === 1 ? "" : "s"}</span>
+        <span style={{ color: expanded ? "#C9A84C" : "#4b5563", fontSize: 16, lineHeight: 1, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
+      </button>
+
+      {expanded && (
+        <div style={{ borderTop: "1px solid #2a2a2a", padding: "14px 16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
+            {[
+              { label: "Created By", value: psi.createdBy ?? "Unknown" },
+              { label: "Location", value: psi.location || "—" },
+              { label: "Weather", value: psi.weatherTemp || "—" },
+            ].map((f) => (
+              <div key={f.label}>
+                <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>{f.label}</div>
+                <div style={{ fontSize: 12, color: "#d1d5db", marginTop: 2 }}>{f.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {flaggedCategories.length > 0 && (
+            <Section title="Hazard Categories">
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {flaggedCategories.map((key) => {
+                  const cat = PSI_HAZARD_CATEGORIES[key];
+                  const v = psi.hazards[key];
+                  const items = [...(v.checked ?? []), v.otherText, v.other2Text, v.other3Text].filter(Boolean) as string[];
+                  return (
+                    <div key={key}>
+                      <div style={{ fontSize: 12, color: "#e5e7eb", fontWeight: 500, marginBottom: 4 }}>{cat.title}</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {items.map((item, i) => (
+                          <span key={i} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "#111111", color: "#9ca3af", border: "1px solid #2a2a2a" }}>{item}</span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {psi.taskRows.length > 0 && (
+            <Section title="Task / Hazard / Control">
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <tbody>
+                  {psi.taskRows.map((row) => (
+                    <tr key={row.id} style={{ borderBottom: "1px solid #2a2a2a" }}>
+                      <td style={{ padding: "5px 8px", color: "#d1d5db" }}>{row.task || "—"}</td>
+                      <td style={{ padding: "5px 8px", color: "#9ca3af" }}>{row.hazard || "—"}</td>
+                      <td style={{ padding: "5px 8px", color: "#9ca3af" }}>{row.control || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Section>
+          )}
+
+          {psi.voiceNotes.length > 0 && (
+            <Section title="Voice Notes">
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {psi.voiceNotes.map((n) => (
+                  <div key={n.id} style={{ padding: "8px 12px", background: "#111111", borderRadius: 6, border: "1px solid #2a2a2a" }}>
+                    <p style={{ fontSize: 12, color: "#d1d5db", margin: 0 }}>{n.transcript}</p>
+                    <p style={{ fontSize: 11, color: "#6b7280", margin: "4px 0 0" }}>{fmtDate(n.recordedAt)}</p>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          <Section title={`Worker Signatures (${psi.signatures.length})`}>
+            {psi.signatures.length === 0 ? (
+              <p style={{ fontSize: 12, color: "#6b7280" }}>No signatures on file.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {psi.signatures.map((s, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                    <span style={{ color: "#d1d5db" }}>{s.name}</span>
+                    <span style={{ color: "#6b7280" }}>{fmtDate(s.signedAt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <Section title={`Owner/Foreman Approvals (${psi.approvals.length})`}>
+            {psi.approvals.length === 0 ? (
+              <p style={{ fontSize: 12, color: "#6b7280" }}>No approvals on file.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {psi.approvals.map((a, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                    <span style={{ color: "#d1d5db" }}>{a.name}</span>
+                    <span style={{ color: "#6b7280" }}>{fmtDate(a.approvedAt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main portal page ──────────────────────────────────────────────────────────
 
 export default function AuditorPortalPage() {
   const { token } = useParams<{ token: string }>();
   const [search, setSearch] = useState("");
   const [showInspections, setShowInspections] = useState(false);
+  const [showPsi, setShowPsi] = useState(false);
 
   const { data, isLoading, error } = useQuery<PortalData>({
     queryKey: ["auditor-portal", token],
@@ -449,6 +625,7 @@ export default function AuditorPortalPage() {
                 { label: "Expiring Credentials", value: data.expiringCredentialCount, warn: data.expiringCredentialCount > 0 },
                 { label: "Flagged Subcontractors", value: data.flaggedSubcontractorCount, warn: data.flaggedSubcontractorCount > 0 },
                 { label: "Recent Inspections", value: data.recentInspections.length },
+                { label: "Pre-Inspection Checklists", value: data.recentPsiChecklists.length },
                 { label: "Generated", value: fmtDate(data.token.createdAt) },
               ].map((stat) => (
                 <div key={stat.label} style={{ background: "#1a1a1a", borderRadius: 8, padding: "10px 14px", border: `1px solid ${stat.warn ? "#7c2d1244" : "#2a2a2a"}` }}>
@@ -526,6 +703,27 @@ export default function AuditorPortalPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Pre-Inspection checklists (collapsible global section) */}
+        {data.recentPsiChecklists.length > 0 && (
+          <div style={{ background: "#111111", border: "1px solid #1f1f1f", borderRadius: 12, marginTop: 16, overflow: "hidden" }}>
+            <button
+              onClick={() => setShowPsi((v) => !v)}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: "transparent", border: "none", cursor: "pointer", color: "#f3f4f6" }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Pre-Inspection Checklists ({data.recentPsiChecklists.length})</span>
+              <span style={{ color: "#4b5563", transform: showPsi ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+            </button>
+            {showPsi && (
+              <div style={{ borderTop: "1px solid #1f1f1f", padding: "16px 20px 20px" }}>
+                <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 12px" }}>Click a checklist to view full detail.</p>
+                {data.recentPsiChecklists.map((p) => (
+                  <PsiChecklistCard key={p.id} psi={p} />
+                ))}
               </div>
             )}
           </div>

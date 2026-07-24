@@ -8,6 +8,7 @@ import {
   submissionCommentsTable,
   usersTable,
   userMembershipsTable,
+  corAuditTrailTable,
 } from "@workspace/db";
 import { requireAuth, requireCompany, requireTenantCtx, requireOwnerOrForeman } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -138,6 +139,8 @@ router.get("/safety/submissions", requireAuth, requireCompany, requireTenantCtx,
       photosBySubmissionId[photo.submissionId].push(photo);
     }
 
+    const corElementsBySubmissionId = await getCorElementsBySourceId(submissionIds);
+
     res.json(
       rows.map((r) => ({
         ...r.submission,
@@ -146,6 +149,7 @@ router.get("/safety/submissions", requireAuth, requireCompany, requireTenantCtx,
         workerName: `${r.workerFirstName ?? ""} ${r.workerLastName ?? ""}`.trim(),
         workerEmail: r.workerEmail,
         photos: photosBySubmissionId[r.submission.id] ?? [],
+        corElements: corElementsBySubmissionId[r.submission.id] ?? [],
       }))
     );
   } catch (err: any) {
@@ -187,8 +191,9 @@ router.get("/safety/submissions/:id", requireAuth, requireCompany, requireTenant
     ]);
     const userMap = Object.fromEntries(commentUsers.map((u) => [u.id, u]));
     const comments = rawComments.map((c) => ({ ...c, user: userMap[c.userId] ?? null }));
+    const corElementsBySubmissionId = await getCorElementsBySourceId([id]);
 
-    res.json({ ...row, template, worker, photos, comments, reviewer });
+    res.json({ ...row, template, worker, photos, comments, reviewer, corElements: corElementsBySubmissionId[id] ?? [] });
   } catch (err: any) {
     req.log.error({ err }, "safety/submissions/:id error");
     res.status(500).json({ error: "Failed to load submission" });
@@ -628,6 +633,36 @@ async function generateAISummary(submissionId: number, companyId: number, templa
     .where(and(eq(formSubmissionsTable.id, submissionId), eq(formSubmissionsTable.companyId, companyId)));
 
   logger.info({ submissionId }, "AI safety summary generated");
+}
+
+// ── COR mapping lookup (for the "✓ Mapped to COR Element N" badge) ────────────
+
+async function getCorElementsBySourceId(
+  submissionIds: number[],
+): Promise<Record<number, Array<{ element: string; elementName: string; findingType: string }>>> {
+  const result: Record<number, Array<{ element: string; elementName: string; findingType: string }>> = {};
+  if (submissionIds.length === 0) return result;
+
+  const rows = await db
+    .select({
+      sourceRecordId: corAuditTrailTable.sourceRecordId,
+      element: corAuditTrailTable.ihsaElement,
+      elementName: corAuditTrailTable.ihsaElementName,
+      findingType: corAuditTrailTable.findingType,
+    })
+    .from(corAuditTrailTable)
+    .where(
+      and(
+        eq(corAuditTrailTable.sourceType, "form_submission"),
+        inArray(corAuditTrailTable.sourceRecordId, submissionIds),
+      ),
+    );
+
+  for (const row of rows) {
+    if (!result[row.sourceRecordId]) result[row.sourceRecordId] = [];
+    result[row.sourceRecordId]!.push({ element: row.element, elementName: row.elementName, findingType: row.findingType });
+  }
+  return result;
 }
 
 // ── Foreman notification helper ───────────────────────────────────────────────

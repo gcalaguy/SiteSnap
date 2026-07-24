@@ -59,6 +59,7 @@ interface SubmissionDetail {
   reviewer: { id: number; firstName: string; lastName: string } | null;
   photos: Array<{ id: number; url: string; filename: string }>;
   comments: Array<{ id: number; comment: string; createdAt: string; user: { firstName: string; lastName: string } | null }>;
+  corElements?: Array<{ element: string; elementName: string; findingType: string }>;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -577,6 +578,20 @@ export default function SafetyDetailPage() {
               {format(new Date(submission.createdAt), "MMMM d, yyyy 'at' h:mm a")}
               {submission.worker && ` · ${submission.worker.firstName} ${submission.worker.lastName}`}
             </p>
+            {submission.corElements && submission.corElements.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {Array.from(new Map(submission.corElements.map((e) => [e.element, e])).values()).map((e) => (
+                  <span
+                    key={e.element}
+                    title={e.elementName}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-700"
+                  >
+                    <CheckCircle2 className="h-2.5 w-2.5" />
+                    Mapped to COR Element {e.element.replace("element_", "")}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex gap-2">

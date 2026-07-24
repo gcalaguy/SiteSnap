@@ -26,6 +26,8 @@ export * from "./tradeReviews";
 export * from "./permits";
 export * from "./inventory";
 export * from "./cor";
+export * from "./backup";
+export * from "./psi";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 

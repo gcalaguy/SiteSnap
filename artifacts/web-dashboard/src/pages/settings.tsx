@@ -9,6 +9,7 @@ import { PricingTab } from "@/components/settings/PricingTab";
 import { NotificationsTab } from "@/components/settings/NotificationsTab";
 import { AccountingTab } from "@/components/settings/AccountingTab";
 import { IntegrationsTab } from "@/components/settings/IntegrationsTab";
+import { BackupTab } from "@/components/settings/BackupTab";
 
 export default function Settings() {
   const { data: user } = useGetMe();
@@ -35,6 +36,7 @@ export default function Settings() {
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="accounting">Accounting</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          {isOwner && company && <TabsTrigger value="backup">Backups</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="company">
@@ -76,6 +78,12 @@ export default function Settings() {
         <TabsContent value="integrations">
           <IntegrationsTab />
         </TabsContent>
+
+        {isOwner && company && (
+          <TabsContent value="backup">
+            <BackupTab companyId={company.id} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

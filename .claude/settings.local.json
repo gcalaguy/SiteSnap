@@ -143,7 +143,10 @@
       "Bash(python3 *)",
       "Bash(pnpm push *)",
       "Bash(jobs -l)",
-      "Bash(pkill -f \"drizzle-kit push\")"
+      "Bash(pkill -f \"drizzle-kit push\")",
+      "Bash(npx playwright *)",
+      "Bash(ls *)",
+      "Bash(git *)"
     ]
   }
 }

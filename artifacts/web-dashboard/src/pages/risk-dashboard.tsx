@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
 import {
   ShieldAlert, AlertTriangle, Flame, CircleDot, ChevronRight, ChevronLeft,
-  Bell, Check, Eye, TrendingUp, BarChart3, Loader2, Download, Activity, ShieldCheck,
+  Bell, Check, Eye, TrendingUp, BarChart3, Loader2, Download, Activity, ShieldCheck, ClipboardCheck,
 } from "lucide-react";
 import { format, parseISO, subDays } from "date-fns";
 import { FeatureGuard } from "@/components/FeatureGuard";
+import type { PsiListRow } from "@/components/cor-compliance/psiConstants";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -645,6 +646,15 @@ function RiskDashboardInner() {
     refetchInterval: 60_000,
   });
 
+  const { data: psiRows = [] } = useQuery<PsiListRow[]>({
+    queryKey: ["psi-checklists-risk-page"],
+    queryFn: () => customFetch("/api/psi"),
+    refetchInterval: 60_000,
+  });
+
+  const psiPending = psiRows.filter((r) => r.psi.status === "draft").length;
+  const psiRecent = psiRows.filter((r) => new Date(r.psi.createdAt) >= subDays(new Date(), 30)).length;
+
   const health = data?.health;
   const total = health ? health.critical + health.high + health.medium + health.low : 0;
   const highRisk = health ? health.critical + health.high : 0;
@@ -684,7 +694,7 @@ function RiskDashboardInner() {
       ) : (
         <>
           {/* Stats row */}
-          <div className="grid gap-4 grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2 xl:grid-cols-5">
             <StatCard
               label="Total Inspections" value={total} sub="last 30 days"
               icon={ShieldAlert} accent={GOLD} href="/safety-compliance"
@@ -708,6 +718,12 @@ function RiskDashboardInner() {
               sub={avgScore == null ? "No scored inspections" : avgScore >= 7 ? "Action recommended" : avgScore >= 4 ? "Monitor closely" : "Looking good"}
               icon={CircleDot} accent={scoreColor}
               href="/safety-compliance"
+            />
+            <StatCard
+              label="Pre-Inspections" value={psiPending}
+              sub={psiPending === 0 ? `${psiRecent} filed last 30 days` : `${psiRecent} filed · pending submission`}
+              icon={ClipboardCheck} accent={psiPending > 0 ? "#ea580c" : GOLD} isAlert={psiPending > 0}
+              href="/safety-compliance?tab=cor&sub=psi"
             />
           </div>
 

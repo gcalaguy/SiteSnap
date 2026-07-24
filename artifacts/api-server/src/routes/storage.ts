@@ -26,6 +26,7 @@ const ALLOWED_UPLOAD_MIME_TYPES = new Set([
   "image/webp",
   "image/heic",
   "image/heif",
+  "image/svg+xml",
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

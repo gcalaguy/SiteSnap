@@ -157,7 +157,7 @@ export interface TenantExportResult {
 export async function buildTenantExport(
   tx: QueryRunner,
   companyId: number,
-  exportedByUserId: number,
+  exportedByUserId: number | null,
 ): Promise<TenantExportResult> {
   const [company] = await db.select().from(companiesTable).where(eq(companiesTable.id, companyId)).limit(1);
   if (!company) {

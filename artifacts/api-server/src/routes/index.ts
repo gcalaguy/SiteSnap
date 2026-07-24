@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import usersRouter from "./users";
 import companiesRouter from "./companies";
+import backupRouter from "./backup";
 import invitationsRouter from "./invitations";
 import projectsRouter from "./projects";
 import dailyReportsRouter, { allDailyReportsRouter } from "./dailyReports";
@@ -60,6 +61,7 @@ import auditExportRouter from "./auditExport";
 import permitsRouter from "./permits";
 import inventoryRouter from "./inventory";
 import corRouter from "./cor";
+import psiRouter from "./psi";
 
 const router: IRouter = Router();
 
@@ -79,6 +81,7 @@ router.use(systemLogsRouter);
 router.use(healthRouter);
 router.use(usersRouter);
 router.use(companiesRouter);
+router.use(backupRouter);
 router.use(invitationsRouter);
 router.use(projectsRouter);
 router.use(allDailyReportsRouter);
@@ -137,5 +140,6 @@ router.use(auditExportRouter);
 router.use(permitsRouter);
 router.use(inventoryRouter);
 router.use(corRouter);
+router.use(psiRouter);
 
 export default router;

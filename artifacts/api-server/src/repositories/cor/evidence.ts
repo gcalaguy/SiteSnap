@@ -13,6 +13,10 @@ import {
   inspectionsTable,
   workerCredentialsTable,
   externalAuditorTokensTable,
+  psiChecklistsTable,
+  psiSignaturesTable,
+  psiApprovalsTable,
+  projectsTable,
   type PolicyDocument,
   type PolicySignoff,
   type InsertPolicyDocument,
@@ -587,6 +591,34 @@ export interface AuditorInspectionRow {
   status: string;
 }
 
+export interface AuditorPsiSignatureRow {
+  name: string;
+  signedAt: Date;
+}
+
+export interface AuditorPsiApprovalRow {
+  name: string;
+  approvedAt: Date;
+}
+
+export interface AuditorPsiRow {
+  id: number;
+  projectName: string | null;
+  tradeDescription: string | null;
+  location: string | null;
+  weatherTemp: string | null;
+  date: string;
+  status: string;
+  createdBy: string | null;
+  hazards: unknown;
+  taskRows: unknown;
+  voiceNotes: unknown;
+  signatures: AuditorPsiSignatureRow[];
+  approvals: AuditorPsiApprovalRow[];
+  signatureCount: number;
+  approvalCount: number;
+}
+
 export interface AuditorElementData {
   key: string;
   entryCount: number;
@@ -604,6 +636,7 @@ export interface AuditorPortalData {
   companyName: string;
   elements: AuditorElementData[];
   recentInspections: AuditorInspectionRow[];
+  recentPsiChecklists: AuditorPsiRow[];
   expiringCredentialCount: number;
   flaggedSubcontractorCount: number;
   totalWorkerCount: number;
@@ -631,6 +664,9 @@ export async function getAuditorPortalData(companyId: number): Promise<AuditorPo
       allSignoffs,
       allVoiceLogs,
       allInspections,
+      allPsiChecklists,
+      allPsiSignatures,
+      allPsiApprovals,
       credRow,
       subRow,
       workerCountRow,
@@ -694,6 +730,50 @@ export async function getAuditorPortalData(companyId: number): Promise<AuditorPo
         .limit(200),
 
       tx
+        .select({
+          id: psiChecklistsTable.id,
+          projectName: projectsTable.name,
+          tradeDescription: psiChecklistsTable.tradeDescription,
+          location: psiChecklistsTable.location,
+          weatherTemp: psiChecklistsTable.weatherTemp,
+          date: psiChecklistsTable.date,
+          status: psiChecklistsTable.status,
+          hazards: psiChecklistsTable.hazards,
+          taskRows: psiChecklistsTable.taskRows,
+          voiceNotes: psiChecklistsTable.voiceNotes,
+          createdByFirst: usersTable.firstName,
+          createdByLast: usersTable.lastName,
+        })
+        .from(psiChecklistsTable)
+        .leftJoin(projectsTable, eq(projectsTable.id, psiChecklistsTable.projectId))
+        .leftJoin(usersTable, eq(usersTable.id, psiChecklistsTable.createdByUserId))
+        .where(and(eq(psiChecklistsTable.companyId, companyId), eq(psiChecklistsTable.status, "submitted"), gte(psiChecklistsTable.createdAt, since)))
+        .orderBy(desc(psiChecklistsTable.createdAt))
+        .limit(200),
+
+      tx
+        .select({
+          psiId: psiSignaturesTable.psiId,
+          firstName: usersTable.firstName,
+          lastName: usersTable.lastName,
+          signedAt: psiSignaturesTable.signedAt,
+        })
+        .from(psiSignaturesTable)
+        .leftJoin(usersTable, eq(usersTable.id, psiSignaturesTable.userId))
+        .where(eq(psiSignaturesTable.companyId, companyId)),
+
+      tx
+        .select({
+          psiId: psiApprovalsTable.psiId,
+          firstName: usersTable.firstName,
+          lastName: usersTable.lastName,
+          approvedAt: psiApprovalsTable.approvedAt,
+        })
+        .from(psiApprovalsTable)
+        .leftJoin(usersTable, eq(usersTable.id, psiApprovalsTable.userId))
+        .where(eq(psiApprovalsTable.companyId, companyId)),
+
+      tx
         .select({ count: sql<number>`COUNT(*)::int` })
         .from(workerCredentialsTable)
         .innerJoin(userMembershipsTable, and(eq(userMembershipsTable.userId, workerCredentialsTable.userId), eq(userMembershipsTable.companyId, companyId)))
@@ -718,6 +798,17 @@ export async function getAuditorPortalData(companyId: number): Promise<AuditorPo
 
     const totalWorkers = Math.max(workerCountRow[0]?.count ?? 1, 1);
     const signoffMap = new Map(allSignoffs.map((s) => [s.documentId, s.count]));
+
+    const psiSignaturesByPsi = new Map<number, AuditorPsiSignatureRow[]>();
+    for (const s of allPsiSignatures) {
+      if (!psiSignaturesByPsi.has(s.psiId)) psiSignaturesByPsi.set(s.psiId, []);
+      psiSignaturesByPsi.get(s.psiId)!.push({ name: s.firstName ? `${s.firstName} ${s.lastName}` : "Unknown", signedAt: s.signedAt });
+    }
+    const psiApprovalsByPsi = new Map<number, AuditorPsiApprovalRow[]>();
+    for (const a of allPsiApprovals) {
+      if (!psiApprovalsByPsi.has(a.psiId)) psiApprovalsByPsi.set(a.psiId, []);
+      psiApprovalsByPsi.get(a.psiId)!.push({ name: a.firstName ? `${a.firstName} ${a.lastName}` : "Unknown", approvedAt: a.approvedAt });
+    }
 
     const elements: AuditorElementData[] = IHSA_ELEMENTS.map((key) => {
       const entries = allEntries.filter((e) => e.ihsaElement === key);
@@ -780,6 +871,27 @@ export async function getAuditorPortalData(companyId: number): Promise<AuditorPo
         score: i.score,
         status: i.status,
       })),
+      recentPsiChecklists: allPsiChecklists.map((p) => {
+        const signatures = psiSignaturesByPsi.get(p.id) ?? [];
+        const approvals = psiApprovalsByPsi.get(p.id) ?? [];
+        return {
+          id: p.id,
+          projectName: p.projectName,
+          tradeDescription: p.tradeDescription,
+          location: p.location,
+          weatherTemp: p.weatherTemp,
+          date: p.date,
+          status: p.status,
+          createdBy: p.createdByFirst ? `${p.createdByFirst} ${p.createdByLast}` : null,
+          hazards: p.hazards,
+          taskRows: p.taskRows,
+          voiceNotes: p.voiceNotes,
+          signatures,
+          approvals,
+          signatureCount: signatures.length,
+          approvalCount: approvals.length,
+        };
+      }),
       expiringCredentialCount: credRow[0]?.count ?? 0,
       flaggedSubcontractorCount: subRow[0]?.count ?? 0,
       totalWorkerCount: totalWorkers,

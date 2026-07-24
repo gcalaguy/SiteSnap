@@ -62,6 +62,7 @@ export const corSourceTypeEnum = pgEnum("cor_source_type", [
   "inspection",
   "safety_signoff",
   "daily_log",
+  "psi_checklist",
 ]);
 
 export const corRiskLevelEnum = pgEnum("cor_risk_level", [
