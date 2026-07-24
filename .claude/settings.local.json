@@ -146,7 +146,11 @@
       "Bash(pkill -f \"drizzle-kit push\")",
       "Bash(npx playwright *)",
       "Bash(ls *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Read(//var/run/**)",
+      "Bash(sudo -n service postgresql status)",
+      "Bash(find / -maxdepth 4 -iname \"PG_VERSION\")",
+      "Bash(printenv)"
     ]
   }
 }
