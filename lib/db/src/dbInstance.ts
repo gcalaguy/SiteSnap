@@ -24,7 +24,7 @@ export const pool: pg.Pool =
       : { rejectUnauthorized: false },
     max: 20,
     idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 2_000,
+    connectionTimeoutMillis: 10_000,
     options: "-c statement_timeout=30000",
   }));
 
