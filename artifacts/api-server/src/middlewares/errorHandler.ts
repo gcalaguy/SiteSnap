@@ -11,6 +11,49 @@ import { logger } from "../lib/logger.js";
  * Produces a consistent JSON error envelope:
  *   { error: string, code?: string, details?: unknown }
  */
+
+const DB_UNAVAILABLE_NODE_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "EPIPE",
+]);
+
+const DB_UNAVAILABLE_PG_CODES = new Set([
+  "57P03", // cannot_connect_now (PostgreSQL starting up)
+  "08000", // connection_exception
+  "08003", // connection_does_not_exist
+  "08006", // connection_failure
+  "08001", // sqlclient_unable_to_establish_sqlconnection
+  "08004", // sqlserver_rejected_establishment_of_sqlconnection
+]);
+
+const DB_UNAVAILABLE_MSG_PATTERNS = [
+  /timeout exceeded/i,
+  /connection timeout/i,
+  /connection terminated/i,
+  /pool.*timeout/i,
+  /acquire.*timeout/i,
+  /client.*checkout.*timed out/i,
+  /remaining connection slots are reserved/i,
+  /too many clients/i,
+];
+
+function isDbUnavailableError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const e = err as any;
+
+  if (e.code && DB_UNAVAILABLE_NODE_CODES.has(e.code)) return true;
+  if (e.code && DB_UNAVAILABLE_PG_CODES.has(e.code)) return true;
+  if (DB_UNAVAILABLE_MSG_PATTERNS.some((re) => re.test(e.message))) return true;
+
+  // pg errors can be nested under a `cause` chain
+  if (e.cause) return isDbUnavailableError(e.cause);
+
+  return false;
+}
+
 export function errorHandler(
   err: unknown,
   req: Request,
@@ -53,6 +96,17 @@ export function errorHandler(
   ) {
     logger.warn({ issues: (err as any).issues, reqId: req.id ?? "no-request-id" }, "Unhandled Zod validation error");
     res.status(422).json({ error: "Validation failed", code: "VALIDATION_ERROR", details: (err as any).issues });
+    return;
+  }
+
+  // DB pool exhaustion / connectivity — return 503 so clients know to retry
+  if (isDbUnavailableError(err)) {
+    logger.error({ err, reqId: req.id ?? "no-request-id" }, "DB pool unavailable — returning 503");
+    res.setHeader("Retry-After", "2");
+    res.status(503).json({
+      error: "Service temporarily unavailable — please retry shortly",
+      code: "SERVICE_UNAVAILABLE",
+    });
     return;
   }
 
