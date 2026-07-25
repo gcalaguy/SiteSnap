@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
-import { useUser } from "@clerk/react";
+import { useEffect, useRef, useState } from "react";
+import { useUser, useClerk } from "@clerk/react";
 import { useGetMe, useSyncUser, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 import { TermsModal } from "@/components/TermsModal";
+import { Button } from "@/components/ui/button";
 
 // Routes that must never trigger the "no company → onboarding" redirect.
 // Without this exemption the guard would re-redirect users who are already
@@ -30,48 +31,63 @@ export function isExemptRoute(location: string): boolean {
   );
 }
 
+const TIMEOUT_MS = 15_000;
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn } = useUser();
+  const { signOut } = useClerk();
   const [location, setLocation] = useLocation();
   const syncedRef = useRef(false);
+  const [timedOut, setTimedOut] = useState(false);
 
   const syncUserMutation = useSyncUser();
 
-  // Retry on 401 — Clerk token may not be ready on the very first render
+  // Retry on transient errors — Clerk token may not be ready on the first render,
+  // the DB user may not exist yet for a brand-new account, and transient server /
+  // DB errors (500, 503) should recover within a few seconds.
   const { data: dbUser, isLoading: dbUserLoading, isError, refetch } = useGetMe({
     query: {
       queryKey: getGetMeQueryKey(),
       enabled: isSignedIn && !!clerkUser && clerkLoaded,
       retry: (failureCount, error) => {
-        // Stop retrying after 3 attempts or on non-auth errors
         if (failureCount >= 3) return false;
-        const status = error?.status ?? error?.response?.status;
-        // Retry on 401 (token not ready yet) AND 404 (user not yet synced to DB).
-        // The 404 case happens on a brand-new account's first request — the sync
-        // useEffect runs in parallel and will have created the DB record by the
-        // time the 2nd/3rd attempt fires.
-        return status === 401 || status === 404 || status === undefined;
+        const status = (error as { status?: number; response?: { status?: number } })?.status
+          ?? (error as { status?: number; response?: { status?: number } })?.response?.status;
+        // 401 — Clerk token not propagated yet
+        // 404 — user not yet synced to DB (sync effect runs in parallel)
+        // 500/503 — transient DB connection timeout (pool recovering)
+        // undefined — network error before a response arrived
+        return (
+          status === 401 ||
+          status === 404 ||
+          status === 500 ||
+          status === 503 ||
+          status === undefined
+        );
       },
       retryDelay: (attempt) => Math.min(500 * (attempt + 1), 2000),
     },
   });
 
-  // Sync to DB on first sign-in (or when retries exhaust and user isn't in DB yet)
+  // Single sync effect: ensure the user exists in the DB for this session.
+  // Fires when:
+  //   a) dbUser is missing (not loaded yet or 404) — creates the DB record
+  //   b) dbUser errored — may be a transient 500; sync also acts as a DB user check
+  // Guards:
+  //   • syncedRef prevents multiple concurrent mutate() calls per session mount
+  //   • syncUserMutation.isPending prevents a second call if one is already in flight
   useEffect(() => {
     if (!isSignedIn || !clerkUser || !clerkLoaded) return;
     if (syncedRef.current || syncUserMutation.isPending) return;
-
-    // Always sync once per session mount to keep email/name fresh,
-    // and to create the user if they somehow don't exist yet
     if (!dbUser || isError) {
       syncedRef.current = true;
       syncUserMutation.mutate(
         {
           data: {
             clerkUserId: clerkUser.id,
-            email: clerkUser.primaryEmailAddress?.emailAddress || "",
-            firstName: clerkUser.firstName || "",
-            lastName: clerkUser.lastName || "",
+            email: clerkUser.primaryEmailAddress?.emailAddress ?? "",
+            firstName: clerkUser.firstName ?? "",
+            lastName: clerkUser.lastName ?? "",
           },
         },
         { onSuccess: () => refetch() },
@@ -79,29 +95,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isSignedIn, clerkUser, clerkLoaded, dbUser, isError, syncUserMutation.isPending, refetch]);
 
-  // Eliminate 401 race: if Clerk session is valid but dbUser is still missing,
-  // force a background sync before any protected layout attempts to pull data.
-  useEffect(() => {
-    if (!isSignedIn || !clerkUser || !clerkLoaded) return;
-    if (syncUserMutation.isPending) return;
-    if (dbUser === undefined && !syncedRef.current) {
-      syncedRef.current = true;
-      syncUserMutation.mutate(
-        {
-          data: {
-            clerkUserId: clerkUser.id,
-            email: clerkUser.primaryEmailAddress?.emailAddress || "",
-            firstName: clerkUser.firstName || "",
-            lastName: clerkUser.lastName || "",
-          },
-        },
-        { onSuccess: () => refetch() },
-      );
-    }
-  }, [isSignedIn, clerkUser, clerkLoaded, dbUser, syncUserMutation, refetch]);
-
   // Company-based redirect — must be in useEffect, not during render
-  // Phase 2: use activeCompanyId as the source of truth; fall back to legacy companyId
   useEffect(() => {
     if (!dbUser) return;
     const hasCompany = !!dbUser.activeCompanyId;
@@ -119,7 +113,38 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         syncUserMutation.isPending ||
         (isError && !dbUser && !syncUserMutation.isError)));
 
+  // 15-second safety net: if auth is still in progress after TIMEOUT_MS, surface
+  // an error card so the user is never permanently stuck on the loading screen.
+  useEffect(() => {
+    if (!isAuthenticating) {
+      setTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setTimedOut(true), TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [isAuthenticating]);
+
   if (isAuthenticating) {
+    if (timedOut) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-muted/10">
+          <div className="flex flex-col items-center gap-6 max-w-sm text-center px-4">
+            <AlertTriangle className="h-10 w-10 text-destructive" />
+            <div className="space-y-1">
+              <p className="font-semibold text-foreground">Could not connect to your workspace</p>
+              <p className="text-sm text-muted-foreground">
+                The server took too long to respond. Check your connection and try again.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => window.location.reload()}>Try again</Button>
+              <Button variant="outline" onClick={() => signOut()}>Sign out</Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/10">
         <div className="flex flex-col items-center gap-4">
