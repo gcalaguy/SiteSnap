@@ -9,8 +9,8 @@
  *     on /onboarding is NOT redirected, and that other routes ARE redirected.
  */
 
-import { vi, describe, it, expect, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { act } from "react";
 
 // ── Import the REAL constant and helper from auth-guard ───────────────────────
@@ -24,6 +24,7 @@ import {
 
 vi.mock("@clerk/react", () => ({
   useUser: vi.fn(),
+  useClerk: vi.fn(() => ({ signOut: vi.fn() })),
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
@@ -266,5 +267,152 @@ describe("AuthGuard — redirect behaviour", () => {
     });
 
     expect(setLocation).not.toHaveBeenCalled();
+  });
+});
+
+/* ── Component: retry / recovery path ──────────────────────────────────────
+ *
+ * Regression guard: the workspace loading hang was previously caused by a
+ * missing retry status code — a 500 from /api/users/me would leave the guard
+ * permanently stuck.  These tests confirm the sync+refetch recovery path works
+ * correctly so a transient server error never silently hangs the app.
+ */
+
+describe("AuthGuard — retry and recovery path", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("loads the workspace after recovering from a transient 500 on /api/users/me", async () => {
+    const refetch = vi.fn();
+    const setLocation = vi.fn();
+
+    // Step 1: mount with isError = true, simulating a first /api/users/me → 500
+    (useUser as ReturnType<typeof vi.fn>).mockReturnValue({
+      user: mockClerkUser,
+      isLoaded: true,
+      isSignedIn: true,
+    });
+    (useGetMe as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch,
+    });
+    // sync mutation immediately calls onSuccess → refetch()
+    (useSyncUser as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn((_data: unknown, opts?: { onSuccess?: () => void }) =>
+        opts?.onSuccess?.()
+      ),
+      isPending: false,
+      isError: false,
+    });
+    (useLocation as ReturnType<typeof vi.fn>).mockReturnValue([
+      "/dashboard",
+      setLocation,
+    ]);
+
+    let component: ReturnType<typeof render>;
+    await act(async () => {
+      component = render(
+        <AuthGuard>
+          <div data-testid="workspace">Workspace</div>
+        </AuthGuard>
+      );
+    });
+
+    // The sync effect fired and triggered a refetch
+    expect(refetch).toHaveBeenCalledTimes(1);
+
+    // Step 2: refetch returns success — simulate the /api/users/me → 200
+    (useGetMe as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { id: 1, activeCompanyId: 42, termsAcceptedAt: new Date() },
+      isLoading: false,
+      isError: false,
+      refetch,
+    });
+
+    await act(async () => {
+      component!.rerender(
+        <AuthGuard>
+          <div data-testid="workspace">Workspace</div>
+        </AuthGuard>
+      );
+    });
+
+    // The workspace content is now visible — auth guard recovered and let it through
+    expect(screen.getByTestId("workspace")).toBeInTheDocument();
+  });
+});
+
+/* ── Component: 15-second safety-net timeout ────────────────────────────────
+ *
+ * Regression guard: a permanently-stuck React state machine previously had no
+ * timeout, so a hung auth state silently showed the loading spinner forever.
+ * The auth guard now surfaces an error card after 15 seconds so users are
+ * never permanently stuck.  This test uses fake timers to run instantly.
+ */
+
+describe("AuthGuard — 15-second stuck-auth timeout", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows the 'Could not connect' error card with a 'Try again' button after 15 seconds of stuck auth", async () => {
+    vi.useFakeTimers();
+
+    (useUser as ReturnType<typeof vi.fn>).mockReturnValue({
+      user: mockClerkUser,
+      isLoaded: true,
+      isSignedIn: true,
+    });
+    // /api/users/me is permanently loading (server never responds)
+    (useGetMe as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    (useSyncUser as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      isError: false,
+    });
+    (useLocation as ReturnType<typeof vi.fn>).mockReturnValue([
+      "/dashboard",
+      vi.fn(),
+    ]);
+
+    await act(async () => {
+      render(<AuthGuard><div>Workspace</div></AuthGuard>);
+    });
+
+    // Before the timeout: loading spinner is shown, error card is absent
+    expect(
+      screen.getByText("Loading your workspace...")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Could not connect to your workspace")
+    ).not.toBeInTheDocument();
+
+    // Advance time past the 15-second TIMEOUT_MS
+    await act(async () => {
+      vi.advanceTimersByTime(15_000);
+    });
+
+    // After the timeout: error card replaces the spinner
+    expect(
+      screen.getByText("Could not connect to your workspace")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Try again" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Loading your workspace...")
+    ).not.toBeInTheDocument();
   });
 });
