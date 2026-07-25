@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, KeyRound, Loader2 } from "lucide-react";
+import { Building2, KeyRound, Loader2, AlertTriangle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -125,6 +125,41 @@ export default function OnboardingPage() {
   });
 
   const [inviteToken, setInviteToken] = useState(resolvedToken);
+
+  // ── Pre-flight invite token validation ────────────────────────────────────
+  // When the page loads with a pre-filled token (from URL or localStorage),
+  // validate it immediately so the user sees any problem before hitting submit.
+  const [tokenValidating, setTokenValidating] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  // Track the token value that was pre-flight-checked so manual edits clear the error
+  const preflightCheckedToken = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!resolvedToken) return;
+    setTokenValidating(true);
+    setTokenError(null);
+    customFetch<{ status: string; email: string }>(`/api/invitations/${resolvedToken}`)
+      .then((data) => {
+        preflightCheckedToken.current = resolvedToken;
+        if (data.status === "accepted") {
+          setTokenError("This invite link has already been used. Ask your owner or foreman to send a new one.");
+        } else if (data.status !== "pending") {
+          setTokenError("This invite link is no longer valid. Ask your owner or foreman to send a new one.");
+        }
+        // status === "pending" → token is valid, no error
+      })
+      .catch((err: Error) => {
+        preflightCheckedToken.current = resolvedToken;
+        const msg = err?.message ?? "";
+        if (msg.toLowerCase().includes("expired")) {
+          setTokenError("This invite link has expired. Check your email for a fresh invite, or ask your owner to resend it.");
+        } else {
+          setTokenError("This invite link is invalid or not recognised. Check the link or paste the token manually.");
+        }
+      })
+      .finally(() => setTokenValidating(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // URL-derived tokens are now persisted synchronously in the useState initializer
   // above, so no separate effect is needed for that purpose.
@@ -810,12 +845,34 @@ export default function OnboardingPage() {
                           placeholder="Paste token here..."
                           className="pl-9"
                           value={inviteToken}
-                          onChange={(e) => setInviteToken(e.target.value)}
+                          onChange={(e) => {
+                            setInviteToken(e.target.value);
+                            // Clear the pre-flight error when the user edits the token
+                            if (tokenError && e.target.value !== preflightCheckedToken.current) {
+                              setTokenError(null);
+                            }
+                          }}
                           required
                         />
                       </div>
                     </div>
-                    <Button type="submit" className="w-full" disabled={syncUser.isPending || acceptInvitation.isPending || !inviteToken}>
+                    {tokenValidating && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Checking invite link…
+                      </div>
+                    )}
+                    {tokenError && !tokenValidating && (
+                      <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{tokenError}</span>
+                      </div>
+                    )}
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={syncUser.isPending || acceptInvitation.isPending || !inviteToken || tokenValidating}
+                    >
                       {(syncUser.isPending || acceptInvitation.isPending) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       Join Company
                     </Button>
