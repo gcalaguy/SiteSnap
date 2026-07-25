@@ -106,12 +106,22 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [dbUser, location, setLocation]);
 
+  // isAuthenticating: true while we are waiting for authentication to resolve.
+  // Conditions that keep us waiting (all require isSignedIn && !dbUser):
+  //   • dbUserLoading    — initial fetch in flight
+  //   • isPending        — sync mutation in flight
+  //   • isError          — /me fetch errored (retrying or exhausted)
+  //   • syncUserMutation.isError — sync also errored (both paths failed)
+  // Note: gating on !dbUser means we immediately exit as soon as the user
+  // is resolved, regardless of which path provided it.
   const isAuthenticating =
     !clerkLoaded ||
     (isSignedIn &&
+      !dbUser &&
       (dbUserLoading ||
         syncUserMutation.isPending ||
-        (isError && !dbUser && !syncUserMutation.isError)));
+        isError ||
+        syncUserMutation.isError));
 
   // 15-second safety net: if auth is still in progress after TIMEOUT_MS, surface
   // an error card so the user is never permanently stuck on the loading screen.
