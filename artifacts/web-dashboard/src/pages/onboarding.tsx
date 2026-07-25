@@ -45,25 +45,49 @@ const PENDING_CLAIM_DATA_KEY = "sitesnap_pending_claim_data";
 // Persisted by SignUpPage when an admin-generated invite link (/sign-up?token=X) is followed
 const SIGNUP_INVITE_KEY = "sitesnap_pending_signup_invite";
 
+// URL-derived invite tokens use localStorage rather than sessionStorage.
+// sessionStorage is tab-scoped and does not survive Clerk SSO redirects that
+// open a new browsing context.  localStorage is durable across reloads and
+// cross-origin bounces, which is exactly what we need for invite links.
+const inviteStorage = {
+  get: (key: string) => localStorage.getItem(key),
+  set: (key: string, value: string) => localStorage.setItem(key, value),
+  remove: (key: string) => localStorage.removeItem(key),
+};
+
 export default function OnboardingPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   // Capture query params once at mount — navigation clears window.location.search,
   // and re-reading it every render makes derived values flip mid-lifecycle.
-  const [searchParams] = useState(() => new URLSearchParams(window.location.search));
+  //
+  // IMPORTANT: we also persist invite tokens to localStorage synchronously here,
+  // inside the useState initializer.  This runs before any React effects and
+  // before Clerk can trigger an SSO redirect, so the token is never lost even
+  // when the browser navigates away mid-lifecycle.
+  const [searchParams] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("token");
+    const c = params.get("companyId");
+    const ct = params.get("claimToken");
+    if (t) inviteStorage.set(INVITE_TOKEN_KEY, t);
+    if (c) inviteStorage.set(PENDING_CLAIM_KEY, c);
+    if (ct) inviteStorage.set(SIGNUP_INVITE_KEY, ct);
+    return params;
+  });
   const urlToken = searchParams.get("token");
   const urlCompanyId = searchParams.get("companyId");
   const refCode = searchParams.get("ref") ?? undefined;
   // claimToken = the one-time token embedded in admin-generated /sign-up?token= links.
   // After Clerk OTP verification Clerk redirects to /onboarding?claimToken=X.
-  // Also read from sessionStorage as a fallback (SignUpPage writes it there).
+  // Also read from localStorage as a fallback (written synchronously above on first visit).
   const urlClaimToken = searchParams.get("claimToken");
 
-  const resolvedToken = urlToken || sessionStorage.getItem(INVITE_TOKEN_KEY) || "";
-  const resolvedClaimCompanyId = urlCompanyId || sessionStorage.getItem(PENDING_CLAIM_KEY) || "";
+  const resolvedToken = urlToken || inviteStorage.get(INVITE_TOKEN_KEY) || "";
+  const resolvedClaimCompanyId = urlCompanyId || inviteStorage.get(PENDING_CLAIM_KEY) || "";
   const resolvedSignupInviteToken =
-    urlClaimToken || sessionStorage.getItem(SIGNUP_INVITE_KEY) || "";
+    urlClaimToken || inviteStorage.get(SIGNUP_INVITE_KEY) || "";
 
   const { data: dbUser } = useGetMe({
     query: { queryKey: getGetMeQueryKey(), enabled: !!clerkUser },
@@ -102,12 +126,9 @@ export default function OnboardingPage() {
 
   const [inviteToken, setInviteToken] = useState(resolvedToken);
 
-  // Persist URL params in an effect, not during render.
-  useEffect(() => {
-    if (urlToken) sessionStorage.setItem(INVITE_TOKEN_KEY, urlToken);
-    if (urlCompanyId) sessionStorage.setItem(PENDING_CLAIM_KEY, urlCompanyId);
-    if (urlClaimToken) sessionStorage.setItem(SIGNUP_INVITE_KEY, urlClaimToken);
-  }, [urlToken, urlCompanyId, urlClaimToken]);
+  // URL-derived tokens are now persisted synchronously in the useState initializer
+  // above, so no separate effect is needed for that purpose.
+  // The effect below is intentionally removed.
 
   // ── Signup Invite Flow (admin /sign-up?token= link) ───────────────────────
   // Resolve the claim token → companyId via public API so we never expose the
@@ -168,7 +189,7 @@ export default function OnboardingPage() {
       body: JSON.stringify({ ...values, claimToken: resolvedSignupInviteToken }),
     })
       .then(() => {
-        sessionStorage.removeItem(SIGNUP_INVITE_KEY);
+        inviteStorage.remove(SIGNUP_INVITE_KEY);
         queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
         toast({ title: "Workspace created successfully" });
         setLocation("/dashboard");
@@ -239,7 +260,7 @@ export default function OnboardingPage() {
   const claimSynced = useRef(false);
   useEffect(() => {
     if (!clerkUser || claimSynced.current) return;
-    const claimId = sessionStorage.getItem(PENDING_CLAIM_KEY);
+    const claimId = inviteStorage.get(PENDING_CLAIM_KEY);
     if (!claimId) return;
     claimSynced.current = true;
     syncUser.mutate(
@@ -277,7 +298,7 @@ export default function OnboardingPage() {
       body: JSON.stringify(values),
     })
       .then(() => {
-        sessionStorage.removeItem(PENDING_CLAIM_KEY);
+        inviteStorage.remove(PENDING_CLAIM_KEY);
         sessionStorage.removeItem(PENDING_CLAIM_DATA_KEY);
         queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
         toast({ title: "Workspace created successfully" });
@@ -294,7 +315,7 @@ export default function OnboardingPage() {
 
   function onSubmitClaim(values: z.infer<typeof claimSchema>) {
     if (!clerkUser) {
-      sessionStorage.setItem(PENDING_CLAIM_KEY, resolvedClaimCompanyId);
+      inviteStorage.set(PENDING_CLAIM_KEY, resolvedClaimCompanyId);
       sessionStorage.setItem(PENDING_CLAIM_DATA_KEY, JSON.stringify(values));
       toast({
         title: "Create your account first",
@@ -333,7 +354,7 @@ export default function OnboardingPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-          sessionStorage.removeItem(INVITE_TOKEN_KEY);
+          inviteStorage.remove(INVITE_TOKEN_KEY);
           sessionStorage.removeItem(PENDING_COMPANY_KEY);
           toast({ title: "Company created successfully" });
           setLocation("/dashboard");
@@ -391,7 +412,7 @@ export default function OnboardingPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-          sessionStorage.removeItem(INVITE_TOKEN_KEY);
+          inviteStorage.remove(INVITE_TOKEN_KEY);
           toast({ title: "Joined company successfully" });
           setLocation("/dashboard");
         },
@@ -421,7 +442,7 @@ export default function OnboardingPage() {
     if (!inviteToken.trim()) return;
 
     if (!clerkUser) {
-      if (inviteToken.trim()) sessionStorage.setItem(INVITE_TOKEN_KEY, inviteToken.trim());
+      if (inviteToken.trim()) inviteStorage.set(INVITE_TOKEN_KEY, inviteToken.trim());
       toast({
         title: "Sign in first",
         description: "Sign in or create an account, then you'll be automatically brought back to join your company.",

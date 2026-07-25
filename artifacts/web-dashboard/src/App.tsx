@@ -149,14 +149,18 @@ const SIGNUP_INVITE_STORAGE_KEY = "sitesnap_pending_signup_invite";
 function SignUpPage() {
   // Read token once on mount. useState lazy-initializer runs once, so it's
   // stable even when Clerk navigates to sub-paths like /sign-up/verify-email-address.
+  //
+  // We use localStorage (not sessionStorage) so the token survives Clerk's SSO
+  // redirect bounce, which can open a new browsing context where sessionStorage
+  // would be empty.
   const [signupInviteToken] = useState<string | null>(() => {
     const urlToken = new URLSearchParams(window.location.search).get("token");
     if (urlToken) {
-      // Persist so sub-path re-renders still see it
-      sessionStorage.setItem(SIGNUP_INVITE_STORAGE_KEY, urlToken);
+      // Persist so sub-path re-renders and SSO redirects still see it
+      localStorage.setItem(SIGNUP_INVITE_STORAGE_KEY, urlToken);
       return urlToken;
     }
-    return sessionStorage.getItem(SIGNUP_INVITE_STORAGE_KEY);
+    return localStorage.getItem(SIGNUP_INVITE_STORAGE_KEY);
   });
 
   const fallbackUrl = signupInviteToken
