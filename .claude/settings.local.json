@@ -150,7 +150,11 @@
       "Read(//var/run/**)",
       "Bash(sudo -n service postgresql status)",
       "Bash(find / -maxdepth 4 -iname \"PG_VERSION\")",
-      "Bash(printenv)"
+      "Bash(printenv)",
+      "Bash(set -x)",
+      "WebFetch(domain:sitesnapdemo.replit.app)",
+      "Bash(awk -F'=' '{print length\\($2\\)\" chars, starts with: \"substr\\($2,1,12\\)}')",
+      "Bash(openssl rand *)"
     ]
   }
 }
