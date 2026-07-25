@@ -3,6 +3,21 @@ import { logger } from "./logger";
 import { invalidateFeatureCache } from "./featureGate";
 
 const CHANNEL = "feature_cache_invalidate";
+const HEARTBEAT_MS = 30_000;
+const INITIAL_RETRY_MS = 5_000;
+const MAX_RETRY_MS = 60_000;
+
+let retryDelayMs = INITIAL_RETRY_MS;
+
+function backoff(): number {
+  const current = retryDelayMs;
+  retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_MS);
+  return current;
+}
+
+function resetBackoff(): void {
+  retryDelayMs = INITIAL_RETRY_MS;
+}
 
 type PgNotification = { channel: string; payload?: string };
 type HeldClient = {
@@ -12,6 +27,19 @@ type HeldClient = {
 };
 
 let listenerClient: HeldClient | null = null;
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearTimers(): void {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
 
 async function connect(): Promise<void> {
   try {
@@ -19,9 +47,10 @@ async function connect(): Promise<void> {
     const client = raw as unknown as HeldClient;
 
     (raw as unknown as { on: (ev: string, fn: (e: unknown) => void) => void }).on("error", (err: unknown) => {
-      logger.error({ err }, "pgListener: client error — reconnecting in 5s");
+      logger.warn({ err }, "pgListener: client error — reconnecting");
       listenerClient = null;
-      setTimeout(() => connect(), 5_000).unref();
+      clearTimers();
+      reconnectTimer = setTimeout(() => connect(), backoff()).unref() as unknown as ReturnType<typeof setTimeout>;
     });
 
     (raw as unknown as { on: (ev: string, fn: (msg: PgNotification) => void) => void }).on(
@@ -38,15 +67,25 @@ async function connect(): Promise<void> {
 
     await client.query(`LISTEN "${CHANNEL}"`);
     listenerClient = client;
+    resetBackoff();
     logger.info(`pgListener: listening on channel "${CHANNEL}"`);
+
+    // Heartbeat to prevent idle timeout from cloud providers
+    heartbeatTimer = setInterval(() => {
+      client.query("SELECT 1").catch((err: unknown) => {
+        logger.warn({ err }, "pgListener: heartbeat failed — connection likely dropped");
+      });
+    }, HEARTBEAT_MS);
   } catch (err: unknown) {
-    logger.error({ err }, "pgListener: failed to connect — retrying in 5s");
-    setTimeout(() => connect(), 5_000).unref();
+    logger.warn({ err }, "pgListener: failed to connect — retrying");
+    clearTimers();
+    reconnectTimer = setTimeout(() => connect(), backoff()).unref() as unknown as ReturnType<typeof setTimeout>;
   }
 }
 
 /** Release the listener connection and stop reconnecting. Call during graceful shutdown. */
 export function stopPgListener(): void {
+  clearTimers();
   if (listenerClient) {
     try { listenerClient.release(); } catch { /* ignore */ }
     listenerClient = null;
