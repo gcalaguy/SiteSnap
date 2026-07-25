@@ -123,16 +123,32 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         isError ||
         syncUserMutation.isError));
 
+  // Extract the server's error message (if any) from a failed sync so the
+  // timeout card can show the real reason instead of a generic message.
+  // customFetch throws ApiError with `status` and the parsed body in `data`.
+  const syncErr = syncUserMutation.error as
+    | { status?: number; data?: { error?: string } | null }
+    | null;
+  const syncErrorStatus = syncErr?.status;
+  const syncErrorMessage =
+    typeof syncErr?.data?.error === "string" ? syncErr.data.error : undefined;
+
   // 15-second safety net: if auth is still in progress after TIMEOUT_MS, surface
   // an error card so the user is never permanently stuck on the loading screen.
+  // A 4xx from sync (e.g. 403 unverified email, 409 email conflict) is a
+  // definitive rejection that will not self-heal — show the card immediately.
   useEffect(() => {
     if (!isAuthenticating) {
       setTimedOut(false);
       return;
     }
+    if (syncErrorStatus === 403 || syncErrorStatus === 409) {
+      setTimedOut(true);
+      return;
+    }
     const timer = setTimeout(() => setTimedOut(true), TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [isAuthenticating]);
+  }, [isAuthenticating, syncErrorStatus]);
 
   if (isAuthenticating) {
     if (timedOut) {
@@ -143,7 +159,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             <div className="space-y-1">
               <p className="font-semibold text-foreground">Could not connect to your workspace</p>
               <p className="text-sm text-muted-foreground">
-                The server took too long to respond. Check your connection and try again.
+                {syncErrorMessage ??
+                  "The server took too long to respond. Check your connection and try again."}
               </p>
             </div>
             <div className="flex gap-3">

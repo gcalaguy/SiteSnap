@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, userMembershipsTable, companiesTable, invitationsTable } from "@workspace/db";
-import { eq, and, gt, ilike } from "drizzle-orm";
+import { eq, and, gt, sql } from "drizzle-orm";
 import { getAuth, clerkClient } from "@clerk/express";
 import { requireAuth, requireClerkSession, requireCompany, requireTenantCtx } from "../lib/auth";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -16,7 +16,9 @@ async function autoAcceptPendingInvitation(userId: number, email: string) {
     .from(invitationsTable)
     .where(
       and(
-        ilike(invitationsTable.email, email),
+        // Exact case-insensitive match — NOT ilike, which would treat "%"
+        // and "_" (both legal in email local parts) as pattern wildcards.
+        sql`lower(${invitationsTable.email}) = ${email.toLowerCase()}`,
         eq(invitationsTable.status, "pending"),
         gt(invitationsTable.expiresAt, new Date()),
       ),
@@ -66,14 +68,20 @@ router.post("/users/sync", requireClerkSession, asyncHandler(async (req, res) =>
   // join a company under someone else's identity, bypassing the same check
   // /invitations/:token/accept already enforces.
   let email: string;
+  let emailVerified = false;
   try {
     const clerkUser = await clerkClient.users.getUser(clerkUserId);
-    const verifiedEmail = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase().trim();
-    if (!verifiedEmail) {
+    // Prefer the primary email address; fall back to the first one.
+    const primaryEmail =
+      clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId) ??
+      clerkUser.emailAddresses[0];
+    const clerkEmail = primaryEmail?.emailAddress?.toLowerCase().trim();
+    if (!clerkEmail) {
       res.status(401).json({ error: "Unable to verify email address from Clerk session." });
       return;
     }
-    email = verifiedEmail;
+    email = clerkEmail;
+    emailVerified = primaryEmail?.verification?.status === "verified";
   } catch {
     res.status(401).json({ error: "Unable to sync user. Please try signing out and back in." });
     return;
@@ -91,11 +99,28 @@ router.post("/users/sync", requireClerkSession, asyncHandler(async (req, res) =>
     const updates: Record<string, string> = { email };
     if (firstName && firstName.trim()) updates.firstName = firstName.trim();
     if (lastName && lastName.trim()) updates.lastName = lastName.trim();
-    const [updated] = await db
-      .update(usersTable)
-      .set(updates)
-      .where(eq(usersTable.clerkUserId, clerkUserId))
-      .returning();
+    let updated;
+    try {
+      [updated] = await db
+        .update(usersTable)
+        .set(updates)
+        .where(eq(usersTable.clerkUserId, clerkUserId))
+        .returning();
+    } catch (err) {
+      // If the Clerk user changed their email to one that belongs to another
+      // DB user, the unconditional email update hits users_email_unique.
+      // Return a clear 409 instead of an opaque 500 the client retries forever.
+      const cause = err instanceof Error ? (err.cause as { code?: string } | undefined) : undefined;
+      if (cause?.code === "23505") {
+        res.status(409).json({
+          error:
+            "This email address is already in use by another account. Contact support if you need these accounts merged.",
+          code: "EMAIL_IN_USE",
+        });
+        return;
+      }
+      throw err;
+    }
     // Auto-accept any pending invitation for this email if user has no memberships yet
     const hasMemberships = await db
       .select({ userId: userMembershipsTable.userId })
@@ -114,10 +139,99 @@ router.post("/users/sync", requireClerkSession, asyncHandler(async (req, res) =>
     }
     res.json(updated);
   } else {
-    const [created] = await db
-      .insert(usersTable)
-      .values({ clerkUserId, email, firstName: firstName?.trim() || email.split("@")[0], lastName: lastName?.trim() || "" })
-      .returning();
+    // No user with this Clerk ID. Check whether a user record already exists
+    // with the same email — this happens when someone deletes and re-creates
+    // their Clerk account, or signs in with a different method (e.g. Google
+    // SSO vs email/password) that produces a new Clerk user ID. In that case
+    // re-link the existing record to the new Clerk ID instead of inserting a
+    // duplicate row (which violates users_email_unique and loops on 500).
+    const [byEmail] = await db
+      .select()
+      .from(usersTable)
+      // Exact case-insensitive match — NOT ilike, which would treat "%" and
+      // "_" (both legal in email local parts) as pattern wildcards and could
+      // match (and re-link) a different user's account.
+      .where(sql`lower(${usersTable.email}) = ${email.toLowerCase()}`)
+      .limit(1);
+
+    if (byEmail) {
+      // P0: only re-link when Clerk confirms the email is verified. The email
+      // itself comes from Clerk's server-side profile (never the request
+      // body), but an unverified address could still be claimed by an
+      // attacker signing up with someone else's email — verification is what
+      // proves ownership before we hand over the existing account.
+      if (!emailVerified) {
+        res.status(403).json({
+          error:
+            "An account with this email already exists. Please verify your email address, then try again.",
+        });
+        return;
+      }
+      const updates: Record<string, string> = { clerkUserId, email };
+      if (firstName && firstName.trim()) updates.firstName = firstName.trim();
+      if (lastName && lastName.trim()) updates.lastName = lastName.trim();
+      const [relinked] = await db
+        .update(usersTable)
+        .set(updates)
+        .where(eq(usersTable.id, byEmail.id))
+        .returning();
+      logSystemEvent({
+        logType: "ACCOUNT_RELINK",
+        platform: "Backend",
+        userId: relinked.id,
+        tenantId: null,
+        message: `Re-linked existing user ${relinked.email} to new Clerk account`,
+      }).catch(() => {});
+      req.log.info(
+        { userId: relinked.id, oldClerkUserId: byEmail.clerkUserId, newClerkUserId: clerkUserId },
+        "users/sync: re-linked existing user to new Clerk account",
+      );
+      // Same post-sync behavior as the update path: auto-accept a pending
+      // invitation if the user has no memberships yet.
+      const hasMemberships = await db
+        .select({ userId: userMembershipsTable.userId })
+        .from(userMembershipsTable)
+        .where(eq(userMembershipsTable.userId, relinked.id))
+        .limit(1);
+      if (hasMemberships.length === 0) {
+        await autoAcceptPendingInvitation(relinked.id, relinked.email);
+        const [refreshed] = await db
+          .select()
+          .from(usersTable)
+          .where(eq(usersTable.id, relinked.id))
+          .limit(1);
+        res.json(refreshed ?? relinked);
+        return;
+      }
+      res.json(relinked);
+      return;
+    }
+
+    let created;
+    try {
+      [created] = await db
+        .insert(usersTable)
+        .values({ clerkUserId, email, firstName: firstName?.trim() || email.split("@")[0], lastName: lastName?.trim() || "" })
+        .returning();
+    } catch (err) {
+      // Race guard: the client can fire several /users/sync requests
+      // concurrently (multiple tabs, retries). If a parallel request created
+      // the row between our lookup and this insert, recover by returning the
+      // existing record instead of a 500.
+      const cause = err instanceof Error ? (err.cause as { code?: string } | undefined) : undefined;
+      if (cause?.code === "23505") {
+        const [row] = await db
+          .select()
+          .from(usersTable)
+          .where(eq(usersTable.clerkUserId, clerkUserId))
+          .limit(1);
+        if (row) {
+          res.json(row);
+          return;
+        }
+      }
+      throw err;
+    }
     logSystemEvent({
       logType: "FIRST_LOGIN",
       platform: "Backend",
