@@ -69,6 +69,12 @@ overrides:
   yaml: ^2.8.3
   path-to-regexp: ^8.4.0
   brace-expansion: ^5.0.6
+  # minimatch@3.x (used by legacy glob@7, e.g. react-native's own codegen
+  # scripts) expects brace-expansion's old CJS function export. brace-expansion
+  # v5 is an ESM rewrite with an incompatible API, which breaks that call with
+  # "TypeError: expand is not a function". Keep this dependency chain on the
+  # last 1.x line (still patched for the ReDoS CVE) instead of forcing v5.
+  minimatch@3.1.5>brace-expansion: ^1.1.12
   fast-xml-builder: ^1.1.7
   '@tootallnate/once': ^2.0.1
 
