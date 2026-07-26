@@ -100,6 +100,9 @@ overrides:
   # publishing security patches to npm after 0.18.5. Direct deps replaced with
   # @e965/xlsx (community fork with patched releases on npm).
   xlsx: 'npm:@e965/xlsx@>=0.20.3'
+  # tar CRITICAL CVE (GHSA-23hp-3jrh-7fpw) — decompression/parse DoS via
+  # unlimited input. Transitive via @expo/cli (mobile build tooling only).
+  tar: '>=7.5.19'
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64': '-'
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-x64': '-'
