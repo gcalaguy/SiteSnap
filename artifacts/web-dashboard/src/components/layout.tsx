@@ -657,8 +657,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetContent
             side="left"
-            className="p-0 border-0"
-            style={{ width: 280, background: BLACK }}
+            className="p-0 border-0 h-dvh max-h-dvh overflow-y-auto overscroll-contain"
+            style={{ width: 280, background: BLACK, WebkitOverflowScrolling: "touch" }}
           >
             {/* Drawer header */}
             <div
