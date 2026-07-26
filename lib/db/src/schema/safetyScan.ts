@@ -37,9 +37,11 @@ export const safetyScansTable = pgTable(
     status: safetyScanStatusEnum("status").notNull().default("complete"),
     photoObjectPaths: jsonb("photo_object_paths").notNull(), // string[]
 
-    // GPS / capture metadata — locked at submission time for a tamper-evident audit trail
-    gpsLat: numeric("gps_lat", { precision: 10, scale: 7 }).notNull(),
-    gpsLng: numeric("gps_lng", { precision: 10, scale: 7 }).notNull(),
+    // GPS / capture metadata — locked at submission time for a tamper-evident audit trail.
+    // lat/lng are nullable: the scan must still proceed when location services are
+    // disabled or permission is denied on the device.
+    gpsLat: numeric("gps_lat", { precision: 10, scale: 7 }),
+    gpsLng: numeric("gps_lng", { precision: 10, scale: 7 }),
     gpsAltitude: numeric("gps_altitude", { precision: 8, scale: 2 }),
     gpsAccuracyM: numeric("gps_accuracy_m", { precision: 8, scale: 2 }),
     gpsCapturedAt: timestamp("gps_captured_at", { withTimezone: true }).notNull(),

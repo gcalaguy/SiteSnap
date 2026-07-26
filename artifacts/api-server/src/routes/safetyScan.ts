@@ -135,7 +135,9 @@ const GpsInput = z.object({
 const CreateScanBody = z.object({
   projectId: z.number().int().positive(),
   objectPaths: z.array(z.string().min(1)).min(1).max(8),
-  gps: GpsInput,
+  // GPS is best-effort — location services may be disabled or permission denied on
+  // the device, and the scan must still proceed without a location tag.
+  gps: GpsInput.nullable().optional(),
   siteAddress: z.string().max(500).optional(),
 });
 
@@ -254,12 +256,12 @@ router.post(
         submittedByUserId: req.userId!,
         status: "complete",
         photoObjectPaths: objectPaths,
-        gpsLat: String(gps.lat),
-        gpsLng: String(gps.lng),
-        gpsAltitude: gps.altitude != null ? String(gps.altitude) : undefined,
-        gpsAccuracyM: gps.accuracyM != null ? String(gps.accuracyM) : undefined,
-        gpsCapturedAt: new Date(gps.capturedAtUtc),
-        gpsTimezone: gps.timezone,
+        gpsLat: gps ? String(gps.lat) : null,
+        gpsLng: gps ? String(gps.lng) : null,
+        gpsAltitude: gps?.altitude != null ? String(gps.altitude) : undefined,
+        gpsAccuracyM: gps?.accuracyM != null ? String(gps.accuracyM) : undefined,
+        gpsCapturedAt: gps ? new Date(gps.capturedAtUtc) : new Date(),
+        gpsTimezone: gps?.timezone,
         siteAddress,
         summary: analysis.summary ?? null,
         complianceScore: Math.max(0, Math.min(100, Math.round(analysis.complianceScore ?? 0))),

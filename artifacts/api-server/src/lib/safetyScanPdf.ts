@@ -99,7 +99,12 @@ export function buildSafetyScanPdfBuffer(input: SafetyScanPdfInput): Promise<Buf
       doc.text(`Location: ${scan.siteAddress ?? "—"}`, 0, 28, { width: right, align: "right" });
       doc.text(`Inspector: ${input.inspectorName}`, 0, 40, { width: right, align: "right" });
       doc.text(`Date: ${fmtDateTime(scan.gpsCapturedAt)}`, 0, 52, { width: right, align: "right" });
-      doc.text(`GPS: ${scan.gpsLat}, ${scan.gpsLng}`, 0, 64, { width: right, align: "right" });
+      doc.text(
+        scan.gpsLat != null && scan.gpsLng != null ? `GPS: ${scan.gpsLat}, ${scan.gpsLng}` : "GPS: Not available",
+        0,
+        64,
+        { width: right, align: "right" },
+      );
       doc.y = 96;
     }
 

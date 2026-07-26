@@ -22,8 +22,8 @@ export interface SafetyScan {
   projectId: number;
   status: "complete" | "failed";
   photoObjectPaths: string[];
-  gpsLat: string;
-  gpsLng: string;
+  gpsLat: string | null;
+  gpsLng: string | null;
   gpsAltitude: string | null;
   gpsAccuracyM: string | null;
   gpsCapturedAt: string;

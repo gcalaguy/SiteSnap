@@ -62,6 +62,11 @@ export default function SafetyScanCaptureScreen() {
         setGpsDenied(true);
         return;
       }
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) {
+        setGpsDenied(true);
+        return;
+      }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const { latitude, longitude, altitude, accuracy } = pos.coords;
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -87,6 +92,10 @@ export default function SafetyScanCaptureScreen() {
         timezone,
       });
       setSiteAddress(address);
+    } catch {
+      // Location services can fail unexpectedly (e.g. disabled mid-request) — the
+      // scan must still be allowed to proceed without a GPS tag.
+      setGpsDenied(true);
     } finally {
       setGpsLoading(false);
     }
@@ -162,7 +171,7 @@ export default function SafetyScanCaptureScreen() {
   }
 
   async function submit() {
-    if (!projectId || photos.length === 0 || !gps) return;
+    if (!projectId || photos.length === 0) return;
     setSubmitting(true);
     try {
       const objectPaths = await Promise.all(photos.map(uploadOne));
@@ -172,7 +181,7 @@ export default function SafetyScanCaptureScreen() {
         body: JSON.stringify({
           projectId,
           objectPaths,
-          gps,
+          gps: gps ?? undefined,
           siteAddress: siteAddress ?? undefined,
         }),
       });
@@ -184,7 +193,7 @@ export default function SafetyScanCaptureScreen() {
     }
   }
 
-  const canSubmit = !!projectId && photos.length > 0 && !!gps && !gpsLoading && !submitting;
+  const canSubmit = !!projectId && photos.length > 0 && !gpsLoading && !submitting;
 
   return (
     <KeyboardAvoidingView

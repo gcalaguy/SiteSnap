@@ -57,8 +57,8 @@ export default function SafetyCompliancePage() {
             <button
               className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
                 tab === "ai-compliance"
-                  ? "border-[#D4AF37] text-[#D4AF37]"
-                  : "border-transparent text-[#121212]/60 hover:text-[#121212] hover:border-[#D4AF37]/30"
+                  ? "border-[#D4AF37] text-[#D4AF37] font-bold"
+                  : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
               }`}
               onClick={() => setTab("ai-compliance")}
             >
@@ -70,8 +70,8 @@ export default function SafetyCompliancePage() {
             <button
               className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
                 tab === "inspections"
-                  ? "border-[#D4AF37] text-[#D4AF37]"
-                  : "border-transparent text-[#121212]/60 hover:text-[#121212] hover:border-[#D4AF37]/30"
+                  ? "border-[#D4AF37] text-[#D4AF37] font-bold"
+                  : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
               }`}
               onClick={() => setTab("inspections")}
             >
@@ -82,8 +82,8 @@ export default function SafetyCompliancePage() {
           <button
             className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
               tab === "safety"
-                ? "border-[#D4AF37] text-[#D4AF37]"
-                : "border-transparent text-[#121212]/60 hover:text-[#121212] hover:border-[#D4AF37]/30"
+                ? "border-[#D4AF37] text-[#D4AF37] font-bold"
+                : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
             }`}
             onClick={() => setTab("safety")}
           >
@@ -94,8 +94,8 @@ export default function SafetyCompliancePage() {
             <button
               className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
                 tab === "cor"
-                  ? "border-[#D4AF37] text-[#D4AF37]"
-                  : "border-transparent text-[#121212]/60 hover:text-[#121212] hover:border-[#D4AF37]/30"
+                  ? "border-[#D4AF37] text-[#D4AF37] font-bold"
+                  : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
               }`}
               onClick={() => setTab("cor")}
             >
@@ -107,8 +107,8 @@ export default function SafetyCompliancePage() {
             <button
               className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
                 tab === "scanner"
-                  ? "border-[#D4AF37] text-[#D4AF37]"
-                  : "border-transparent text-[#121212]/60 hover:text-[#121212] hover:border-[#D4AF37]/30"
+                  ? "border-[#D4AF37] text-[#D4AF37] font-bold"
+                  : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
               }`}
               onClick={() => setTab("scanner")}
             >
@@ -120,8 +120,8 @@ export default function SafetyCompliancePage() {
             <button
               className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
                 tab === "voice-inspection"
-                  ? "border-[#D4AF37] text-[#D4AF37]"
-                  : "border-transparent text-[#121212]/60 hover:text-[#121212] hover:border-[#D4AF37]/30"
+                  ? "border-[#D4AF37] text-[#D4AF37] font-bold"
+                  : "border-transparent text-[#000000] hover:border-[#D4AF37]/30"
               }`}
               onClick={() => setTab("voice-inspection")}
             >

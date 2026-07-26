@@ -24,7 +24,7 @@ export function GpsLockedBanner({ loading, denied, info }: Props) {
       <View style={[styles.banner, { backgroundColor: `${colors.destructive}1F` }]}>
         <Feather name="alert-triangle" size={13} color={colors.destructive} />
         <Text style={[styles.text, { color: colors.destructive }]} numberOfLines={1}>
-          Location permission denied — GPS tag required for audit trail
+          Location unavailable — scan will proceed without a GPS tag
         </Text>
       </View>
     );

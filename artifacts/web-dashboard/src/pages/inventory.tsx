@@ -84,7 +84,7 @@ export default function InventoryPage() {
               <TabsTrigger
                 key={key}
                 value={key}
-                className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold text-[#888888] data-[state=active]:bg-[#FFFFFF] data-[state=active]:text-[#D4AF37] data-[state=active]:shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+                className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold text-[#888888] data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white"
               >
                 <Icon size={14} />
                 {label}

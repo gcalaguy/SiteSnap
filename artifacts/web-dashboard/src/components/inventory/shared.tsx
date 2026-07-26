@@ -151,7 +151,7 @@ export function SearchBox({ value, onChange, placeholder, className = "" }: { va
 
 export function StatTile({ label, value, icon: Icon, color = GOLD, loading }: { label: string; value: React.ReactNode; icon: React.ElementType; color?: string; loading?: boolean }) {
   return (
-    <div className="rounded-xl p-4 bg-white" style={{ border: `2px solid ${color}30`, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+    <div className="rounded-2xl p-4 bg-white" style={{ border: `2px solid ${color}30`, boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color }}>{label}</span>
         <Icon size={15} style={{ color }} />
