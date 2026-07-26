@@ -33,6 +33,9 @@ type ChatMessage = {
   createdAt?: string;
 };
 
+const GOLD = "#C9A84C";
+const BLACK = "#111111";
+
 const MESSAGE_MAX = 4_000;
 
 const QUICK_CHIPS = [
@@ -180,9 +183,14 @@ function AIChatInner() {
   return (
     <div className="flex h-[calc(100vh-7rem)] -m-4 md:-m-8 overflow-hidden rounded-lg border border-border bg-background">
       {/* ── Conversation Sidebar ── */}
-      <div className="w-60 flex-shrink-0 flex flex-col border-r border-border bg-muted/20">
-        <div className="p-3 border-b border-border">
-          <Button className="w-full gap-2" size="sm" onClick={startNewChat}>
+      <div className="w-60 flex-shrink-0 flex flex-col" style={{ background: BLACK }}>
+        <div className="p-3 border-b" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+          <Button
+            className="w-full gap-2 font-semibold hover:opacity-90"
+            size="sm"
+            style={{ background: GOLD, color: BLACK }}
+            onClick={startNewChat}
+          >
             <Plus className="h-4 w-4" />
             New Chat
           </Button>
@@ -196,36 +204,47 @@ function AIChatInner() {
               </div>
             ) : conversations.length === 0 ? (
               <div className="text-center py-10 px-4">
-                <MessageSquare className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="text-xs text-muted-foreground">No conversations yet</p>
+                <MessageSquare className="h-8 w-8 mx-auto mb-2" style={{ color: "#a1a1aa" }} />
+                <p className="text-xs" style={{ color: "#a1a1aa" }}>No conversations yet</p>
               </div>
             ) : (
-              conversations.map((conv) => (
-                <div
-                  key={conv.id}
-                  onClick={() => loadConversation(conv.id)}
-                  className={cn(
-                    "group flex items-start gap-2 rounded-md px-2.5 py-2 text-sm cursor-pointer hover:bg-muted transition-colors",
-                    activeConversationId === conv.id &&
-                      "bg-primary/10 text-primary font-medium",
-                  )}
-                >
-                  <MessageSquare className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <div className="truncate text-xs font-medium leading-tight">{conv.title}</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                      {formatDistanceToNow(parseISO(conv.updatedAt), { addSuffix: true })}
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => deleteConversation(conv.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-destructive transition-opacity flex-shrink-0"
-                    title="Delete"
+              conversations.map((conv) => {
+                const isActive = activeConversationId === conv.id;
+                return (
+                  <div
+                    key={conv.id}
+                    onClick={() => loadConversation(conv.id)}
+                    className="group flex items-start gap-2 rounded-md px-2.5 py-2 text-sm cursor-pointer transition-colors"
+                    style={isActive ? { background: "rgba(201,168,76,0.12)" } : undefined}
+                    onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.06)"; }}
+                    onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
                   >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              ))
+                    <MessageSquare
+                      className="h-3.5 w-3.5 mt-0.5 flex-shrink-0"
+                      style={{ color: isActive ? GOLD : "#a1a1aa" }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className="truncate text-xs font-medium leading-tight"
+                        style={{ color: isActive ? GOLD : "#e4e4e7" }}
+                      >
+                        {conv.title}
+                      </div>
+                      <div className="text-[10px] mt-0.5" style={{ color: "#71717a" }}>
+                        {formatDistanceToNow(parseISO(conv.updatedAt), { addSuffix: true })}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => deleteConversation(conv.id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-destructive transition-opacity flex-shrink-0"
+                      style={{ color: "#a1a1aa" }}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
         </ScrollArea>
@@ -235,8 +254,8 @@ function AIChatInner() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card shrink-0">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <Bot className="h-4 w-4 text-primary-foreground" />
+          <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: BLACK }}>
+            <Bot className="h-4 w-4" style={{ color: GOLD }} />
           </div>
           <div>
             <div className="font-semibold text-sm leading-tight">Site Snap AI</div>
@@ -251,8 +270,8 @@ function AIChatInner() {
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {!hasMessages && (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                <Bot className="h-8 w-8 text-primary" />
+              <div className="h-16 w-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: BLACK }}>
+                <Bot className="h-8 w-8" style={{ color: GOLD }} />
               </div>
               <h3 className="font-semibold text-lg">Ask me anything</h3>
               <p className="text-muted-foreground text-sm max-w-sm mt-1 mb-6">
@@ -264,7 +283,9 @@ function AIChatInner() {
                   <button
                     key={chip}
                     onClick={() => sendMessage(chip)}
-                    className="text-xs px-3 py-1.5 rounded-full border border-border hover:bg-muted hover:border-primary/30 transition-colors"
+                    className="text-xs px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors"
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = GOLD; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = ""; }}
                   >
                     {chip}
                   </button>
@@ -282,17 +303,18 @@ function AIChatInner() {
               )}
             >
               {msg.role === "assistant" && (
-                <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center flex-shrink-0 mt-1">
-                  <Bot className="h-3.5 w-3.5 text-primary-foreground" />
+                <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-1" style={{ background: BLACK }}>
+                  <Bot className="h-3.5 w-3.5" style={{ color: GOLD }} />
                 </div>
               )}
               <div
                 className={cn(
-                  "max-w-[72%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
+                  "max-w-[72%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap font-medium",
                   msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                    ? "rounded-br-sm"
                     : "bg-muted border border-border rounded-bl-sm",
                 )}
+                style={msg.role === "user" ? { background: GOLD, color: BLACK } : undefined}
               >
                 {msg.content}
               </div>
@@ -301,8 +323,8 @@ function AIChatInner() {
 
           {isLoading && (
             <div className="flex gap-3 justify-start">
-              <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center flex-shrink-0 mt-1">
-                <Bot className="h-3.5 w-3.5 text-primary-foreground" />
+              <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-1" style={{ background: BLACK }}>
+                <Bot className="h-3.5 w-3.5" style={{ color: GOLD }} />
               </div>
               <div className="bg-muted border border-border rounded-2xl rounded-bl-sm px-4 py-3">
                 <TypingDots />
@@ -339,7 +361,8 @@ function AIChatInner() {
               size="icon"
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || isLoading}
-              className="h-11 w-11 flex-shrink-0"
+              className="h-11 w-11 flex-shrink-0 hover:opacity-90 disabled:opacity-50"
+              style={{ background: BLACK, color: GOLD }}
               aria-label="Send message"
             >
               {isLoading ? (
